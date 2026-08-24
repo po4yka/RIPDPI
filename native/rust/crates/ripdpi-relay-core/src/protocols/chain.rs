@@ -286,11 +286,11 @@ impl RelaySession for ChainRelaySession {
         let started = Instant::now();
         let mut stream = match self.hops[0].connect(self.outbound_bind_ip, &entry_destination).await {
             Ok(stream) => {
-                self.record(0, "connected", Some(started.elapsed().as_millis() as u64));
+                self.record(0, "connected", Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)));
                 stream
             }
             Err(error) => {
-                self.record(0, "failed", Some(started.elapsed().as_millis() as u64));
+                self.record(0, "failed", Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)));
                 return Err(self.tag_hop_error(0, error));
             }
         };
@@ -314,11 +314,19 @@ impl RelaySession for ChainRelaySession {
             let started = Instant::now();
             stream = match self.hops[index].connect_over(stream, &destination).await {
                 Ok(stream) => {
-                    self.record(index, "connected", Some(started.elapsed().as_millis() as u64));
+                    self.record(
+                        index,
+                        "connected",
+                        Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
+                    );
                     stream
                 }
                 Err(error) => {
-                    self.record(index, "failed", Some(started.elapsed().as_millis() as u64));
+                    self.record(
+                        index,
+                        "failed",
+                        Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
+                    );
                     return Err(self.tag_hop_error(index, error));
                 }
             };

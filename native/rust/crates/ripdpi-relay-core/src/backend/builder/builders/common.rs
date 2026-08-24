@@ -54,6 +54,23 @@ pub(crate) fn invalid_input(error: impl std::fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, error.to_string())
 }
 
-pub(crate) fn to_io_error(error: impl std::fmt::Display) -> io::Error {
+/// Convert a transport error to an [`io::Error`], preserving the underlying
+/// error KIND when the source chain carries an [`io::Error`]. Collapsing
+/// everything into `Other` previously broke the xudp idle-timeout
+/// classification, which keys on `ErrorKind::TimedOut`.
+pub(crate) fn to_io_error<E: std::error::Error + 'static>(error: E) -> io::Error {
+    let mut current: Option<&(dyn std::error::Error + 'static)> = Some(&error);
+    while let Some(err) = current {
+        if let Some(io_error) = err.downcast_ref::<io::Error>() {
+            return io::Error::new(io_error.kind(), error.to_string());
+        }
+        current = err.source();
+    }
+    // Wrapper enums whose timeout surfaces only through their Display text
+    // (e.g. quinn connection errors) still need the TimedOut class so the
+    // relay's idle/termination classification keeps working.
+    if error.to_string().to_lowercase().contains("timed out") {
+        return io::Error::new(io::ErrorKind::TimedOut, error.to_string());
+    }
     io::Error::other(error.to_string())
 }

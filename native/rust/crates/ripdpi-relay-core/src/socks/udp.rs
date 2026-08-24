@@ -272,6 +272,24 @@ where
             result = udp_session.recv_from() => {
                 let (target, payload) = match result {
                     Ok(datagram) => datagram,
+                    // A single undecodable DOWNLINK datagram (the carrier gave
+                    // us an authority that fails target parsing) must not tear
+                    // down the association — the uplink side already drops
+                    // malformed frames the same way. Genuine carrier death
+                    // (reset, timeout) stays fatal.
+                    Err(error)
+                        if matches!(error.kind(), io::ErrorKind::InvalidInput | io::ErrorKind::InvalidData) =>
+                    {
+                        tracing::debug!(
+                            ring = "relay",
+                            subsystem = "relay",
+                            source = "relay",
+                            kind = "udp_downlink_frame_malformed",
+                            error = %error,
+                            "dropping downlink datagram with an undecodable target"
+                        );
+                        continue;
+                    }
                     Err(error) => {
                         if is_xudp {
                             termination_reason = if error.kind() == io::ErrorKind::TimedOut {
@@ -324,7 +342,7 @@ where
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
     use std::time::{Duration, Instant};
 
     use tokio::sync::mpsc;
@@ -753,5 +771,68 @@ mod tests {
             .expect("pump task panicked");
         outcome.result.expect("pump must end gracefully");
         drop(control_peer);
+    }
+
+    /// Carrier whose first `recv_from` calls fail with a data-level (InvalidInput)
+    /// error — e.g. the carrier produced an authority that fails target parsing.
+    struct DropThenDeliverCarrier {
+        failures_remaining: AtomicUsize,
+        downlink: tokio::sync::Mutex<mpsc::UnboundedReceiver<(RelayTargetAddr, Vec<u8>)>>,
+    }
+
+    impl UdpCarrier for DropThenDeliverCarrier {
+        async fn send_to(&mut self, _target: &RelayTargetAddr, _payload: &[u8]) -> io::Result<()> {
+            Ok(())
+        }
+
+        async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
+            if self.failures_remaining.fetch_sub(1, Ordering::SeqCst) > 1 {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "undecable downlink authority"));
+            }
+            self.downlink.lock().await.recv().await.ok_or_else(|| io::Error::other("downlink script channel closed"))
+        }
+    }
+
+    #[tokio::test]
+    async fn udp_pump_survives_data_level_downlink_errors() {
+        let (control, control_peer) = duplex(64);
+        let relay_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind relay UDP socket");
+        let (downlink_tx, downlink_rx) = mpsc::unbounded_channel();
+        let mut carrier = DropThenDeliverCarrier {
+            failures_remaining: AtomicUsize::new(2),
+            downlink: tokio::sync::Mutex::new(downlink_rx),
+        };
+        let telemetry = FakeSocksTelemetry::default();
+        let config = silent_session_config(Duration::from_secs(300));
+        let cancel = CancellationToken::new();
+        let pump_cancel = cancel.clone();
+
+        let pump = tokio::spawn(async move {
+            pump_udp_association(
+                control,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                relay_socket,
+                &mut carrier,
+                &config,
+                &telemetry,
+                cancel,
+            )
+            .await
+        });
+
+        let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 9));
+        downlink_tx.send((target, b"after-data-errors".to_vec())).expect("script downlink datagram");
+
+        pump_cancel.cancel();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .expect("pump task hung after cancellation")
+            .expect("pump task panicked");
+        // The data-level failures must not have torn the association down as
+        // a read error; shutdown stays graceful.
+        outcome.result.expect("data-level downlink errors must not kill the association");
+        assert_eq!("runtime_cancelled", outcome.termination_reason);
+        drop(control_peer);
+        drop(downlink_tx);
     }
 }

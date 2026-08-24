@@ -170,7 +170,7 @@ where
             "relay upstream connect timed out",
         ) => result,
     };
-    let rtt_ms = connect_start.elapsed().as_millis() as u64;
+    let rtt_ms = u64::try_from(connect_start.elapsed().as_millis()).unwrap_or(u64::MAX);
 
     let upstream = match upstream_result {
         Ok(stream) => {
@@ -181,7 +181,9 @@ where
             telemetry.emit_connect_observation(TcpConnectObservation { rtt_ms, succeeded: false });
             telemetry.record_handshake_error(error.to_string());
             let mut reply_stage = RelayStageGuard::start(trace_stages, "socks_reply");
-            if let Err(reply_error) = write_reply(&mut client, 0x01, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await
+            let reply_code = dial_failure_reply_code(error.kind());
+            if let Err(reply_error) =
+                write_reply(&mut client, reply_code, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await
             {
                 reply_stage.finish("failed", Some(&reply_error), Some("before_socks_failure_reply"));
                 return Err(reply_error);
@@ -224,6 +226,37 @@ where
             relay_stage.finish("failed", Some(&error), None);
             Err(error)
         }
+    }
+}
+
+/// Map an upstream dial failure to its RFC 1928 REP code.
+///
+/// `0x01` stays the fallback so unmapped kinds keep their historical
+/// general-failure reply; the mapped kinds give SOCKS clients an actionable
+/// distinction (blocked network vs dead host vs refused service).
+fn dial_failure_reply_code(kind: io::ErrorKind) -> u8 {
+    match kind {
+        io::ErrorKind::Unsupported => 0x07,
+        io::ErrorKind::NetworkUnreachable => 0x03,
+        io::ErrorKind::HostUnreachable => 0x04,
+        io::ErrorKind::ConnectionRefused => 0x05,
+        _ => 0x01,
+    }
+}
+
+#[cfg(test)]
+mod reply_code_tests {
+    use super::dial_failure_reply_code;
+
+    #[test]
+    fn dial_failures_map_to_rfc_1928_reply_codes() {
+        assert_eq!(0x07, dial_failure_reply_code(std::io::ErrorKind::Unsupported));
+        assert_eq!(0x03, dial_failure_reply_code(std::io::ErrorKind::NetworkUnreachable));
+        assert_eq!(0x04, dial_failure_reply_code(std::io::ErrorKind::HostUnreachable));
+        assert_eq!(0x05, dial_failure_reply_code(std::io::ErrorKind::ConnectionRefused));
+        // Unmapped kinds keep the historical general-failure reply.
+        assert_eq!(0x01, dial_failure_reply_code(std::io::ErrorKind::ConnectionReset));
+        assert_eq!(0x01, dial_failure_reply_code(std::io::ErrorKind::Other));
     }
 }
 

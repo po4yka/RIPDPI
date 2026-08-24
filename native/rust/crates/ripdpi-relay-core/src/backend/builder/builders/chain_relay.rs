@@ -91,6 +91,17 @@ fn chain_hop_connector(
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<ChainHopConnector> {
     let label = position.label();
+    // Per-hop finalmask parses on the wire but no chain transport consumes it:
+    // finalmask applies only to single-hop xhttp-capable kinds via their common
+    // section. Accepting it here would silently drop the setting — fail closed.
+    if !hop.finalmask.r#type.trim().is_empty() && hop.finalmask.r#type != "off" {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!(
+                "chain {label}: per-hop finalmask is not supported; configure finalmask on an xhttp-capable single-hop relay kind"
+            ),
+        ));
+    }
     // Only the entry hop creates a real outbound socket, so only it may carry an
     // outbound bind IP. Hand `None` to every later hop's factory.
     let hop_bind_ip = if position.is_entry() { outbound_bind_ip } else { None };
@@ -468,5 +479,22 @@ mod credential_tests {
             missing_password.to_string().contains("TUIC password is required"),
             "unexpected error: {missing_password}"
         );
+    }
+
+    #[test]
+    fn chain_hop_rejects_per_hop_finalmask_instead_of_dropping_it() {
+        let mut hop = hop("trojan");
+        hop.finalmask.r#type = "noise".to_string();
+        let Err(error) = chain_hop_connector(
+            &hop,
+            HopPosition::new(0, 0),
+            None,
+            SocketProtectionPolicy::Inactive,
+            QuicMigrationTelemetryState::default(),
+        ) else {
+            panic!("per-hop finalmask is dead config and must fail closed");
+        };
+        assert_eq!(io::ErrorKind::InvalidInput, error.kind());
+        assert!(error.to_string().contains("per-hop finalmask"), "unexpected error: {error}");
     }
 }

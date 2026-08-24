@@ -1331,6 +1331,27 @@ fn shadowsocks_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Shado
 }
 
 #[test]
+fn planned_capabilities_report_mux_reuse_only_for_the_xhttp_submode() {
+    // reality_tcp: single carrier, never reusable — matches the descriptor.
+    let reality_tcp = sample_config("vless_reality");
+    assert!(!planned_backend_capabilities(&reality_tcp).reusable, "reality_tcp must stay single-carrier");
+
+    // xhttp sub-mode: the factory muxes and pools its carrier, so pre-build
+    // telemetry must report reuse even though the per-kind descriptor cannot.
+    let mut xhttp = sample_config("vless_reality");
+    {
+        let RelayBackendConfig::VlessReality(vless) = &mut xhttp.backend else {
+            panic!("expected VLESS Reality config");
+        };
+        vless.vless_transport = "xhttp".to_string();
+        vless.xhttp_path = "/xhttp".to_string();
+        vless.xhttp_host = "relay.example".to_string();
+    }
+    let capabilities = planned_backend_capabilities(&xhttp);
+    assert!(capabilities.reusable, "the xhttp sub-mode pools its mux carrier");
+}
+
+#[test]
 fn relay_runtime_allows_hysteria_udp_and_salamander() {
     let mut config = sample_config("hysteria2");
     config.common.udp_enabled = true;

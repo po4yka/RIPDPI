@@ -21,7 +21,18 @@ const SOCKS_HANDSHAKE_TIMEOUT_MESSAGE: &str = "relay SOCKS handshake timed out";
 #[derive(Debug)]
 enum PreReplyNegotiation {
     Cancelled,
-    Request { command: u8, target: RelayTargetAddr },
+    Request {
+        command: u8,
+        target: RelayTargetAddr,
+    },
+    /// The request itself is unparseable or uses an unsupported address type.
+    /// A SOCKS failure reply is still written (best effort) so well-behaved
+    /// clients observe a protocol-level rejection instead of a bare drop;
+    /// RFC 1928 reserves REP `0x08` for an unsupported ATYP.
+    Rejected {
+        reply_code: u8,
+        cause: io::Error,
+    },
 }
 
 /// NOT cancel-safe: the deadline and cancellation arms may drop `read_exact` or `write_all` after partial progress. This is valid only before a SOCKS command success reply exists: the caller returns immediately and drops the client socket, so no established relay or UDP association is abandoned.
@@ -38,12 +49,23 @@ where
 
         let mut request_header = [0u8; 4];
         client.read_exact(&mut request_header).await?;
+        let rejected =
+            |reply_code: u8, cause: io::Error| Ok::<_, io::Error>(PreReplyNegotiation::Rejected { reply_code, cause });
         if request_header[0] != 0x05 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 request"));
+            return rejected(0x01, io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 request"));
         }
 
         let command = request_header[1];
-        let target = read_target(client, request_header[3]).await?;
+        let target = match read_target(client, request_header[3]).await {
+            Ok(target) => target,
+            Err(error) => {
+                // RFC 1928: an address type outside {IPv4, domain, IPv6} gets
+                // its own REP code; every other parse failure is a general
+                // failure.
+                let atyp_supported = matches!(request_header[3], 0x01 | 0x03 | 0x04);
+                return rejected(if atyp_supported { 0x01 } else { 0x08 }, error);
+            }
+        };
         Ok::<_, io::Error>(PreReplyNegotiation::Request { command, target })
     };
 
@@ -78,6 +100,13 @@ where
     let (command, target) = match negotiate_request(&mut client, SOCKS_HANDSHAKE_TIMEOUT, &cancel).await {
         Ok(PreReplyNegotiation::Cancelled) => return Ok(()),
         Ok(PreReplyNegotiation::Request { command, target }) => (command, target),
+        Ok(PreReplyNegotiation::Rejected { reply_code, cause }) => {
+            telemetry.record_handshake_error(cause.to_string());
+            // Best effort: a client that already went away must not turn the
+            // rejection into a different error.
+            let _ = write_reply(&mut client, reply_code, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await;
+            return Err(cause);
+        }
         Err(error) => {
             if error.kind() == io::ErrorKind::TimedOut {
                 telemetry.record_handshake_error(error.to_string());
@@ -170,6 +199,16 @@ where
             stream.read_exact(&mut port_bytes).await?;
             let host = String::from_utf8(host)
                 .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid SOCKS5 domain target"))?;
+            if host.is_empty()
+                || host.chars().any(|c| c.is_whitespace() || c.is_control())
+                || host.starts_with('.')
+                || host.ends_with('.')
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid SOCKS5 domain target: empty or malformed host",
+                ));
+            }
             RelayTargetAddr::Domain(host, u16::from_be_bytes(port_bytes))
         }
         0x04 => {
@@ -332,5 +371,58 @@ mod tests {
             *telemetry.targets.lock().expect("target lock"),
             "a CONNECT authority must populate the last-target telemetry marker"
         );
+    }
+
+    #[tokio::test]
+    async fn unsupported_atyp_is_rejected_with_rep_08() {
+        let (mut client_end, mut server_end) = duplex(64);
+        let cancel = CancellationToken::new();
+        client_end
+            .write_all(&[0x05, 0x01, 0x00, 0x05, 0x01, 0x00, 0x09])
+            .await
+            .expect("write greeting and request with an unassigned ATYP");
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            negotiate_request(&mut server_end, Duration::from_secs(5), &cancel),
+        )
+        .await
+        .expect("negotiation hung")
+        .expect("negotiation failed");
+
+        match outcome {
+            PreReplyNegotiation::Rejected { reply_code, cause } => {
+                assert_eq!(0x08, reply_code, "an unassigned ATYP must map to RFC 1928 REP 0x08");
+                assert!(cause.to_string().contains("address type"), "unexpected error: {cause}");
+            }
+            other => panic!("expected a rejection, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_domain_target_is_rejected() {
+        let (mut client_end, mut server_end) = duplex(64);
+        let cancel = CancellationToken::new();
+        // VER CMD RSV ATYP=domain, LEN=0, PORT.
+        client_end
+            .write_all(&[0x05, 0x01, 0x00, 0x05, 0x01, 0x00, 0x03, 0x00, 0x1f, 0x90])
+            .await
+            .expect("write greeting and request with an empty domain");
+
+        let outcome = tokio::time::timeout(
+            Duration::from_secs(2),
+            negotiate_request(&mut server_end, Duration::from_secs(5), &cancel),
+        )
+        .await
+        .expect("negotiation hung")
+        .expect("negotiation failed");
+
+        match outcome {
+            PreReplyNegotiation::Rejected { reply_code, cause } => {
+                assert_eq!(0x01, reply_code);
+                assert!(cause.to_string().contains("malformed"), "unexpected error: {cause}");
+            }
+            other => panic!("expected a rejection, got {other:?}"),
+        }
     }
 }

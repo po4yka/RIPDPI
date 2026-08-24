@@ -111,7 +111,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
             }),
             "masque" => RelayBackendConfig::Masque(MasqueRelayConfig {
                 url: flat.masque_url,
-                proxy_socket_addr: None,
+                proxy_socket_addr: flat.masque_proxy_socket_addr.and_then(|value| value.parse().ok()),
                 tcp_protocol: flat.masque_tcp_protocol,
                 use_http2_fallback: flat.masque_use_http2_fallback,
                 cloudflare_geohash_enabled: flat.masque_cloudflare_geohash_enabled,
@@ -203,6 +203,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             chain_exit: None,
             chain_hops: Vec::new(),
             masque_url: String::new(),
+            masque_proxy_socket_addr: None,
             masque_tcp_protocol: "http2".to_string(),
             masque_use_http2_fallback: false,
             masque_cloudflare_geohash_enabled: false,
@@ -355,6 +356,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             }
             RelayBackendConfig::Masque(config) => {
                 flat.masque_url = config.url.clone();
+                flat.masque_proxy_socket_addr = config.proxy_socket_addr.map(|addr| addr.to_string());
                 flat.masque_tcp_protocol = config.tcp_protocol.clone();
                 flat.masque_use_http2_fallback = config.use_http2_fallback;
                 flat.masque_cloudflare_geohash_enabled = config.cloudflare_geohash_enabled;

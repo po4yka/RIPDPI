@@ -133,6 +133,9 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
             label: "VLESS Reality",
             tcp: true,
             udp: true,
+            // Per-kind flag; sub-mode truth lives in the factory and
+            // `planned_backend_capabilities` (xhttp pools its mux carrier,
+            // reality_tcp does not).
             reusable: false,
             supports_outbound_bind_ip: true,
         },

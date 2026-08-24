@@ -39,6 +39,13 @@ const fn default_mieru_mtu() -> i32 {
     1400
 }
 
+// serde invokes the skip predicate with `&field`, so the by-ref signature is
+// required despite the copy being cheaper.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_zero_i32(value: &i32) -> bool {
+    *value == 0
+}
+
 fn default_ssh_auth_type() -> String {
     "password".to_string()
 }
@@ -179,6 +186,11 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub chain_hops: Vec<ResolvedChainRelayHopConfig>,
     #[serde(default)]
     pub masque_url: String,
+    /// Optional pre-resolved MASQUE proxy socket address. Runtime-resolved
+    /// state rather than user config: absent in every Kotlin-produced payload,
+    /// carried so an in-process replay keeps its resolution pinned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub masque_proxy_socket_addr: Option<String>,
     #[serde(default = "default_masque_tcp_protocol")]
     pub masque_tcp_protocol: String,
     #[serde(default)]
@@ -278,7 +290,7 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub mieru_protocol: String,
     #[serde(default = "default_mieru_multiplexing")]
     pub mieru_multiplexing: String,
-    #[serde(default = "default_mieru_mtu")]
+    #[serde(default = "default_mieru_mtu", skip_serializing_if = "is_zero_i32")]
     pub mieru_mtu: i32,
     #[serde(default)]
     pub ssh_host: String,
@@ -286,7 +298,7 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub ssh_port: i32,
     #[serde(default)]
     pub ssh_username: Option<String>,
-    #[serde(default = "default_ssh_auth_type")]
+    #[serde(default = "default_ssh_auth_type", skip_serializing_if = "String::is_empty")]
     pub ssh_auth_type: String,
     #[serde(default)]
     pub ssh_password: Option<String>,

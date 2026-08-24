@@ -35,10 +35,16 @@ impl RelaySession for VlessRealitySession {
     /// `CarrierReuseGuard` guarantees one terminal telemetry event.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         if let Some(mux) = &self.mux {
-            let reused = self.mux_carrier_used.swap(true, Ordering::AcqRel);
+            // Mark the carrier as used only AFTER a stream opens. Flagging
+            // before the await made a failed or cancelled first open look
+            // like a completed reuse to every later attempt, emitting
+            // terminal reuse telemetry for a carrier that never carried
+            // anything.
+            let reused = self.mux_carrier_used.load(Ordering::Acquire);
             let mut guard = reused.then(CarrierReuseGuard::new);
             return match mux.open_stream(target).await {
                 Ok(stream) => {
+                    self.mux_carrier_used.store(true, Ordering::Release);
                     if let Some(guard) = &mut guard {
                         guard.finish("succeeded", None);
                     }

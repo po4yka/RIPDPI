@@ -27,6 +27,15 @@ impl RelayTargetAddr {
         let port = port.parse::<u16>().map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid target port in authority: {authority}"))
         })?;
+        // A bare IPv6 literal contains colons in the host part; only the
+        // bracketed form is a valid authority, so anything else would silently
+        // become an unresolvable "domain".
+        if host.contains(':') {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unbracketed IPv6 authority is invalid: {authority}"),
+            ));
+        }
         Ok(Self::Domain(host.to_string(), port))
     }
 }
@@ -43,6 +52,17 @@ impl fmt::Display for RelayTargetAddr {
 #[cfg(test)]
 mod tests {
     use super::RelayTargetAddr;
+
+    #[test]
+    fn bracketed_ipv6_authorities_parse_and_bare_ones_fail_closed() {
+        let addr = RelayTargetAddr::from_authority("[2001:db8::1]:443").expect("bracketed ipv6");
+        assert_eq!(addr, RelayTargetAddr::Ip("[2001:db8::1]:443".parse().expect("socket addr")),);
+
+        // A bare IPv6 literal would otherwise silently become an
+        // unresolvable "domain" host containing colons.
+        let error = RelayTargetAddr::from_authority("2001:db8::1:443").expect_err("bare ipv6");
+        assert!(error.to_string().contains("unbracketed IPv6"), "unexpected error: {error}");
+    }
 
     #[test]
     fn relay_target_parses_ip_and_domain_authorities() {

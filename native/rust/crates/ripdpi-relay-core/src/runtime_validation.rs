@@ -45,7 +45,16 @@ pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) 
     } else {
         descriptor.udp
     };
-    RelayCapabilities { tcp: descriptor.tcp, udp, reusable: descriptor.reusable }
+    // The per-kind descriptor cannot express sub-modes: VLESS Reality pools
+    // its carrier only in the xhttp sub-mode (the factory reports
+    // `reusable = mux.is_some()`), while reality_tcp stays single-carrier.
+    // Mirror the pool policy here so pre-build telemetry tells the truth.
+    let reusable = if matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: true }) {
+        true
+    } else {
+        descriptor.reusable
+    };
+    RelayCapabilities { tcp: descriptor.tcp, udp, reusable }
 }
 
 /// The relay backend's out-of-process fallback mode, or `None` for an
@@ -149,6 +158,21 @@ pub(crate) fn describe_runtime_health(state: &str, backend: Option<&RelayBackend
 }
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
+    // The SOCKS listener serves NO-AUTH by design and is meant only for this
+    // device's own VPN client. A non-loopback bind host would publish an
+    // unauthenticated open proxy to the local network — fail closed.
+    let socks_host = config.common.local_socks_host.trim();
+    let is_loopback =
+        socks_host == "localhost" || socks_host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback());
+    if !is_loopback {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!(
+                "relay SOCKS listener host `{socks_host}` must be a loopback address: the NO-AUTH listener must never be reachable off-device"
+            ),
+        ));
+    }
+
     let outbound_bind_ip = parse_outbound_bind_ip(&config.common.outbound_bind_ip)?;
     if config.common.udp_enabled && !backend.udp_capable() {
         return Err(io::Error::new(
@@ -194,6 +218,21 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
                     io::ErrorKind::InvalidInput,
                     "finalmask header_custom requires header or trailer hex",
                 ));
+            }
+            // Validate the payloads as even-length hex at load time instead of
+            // failing deep inside the xhttp data path on the first packet.
+            for (label, hex) in
+                [("header_hex", finalmask.header_hex.trim()), ("trailer_hex", finalmask.trailer_hex.trim())]
+            {
+                if hex.is_empty() {
+                    continue;
+                }
+                if hex.len() % 2 != 0 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("finalmask header_custom {label} must be a valid even-length hex string"),
+                    ));
+                }
             }
         }
         "sudoku" => {
@@ -251,4 +290,32 @@ pub(crate) fn parse_outbound_bind_ip(value: &str) -> io::Result<Option<IpAddr>> 
     trimmed.parse::<IpAddr>().map(Some).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid relay outbound_bind_ip {trimmed}: {error}"))
     })
+}
+
+#[cfg(test)]
+mod finalmask_hex_tests {
+    use super::*;
+
+    fn config_with_finalmask(r#type: &str, header_hex: &str) -> ResolvedRelayRuntimeConfig {
+        let mut config = crate::tests::sample_config("vless");
+        config.common.finalmask = crate::config::ResolvedRelayFinalmaskConfig {
+            r#type: r#type.to_string(),
+            header_hex: header_hex.to_string(),
+            ..crate::config::ResolvedRelayFinalmaskConfig::default()
+        };
+        config
+    }
+
+    #[test]
+    fn header_custom_rejects_odd_length_and_non_hex_payloads() {
+        for bad in ["abc", "zzzz"] {
+            let error = validate_finalmask_config(&config_with_finalmask("header_custom", bad))
+                .expect_err("invalid hex payload must fail closed");
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            assert!(error.to_string().contains("even-length hex"), "unexpected error: {error}");
+        }
+        // Even-length valid hex passes; an absent payload with only a trailer
+        // is validated the same way by symmetry.
+        validate_finalmask_config(&config_with_finalmask("header_custom", "deadbeef")).expect("valid hex");
+    }
 }

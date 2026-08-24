@@ -354,6 +354,17 @@ async fn tor_backend_builds_in_process_and_rejects_udp() {
     assert_eq!(io::ErrorKind::Unsupported, error.kind());
 }
 
+#[tokio::test]
+async fn relay_runtime_rejects_a_non_loopback_socks_listener_host() {
+    let mut config = sample_config("trojan");
+    config.common.local_socks_host = "0.0.0.0".to_string();
+    let backend = build_backend(&config).await.expect("backend builds");
+    let error =
+        validate_runtime_config(&config, &backend).expect_err("a non-loopback NO-AUTH listener must fail closed");
+    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
+    assert!(error.to_string().contains("loopback"), "unexpected error: {error}");
+}
+
 /// A v6 `outbound_bind_ip` against a v4-only loopback server must fail closed
 /// at the transport dial — proving the builder actually forwards the bind IP
 /// into each transport's client config instead of silently dropping it.
@@ -440,14 +451,16 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
 
     // VLESS Reality's `xhttp` sub-mode shares the single `vless_reality`
     // descriptor, but the planned profile capabilities apply the sub-mode
-    // gate without introducing a second kind capability table.
+    // gate without introducing a second kind capability table: xhttp muxes
+    // and pools its carrier, so reuse is reported even though the per-kind
+    // descriptor row cannot express it.
     let mut vless_xhttp = sample_config("vless_reality");
     vless_config_mut(&mut vless_xhttp).vless_transport = "xhttp".to_string();
     let xhttp = planned_backend_capabilities(&vless_xhttp);
     assert_eq!(
-        (true, false, false),
+        (true, false, true),
         (xhttp.tcp, xhttp.udp, xhttp.reusable),
-        "VLESS xhttp sub-mode must remain TCP-only",
+        "VLESS xhttp sub-mode must report mux-carrier reuse",
     );
 
     // The `Unsupported` catch-all has no descriptor: it reports the empty
