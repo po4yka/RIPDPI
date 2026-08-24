@@ -282,7 +282,7 @@ rustls = { version = "0.23.40", default-features = false, features = ["ring", "s
 # hickory-dns/hickory-dns#3743. Return to crates.io when the fix is released.
 hickory-proto = { git = "https://github.com/hickory-dns/hickory-dns.git", rev = "ac6cc706d9641ce8440bd20e2da20d51b522555f", default-features = false, features = ["std"] }
 hickory-resolver = { git = "https://github.com/hickory-dns/hickory-dns.git", rev = "ac6cc706d9641ce8440bd20e2da20d51b522555f", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
-smoltcp = { version = "0.13", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
+smoltcp = { version = "0.14", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"
 tokio = { version = "1", default-features = false }
 tor-rtcompat = { version = "0.44.0", default-features = false, features = ["tokio", "rustls"] }
