@@ -111,7 +111,7 @@ review_date = "2026-11-17"
 [[entries]]
 file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
 pattern = "from_raw_parts_mut"
-line = 341
+line = 351
 reason = "Constructs `&mut [u8]` view over a buffer BoringSSL passes through a callback."
 soundness_argument = """
 Pointer = `msg` -- raw `*mut u8` argument from a BoringSSL TLS

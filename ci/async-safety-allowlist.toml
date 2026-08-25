@@ -43,7 +43,7 @@
 [[entries]]
 file = "native/rust/crates/ripdpi-vless/src/endpoint_resolver.rs"
 pattern = "to_socket_addrs"
-line = 35
+line = 44
 executor_strategy = "wrapped in `tokio::task::spawn_blocking`; `to_socket_addrs` is the body of the blocking closure and runs on the blocking thread pool, not on a tokio worker. The scanner matches the syntactic call site inside the closure, which is a false positive."
 reason = "`resolve_hostname_via_system_dns` wraps the std blocking DNS lookup in `spawn_blocking` before awaiting the join handle."
 owner = "transport-team"
