@@ -1,5 +1,6 @@
 mod baseline;
 mod batch_execution;
+mod batch_pipeline;
 mod candidate_ordering;
 mod capability_gating;
 mod pilot_execution;
@@ -16,7 +17,6 @@ use std::time::Duration;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::candidate_pause_ms;
-use crate::types::StrategyProbeProgressLane;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
@@ -24,16 +24,14 @@ use super::super::super::runtime::{
 use super::support::FamilyFailureTracker;
 
 use self::baseline::run_baseline_candidate;
-use self::batch_execution::{ROUND2_PARALLELISM, execute_candidate_batch, select_next_candidate_batch};
+use self::batch_execution::{ROUND2_PARALLELISM, select_next_candidate_batch};
+use self::batch_pipeline::{BatchFilterContext, merge_batch_results, select_executable_candidates};
 use self::candidate_ordering::ordered_pending_tcp_candidates;
-use self::capability_gating::{candidate_not_applicable, probe_tcp_capabilities};
+use self::capability_gating::probe_tcp_capabilities;
 use self::pilot_qualification::qualify_pilot_candidates;
 use self::quic_pivot::skip_for_confirmed_quic;
-use self::result_recording::{
-    record_executed_candidate, record_hostfake_short_circuit, record_not_applicable_candidate,
-};
-
 pub(in crate::engine::runners) use self::runner::StrategyTcpRunner;
+use self::worker_join::execute_candidate_batch;
 
 impl ExecutionStageRunner for StrategyTcpRunner {
     fn id(&self) -> ExecutionStageId {
@@ -147,46 +145,16 @@ impl StrategyTcpRunner {
 
             // Pre-filter: handle skip/not-applicable candidates synchronously,
             // collect candidates that need actual execution for parallel testing.
-            let mut to_execute = Vec::new();
-            for (candidate_index, spec) in batch {
-                tracing::debug!(candidate = spec.id, label = spec.label, "strategy probe: testing TCP candidate");
-                runtime.publish_strategy_probe_candidate_started(
-                    plan,
-                    self.phase(),
-                    StrategyProbeProgressLane::Tcp,
-                    candidate_index,
-                    tcp_candidate_total,
-                    spec.id,
-                    spec.label,
-                    format!("Testing TCP candidate {}", spec.label),
-                );
-                if strategy_plan.suite.short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded
-                {
-                    record_hostfake_short_circuit(
-                        runtime,
-                        plan,
-                        self.phase(),
-                        &spec,
-                        candidate_index,
-                        tcp_candidate_total,
-                        domain_targets.len(),
-                    );
-                    continue;
-                }
-                if let Some(not_applicable) = candidate_not_applicable(&spec, capabilities) {
-                    record_not_applicable_candidate(
-                        runtime,
-                        plan,
-                        self.phase(),
-                        &spec,
-                        candidate_index,
-                        tcp_candidate_total,
-                        not_applicable,
-                    );
-                    continue;
-                }
-                to_execute.push((candidate_index, spec));
-            }
+            let filter_context = BatchFilterContext {
+                plan,
+                phase: self.phase(),
+                short_circuit_hostfake: strategy_plan.suite.short_circuit_hostfake,
+                hostfake_family_succeeded,
+                capabilities,
+                tcp_candidate_total,
+                domain_target_count: domain_targets.len(),
+            };
+            let to_execute = select_executable_candidates(runtime, batch, filter_context);
 
             if to_execute.is_empty() {
                 continue;
@@ -196,36 +164,20 @@ impl StrategyTcpRunner {
             let exec_results = execute_candidate_batch(self, plan, runtime, to_execute, &domain_targets, tls_verifier);
 
             // Merge results back into the runtime sequentially.
-            let mut any_cancelled = false;
-            for (candidate_index, spec, execution) in exec_results {
-                if execution.cancelled {
-                    any_cancelled = true;
-                    continue;
-                }
-                let record = record_executed_candidate(
-                    runtime,
-                    plan,
-                    self.phase(),
-                    &spec,
-                    candidate_index,
-                    tcp_candidate_total,
-                    execution,
-                    capabilities,
-                );
-                if record.hostfake_family_succeeded {
-                    hostfake_family_succeeded = true;
-                }
-                executed_count += 1;
-                tcp_failure_tracker.record(spec.family, record.failed);
-                if tcp_failure_tracker.blocked_family().is_some() {
-                    tracing::debug!(
-                        candidate = spec.id,
-                        family = spec.family,
-                        "strategy probe: candidate skipped, family blocked"
-                    );
-                }
+            let merge_outcome = merge_batch_results(
+                runtime,
+                plan,
+                self.phase(),
+                exec_results,
+                &mut tcp_failure_tracker,
+                &mut executed_count,
+                capabilities,
+                tcp_candidate_total,
+            );
+            if merge_outcome.hostfake_family_succeeded {
+                hostfake_family_succeeded = true;
             }
-            if any_cancelled {
+            if merge_outcome.any_cancelled {
                 return RunnerOutcome::Cancelled;
             }
             if execution_should_stop(runtime) {
