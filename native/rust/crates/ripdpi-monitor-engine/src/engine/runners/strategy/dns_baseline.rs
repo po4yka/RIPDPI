@@ -48,12 +48,9 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
         let Some(failure) = baseline.failure.as_ref() else {
             // Clean network: keep the collected DNS-integrity evidence and close
             // the stage's progress step instead of dropping both.
-            let artifacts = RunnerArtifacts::from_results(
-                baseline.results.clone(),
-                "strategy_probe",
-                "info",
-                format!("Baseline DNS integrity verified across {} targets", baseline.results.len()),
-            );
+            let target_count = baseline.results.len();
+            let message = format!("Baseline DNS integrity verified across {target_count} targets");
+            let artifacts = RunnerArtifacts::from_results(baseline.results.clone(), "strategy_probe", "info", message);
             runtime.record_step(
                 plan,
                 self.phase(),

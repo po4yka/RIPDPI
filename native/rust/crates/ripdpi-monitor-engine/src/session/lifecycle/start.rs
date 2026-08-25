@@ -11,38 +11,27 @@ use super::super::validation::ValidatedScanRequest;
 use super::super::worker::{ScanWorkerConfig, spawn_scan_worker};
 use super::{MonitorSession, ScanControl};
 
-enum StartMarkerState<'a> {
-    NotAdmitted,
-    Admitted(&'a Mutex<ScanControl>),
-}
-
 struct StartInProgressGuard<'a> {
-    state: StartMarkerState<'a>,
+    admitted_scan_control: Option<&'a Mutex<ScanControl>>,
 }
 
 impl<'a> StartInProgressGuard<'a> {
     fn new() -> Self {
-        Self { state: StartMarkerState::NotAdmitted }
+        Self { admitted_scan_control: None }
     }
 
     fn mark_admitted(&mut self, scan_control: &'a Mutex<ScanControl>) {
-        self.state = StartMarkerState::Admitted(scan_control);
-    }
-
-    fn clear(&mut self) {
-        let StartMarkerState::Admitted(scan_control) =
-            std::mem::replace(&mut self.state, StartMarkerState::NotAdmitted)
-        else {
-            return;
-        };
-        let mut control = scan_control.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        control.start_in_progress = false;
+        self.admitted_scan_control = Some(scan_control);
     }
 }
 
 impl Drop for StartInProgressGuard<'_> {
     fn drop(&mut self) {
-        self.clear();
+        let Some(scan_control) = self.admitted_scan_control.take() else {
+            return;
+        };
+        let mut control = scan_control.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        control.start_in_progress = false;
     }
 }
 

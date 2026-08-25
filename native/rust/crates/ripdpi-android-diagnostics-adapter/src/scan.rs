@@ -12,19 +12,14 @@ pub(crate) fn start_diagnostics_scan(env: &mut Env<'_>, handle: jlong, request_j
         return;
     };
     let Ok(request_json) = request_json.try_to_string(env) else {
-        throw_illegal_argument_env(env, "Invalid diagnostics request JSON");
-        return;
+        return throw_illegal_argument_env(env, "Invalid diagnostics request JSON");
     };
     let Ok(session_id) = session_id.try_to_string(env) else {
-        throw_illegal_argument_env(env, "Invalid diagnostics session id");
-        return;
+        return throw_illegal_argument_env(env, "Invalid diagnostics session id");
     };
     let request = match decode_scan_request(&request_json) {
         Ok(request) => request,
-        Err(err) => {
-            throw_illegal_argument_env(env, err);
-            return;
-        }
+        Err(err) => return throw_illegal_argument_env(env, err),
     };
     if let Err(err) = session.start_scan(session_id, request) {
         throw_illegal_state_env(env, err);
