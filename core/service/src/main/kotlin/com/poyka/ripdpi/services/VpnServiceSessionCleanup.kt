@@ -65,7 +65,9 @@ internal class VpnServiceSessionCleanup {
             stopRuntime()
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (stopFailure: Throwable) {
+        } catch (
+            @Suppress("TooGenericExceptionCaught") stopFailure: Throwable,
+        ) {
             stopError = stopFailure
         }
         destroySession(destroyCoordinator, cleanupSocketProtection)
