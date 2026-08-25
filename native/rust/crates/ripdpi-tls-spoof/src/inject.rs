@@ -354,6 +354,10 @@ fn stale_timestamp_value(info: &libc::tcp_info, fd: libc::c_int) -> io::Result<O
 /// with the pid.
 #[cfg(target_os = "linux")]
 fn process_entropy() -> u64 {
+    // `build_hasher` and `finish` resolve through the `BuildHasher`/`Hasher`
+    // traits, which are not in the prelude; without these imports the
+    // Linux-only body fails E0599.
+    use std::hash::{BuildHasher as _, Hasher as _};
     static SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
     *SEED.get_or_init(|| {
         std::collections::hash_map::RandomState::new().build_hasher().finish() ^ (u64::from(std::process::id()) << 32)
