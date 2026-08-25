@@ -318,6 +318,7 @@
     <string name="language_name_en">English</string>
     <string name="language_name_zh_cn">简体中文</string>
     <string name="language_name_hi">हिन्दी</string>
+    <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="logs_active_session_title">Session active uniquement</string>
     <string name="logs_clear">Effacer</string>
     <string name="logs_filtered_empty_body">Ajustez les puces de type ci-dessus pour inspecter une autre partie du tampon local.</string>

@@ -1,6 +1,6 @@
 # Localization
 
-RIPDPI ships **9 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`, and `hi`. Source strings live across `app/src/main/res/values/*.xml` and `core/service/src/main/res/values/strings.xml`. Each locale has matching `values-<qualifier>/` resources, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`. A locale may split resources across multiple XML files in its directory; Hindi currently uses both `strings.xml` and `strings2.xml`.
+RIPDPI ships **10 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`, `hi`, and `pt-BR`. Source strings live across `app/src/main/res/values/*.xml` and `core/service/src/main/res/values/strings.xml`. Each locale has matching `values-<qualifier>/` resources, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`. A locale may split resources across multiple XML files in its directory; Hindi currently uses both `strings.xml` and `strings2.xml`.
 
 This document records how translations are managed, why, and exactly how a new contributor adds one.
 

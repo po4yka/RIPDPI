@@ -17,7 +17,7 @@ The persisted deck under `docs/design/rds/` is the visual reference for Android 
 3. Consume colors, motion, surfaces, and state styling through the existing `RipDpiTheme`, `RipDpiMotion`, `RipDpiSurface`, and `RipDpiState` contracts. Production component code must not introduce raw `Color(0x...)`, literal `tween(...)`/`spring(...)` motion primitives, or direct `MaterialTheme.colorScheme.*` reads where the current tests forbid them.
 4. Component-local `.dp` dimensions are allowed. `RipDpiMotionTest` intentionally does not impose a blanket `.dp` ban because many component dimensions are correctly local to their component contract.
 5. A new shared theme token must keep the Glance widget theme in sync when the widget consumes the same concept.
-6. The app ships 9 locales: en, ru, es, de, fr, fa, ar, zh-CN, and hi. Locale files may be split, so use Android lint rather than comparing one `strings.xml` per directory.
+6. The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Locale files may be split, so use Android lint rather than comparing one `strings.xml` per directory.
 
 ### Validation
 

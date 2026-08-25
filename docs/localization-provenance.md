@@ -21,6 +21,9 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
 | Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Hindi (hi) | `values-hi/` (`strings.xml` + `strings2.xml`) | 4063 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
+| Brazilian Portuguese (pt-BR) | `values-pt-rBR/` (`strings.xml` + topical files mirroring the source split) | 4129 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
+
+Structural revalidation for `pt-BR` (2026-08-25): source grew since the 2026-07-14 pass; the current source set is 4,129 unique translated keys across `app` (4,112 translatable `<string>` entries plus 16 `<plurals>` in `values/strings.xml`, plus 67 keys across the actuator/home-diagnostics/initial-states/fallbacks/archive-disclosure topical files), with `core/service` contributing 4 more. The pt-BR locale was generated against this exact tree and passes `scripts/ci/check-locale-parity.sh` with 0 missing keys.
 
 `core/service` strings (4 translatable) mirror the same locales with 0 missing keys.
 
@@ -42,6 +45,17 @@ review of `ar` is tracked as follow-up; it does not block the locale shipping,
 which is the maintainer's explicit decision for first-wave Arabic coverage.
 
 Hindi (`hi`) is likewise machine-translated and structurally complete, split across `strings.xml` and `strings2.xml`; a native-speaker linguistic review is still pending.
+
+### MT-origin disclosure (Brazilian Portuguese)
+
+The Brazilian Portuguese (`pt-BR`) locale was produced by machine translation
+into natural Brazilian Portuguese and validated structurally (key parity,
+format-specifier and escape preservation, plural quantity sets, pinned canon
+terms asserted by `TerminologyCanonTest`, glossary do-not-translate tokens kept
+verbatim). It has **not** yet had a native-speaker linguistic pass; this is
+disclosed here and in the `values-pt-rBR/strings.xml` header comment.
+Native-speaker review of `pt-BR` is tracked as follow-up and does not block the
+locale shipping.
 
 ## Font & glyph coverage
 

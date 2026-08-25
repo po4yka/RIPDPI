@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_archive_artifact_disclosure">O arquivo de procedência inclui impressões digitais SHA-256 locais dos artefatos instalados do aplicativo para comparação. Essas impressões digitais não constituem prova independente de autenticidade.</string>
+    <string name="data_transparency_installed_artifact_fingerprints">Os arquivos de diagnóstico incluem impressões digitais SHA-256 locais dos artefatos instalados do aplicativo. Eles auxiliam na comparação, mas não constituem prova independente de autenticidade.</string>
+</resources>

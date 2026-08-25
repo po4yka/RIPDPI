@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_diagnostics_analysis_starting">Iniciando diagnósticos…</string>
+    <string name="home_diagnostics_stage_counter">Etapa %1$d de %2$d</string>
+    <string name="diagnostics_error_cancel_failed">Não foi possível cancelar os diagnósticos. A verificação pode ainda estar em execução.</string>
+</resources>

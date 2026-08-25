@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"/>
 </p>
 
-<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a> | <b>हिन्दी</b></p>
+<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a> | <b>हिन्दी</b> | <a href="README-pt-BR.md">Português (Brasil)</a></p>
 
 > [!WARNING]
 > **यह प्रोजेक्ट विकास के एक सक्रिय चरण में है।** नई सुविधाएँ जोड़ी जा रही हैं और कोड बेस की गुणवत्ता सुधारने के लिए अक्सर बड़े रीफ़ैक्टरिंग किए जाते हैं। इस काम के लिए कोडिंग एजेंट्स का भारी उपयोग होता है, इसलिए **फ़िलहाल `main` पर ब्रेकिंग बदलाव, स्कीमा माइग्रेशन और आंशिक रूप से टूटी हुई कार्यक्षमता संभव है**। यदि आपको कोई रिग्रेशन मिले, तो कृपया [एक issue खोलें](https://github.com/po4yka/RIPDPI/issues) — आपकी प्रतिक्रिया प्रोजेक्ट को स्थिर करने में मदद करती है।

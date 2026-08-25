@@ -1725,6 +1725,7 @@ app:diagnostics_scan_completion_partial_results
 app:diagnostics_scan_completion_partial_with_reason_format
 app:diagnostics_scan_completion_terminated
 app:diagnostics_scan_dns_baseline_clean
+app:diagnostics_scan_dns_baseline_resolution_failed
 app:diagnostics_scan_dns_baseline_tampered
 app:diagnostics_scan_dpi_failure_label
 app:diagnostics_scan_grant_vpn_permission
@@ -2401,6 +2402,7 @@ app:language_name_es
 app:language_name_fa
 app:language_name_fr
 app:language_name_hi
+app:language_name_pt_br
 app:language_name_ru
 app:language_name_zh_cn
 app:language_picker_native_format

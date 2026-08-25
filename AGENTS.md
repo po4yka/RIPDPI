@@ -48,7 +48,7 @@ Use `just` recipes where they mirror CI. For Rust commands, pass `--locked` when
 
 ## Locales
 
-The app ships 9 locales: en, ru, es, de, fr, fa, ar, zh-CN, and hi. Any new key in app or service resources must land in every locale in the same commit. A locale may split strings across multiple XML files, so validate parity with Android lint rather than a single-file grep:
+The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any new key in app or service resources must land in every locale in the same commit. A locale may split strings across multiple XML files, so validate parity with Android lint rather than a single-file grep:
 
 ```bash
 ./gradlew :app:lintGithubFullDebug :core:service:lintDebug

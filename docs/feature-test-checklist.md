@@ -31,7 +31,7 @@ Every feature should be tested against the dimensions that can affect it.
 | Diagnostics profile | Connectivity, quick strategy probe, full matrix audit, home composite run, RAW_PATH run |
 | Data state | Fresh install, migrated install, cleared app data, imported profile, remembered network, full history |
 | UI state | Light theme, dark theme, compact width, expanded width, large font, TalkBack, RTL locale |
-| Locale | en, ru, es, de, fr, fa, ar, zh-CN, hi |
+| Locale | en, ru, es, de, fr, fa, ar, zh-CN, hi, pt-BR |
 
 ## Core Smoke Matrix
 
@@ -326,7 +326,7 @@ Combination checks:
 - [ ] Compose state collection uses lifecycle-aware collection.
 - [ ] One-shot UI events do not repeat after rotation.
 - [ ] Long-running work is not launched directly from composable recomposition.
-- [ ] All string keys in `app` exist in en, ru, es, de, fr, fa, ar, and zh-CN.
+- [ ] All string keys in `app` exist in en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR.
 - [ ] All string keys in `core/service` exist in all service locales.
 - [ ] Native language display-name keys remain byte-identical across locales.
 - [ ] Persian RTL layout keeps icons and labels semantically correct.

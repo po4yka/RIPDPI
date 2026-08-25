@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"/>
 </p>
 
-<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <b>Français</b> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a> | <a href="README-hi.md">हिन्दी</a></p>
+<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <b>Français</b> | <a href="docs/fa/README.md">فارسی</a> | <a href="README-zh-CN.md">简体中文</a> | <a href="README-hi.md">हिन्दी</a> | <a href="README-pt-BR.md">Português (Brasil)</a></p>
 
 > [!WARNING]
 > **Le projet est en phase active de développement.** De nouvelles fonctionnalités sont ajoutées et des refactorisations d'envergure sont fréquemment effectuées pour améliorer la qualité de la base de code. Des agents de codage sont intensivement utilisés pour ce travail, donc sur `main` sont actuellement possibles **des changements incompatibles (breaking changes), des migrations de schéma et des fonctionnalités partiellement cassées**. Si vous rencontrez une régression, [ouvrez une issue](https://github.com/po4yka/RIPDPI/issues) — vos retours aident à stabiliser le projet.

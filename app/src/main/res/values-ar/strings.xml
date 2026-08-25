@@ -2693,6 +2693,7 @@ fakeddisorder endhost</string>
     <string name="language_name_ar">العربية</string>
     <string name="language_name_zh_cn">简体中文</string>
     <string name="language_name_hi">हिन्दी</string>
+    <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="updates_section_title">التحديثات</string>
     <string name="update_channel_title">قناة التوزيع</string>
     <string name="update_channel_play">Google Play</string>

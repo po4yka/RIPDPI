@@ -318,6 +318,7 @@
     <string name="language_name_en">English</string>
     <string name="language_name_zh_cn">简体中文</string>
     <string name="language_name_hi">हिन्दी</string>
+    <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="logs_active_session_title">Nur aktive Sitzung</string>
     <string name="logs_clear">Löschen</string>
     <string name="logs_filtered_empty_body">Passen Sie die Typ-Chips oben an, um einen anderen Teil des lokalen Puffers zu untersuchen.</string>

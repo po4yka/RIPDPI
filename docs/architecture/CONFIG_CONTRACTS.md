@@ -328,7 +328,7 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
    if it touches diagnostics or telemetry payloads, follow those contracts'
    governance (see §9 and `DiagnosticsContractGovernanceTest`).
 9. **Locales.** Any new UI string lands in the default `values/` file and all
-   eight translations (`ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-rCN`, `hi`) in
+   nine translations (`ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-rCN`, `hi`, `pt-rBR`) in
    the same commit.
 10. **Support link.** Confirm the generated support-settings registry test covers the new top-level path; add explicit preview/apply tests for sensitive, repeated, or protobuf-message settings.
 11. **Tests.** Protobuf round-trip test; codec/mapper test; Rust deserialization

@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"/>
 </p>
 
-<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <b>简体中文</b> | <a href="README-hi.md">हिन्दी</a></p>
+<p align="center"><a href="README.md">English</a> | <a href="README-ru.md">Русский</a> | <a href="README-es.md">Español</a> | <a href="README-de.md">Deutsch</a> | <a href="README-fr.md">Français</a> | <a href="docs/fa/README.md">فارسی</a> | <b>简体中文</b> | <a href="README-hi.md">हिन्दी</a> | <a href="README-pt-BR.md">Português (Brasil)</a></p>
 
 > [!WARNING]
 > **本项目正处于积极开发阶段。** 我们正在持续添加新功能，并经常进行大规模重构以提升代码库的质量。该工作高度依赖编码代理（coding agents），因此 `main` 分支目前**可能出现破坏性变更（breaking changes）、模式迁移以及部分功能不完整的情况**。如果遇到回归问题，请[提交 issue](https://github.com/po4yka/RIPDPI/issues)——您的反馈有助于稳定项目。

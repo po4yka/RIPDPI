@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_session_subtitle_format">%1$s · %2$s · %3$s</string>
+    <string name="history_connection_summary_format">%1$s em %2$s</string>
+    <string name="history_connection_title_format">%1$s %2$s</string>
+    <string name="history_connection_subtitle_format">%1$s · %2$s</string>
+    <string name="diagnostics_metric_duration">Duração</string>
+    <string name="diagnostics_metric_health">Saúde</string>
+    <string name="diagnostics_metric_route_changes">Mudanças de rota</string>
+    <string name="diagnostics_metric_path">Caminho</string>
+    <string name="diagnostics_metric_probes">Sondas</string>
+    <string name="diagnostics_field_hidden">Oculto</string>
+    <string name="diagnostics_field_hidden_count_format">Oculto (%1$d)</string>
+    <string name="diagnostics_field_winning_tcp_family">Família TCP vencedora</string>
+    <string name="diagnostics_field_winning_quic_family">Família QUIC vencedora</string>
+    <string name="diagnostics_field_network_fingerprint">Impressão digital da rede</string>
+    <string name="diagnostics_field_proxy_rtt_band">Faixa de RTT do proxy</string>
+    <string name="diagnostics_field_resolver_rtt_band">Faixa de RTT do resolvedor</string>
+    <string name="diagnostics_field_aggregate_rtt_band">Faixa de RTT agregada</string>
+    <string name="diagnostics_field_proxy_route_retries">Tentativas de rota do proxy</string>
+    <string name="diagnostics_field_tunnel_recovery_retries">Tentativas de recuperação do túnel</string>
+    <string name="diagnostics_field_total_retries">Tentativas totais</string>
+    <string name="diagnostics_field_classifier">Classificador</string>
+    <string name="diagnostics_field_packs">Pacotes</string>
+    <string name="diagnostics_field_source">Origem</string>
+    <string name="diagnostics_field_recorded">Registrado</string>
+    <string name="diagnostics_duration_hours_format">%1$dh %2$dm</string>
+    <string name="diagnostics_duration_minutes_format">%1$dm %2$ds</string>
+    <string name="diagnostics_duration_seconds_format">%1$ds</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_integrity_idle_summary">Compare respostas diretas de UDP/53 com controles DoH para os domínios DPI incluídos.</string>
+    <string name="diagnostics_dns_availability_idle_summary">Investigue resolvedores UDP e DoH públicos quanto à acessibilidade e latência.</string>
+    <string name="diagnostics_domain_reachability_idle_summary">Teste a acessibilidade de TLS 1.3, TLS 1.2 e HTTP para os domínios DPI incluídos.</string>
+    <string name="diagnostics_rkn_idle_headline">Diagnóstico de bloqueio RKN</string>
+    <string name="diagnostics_rkn_idle_confidence_note">Compare os grupos de controle e de teste antes de afirmar um bloqueio.</string>
+    <string name="diagnostics_rkn_idle_summary">Execute as sondas de controle e de lista negra incluídas, com salvaguardas de veredito agregado.</string>
+    <string name="diagnostics_compression_idle_summary">Teste o suporte HTTP a gzip, deflate, Brotli e Zstd opcional para um alvo incluído.</string>
+    <string name="diagnostics_tcp16_idle_summary">Teste o comportamento de cabeçalho extenso TCP16 nos alvos de rede incluídos.</string>
+    <string name="diagnostics_allowlist_sni_idle_summary">Execute verificações de compatibilidade SNI para ASNs sinalizados por TCP16.</string>
+    <string name="diagnostics_byoh_idle_summary">Avançado - requer um servidor HTTPS controlado pelo usuário.</string>
+    <string name="diagnostics_byoh_requirements_summary">Configure um host sob seu controle para responder HTTPS no IP de destino e servir ao menos 128 KiB.</string>
+    <string name="diagnostics_cidr_whitelist_idle_summary">Compare grupos de URLs da lista de permissões e regulares para restrições de roteamento grosseiras.</string>
+    <string name="diagnostics_ipv4_whitelist_idle_summary">Busque sub-redes do provedor e amostre faixas /24 em cache quanto ao comportamento de lista de permissões.</string>
+    <string name="diagnostics_dpi_suite_idle_summary">Execute as sondas DPI selecionadas como uma suíte agregada.</string>
+</resources>

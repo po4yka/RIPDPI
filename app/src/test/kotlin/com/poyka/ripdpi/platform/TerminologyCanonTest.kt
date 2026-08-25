@@ -21,6 +21,7 @@ class TerminologyCanonTest {
                 "values-ar" to "موجّه",
                 "values-zh-rCN" to "引导",
                 "values-hi" to "निर्देशित",
+                "values-pt-rBR" to "Guiado",
             )
         val expectedDistributionTitles =
             mapOf(
@@ -33,6 +34,7 @@ class TerminologyCanonTest {
                 "values-ar" to "RIPDPI اتصال سريع",
                 "values-zh-rCN" to "RIPDPI 快速连接",
                 "values-hi" to "RIPDPI त्वरित कनेक्ट",
+                "values-pt-rBR" to "RIPDPI Conexão rápida",
             )
 
         expectedGuidedLabels.forEach { (directory, expected) ->
@@ -77,6 +79,7 @@ class TerminologyCanonTest {
                 "values-ar",
                 "values-zh-rCN",
                 "values-hi",
+                "values-pt-rBR",
             )
 
         val offenders =

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="qs_tile_label_connected">RIPDPI Quick Connect: Conectado</string>
+    <string name="simple_title">RIPDPI Conexão rápida</string>
+    <string name="simple_connect">Conectar</string>
+    <string name="simple_disconnect">Desconectar</string>
+    <string name="simple_run_report">Executar relatório de diagnóstico</string>
+    <string name="simple_report_cancelled">Relatório de diagnóstico cancelado</string>
+    <string name="simple_report_failed">Falha no relatório de diagnóstico. Tente novamente.</string>
+    <string name="simple_status_disconnected">Desconectado</string>
+    <string name="simple_status_connecting">Conectando…</string>
+    <string name="simple_status_connected">Conectado</string>
+    <string name="simple_status_error">Erro de conexão</string>
+    <string name="simple_protocol_vless_reality">VLESS+Reality</string>
+    <string name="simple_protocol_vless_xhttp">VLESS+XHTTP</string>
+    <string name="simple_protocol_hysteria2">Hysteria2</string>
+    <string name="simple_protocol_awg">AmneziaWG</string>
+</resources>

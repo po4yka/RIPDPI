@@ -26,8 +26,8 @@ these breaks something downstream:
 - **Never extend a baseline** (detekt, lint, LoC). Fix the violation. The
   PreToolUse hook blocks edits to `*baseline*` files.
 - **Locale sync.** Any new key in `app/src/main/res/values/strings.xml` or
-  `core/service/src/main/res/values/strings.xml` must land in all eight
-  translated locale files (`values-{ru,es,de,fr,fa,ar,zh-rCN,hi}`) in the same
+  `core/service/src/main/res/values/strings.xml` must land in all nine
+  translated locale files (`values-{ru,es,de,fr,fa,ar,zh-rCN,hi,pt-rBR}`) in the same
   commit (`lint.xml` sets `MissingTranslation` to `error`).
 - **`VpnService.protect()` invariant.** Any new non-loopback `TcpStream`/
   `UdpSocket`/`mio` socket in Rust must be protected before `connect`/`bind`.
