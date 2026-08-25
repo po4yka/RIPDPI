@@ -98,6 +98,7 @@ pub ripdpi_failure_classifier::FailureClass::DnsResolutionFailure
 pub ripdpi_failure_classifier::FailureClass::DnsTampering
 pub ripdpi_failure_classifier::FailureClass::HttpBlockpage
 pub ripdpi_failure_classifier::FailureClass::IpBlockSuspect
+pub ripdpi_failure_classifier::FailureClass::MasqueH3TcpUnsupported
 pub ripdpi_failure_classifier::FailureClass::QuicBreakage
 pub ripdpi_failure_classifier::FailureClass::Redirect
 pub ripdpi_failure_classifier::FailureClass::ShadowTlsVersionMismatch
