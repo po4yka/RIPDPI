@@ -511,7 +511,8 @@ mod tests {
 
 #[cfg(test)]
 mod outbound_bind_tests {
-    use crate::{Config, ShadowTlsClient, ShadowTlsLoopback};
+    use super::ShadowTlsLoopback;
+    use crate::{Config, ShadowTlsClient};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     fn config(password: &str) -> Config {
