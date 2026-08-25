@@ -71,6 +71,41 @@
           ]
         }
       ]
+    },
+    {
+      "reviewedAt": "2026-08-25",
+      "channel": "stable",
+      "catalogGeneratedAt": "2026-04-18T13:00:00Z",
+      "reviewer": "codex",
+      "notes": "Cadence review: revalidated acceptance artifacts against catalog v1 profile sets (check_tls_template_acceptance.py green).",
+      "profileSets": [
+        {
+          "id": "browser_family_v2",
+          "catalogVersion": "v1",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-08-25",
+          "allowedProfileIds": [
+            "chrome_desktop_stable",
+            "chrome_stable",
+            "edge_stable",
+            "firefox_ech_stable",
+            "firefox_stable",
+            "safari_stable"
+          ]
+        },
+        {
+          "id": "ech_canary_v1",
+          "catalogVersion": "v1",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-08-25",
+          "allowedProfileIds": [
+            "firefox_ech_stable",
+            "firefox_stable"
+          ]
+        }
+      ]
     }
   ]
 }
