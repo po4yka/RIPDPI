@@ -49,6 +49,10 @@ internal class VpnServiceSessionCleanup {
         }
     }
 
+    // Any stop failure must be captured verbatim so the guaranteed teardown
+    // below still runs before the original error is rethrown; narrowing the
+    // type would let an unexpected stop error orphan the native session.
+    @Suppress("TooGenericExceptionCaught")
     suspend fun revokeSession(
         stopRuntime: suspend () -> Unit,
         destroyCoordinator: () -> Unit,
