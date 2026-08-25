@@ -160,7 +160,8 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             | "ip_block_suspect"
             | "shadowtls_version_mismatch"
             | "strategy_execution_failure"
-            | "tuic_version_unsupported" => ProbeOutcomeBucket::Failed,
+            | "tuic_version_unsupported"
+            | "masque_h3_tcp_unsupported" => ProbeOutcomeBucket::Failed,
             _ => ProbeOutcomeBucket::Inconclusive,
         },
         _ => legacy_outcome_bucket(outcome),
