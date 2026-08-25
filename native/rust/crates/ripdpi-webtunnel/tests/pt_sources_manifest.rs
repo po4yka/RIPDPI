@@ -1,10 +1,14 @@
+use golden_test_support::repo_root;
 use serde_json::Value;
 
 #[test]
 fn pluggable_transport_manifest_sources_webtunnel_from_rust_crate() {
-    let manifest_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../pluggable-transports/sources.json");
+    // The manifest lives outside `native/rust/`, so cargo-mutants' temporary
+    // workspace copy cannot reach it via a relative path; resolve it through
+    // the repo root (RIPDPI_REPO_ROOT-aware) instead.
+    let manifest_path = repo_root().join("native/pluggable-transports/sources.json");
     let manifest: Value =
-        serde_json::from_str(&std::fs::read_to_string(manifest_path).expect("read PT sources manifest"))
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).expect("read PT sources manifest"))
             .expect("parse PT sources manifest");
     let sources = manifest["sources"].as_array().expect("manifest sources");
 
