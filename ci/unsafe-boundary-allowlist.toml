@@ -766,3 +766,12 @@ preconditions = "The `arg` pointer was set by `install_reality_client_hello_hook
 enforcement = "Ownership chain: `Box::into_raw` (install) → `arg: *mut c_void` (BoringSSL) → `arg.cast::<RealityCallbackState>()` (callback) → `Box::from_raw` (Drop of RealityHookGuard). The `RealityHookGuard::Drop` runs after the SSL handshake completes, which is after the last possible callback fire. Miri test `reality_hook` (4/4 stages in `run-rust-miri.sh`) exercises install/callback/drop and validates the pointer provenance round-trip"
 owner = "vless"
 review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-tls-spoof/src/inject.rs"
+pattern = "mem::zeroed"
+reason = "`std::mem::zeroed::<libc::tcp_info>()` produces a zero-initialised `libc::tcp_info` output buffer for the `getsockopt(fd, IPPROTO_TCP, TCP_INFO, ...)` read in `get_tcp_info`, which resolves the live kernel TCP state that gates the WrongTimestamp decoy (PAWS staleness check) and adaptive marker placement"
+preconditions = "`libc::tcp_info` is a plain-old-data `#[repr(C)]` kernel ABI struct whose fields are all integers or bit-fields of integer type (u8 counters/flags, u32 timers, windows, and rate values) — no references, NonNull/NonZero, bool/char/enum, or function pointers — so the all-zero bit pattern is a valid value for every field. `fd` is a live TCP socket at every call site; `len` is initialised to `size_of::<libc::tcp_info>()` and the kernel writes at most `*len` bytes into the exclusive stack slot"
+enforcement = "Zero-validity checklist: target type contains only zero-valid integer fields; bounds are the exclusive stack slot sized exactly by `size_of::<libc::tcp_info>()`; alignment is trivially satisfied for a stack-allocated `tcp_info`. The call site carries an inline `// SAFETY:` comment enumerating fd validity and buffer lifetime, and the value is returned only after the `rc != 0` error check converts failure to `io::Error`. No validity-bearing field exists in the target type, so no uninitialised-value violation is reachable"
+owner = "tls-spoof"
+review_date = "2026-11-15"
