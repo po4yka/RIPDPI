@@ -303,7 +303,7 @@ fn protect_callback_snapshot() -> Option<Arc<dyn ProtectCallback>> {
 /// "absent": the skip-protect consumers that gate on
 /// `if !has_protect_callback() { return Ok(()) }` never silently emit an
 /// unprotected non-loopback connect/bind. The registry recovers from lock
-/// poison (see [`registry_read`]) because slot writes are complete owned
+/// poison (see `registry_read`) because slot writes are complete owned
 /// assignments, so this accessor reports the actual stored state — under any
 /// live VPN session that is `Some(callback)` — while a genuinely empty slot
 /// still reports `false`, preserving desktop / VPN-down no-op semantics. A
