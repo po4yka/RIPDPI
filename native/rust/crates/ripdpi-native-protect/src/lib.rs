@@ -167,6 +167,33 @@ struct RegisteredProtect {
 static PROTECT_CB: RwLock<Option<RegisteredProtect>> = RwLock::new(None);
 static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 
+/// Acquire the registry read guard, recovering from lock poison.
+///
+/// The registry is poison-recovering by policy: every slot write is a complete
+/// assignment of an owned value, so a panic between writes can never leave torn
+/// state and recovering the guard cannot observe a half-written slot. This
+/// keeps the whole registry panic-free; fail-closed behavior lives in the
+/// consumers — an empty (or poisoned-but-empty) slot still yields the typed
+/// [`io::ErrorKind::NotConnected`] error instead of a fabricated callback.
+fn registry_read() -> std::sync::RwLockReadGuard<'static, Option<RegisteredProtect>> {
+    match PROTECT_CB.read() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
+/// Acquire the registry write guard, recovering from lock poison.
+///
+/// Same rationale as [`registry_read`]: lifecycle writes are single owned
+/// assignments, so recovery cannot observe torn state and register/unregister
+/// calls stay panic-free even after a previous holder panicked.
+fn registry_write() -> std::sync::RwLockWriteGuard<'static, Option<RegisteredProtect>> {
+    match PROTECT_CB.write() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 /// Register the VPN protect callback and return the [`ProtectGeneration`]
 /// stamped on the registry slot.
 ///
@@ -179,7 +206,7 @@ pub fn register_protect_callback_versioned(cb: Arc<dyn ProtectCallback>) -> Prot
     // Relaxed: the counter only needs uniqueness, not ordering against the
     // slot write below — the write lock provides the happens-before edge.
     let generation = ProtectGeneration(NEXT_GENERATION.fetch_add(1, Ordering::Relaxed));
-    let mut guard = PROTECT_CB.write().expect("protect callback lock poisoned");
+    let mut guard = registry_write();
     *guard = Some(RegisteredProtect { generation, callback: cb });
     generation
 }
@@ -204,7 +231,7 @@ pub fn register_protect_callback(cb: Arc<dyn ProtectCallback>) {
 /// register/unregister calls.
 #[must_use = "a false return means the slot was not cleared (stale generation or empty); ignoring it hides an unpaired release"]
 pub fn unregister_protect_callback_if(generation: ProtectGeneration) -> bool {
-    let mut guard = PROTECT_CB.write().expect("protect callback lock poisoned");
+    let mut guard = registry_write();
     match guard.as_ref() {
         Some(registered) if registered.generation == generation => {
             *guard = None;
@@ -222,7 +249,7 @@ pub fn unregister_protect_callback_if(generation: ProtectGeneration) -> bool {
 /// Prefer [`unregister_protect_callback_if`] when a stale unregister could
 /// otherwise clear a newer session's callback.
 pub fn unregister_protect_callback() {
-    let mut guard = PROTECT_CB.write().expect("protect callback lock poisoned");
+    let mut guard = registry_write();
     *guard = None;
 }
 
@@ -244,30 +271,26 @@ pub fn resolve_host_via_callback(host: &str) -> io::Result<Vec<IpAddr>> {
 }
 
 fn protect_callback_snapshot() -> Option<Arc<dyn ProtectCallback>> {
-    let guard = PROTECT_CB.read().expect("protect callback lock poisoned");
+    let guard = registry_read();
     guard.as_ref().map(|registered| Arc::clone(&registered.callback))
 }
 
 /// Returns whether a protect callback is registered.
 ///
-/// Fail **closed** on lock poison: a poisoned lock is treated as "callback
-/// present / must attempt protect", so the skip-protect consumers that gate on
+/// Fail **closed** on any registry anomaly that would otherwise look like
+/// "absent": the skip-protect consumers that gate on
 /// `if !has_protect_callback() { return Ok(()) }` never silently emit an
-/// unprotected non-loopback connect/bind. The subsequent
-/// [`protect_socket_via_callback`] call then surfaces the poison via its
-/// `.expect(...)` (a crash — still fail-closed) rather than a routing loop into
-/// the TUN. This aligns the accessor's poison policy with
-/// [`protect_socket_via_callback`]. See `.claude/rules/vpnservice-protect-invariant.md`.
+/// unprotected non-loopback connect/bind. The registry recovers from lock
+/// poison (see [`registry_read`]) because slot writes are complete owned
+/// assignments, so this accessor reports the actual stored state — under any
+/// live VPN session that is `Some(callback)` — while a genuinely empty slot
+/// still reports `false`, preserving desktop / VPN-down no-op semantics. A
+/// consumer that races a concurrent teardown gets the typed
+/// [`io::ErrorKind::NotConnected`] error from [`protect_socket_via_callback`]
+/// instead of proceeding unprotected. See
+/// `.claude/rules/vpnservice-protect-invariant.md`.
 pub fn has_protect_callback() -> bool {
-    match PROTECT_CB.read() {
-        Ok(guard) => guard.is_some(),
-        // Poisoned: recover the guard and report its actual state. Under any
-        // live VPN session the last-written value is `Some(callback)`, so this
-        // biases toward "present" → consumers attempt protect (fail-closed)
-        // instead of skipping it (fail-open); a genuinely empty slot still
-        // reports false, preserving desktop / VPN-down no-op semantics.
-        Err(poisoned) => poisoned.into_inner().is_some(),
-    }
+    registry_read().is_some()
 }
 
 #[cfg(test)]
