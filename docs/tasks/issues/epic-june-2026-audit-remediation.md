@@ -84,7 +84,14 @@ Child tasks (this epic is `parent:` for each):
   post-client-hello failure → TCP success emits `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`), the
   parity coverage the routing/failure module lacked vs the UDP path. `cargo nextest -p
   ripdpi-proxy-runtime --locked`: 233/233; `clippy -D warnings`: clean.
-- `annotate-and-harden-async-cancel-safety`
+- ✅ `annotate-and-harden-async-cancel-safety` — **Resolved — record closed and purged 2026-07-26; content verified at HEAD 2026-08-26.**
+  14 `# Cancel safety` rustdoc blocks across `ripdpi-tunnel-core/src/session/` (`tcp.rs` x7,
+  `udp.rs` x6, `socks5/connect.rs` x1) plus relay-core hardening: biased teardown-first selects at
+  `socks/udp.rs:101,207` (the starvation fix) and `connect.rs:165,273,332`, with cancel-safety docs
+  in connect/auth/reply/listener/backend/pool/vless. Original commits `c89a94004` (annotations),
+  `6fc53027b` (handle_connect cancel-orphan fix + shutdown_drain tests), `b8872bd7e` (final
+  end-to-end boundary hardening; purged the record while it sat in review with every acceptance box
+  checked - substance fully landed on main).
 - ✅ `recover-monitor-coordinator-worker-panic` — **Verified resolved at HEAD 2026-06-14 (no change
   needed).** `ripdpi-monitor-engine/src/engine/runtime/panic_recovery.rs` classifies a worker's
   `thread::Result` `Err` into a `Panicked` outcome and `handle_panicked_runner` builds synthetic
@@ -93,11 +100,36 @@ Child tasks (this epic is `parent:` for each):
   ripdpi-monitor-engine --locked`: 156/156.
 
 **Medium — JNI / unsafe**
-- `harden-jni-callback-thread-attach-and-null-sentinels`
-- `centralize-unsafe-javavm-from-raw-and-signal-cast`
+- ✅ `harden-jni-callback-thread-attach-and-null-sentinels` — **Resolved — closed done by `5d952ab36`,
+  purged 57ac82c2d; content verified at HEAD 2026-08-26.** `attach_current_thread_for_scope` guards
+  every production callback site (relay/warp/amneziawg/proxy readiness, warp/amneziawg/relay
+  vpn_protect, `protect_callback.rs:30,48`, `direct_dns_binding.rs:25,35,50`); permanent attach
+  remains only for the deliberate flow-attribution worker (`3c20ccbc8`) and test-only in-process
+  JVMs. Null sentinels: `jniGetStats(): LongArray?`, `luaListStrategies()`/`luaLoadedScriptPaths():
+  Array<String>?`; `runBlocking` replaced by a process-global `ReentrantLock`; panic-contained FFI
+  sentinel machinery tested in `android-support/src/ffi_boundary.rs` +
+  `tests/ffi_boundary_extern_system.rs`.
+- ✅ `centralize-unsafe-javavm-from-raw-and-signal-cast` — **Resolved — closed done, purged
+  57ac82c2d; content verified at HEAD 2026-08-26.** `SharedJvm(Arc<JavaVM>)` in
+  `android-support/src/shared_jvm.rs` is the single workspace `JavaVM::from_raw` call site (line 59)
+  with centralized SAFETY rationale, a compile-fail guard pinning the Arc storage invariant, and
+  Send/Sync/Clone lock-in; every adapter crate routes through `SharedJvm::new`. The signal cast is
+  gone: root-helper installs via nix typed `SigHandler::Handler` (`main.rs:81-95`) with a SAFETY
+  comment recording elimination of the `signal_handler as *const () as sighandler_t` double-cast;
+  optional third criterion landed as MaybeUninit/u8 layout-identity asserts
+  (`ripdpi-privileged-ops .../experimental_tier3/icmp_wrapped_udp.rs:33-34`). Implementation commit
+  `e98edea8c`.
 
 **Medium — Android design**
-- `decompose-god-viewmodels-blockcheck-detection-backup`
+- ✅ `decompose-god-viewmodels-blockcheck-detection-backup` — **Resolved — closed done by
+  `8275b5dc1`, purged 57ac82c2d; content verified at HEAD 2026-08-26.** BlockcheckViewModel
+  526→234 lines, DetectionCheckViewModel 510→146, BackupRestoreViewModel 447→183 - all under the
+  250-line threshold. Single-responsibility collaborators extracted and unit-tested
+  (BlockcheckProbeOrchestrator/BlockcheckRecommendationRepository/BlockcheckReport;
+  DetectionRunCoordinator/DetectionResultPresenter/DetectionAuxStateOwner/
+  DetectionPermissionStateOwner/DetectionCheckStateReducer;
+  BackupExportCoordinator/BackupImportCoordinator/BackupResetCoordinator/BackupRestoreUiModels);
+  file-loc baseline not extended; Roborazzi goldens untouched.
 - `introduce-vpn-session-hilt-scope`
 - `fix-launchedeffect-unit-session-keyed-refresh`
 
