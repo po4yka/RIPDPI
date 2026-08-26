@@ -2,16 +2,16 @@
 id: RST-1786264762917942
 title: Replace unmaintained daemonize CLI dependency
 kind: feature
-status: backlog
+status: doing
 area: rust-native
 priority: low
-owner: Native security maintainer
+owner: Dependency hygiene lane
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917942-replace-unmaintained-daemonize-cli-dependency
 created: 2026-07-13
-updated: 2026-07-13
+updated: 2026-08-26
 ---
 
 ## Goal
