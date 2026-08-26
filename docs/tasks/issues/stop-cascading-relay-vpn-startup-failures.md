@@ -2,7 +2,7 @@
 id: RLY-1786707070050078
 title: Stop cascading relay and VPN startup failures
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: codex
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-relay-vpn-startup-cascade
 created: 2026-08-14
-updated: 2026-08-14
+updated: 2026-08-26
+status_detail: All execution steps complete incl. device-matrix gates; awaiting acceptance review
 ---
 
 ## Goal

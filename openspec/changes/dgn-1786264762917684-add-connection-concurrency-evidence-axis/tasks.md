@@ -10,7 +10,7 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] DGN-1786264762917644 Implement Add connection-concurrency as an independent evidence axis and verify its portfolio acceptance criteria #feature !high @item:DGN-1786264762917684
+- [x] DGN-1786264762917644 Implement Add connection-concurrency as an independent evidence axis and verify its portfolio acceptance criteria #feature !high @item:DGN-1786264762917684
 
 ## Verification
 
