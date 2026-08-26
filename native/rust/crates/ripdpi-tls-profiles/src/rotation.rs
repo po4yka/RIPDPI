@@ -6,12 +6,14 @@ use sha2::{Digest, Sha256};
 use crate::profile;
 
 /// Telemetry counter `tls.fingerprint_rotation_active`: the cumulative number
-/// of rotated outbound handshakes (one per [`RotatingProfileSelector::select`]
-/// call). Exposed for the telemetry layer to poll.
+/// of rotated outbound connections resolved through
+/// [`resolve_connection_profile`] (one bump per rotating resolution). Exposed
+/// for the telemetry layer to poll.
 static FINGERPRINT_ROTATION_ACTIVE: AtomicU64 = AtomicU64::new(0);
 
-/// Returns the cumulative count of rotated TLS handshakes — the
-/// `tls.fingerprint_rotation_active` telemetry counter.
+/// Returns the cumulative count of rotated TLS connections resolved through
+/// [`resolve_connection_profile`] — the `tls.fingerprint_rotation_active`
+/// telemetry counter.
 #[must_use]
 pub fn fingerprint_rotation_count() -> u64 {
     FINGERPRINT_ROTATION_ACTIVE.load(Ordering::Relaxed)
@@ -39,6 +41,7 @@ const DEFAULT_ROTATION_POOL: &[&str] = &["chrome_stable", "firefox_stable", "saf
 pub struct RotatingProfileSelector {
     pool: Vec<&'static str>,
     profile_set_id: &'static str,
+    rotation_count: AtomicU64,
 }
 
 impl RotatingProfileSelector {
@@ -66,7 +69,11 @@ impl RotatingProfileSelector {
             )?;
             resolved.push(canonical);
         }
-        Ok(Self { pool: resolved, profile_set_id: profile::profile_catalog().default_profile_set_id })
+        Ok(Self {
+            pool: resolved,
+            profile_set_id: profile::profile_catalog().default_profile_set_id,
+            rotation_count: AtomicU64::new(0),
+        })
     }
 
     /// A selector over the default one-per-browser-family pool
@@ -84,16 +91,28 @@ impl RotatingProfileSelector {
     }
 
     /// Pick a fingerprint profile for one outbound connection and record the
-    /// rotation in the `tls.fingerprint_rotation_active` telemetry counter.
+    /// selection on the selector-local counter ([`Self::selection_count`]).
+    /// Process-global telemetry is bumped by [`resolve_connection_profile`]
+    /// when a rotated connection is resolved through it, so exact counting
+    /// stays observable per instance without cross-instance interference.
     #[must_use]
     pub fn select(&self, authority: &str, session_seed: u64) -> &'static str {
         let hash = stable_rotation_hash(authority, session_seed, self.profile_set_id);
         let span = self.pool.len() as u64;
         let idx = usize::try_from(hash % span).unwrap_or(0);
         let chosen = self.pool[idx];
-        FINGERPRINT_ROTATION_ACTIVE.fetch_add(1, Ordering::Relaxed);
-        tracing::debug!(profile = chosen, "tls.fingerprint_rotation_active");
+        self.rotation_count.fetch_add(1, Ordering::Relaxed);
+        tracing::debug!(profile = chosen, "tls fingerprint selected");
         chosen
+    }
+
+    /// Selector-local count of selections. Exact per-instance counting is
+    /// race-free regardless of which test runner (cargo test / nextest) or
+    /// sibling tests execute concurrently; the process-global
+    /// [`fingerprint_rotation_count`] is shared by all rotating resolutions.
+    #[cfg(test)]
+    fn selection_count(&self) -> u64 {
+        self.rotation_count.load(Ordering::Relaxed)
     }
 }
 
@@ -196,7 +215,9 @@ pub fn resolve_connection_profile(requested: &str, authority: &str) -> &'static 
     if is_rotating_profile(requested) {
         let selector = DEFAULT_SELECTOR.get_or_init(RotatingProfileSelector::with_default_pool);
         let seed = ROTATION_CONNECTION_SEQ.fetch_add(1, Ordering::Relaxed);
-        selector.select(authority, seed)
+        let chosen = selector.select(authority, seed);
+        FINGERPRINT_ROTATION_ACTIVE.fetch_add(1, Ordering::Relaxed);
+        chosen
     } else {
         profile::lookup_profile(requested).name
     }
@@ -284,14 +305,13 @@ mod selector_tests {
 
     #[test]
     fn counter_increments_once_per_selection() {
-        // Relies on nextest's process-per-test isolation: no other test mutates
-        // this process's FINGERPRINT_ROTATION_ACTIVE concurrently.
-        let before = fingerprint_rotation_count();
+        // Selector-local counting: the exact assertion stays valid no matter
+        // which runner (cargo test / nextest) or sibling tests run in parallel.
         let selector = RotatingProfileSelector::with_default_pool();
         for seed in 0..10 {
             let _ = selector.select("c.example", seed);
         }
-        assert_eq!(fingerprint_rotation_count() - before, 10);
+        assert_eq!(selector.selection_count(), 10);
     }
 
     #[test]
@@ -306,7 +326,11 @@ mod selector_tests {
 
     #[test]
     fn resolve_connection_profile_rotates_and_counts_for_the_marker() {
-        // nextest process-per-test isolation: this process's counter is ours alone.
+        // Only this test reaches the global telemetry counter — every other
+        // test drives its own selector instance, whose selections no longer
+        // touch the process-global counter. The exact delta assertion is
+        // therefore deterministic under both cargo test threads and nextest
+        // per-process isolation.
         let before = fingerprint_rotation_count();
         let resolved: Vec<&str> =
             (0..100).map(|_| resolve_connection_profile(ROTATING_PROFILE_MARKER, "rot.example")).collect();
