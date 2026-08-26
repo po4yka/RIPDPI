@@ -2,16 +2,16 @@
 id: EPC-1786264762917282
 title: Epic - Transport obfuscation and network-signature research
 kind: epic
-status: backlog
+status: doing
 area: epic
 priority: medium
-owner: unassigned
+owner: Transport obfuscation research lane
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917282-epic-transport-obfuscation-research
 created: 2026-06-10
-updated: 2026-06-11
+updated: 2026-08-26
 source_wiki_pages: []
 linked_task: null
 ---
