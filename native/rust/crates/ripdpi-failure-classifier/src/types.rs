@@ -216,30 +216,63 @@ mod tests {
         assert_eq!(e.tags, vec!["foo=bar", "baz=42"]);
     }
 
+    /// Every [`FailureClass`] variant paired with its canonical `as_str`
+    /// form. Kept in one place so the `as_str` and serde round-trip tests
+    /// cannot silently drift apart.
+    const ALL_CLASSES: &[(FailureClass, &str)] = &[
+        (FailureClass::Unknown, "unknown"),
+        (FailureClass::DnsTampering, "dns_tampering"),
+        (FailureClass::DnsResolutionFailure, "dns_resolution_failure"),
+        (FailureClass::TcpReset, "tcp_reset"),
+        (FailureClass::SilentDrop, "silent_drop"),
+        (FailureClass::TlsAlert, "tls_alert"),
+        (FailureClass::HttpBlockpage, "http_blockpage"),
+        (FailureClass::QuicBreakage, "quic_breakage"),
+        (FailureClass::Redirect, "redirect"),
+        (FailureClass::TlsHandshakeFailure, "tls_handshake_failure"),
+        (FailureClass::ConnectFailure, "connect_failure"),
+        (FailureClass::StrategyExecutionFailure, "strategy_execution_failure"),
+        (FailureClass::ConnectionFreeze, "connection_freeze"),
+        (FailureClass::CapabilitySkipped, "capability_skipped"),
+        (FailureClass::TuicVersionUnsupported, "tuic_version_unsupported"),
+        (FailureClass::ShadowTlsVersionMismatch, "shadowtls_version_mismatch"),
+        (FailureClass::IpBlockSuspect, "ip_block_suspect"),
+        (FailureClass::MasqueH3TcpUnsupported, "masque_h3_tcp_unsupported"),
+        (FailureClass::ConfirmGoodDpiSuspected, "confirm_good_dpi_suspected"),
+    ];
+
+    /// Compile-time exhaustiveness guard: this wildcard-free match fails
+    /// to compile when a new [`FailureClass`] variant is added without
+    /// updating [`ALL_CLASSES`].
+    fn assert_exhaustive(class: FailureClass) {
+        match class {
+            FailureClass::Unknown
+            | FailureClass::DnsTampering
+            | FailureClass::DnsResolutionFailure
+            | FailureClass::TcpReset
+            | FailureClass::SilentDrop
+            | FailureClass::TlsAlert
+            | FailureClass::HttpBlockpage
+            | FailureClass::QuicBreakage
+            | FailureClass::Redirect
+            | FailureClass::TlsHandshakeFailure
+            | FailureClass::ConnectFailure
+            | FailureClass::StrategyExecutionFailure
+            | FailureClass::ConnectionFreeze
+            | FailureClass::CapabilitySkipped
+            | FailureClass::TuicVersionUnsupported
+            | FailureClass::ShadowTlsVersionMismatch
+            | FailureClass::IpBlockSuspect
+            | FailureClass::MasqueH3TcpUnsupported
+            | FailureClass::ConfirmGoodDpiSuspected => {}
+        }
+    }
+
     #[test]
     fn failure_class_as_str_covers_all_variants() {
-        let cases = [
-            (FailureClass::Unknown, "unknown"),
-            (FailureClass::DnsTampering, "dns_tampering"),
-            (FailureClass::DnsResolutionFailure, "dns_resolution_failure"),
-            (FailureClass::TcpReset, "tcp_reset"),
-            (FailureClass::SilentDrop, "silent_drop"),
-            (FailureClass::TlsAlert, "tls_alert"),
-            (FailureClass::HttpBlockpage, "http_blockpage"),
-            (FailureClass::QuicBreakage, "quic_breakage"),
-            (FailureClass::Redirect, "redirect"),
-            (FailureClass::TlsHandshakeFailure, "tls_handshake_failure"),
-            (FailureClass::ConnectFailure, "connect_failure"),
-            (FailureClass::StrategyExecutionFailure, "strategy_execution_failure"),
-            (FailureClass::ConnectionFreeze, "connection_freeze"),
-            (FailureClass::CapabilitySkipped, "capability_skipped"),
-            (FailureClass::TuicVersionUnsupported, "tuic_version_unsupported"),
-            (FailureClass::ShadowTlsVersionMismatch, "shadowtls_version_mismatch"),
-            (FailureClass::IpBlockSuspect, "ip_block_suspect"),
-            (FailureClass::ConfirmGoodDpiSuspected, "confirm_good_dpi_suspected"),
-        ];
-        for (variant, expected) in cases {
-            assert_eq!(variant.as_str(), expected, "{variant:?} should map to {expected:?}");
+        for (variant, expected) in ALL_CLASSES {
+            assert_exhaustive(*variant);
+            assert_eq!(variant.as_str(), *expected, "{variant:?} should map to {expected:?}");
         }
     }
 
@@ -301,27 +334,10 @@ mod tests {
 
     #[test]
     fn failure_class_serde_round_trip() {
-        for class in [
-            FailureClass::Unknown,
-            FailureClass::DnsTampering,
-            FailureClass::DnsResolutionFailure,
-            FailureClass::TcpReset,
-            FailureClass::SilentDrop,
-            FailureClass::TlsAlert,
-            FailureClass::HttpBlockpage,
-            FailureClass::QuicBreakage,
-            FailureClass::Redirect,
-            FailureClass::TlsHandshakeFailure,
-            FailureClass::ConnectFailure,
-            FailureClass::StrategyExecutionFailure,
-            FailureClass::ConnectionFreeze,
-            FailureClass::CapabilitySkipped,
-            FailureClass::IpBlockSuspect,
-            FailureClass::ConfirmGoodDpiSuspected,
-        ] {
-            let json = serde_json::to_string(&class).unwrap();
+        for (class, _) in ALL_CLASSES {
+            let json = serde_json::to_string(class).unwrap();
             let deserialized: FailureClass = serde_json::from_str(&json).unwrap();
-            assert_eq!(class, deserialized, "round-trip failed for {class:?}");
+            assert_eq!(class, &deserialized, "round-trip failed for {class:?}");
         }
     }
 
