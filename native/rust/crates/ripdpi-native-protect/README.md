@@ -8,7 +8,14 @@
 
 - The registry and generation-token behavior belong here.
 - JNI callback installation belongs in Android adapter crates.
-- Runtime callers should use `ripdpi-runtime-platform` facades unless they are the Android adapters that install the callback.
+- The canonical seam for runtime consumers is the `ripdpi-runtime-platform`
+  `protect` facade; `ripdpi-relay-core` consumes `SocketProtectionPolicy` only
+  through the `ripdpi-relay-tls-transports` re-export so it holds no direct
+  registry dependency.
+- Relay transport crates currently declare direct dependencies for the policy
+  type (and for test fakes). New crates should not add further direct edges;
+  follow the `relay-core` re-export pattern or use the facade, and update this
+  section plus `docs/architecture/NATIVE_RUST.md` if the grouping changes.
 
 ## Checks
 
