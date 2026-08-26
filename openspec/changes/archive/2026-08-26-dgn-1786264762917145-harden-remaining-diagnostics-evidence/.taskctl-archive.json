@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-26T08:35:36Z",
+  "change": "dgn-1786264762917145-harden-remaining-diagnostics-evidence",
+  "commit_sha": "c465912fe9b1ea8256f1f22b98be373dd522c442",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DGN-1786264762917145"
+}

@@ -2,7 +2,7 @@
 id: DGN-1786264762917145
 title: Harden remaining diagnostics evidence
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Codex diagnostics completion coordinator
@@ -13,6 +13,9 @@ openspec_change: dgn-1786264762917145-harden-remaining-diagnostics-evidence
 created: 2026-07-29
 updated: 2026-08-26
 status_detail: All execution steps complete; awaiting acceptance review
+closed_at: "2026-08-26T08:35:37Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Content audit verified all six lanes on main (archive reconciliation, outbox paging, acceptance CAS, conflict orderings, projection consistency); focused suites BUILD SUCCESSFUL in 23m31s at f28e90966; full-CI run 32933047982 green on exact SHA c465912fe
 ---
 
 ## Goal

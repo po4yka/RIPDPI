@@ -1,0 +1,11 @@
+{
+  "change": "dgn-1786264762917145-harden-remaining-diagnostics-evidence",
+  "evidence_summary": "Content audit verified all six lanes on main (archive reconciliation, outbox paging, acceptance CAS, conflict orderings, projection consistency); focused suites BUILD SUCCESSFUL in 23m31s at f28e90966; full-CI run 32933047982 green on exact SHA c465912fe",
+  "execution_sha256": "7610b4460e860fd46ad2b5537d7185419693d87c72283d23682614abb6f75933",
+  "issue_sha256": "2f74269c31ecfd5ce2396817ebbcca559fe9aaa4a23cfd5e2251750b632e890d",
+  "outcome": "done",
+  "prepared_at": "2026-08-26T08:35:37Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786264762917145"
+}
