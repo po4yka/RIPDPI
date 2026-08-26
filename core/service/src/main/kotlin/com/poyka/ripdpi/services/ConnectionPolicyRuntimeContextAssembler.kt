@@ -86,7 +86,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
          * self-contained in the stored record, so it is already live; ASN and
          * per-host ECH have no reliable source on this connection hot path yet,
          * so they stay unknown (a safe no-op that never wrongly drops a policy).
-         * TODO(npochaev): populate currentAsn / echCapable once a hot-path
+         * TODO(author): populate currentAsn / echCapable once a hot-path
          * network-metadata source lands (epic: wire orchestrator to production).
          */
         private fun currentDirectPolicyEnvironment(): DirectPolicyEnvironment = DirectPolicyEnvironment()
