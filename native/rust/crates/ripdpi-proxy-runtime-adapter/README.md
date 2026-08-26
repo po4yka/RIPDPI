@@ -32,7 +32,7 @@ triggers, TCP rotation, UDP desync, and ws-bootstrap glue.
   `ripdpi-runtime-decision-engine`, `ripdpi-runtime-decision-ports`,
   `ripdpi-runtime-platform`, `ripdpi-runtime-services`, `ripdpi-session`,
   `ripdpi-socks5-core`, `ripdpi-ws-bootstrap`; plus
-  `base64`, `daemonize`, `libc`, `metrics`, `nix`, `socket2`, `tracing`.
+  `base64`, `libc`, `metrics`, `nix`, `socket2`, `tracing`.
 - **Downstream:** `ripdpi-proxy-runtime` (the proxy runtime crate; the runtime
   core of `libripdpi.so`).
 

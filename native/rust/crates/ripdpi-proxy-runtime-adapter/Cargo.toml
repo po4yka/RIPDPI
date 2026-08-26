@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 base64 = { workspace = true }
 constant_time_eq = { workspace = true }
-daemonize = { workspace = true, optional = true }
 libc = { workspace = true }
 metrics = { workspace = true }
 nix = { workspace = true }
@@ -30,6 +29,9 @@ socket2 = { workspace = true }
 tracing = { workspace = true }
 
 [features]
-daemonize = ["dep:daemonize"]
+# Compile-time switch for opt-in CLI daemonization; the implementation is the
+# in-repo double-fork primitive in ripdpi-runtime-platform, not an external
+# crate.
+daemonize = []
 loom = ["ripdpi-proxy-runtime-desync-adapter/loom", "ripdpi-runtime-api/loom"]
 io-uring = ["ripdpi-runtime-platform/io-uring"]

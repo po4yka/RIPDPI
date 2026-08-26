@@ -229,7 +229,6 @@ russh = "=0.62.7"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
-daemonize = "0.5"
 enum-map = "3"
 arti-client = { version = "0.44.0", default-features = false, features = ["tokio", "rustls", "pt-client", "bridge-client", "onion-service-client", "static-sqlite"] }
 

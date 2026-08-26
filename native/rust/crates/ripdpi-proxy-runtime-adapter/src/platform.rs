@@ -495,8 +495,6 @@ pub mod process {
     use std::io::Write;
     use std::path::{Path, PathBuf};
 
-    #[cfg(feature = "daemonize")]
-    use daemonize::Daemonize;
     use nix::fcntl::{Flock, FlockArg};
 
     use crate::model::config::ProcessSettings;
@@ -509,13 +507,12 @@ pub mod process {
         pub fn prepare(settings: ProcessSettings) -> io::Result<Self> {
             let pid_file_path = settings.pid_file_path;
             if settings.daemonize {
-                daemonize(pid_file_path.as_deref())?;
+                daemonize()?;
             }
-            let pid_file = match (settings.daemonize, pid_file_path) {
-                (true, Some(path)) => Some(PidFileGuard::remove_on_drop(path)),
-                (false, Some(path)) => Some(PidFileGuard::create(&path)?),
-                (_, None) => None,
-            };
+            // Both modes converge on the same flock-backed pid file guard:
+            // the exclusive nonblocking lock doubles as single-instance
+            // enforcement, and Drop releases the lock before unlinking.
+            let pid_file = pid_file_path.map(|path| PidFileGuard::create(&path)).transpose()?;
             Ok(Self { _pid_file: pid_file })
         }
     }
@@ -541,14 +538,12 @@ pub mod process {
     }
 
     #[cfg(feature = "daemonize")]
-    fn daemonize(pid_file: Option<&Path>) -> io::Result<()> {
-        let daemon =
-            pid_file.map_or_else(Daemonize::new, |path| Daemonize::new().pid_file(path)).working_directory("/");
-        daemon.start().map_err(io::Error::other)
+    fn daemonize() -> io::Result<()> {
+        ripdpi_runtime_platform::capability::daemonize()
     }
 
     #[cfg(not(feature = "daemonize"))]
-    fn daemonize(_pid_file: Option<&Path>) -> io::Result<()> {
+    fn daemonize() -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Unsupported, "daemonization support is disabled in this build"))
     }
 
@@ -568,10 +563,6 @@ pub mod process {
             file.flush()?;
 
             Ok(Self { file: Some(lock), path: path.to_path_buf() })
-        }
-
-        fn remove_on_drop(path: PathBuf) -> Self {
-            Self { file: None, path }
         }
     }
 
@@ -649,21 +640,6 @@ pub mod process {
             let guard2 = PidFileGuard::create(&path).expect("re-create after drop");
             drop(guard2);
             assert!(!path.exists(), "second guard must also clean up");
-        }
-
-        #[test]
-        fn remove_on_drop_variant_unlinks_without_flock() {
-            // The `remove_on_drop` constructor takes ownership of a
-            // post-daemonize path and only unlinks on drop (no flock).
-            // The Drop ordering fix still has to handle `file: None`
-            // safely.
-            let path = unique_path("remove-only");
-            fs::write(&path, "stub").expect("write stub");
-            assert!(path.exists());
-            {
-                let _guard = PidFileGuard::remove_on_drop(path.clone());
-            }
-            assert!(!path.exists(), "remove_on_drop variant must still unlink");
         }
 
         #[cfg(not(feature = "daemonize"))]

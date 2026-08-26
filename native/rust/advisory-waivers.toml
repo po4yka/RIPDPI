@@ -9,13 +9,6 @@ expires = "2026-10-11"
 tracking = "docs/tasks/issues/replace-unmaintained-paste-proc-macro.md"
 
 [[waivers]]
-id = "RUSTSEC-2025-0069"
-owner = "Native security maintainer"
-reason = "daemonize is CLI-only after feature isolation and has no maintained compatible replacement"
-expires = "2026-10-11"
-tracking = "docs/tasks/issues/replace-unmaintained-daemonize-cli-dependency.md"
-
-[[waivers]]
 id = "RUSTSEC-2023-0071"
 owner = "Native security maintainer"
 reason = "current Arti and russh paths have no safe upgrade and do not expose attacker-chosen RSA private-key operations"
