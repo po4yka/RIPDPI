@@ -58,6 +58,21 @@ fn fingerprint_match_detects_body_and_header_patterns() {
 }
 
 #[test]
+fn fingerprint_match_folds_unicode_case_for_cyrillic_patterns() {
+    // to_ascii_lowercase leaves Cyrillic untouched, so sentence-case
+    // blockpage text used to miss the lowercase CSV patterns.
+    let fingerprints = load_blockpage_fingerprints();
+    assert_eq!(
+        match_blockpage_response(&[], "<html>Доступ Ограничен</html>".as_bytes(), &fingerprints,),
+        Some("rkn_blocked_ru".to_string()),
+    );
+    assert_eq!(
+        match_blockpage_response(&[], "<html>Решением Суда</html>".as_bytes(), &fingerprints,),
+        Some("rkn_decision".to_string()),
+    );
+}
+
+#[test]
 fn http_block_detection_ignores_generic_redirects_and_429() {
     let redirect = b"HTTP/1.1 302 Found\r\nLocation: https://example.org/\r\n\r\n";
     let too_many = b"HTTP/1.1 429 Too Many Requests\r\nRetry-After: 10\r\n\r\n";

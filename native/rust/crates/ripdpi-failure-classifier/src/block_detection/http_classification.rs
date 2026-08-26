@@ -80,7 +80,7 @@ fn match_redirect_block(headers: &[(String, String)]) -> Option<String> {
     let location = headers
         .iter()
         .find(|(name, _)| name.eq_ignore_ascii_case("location"))
-        .map(|(_, value)| value.to_ascii_lowercase())?;
+        .map(|(_, value)| value.to_lowercase())?;
     if location.contains("block") || location.contains("filter") || location.contains("warning") {
         return Some("redirect_block_url".to_string());
     }
@@ -89,7 +89,7 @@ fn match_redirect_block(headers: &[(String, String)]) -> Option<String> {
 
 /// Match generic blockpage keywords in the response body (case-insensitive).
 pub(crate) fn match_body_keyword(body: &[u8]) -> Option<String> {
-    let body_lower = String::from_utf8_lossy(body).to_ascii_lowercase();
+    let body_lower = String::from_utf8_lossy(body).to_lowercase();
     BLOCKPAGE_KEYWORDS
         .iter()
         .find(|keyword| body_lower.contains(**keyword))
