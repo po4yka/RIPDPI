@@ -10,7 +10,7 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] RST-1786264762919066 Implement Replace unmaintained daemonize CLI dependency and verify its portfolio acceptance criteria #feature !low @item:RST-1786264762917942
+- [x] RST-1786264762919066 Implement Replace unmaintained daemonize CLI dependency and verify its portfolio acceptance criteria #feature !low @item:RST-1786264762917942
 
 ## Verification
 
