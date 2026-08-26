@@ -86,10 +86,13 @@ pub enum ArmGate {
     OwnedStackOnly,
 }
 
-/// Verdict returned by [`classify_ip_block_suspect`]. When `verdict` is
-/// `IpBlockSuspect` the caller must honour `arm_gate = OwnedStackOnly`.
-/// When `verdict` is `PendingSecondFlow` the engine must wait for one more
-/// flow before persisting any classification.
+/// Verdict produced by the IP-block-suspect classifier. The classifier
+/// itself lives in `ripdpi-diagnostics-classification`
+/// (`classification/ip_block_suspect.rs`); this crate owns the shared
+/// verdict types so both crates can depend on them without a dependency
+/// cycle. When `verdict` is `IpBlockSuspect` the caller must honour
+/// `arm_gate = OwnedStackOnly`. When `verdict` is `PendingSecondFlow` the
+/// engine must wait for one more flow before persisting any classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IpBlockVerdict {

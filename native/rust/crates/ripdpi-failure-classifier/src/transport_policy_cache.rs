@@ -227,9 +227,12 @@ impl TransportPolicyCache {
         removed
     }
 
-    /// Convenience: invalidate all entries for `host` that have ≥ 3 failures.
-    /// Equivalent to calling [`record_failure`] three times but without the
-    /// intermediate state.
+    /// Invalidate all entries for `host` immediately, regardless of their
+    /// recorded consecutive-failure counts. Use when the caller has
+    /// already established (outside this cache) that three failures
+    /// occurred and the entries must not be trusted anymore. Unlike
+    /// [`record_failure`], this never waits for a failure counter to
+    /// reach 3.
     pub fn invalidate_on_three_failures(&mut self, host: &str) -> bool {
         let before = self.entries.len();
         self.entries.retain(|key, _| key.host != host);
