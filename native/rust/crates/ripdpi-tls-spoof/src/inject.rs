@@ -50,6 +50,8 @@
 //! the `std` level — `TcpStream` shares one fd across clones — so this
 //! contract is documentation, not types.
 
+#[cfg(target_os = "linux")]
+use std::hash::{BuildHasher, Hasher};
 use std::io;
 use std::net::TcpStream;
 #[cfg(target_os = "linux")]
@@ -221,7 +223,7 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
 
         // Open SOCK_RAW / IPPROTO_RAW with IP_HDRINCL so we supply the full
         // IPv4 header.
-        let raw = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
+        let raw = Socket::new(Domain::IPV4, Type::from(libc::SOCK_RAW), Some(Protocol::from(libc::IPPROTO_RAW)))?;
         // SAFETY: `raw.as_raw_fd()` is a valid open socket fd. `IP_HDRINCL`
         // expects a `c_int` value (1 = enabled); the pointer operand is a
         // valid reference to a stack-allocated `i32`. The fd is not closed or
