@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 
 pub const CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str = "connection_concurrency_v1";
 
+/// Canonical TLS profile ordering. Single source of truth for both the
+/// probe-matrix completeness check ([`matrix_is_complete`]) and the
+/// recommendation tie-breaks ([`recommend_profile`]).
+const PROFILE_ORDER: &[&str] =
+    &["chrome_stable", "chrome_desktop_stable", "firefox_stable", "firefox_ech_stable", "safari_stable", "edge_stable"];
+
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionConcurrencyEvidence {
@@ -215,14 +221,14 @@ fn has_healthy_baseline(clean: &[&ConnectionConcurrencyCell], cell: &ConnectionC
 }
 
 fn matrix_is_complete(clean: &[&ConnectionConcurrencyCell], cells: &[ConnectionConcurrencyCell]) -> bool {
-    const CANONICAL_PROFILE_COUNT: usize = 6;
     if clean.len() != cells.len() {
         return false;
     }
     let targets = clean.iter().map(|cell| cell.target_id.as_str()).collect::<BTreeSet<_>>();
     let profiles = clean.iter().map(|cell| cell.tls_profile_id.as_str()).collect::<BTreeSet<_>>();
     let levels = clean.iter().map(|cell| cell.requested_parallelism).collect::<BTreeSet<_>>();
-    profiles.len() == CANONICAL_PROFILE_COUNT
+    let canonical_profile_count = PROFILE_ORDER.len();
+    profiles.len() == canonical_profile_count
         && targets.iter().all(|target| {
             profiles.iter().all(|profile| {
                 levels.iter().all(|level| {
@@ -269,14 +275,6 @@ fn recommend_profile<'a>(
     healthy_caps: &'a BTreeMap<String, u16>,
     current_profile: Option<&str>,
 ) -> Option<(&'a str, u16)> {
-    const PROFILE_ORDER: &[&str] = &[
-        "chrome_stable",
-        "chrome_desktop_stable",
-        "firefox_stable",
-        "firefox_ech_stable",
-        "safari_stable",
-        "edge_stable",
-    ];
     healthy_caps.iter().map(|(profile, level)| (profile.as_str(), *level)).max_by_key(|(profile, level)| {
         let current = u8::from(current_profile == Some(*profile));
         let catalog_rank = PROFILE_ORDER

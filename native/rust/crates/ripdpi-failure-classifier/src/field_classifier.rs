@@ -6,7 +6,8 @@
 
 use ripdpi_packets::fields::FieldCache;
 
-use crate::block_detection::{BlockpageFingerprint, match_blockpage_response};
+use crate::block_detection::{BlockpageFingerprint, match_blockpage_response, match_body_keyword};
+use crate::tls::tls_alert_description;
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage};
 
 /// Classify a failure from pre-extracted protocol fields.
@@ -18,7 +19,7 @@ use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, Fai
 pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerprint]) -> Option<ClassifiedFailure> {
     // 1. TLS alert (highest priority — unambiguous signal).
     if let Some(alert_code) = cache.tls_alert_code() {
-        let alert_desc = tls_alert_description(alert_code);
+        let alert_desc = tls_alert_description(Some(alert_code));
         return Some(
             ClassifiedFailure::new(
                 FailureClass::TlsAlert,
@@ -69,7 +70,7 @@ pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerp
         }
 
         // HTTP 403 with generic block keywords in body.
-        if status == 403 && has_blockpage_keywords(&body) {
+        if status == 403 && match_body_keyword(&body).is_some() {
             return Some(ClassifiedFailure::new(
                 FailureClass::HttpBlockpage,
                 FailureStage::HttpResponse,
@@ -99,29 +100,6 @@ pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerp
     // Callers should only invoke this when the request was a TLS ClientHello.
 
     None
-}
-
-const BLOCKPAGE_KEYWORDS: &[&str] = &["blocked", "access denied", "forbidden", "restriction", "censorship"];
-
-fn has_blockpage_keywords(body: &[u8]) -> bool {
-    let text = String::from_utf8_lossy(body).to_ascii_lowercase();
-    BLOCKPAGE_KEYWORDS.iter().any(|kw| text.contains(kw))
-}
-
-fn tls_alert_description(code: u8) -> &'static str {
-    match code {
-        0 => "close_notify",
-        10 => "unexpected_message",
-        20 => "bad_record_mac",
-        40 => "handshake_failure",
-        42 => "bad_certificate",
-        47 => "illegal_parameter",
-        48 => "unknown_ca",
-        70 => "protocol_version",
-        80 => "internal_error",
-        112 => "unrecognized_name",
-        _ => "other",
-    }
 }
 
 #[cfg(test)]

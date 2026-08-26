@@ -88,7 +88,7 @@ fn match_redirect_block(headers: &[(String, String)]) -> Option<String> {
 }
 
 /// Match generic blockpage keywords in the response body (case-insensitive).
-fn match_body_keyword(body: &[u8]) -> Option<String> {
+pub(crate) fn match_body_keyword(body: &[u8]) -> Option<String> {
     let body_lower = String::from_utf8_lossy(body).to_ascii_lowercase();
     BLOCKPAGE_KEYWORDS
         .iter()

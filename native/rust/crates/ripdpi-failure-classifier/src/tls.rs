@@ -39,7 +39,9 @@ fn looks_like_tls_alert(response: &[u8]) -> bool {
     response.len() >= 7 && response[0] == 0x15 && response[1] == 0x03 && (0x00..=0x04).contains(&response[2])
 }
 
-fn tls_alert_description(alert: Option<u8>) -> &'static str {
+/// Canonical TLS alert-code description table shared by the raw-record
+/// and field-cache classification paths.
+pub(crate) fn tls_alert_description(alert: Option<u8>) -> &'static str {
     match alert {
         Some(0) => "close_notify",
         Some(10) => "unexpected_message",

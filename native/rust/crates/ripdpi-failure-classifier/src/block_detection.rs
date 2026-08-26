@@ -10,6 +10,7 @@ pub use fingerprint_catalog::{
     load_blockpage_fingerprints, load_blockpage_fingerprints_from_csv,
 };
 pub use http_classification::classify_http_response_block;
+pub(crate) use http_classification::match_body_keyword;
 pub use response_fingerprint::match_blockpage_response;
 pub use signal_mapping::{block_signal_from_failure, block_signal_from_failure_with_context};
 pub use signal_types::{BlockSignal, BlockSignalObservation};
