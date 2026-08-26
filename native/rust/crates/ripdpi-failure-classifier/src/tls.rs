@@ -1,10 +1,25 @@
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
+/// TLS alert description code for `close_notify`.
+///
+/// `close_notify` signals a graceful, negotiated close — not a failure.
+/// Both classification paths must treat it as "no signal" so a server
+/// that shuts a connection down cleanly is not reported as censorship
+/// and does not trigger a strategy retry.
+pub(crate) const CLOSE_NOTIFY_ALERT: u8 = 0;
+
+/// Classify a raw TLS alert record as a [`FailureClass::TlsAlert`]
+/// failure. Returns `None` for non-alert records, truncated records, and
+/// `close_notify` (graceful close — see [`CLOSE_NOTIFY_ALERT`]).
 pub fn classify_tls_alert(response: &[u8]) -> Option<ClassifiedFailure> {
     if !looks_like_tls_alert(response) {
         return None;
     }
-    let alert_desc = tls_alert_description(response.get(6).copied());
+    let alert_code = response.get(6).copied()?;
+    if alert_code == CLOSE_NOTIFY_ALERT {
+        return None;
+    }
+    let alert_desc = tls_alert_description(Some(alert_code));
     Some(
         ClassifiedFailure::new(
             FailureClass::TlsAlert,
@@ -97,7 +112,6 @@ mod tests {
     #[test]
     fn tls_alert_identifies_known_alert_codes() {
         let cases: &[(u8, &str)] = &[
-            (0, "close_notify"),
             (10, "unexpected_message"),
             (20, "bad_record_mac"),
             (40, "handshake_failure"),
@@ -117,6 +131,13 @@ mod tests {
                 f.evidence.tags,
             );
         }
+    }
+
+    #[test]
+    fn close_notify_is_a_graceful_close_not_a_failure() {
+        // Well-formed close_notify alert record.
+        let close = [0x15, 0x03, 0x03, 0x00, 0x02, 0x01, CLOSE_NOTIFY_ALERT];
+        assert!(classify_tls_alert(&close).is_none());
     }
 
     #[test]

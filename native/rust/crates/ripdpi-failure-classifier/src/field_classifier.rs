@@ -7,7 +7,7 @@
 use ripdpi_packets::fields::FieldCache;
 
 use crate::block_detection::{BlockpageFingerprint, match_blockpage_response, match_body_keyword};
-use crate::tls::tls_alert_description;
+use crate::tls::{CLOSE_NOTIFY_ALERT, tls_alert_description};
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage};
 
 /// Classify a failure from pre-extracted protocol fields.
@@ -15,10 +15,16 @@ use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, Fai
 /// Checks TLS alerts, HTTP blockpages/redirects, and TLS handshake
 /// failures using cached fields — no byte-level re-parsing needed.
 ///
+/// TLS `close_notify` is treated as a graceful close rather than a
+/// failure: classification falls through to the HTTP checks instead.
+///
 /// Returns `None` if no failure is detected.
 pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerprint]) -> Option<ClassifiedFailure> {
-    // 1. TLS alert (highest priority — unambiguous signal).
-    if let Some(alert_code) = cache.tls_alert_code() {
+    // 1. TLS alert (highest priority — unambiguous signal), except a
+    //    graceful close_notify, which is not a failure at all.
+    if let Some(alert_code) = cache.tls_alert_code()
+        && alert_code != CLOSE_NOTIFY_ALERT
+    {
         let alert_desc = tls_alert_description(Some(alert_code));
         return Some(
             ClassifiedFailure::new(
@@ -180,5 +186,25 @@ mod tests {
         let result = classify_from_fields(&cache, &empty_fingerprints());
         let failure = result.expect("should classify");
         assert_eq!(failure.class, FailureClass::TlsAlert, "TLS alert should take priority");
+    }
+
+    #[test]
+    fn close_notify_falls_through_to_http_checks() {
+        let mut cache = FieldCache::new();
+        cache.on_field(&ProtocolField::TlsAlertCode(0));
+        cache.on_field(&ProtocolField::HttpStatusCode(403));
+        cache.on_field(&ProtocolField::HttpBodyChunk(b"Access Denied by policy".to_vec()));
+
+        let result = classify_from_fields(&cache, &empty_fingerprints());
+        let failure = result.expect("close_notify must not mask the http blockpage");
+        assert_eq!(failure.class, FailureClass::HttpBlockpage);
+    }
+
+    #[test]
+    fn lone_close_notify_is_not_a_failure() {
+        let mut cache = FieldCache::new();
+        cache.on_field(&ProtocolField::TlsAlertCode(0));
+
+        assert!(classify_from_fields(&cache, &empty_fingerprints()).is_none());
     }
 }
