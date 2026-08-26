@@ -92,6 +92,22 @@ pub const AVAILABLE_PROFILES: &[&str] =
 pub const DEFAULT_PROFILE_CATALOG: ProfileCatalog =
     ProfileCatalog { version: "v1", default_profile_set_id: "browser_family_v2", profiles: AVAILABLE_PROFILES };
 
+/// Reserved alias accepted everywhere a TLS profile name is expected. It
+/// resolves to the Chrome Android stable template and is the historical
+/// default value carried by MASQUE / relay-core / bench configs. It is not a
+/// published catalog entry ([`AVAILABLE_PROFILES`]) but must stay valid for
+/// [`crate::profile_invariants_pass`] so one identifier cannot be
+/// simultaneously "valid at connect time" and "invalid at validate time".
+pub(crate) const DEFAULT_PROFILE_ALIAS: &str = "native_default";
+
+/// Whether `name` is an accepted profile input: a published [`AVAILABLE_PROFILES`]
+/// entry or the documented [`DEFAULT_PROFILE_ALIAS`]. Unknown names still
+/// resolve through the [`lookup_profile`] fallback so existing configs keep
+/// connecting, but they fail invariant gates so typos surface at validation.
+pub(crate) fn is_known_profile_input(name: &str) -> bool {
+    name == DEFAULT_PROFILE_ALIAS || AVAILABLE_PROFILES.contains(&name)
+}
+
 pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
     match name {
         "chrome_stable" => &crate::chrome::CHROME_LATEST,
@@ -100,6 +116,8 @@ pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
         "firefox_ech_stable" => &crate::firefox::FIREFOX_ECH_STABLE,
         "safari_stable" => &crate::safari::SAFARI_LATEST,
         "edge_stable" => &crate::edge::EDGE_LATEST,
+        // Canonical default-profile alias (see [`DEFAULT_PROFILE_ALIAS`]).
+        DEFAULT_PROFILE_ALIAS => &crate::chrome::CHROME_LATEST,
         _ => &crate::chrome::CHROME_LATEST,
     }
 }

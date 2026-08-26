@@ -68,6 +68,19 @@ fn unknown_profile_lookup_uses_chrome_profile() {
 }
 
 #[test]
+fn native_default_alias_is_consistent_across_lookup_and_invariants() {
+    use crate::profile_invariants_pass;
+    // The documented alias must resolve like a catalog entry AND pass the
+    // invariant gate — one identifier cannot be valid at connect time and
+    // invalid at validate time.
+    assert_eq!(crate::selected_profile_config("native_default").name, "chrome_stable");
+    assert!(profile_invariants_pass("native_default"));
+    // Truly unknown names keep the lookup fallback but fail validation gates.
+    assert_eq!(profile::lookup_profile("definitely_not_a_profile").name, "chrome_stable");
+    assert!(!profile_invariants_pass("definitely_not_a_profile"));
+}
+
+#[test]
 fn chrome_profile_matches_phase_zero_invariants() {
     let profile = profile::lookup_profile("chrome_stable");
     let metadata = selected_profile_metadata("chrome_stable");

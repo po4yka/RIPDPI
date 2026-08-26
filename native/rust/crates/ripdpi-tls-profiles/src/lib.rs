@@ -67,7 +67,11 @@ pub fn selected_profile_config(profile: &str) -> &'static ProfileConfig {
     profile::lookup_profile(profile)
 }
 
+/// Invariant gate over a profile input name. Accepts every published
+/// [`AVAILABLE_PROFILES`] entry plus the documented `"native_default"` alias.
+/// Unknown names fail even though connection-time lookup falls back to
+/// `chrome_stable`, so configuration typos stay visible at validation time.
 pub fn profile_invariants_pass(profile: &str) -> bool {
-    AVAILABLE_PROFILES.contains(&profile)
+    profile::is_known_profile_input(profile)
         && invariants::validate_profile_config(profile::lookup_profile(profile)).is_ok()
 }
