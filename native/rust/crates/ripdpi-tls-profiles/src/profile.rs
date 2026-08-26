@@ -118,7 +118,13 @@ pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
         "edge_stable" => &crate::edge::EDGE_LATEST,
         // Canonical default-profile alias (see [`DEFAULT_PROFILE_ALIAS`]).
         DEFAULT_PROFILE_ALIAS => &crate::chrome::CHROME_LATEST,
-        _ => &crate::chrome::CHROME_LATEST,
+        other => {
+            // Historical fallback contract: unknown names mimic chrome_stable.
+            // Logged loudly so a config typo is diagnosable instead of silently
+            // changing the on-wire TLS fingerprint.
+            tracing::warn!(profile = other, "unknown TLS profile name; falling back to chrome_stable");
+            &crate::chrome::CHROME_LATEST
+        }
     }
 }
 
