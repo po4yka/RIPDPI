@@ -174,6 +174,7 @@ static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 /// generation and release through [`unregister_protect_callback_if`] so a
 /// stale unregister from a superseded VPN session cannot clobber a newer
 /// session's callback.
+#[must_use = "dropping the generation leaves this registration unpairable; keep it for unregister_protect_callback_if"]
 pub fn register_protect_callback_versioned(cb: Arc<dyn ProtectCallback>) -> ProtectGeneration {
     // Relaxed: the counter only needs uniqueness, not ordering against the
     // slot write below — the write lock provides the happens-before edge.
@@ -201,6 +202,7 @@ pub fn register_protect_callback(cb: Arc<dyn ProtectCallback>) {
 /// generation (the stale unregister is ignored) or when no callback is
 /// registered at all. This is the safe release path for the paired JNI
 /// register/unregister calls.
+#[must_use = "a false return means the slot was not cleared (stale generation or empty); ignoring it hides an unpaired release"]
 pub fn unregister_protect_callback_if(generation: ProtectGeneration) -> bool {
     let mut guard = PROTECT_CB.write().expect("protect callback lock poisoned");
     match guard.as_ref() {

@@ -677,7 +677,10 @@ mod tests {
         struct Guard(ProtectGeneration);
         impl Drop for Guard {
             fn drop(&mut self) {
-                unregister_protect_callback_if(self.0);
+                // Best-effort RAII release: a false return (superseded by another
+                // test's registration) is intentionally ignored because this guard
+                // only owns cleanup for its own generation.
+                let _ = unregister_protect_callback_if(self.0);
             }
         }
 
