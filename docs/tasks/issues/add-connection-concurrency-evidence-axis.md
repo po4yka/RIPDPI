@@ -2,7 +2,7 @@
 id: DGN-1786264762917684
 title: Add connection-concurrency as an independent evidence axis
 kind: feature
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Codex
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1786264762917684-add-connection-concurrency-evidence-axis
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-08-26
+closed_at: "2026-08-26T08:22:58Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Verification chain complete: implementation 0fa837bff integrated via rebuilt history root d4034d2cc; focused suites BUILD SUCCESSFUL in 23m31s at f28e90966 covering the concurrency contract/workflow/wire tests; green full-CI run 32933047982 on exact main SHA c465912fe"
 ---
 
 ## Goal

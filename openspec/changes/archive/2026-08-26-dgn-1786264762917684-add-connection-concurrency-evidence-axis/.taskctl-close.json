@@ -1,0 +1,11 @@
+{
+  "change": "dgn-1786264762917684-add-connection-concurrency-evidence-axis",
+  "evidence_summary": "Verification chain complete: implementation 0fa837bff integrated via rebuilt history root d4034d2cc; focused suites BUILD SUCCESSFUL in 23m31s at f28e90966 covering the concurrency contract/workflow/wire tests; green full-CI run 32933047982 on exact main SHA c465912fe",
+  "execution_sha256": "89629ed974e392c6fafb7d1c2bb296bd7192c6d4976f6092210949ec8117cab5",
+  "issue_sha256": "ff7fa66776264e632c2dc9fccdeea59f559c1d9d61a7ed5787cc12a30800671e",
+  "outcome": "done",
+  "prepared_at": "2026-08-26T08:22:58Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786264762917684"
+}
