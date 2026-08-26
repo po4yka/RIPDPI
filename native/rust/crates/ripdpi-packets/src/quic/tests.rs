@@ -503,6 +503,61 @@ fn packetize_quic_initial_packet_number_changes_wire_image() {
     assert_eq!(&gapped[1..5], &QUIC_V2_VERSION.to_be_bytes());
 }
 
+/// A nonzero packet number must produce a spec-compliant nonce
+/// (IV XOR pn). Otherwise every pn under one DCID-derived key set reuses the
+/// same AES-GCM nonce and receivers computing IV^pn cannot decrypt at all.
+#[test]
+fn packetize_quic_initial_nonzero_packet_number_roundtrips() {
+    let seed = build_browser_like_quic_initial_seed(
+        QUIC_V1_VERSION,
+        Some("pnr.example.test"),
+        QuicInitialBrowserProfile::ChromeAndroid,
+    )
+    .expect("seed");
+
+    for packet_number in [1u32, 2, 7, 0xffff_ffff] {
+        let layout = QuicInitialPacketLayout {
+            crypto_frame_offsets: Vec::new(),
+            min_datagram_len: 1200,
+            extra_tail_padding: 0,
+            packet_number,
+        };
+        let packetized =
+            packetize_quic_initial(&seed, &layout).unwrap_or_else(|| panic!("packetize pn={packet_number}"));
+        let reparsed =
+            parse_quic_initial(&packetized).unwrap_or_else(|| panic!("pn={packet_number} must stay decryptable"));
+
+        assert_eq!(reparsed.host(), b"pnr.example.test", "pn={packet_number}");
+        assert_eq!(&reparsed.client_hello, &seed.client_hello[TLS_RECORD_HEADER_LEN..], "pn={packet_number}");
+    }
+}
+
+/// Distinct packet numbers under one DCID must not reuse an AES-GCM nonce:
+/// identical keystream across packets would leak payload relations to DPI.
+#[test]
+fn packetize_quic_initial_distinct_packet_numbers_use_distinct_ciphertexts() {
+    let seed = build_browser_like_quic_initial_seed(QUIC_V1_VERSION, None, QuicInitialBrowserProfile::ChromeAndroid)
+        .expect("seed");
+
+    let ciphertext_for = |packet_number: u32| -> Vec<u8> {
+        let layout = QuicInitialPacketLayout {
+            crypto_frame_offsets: Vec::new(),
+            min_datagram_len: 1200,
+            extra_tail_padding: 0,
+            packet_number,
+        };
+        let packet = packetize_quic_initial(&seed, &layout).expect("packetize");
+        let pn_offset = parse_quic_initial_header(&packet).expect("header").pn_offset;
+        // Ciphertext body only. The trailing AEAD tag also authenticates the AAD,
+        // which carries the packet number, so the tag differs even under nonce
+        // reuse and would mask an identical keystream.
+        packet[pn_offset + 4..packet.len() - QUIC_TAG_LEN].to_vec()
+    };
+
+    assert_ne!(ciphertext_for(0), ciphertext_for(1));
+    assert_ne!(ciphertext_for(1), ciphertext_for(2));
+}
+
 #[test]
 fn tamper_quic_version_returns_none_for_short_header() {
     // Short header: bit 7 = 0

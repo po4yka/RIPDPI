@@ -59,9 +59,9 @@ pub(super) fn build_quic_initial_raw(
     header.extend_from_slice(&token_varint);
     header.extend_from_slice(&payload_len_varint);
 
-    let packet_number = packet_number.to_be_bytes();
+    let packet_number_bytes = packet_number.to_be_bytes();
     let mut aad = header.clone();
-    aad.extend_from_slice(&packet_number);
+    aad.extend_from_slice(&packet_number_bytes);
 
     let secret = quic_derive_client_initial_secret(dcid, version)?;
     let (key_label, iv_label, hp_label) = if version == QUIC_V2_VERSION {
@@ -78,7 +78,15 @@ pub(super) fn build_quic_initial_raw(
 
     let unbound = UnboundKey::new(&AES_128_GCM, &key).ok()?;
     let sealing_key = LessSafeKey::new(unbound);
-    let nonce = aead::Nonce::try_assume_unique_for_key(&iv).ok()?;
+    // Nonce = IV XOR packet number (RFC 9001 section 5.3), right-aligned to
+    // the 12-byte IV. Must mirror the decrypt path in parse.rs: sealing with
+    // a raw IV would reuse one nonce for every packet number under keys that
+    // only vary with DCID, breaking AEAD confidentiality and server decoding.
+    let mut nonce_bytes = iv;
+    for (slot, byte) in nonce_bytes[4..].iter_mut().zip(u64::from(packet_number).to_be_bytes()) {
+        *slot ^= byte;
+    }
+    let nonce = aead::Nonce::try_assume_unique_for_key(&nonce_bytes).ok()?;
     let mut ciphertext = plaintext;
     let tag = sealing_key.seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext).ok()?;
 
@@ -87,7 +95,7 @@ pub(super) fn build_quic_initial_raw(
     hp_cipher.encrypt_block(&mut sample);
 
     let mut packet = header;
-    packet.extend((0..4).map(|idx| packet_number[idx] ^ sample[1 + idx]));
+    packet.extend((0..4).map(|idx| packet_number_bytes[idx] ^ sample[1 + idx]));
     packet.extend_from_slice(&ciphertext);
     packet.extend_from_slice(tag.as_ref());
     packet[0] ^= sample[0] & 0x0f;
