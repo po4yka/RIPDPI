@@ -64,6 +64,7 @@ PROMPT.md
 native/rust/.claude/
 security-audit-report.*
 .omc/
+.omo/
 docs/superpowers/
 
 # Local-only regulatory-framing review skill (Claude Code + Codex).
