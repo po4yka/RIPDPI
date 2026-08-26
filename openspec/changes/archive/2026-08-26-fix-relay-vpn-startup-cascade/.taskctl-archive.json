@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-26T06:12:05Z",
+  "change": "fix-relay-vpn-startup-cascade",
+  "commit_sha": "ad73c8069153966b2efd9d2fa46ef04a7de98bd7",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RLY-1786707070050078"
+}

@@ -2,7 +2,7 @@
 id: RLY-1786707070050078
 title: Stop cascading relay and VPN startup failures
 kind: bug
-status: review
+status: done
 area: relay
 priority: high
 owner: codex
@@ -13,6 +13,9 @@ openspec_change: fix-relay-vpn-startup-cascade
 created: 2026-08-14
 updated: 2026-08-26
 status_detail: All execution steps complete incl. device-matrix gates; awaiting acceptance review
+closed_at: "2026-08-26T06:12:06Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Verification record complete at ad73c8069: local combined-tree gates passed, CI run 31880794002 green on exact SHA, Pixel 7 API 37 dad-phone matrix and restoration passed, signed githubSimpleRelease APK bc6ff2ac8d verified"
 ---
 
 ## Goal

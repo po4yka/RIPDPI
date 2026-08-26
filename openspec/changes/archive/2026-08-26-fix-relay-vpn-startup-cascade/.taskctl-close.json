@@ -1,0 +1,11 @@
+{
+  "change": "fix-relay-vpn-startup-cascade",
+  "evidence_summary": "Verification record complete at ad73c8069: local combined-tree gates passed, CI run 31880794002 green on exact SHA, Pixel 7 API 37 dad-phone matrix and restoration passed, signed githubSimpleRelease APK bc6ff2ac8d verified",
+  "execution_sha256": "70aa6af46441d62d9b8e06ed9f7c482ba27b280e4432aa34cd16b8642a6a0e75",
+  "issue_sha256": "262ace5bde5e01772dcf5e5dd71eddca814da5ef83bb128d83ccdbf86484a151",
+  "outcome": "done",
+  "prepared_at": "2026-08-26T06:12:06Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1786707070050078"
+}
