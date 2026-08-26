@@ -2,7 +2,7 @@
 id: DGN-1787230878672684
 title: Record authoritative Autolearn activation receipts
 kind: feature
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: codex
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: record-autolearn-activation-receipts
 created: 2026-08-20
-updated: 2026-08-20
+updated: 2026-08-26
 status_detail: Implementation and rebased local gates passed; remote CI pending after push.
+closed_at: "2026-08-26T08:17:08Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Verification chain complete: original branch gates at pre-integration SHA, integrated-tree focused suites BUILD SUCCESSFUL in 23m31s at f28e90966, and green full-CI run 32933047982 on exact main SHA c465912fe"
 ---
 
 ## Goal

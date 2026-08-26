@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1787230878672684
 change: record-autolearn-activation-receipts
-commit_sha: e511309619a5681f456dddcb3caf78d848d01220
+commit_sha: c465912fe9b1ea8256f1f22b98be373dd522c442
 local: passed
-local_evidence: Rebased combined-tree service and diagnostics unit suites plus staticAnalysis passed with 751 Gradle tasks; architecture health reported 0 new, 0 worsened, and 0 stale indicators; locked Cargo metadata, strict OpenSpec validation, and taskctl validation passed.
-remote_ci: required
-remote_ci_evidence: null
+local_evidence: Original branch gates passed with 751 Gradle tasks at the pre-integration SHA; re-verified on integrated main at HEAD f28e90966 (code-identical to c465912fe for these modules; intervening commits touch task docs only) - ./gradlew :core:service:testDebugUnitTest :core:diagnostics:testDebugUnitTest -Pripdpi.skipNativeBuild=true BUILD SUCCESSFUL in 23m31s covering the AutolearnActivationReceipt publisher/recorder and archive redactor/envelope suites.
+remote_ci: passed
+remote_ci_evidence: Full CI workflow run 32933047982 success on exact main SHA c465912fe9b1ea8256f1f22b98be373dd522c442 (scheduled run over the integrated tree containing the Autolearn receipt implementation landed via d4034d2cc); CodeQL and fleet-fixtures runs green on the same tree.
 device: not_applicable
 device_evidence: The change uses existing service and archive contracts and is covered at deterministic lifecycle/store boundaries; no device-only API is introduced.
 artifact: not_applicable

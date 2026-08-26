@@ -1,0 +1,11 @@
+{
+  "change": "record-autolearn-activation-receipts",
+  "evidence_summary": "Verification chain complete: original branch gates at pre-integration SHA, integrated-tree focused suites BUILD SUCCESSFUL in 23m31s at f28e90966, and green full-CI run 32933047982 on exact main SHA c465912fe",
+  "execution_sha256": "f79d3a80fac19c8d40bea4ebd12463ed09b24d713a61296a2e5fd580a9998d6c",
+  "issue_sha256": "da80627c63b7be7b3adfb035726644405c715cff77a66a00ac09b0473fd851fc",
+  "outcome": "done",
+  "prepared_at": "2026-08-26T08:17:08Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1787230878672684"
+}
