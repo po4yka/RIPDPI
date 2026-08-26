@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-26T11:20:22Z",
+  "change": "trn-1786264762917886-parallel-active-probe-race-initial-transport-selection",
+  "commit_sha": "a195ac2fc98af8fbc68e52f98ea3adb96b5e2ab0",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1786264762917886"
+}

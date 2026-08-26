@@ -2,7 +2,7 @@
 id: TRN-1786264762917886
 title: Add a parallel active-probe race for initial transport selection
 kind: feature
-status: review
+status: done
 area: transport
 priority: high
 owner: Codex
@@ -11,11 +11,14 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917886-parallel-active-probe-race-initial-transport-selection
 created: 2026-07-10
-updated: 2026-07-10
+updated: 2026-08-26
 source_wiki_pages:
   - whitelist-dpi-confirm-good-paradigm
   - urltest-dual-transport-fallback
 linked_task: null
+closed_at: "2026-08-26T11:20:23Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Integrated-tree gate battery complete: Rust 184/184, relay interoperability all stages, Kotlin 5159/0 failures across three modules, staticAnalysis and architecture health clean; relay-lab config self-test green with live-scenario layer documented as operator-owned standing requirement"
 ---
 
 ## Goal

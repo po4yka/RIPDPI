@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917886-parallel-active-probe-race-initial-transport-selection",
+  "evidence_summary": "Integrated-tree gate battery complete: Rust 184/184, relay interoperability all stages, Kotlin 5159/0 failures across three modules, staticAnalysis and architecture health clean; relay-lab config self-test green with live-scenario layer documented as operator-owned standing requirement",
+  "execution_sha256": "0e6a4dc47810e99c09066ad5e0c255b890edea4be800d3cab61cf7d2c39f0129",
+  "issue_sha256": "3b1ffdad804badbffa2ca63c414c9c278b0ee52fa8f18e5f0c6b19394c057946",
+  "outcome": "done",
+  "prepared_at": "2026-08-26T11:20:23Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1786264762917886"
+}
