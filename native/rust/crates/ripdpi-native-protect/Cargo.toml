@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 tokio = { workspace = true, features = ["net", "rt"] }
+tracing.workspace = true
 
 [lints]
 workspace = true

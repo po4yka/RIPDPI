@@ -207,6 +207,16 @@ pub fn register_protect_callback_versioned(cb: Arc<dyn ProtectCallback>) -> Prot
     // slot write below — the write lock provides the happens-before edge.
     let generation = ProtectGeneration(NEXT_GENERATION.fetch_add(1, Ordering::Relaxed));
     let mut guard = registry_write();
+    if let Some(previous) = guard.as_ref() {
+        // A second register while the first callback is still live means two
+        // VPN sessions raced their JNI registration; surface it, because the
+        // first session's unregister is now guaranteed to land as stale.
+        tracing::warn!(
+            previous_generation = previous.generation.token(),
+            generation = generation.token(),
+            "vpn protect callback overwritten before unregister"
+        );
+    }
     *guard = Some(RegisteredProtect { generation, callback: cb });
     generation
 }
