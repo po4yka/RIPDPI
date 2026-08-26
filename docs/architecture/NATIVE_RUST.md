@@ -12,7 +12,7 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **116 crates**, all under `native/rust/crates/`. Every directory is a declared
+- **114 crates**, all under `native/rust/crates/`. Every directory is a declared
   `[workspace] members` entry — **no orphan directories, no missing members.**
 - `edition = "2024"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
@@ -82,18 +82,18 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
-| L0 | **support / test / dev** | 7 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli` |
+| L0 | **support / test / dev** | 8 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli`, `soundness-canaries` |
 | L1 | **protocol / core** | 14 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-network-time`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
 | L3 | **domain logic** | 17 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 9 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
-| L6 | **diagnostics / monitor** | 17 | 13 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
+| L6 | **diagnostics / monitor** | 14 | 10 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 22 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-wireguard-ws`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 13 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
-other 13 `ripdpi-diagnostics-*` crates are L6.
+other 10 `ripdpi-diagnostics-*` crates are L6.
 
 ---
 
@@ -350,7 +350,7 @@ Every crate **except the 13 L8 crates** must not depend on `jni`,
 > `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap`, `ripdpi-runtime-platform`,
 > `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`,
 > `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`,
-> `ripdpi-root-helper`, the 13 `ripdpi-diagnostics-*` crates (all except
+> `ripdpi-root-helper`, the 10 `ripdpi-diagnostics-*` crates (all except
 > `-contracts`, which is L2 and also JNI-free), the 4 `ripdpi-monitor-*`
 > crates, and the L7 relay-transport crates.
 

@@ -91,8 +91,8 @@ When multiple branches are in flight, prefer a PR merge queue. Before integratio
 :app (Compose UI)
   -> :core:service (VPN/proxy foreground services)
   -> :core:engine (JNI + Rust native build)
-  -> :core:data:* (settings, runtime state, catalogs, protobuf)
-  -> :core:diagnostics (active/passive diagnostics)
+     -> :core:data:* (settings, runtime state, catalogs, protobuf)
+:core:diagnostics (active/passive diagnostics; depends on :core:data:*, :core:detection, :core:engine-api)
   -> :core:diagnostics-data (diagnostics contracts)
 ```
 

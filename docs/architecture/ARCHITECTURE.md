@@ -66,6 +66,7 @@ auto-generated Mermaid graph at
 | `:xray-protos` | Java-library: Xray/V2Ray protobuf schemas (VLESS, Reality, transport) + gRPC; consumed by `:core:detection` |
 | `:quality:detekt-rules` | Custom detekt rules (DI guardrails, Hilt ViewModel checks) |
 | `:baselineprofile` | Baseline profile generation for runtime performance |
+| `:testing:socket-bind-probe` | Instrumentation-test helper: unprivileged `SO_BINDTODEVICE` bind-to-device probe library consumed by `:app` androidTest |
 
 > **Note:** This table reflects the current `settings.gradle.kts`. The split
 > between `:core:data:model` and `:core:data:settings` is **schema vs.
@@ -90,7 +91,7 @@ classpath. Native-crate dependency direction is enforced separately by
 ## 4. Native Rust artifact map
 
 The Rust workspace is at [`native/rust/`](../../native/rust/Cargo.toml) — a
-Cargo workspace of 116 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
+Cargo workspace of 114 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
 builds it via the `ripdpi.android.rust-native` convention plugin: **five** JNI
 `.so` libraries, three managed Rust helper binaries, and pluggable-transport
 assets are packaged into the APK. See

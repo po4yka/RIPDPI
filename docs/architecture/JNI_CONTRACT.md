@@ -22,7 +22,7 @@ Five JNI `cdylib` libraries are loaded into the app process. Each has its own
 | Library | Source crate | Loaded by (Kotlin) | `JNI_OnLoad` location |
 |---------|--------------|--------------------|-----------------------|
 | `libripdpi.so` | `ripdpi-android` | `RipDpiNativeLoader` → `System.loadLibrary("ripdpi")` | `native/rust/crates/ripdpi-android/src/lib.rs` |
-| `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `Tun2SocksNativeBindings` companion → `System.loadLibrary("ripdpi-tunnel")` | `native/rust/crates/ripdpi-tunnel-android/src/lib.rs` |
+| `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `Tun2SocksNativeLoader` → `System.loadLibrary("ripdpi-tunnel")` | `native/rust/crates/ripdpi-tunnel-android/src/lib.rs` |
 | `libripdpi-relay.so` | `ripdpi-relay-android` | `RipDpiRelayNativeLoader` → `System.loadLibrary("ripdpi-relay")` | `native/rust/crates/ripdpi-relay-android/src/lib.rs` |
 | `libripdpi-warp.so` | `ripdpi-warp-android` | `RipDpiWarpNativeLoader` → `System.loadLibrary("ripdpi-warp")` | `native/rust/crates/ripdpi-warp-android/src/lib.rs` |
 | `libripdpi-amneziawg.so` | `ripdpi-amneziawg-android` | `RipDpiAmneziaWgNativeLoader` → `System.loadLibrary("ripdpi-amneziawg")` | `native/rust/crates/ripdpi-amneziawg-android/src/lib.rs` |
@@ -60,6 +60,7 @@ class holds the raw `external fun`s; a sibling wrapper class
 | Kotlin owner class | JNI symbol prefix | Rust owner crate · module | Native lib |
 |--------------------|-------------------|---------------------------|------------|
 | `RipDpiProxyNativeBindings` (`core/engine/.../core/RipDpiProxy.kt`) | `Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_*` | `ripdpi-android` · `src/ffi/proxy_bridge.rs` (+ `proxy_bridge/{core,geo,pcap}.rs`), `src/ffi/vpn_protect_bridge.rs` | `libripdpi.so` |
+| `RipDpiProxyNativeForwardingEvidenceBindings` (`core/engine/.../core/RipDpiProxy.kt`) | `Java_com_poyka_ripdpi_core_RipDpiProxyNativeForwardingEvidenceBindings_*` | `ripdpi-android` · `src/ffi/proxy_bridge/core.rs` | `libripdpi.so` |
 | `NetworkDiagnosticsNativeBindings` (`.../core/NetworkDiagnostics.kt`) | `Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_*` | `ripdpi-android` · `src/ffi/diagnostics_bridge.rs` | `libripdpi.so` |
 | `StrategyEngineNativeBindings` (`.../core/StrategyEngineNativeBindings.kt`) | `Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_*` | `ripdpi-android` · `src/ffi/lua_bridge.rs`, `src/ffi/probe_results_bridge.rs` | `libripdpi.so` |
 | `RipDpiCdnEchNativeBindings` (`.../core/RipDpiCdnEchNativeBindings.kt`) | `Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_*` | `ripdpi-android` · `src/ffi/cdn_ech_bridge.rs` | `libripdpi.so` |
@@ -72,8 +73,10 @@ class holds the raw `external fun`s; a sibling wrapper class
 | `JniNativeSignsBridge` (`:core:detection`) | `Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_*` | `ripdpi-android` · `src/ffi/native_signs_bridge.rs` | `libripdpi.so` |
 | `Tun2SocksNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs` (+ `src/session/`) | `libripdpi-tunnel.so` |
 | `TunDeviceQualificationNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs`, `src/session/bind_to_device_probe.rs` | `libripdpi-tunnel.so` |
+| `TunForwardingEvidenceNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_TunForwardingEvidenceNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs` | `libripdpi-tunnel.so` |
 | `RipDpiRelayNativeBindings` (`.../core/RipDpiRelay.kt`) | `Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_*` | `ripdpi-relay-android` · `src/lib.rs` (+ `lifecycle.rs`, `registry.rs`, `runtime.rs`, `telemetry.rs`) | `libripdpi-relay.so` |
 | `RipDpiWarpNativeBindings` (`.../core/RipDpiWarp.kt`) | `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*` | `ripdpi-warp-android` · `src/lib.rs` (+ `lifecycle.rs`, `provisioning.rs`, `endpoint_probe.rs`, `telemetry.rs`, `vpn_protect.rs`) | `libripdpi-warp.so` |
+| `RipDpiAmneziaWgNativeBindings` (`.../core/RipDpiAmneziaWg.kt`) | `Java_com_poyka_ripdpi_core_RipDpiAmneziaWgNativeBindings_*` | `ripdpi-amneziawg-android` · `src/lib.rs` | `libripdpi-amneziawg.so` |
 
 **Layering inside `libripdpi.so`:** the `ripdpi-android` crate is an
 **export facade only**. `src/ffi.rs` defines the `export_jni!` macro;

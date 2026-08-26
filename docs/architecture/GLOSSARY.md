@@ -21,7 +21,8 @@ options at runtime.
 **candidate** — One concrete **strategy** configuration that a strategy
 **probe** tests during a diagnostics scan. The current TCP and QUIC suites are
 planned by `native/rust/crates/ripdpi-diagnostics-candidates` (see
-[`AGENTS.md`](../../AGENTS.md) § Strategy Probe Candidates); exact membership
+[`DIAGNOSTICS_ARCHITECTURE.md`](DIAGNOSTICS_ARCHITECTURE.md) § Probe & candidate
+registration flow); exact membership
 depends on the selected suite and runtime capability probes. A candidate is
 what is *tried*; a **verdict** is the conclusion.
 
