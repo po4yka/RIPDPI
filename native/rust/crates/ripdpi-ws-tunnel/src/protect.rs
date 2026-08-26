@@ -49,6 +49,17 @@ pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
 /// callback is registered (the VPN is up). It is a no-op when no callback is
 /// registered (desktop / VPN down) and for loopback targets, and fails closed
 /// when protection is required but the callback errors.
+///
+/// # Legacy presence-probing seam
+///
+/// The probe and the protect are two separate registry reads, so a VPN session
+/// starting between them leaves the socket unprotected while the TUN comes up
+/// (routing-loop window), and one stopping turns protection into a spurious
+/// failure. Relay transports avoid this by threading an explicit
+/// `SocketProtectionPolicy` from runtime configuration. See the
+/// "Presence-probing caveat" section of `ripdpi-native-protect`.
+// TODO(author): migrate WS-tunnel callers to SocketProtectionPolicy threading
+// and retire this probe, matching the relay transport pattern.
 pub(crate) fn protect_via_callback_if_active<S: std::os::fd::AsRawFd>(
     socket: &S,
     target: std::net::SocketAddr,

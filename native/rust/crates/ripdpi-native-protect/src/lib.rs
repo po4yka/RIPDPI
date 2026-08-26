@@ -32,6 +32,18 @@
 //! unconditional back-compat wrappers for callers that do not race a later
 //! session (a single active VPN session — the common case — is unaffected:
 //! the generation increments and always matches on release).
+//!
+//! ## Presence-probing caveat
+//!
+//! [`has_protect_callback`] answers "is a callback registered *right now*?" and
+//! is the Mechanism A/B selector documented in `JNI_CONTRACT.md` §10. It is not
+//! a per-connection protection policy: between a probe and the paired
+//! [`protect_socket_via_callback`] call a VPN session can start or stop, so a
+//! probed skip can leave a socket unprotected while a TUN is coming up
+//! (routing-loop window) and a probed hit can fail with
+//! [`io::ErrorKind::NotConnected`] after teardown. New integrations must thread
+//! an explicit [`SocketProtectionPolicy`] from their runtime configuration;
+//! existing probe sites are tracked for migration to that pattern.
 
 #![forbid(unsafe_code)]
 
