@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import android.content.Intent
+import app.cash.turbine.test
+import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
@@ -10,6 +13,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -24,11 +28,13 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Tests for [AmneziaWgProfileViewModel]: the AmneziaWG profile-editor backing ViewModel.
@@ -39,6 +45,8 @@ import org.junit.Test
  * [AwgActivationRequest] without touching the native runtime.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class AmneziaWgProfileViewModelTest {
     private val mainDispatcher = StandardTestDispatcher()
 
@@ -73,8 +81,117 @@ class AmneziaWgProfileViewModelTest {
     private val dao = InMemoryAwgProfileDao()
     private val credentialStore = InMemoryAwgCredentialStore()
     private val repository = AwgProfileRepository(dao, credentialStore)
+    private val permissionBridge = FakePermissionPlatformBridge(vpnPermissionIntent = null)
 
-    private fun viewModel() = AmneziaWgProfileViewModel(FakeCatalogProvider(catalog), activator, repository)
+    private fun viewModel() =
+        AmneziaWgProfileViewModel(
+            FakeCatalogProvider(catalog),
+            activator,
+            repository,
+            permissionBridge,
+            FakeAwgClipboardReader(),
+        )
+
+    @Test
+    fun `connect waits for VPN consent before persisting or activating`() =
+        runTest {
+            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+
+            viewModel.onConnect()
+            advanceUntilIdle()
+
+            assertNull(activator.lastActivated)
+            assertTrue(repository.observeProfiles().first().isEmpty())
+        }
+
+    @Test
+    fun `confirmed consent activates once despite duplicate callbacks and taps`() =
+        runTest {
+            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.vpnConsentRequests.test {
+                viewModel.onConnect()
+                viewModel.onConnect()
+                advanceUntilIdle()
+                val request = awaitItem()
+                expectNoEvents()
+                permissionBridge.vpnPermissionIntent = null
+
+                viewModel.onVpnConsentResult(request.id, granted = true)
+                viewModel.onVpnConsentResult(request.id, granted = true)
+                advanceUntilIdle()
+
+                assertEquals(1, activator.activationCount)
+                assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+            }
+        }
+
+    @Test
+    fun `denied consent does not save a profile or activate the service`() =
+        runTest {
+            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.vpnConsentRequests.test {
+                viewModel.onConnect()
+                advanceUntilIdle()
+                val request = awaitItem()
+
+                viewModel.onVpnConsentResult(request.id, granted = false)
+                advanceUntilIdle()
+
+                assertEquals(0, activator.activationCount)
+                assertTrue(repository.observeProfiles().first().isEmpty())
+                assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+            }
+        }
+
+    @Test
+    fun `successful activity result without platform consent cannot activate`() =
+        runTest {
+            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.vpnConsentRequests.test {
+                viewModel.onConnect()
+                advanceUntilIdle()
+
+                viewModel.onVpnConsentResult(awaitItem().id, granted = true)
+                advanceUntilIdle()
+
+                assertEquals(0, activator.activationCount)
+                assertTrue(repository.observeProfiles().first().isEmpty())
+            }
+        }
+
+    @Test
+    fun `stale permission result cannot consume a newer connect attempt`() =
+        runTest {
+            permissionBridge.vpnPermissionIntent = Intent("test.vpn.consent")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.vpnConsentRequests.test {
+                viewModel.onConnect()
+                advanceUntilIdle()
+                val previousRequest = awaitItem()
+                viewModel.onVpnConsentResult(previousRequest.id, granted = false)
+                viewModel.onConnect()
+                advanceUntilIdle()
+                val currentRequest = awaitItem()
+                permissionBridge.vpnPermissionIntent = null
+
+                viewModel.onVpnConsentResult(previousRequest.id, granted = true)
+                advanceUntilIdle()
+                assertEquals(0, activator.activationCount)
+                viewModel.onVpnConsentResult(currentRequest.id, granted = true)
+                advanceUntilIdle()
+
+                assertEquals(1, activator.activationCount)
+            }
+        }
 
     @Test
     fun `initial state is a custom, unlocked editor`() {
@@ -222,7 +339,6 @@ class AmneziaWgProfileViewModelTest {
             viewModel.onConnect()
             advanceUntilIdle()
 
-            assertNull(viewModel.uiState.value.pendingActivation)
             assertNull(activator.lastActivated)
         }
 
@@ -234,6 +350,19 @@ class AmneziaWgProfileViewModelTest {
 
         assertTrue(viewModel.uiState.value.canActivate)
     }
+
+    @Test
+    fun `repeated connect taps dispatch only one in-flight activation`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+
+            viewModel.onConnect()
+            viewModel.onConnect()
+            advanceUntilIdle()
+
+            assertEquals(1, activator.activationCount)
+        }
 
     @Test
     fun `connect dispatches an activation request carrying PSK and keepalive to the service`() =
@@ -257,8 +386,6 @@ class AmneziaWgProfileViewModelTest {
             assertEquals(37, request.persistentKeepalive)
             assertEquals(1280, request.mtu)
             assertEquals("10.8.0.2/32", request.interfaceAddressV4)
-            // The same request is surfaced for the screen to react to.
-            assertEquals(request, viewModel.uiState.value.pendingActivation)
         }
 
     @Test
@@ -336,17 +463,16 @@ class AmneziaWgProfileViewModelTest {
         }
 
     @Test
-    fun `consuming the activation request clears it`() =
+    fun `cancelled activation releases the in-flight Connect guard`() =
         runTest {
+            activator.failure = CancellationException("activation superseded")
             val viewModel = viewModel()
             fillRequiredIdentity(viewModel)
+
             viewModel.onConnect()
             advanceUntilIdle()
-            assertNotNull(viewModel.uiState.value.pendingActivation)
 
-            viewModel.onActivationConsumed()
-
-            assertNull(viewModel.uiState.value.pendingActivation)
+            assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
         }
 
     @Test
@@ -395,6 +521,9 @@ private class FakeCatalogProvider(
 
 /** Records the dispatched activation request without driving the native runtime. */
 private class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActivator {
+    var activationCount: Int = 0
+        private set
+
     var lastActivated: AwgActivationRequest? = null
         private set
 
@@ -402,6 +531,7 @@ private class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActivat
     var failure: Throwable? = null
 
     override suspend fun activate(request: AwgActivationRequest) {
+        activationCount += 1
         failure?.let { throw it }
         lastActivated = request
     }

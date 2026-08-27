@@ -3,11 +3,13 @@ package com.poyka.ripdpi.ui.screens.awg
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Base64
 
 /**
  * Pure-logic tests for [AmneziaWgEditorState] and its field-validation helpers.
@@ -34,6 +36,15 @@ class AmneziaWgEditorStateTest {
             randomizeHeaders = false,
         )
     private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
+
+    @Test
+    fun `blank AllowedIPs defaults to routes for configured interface families`() {
+        val ipv4 = AmneziaWgEditorState.initial().updateField(AwgEditorField.ADDRESS, "10.8.0.2/32")
+        val dualStack = ipv4.updateField(AwgEditorField.ADDRESS, "fd00::2/128, 10.8.0.2/32")
+
+        assertEquals(listOf("0.0.0.0/0"), ipv4.toActivationRequest("awg-v4").allowedIps)
+        assertEquals(listOf("0.0.0.0/0", "::/0"), dualStack.toActivationRequest("awg-dual").allowedIps)
+    }
 
     @Test
     fun `initial state is custom with an unlocked obfuscation group`() {
@@ -183,17 +194,19 @@ class AmneziaWgEditorStateTest {
 
     @Test
     fun `populateFromConf seeds Address, DNS, AllowedIPs, MTU and keepalive (P1-12)`() {
+        val privateKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
+        val peerPublicKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 })
         val conf =
             """
             [Interface]
-            PrivateKey = privkey==
+            PrivateKey = $privateKey
             Address = 10.0.0.2/32, fd00::2/128
             DNS = 1.1.1.1, 8.8.8.8
             MTU = 1280
             Jc = 7
 
             [Peer]
-            PublicKey = peerpub==
+            PublicKey = $peerPublicKey
             Endpoint = vpn.example.com:51820
             AllowedIPs = 0.0.0.0/0, ::/0
             PersistentKeepalive = 25
@@ -208,6 +221,14 @@ class AmneziaWgEditorStateTest {
         assertEquals("1280", state.rawText(AwgEditorField.MTU))
         assertEquals("0.0.0.0/0, ::/0", state.rawText(AwgEditorField.ALLOWED_IPS))
         assertEquals("25", state.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
+
+        val request = state.toActivationRequest(profileId = "awg-dual-stack")
+
+        assertEquals("10.0.0.2/32", request.interfaceAddressV4)
+        assertEquals("fd00::2/128", request.interfaceAddressV6)
+        assertEquals(listOf("1.1.1.1", "8.8.8.8"), request.dnsServers)
+        assertEquals(listOf("0.0.0.0/0", "::/0"), request.allowedIps)
+        request.requireRuntimeReady()
     }
 
     @Test

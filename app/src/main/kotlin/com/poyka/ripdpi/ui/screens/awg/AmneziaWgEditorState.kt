@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
 import com.poyka.ripdpi.data.awg.matchCohortForConf
-import com.poyka.ripdpi.data.awg.toActivationRequest
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
@@ -154,28 +153,6 @@ data class AmneziaWgEditorState(
      * does not discard an already-typed URL.
      */
     fun selectCarrier(carrier: String): AmneziaWgEditorState = copy(form = form.copy(carrier = carrier))
-
-    /**
-     * Projects the editor into an [AwgActivationRequest] for the standalone
-     * AmneziaWG runtime. Identity, PSK and obfuscation come from [form]; the
-     * transport fields the form does not carry as columns ([AwgEditorField.ADDRESS],
-     * [AwgEditorField.MTU], [AwgEditorField.PERSISTENT_KEEPALIVE]) are read from
-     * [rawTextByField]. A blank address or MTU falls back to the request's own
-     * defaults; an unparseable keepalive disables it (`0`).
-     */
-    fun toActivationRequest(profileId: String): AwgActivationRequest {
-        val address = rawText(AwgEditorField.ADDRESS).trim()
-        val mtu =
-            rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 }
-                ?: AwgActivationRequest.DEFAULT_MTU
-        val keepalive = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().toIntOrNull()?.takeIf { it >= 0 } ?: 0
-        return form.toActivationRequest(
-            profileId = profileId,
-            interfaceAddressV4 = address,
-            mtu = mtu,
-            persistentKeepalive = keepalive,
-        )
-    }
 
     /**
      * `true` when the identity fields required to open a tunnel are all present:

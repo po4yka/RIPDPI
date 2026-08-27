@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data.awg
 
 import com.poyka.ripdpi.data.wireguard.requireAmneziaWgArm64Safe
 import kotlinx.serialization.Serializable
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.Base64
 
 /**
@@ -17,10 +19,10 @@ import java.util.Base64
  * `RipDpiAmneziaWgRuntime.start(...)`, the WARP-engine-derived AmneziaWG runtime
  * path -- so no new `ProxyProfile` subtype is introduced.
  *
- * Field names and types mirror `ResolvedRipDpiAmneziaWgConfig` one-to-one,
- * including the A3 [presharedKey] / [persistentKeepalive] plumbing and the
- * AmneziaWG 2.0 [AwgActivationObfuscation.i1]..`i5` special-junk frames, so the
- * service-layer translation is a pure structural copy.
+ * Native fields mirror `ResolvedRipDpiAmneziaWgConfig`, including
+ * [presharedKey] / [persistentKeepalive] and AmneziaWG 2.0 special-junk frames.
+ * [dnsServers] and [allowedIps] are owned by the Android VPN interface and
+ * deliberately remain outside the native configuration.
  */
 @Serializable
 data class AwgActivationRequest(
@@ -32,6 +34,10 @@ data class AwgActivationRequest(
     val endpointPort: Int,
     val interfaceAddressV4: String,
     val interfaceAddressV6: String = "",
+    /** Android VPN interface DNS servers; these do not cross the native runtime boundary. */
+    val dnsServers: List<String> = emptyList(),
+    /** Android VPN interface routes; these do not cross the native runtime boundary. */
+    val allowedIps: List<String> = listOf("0.0.0.0/0"),
     val mtu: Int = DEFAULT_MTU,
     val persistentKeepalive: Int = 0,
     val obfuscation: AwgActivationObfuscation = AwgActivationObfuscation(),
@@ -72,6 +78,16 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
     require(endpointPort in ValidEndpointPorts) { "AmneziaWG endpoint port invalid" }
     require(interfaceAddressV4.isIpv4Cidr()) { "AmneziaWG interface address must be an IPv4 CIDR" }
+    require(interfaceAddressV6.isEmpty() || interfaceAddressV6.isIpv6Cidr()) {
+        "AmneziaWG IPv6 interface address must be an IPv6 CIDR"
+    }
+    val ipv6Enabled = interfaceAddressV6.isNotEmpty()
+    require(dnsServers.all { it.isIpv4Address() || (ipv6Enabled && it.isIpv6Address()) }) {
+        "AmneziaWG DNS servers must be numeric addresses of a configured interface family"
+    }
+    require(allowedIps.isNotEmpty() && allowedIps.all { it.isIpv4Cidr() || (ipv6Enabled && it.isIpv6Cidr()) }) {
+        "AmneziaWG allowed IPs must be CIDRs of a configured interface family"
+    }
     require(carrier != AwgActivationRequest.CARRIER_WS || carrierWsUrl.isNotBlank()) {
         "AmneziaWG WS carrier requires a carrier URL"
     }
@@ -82,26 +98,49 @@ private fun String.isWireGuardKey(): Boolean =
         decoded.size == WireGuardKeyBytes && Base64.getEncoder().encodeToString(decoded) == this
     } == true
 
-private fun String.isIpv4Cidr(): Boolean {
+private fun String.isIpv4Cidr(): Boolean = isCidr(Ipv4PrefixRange, String::isIpv4Address)
+
+private fun String.isIpv6Cidr(): Boolean = isCidr(Ipv6PrefixRange, String::isIpv6Address)
+
+private fun String.isCidr(
+    prefixRange: IntRange,
+    addressIsValid: (String) -> Boolean,
+): Boolean {
     val parts = split('/')
     val prefix = parts.getOrNull(1)?.toIntOrNull()
-    val octets = parts.firstOrNull()?.split('.').orEmpty()
-    return parts.size == Ipv4CidrPartCount &&
-        prefix?.let { it in Ipv4PrefixRange } == true &&
-        octets.size == Ipv4OctetCount &&
+    return parts.size == CidrPartCount &&
+        prefix?.let { it in prefixRange && it.toString() == parts[1] } == true &&
+        addressIsValid(parts[0])
+}
+
+private fun String.isIpv4Address(): Boolean {
+    val octets = split('.')
+    return octets.size == Ipv4OctetCount &&
         octets.all { octet ->
             octet.isNotEmpty() &&
-                octet.all(Char::isDigit) &&
+                octet.all { it in '0'..'9' } &&
                 (octet == "0" || !octet.startsWith('0')) &&
                 octet.toIntOrNull()?.let { it in Ipv4OctetRange } == true
         }
 }
 
+private fun String.isIpv6Address(): Boolean {
+    if (':' !in this || any { it !in Ipv6LiteralCharacters }) return false
+    // URI validates a bracketed IPv6 literal without resolving names or opening a socket.
+    return try {
+        URI("https://[$this]/").host != null
+    } catch (_: URISyntaxException) {
+        false
+    }
+}
+
 private val ValidEndpointPorts = 1..65_535
 private val Ipv4PrefixRange = 0..32
+private val Ipv6PrefixRange = 0..128
 private val Ipv4OctetRange = 0..255
+private const val Ipv6LiteralCharacters = "0123456789abcdefABCDEF:"
 private const val WireGuardKeyBytes = 32
-private const val Ipv4CidrPartCount = 2
+private const val CidrPartCount = 2
 private const val Ipv4OctetCount = 4
 
 /**
@@ -155,6 +194,9 @@ data class AwgActivationObfuscation(
 fun AwgProfileForm.toActivationRequest(
     profileId: String,
     interfaceAddressV4: String,
+    interfaceAddressV6: String = "",
+    dnsServers: List<String> = emptyList(),
+    allowedIps: List<String> = emptyList(),
     mtu: Int = AwgActivationRequest.DEFAULT_MTU,
     persistentKeepalive: Int = 0,
 ): AwgActivationRequest =
@@ -166,6 +208,12 @@ fun AwgProfileForm.toActivationRequest(
         endpointHost = server,
         endpointPort = serverPort,
         interfaceAddressV4 = interfaceAddressV4,
+        interfaceAddressV6 = interfaceAddressV6,
+        dnsServers = dnsServers,
+        allowedIps =
+            allowedIps.ifEmpty {
+                if (interfaceAddressV6.isEmpty()) listOf("0.0.0.0/0") else listOf("0.0.0.0/0", "::/0")
+            },
         mtu = mtu,
         persistentKeepalive = persistentKeepalive,
         carrier = carrier,

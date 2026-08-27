@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Base64
 
 /**
  * Tests for [AwgProfileForm.toActivationRequest]: the pure projection of the
@@ -11,6 +12,63 @@ import org.junit.Test
  * [AwgActivationRequest] the service layer hands to the AmneziaWG runtime.
  */
 class AwgActivationRequestTest {
+    @Test
+    fun `runtime readiness accepts numeric dual stack policy without resolving an endpoint`() {
+        runtimeRequest()
+            .copy(
+                interfaceAddressV6 = "FD00:0000:0000:0000:0000:0000:0000:0002/128",
+                dnsServers = listOf("10.8.0.1", "FD00:0:0:0:0:0:0:1"),
+                allowedIps = listOf("10.8.0.0/24", "FD00::/64"),
+            ).requireRuntimeReady()
+    }
+
+    @Test
+    fun `runtime readiness rejects malformed or mismatched interface policy`() {
+        val request = runtimeRequest()
+        val invalidRequests =
+            listOf(
+                request.copy(interfaceAddressV6 = "fd00:::2/128"),
+                request.copy(interfaceAddressV6 = "fd00::gg/128"),
+                request.copy(interfaceAddressV6 = "1:2:3:4:5:6:7/128"),
+                request.copy(interfaceAddressV6 = "[fd00::2]/128"),
+                request.copy(interfaceAddressV6 = "fe80::2%wlan0/64"),
+                request.copy(interfaceAddressV6 = "::ffff:192.0.2.1/128"),
+                request.copy(interfaceAddressV6 = "fd00::2/129"),
+                request.copy(interfaceAddressV6 = "fd00::2/+64"),
+                request.copy(interfaceAddressV6 = "fd00::2/064"),
+                request.copy(interfaceAddressV4 = "10.8.0.2/033"),
+                request.copy(dnsServers = listOf("dns.example.com")),
+                request.copy(dnsServers = listOf("1.1.1.1/32")),
+                request.copy(dnsServers = listOf("1.1.1.999")),
+                request.copy(dnsServers = listOf("01.1.1.1")),
+                request.copy(dnsServers = listOf("")),
+                request.copy(dnsServers = listOf("fd00::1")),
+                request.copy(allowedIps = emptyList()),
+                request.copy(allowedIps = listOf("example.com/24")),
+                request.copy(allowedIps = listOf("10.0.0.0/33")),
+                request.copy(allowedIps = listOf("0.0.0.0/+0")),
+                request.copy(allowedIps = listOf("::/0")),
+                request.copy(interfaceAddressV6 = "fd00::2/128", allowedIps = listOf("fd00:::0/64")),
+                request.copy(interfaceAddressV6 = "fd00::2/128", allowedIps = listOf("::/129")),
+            )
+
+        invalidRequests.forEachIndexed { index, invalid ->
+            assertThrows("invalid interface policy case $index", IllegalArgumentException::class.java) {
+                invalid.requireRuntimeReady()
+            }
+        }
+    }
+
+    private fun runtimeRequest(): AwgActivationRequest =
+        AwgActivationRequest(
+            profileId = "awg-runtime-ready",
+            privateKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 }),
+            peerPublicKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 }),
+            endpointHost = "vpn.example.com",
+            endpointPort = 51820,
+            interfaceAddressV4 = "10.8.0.2/32",
+        )
+
     private fun form() =
         AwgProfileForm(
             server = "vpn.example.com",

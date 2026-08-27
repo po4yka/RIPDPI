@@ -1,21 +1,27 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.platform.PermissionPlatformBridge
+import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -42,6 +48,12 @@ data class AwgCohortOption(
  */
 enum class AwgActivationStatus { Idle, Connecting, Failed }
 
+/** A system consent request; it never contains profile credentials. */
+class AwgVpnConsentRequest(
+    val id: String,
+    val intent: Intent,
+)
+
 /**
  * UI state for the AmneziaWG profile editor.
  *
@@ -60,13 +72,6 @@ data class AmneziaWgProfileUiState(
      * open a tunnel. Drives the Connect action's enabled state.
      */
     val canActivate: Boolean = false,
-    /**
-     * A one-shot activation request produced by [AmneziaWgProfileViewModel.onConnect].
-     * Non-null means the editor was projected into an [AwgActivationRequest] the
-     * service layer should hand to the AmneziaWG runtime; the screen clears it
-     * via [AmneziaWgProfileViewModel.onActivationConsumed] after dispatching.
-     */
-    val pendingActivation: AwgActivationRequest? = null,
     /**
      * Connect-attempt lifecycle for screen feedback. [AwgActivationStatus.Failed] is set
      * when the service layer cannot reach readiness; the next edit or Connect tap clears it.
@@ -91,6 +96,8 @@ class AmneziaWgProfileViewModel
         private val catalogProvider: AwgCohortCatalogProvider,
         private val amneziaWgActivator: StandaloneAmneziaWgActivator,
         private val profileRepository: AwgProfileRepository,
+        private val permissionPlatformBridge: PermissionPlatformBridge,
+        private val clipboardReader: ClipboardReader,
     ) : ViewModel() {
         private val catalog: AwgCohortCatalogData = catalogProvider.catalog()
 
@@ -104,6 +111,9 @@ class AmneziaWgProfileViewModel
          * field is sufficient.
          */
         private var savedProfileId: String? = null
+        private var pendingConsent: Pair<String, AmneziaWgEditorState>? = null
+        private val consentRequests = Channel<AwgVpnConsentRequest>(Channel.BUFFERED)
+        val vpnConsentRequests = consentRequests.receiveAsFlow()
 
         private val _uiState =
             MutableStateFlow(
@@ -176,63 +186,71 @@ class AmneziaWgProfileViewModel
             mutateEditor { it.populateFromConf(conf, catalog) }
         }
 
-        /**
-         * Projects the current editor into an [AwgActivationRequest], durably persists
-         * it, and activates it through the `:core:service` [StandaloneAmneziaWgActivator]
-         * (the WARP-engine-derived AmneziaWG runtime path). A no-op when the editor is not
-         * yet [AmneziaWgEditorState.isActivatable].
-         *
-         * **Stable id (A3 closure):** the first Connect saves the profile via
-         * [AwgProfileRepository], which mints an opaque `"awg-<UUID>"` id; every later
-         * Connect re-saves under that same id and re-uses it as
-         * [AwgActivationRequest.profileId]. The persisted id -- never the endpoint -- is
-         * what flows into native runtime telemetry, honoring network-fingerprint-privacy.
-         *
-         * The request carries the full PSK + persistent-keepalive plumbing and is surfaced
-         * on [AmneziaWgProfileUiState.pendingActivation] so the screen can react to the
-         * dispatch; the screen clears it via [onActivationConsumed].
-         *
-         * The save + activation run on [viewModelScope]; the call is wrapped so a persist
-         * or startup failure surfaces as [AwgActivationStatus.Failed] instead of being
-         * silently dropped.
-         */
-        @Suppress("TooGenericExceptionCaught")
+        /** Reads the clipboard only in response to the editor's explicit Paste action. */
+        fun onPasteConf() {
+            clipboardReader.readPrimaryClipText()?.let(::onConfPasted)
+        }
+
+        /** Requests system VPN consent before saving or activating the selected profile. */
         fun onConnect() {
             val editor = _uiState.value.editor
-            if (!editor.isActivatable()) return
+            if (!editor.isActivatable() || _uiState.value.activationStatus == AwgActivationStatus.Connecting) return
             _uiState.update { it.copy(activationStatus = AwgActivationStatus.Connecting) }
+            launchConnectAction {
+                val intent = permissionPlatformBridge.prepareVpnPermissionIntent()
+                if (intent == null) {
+                    persistAndActivate(editor)
+                } else {
+                    val id = UUID.randomUUID().toString()
+                    pendingConsent = id to editor
+                    consentRequests.send(AwgVpnConsentRequest(id, intent))
+                }
+            }
+        }
+
+        /** Ignores stale callbacks and rechecks the platform grant before any activation. */
+        fun onVpnConsentResult(
+            requestId: String,
+            granted: Boolean,
+        ) {
+            val pending = pendingConsent?.takeIf { it.first == requestId } ?: return
+            pendingConsent = null
+            if (!granted) {
+                _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
+                return
+            }
+            launchConnectAction {
+                if (permissionPlatformBridge.prepareVpnPermissionIntent() == null) {
+                    persistAndActivate(pending.second)
+                } else {
+                    _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
+                }
+            }
+        }
+
+        @Suppress("TooGenericExceptionCaught")
+        private fun launchConnectAction(action: suspend () -> Unit) {
             viewModelScope.launch {
                 try {
-                    // Persist first so the stable row id is the profileId the runtime sees.
-                    // The blob's profileId is blanked by the repository; the saved id is
-                    // authoritative and re-used on every later Connect.
-                    val draft = editor.toActivationRequest(profileId = "")
-                    val name = profileName(editor)
-                    val stableId = profileRepository.save(name, draft, existingId = savedProfileId)
-                    savedProfileId = stableId
-                    val request = draft.copy(profileId = stableId)
-                    _uiState.update { it.copy(pendingActivation = request) }
-                    amneziaWgActivator.activate(request)
-                    _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
+                    action()
                 } catch (cancellation: CancellationException) {
+                    pendingConsent = null
+                    _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
                     throw cancellation
                 } catch (ignored: Exception) {
-                    // The service signals startup failure with SupervisorStartupFailureException,
-                    // which is `internal` to :core:service and so cannot be named from :app; the
-                    // resolver can also fail closed with IllegalArgumentException, and the persist
-                    // step may throw. Catch broadly to convert ANY failure into the user-visible
-                    // Failed state, rethrowing CancellationException above to preserve structured
-                    // concurrency. The exception detail is intentionally not propagated or logged --
-                    // it may carry endpoint or config material that must not reach logs
-                    // (network-fingerprint-privacy.md); the Failed status is the user-facing feedback.
+                    // Config and platform exceptions can contain secrets; expose only the status.
+                    pendingConsent = null
                     _uiState.update { it.copy(activationStatus = AwgActivationStatus.Failed) }
                 }
             }
         }
 
-        /** Clears the one-shot [AmneziaWgProfileUiState.pendingActivation] after dispatch. */
-        fun onActivationConsumed() {
-            _uiState.update { it.copy(pendingActivation = null) }
+        private suspend fun persistAndActivate(editor: AmneziaWgEditorState) {
+            val draft = editor.toActivationRequest(profileId = "")
+            val stableId = profileRepository.save(profileName(editor), draft, existingId = savedProfileId)
+            savedProfileId = stableId
+            amneziaWgActivator.activate(draft.copy(profileId = stableId))
+            _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
         }
 
         /**

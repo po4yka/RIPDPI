@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,6 +11,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -17,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -57,13 +65,32 @@ fun AmneziaWgProfileRoute(
     onRequestPresharedKeyReveal: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var consentRequestId by rememberSaveable { mutableStateOf<String?>(null) }
+    val consentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val requestId = consentRequestId
+            consentRequestId = null
+            requestId?.let { viewModel.onVpnConsentResult(it, granted = result.resultCode == Activity.RESULT_OK) }
+        }
+    LifecycleEventEffect(viewModel.vpnConsentRequests) { request ->
+        consentRequestId = request.id
+        try {
+            consentLauncher.launch(request.intent)
+        } catch (_: ActivityNotFoundException) {
+            consentRequestId = null
+            viewModel.onVpnConsentResult(request.id, granted = false)
+        } catch (_: SecurityException) {
+            consentRequestId = null
+            viewModel.onVpnConsentResult(request.id, granted = false)
+        }
+    }
     AmneziaWgProfileScreen(
         uiState = uiState,
         onBack = onBack,
         onFieldChanged = viewModel::onFieldChanged,
         onCohortSelected = viewModel::onCohortSelected,
         onCarrierSelected = viewModel::onCarrierSelected,
-        onPasteConf = { /* clipboard read is wired by the host; no-op in the pure screen */ },
+        onPasteConf = viewModel::onPasteConf,
         onRevealPrivateKey = onRequestPrivateKeyReveal ?: viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = onRequestPresharedKeyReveal ?: viewModel::onPresharedKeyRevealAuthorized,
         onConnect = viewModel::onConnect,

@@ -1,14 +1,26 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import android.app.Activity
+import android.content.Intent
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.core.app.ActivityOptionsCompat
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
@@ -18,16 +30,20 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -62,18 +78,95 @@ class AmneziaWgProfileScreenTest {
             randomizeHeaders = false,
         )
 
+    private val permissionBridge = FakePermissionPlatformBridge(vpnPermissionIntent = null)
+    private val clipboard = FakeAwgClipboardReader()
+    private var activationCount = 0
+
     private fun viewModel() =
         AmneziaWgProfileViewModel(
             object : AwgCohortCatalogProvider {
                 override fun catalog() = AwgCohortCatalogData(presets = listOf(rtkSouth))
             },
             object : StandaloneAmneziaWgActivator {
-                override suspend fun activate(request: AwgActivationRequest) = Unit
+                override suspend fun activate(request: AwgActivationRequest) {
+                    activationCount += 1
+                }
 
                 override suspend fun deactivate() = Unit
             },
             AwgProfileRepository(InMemoryAwgProfileDao(), InMemoryAwgCredentialStore()),
+            permissionBridge,
+            clipboard,
         )
+
+    @Test
+    fun `route reads and imports the clipboard only when Paste is tapped`() {
+        clipboard.text =
+            """
+            [Interface]
+            PrivateKey = test-private-key
+            Address = 10.8.0.2/32
+            Jc = 4
+            Jmin = 40
+            Jmax = 70
+            S1 = 50
+            S2 = 100
+            H1 = 1000000001
+            H2 = 1000000002
+            H3 = 1000000003
+            H4 = 1000000004
+            [Peer]
+            PublicKey = test-peer-key
+            Endpoint = imported.example.com:51820
+            """.trimIndent()
+        val viewModel = viewModel()
+        composeRule.setContent {
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+        }
+        composeRule.runOnIdle { assertEquals(0, clipboard.readCount) }
+
+        composeRule
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.awg_paste_conf_action))
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(1, clipboard.readCount)
+            assertEquals("imported.example.com", viewModel.uiState.value.editor.form.server)
+        }
+    }
+
+    @Test
+    fun `route launches VPN consent and activates only after its result`() {
+        permissionBridge.vpnPermissionIntent = Intent("test.awg.vpn.consent")
+        val viewModel = viewModel()
+        viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
+        viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
+        viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, "private-key")
+        viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, "peer-key")
+        viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
+        val registry = FakeAwgConsentRegistry()
+        val owner =
+            object : ActivityResultRegistryOwner {
+                override val activityResultRegistry: ActivityResultRegistry = registry
+            }
+        composeRule.setContent {
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel) }
+            }
+        }
+        composeRule.runOnIdle { assertNull(registry.launchedIntent) }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performScrollTo().performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("test.awg.vpn.consent", registry.launchedIntent?.action)
+            assertEquals(0, activationCount)
+            permissionBridge.vpnPermissionIntent = null
+            registry.dispatchResult(requireNotNull(registry.launchedRequestCode), Activity.RESULT_OK, null)
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) { activationCount == 1 }
+    }
 
     /** In-memory DAO so the screen test drives the real repository without Room. */
     private class InMemoryAwgProfileDao : AwgProfileDao {
@@ -240,4 +333,34 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         onRevealPresharedKey = viewModel::onPresharedKeyRevealAuthorized,
         onConnect = viewModel::onConnect,
     )
+}
+
+private class FakeAwgConsentRegistry : ActivityResultRegistry() {
+    var launchedIntent: Intent? = null
+    var launchedRequestCode: Int? = null
+
+    override fun <I, O> onLaunch(
+        requestCode: Int,
+        contract: ActivityResultContract<I, O>,
+        input: I,
+        options: ActivityOptionsCompat?,
+    ) {
+        launchedIntent = input as Intent
+        launchedRequestCode = requestCode
+    }
+}
+
+internal class FakeAwgClipboardReader : ClipboardReader {
+    var text: String? = null
+    var readCount = 0
+        private set
+
+    override fun readPrimaryClipText(): String? {
+        readCount += 1
+        return text
+    }
+
+    override fun clearPrimaryClip() {
+        text = null
+    }
 }
