@@ -1,90 +1,100 @@
 ---
 task_id: DGN-1786867116840500
 change: fix-vpn-route-observation-and-evidence
-commit_sha: 2dcfb0d96bd064e6092bde6c72a58cd4d252d61b
-local: required
-local_evidence: "Service 1814/1814, app 1740/1740, and diagnostics 1264/1264 unit tests passed; the explicitly approved five-file schema-10 golden family, focused detekt, ktlint, assemble, architecture, task, diff, signing, and ELF evidence is recorded below."
+commit_sha: null
+local: blocked
+local_evidence: "Service 1855/1855 and app 1765/1765 passed; full staticAnalysis passed offline. Diagnostics has 1400 passes and two DNS candidate-count failures reproduced on clean baseline 4d9444ab. Architecture, locked Cargo metadata, and task validation passed."
 remote_ci: required
 remote_ci_evidence: null
-device: required
-device_evidence: null
+device: blocked
+device_evidence: "Only a physical API 37 device is connected. Physical API 36 acceptance and permission to install the debug APK and exercise VPN transitions remain outstanding. No device state was changed."
 artifact: required
-artifact_evidence: "githubFull arm64-v8a debug APK SHA-256 b7e8f85ece0dd9c89096a19d7ef2562e191fd104eb025c7308f17cb53dbf0408; v2 Android Debug certificate c048a6d6124a61149f7d6d3d8aa80055d39335ff76f14e1584d508408798de15; packaged native ELF verification passed."
+artifact_evidence: null
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
 
 # Verification
 
-Implementation evidence below was collected in the isolated change worktree
-before integration. It does not substitute for hosted CI or API 36 device
-proof. The five-file schema-10 golden family was explicitly approved and
-reviewed.
+## Current callback repair — 2026-08-27
+
+This repair starts from `4d9444abdda85789675ed1db6822a2d971da8462`.
+The earlier owner-route implementation is already present in `main` through
+`d4034d2cc`; the previous verification record described an older worktree SHA
+and APK, not the artifact for this repair. Current archive schema is 12. No
+schema, golden, JNI, protobuf, dependency, or locale changes are made here.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-VPN-ROUTE-001 | SVC-1786867116840502 | Receipt/callback and UI classifier tests pass; API 36 callback observation remains required | local pass; device pending |
-| REQ-VPN-ROUTE-002 | SVC-1786867116840502 | Builder-intent and coherent callback route-family tests pass | pass |
-| REQ-VPN-ROUTE-003 | DGN-1786867116840503 | Axis classifier, repeated forwarding-failure, recovery, poll-revision, and generation tests pass | pass |
-| REQ-VPN-ROUTE-004 | SVC-1786867116840502 | Replacement/loss, rebuild retry, bridge rollback, descriptor-close failure, and retained-session cleanup tests pass | pass |
-| REQ-VPN-ROUTE-005 | DGN-1786867116840503 | Schema projection, legacy decode, and hostile whole-ZIP redaction tests pass | local pass |
-| REQ-VPN-ROUTE-006 | DGN-1786867116840503 | Real schema-9 fixture decode and the explicitly approved five-file schema-10 golden family pass | pass |
-| REQ-VPN-ROUTE-007 | DGN-1786867116840503 | Local unit/static/build/artifact checks recorded below; hosted CI and API 36 owner/client scenario absent | partial |
+| REQ-VPN-ROUTE-001 | SVC-1786867116840502 | Registered owned callbacks with null/stale getters; both callback orders; owner-UID rejection | local pass; API 36 pending |
+| REQ-VPN-ROUTE-002 | SVC-1786867116840502 | Separate callback halves produce matching route families; route-only changes preserve validation | local pass |
+| REQ-VPN-ROUTE-003 | DGN-1786867116840501 | Validation-only changes preserve installed routes; diagnostics and app projection suites pass | local pass |
+| REQ-VPN-ROUTE-004 | SVC-1786867116840502 | Generation anchors, retired-network loss, stopped registration, and lifecycle receipt regressions pass | local pass |
+| REQ-VPN-ROUTE-005 | DGN-1786867116840503 | Renderer 38/38, exporter 14/14, passive route builder 3/3; no new exported identifiers | local pass |
+| REQ-VPN-ROUTE-006 | DGN-1786867116840503 | Existing archive/legacy decode tests run without blessing; schema 12 unchanged | local pass |
+| REQ-VPN-ROUTE-007 | DGN-1786867116840503 | Local checks below; physical API 36 and exact-SHA hosted CI remain outstanding | partial |
 
-## Observed local evidence
+## Behavioral regression evidence
 
-- `./gradlew :core:service:testDebugUnitTest`: 1814 tests, zero failures.
-- `./gradlew :app:testGithubFullDebugUnitTest`: 1740 tests, zero failures.
-- A preceding combined app/service/build invocation hit a Gradle test-results
-  `NoSuchFileException`; the isolated app test rerun above completed
-  successfully.
-- `./gradlew :core:diagnostics:testDebugUnitTest`: 1264 tests, zero failures.
-- The renderer and composite-exporter owning tests passed without the bless
-  flag after the five schema-10 archive fixtures were generated and reviewed.
-- Focused detekt and ktlint for `:core:service`, `:core:diagnostics`, and `:app`:
-  passed.
-- `./gradlew :app:assembleGithubFullDebug`: passed.
-- `python3 scripts/ci/verify_native_elfs.py --lib-dir
-  app/build/intermediates/merged_native_libs/githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib
-  --abis arm64-v8a`: passed.
-- `python3 scripts/ci/check_architecture_health.py`: 22/22 checks passed.
-- `./taskctl validate`: 49 tasks and 233 execution steps passed.
-- `git diff --check`: passed.
-- `./gradlew staticAnalysis`: passed on the rebased implementation commit.
+- Null synchronous getters: the registered capabilities/routes pair initially
+  failed with `(Awaiting, Unavailable)` instead of `(Complete, Verified)`.
+  Retaining the independently delivered callback axes made the test pass.
+- Stale synchronous getters: the observed states were `[Complete, Awaiting]`
+  instead of `[Awaiting, Complete]`. Removing getter calls from both callbacks
+  made the test pass.
+- Rejected foreign VPN: after its capabilities/routes callbacks, loss of the
+  owned VPN incorrectly remained `Awaiting` instead of `Lost`. Tracking known
+  rejected networks and ignoring their route callbacks made the test pass.
+- Combined observer/store/runtime regression run: 25 tests passed, zero
+  failures/errors/skips. Tests exercise the public registered callback path;
+  the unused atomic `observeNetworkShape` production API was removed.
+- Independent final read-only review found no remaining actionable issues in
+  registration/generation guards, rejected-owner handling, or privacy
+  projection. Internal Android network keys are not added to exports.
 
-## Artifact evidence
+## Current local gates
 
-- APK: `app/build/outputs/apk/githubFull/debug/app-github-full-arm64-v8a-debug.apk`.
-- SHA-256: `b7e8f85ece0dd9c89096a19d7ef2562e191fd104eb025c7308f17cb53dbf0408`.
-- APK Signature Scheme v2 verified; signer is the Android Debug certificate,
-  SHA-256 `c048a6d6124a61149f7d6d3d8aa80055d39335ff76f14e1584d508408798de15`.
-- Packaged arm64-v8a native ELF metadata verification passed.
+All heavy commands run through `build-gate`, with one Gradle worker and no
+parallel execution. JVM and static checks use `-Pripdpi.skipNativeBuild=true`;
+this does not constitute native packaging evidence.
 
-## Remaining evidence gates
+- `:core:service:testDebugUnitTest`: 1,855 tests, zero failures/errors/skips.
+- `:app:testGithubFullDebugUnitTest`: 1,765 tests, zero failures/errors/skips.
+- `:core:diagnostics:testDebugUnitTest`: 1,402 tests, two failures, no errors or
+  skips. Both failures are in `ConnectivityDnsTargetPlannerTest`, expecting
+  16 automatic candidates while the planner returns 12. The route repair does
+  not modify the planner or its tests. The same two failures were reproduced
+  by running the 11-test planner class on clean baseline `4d9444ab` in a
+  separate worktree. Both baseline and repaired trees report expected 16,
+  actual 12; prior commits excluded Cloudflare from automatic candidates but
+  left these test expectations unchanged. This unrelated DNS defect is not
+  hidden by changing assertions or provider policy in this repair.
+- Initial `staticAnalysis` waited on Google Maven metadata inside Android lint;
+  that invocation was cancelled. The first callback cycle passed the complete
+  `staticAnalysis --offline` task. The final full static-analysis rerun also
+  passed after fixing a blank-line ktlint violation; no checks were disabled.
+- `--no-watch-fs` is used for the final checks after a Gradle daemon reused the
+  old test class despite the renamed test source. A real compile then exposed
+  an API 29 Robolectric route-fixture issue, corrected by supplying a gateway
+  and matching route/link interface. No production assertion was weakened.
+- `python3 scripts/ci/check_architecture_health.py`: 23 indicators, no new or
+  worsened entries.
+- `cargo metadata --locked --format-version 1` from `native/rust`: passed.
+- `./taskctl validate`: 46 tasks and 221 steps passed.
 
-- Golden approval completed: the explicitly authorized fixtures are
-  `manifest_v10.json`, `analysis_v10.json`, `completeness_v10.json`,
-  `integrity_v10.json`, and `manifest_home_composite_v10.json`; no other golden
-  files changed.
-- Device: the connected Pixel reports API 37, so the required physical API 36
-  owner/client proof was not run. No APK was installed and no device state was
-  changed.
-- Remote CI: no commit was created or published; no hosted checks exist for the
-  current tree.
+## Remaining acceptance
 
-## Required category boundaries
-
-- Local: targeted tests, static analysis, app build, architecture health,
-  task-board validation, diff check, and independent combined-diff review on the
-  exact implementation SHA.
-- Remote CI: required checks observed on the exact published SHA. Local green or
-  a successful push is not remote-CI evidence.
-- Device: physical API 36 owner callback, route families, UI transition,
-  lifecycle handover, and distinct-client TUN-counter evidence on the exact APK.
-- Artifact: application ID, version/build type, SHA-256, signing identity,
-  packaged native verification, and installation match for the device-tested
-  APK. A successful Gradle task alone is not an artifact record.
-- Deployment: not applicable; this change does not own a backend or production
-  deployment.
+- Build and inspect a fresh debug APK from the committed repair; record its
+  exact source SHA, application identity, APK hash, signature, and native ELF
+  checks. No previous APK hash is credited to this repair.
+- Observe hosted CI on the exact pushed SHA. A push alone is not CI evidence.
+- On a physical API 36 device, verify the self-excluded owner's underlay
+  default alongside the owned validated VPN callback, matching route families,
+  Route UI transitions, and current-generation forwarding evidence across
+  start/rebuild/handover/stop.
+- Distinct-client traffic must carry a verified non-owner UID and correlate
+  with TUN counter deltas. The packet-smoke wrapper's owner-UID probe and an
+  API 37 run do not satisfy that criterion.
+- The task remains open until the outstanding acceptance evidence exists.

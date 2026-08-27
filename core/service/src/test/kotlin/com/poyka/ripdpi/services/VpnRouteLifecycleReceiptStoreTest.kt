@@ -166,12 +166,8 @@ class VpnRouteLifecycleReceiptStoreTest {
         )
         assertEquals(VpnRouteCallbackState.Awaiting, store.capture().callbackState)
 
-        store.observeNetworkShape(
+        store.observeDefaultRoutes(
             networkKey = "vpn-a",
-            hasInternet = true,
-            validated = true,
-            captivePortal = false,
-            ownerVerification = VpnRouteOwnerVerification.Verified,
             families = setOf(VpnRouteFamilyIpv4),
         )
 
@@ -185,18 +181,12 @@ class VpnRouteLifecycleReceiptStoreTest {
     }
 
     @Test
-    fun `new partial callback shape cannot reuse the previous revision half`() {
+    fun `validation-only callback retains routes in the current generation`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
         store.markEstablished(generation)
-        store.observeNetworkShape(
-            networkKey = "vpn-a",
-            hasInternet = true,
-            validated = true,
-            captivePortal = false,
-            ownerVerification = VpnRouteOwnerVerification.Verified,
-            families = setOf(VpnRouteFamilyIpv4),
-        )
+        store.observeVerifiedNetworkShape("vpn-a")
+        val initialRevision = requireNotNull(store.capture().callbackRevision)
 
         store.observeCapabilities(
             networkKey = "vpn-a",
@@ -206,37 +196,31 @@ class VpnRouteLifecycleReceiptStoreTest {
             ownerVerification = VpnRouteOwnerVerification.Verified,
         )
 
-        assertEquals(VpnRouteCallbackState.Awaiting, store.capture().callbackState)
+        val evidence = store.capture()
+        assertEquals(VpnRouteCallbackState.Complete, evidence.callbackState)
+        assertEquals(VpnRouteConsistency.Consistent, evidence.routeConsistency)
+        assertEquals(false, evidence.validated)
+        assertEquals(listOf(VpnRouteFamilyIpv4), evidence.observedDefaultRouteFamilies)
+        assertEquals(initialRevision + 1L, evidence.callbackRevision)
     }
 
     @Test
-    fun `same-network handover publishes one coherent callback revision`() {
+    fun `route-only handover retains validation and publishes a new revision`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
         store.markEstablished(generation)
-        store.observeNetworkShape(
-            networkKey = "vpn-a",
-            hasInternet = true,
-            validated = true,
-            captivePortal = false,
-            ownerVerification = VpnRouteOwnerVerification.Verified,
-            families = setOf(VpnRouteFamilyIpv4),
-        )
+        store.observeVerifiedNetworkShape("vpn-a")
         val initialRevision = store.capture().callbackRevision
 
-        store.observeNetworkShape(
+        store.observeDefaultRoutes(
             networkKey = "vpn-a",
-            hasInternet = true,
-            validated = false,
-            captivePortal = false,
-            ownerVerification = VpnRouteOwnerVerification.Verified,
             families = emptySet(),
         )
 
         val handover = store.capture()
         assertEquals(VpnRouteCallbackState.Complete, handover.callbackState)
         assertEquals(VpnRouteConsistency.Mismatch, handover.routeConsistency)
-        assertEquals(false, handover.validated)
+        assertEquals(true, handover.validated)
         assertEquals(requireNotNull(initialRevision) + 1L, handover.callbackRevision)
     }
 }
@@ -252,14 +236,8 @@ private fun VpnRouteLifecycleReceiptStore.observeVerifiedCapabilities(networkKey
 }
 
 private fun VpnRouteLifecycleReceiptStore.observeVerifiedNetworkShape(networkKey: Any) {
-    observeNetworkShape(
-        networkKey = networkKey,
-        hasInternet = true,
-        validated = true,
-        captivePortal = false,
-        ownerVerification = VpnRouteOwnerVerification.Verified,
-        families = setOf(VpnRouteFamilyIpv4),
-    )
+    observeVerifiedCapabilities(networkKey)
+    observeDefaultRoutes(networkKey, setOf(VpnRouteFamilyIpv4))
 }
 
 private fun VpnRouteLifecycleReceiptStore.beginTestGeneration(

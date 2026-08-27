@@ -115,7 +115,16 @@ stale or cross-generation combinations.
 - **GIVEN** the owned VPN remains established across an underlay handover
 - **WHEN** callback capabilities or link properties change
 - **THEN** a new coherent callback revision is published for the same VPN lifecycle generation
-- **AND** partially updated capabilities and routes are not classified as a final failure
+- **AND** the latest callback-delivered value of the unchanged axis is retained
+- **AND** initial evidence remains checking until both callbacks have arrived for that network and generation
+
+#### Scenario: Synchronous network getters are stale or unavailable
+
+- **GIVEN** capabilities and link properties arrive in separate callbacks for the owned VPN
+- **AND** synchronous network getters return null or stale data
+- **WHEN** callback evidence is reduced
+- **THEN** only the delivered callback arguments determine the observation
+- **AND** getter results cannot manufacture a mismatch, replace validation, or discard an owned VPN
 
 ### Requirement: REQ-VPN-ROUTE-005 — Export causal, privacy-safe provenance
 

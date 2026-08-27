@@ -44,3 +44,21 @@ route-policy mismatches, and native data-plane degradation.
 - Targeted JVM tests, `./gradlew staticAnalysis`, architecture health,
   task-board validation, and a physical-device API 36 scenario are reported as
   separate evidence. Hosted CI is not inferred from local checks.
+
+## Current execution ownership
+
+- Reopened service step SVC-1786867116840502 after finding that separate
+  capabilities/routes callbacks erase each other. The previous atomic-snapshot
+  tests did not exercise this path; synchronous framework getters could mask
+  the defect or manufacture stale evidence. The callback repair now passes all
+  1,855 service unit tests, including rejected-owner loss handling; the service
+  step is complete again. Combined and device acceptance remain separate.
+- The coordinator owns the callback authority and receipt reducer under
+  `core/service`, task/spec updates, combined validation, and integration.
+- The isolated regression-test writer owns only
+  `VpnRouteObservationAuthorityTest.kt`; production changes remain with the
+  coordinator. Review agents are read-only.
+- Existing diagnostics/archive behavior is retained. No schema, fixture,
+  dependency, baseline, locale, JNI, or protobuf changes are assigned.
+- Physical API 36 acceptance remains outstanding; the connected API 37
+  device does not satisfy that criterion.

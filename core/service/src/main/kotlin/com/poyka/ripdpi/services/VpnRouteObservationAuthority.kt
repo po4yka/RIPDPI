@@ -31,6 +31,7 @@ internal class VpnRouteObservationAuthority
     ) {
         private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
         private val ownedNetworks = mutableSetOf<Network>()
+        private val rejectedNetworks = mutableSetOf<Network>()
         private var registeredCallback: ConnectivityManager.NetworkCallback? = null
         private var registrationEpoch = 0L
 
@@ -58,10 +59,10 @@ internal class VpnRouteObservationAuthority
             registrationEpoch += 1L
             runCatching { connectivityManager.unregisterNetworkCallback(callback) }
             ownedNetworks.clear()
+            rejectedNetworks.clear()
             receiptStore.setObserverAvailable(false)
         }
 
-        @android.annotation.SuppressLint("MissingPermission")
         internal fun onCapabilitiesChanged(
             network: Network,
             capabilities: NetworkCapabilities,
@@ -70,48 +71,41 @@ internal class VpnRouteObservationAuthority
             if (ownerVerification == null) {
                 synchronized(this) {
                     ownedNetworks.remove(network)
+                    rejectedNetworks += network
                 }
                 receiptStore.discardObservation(network)
                 return
             }
             synchronized(this) {
+                rejectedNetworks.remove(network)
                 ownedNetworks += network
             }
-            val linkProperties = connectivityManager.getLinkProperties(network)
-            if (linkProperties == null) {
-                receiptStore.observeCapabilities(
-                    networkKey = network,
-                    hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-                    validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-                    captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-                    ownerVerification = ownerVerification,
-                )
-            } else {
-                receiptStore.observeNetworkShape(network, capabilities, linkProperties, ownerVerification)
-            }
+            receiptStore.observeCapabilities(
+                networkKey = network,
+                hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+                ownerVerification = ownerVerification,
+            )
         }
 
-        @android.annotation.SuppressLint("MissingPermission")
         internal fun onLinkPropertiesChanged(
             network: Network,
             linkProperties: LinkProperties,
         ) {
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-            val ownerVerification = capabilities?.let(::ownerVerification)
-            if (capabilities == null) {
-                receiptStore.observeDefaultRoutes(network, linkProperties.defaultRouteFamilies())
-            } else if (ownerVerification == null) {
-                synchronized(this) {
-                    ownedNetworks.remove(network)
-                }
+            if (synchronized(this) { network in rejectedNetworks }) {
                 receiptStore.discardObservation(network)
-            } else {
-                receiptStore.observeNetworkShape(network, capabilities, linkProperties, ownerVerification)
+                return
             }
+            receiptStore.observeDefaultRoutes(network, linkProperties.defaultRouteFamilies())
         }
 
         internal fun onLost(network: Network) {
-            val wasOwned = synchronized(this) { ownedNetworks.remove(network) }
+            val wasOwned =
+                synchronized(this) {
+                    rejectedNetworks.remove(network)
+                    ownedNetworks.remove(network)
+                }
             if (wasOwned) {
                 receiptStore.observeLost(network)
             } else {
@@ -187,22 +181,6 @@ internal class VpnRouteObservationAuthority
             }
         }
     }
-
-private fun VpnRouteLifecycleReceiptStore.observeNetworkShape(
-    network: Network,
-    capabilities: NetworkCapabilities,
-    linkProperties: LinkProperties,
-    ownerVerification: VpnRouteOwnerVerification,
-) {
-    observeNetworkShape(
-        networkKey = network,
-        hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-        validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-        captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-        ownerVerification = ownerVerification,
-        families = linkProperties.defaultRouteFamilies(),
-    )
-}
 
 internal fun ownedVpnNetworkRequest(apiLevel: Int): NetworkRequest {
     val builder = NetworkRequest.Builder()

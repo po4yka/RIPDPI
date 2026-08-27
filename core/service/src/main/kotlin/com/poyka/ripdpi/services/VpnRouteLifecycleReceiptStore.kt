@@ -198,26 +198,6 @@ class VpnRouteLifecycleReceiptStore
         }
 
         @Synchronized
-        fun observeNetworkShape(
-            networkKey: Any,
-            hasInternet: Boolean,
-            validated: Boolean,
-            captivePortal: Boolean,
-            ownerVerification: VpnRouteOwnerVerification,
-            families: Set<String>,
-        ) {
-            callbackReducer.observeNetworkShape(
-                networkKey = networkKey,
-                hasInternet = hasInternet,
-                validated = validated,
-                captivePortal = captivePortal,
-                ownerVerification = ownerVerification,
-                families = families,
-            )
-            publishCurrent()
-        }
-
-        @Synchronized
         fun observeLost(networkKey: Any) {
             callbackReducer.observeLost(networkKey)
             publishCurrent()
@@ -367,7 +347,6 @@ private class VpnRouteCallbackReducer {
                 captivePortal = captivePortal,
                 ownerVerification = ownerVerification,
             )
-        candidates.getValue(networkKey).routes = null
     }
 
     fun observeDefaultRoutes(
@@ -378,34 +357,6 @@ private class VpnRouteCallbackReducer {
         eventOrder += 1L
         losses.remove(networkKey)
         candidates.getOrPut(networkKey, ::CallbackCandidate).routes =
-            CallbackRoutes(
-                eventOrder = eventOrder,
-                families = families.filter(::isSupportedRouteFamily).sorted(),
-            )
-        candidates.getValue(networkKey).capabilities = null
-    }
-
-    fun observeNetworkShape(
-        networkKey: Any,
-        hasInternet: Boolean,
-        validated: Boolean,
-        captivePortal: Boolean,
-        ownerVerification: VpnRouteOwnerVerification,
-        families: Set<String>,
-    ) {
-        observerAvailable = true
-        eventOrder += 1L
-        losses.remove(networkKey)
-        val candidate = candidates.getOrPut(networkKey, ::CallbackCandidate)
-        candidate.capabilities =
-            CallbackCapabilities(
-                eventOrder = eventOrder,
-                hasInternet = hasInternet,
-                validated = validated,
-                captivePortal = captivePortal,
-                ownerVerification = ownerVerification,
-            )
-        candidate.routes =
             CallbackRoutes(
                 eventOrder = eventOrder,
                 families = families.filter(::isSupportedRouteFamily).sorted(),
@@ -509,6 +460,8 @@ private data class CallbackGenerationAnchor(
 
 private class CallbackCandidate {
     var availableOrder: Long? = null
+
+    // Android updates these axes independently; loss/discard clears the candidate.
     var capabilities: CallbackCapabilities? = null
     var routes: CallbackRoutes? = null
 

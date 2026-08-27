@@ -158,7 +158,12 @@ application is routed without a separate client UID/device test.
 
 - Callback ordering can expose partial capabilities/link properties -> publish
   a coherent store snapshot only after both are present; classify convergence
-  as checking.
+  as checking. Thereafter retain the latest delivered value of each axis for
+  the same network and lifecycle: Android may update capabilities or routes
+  independently. Do not query synchronous ConnectivityManager getters from
+  callbacks; they can return null or stale values. Loss, disqualification, and
+  observer shutdown clear the candidate; replacement-generation anchors still
+  reject callbacks belonging to the retired network.
 - A callback can observe another VPN -> filter by public owner UID where
   available and require a current service receipt on older APIs; otherwise
   report unverified.
