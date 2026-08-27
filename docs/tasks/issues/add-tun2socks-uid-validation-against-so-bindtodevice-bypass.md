@@ -2,7 +2,7 @@
 id: VPN-1786264762917166
 title: Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)
 kind: feature
-status: doing
+status: blocked
 area: vpn
 priority: high
 owner: ICMP and MapDNS physical harness lane
@@ -11,11 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: vpn-1786264762917166-add-tun2socks-uid-validation-against-so-bindtodevice-bypass
 created: 2026-05-22
-updated: 2026-07-22
+updated: 2026-08-27
 source_wiki_pages:
   - android-so-bindtodevice-vpn-bypass
 linked_task: null
-status_detail: MapDNS and ICMP source policy is shipped; Android ICMP and MapDNS selectors plus physical evidence are being implemented, while pre-5.7 and adb socket-table proof remain open
+status_detail: Native UID admission and Android physical harness are implemented; final source-bound Android runs on kernel >=5.7 and <5.7 plus adb socket-table evidence require connected devices. No adb device is available.
 ---
 
 ## Motivation
@@ -54,6 +54,14 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-08-27: Implemented the remaining source hardening: UID admission precedes raw TCP/UDP/MapDNS egress; queued packets retain their original lookup generation and a five-second deadline; pending TCP listeners own and retire lookup tokens; accepted smoltcp handles are reconciled to actual source tuples before cleanup; active retransmitted SYNs cannot steal token ownership; denied TCP gets a local IPv4/IPv6 RST; UDP attribution metadata is bounded to 64 exact tuples per association. Regression tests reproduced raw egress, stale-generation replay, pending-GC, listener-stealing, and duplicate-owner failures before their fixes. The Android runtime/acceptance bridge now shares a singleton activation epoch.
+- 2026-08-27: Physical harness v4 now supports actual kernel >=5.7 and <5.7 profiles, capability-based backport behavior, live armed/disarmed state assertions, and timestamped `/proc/net/tcp{,6}` samples with a held positive-control socket. Evidence remains fail-closed on missing permissions, stale provenance, absent positive controls, or observed denied sockets. The v3 evidence contract is intentionally replaced; old evidence cannot qualify the new source. Samples do not claim continuous kernel tracing. No Android device was attached in this run, so current-source protocol, both-kernel, and socket-table acceptance remain blocked. Historical July results below are not proof for this revision.
+
+- 2026-08-27: Android follow-up ownership also includes `FlowAttributionBridge.kt`: the runtime and acceptance gate currently receive separate unscoped instances. The isolated Android writer owns the minimal singleton binding correction and runtime-state evidence assertions; the integration lane continues to own all other production files and task artifacts.
+
+- 2026-08-27: Remaining implementation ownership: the integration lane owns native UID admission and lifecycle fixes, this portfolio record, OpenSpec artifacts, and the generated board. An isolated native test lane owns regression tests under `ripdpi-tunnel-core` and `ripdpi-flow-app-attribution` until handoff. An isolated Android harness lane owns SO_BIND instrumentation, physical runner, evidence validation, and their tests. Cargo lockfiles, dependency versions, wire/schema production contracts, locale sets, and golden fixtures are serialized to the integration lane and are not planned to change. Read-only native and Android audits identified raw egress before admission, pending TCP attribution cleanup, and missing pre-5.7/socket-table acceptance paths. Historical physical results do not validate this new source revision; device acceptance remains open.
+- 2026-08-27: After Android harness handoff, that writer owns only bounded UDP attribution-token metadata under `io_loop/udp_assoc/` in a new isolated worktree. The integration lane retains `routing.rs`, UDP dispatch/delivery admission ordering, the attribution crate, and TCP ownership; shared dispatch/delivery files are excluded from the UDP metadata lane.
 
 - 2026-07-22: Assigned the remaining Android ICMP and MapDNS selector/evidence harness to its dedicated physical lane. Source enforcement is already shipped; this ownership record serializes the shared board while the device lane implements the exact physical actions and evidence contracts.
 - 2026-07-22: **Shipped the MapDNS source admission boundary on this branch at implementation commit `f01763c4d6ac6c74657a615dded8240d0e3c2d8e`.** `IpClass::UdpDns` now preserves the exact kernel-visible synthetic destination tuple, parks unresolved datagrams in the bounded pending queue, admits only allowed UIDs before QNAME parsing or DNS-worker dispatch, avoids synthetic destination-attribution pollution, and leaves the disarmed path unchanged. The task remains `doing` only for the pre-5.7 device run, explicit `adb shell cat /proc/net/tcp` leak inspection, and physical ICMP/MapDNS DNS evidence; those checks are blocked by the current no-network/no-device permission. No device, VPN, DNS, route, Wi-Fi, or cellular state was changed in this lane.
