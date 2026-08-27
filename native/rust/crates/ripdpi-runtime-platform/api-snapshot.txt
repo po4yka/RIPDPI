@@ -4,6 +4,7 @@ pub use ripdpi_runtime_platform::capability::CapabilityOutcome
 pub use ripdpi_runtime_platform::capability::CapabilityUnavailable
 pub use ripdpi_runtime_platform::capability::RuntimeCapability
 pub use ripdpi_runtime_platform::capability::detect_default_ttl
+pub fn ripdpi_runtime_platform::capability::daemonize() -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::capability::detected_parallelism(usize) -> usize
 pub fn ripdpi_runtime_platform::capability::install_shutdown_signal_handlers() -> std::io::error::Result<()>
 pub fn ripdpi_runtime_platform::capability::request_shutdown()
