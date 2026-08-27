@@ -1,17 +1,15 @@
 use std::collections::HashMap;
-use std::time::Instant;
-
-use smoltcp::iface::SocketHandle;
 
 use crate::io_loop::packet::TcpFlowKey;
+use crate::io_loop::tcp_accept::PendingListener;
 
 pub(super) const TCP_ADMISSION_WORK_BUDGET: usize = 64;
 
-pub(super) fn pending_handle_batch(
-    pending_listens: &HashMap<TcpFlowKey, (SocketHandle, Instant)>,
+pub(super) fn pending_listener_batch<'a>(
+    pending_listens: &'a HashMap<TcpFlowKey, PendingListener>,
     admission_cursor: &mut usize,
     budget: usize,
-) -> Vec<SocketHandle> {
+) -> Vec<&'a PendingListener> {
     let pending_count = pending_listens.len();
     if pending_count == 0 {
         *admission_cursor = 0;
@@ -23,7 +21,6 @@ pub(super) fn pending_handle_batch(
         .skip(start)
         .chain(pending_listens.values().take(start))
         .take(budget.min(pending_count))
-        .map(|(handle, _)| *handle)
         .collect();
     *admission_cursor = (start + handles.len()) % pending_count;
     handles
@@ -50,14 +47,14 @@ mod tests {
                 src: SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 10_000 + index),
                 dst: SocketAddr::new(Ipv4Addr::new(203, 0, 113, 1).into(), 443),
             };
-            pending.insert(key, (handle, Instant::now()));
+            pending.insert(key, PendingListener::new(handle, key));
         }
         let mut cursor = 0;
         let mut seen = HashSet::new();
         for _ in 0..3 {
-            let batch = pending_handle_batch(&pending, &mut cursor, TCP_ADMISSION_WORK_BUDGET);
+            let batch = pending_listener_batch(&pending, &mut cursor, TCP_ADMISSION_WORK_BUDGET);
             assert_eq!(batch.len(), TCP_ADMISSION_WORK_BUDGET);
-            seen.extend(batch);
+            seen.extend(batch.into_iter().map(|listener| listener.handle));
         }
         assert_eq!(seen.len(), pending.len(), "rotating batches must eventually visit every pending socket");
     }

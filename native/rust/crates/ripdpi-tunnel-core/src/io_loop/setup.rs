@@ -18,7 +18,7 @@ use crate::{ActiveSessions, Stats, TunDevice};
 use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
 use super::retransmit::RetransmitTracker;
 use super::setup_dns::{build_dns_worker, configure_resolver_fallback};
-use super::state::{LoopState, PendingUidUdpPackets};
+use super::state::{LoopState, PendingUidPackets};
 use super::tcp_accept::{make_auth, proxy_addr};
 use super::udp_assoc::UDP_EVICTION_HEAP_CAPACITY;
 
@@ -80,7 +80,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         udp_eviction_heap: BoundedHeap::new(UDP_EVICTION_HEAP_CAPACITY),
         udp_memory_budget: UdpMemoryBudget::for_tunnel_mtu(mtu),
         next_udp_association_id: 1,
-        pending_uid_udp_packets: PendingUidUdpPackets::new(mtu + 64),
+        pending_uid_packets: PendingUidPackets::new(mtu + 64),
         dns_req_tx,
         dns_resp_rx,
         active_direct_dns_generation: None,

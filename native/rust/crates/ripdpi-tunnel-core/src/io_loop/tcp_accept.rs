@@ -19,7 +19,9 @@ mod target;
 mod unresolved;
 
 pub(crate) use admission::spawn_new_tcp_sessions;
-pub(crate) use listener::{ensure_pending_listen_for_syn, gc_stale_pending_listens};
+pub(crate) use listener::{
+    PendingListener, ensure_pending_listen_for_syn, gc_stale_pending_listens, reconcile_pending_listeners,
+};
 #[cfg(test)]
 pub(crate) use target::tcp_session_target_addr;
 
@@ -109,6 +111,22 @@ mod tests {
         assert_eq!(socket_set.iter().count(), 128, "eviction must remove the matching smoltcp socket");
         assert!(!pending_listens.contains_key(&oldest), "the oldest pending handshake must be evicted first");
         assert!(pending_listens.contains_key(&newest), "the newest pending handshake must be admitted");
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_flow_uid(crate::uid_policy::PROTO_TCP, oldest.src, oldest.dst),
+            ripdpi_flow_app_attribution::FlowUidLookup::Missing,
+            "pressure eviction retires the old generation"
+        );
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_flow_uid(crate::uid_policy::PROTO_TCP, newest.src, newest.dst),
+            ripdpi_flow_app_attribution::FlowUidLookup::Pending,
+            "new listener retains its pending job"
+        );
+        drop(pending_listens);
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_flow_uid(crate::uid_policy::PROTO_TCP, newest.src, newest.dst),
+            ripdpi_flow_app_attribution::FlowUidLookup::Missing,
+            "shutdown retires pending registrations"
+        );
     }
 
     #[test]

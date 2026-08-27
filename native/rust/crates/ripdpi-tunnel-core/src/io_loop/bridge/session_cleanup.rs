@@ -11,7 +11,7 @@ mod socket_removal;
 
 use socket_removal::remove_tcp_socket;
 
-pub(super) fn remove_session(
+pub(in crate::io_loop) fn remove_session(
     handle: SocketHandle,
     sessions: &mut ActiveSessions,
     socket_set: &mut SocketSet<'static>,

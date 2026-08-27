@@ -1,24 +1,28 @@
+use std::time::Instant;
+
+use ripdpi_flow_app_attribution::FlowAttributionToken;
+
 use crate::IpClass;
 use crate::classify::classify_ip_packet_with_parse_status;
-use crate::uid_policy::{CachedFlowUidSource, PROTO_UDP, Verdict};
+use crate::uid_policy::{PROTO_TCP, PROTO_UDP, Verdict};
 
 use super::dns_intercept::{
     dns_query_name, resolve_mapped_destination, route_dns_packet, sync_direct_dns_mapping_generation,
 };
-use super::packet::is_injected_rst;
+use super::packet::{TcpFlowKey, build_tcp_reset, is_injected_rst, tcp_packet_endpoints};
 use super::state::LoopState;
 use super::state::PendingUidRetainOutcome;
 use super::tcp_accept::ensure_pending_listen_for_syn;
-use super::udp_assoc::{UdpForwardOutcome, forward_udp_payload};
+use super::udp_assoc::{forward_udp_payload, release_unowned_udp_attribution};
 
 const STUN_HEADER_LEN: usize = 20;
 const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
 
 pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
-    route_tun_packet_inner(packet, state, true);
+    route_tun_packet_inner(packet, state, None);
 }
 
-fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_interceptor: bool) {
+fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<(&FlowAttributionToken, Instant)>) {
     let (ip_class, parsed_ip) = classify_ip_packet_with_parse_status(packet, state.runtime.mapdns_classify);
     if !parsed_ip {
         state.stats.record_tun_parse_failure();
@@ -32,27 +36,80 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
         return;
     }
 
-    if run_egress_interceptor && state.runtime.tun_egress_interceptor.handle_packet(packet) {
-        state.stats.record_tun_interceptor_drop();
-        return;
-    }
-
     match ip_class {
-        IpClass::TcpOrOther | IpClass::Icmp => route_tcp_or_other_packet(packet, state),
-        IpClass::UdpDns { src, dst, payload } => {
+        IpClass::TcpOrOther => {
             if state.runtime.uid_policy.is_enforcing() {
-                ripdpi_flow_app_attribution::request_uid_admission(PROTO_UDP, src, dst);
-            }
-            match state.runtime.uid_policy.admit(&CachedFlowUidSource, PROTO_UDP, src, dst) {
-                Verdict::Pending => {
-                    retain_pending_uid_udp(packet, state);
-                    return;
-                }
-                Verdict::DropUdp | Verdict::ResetTcp => {
+                let Some((src, dst)) = tcp_packet_endpoints(packet) else {
                     state.stats.record_tun_policy_drop();
                     return;
+                };
+                let key = TcpFlowKey { src, dst };
+                // Allocate a parked listener before queuing UID work. It owns
+                // the generation, but no unadmitted bytes reach smoltcp.
+                ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
+                let token = pending.map_or_else(
+                    || {
+                        state.pending_listens.get(&key).map_or_else(
+                            || ripdpi_flow_app_attribution::note_flow(PROTO_TCP, src, dst).token,
+                            |listener| listener.attribution_token().clone(),
+                        )
+                    },
+                    |(token, _)| token.clone(),
+                );
+                match state.runtime.uid_policy.admit_token(&token) {
+                    Verdict::Pending => {
+                        retain_pending_uid_packet(packet, state, token, pending.map(|(_, time)| time));
+                        return;
+                    }
+                    Verdict::ResetTcp | Verdict::DropUdp => {
+                        retire_denied_tcp_flow(state, key);
+                        ripdpi_flow_app_attribution::evict_flow(token);
+                        state.stats.record_tun_policy_drop();
+                        if let Some(reset) = build_tcp_reset(packet) {
+                            state.device.tx_queue.push_back(reset);
+                        }
+                        return;
+                    }
+                    Verdict::Allow => {}
                 }
-                Verdict::Allow => {}
+                if intercept_packet(packet, state) {
+                    if !state.pending_listens.get(&key).is_some_and(|listener| listener.attribution_token() == &token)
+                        && !state.sessions.iter_mut().any(|(_, entry)| entry.attribution_token.as_ref() == Some(&token))
+                    {
+                        ripdpi_flow_app_attribution::evict_flow(token);
+                    }
+                    return;
+                }
+            } else if intercept_packet(packet, state) {
+                return;
+            }
+            route_tcp_or_other_packet(packet, state);
+        }
+        IpClass::Icmp => {
+            if !intercept_packet(packet, state) {
+                route_tcp_or_other_packet(packet, state);
+            }
+        }
+        IpClass::UdpDns { src, dst, payload } => {
+            if state.runtime.uid_policy.is_enforcing() {
+                let token = pending.map_or_else(
+                    || ripdpi_flow_app_attribution::request_uid_admission(PROTO_UDP, src, dst),
+                    |(token, _)| token.clone(),
+                );
+                match state.runtime.uid_policy.admit_token(&token) {
+                    Verdict::Pending => {
+                        retain_pending_uid_packet(packet, state, token, pending.map(|(_, time)| time));
+                        return;
+                    }
+                    Verdict::DropUdp | Verdict::ResetTcp => {
+                        state.stats.record_tun_policy_drop();
+                        return;
+                    }
+                    Verdict::Allow => {}
+                }
+            }
+            if intercept_packet(packet, state) {
+                return;
             }
             sync_direct_dns_mapping_generation(state.dns_cache.as_mut(), &mut state.active_direct_dns_generation);
             let host = dns_query_name(payload);
@@ -74,6 +131,30 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                 state.stats.record_tun_policy_drop();
                 return;
             }
+            if !state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
+                return;
+            }
+            let token = pending.map_or_else(
+                || ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, dst).token,
+                |(token, _)| token.clone(),
+            );
+            match state.runtime.uid_policy.admit_token(&token) {
+                Verdict::Pending => {
+                    retain_pending_uid_packet(packet, state, token, pending.map(|(_, time)| time));
+                    return;
+                }
+                Verdict::DropUdp | Verdict::ResetTcp => {
+                    ripdpi_flow_app_attribution::evict_flow(token);
+                    state.stats.record_tun_policy_drop();
+                    return;
+                }
+                Verdict::Allow => {}
+            }
+            // A raw hook can send even when it does not consume the packet.
+            if state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
+                release_unowned_udp_attribution(&state.udp_associations, src, token);
+                return;
+            }
             state.stats.record_dht_trigger_destination(dst);
             let synthetic_ip = match dst.ip() {
                 std::net::IpAddr::V4(ip)
@@ -89,7 +170,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                 Some(&mut state.active_direct_dns_generation),
                 dst,
             ) {
-                let outcome = forward_udp_payload(
+                forward_udp_payload(
                     state.runtime.proxy_sockaddr,
                     &state.runtime.auth,
                     src,
@@ -108,18 +189,43 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, run_egress_inter
                     &state.cancel,
                     &state.udp_tx,
                     &state.stats,
-                    &state.runtime.uid_policy,
+                    token,
                 );
-                if matches!(outcome, UdpForwardOutcome::PendingUid) {
-                    retain_pending_uid_udp(packet, state);
-                }
             }
         }
     }
 }
 
-fn retain_pending_uid_udp(packet: &[u8], state: &mut LoopState) {
-    match state.pending_uid_udp_packets.retain(packet) {
+fn retire_denied_tcp_flow(state: &mut LoopState, key: TcpFlowKey) {
+    if let Some(listener) = state.pending_listens.remove(&key) {
+        state.socket_set.remove(listener.handle);
+    }
+    let handle = state.sessions.iter_mut().find_map(|(handle, entry)| {
+        entry.attribution_token.as_ref().and_then(|token| {
+            let request = token.request();
+            (request.local == key.src && request.remote == key.dst).then_some(handle)
+        })
+    });
+    if let Some(handle) = handle {
+        super::bridge::remove_session(handle, &mut state.sessions, &mut state.socket_set, &mut state.dns_cache);
+    }
+}
+
+fn intercept_packet(packet: &[u8], state: &mut LoopState) -> bool {
+    let consumed = state.runtime.tun_egress_interceptor.handle_packet(packet);
+    if consumed {
+        state.stats.record_tun_interceptor_drop();
+    }
+    consumed
+}
+
+fn retain_pending_uid_packet(
+    packet: &[u8],
+    state: &mut LoopState,
+    token: FlowAttributionToken,
+    captured_at: Option<Instant>,
+) {
+    match state.pending_uid_packets.retain(packet, token, captured_at.unwrap_or_else(Instant::now)) {
         PendingUidRetainOutcome::Stored => {}
         PendingUidRetainOutcome::EvictedOldest | PendingUidRetainOutcome::Rejected => {
             state.stats.record_tun_queue_drop();
@@ -136,14 +242,23 @@ fn is_stun_datagram(payload: &[u8]) -> bool {
     declared_len.is_multiple_of(4) && STUN_HEADER_LEN.saturating_add(declared_len) <= payload.len()
 }
 
-pub(in crate::io_loop) fn retry_pending_uid_udp(state: &mut LoopState) {
-    let attempts = state.pending_uid_udp_packets.len().min(super::IO_PHASE_WORK_BUDGET);
+pub(in crate::io_loop) fn retry_pending_uid_packets(state: &mut LoopState) {
+    let attempts = state.pending_uid_packets.len().min(super::IO_PHASE_WORK_BUDGET);
     for _ in 0..attempts {
-        let Some(packet) = state.pending_uid_udp_packets.pop_front() else {
+        let Some(packet) = state.pending_uid_packets.pop_front() else {
             break;
         };
-        route_tun_packet_inner(&packet, state, false);
-        state.pending_uid_udp_packets.recycle(packet);
+        if packet.expired()
+            || matches!(
+                ripdpi_flow_app_attribution::lookup_registered_flow_uid(&packet.token),
+                ripdpi_flow_app_attribution::FlowUidLookup::Missing
+            )
+        {
+            state.stats.record_tun_policy_drop();
+        } else {
+            route_tun_packet_inner(&packet.bytes, state, Some((&packet.token, packet.captured_at)));
+        }
+        state.pending_uid_packets.recycle(packet);
     }
 }
 

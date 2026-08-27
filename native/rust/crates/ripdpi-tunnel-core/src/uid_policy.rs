@@ -176,6 +176,22 @@ impl UidFlowPolicy {
             UidLookup::Resolved(None) => Verdict::Allow,
         }
     }
+
+    /// Admit a captured packet against its original registration generation.
+    pub(crate) fn admit_token(&self, token: &ripdpi_flow_app_attribution::FlowAttributionToken) -> Verdict {
+        if !self.is_enforcing() {
+            return Verdict::Allow;
+        }
+        use ripdpi_flow_app_attribution::FlowUidLookup;
+        let protocol = token.request().protocol;
+        match ripdpi_flow_app_attribution::lookup_registered_flow_uid(token) {
+            FlowUidLookup::Missing => Verdict::deny_for(protocol),
+            FlowUidLookup::Pending => Verdict::Pending,
+            FlowUidLookup::Resolved(Some(uid)) => self.evaluate(uid, protocol),
+            FlowUidLookup::Resolved(None) if self.block_unresolved => Verdict::deny_for(protocol),
+            FlowUidLookup::Resolved(None) => Verdict::Allow,
+        }
+    }
 }
 
 #[cfg(test)]

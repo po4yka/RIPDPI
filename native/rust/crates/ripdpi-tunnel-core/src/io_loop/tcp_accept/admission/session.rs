@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant as StdInstant;
 
-use smoltcp::iface::{SocketHandle, SocketSet};
+use smoltcp::iface::SocketSet;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use crate::dns_cache::DnsCache;
 use crate::io_loop::dns_intercept::DnsRequest;
 use crate::io_loop::packet::TcpFlowKey;
+use crate::io_loop::tcp_accept::PendingListener;
 use crate::session::{Auth, TargetAddr};
 use crate::split_dns::SplitDnsPolicy;
 use crate::{ActiveSessions, SessionEntry, Stats};
@@ -25,7 +25,7 @@ use super::pending::PendingTcpSession;
 pub(super) fn admit_session(
     socket_set: &mut SocketSet<'static>,
     sessions: &mut ActiveSessions,
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
+    pending_listens: &mut HashMap<TcpFlowKey, PendingListener>,
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
     protect_path: Option<&str>,
@@ -38,7 +38,10 @@ pub(super) fn admit_session(
     dns_req_tx: Option<tokio::sync::mpsc::Sender<DnsRequest>>,
     split_dns_policy: Option<SplitDnsPolicy>,
 ) {
-    remove_pending_listen(pending_listens, pending.handle);
+    let Some(mut listener) = remove_pending_listen(pending_listens, pending.handle) else {
+        return;
+    };
+    let attribution_token = listener.take_attribution();
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
     let target = pending.target_host.as_ref().map_or(TargetAddr::Ip(pending.target_addr), |host| {
@@ -66,7 +69,7 @@ pub(super) fn admit_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: pending.synthetic_ip,
-        attribution_token: pending.attribution_token,
+        attribution_token: Some(attribution_token),
     };
     let evicted = sessions.insert(pending.handle, entry);
     if let Some((_, Some(ip))) = evicted

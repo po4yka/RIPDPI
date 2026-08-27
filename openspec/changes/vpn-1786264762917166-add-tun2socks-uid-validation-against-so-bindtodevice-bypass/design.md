@@ -13,6 +13,12 @@ Portfolio task `VPN-1786264762917166` owns this change. On Linux kernel 5.7+ (pr
 - Treat the portfolio task as the source of priority, ownership, and lifecycle state.
 - Treat this OpenSpec change as the normative behavior delta for the `vpn` area.
 - Keep implementation details in the affected modules and record exact verification evidence separately.
+- Admit the original kernel-visible TCP/UDP tuple before any egress interceptor can emit raw traffic. Unresolved packets wait in bounded storage; an admitted packet invokes the interceptor once. Denied TCP still reaches the local reset path without invoking an egress hook.
+- Pending TCP listeners own their attribution generations until admission transfers ownership to the active session, or timeout/pressure cleanup invalidates the outstanding lookup. UDP association ownership metadata must remain bounded under tuple/generation churn.
+- Physical qualification uses the real production capability decision on both sides of kernel 5.7, including permission-denied old kernels and supported backports. Socket-table evidence requires a synchronized denial window and a visible positive control; unreadable or unobservable tables remain blocked evidence.
+
+- smoltcp LISTEN sockets match only the destination. After every packet poll, reconcile accepted handles to their actual source/destination owners before GC or another input batch. Keep attribution generations and timestamps with the original tuple, and never allocate a second owner for an active flow's retransmitted SYN.
+- Scope `FlowAttributionBridge` to the application singleton so the native runtime and acceptance observers share one activation epoch. Physical evidence reads the live armed state after `Running` and before export; a separate default-initialized bridge cannot qualify either kernel branch.
 
 ## Risks / Trade-offs
 

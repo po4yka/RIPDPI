@@ -6,9 +6,9 @@ use tun_rs::AsyncDevice;
 
 use super::bridge::{TunFlushOutcome, flush_device_tx_queue, pump_active_sessions};
 use super::dns_intercept::drain_dns_responses;
-use super::routing::{retry_pending_uid_udp, route_tun_packet};
+use super::routing::{retry_pending_uid_packets, route_tun_packet};
 use super::state::LoopState;
-use super::tcp_accept::{gc_stale_pending_listens, spawn_new_tcp_sessions};
+use super::tcp_accept::{gc_stale_pending_listens, reconcile_pending_listeners, spawn_new_tcp_sessions};
 use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL, PENDING_LISTEN_TIMEOUT};
 
 /// Keep one busy TUN producer from monopolising the single-owner io loop. The
@@ -68,11 +68,12 @@ pub(in crate::io_loop) fn drain_dns(state: &mut LoopState) {
 }
 
 pub(in crate::io_loop) fn retry_pending_udp_admission(state: &mut LoopState) {
-    retry_pending_uid_udp(state);
+    retry_pending_uid_packets(state);
 }
 
 pub(in crate::io_loop) fn poll_smoltcp(state: &mut LoopState) {
     state.iface.poll(Instant::now(), &mut state.device, &mut state.socket_set);
+    reconcile_pending_listeners(&mut state.pending_listens, &state.socket_set);
 }
 
 pub(in crate::io_loop) fn gc_pending_listens(state: &mut LoopState) {
@@ -122,7 +123,7 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
 
     // `TcpSocket::abort()` schedules a RST; smoltcp must poll the socket once
     // before it is removed or the reset never reaches the kernel-side peer.
-    state.iface.poll(Instant::now(), &mut state.device, &mut state.socket_set);
+    poll_smoltcp(state);
     for handle in resetting {
         state.socket_set.remove(handle);
     }
@@ -175,11 +176,13 @@ mod tests {
     use super::super::packet::{build_ipv4_tcp_ack_packet, build_ipv4_tcp_syn_packet, tcp_seq_ack};
     use super::super::retransmit::RetransmitTracker;
     use super::super::state::{
-        LoopRuntime, LoopState, PENDING_UID_UDP_CAPACITY, PENDING_UID_UDP_POOL_CAPACITY, PendingUidUdpPackets,
+        LoopRuntime, LoopState, PENDING_UID_CAPACITY, PENDING_UID_POOL_CAPACITY, PendingUidPackets,
     };
     use super::super::udp_assoc::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry};
     use super::super::wait::{WaitEvent, WaitOutcome, handle_wait_event};
     use super::*;
+
+    mod uid_admission;
 
     struct GenerationBinder(u64);
 
@@ -300,9 +303,9 @@ mod tests {
         route_tun_packet(&udp_packet, &mut state);
 
         assert_eq!(state.stats.icmp_ingress_packets(), 0);
-        assert_eq!(seen_packets.lock().expect("seen packets").len(), 2);
-        assert_eq!(state.device.rx_queue.front().expect("smoltcp packet"), &tcp_packet);
-        assert_eq!(state.pending_uid_udp_packets.len(), 1);
+        assert!(seen_packets.lock().expect("seen packets").is_empty());
+        assert!(state.device.rx_queue.is_empty());
+        assert_eq!(state.pending_uid_packets.len(), 2);
     }
 
     #[test]
@@ -356,13 +359,13 @@ mod tests {
 
         route_tun_packet(&packet, &mut state);
         assert!(state.udp_associations.is_empty(), "pending UID must not create an association");
-        assert_eq!(state.pending_uid_udp_packets.len(), 1, "pending UDP datagram must be retained");
+        assert_eq!(state.pending_uid_packets.len(), 1, "pending UDP datagram must be retained");
 
         let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("denied flow job");
         ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(20_000));
-        retry_pending_uid_udp(&mut state);
+        retry_pending_uid_packets(&mut state);
         assert!(state.udp_associations.is_empty(), "denied UID must remain dropped");
-        assert!(state.pending_uid_udp_packets.is_empty(), "denied UDP datagram must be released");
+        assert!(state.pending_uid_packets.is_empty(), "denied UDP datagram must be released");
         assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
         assert_eq!(
             ripdpi_flow_app_attribution::lookup_flow_uid(request.protocol, request.local, request.remote,),
@@ -377,16 +380,16 @@ mod tests {
             remote: "93.184.216.34:443".parse().expect("remote endpoint"),
         };
         route_tun_packet(&allowed_packet, &mut state);
-        assert_eq!(state.pending_uid_udp_packets.len(), 1, "allowed flow waits for UID resolution");
+        assert_eq!(state.pending_uid_packets.len(), 1, "allowed flow waits for UID resolution");
         let job = ripdpi_flow_app_attribution::take_pending_request(allowed_request).expect("allowed flow job");
         ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
-        retry_pending_uid_udp(&mut state);
+        retry_pending_uid_packets(&mut state);
         assert_eq!(state.udp_associations.len(), 1, "allowed UID may create the association");
-        assert!(state.pending_uid_udp_packets.is_empty(), "admitted UDP datagram must leave pending queue");
+        assert!(state.pending_uid_packets.is_empty(), "admitted UDP datagram must leave pending queue");
         assert_eq!(
             seen_packets.lock().expect("seen packets").len(),
-            2,
-            "UID retries must not replay egress interceptor side effects"
+            1,
+            "only the admitted packet may invoke egress interceptor side effects"
         );
         state.shutdown().await;
     }
@@ -451,19 +454,19 @@ mod tests {
 
             route_tun_packet(&packet, &mut state);
 
-            assert_eq!(state.pending_uid_udp_packets.len(), 1);
+            assert_eq!(state.pending_uid_packets.len(), 1);
             assert!(rx.try_recv().is_err(), "pending admission must not reach the DNS worker");
             assert!(state.device.tx_queue.is_empty(), "pending admission must not synthesize a response");
             let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("exact DNS tuple request");
             assert_eq!(job.kind(), ripdpi_flow_app_attribution::FlowResolutionKind::AdmissionOnly);
             ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(20_000));
 
-            retry_pending_uid_udp(&mut state);
+            retry_pending_uid_packets(&mut state);
 
-            assert!(state.pending_uid_udp_packets.is_empty());
+            assert!(state.pending_uid_packets.is_empty());
             assert!(rx.try_recv().is_err(), "denied DNS must not reach the worker");
             assert!(state.device.tx_queue.is_empty(), "denied DNS must be silently dropped");
-            assert_eq!(seen_packets.lock().expect("seen packets").len(), 1, "retry must not replay interception");
+            assert!(seen_packets.lock().expect("seen packets").is_empty(), "denied DNS must never reach interception");
 
             let unresolved_packet = mapdns_dns_packet(53_104);
             let unresolved_request = ripdpi_flow_app_attribution::FlowResolveRequest {
@@ -475,7 +478,7 @@ mod tests {
             let unresolved_job = ripdpi_flow_app_attribution::take_pending_request(unresolved_request)
                 .expect("unresolved DNS tuple request");
             ripdpi_flow_app_attribution::store_uid_resolution(&unresolved_job, None);
-            retry_pending_uid_udp(&mut state);
+            retry_pending_uid_packets(&mut state);
             assert!(rx.try_recv().is_err(), "unresolved DNS must not reach the worker");
             assert!(state.device.tx_queue.is_empty(), "unresolved DNS must be silently dropped");
 
@@ -491,7 +494,7 @@ mod tests {
             let allowed_job =
                 ripdpi_flow_app_attribution::take_pending_request(allowed_request).expect("allowed DNS tuple request");
             ripdpi_flow_app_attribution::store_uid_resolution(&allowed_job, Some(10_123));
-            retry_pending_uid_udp(&mut state);
+            retry_pending_uid_packets(&mut state);
             let routed = rx.try_recv().expect("allowed direct DNS reaches worker exactly once");
             assert_eq!(routed.direct.as_ref().map(|direct| direct.generation), Some(41));
             assert!(rx.try_recv().is_err(), "one admitted packet produces one routed request");
@@ -521,7 +524,7 @@ mod tests {
         route_tun_packet(&packet, &mut state);
         let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("exact DNS tuple request");
         ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
-        retry_pending_uid_udp(&mut state);
+        retry_pending_uid_packets(&mut state);
         let first = rx.try_recv().expect("allowed DNS reaches worker");
         assert_eq!(first.src, request.local);
         assert_eq!(first.host.as_deref(), Some("example.test"));
@@ -553,7 +556,7 @@ mod tests {
         route_tun_packet(&packet, &mut state);
 
         assert!(rx.try_recv().is_ok());
-        assert!(state.pending_uid_udp_packets.is_empty());
+        assert!(state.pending_uid_packets.is_empty());
         assert_eq!(
             ripdpi_flow_app_attribution::lookup_flow_uid(request.protocol, request.local, request.remote),
             ripdpi_flow_app_attribution::FlowUidLookup::Missing
@@ -582,7 +585,7 @@ mod tests {
             let synthetic_remote = SocketAddr::new(Ipv4Addr::from(synthetic_ip).into(), 3478);
 
             route_tun_packet(&packet, &mut state);
-            assert_eq!(state.pending_uid_udp_packets.len(), 1, "MapDNS UDP waits for UID resolution");
+            assert_eq!(state.pending_uid_packets.len(), 1, "MapDNS UDP waits for UID resolution");
             let request = ripdpi_flow_app_attribution::FlowResolveRequest {
                 protocol: crate::uid_policy::PROTO_UDP,
                 local,
@@ -592,10 +595,10 @@ mod tests {
                 .expect("UID lookup must use the kernel-visible synthetic tuple");
             ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
 
-            retry_pending_uid_udp(&mut state);
+            retry_pending_uid_packets(&mut state);
 
             assert_eq!(state.udp_associations.len(), 1, "resolved MapDNS UDP may create the SOCKS association");
-            assert!(state.pending_uid_udp_packets.is_empty(), "admitted datagram must leave the pending queue");
+            assert!(state.pending_uid_packets.is_empty(), "admitted datagram must leave the pending queue");
             state
         };
         state.shutdown().await;
@@ -698,7 +701,7 @@ mod tests {
 
         route_tun_packet(&ipv4_udp_packet(55_126, 3478, &stun_request), &mut state);
 
-        assert!(state.pending_uid_udp_packets.is_empty(), "blocked STUN must not enter UID admission");
+        assert!(state.pending_uid_packets.is_empty(), "blocked STUN must not enter UID admission");
         assert!(state.udp_associations.is_empty(), "blocked STUN must not create a SOCKS association");
         assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
         state.shutdown().await;
@@ -712,7 +715,7 @@ mod tests {
 
         route_tun_packet(&ipv4_udp_packet(55_127, 443, b"not-stun"), &mut state);
 
-        assert_eq!(state.pending_uid_udp_packets.len(), 1, "non-STUN UDP must continue to UID admission");
+        assert_eq!(state.pending_uid_packets.len(), 1, "non-STUN UDP must continue to UID admission");
         state.shutdown().await;
     }
 
@@ -837,7 +840,7 @@ mod tests {
             udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
-            pending_uid_udp_packets: PendingUidUdpPackets::new(1564),
+            pending_uid_packets: PendingUidPackets::new(1564),
             dns_req_tx: None,
             dns_resp_rx: None,
             active_direct_dns_generation: None,
@@ -849,22 +852,29 @@ mod tests {
 
     #[test]
     fn pending_uid_udp_storage_is_bounded_and_reuses_preallocated_buffers() {
-        let mut packets = PendingUidUdpPackets::new(64);
-        assert_eq!(packets.free_len(), PENDING_UID_UDP_POOL_CAPACITY);
+        let mut packets = PendingUidPackets::new(64);
+        assert_eq!(packets.free_len(), PENDING_UID_POOL_CAPACITY);
+        let token = ripdpi_flow_app_attribution::note_flow(
+            17,
+            "10.0.0.2:55800".parse().unwrap(),
+            "203.0.113.1:443".parse().unwrap(),
+        )
+        .token;
+        let captured_at = std::time::Instant::now();
 
-        for byte in 0..=PENDING_UID_UDP_CAPACITY {
-            assert!(packets.retain(&[byte as u8; 32]).is_stored());
+        for byte in 0..=PENDING_UID_CAPACITY {
+            assert!(packets.retain(&[byte as u8; 32], token.clone(), captured_at).is_stored());
         }
-        assert_eq!(packets.len(), PENDING_UID_UDP_CAPACITY);
+        assert_eq!(packets.len(), PENDING_UID_CAPACITY);
         assert_eq!(packets.free_len(), 1);
 
         let packet = packets.pop_front().expect("queued packet");
-        let allocation = packet.as_ptr();
+        let allocation = packet.bytes.as_ptr();
         packets.recycle(packet);
         assert_eq!(packets.free_len(), 2);
-        assert!(packets.retain(&[7; 32]).is_stored());
+        assert!(packets.retain(&[7; 32], token, captured_at).is_stored());
         assert_eq!(packets.back_ptr(), Some(allocation), "retention must reuse a preallocated buffer");
-        assert_eq!(packets.free_len() + packets.len(), PENDING_UID_UDP_POOL_CAPACITY);
+        assert_eq!(packets.free_len() + packets.len(), PENDING_UID_POOL_CAPACITY);
     }
 
     #[test]
@@ -872,13 +882,13 @@ mod tests {
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
         state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
 
-        for offset in 0..=PENDING_UID_UDP_CAPACITY {
+        for offset in 0..=PENDING_UID_CAPACITY {
             let port = 40_000 + u16::try_from(offset).expect("test port offset");
             let packet = ipv4_udp_packet(port, 443, b"uid-pending");
             route_tun_packet(&packet, &mut state);
         }
 
-        assert_eq!(state.pending_uid_udp_packets.len(), PENDING_UID_UDP_CAPACITY);
+        assert_eq!(state.pending_uid_packets.len(), PENDING_UID_CAPACITY);
         assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
     }
 

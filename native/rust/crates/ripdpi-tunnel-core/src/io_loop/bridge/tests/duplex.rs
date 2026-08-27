@@ -138,7 +138,7 @@ fn u18_flush_pending_to_smoltcp_drains() {
     iface.poll(Instant::now(), &mut device, &mut socket_set);
     device.tx_queue.clear();
 
-    let handle = pending_listens.values().next().map(|(h, _)| *h).expect("pending listen handle");
+    let handle = pending_listens.values().next().map(|listener| listener.handle).expect("pending listen handle");
 
     let tcp = socket_set.get_mut::<TcpSocket>(handle);
     let mut pending = vec![42u8; 100];

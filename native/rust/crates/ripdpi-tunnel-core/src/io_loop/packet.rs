@@ -1,10 +1,13 @@
 mod endpoint;
 mod parse;
 mod tcp_flags;
+mod tcp_reset;
 mod udp_response;
 
 pub(crate) use endpoint::endpoint_to_socketaddr;
+pub(crate) use parse::tcp_packet_endpoints;
 pub(crate) use tcp_flags::{TcpFlowKey, is_injected_rst, tcp_syn_flow_key};
+pub(crate) use tcp_reset::build_tcp_reset;
 pub(crate) use udp_response::build_udp_response;
 
 #[cfg(test)]

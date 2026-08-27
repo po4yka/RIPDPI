@@ -1,15 +1,15 @@
 use std::collections::HashMap;
-use std::time::Instant as StdInstant;
 
 use smoltcp::iface::SocketHandle;
 use tracing::debug;
 
 use crate::io_loop::packet::TcpFlowKey;
+use crate::io_loop::tcp_accept::PendingListener;
 
 use super::eviction::remove_pending_listen;
 
 pub(super) fn abort_unresolved_sessions(
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
+    pending_listens: &mut HashMap<TcpFlowKey, PendingListener>,
     unresolvable: Vec<SocketHandle>,
 ) -> Vec<SocketHandle> {
     for &handle in &unresolvable {

@@ -5,7 +5,7 @@ mod ensure;
 mod leases;
 mod quic_sni;
 
-pub(in crate::io_loop) use dispatch::{UdpForwardOutcome, forward_udp_payload};
+pub(in crate::io_loop) use dispatch::forward_udp_payload;
 #[cfg(test)]
 pub(super) use leases::lease_udp_mapping;
 #[cfg(test)]

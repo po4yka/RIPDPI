@@ -157,7 +157,7 @@ impl FlowResolveRequest {
 /// Opaque identity of one exact flow registration.
 ///
 /// The generation prevents a delayed cleanup from removing a later flow that reused the same protocol/local/remote tuple.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FlowAttributionToken {
     request: FlowResolveRequest,
     generation: u64,
@@ -323,16 +323,16 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
 /// never renew that security bound: the exact tuple is forcibly re-resolved
 /// after five seconds in case the kernel assigned it to a different socket
 /// owner. The cache is also bounded by LRU and cleared at session shutdown.
-pub fn request_uid_admission(protocol: u8, local: SocketAddr, remote: SocketAddr) {
+pub fn request_uid_admission(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowAttributionToken {
     let request = FlowResolveRequest { protocol, local, remote };
-    request_uid_admission_at(request, Instant::now());
+    request_uid_admission_at(request, Instant::now())
 }
 
-fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) {
+fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowAttributionToken {
     let mut guard = lock();
     remove_expired_admission(&mut guard, request, now);
-    if guard.uid_cache.get(&request).is_some() {
-        return;
+    if let Some(entry) = guard.uid_cache.get(&request) {
+        return FlowAttributionToken { request, generation: entry.generation };
     }
     let generation = NEXT_FLOW_GENERATION.fetch_add(1, Ordering::Relaxed);
     guard.uid_cache.put(
@@ -353,6 +353,21 @@ fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) {
     guard.pending.push_back(FlowResolutionJob { request, generation, kind: FlowResolutionKind::AdmissionOnly });
     drop(guard);
     pending_signal().notify_one();
+    FlowAttributionToken { request, generation }
+}
+
+/// Read only this registration's UID; a reused tuple never supplies its successor's verdict.
+#[must_use]
+pub fn lookup_registered_flow_uid(token: &FlowAttributionToken) -> FlowUidLookup {
+    let mut guard = lock();
+    remove_expired_admission(&mut guard, token.request, Instant::now());
+    match guard.uid_cache.get(&token.request) {
+        Some(entry) if entry.generation == token.generation => match entry.state {
+            UidResolutionState::Pending => FlowUidLookup::Pending,
+            UidResolutionState::Resolved(uid) => FlowUidLookup::Resolved(uid),
+        },
+        Some(_) | None => FlowUidLookup::Missing,
+    }
 }
 
 /// Read the asynchronous UID-resolution state for one complete flow tuple.

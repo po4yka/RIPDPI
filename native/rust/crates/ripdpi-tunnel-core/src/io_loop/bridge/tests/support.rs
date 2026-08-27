@@ -122,7 +122,7 @@ pub(super) fn establish_tcp_connection(
     device.tx_queue.clear();
 
     // Get the socket handle from pending_listens
-    let handle = pending_listens.values().next().map(|(h, _)| *h).expect("pending listen handle");
+    let handle = pending_listens.values().next().map(|listener| listener.handle).expect("pending listen handle");
     let tcp = socket_set.get::<TcpSocket>(handle);
     assert_eq!(tcp.state(), tcp::State::Established, "TCP socket should be in ESTABLISHED state");
 

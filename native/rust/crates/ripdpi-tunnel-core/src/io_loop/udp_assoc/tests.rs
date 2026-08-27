@@ -54,7 +54,7 @@ fn stalled_udp_association(
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker,
         leased_synthetic_ips: std::collections::HashSet::new(),
-        attribution_tokens: std::collections::HashSet::new(),
+        attribution_tokens: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY),
     };
     (association, alive, started_rx)
 }
@@ -395,7 +395,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        attribution_tokens: std::collections::HashSet::new(),
+        attribution_tokens: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
     let mut eviction_heap = BoundedHeap::new(4);
@@ -405,7 +405,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
     let stats = Arc::new(Stats::new());
     let mut next_id = 1;
 
-    let outcome = super::forward_udp_payload(
+    super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
         src,
@@ -424,10 +424,9 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         &CancellationToken::new(),
         &udp_tx,
         &stats,
-        &crate::uid_policy::UidFlowPolicy::disarmed(),
+        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).token,
     );
 
-    assert!(matches!(outcome, super::UdpForwardOutcome::Forwarded));
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
     associations.remove(&src).expect("association").worker.abort();
 }
@@ -452,7 +451,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        attribution_tokens: std::collections::HashSet::new(),
+        attribution_tokens: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
     let mut eviction_heap = BoundedHeap::new(4);
@@ -460,7 +459,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
     let stats = Arc::new(Stats::new());
     let mut next_id = 1;
 
-    let outcome = super::forward_udp_payload(
+    super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
         src,
@@ -479,10 +478,9 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         &CancellationToken::new(),
         &udp_tx,
         &stats,
-        &crate::uid_policy::UidFlowPolicy::disarmed(),
+        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).token,
     );
 
-    assert!(matches!(outcome, super::UdpForwardOutcome::Forwarded));
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
     associations.remove(&src).expect("association").worker.abort();
 }
