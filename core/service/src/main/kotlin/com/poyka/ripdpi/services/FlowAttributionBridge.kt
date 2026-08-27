@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
+import javax.inject.Singleton
 
 internal data class NativeUidPolicy(
     val mode: String,
@@ -79,6 +80,7 @@ internal object EmptyRemoteDeviceUidPolicyQualificationSource : RemoteDeviceUidP
  * native side resolves is `(ILjava/lang/String;ILjava/lang/String;II)I`.
  */
 @Keep
+@Singleton
 class FlowAttributionBridge
     @Inject
     constructor(
