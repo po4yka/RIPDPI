@@ -1,77 +1,77 @@
 ## Purpose
 
-Define the observable completion contract for Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport). The AmneziaWgProfileScreen / AwgProfileForm editor lets a user configure a full AmneziaWG peer (endpoint, keys, MTU, DNS, and the Jc/Jmin/Jmax/S1-S2/H1-H4/ I1-I5 obfuscation knobs) — but the app could not run it. The editor was preview-only: no Save/Connect, no persistence, no engine path. This is the same "UI-complete, core-stub" gap as SSH (G1). Distinct from WARP, which only drives Cloudflare's WireGuard endpoints
+Define observable standalone AmneziaWG profile activation and interoperability.
 
 ## ADDED Requirements
 
-### Requirement: REQ-TRN-1786264762917775-001 — Native generic AmneziaWG runtime (AmneziaWgRuntime) reusing the
+### Requirement: REQ-TRN-1786264762917775-001 — Native standalone runtime
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Native generic AmneziaWG runtime (AmneziaWgRuntime) reusing the.
+A generic AmneziaWG runtime MUST use configured keys, endpoint, keepalive, optional PSK, and active obfuscation parameters without Cloudflare provisioning. Invalid active obfuscation MUST fail closed.
 
 #### Scenario: Verify criterion 1
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Native generic AmneziaWG runtime (AmneziaWgRuntime) reusing the
+- **WHEN** a valid standalone profile starts
+- **THEN** the runtime exposes its actual loopback SOCKS listener after an authenticated handshake
 
-### Requirement: REQ-TRN-1786264762917775-002 — Data-plane proof: a real two-peer NoiseIKpsk2 handshake completes with
+### Requirement: REQ-TRN-1786264762917775-002 — Encrypted data plane
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Data-plane proof: a real two-peer NoiseIKpsk2 handshake completes with.
+Real two-peer Noise_IKpsk2 exchanges MUST pass through the active AmneziaWG codec and transport inner packets unchanged.
 
 #### Scenario: Verify criterion 2
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Data-plane proof: a real two-peer NoiseIKpsk2 handshake completes with
+- **WHEN** peers exchange authenticated encrypted payloads
+- **THEN** the receiver obtains the original inner bytes
 
-### Requirement: REQ-TRN-1786264762917775-003 — JNI cdylib bridge ripdpi-amneziawg-android (RipDpiAmneziaWgNativeBindings),
+### Requirement: REQ-TRN-1786264762917775-003 — JNI lifecycle boundary
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: JNI cdylib bridge ripdpi-amneziawg-android (RipDpiAmneziaWgNativeBindings),.
+The Android AWG adapter MUST protect outbound sockets before use, contain panics, and own native start/stop through the shared lifecycle.
 
 #### Scenario: Verify criterion 3
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that JNI cdylib bridge ripdpi-amneziawg-android (RipDpiAmneziaWgNativeBindings),
+- **WHEN** the service starts or stops the adapter
+- **THEN** the established JNI contract and protection tests pass
 
-### Requirement: REQ-TRN-1786264762917775-004 — Kotlin binding contract layer: ResolvedRipDpiAmneziaWgConfig DTO +
+### Requirement: REQ-TRN-1786264762917775-004 — Kotlin native contract
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Kotlin binding contract layer: ResolvedRipDpiAmneziaWgConfig DTO +.
+Kotlin configuration MUST match native field names and numeric obfuscation values. Service-owned DNS and routes MUST NOT become undeclared native fields.
 
 #### Scenario: Verify criterion 4
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Kotlin binding contract layer: ResolvedRipDpiAmneziaWgConfig DTO +
+- **WHEN** an AWG request is converted to native configuration
+- **THEN** serialization and round-trip contract tests pass
 
-### Requirement: REQ-TRN-1786264762917775-005 — AmneziaWG profile persistence + selection. A dedicated AWG profile store
+### Requirement: REQ-TRN-1786264762917775-005 — Durable profile selection
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: AmneziaWG profile persistence + selection. A dedicated AWG profile store.
+Profiles MUST persist under stable opaque IDs. Explicit standalone selection MUST survive stale automatic fallback; safe failed activation MUST restore the prior selection.
 
 #### Scenario: Verify criterion 5
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that AmneziaWG profile persistence + selection. A dedicated AWG profile store
+- **WHEN** a saved profile is activated while older startup recovery is pending
+- **THEN** the exact profile remains authoritative and the stale attempt cannot clear its pointer
 
-### Requirement: REQ-TRN-1786264762917775-006 — Service wiring: AmneziaWgRuntimeSupervisor + composition coordinator
+### Requirement: REQ-TRN-1786264762917775-006 — Service application and interface policy
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Service wiring: AmneziaWgRuntimeSupervisor + composition coordinator.
+The service MUST acknowledge only the exact requested transport after runtime application. It MUST preserve the TUN during replacement and apply profile DNS, routes, MTU, and address families.
 
 #### Scenario: Verify criterion 6
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Service wiring: AmneziaWgRuntimeSupervisor + composition coordinator
+- **WHEN** a profile starts from idle or replaces another provider
+- **THEN** the AWG SOCKS endpoint becomes the tunnel upstream and failed replacement cannot be reported as applied
 
-### Requirement: REQ-TRN-1786264762917775-007 — UI connect path: AmneziaWgProfileViewModel.onSave()/onConnect() →
+### Requirement: REQ-TRN-1786264762917775-007 — Editor consent and connect
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: UI connect path: AmneziaWgProfileViewModel.onSave()/onConnect() →.
+Save and Connect MUST validate and persist the profile. Connect MUST obtain VPN consent, reject stale or duplicate callbacks, and wait for service application before reporting success.
 
 #### Scenario: Verify criterion 7
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that UI connect path: AmneziaWgProfileViewModel.onSave()/onConnect() →
+- **WHEN** the user accepts a current VPN consent request
+- **THEN** exactly one activation occurs; denial or cancellation does not activate
 
-### Requirement: REQ-TRN-1786264762917775-008 — On-device / loopback-fixture interop smoke test against a real AmneziaWG
+### Requirement: REQ-TRN-1786264762917775-008 — Independent peer interoperability
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: On-device / loopback-fixture interop smoke test against a real AmneziaWG.
+A device or rootless loopback fixture MUST demonstrate production-runtime interoperability with an independent AmneziaWG implementation, including TCP, UDP source metadata, IPv4/IPv6, and bounded shutdown.
 
 #### Scenario: Verify criterion 8
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that On-device / loopback-fixture interop smoke test against a real AmneziaWG
+- **WHEN** the pinned local peer fixture runs
+- **THEN** real encrypted exchanges succeed and shutdown joins client tasks and releases their resources

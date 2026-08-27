@@ -2,7 +2,7 @@
 id: TRN-1786264762917775
 title: Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: unassigned
@@ -11,10 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
 created: 2026-06-13
-updated: 2026-06-21
+updated: 2026-08-27
 source_wiki_pages:
   - wireguard-rtk-south-amneziawg-bypass
 linked_task: TRN-1786264762917677
+status_detail: Implementation and independent loopback interop passed; final static analysis and exact-SHA hosted CI tracked in verification. Existing baseline guard failures prevent closure.
 ---
 
 ## Motivation
@@ -87,23 +88,25 @@ Surface:
       `LocalProxyEndpoint` handed to `Tun2Socks` (mirror `WarpRuntimeSupervisor`
       + `SharedProxyRuntimeStack` + `VpnRuntimeCompositionCoordinator`).
 - [x] UI connect path: `AmneziaWgProfileViewModel.onSave()/onConnect()` →
-      persist + start the tunnel. Localize new user-facing strings in all 8
+      persist + start the tunnel. Localize new user-facing strings in all supported
       locales.
-- [ ] On-device / loopback-fixture interop smoke test against a real AmneziaWG
+- [x] On-device / loopback-fixture interop smoke test against a real AmneziaWG
       server (see the linked RTK-South cohort task for parameters); probabilistic
       retry tuning lives there.
 
 ## Verification status
 
-- Native: `cargo test -p ripdpi-warp-core -p ripdpi-amneziawg-android` green
-  (incl. the obfuscated-handshake proof); `cargo clippy -D warnings` + `cargo fmt`
-  clean; `Cargo.lock` adds only the new local member; native architecture
-  contracts pass (0 violations).
-- Kotlin/service: focused resolver and proxy-preference regressions cover standalone
-  AWG selection, shared-stack routing through the AWG SOCKS endpoint, relay
-  precedence, simple-flavor failover persistence, and remembered-policy replay.
-- The remaining unverified item is external interop: an on-device or synthetic
-  AmneziaWG endpoint smoke, plus retry-budget tuning after that lab evidence exists.
+- The editor obtains VPN consent and waits for exact runtime application. The
+  service supports cold start, TUN-preserving replacement, profile DNS/routes/MTU,
+  and dual-stack configuration without changing the native DTO.
+- Real bidirectional IPv4/IPv6 TCP and UDP passed against the pinned independent
+  rootless `amneziawg-go` peer. This is loopback protocol evidence, not an Android
+  device or VPS claim. The existing network E2E CI script now runs this fixture.
+- The final combined Kotlin run passed 3059 tests, including the complete service
+  suite (1884); native unit tests (93) and network E2E tests (62) also passed.
+  Static analysis and exact-commit hosted CI are tracked in the linked
+  OpenSpec verification record. Existing failures on baseline main are not
+  treated as successful acceptance; the item must remain open until resolved.
 
 ## Runtime-composition decision (D2 — resolved)
 
@@ -133,6 +136,21 @@ implementation series. Its core concerns were addressed as follows:
    providers.
 
 ## Work log
+
+### 2026-08-27 implementation ownership
+
+- Coordinator: `/private/tmp/ripdpi-standalone-awg-profile-20260827`; owns
+  service composition, serialized contracts, task/OpenSpec records, integration, and final gates.
+- Kotlin editor writer: `/private/tmp/ripdpi-standalone-awg-kotlin-tests-20260827`;
+  owns editor state/consent/activation, activation DTO validation, Simple fallback,
+  and the shared explicit-start generation guard across service dispatch/preparation.
+- Native interop writer: `/private/tmp/ripdpi-standalone-awg-interop-20260827`;
+  owns AWG runtime/netstack fixes, independent rootless peer tooling, and native regressions.
+- Contract/schema, dependency-lock, locale, and golden changes remain serialized
+  with the coordinator. Writers must not edit those files without reassignment.
+- Positive acceptance requires the editor activation path and real bidirectional
+  TCP/UDP through the production runtime to an independently implemented local
+  AWG peer. Loopback evidence does not establish physical-device or real-VPS behavior.
 
 - 2026-06-18: Persistence half of AC "profile persistence + selection" closed.
   A dedicated AWG profile store (Room entity + DAO + repository, stable opaque
