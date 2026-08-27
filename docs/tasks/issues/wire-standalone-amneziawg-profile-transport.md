@@ -102,6 +102,8 @@ Surface:
 - Real bidirectional IPv4/IPv6 TCP and UDP passed against the pinned independent
   rootless `amneziawg-go` peer. This is loopback protocol evidence, not an Android
   device or VPS claim. The existing network E2E CI script now runs this fixture.
+- The same peer test passed in hosted Linux CI. Native builds passed for all
+  four Android ABIs; JNI API snapshot, native-bloat and CodeQL also passed.
 - The final combined Kotlin run passed 3059 tests, including the complete service
   suite (1884); native unit tests (93) and network E2E tests (62) also passed.
   Full static analysis passed. Hosted CI for the published implementation failed

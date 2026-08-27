@@ -1,15 +1,15 @@
 ---
 task_id: TRN-1786264762917775
 change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
-commit_sha: 0299de9e072a4ac0b784709f7ff10e3ef1726336
+commit_sha: 9f9960b2b1ca83ca57cebb7793824524c5a12a20
 local: blocked
-local_evidence: "3059 Kotlin tests, 93 native tests, 62 network E2E tests, AndroidTest Kotlin compilation and full staticAnalysis passed. Unchanged native hotspot and unsafe-boundary baseline failures remain acceptance blockers."
+local_evidence: "3059 Kotlin tests, 93 native tests, 62 network E2E tests and full staticAnalysis passed. A new Hilt test-graph regression was reproduced and fixed; full AndroidTest APK assembly, app detekt and ktlint passed. Unchanged native hotspot and unsafe-boundary baseline failures remain acceptance blockers."
 remote_ci: blocked
-remote_ci_evidence: "Published implementation bundle 0299de9e072a4ac0b784709f7ff10e3ef1726336: CI run 33110649324 passed task/OpenSpec contracts but architecture-health failed at Run native hotspot budgets. Remaining jobs were still running at evidence capture. No green hosted acceptance is claimed."
+remote_ci_evidence: "Runtime bundle 0299de9e072a4ac0b784709f7ff10e3ef1726336 passed hosted AWG interop, native builds and APK builds in CI33110649324. Baseline guards and DNS tests failed; a new AndroidTest Hilt binding failure was fixed in9f9960b2b1ca83ca57cebb7793824524c5a12a20 and needs a hosted rerun. No green overall acceptance is claimed."
 device: not_applicable
 device_evidence: "Acceptance permits independent loopback-peer evidence. No physical-device installation or execution was performed."
 artifact: not_applicable
-artifact_evidence: "This change does not require a release artifact. No current-change APK is claimed."
+artifact_evidence: "Hosted native builds passed for all four Android ABIs and debug APK builds passed for GitHub, F-Droid and Play. Release verification was still running at this capture. No APK was independently downloaded, installed on a physical device or published as a release."
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---
@@ -22,7 +22,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 |---|---|---|---|
 | REQ-TRN-1786264762917775-001 | TRN-1786264762919403 | 87 ripdpi-warp-core unit tests; invalid active codec configuration fails closed | passed |
 | REQ-TRN-1786264762917775-002 | TRN-1786264762919688 | Production AWG runtime exchanges encrypted TCP and UDP with pinned independent peer | passed |
-| REQ-TRN-1786264762917775-003 | TRN-1786264762919682 | 6 JNI adapter host tests and 6 Kotlin binding/serialization tests passed; Android artifact not rebuilt | passed |
+| REQ-TRN-1786264762917775-003 | TRN-1786264762919682 | 6 JNI adapter host tests and 6 Kotlin binding/serialization tests passed; hosted native builds passed for all four Android ABIs | passed |
 | REQ-TRN-1786264762917775-004 | TRN-1786264762919373 | 6 native configuration serialization tests and 68 editor/DTO tests passed; DNS/routes stay service-owned | passed |
 | REQ-TRN-1786264762917775-005 | TRN-1786264762919279 | Standalone activator exact acknowledgement/rollback and stale Start/Stop regressions in 1884 passing service tests | passed |
 | REQ-TRN-1786264762917775-006 | TRN-1786264762919408 | 1884 service tests including cold activation, Xray handoff, profile route/DNS/MTU and receipt tests | passed |
@@ -53,7 +53,7 @@ Android native artifact. Rust commands use the pinned toolchain and `--locked`.
 - The GithubSimple selection covers `FailoverCoordinatorTest` and
   `SimpleVlessRuntimeMonitorTest`, including suspended preparation and newer-intent races.
 - `:core:engine-api:testDebugUnitTest`: 55 passed, including 6 AWG configuration contract tests.
-- `:app:compileGithubFullDebugAndroidTestKotlin` passed; instrumentation was not run.
+- `:app:compileGithubFullDebugAndroidTestKotlin` passed; local instrumentation was not run.
 - The same combined Gradle invocation completed `staticAnalysis`: BUILD SUCCESSFUL,
   809 actionable tasks. No lint, detekt or architecture baseline was extended.
 - After fetch/rebase, the combined Kotlin/static-analysis gate passed again on
@@ -70,6 +70,45 @@ setter from suspending to synchronous operations. Its production implementation
 already performs synchronous preferences access; all three test implementations
 and every caller are updated. This lets the existing intent arbiter atomically
 publish provider selection and enqueue activation without a second lifecycle.
+
+## Hosted implementation checks
+
+For the exact implementation bundle `0299de9e072a4ac0b784709f7ff10e3ef1726336`:
+
+- [Linux network E2E](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977722)
+  passed. Its log explicitly confirms the independent AWG peer test, real
+  handshake, IPv4/IPv6 TCP and UDP source metadata, and stalled-client shutdown.
+- Hosted `gradle-static-analysis`, JNI API snapshot, Rust cross-check, Rust
+  coverage, native-bloat and Roborazzi checks passed.
+- Native builds passed for arm64-v8a, armeabi-v7a, x86 and x86_64. The x86_64
+  job uses `x86_64-linux-android` and the owning Gradle native artifact tasks.
+- [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/33110649294),
+  [Secret Scan](https://github.com/po4yka/RIPDPI/actions/runs/33110649494),
+  dependency graph and fleet-fixtures completed successfully.
+- Debug APK builds passed for GitHub, F-Droid and Play. Release verification
+  was still running at this capture. No physical-device installation, external
+  AWG server test, or release deployment is claimed.
+
+## AndroidTest Hilt regression and correction
+
+The first hosted emulator matrix failed before device tests. The
+[API 33 job](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98661334233)
+reported four `VpnTransportActivationController` missing bindings in Hilt Java
+compilation, followed by four missing generated-component errors. This was a
+new regression: the corresponding baseline emulator job passed.
+
+Four MainActivity tests uninstall `ServiceControllerModule`; their recording
+controller overrides did not provide the new activation interface. Commit
+`9f9960b2b1ca83ca57cebb7793824524c5a12a20` binds that interface to the same existing
+recording fake in every affected graph. The fake records the request and target
+without real service dispatch. No production source changed in this correction.
+
+The failure was reproduced locally with
+`:app:hiltJavaCompileGithubFullDebugAndroidTest`. After the correction,
+`:app:assembleGithubFullDebugAndroidTest :app:detekt :app:ktlintCheck` passed
+(385 actionable tasks). Compiling only AndroidTest Kotlin had not exercised
+Hilt Java generation; future validation of this boundary must assemble the
+test APK. Hosted emulator verification of the correction remains required.
 
 ## Existing baseline failures
 
@@ -91,3 +130,17 @@ The native hotspot guard still reports `ripdpi-tunnel-core/src/io_loop/tcp_accep
 Clone owner pattern in `ripdpi-flow-app-attribution/src/lib.rs:160`. Neither file
 nor its baseline is changed by this task. These failures remain visible and do
 not count as passed gates.
+
+Current [Rust workspace](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977628)
+and [Rust lint](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977653)
+logs confirm those same hotspot and Clone-pattern failures respectively.
+
+Current [Android unit tests](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977248)
+and [Kotlin coverage](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977613)
+both fail on the same two `ConnectivityDnsTargetPlannerTest` cases:
+`resolver audit keeps full resolver matrix` (line 201) and
+`generic target expands to diversified candidates` (line 107).
+The [baseline Android job](https://github.com/po4yka/RIPDPI/actions/runs/33103005845/job/98630566091)
+and [baseline coverage job](https://github.com/po4yka/RIPDPI/actions/runs/33103005845/job/98630566225)
+contain identical test names, lines and the result `1408 tests completed, 2 failed`.
+This task does not change the diagnostic planner, its tests or these baselines.
