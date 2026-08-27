@@ -196,7 +196,15 @@ impl DesyncExecutionEvidenceCollector {
     }
 
     fn overflowed(&self) -> bool {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).overflowed
+        let state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        // A receipt rejected before collection still consumed a connection ordinal.
+        // Preserve that missing terminal evidence even when it was the last connection.
+        state.overflowed
+            || state.connection_ordinals.iter().any(|(token, allocated)| {
+                state.evidence.iter().filter(|evidence| evidence.attempt_token().as_opaque_str() == token).count()
+                    as u64
+                    != *allocated
+            })
     }
 }
 

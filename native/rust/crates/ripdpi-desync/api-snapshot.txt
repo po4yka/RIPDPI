@@ -119,6 +119,7 @@ pub ripdpi_desync::HostFakeSpan::midhost: core::option::Option<usize>
 pub struct ripdpi_desync::PlannedStep
 pub ripdpi_desync::PlannedStep::end: i64
 pub ripdpi_desync::PlannedStep::kind: ripdpi_config::model::tcp::TcpChainStepKind
+pub ripdpi_desync::PlannedStep::source_send_step_index: core::option::Option<usize>
 pub ripdpi_desync::PlannedStep::start: i64
 pub struct ripdpi_desync::ProtoInfo
 pub ripdpi_desync::ProtoInfo::kind: u32

@@ -2,7 +2,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
-use ripdpi_desync::{ActivationContext, TcpDesyncStrategy, activation_filter_matches};
+use ripdpi_desync::{ActivationContext, DesyncPlan, TcpDesyncStrategy, activation_filter_matches};
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
@@ -13,6 +13,7 @@ use crate::tcp_plan::{TcpPlanStrategyContext, execute_tcp_plan, requires_special
 use crate::transport_io::write_transport_payload;
 use crate::types::{
     OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
+    TcpTerminalReason,
 };
 use crate::{DESYNC_SEED_BASE, platform};
 
@@ -44,6 +45,31 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
             // captured-ClientHello fidelity and sizing survive entropy padding,
             // while the genuine server-bound writes still use `effective_payload`.
             match strategy.plan_with_fake_reference(&effective_payload, payload) {
+                Ok(plan) if plan.steps.is_empty() && plan.tls_prelude.applied_count == 0 => {
+                    let bytes_committed = execute_tcp_actions(
+                        writer,
+                        &plan.actions,
+                        config.network.default_ttl,
+                        config.timeouts.wait_send,
+                        Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        strategy_family,
+                        session_ttl_unavailable,
+                        group.actions.md5sig,
+                        group.actions.ip_id_mode,
+                        pcap_hook,
+                    )
+                    .map_err(|error| failure_with_plan(error, group, &plan, strategy_family, None, None))?;
+                    Ok(OutboundSendOutcome {
+                        bytes_committed,
+                        strategy_family: None,
+                        execution_receipt: TcpExecutionReceipt::plain(
+                            TcpExecutionDisposition::ActivationSkipped,
+                            group,
+                            strategy_family,
+                            bytes_committed,
+                        ),
+                    })
+                }
                 Ok(plan) if requires_special_tcp_execution(group, &plan, platform_ops.supports_fake_retransmit()) => {
                     let tls_prelude_applied = plan.tls_prelude.applied_count > 0;
                     let (planned_effective_family, planned_family_fallback) =
@@ -59,25 +85,14 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         session_ttl_unavailable,
                     )
                     .map_err(|error| {
-                        let terminal_reason = match &error {
-                            OutboundSendError::Transport { .. } if error.kind() == std::io::ErrorKind::InvalidData => {
-                                crate::types::TcpTerminalReason::Planning
-                            }
-                            OutboundSendError::Transport { .. } => crate::types::TcpTerminalReason::Transport,
-                            OutboundSendError::StrategyExecution { .. } => {
-                                crate::types::TcpTerminalReason::StrategyExecution
-                            }
-                        };
-                        let receipt = TcpExecutionReceipt::failed_with_plan(
+                        failure_with_plan(
+                            error,
                             group,
                             &plan,
                             strategy_family,
                             planned_effective_family,
                             planned_family_fallback.then_some(TcpFallbackReason::StrategyFamilyFallback),
-                            error.execution_receipt(),
-                            terminal_reason,
-                        );
-                        error.with_execution_receipt(receipt)
+                        )
                     })?;
                     Ok(OutboundSendOutcome {
                         bytes_committed: execution.bytes_committed,
@@ -112,7 +127,17 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         group.actions.md5sig,
                         group.actions.ip_id_mode,
                         pcap_hook,
-                    )?;
+                    )
+                    .map_err(|error| {
+                        failure_with_plan(
+                            error,
+                            group,
+                            &plan,
+                            strategy_family,
+                            effective_family,
+                            used_family_fallback.then_some(TcpFallbackReason::StrategyFamilyFallback),
+                        )
+                    })?;
                     Ok(OutboundSendOutcome {
                         bytes_committed,
                         strategy_family: effective_family,
@@ -156,6 +181,33 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
     })
 }
 
+fn failure_with_plan(
+    error: OutboundSendError,
+    group: &DesyncGroup,
+    plan: &DesyncPlan,
+    configured_family: Option<&'static str>,
+    effective_family: Option<&'static str>,
+    fallback_reason: Option<TcpFallbackReason>,
+) -> OutboundSendError {
+    let terminal_reason = match &error {
+        OutboundSendError::Transport { .. } if error.kind() == std::io::ErrorKind::InvalidData => {
+            TcpTerminalReason::Planning
+        }
+        OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
+        OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,
+    };
+    let receipt = TcpExecutionReceipt::failed_with_plan(
+        group,
+        plan,
+        configured_family,
+        effective_family,
+        fallback_reason,
+        error.execution_receipt(),
+        terminal_reason,
+    );
+    error.with_execution_receipt(receipt)
+}
+
 fn group_has_fake_steps(group: &DesyncGroup) -> bool {
     group.effective_tcp_chain().iter().any(|step| {
         matches!(
@@ -169,11 +221,13 @@ fn group_has_fake_steps(group: &DesyncGroup) -> bool {
 }
 
 fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
-    has_tcp_actions(group) && activation_filter_matches(group.activation_filter(), context)
+    has_tcp_actions(group, context) && activation_filter_matches(group.activation_filter(), context)
 }
 
-fn has_tcp_actions(group: &DesyncGroup) -> bool {
-    !group.effective_tcp_chain().is_empty() || group.actions.mod_http != 0 || group.actions.tlsminor.is_some()
+fn has_tcp_actions(group: &DesyncGroup, context: ActivationContext) -> bool {
+    group.effective_tcp_chain().iter().any(|step| activation_filter_matches(step.activation_filter(), context))
+        || group.actions.mod_http != 0
+        || group.actions.tlsminor.is_some()
 }
 
 #[cfg(all(test, not(feature = "loom")))]

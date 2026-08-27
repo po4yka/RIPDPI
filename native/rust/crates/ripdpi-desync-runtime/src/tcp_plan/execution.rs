@@ -157,7 +157,18 @@ pub(crate) fn execute_tcp_plan(
             )));
         }
         let chunk = &plan.tampered[start..end];
-        let configured_step = &send_steps[index];
+        let source_index = step.source_send_step_index.ok_or_else(|| {
+            OutboundSendError::transport(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "tcp plan step missing source send step index",
+            ))
+        })?;
+        let configured_step = send_steps.get(source_index).ok_or_else(|| {
+            OutboundSendError::transport(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "tcp plan step source send step index out of range",
+            ))
+        })?;
         let step_family = tcp_step_strategy_family(step.kind, strategy_family);
         let step_fallback = strategy_fallback_family(step_family);
         let mut step_ctx = TcpPlanStepExecContext {

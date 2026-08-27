@@ -77,12 +77,45 @@ pub(crate) fn effective_tcp_strategy_family(
         }
     };
     let (effective_family, plan_fallback) = match (configured_family, planned_kind) {
+        (family, None) if tls_prelude_applied => (Some("tlsrec"), family != Some("tlsrec")),
         (Some("seqovl"), Some(TcpChainStepKind::Split)) => (Some("split"), true),
         (Some("tlsrec_seqovl"), Some(TcpChainStepKind::Split)) => (Some("tlsrec_split"), true),
         (Some("hostfake"), Some(TcpChainStepKind::Split)) => (Some("split"), true),
+        (family, Some(kind)) => {
+            let actual = family_for_planned_kind(kind, tls_prelude_applied, family);
+            (actual, actual != family)
+        }
         _ => (configured_family, false),
     };
     (effective_family, prelude_fallback || plan_fallback)
+}
+
+fn family_for_planned_kind(
+    kind: TcpChainStepKind,
+    tls_prelude_applied: bool,
+    configured_family: Option<&'static str>,
+) -> Option<&'static str> {
+    match kind {
+        TcpChainStepKind::Split | TcpChainStepKind::SynData => match configured_family {
+            Some("seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "two_phase_send") => configured_family,
+            _ => Some(if tls_prelude_applied { "tlsrec_split" } else { "split" }),
+        },
+        TcpChainStepKind::SeqOverlap => Some(if tls_prelude_applied { "tlsrec_seqovl" } else { "seqovl" }),
+        TcpChainStepKind::MultiDisorder => {
+            Some(if tls_prelude_applied { "tlsrec_multidisorder" } else { "multidisorder" })
+        }
+        TcpChainStepKind::Disorder => Some("disorder"),
+        TcpChainStepKind::Oob => Some("oob"),
+        TcpChainStepKind::Disoob => Some("disoob"),
+        TcpChainStepKind::Fake => Some("fake"),
+        TcpChainStepKind::FakeSplit => Some("fakedsplit"),
+        TcpChainStepKind::FakeDisorder => Some("fakeddisorder"),
+        TcpChainStepKind::HostFake => Some("hostfake"),
+        TcpChainStepKind::IpFrag2 => Some("ipfrag2"),
+        TcpChainStepKind::FakeRst => Some("fakerst"),
+        TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => Some("tlsrec"),
+        _ => configured_family,
+    }
 }
 
 pub(crate) fn tcp_fallback_kind_for_strategy(strategy_family: &'static str) -> Option<TcpChainStepKind> {

@@ -141,6 +141,9 @@ pub struct PlannedStep {
     pub kind: TcpChainStepKind,
     pub start: i64,
     pub end: i64,
+    /// Index into the post-prelude send-step chain that produced this planned step.
+    /// Synthetic steps that do not correspond to one configured send step use `None`.
+    pub source_send_step_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

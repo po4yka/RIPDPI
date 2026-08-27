@@ -210,7 +210,7 @@ impl TcpExecutionReceipt {
         payload_bytes_committed: usize,
         tls_record_prelude_applied: bool,
     ) -> Self {
-        let (marker_base, marker_delta) = configured_marker(group);
+        let (marker_base, marker_delta) = plan_marker(group, plan);
         Self {
             disposition: TcpExecutionDisposition::Applied,
             configured_family: configured_family.map(TcpStrategyFamily::from_token),
@@ -218,7 +218,7 @@ impl TcpExecutionReceipt {
             marker_base,
             marker_delta,
             resolved_offset: bounded_offset(plan.steps.first().and_then(|step| usize::try_from(step.end).ok())),
-            planned_steps: bounded_count(plan.steps.len()),
+            planned_steps: bounded_count(plan.steps.len().saturating_add(plan.tls_prelude.applied_count)),
             attempted_actions: bounded_count(completed_actions),
             completed_actions: bounded_count(completed_actions),
             real_writes_committed: bounded_count(real_writes_committed),
@@ -315,7 +315,7 @@ impl TcpExecutionReceipt {
         source: Option<&Self>,
         terminal_reason: TcpTerminalReason,
     ) -> Self {
-        let (marker_base, marker_delta) = configured_marker(group);
+        let (marker_base, marker_delta) = plan_marker(group, plan);
         let source = source
             .cloned()
             .unwrap_or_else(|| Self::failed_strategy_execution(configured_family, 0, 0, 0, 0, 0, terminal_reason));
@@ -327,13 +327,13 @@ impl TcpExecutionReceipt {
             marker_base,
             marker_delta,
             resolved_offset: bounded_offset(plan.steps.first().and_then(|step| usize::try_from(step.end).ok())),
-            planned_steps: bounded_count(plan.steps.len()),
+            planned_steps: bounded_count(plan.steps.len().saturating_add(plan.tls_prelude.applied_count)),
             attempted_actions: bounded_count(source.attempted_actions.max(observed_write)),
             completed_actions: bounded_count(source.completed_actions.max(observed_write)),
             real_writes_committed: bounded_count(source.real_writes_committed.max(observed_write)),
             completed_awaits: bounded_count(source.completed_awaits),
             payload_bytes_committed: bounded_count(source.payload_bytes_committed),
-            tls_record_prelude_applied: source.tls_record_prelude_applied,
+            tls_record_prelude_applied: plan.tls_prelude.applied_count > 0,
             tls_prelude_configured_count: bounded_count(plan.tls_prelude.configured_count),
             tls_prelude_applied_count: bounded_count(plan.tls_prelude.applied_count),
             tls_prelude_kind: plan.tls_prelude.kind,
@@ -350,6 +350,18 @@ fn configured_marker(group: &ripdpi_config::DesyncGroup) -> (Option<TcpOffsetMar
     group.actions.tcp_chain.iter().find(|step| !step.kind().is_tls_prelude()).map_or((None, None), |step| {
         (Some(TcpOffsetMarkerBase::from_offset_base(step.offset().base)), Some(bounded_delta(step.offset().delta)))
     })
+}
+
+fn plan_marker(group: &ripdpi_config::DesyncGroup, plan: &DesyncPlan) -> (Option<TcpOffsetMarkerBase>, Option<i16>) {
+    let Some(source_index) = plan.steps.first().and_then(|step| step.source_send_step_index) else {
+        return (None, None);
+    };
+    group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).nth(source_index).map_or(
+        (None, None),
+        |step| {
+            (Some(TcpOffsetMarkerBase::from_offset_base(step.offset().base)), Some(bounded_delta(step.offset().delta)))
+        },
+    )
 }
 
 struct TcpActionReceiptSummary {

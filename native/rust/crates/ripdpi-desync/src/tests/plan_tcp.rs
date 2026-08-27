@@ -77,7 +77,15 @@ fn plan_tcp_auto_host_uses_hint_budget_and_semantic_markers() {
     )
     .expect("adaptive host plan");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_end as i64 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep {
+            kind: TcpChainStepKind::Split,
+            start: 0,
+            end: markers.host_end as i64,
+            source_send_step_index: Some(0)
+        }]
+    );
 }
 
 #[test]
@@ -98,10 +106,23 @@ fn plan_tcp_auto_marker_is_cursor_aware_across_chain_steps() {
 
     let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, tcp_context(DEFAULT_FAKE_HTTP)).expect("cursor-aware plan");
 
-    assert_eq!(plan.steps[0], PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 });
+    assert_eq!(
+        plan.steps[0],
+        PlannedStep {
+            kind: TcpChainStepKind::Split,
+            start: 0,
+            end: markers.host_start as i64,
+            source_send_step_index: Some(0)
+        }
+    );
     assert_eq!(
         plan.steps[1],
-        PlannedStep { kind: TcpChainStepKind::Split, start: markers.host_start as i64, end: expected_second_end },
+        PlannedStep {
+            kind: TcpChainStepKind::Split,
+            start: markers.host_start as i64,
+            end: expected_second_end,
+            source_send_step_index: Some(1)
+        },
     );
 }
 
@@ -115,7 +136,10 @@ fn plan_tcp_auto_marker_falls_back_to_payload_target_without_semantics() {
 
     let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("fallback plan");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: expected }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: expected, source_send_step_index: Some(0) }]
+    );
 }
 
 #[test]
@@ -205,7 +229,10 @@ fn plan_tcp_split_ech_extension_uses_ech_boundary() {
 
     let plan = plan_tcp(&group, &payload, 7, 64, tcp_context(&payload)).expect("plan split echext");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: ech_offset }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: ech_offset, source_send_step_index: Some(0) }]
+    );
     assert_eq!(
         plan.actions,
         vec![
@@ -246,7 +273,10 @@ fn plan_tcp_prefers_adaptive_split_hint_when_candidate_is_valid() {
 
     let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, hinted).expect("hinted split plan");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: midsld }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: midsld, source_send_step_index: Some(0) }]
+    );
 }
 
 #[test]
@@ -258,7 +288,10 @@ fn plan_tcp_split_emits_chunk_and_tail_actions() {
     let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan split tcp");
 
     assert_eq!(plan.tampered, payload);
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5, source_send_step_index: Some(0) }]
+    );
     assert_eq!(
         plan.actions,
         vec![
@@ -279,7 +312,10 @@ fn plan_tcp_seqovl_keeps_kind_when_supported_in_first_window() {
 
     let plan = plan_tcp(&group, payload, 7, 64, context).expect("plan seqovl tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5, source_send_step_index: Some(0) }]
+    );
     assert_eq!(plan.actions.len(), 1);
     match &plan.actions[0] {
         DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
@@ -299,7 +335,10 @@ fn plan_tcp_seqovl_keeps_semantic_step_when_capability_is_absent() {
 
     let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan seqovl semantic fallback");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5, source_send_step_index: Some(0) }]
+    );
     assert_eq!(plan.actions.len(), 1);
     match &plan.actions[0] {
         DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
@@ -321,7 +360,10 @@ fn plan_tcp_seqovl_degrades_to_split_outside_first_1500_stream_bytes() {
 
     let plan = plan_tcp(&group, &payload, 7, 64, context).expect("plan seqovl out-of-window");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 1_501 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 1_501, source_send_step_index: Some(0) }]
+    );
     assert_eq!(
         plan.actions,
         vec![DesyncAction::Write(vec![b'a'; 1_501]), DesyncAction::AwaitWritable, DesyncAction::Write(vec![b'a'; 100]),]
@@ -338,7 +380,10 @@ fn plan_tcp_seqovl_keeps_kind_when_large_first_write_still_splits_inside_first_w
 
     let plan = plan_tcp(&group, &payload, 7, 64, context).expect("plan seqovl large first write");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 1_500 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 1_500, source_send_step_index: Some(0) }]
+    );
     assert_eq!(plan.actions.len(), 1);
     match &plan.actions[0] {
         DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
@@ -381,7 +426,10 @@ fn plan_tcp_ipfrag2_emits_fragmented_first_write() {
 
     let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan ipfrag2 tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5, source_send_step_index: Some(0) }]
+    );
     assert_eq!(
         plan.actions,
         vec![DesyncAction::WriteIpFragmentedTcp {
@@ -403,7 +451,10 @@ fn plan_tcp_ipfrag2_falls_back_after_first_round() {
 
     let plan = plan_tcp(&group, payload, 7, 64, context).expect("plan ipfrag2 tcp fallback");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5, source_send_step_index: Some(0) }]
+    );
     assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
 }
 
@@ -440,7 +491,10 @@ fn plan_tcp_fakedsplit_keeps_fake_step_when_split_is_valid() {
 
     let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 4 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 4, source_send_step_index: Some(0) }]
+    );
     assert_eq!(
         plan.actions,
         vec![DesyncAction::Write(b"abcd".to_vec()), DesyncAction::AwaitWritable, DesyncAction::Write(b"efgh".to_vec()),]
@@ -455,7 +509,10 @@ fn plan_tcp_fakedsplit_preserves_fake_step_when_second_region_is_empty() {
 
     let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 8 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 8, source_send_step_index: Some(0) }]
+    );
 }
 
 #[test]
@@ -466,7 +523,10 @@ fn plan_tcp_fakeddisorder_keeps_fake_step_when_split_is_valid() {
 
     let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 3 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 3, source_send_step_index: Some(0) }]
+    );
     assert_eq!(
         plan.actions,
         vec![
@@ -488,7 +548,10 @@ fn plan_tcp_fakeddisorder_preserves_fake_step_when_second_region_is_empty() {
 
     let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 6 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 6, source_send_step_index: Some(0) }]
+    );
 }
 
 #[test]
@@ -536,11 +599,21 @@ fn plan_tcp_fake_approx_steps_support_adaptive_markers() {
 
     assert_eq!(
         split_plan.steps[0],
-        PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: markers.host_start as i64 }
+        PlannedStep {
+            kind: TcpChainStepKind::FakeSplit,
+            start: 0,
+            end: markers.host_start as i64,
+            source_send_step_index: Some(0)
+        }
     );
     assert_eq!(
         disorder_plan.steps[0],
-        PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: markers.host_start as i64 },
+        PlannedStep {
+            kind: TcpChainStepKind::FakeDisorder,
+            start: 0,
+            end: markers.host_start as i64,
+            source_send_step_index: Some(0)
+        },
     );
 }
 
@@ -620,8 +693,8 @@ fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { kind: TcpChainStepKind::Fake, start: 0, end: 4 },
-            PlannedStep { kind: TcpChainStepKind::Split, start: 4, end: 7 },
+            PlannedStep { kind: TcpChainStepKind::Fake, start: 0, end: 4, source_send_step_index: Some(0) },
+            PlannedStep { kind: TcpChainStepKind::Split, start: 4, end: 7, source_send_step_index: Some(1) },
         ]
     );
     assert_eq!(plan.tampered[2], 1);
@@ -646,9 +719,24 @@ fn plan_tcp_multidisorder_groups_terminal_markers_into_logical_segments() {
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: markers.host_start as i64 },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: markers.host_start as i64, end: midsld },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: midsld, end: plan.tampered.len() as i64 },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: 0,
+                end: markers.host_start as i64,
+                source_send_step_index: Some(0)
+            },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: markers.host_start as i64,
+                end: midsld,
+                source_send_step_index: Some(1)
+            },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: midsld,
+                end: plan.tampered.len() as i64,
+                source_send_step_index: None
+            },
         ]
     );
 }
@@ -693,9 +781,24 @@ fn plan_tcp_multidisorder_resolves_semantic_tls_markers_after_tlsrec_prelude() {
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: sniext },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: sniext, end: midsld },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: midsld, end: plan.tampered.len() as i64 },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: 0,
+                end: sniext,
+                source_send_step_index: Some(0)
+            },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: sniext,
+                end: midsld,
+                source_send_step_index: Some(1)
+            },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: midsld,
+                end: plan.tampered.len() as i64,
+                source_send_step_index: None
+            },
         ]
     );
 }
@@ -719,9 +822,24 @@ fn plan_tcp_multidisorder_sorts_resolved_markers_before_segmenting() {
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: markers.host_start as i64 },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: markers.host_start as i64, end: midsld },
-            PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: midsld, end: plan.tampered.len() as i64 },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: 0,
+                end: markers.host_start as i64,
+                source_send_step_index: Some(1)
+            },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: markers.host_start as i64,
+                end: midsld,
+                source_send_step_index: Some(0)
+            },
+            PlannedStep {
+                kind: TcpChainStepKind::MultiDisorder,
+                start: midsld,
+                end: plan.tampered.len() as i64,
+                source_send_step_index: None
+            },
         ]
     );
 }
@@ -820,7 +938,10 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
 
     let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("plan tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4, source_send_step_index: Some(0) }]
+    );
     assert_eq!(plan.tampered, DEFAULT_FAKE_TLS);
 }
 
@@ -836,7 +957,10 @@ fn plan_tcp_step_activation_filter_matches_negotiated_tcp_timestamp_state() {
 
     context.tcp_state.has_timestamp = Some(true);
     let matched = plan_tcp(&group, payload, 7, 64, context).expect("plan with tcp timestamps");
-    assert_eq!(matched.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
+    assert_eq!(
+        matched.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4, source_send_step_index: Some(0) }]
+    );
 
     context.tcp_state.has_timestamp = Some(false);
     let skipped = plan_tcp(&group, payload, 7, 64, context).expect("plan without tcp timestamps");
@@ -855,7 +979,10 @@ fn plan_tcp_step_activation_filter_matches_ech_payload_state() {
 
     context.tcp_state.has_ech = Some(true);
     let matched = plan_tcp(&group, &payload, 7, 64, context).expect("plan with ech");
-    assert_eq!(matched.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 8 }]);
+    assert_eq!(
+        matched.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 8, source_send_step_index: Some(0) }]
+    );
 
     context.tcp_state.has_ech = Some(false);
     let skipped = plan_tcp(&group, &payload, 7, 64, context).expect("plan without ech");
@@ -874,7 +1001,10 @@ fn plan_tcp_step_activation_filter_uses_window_and_mss_thresholds() {
     context.tcp_state.window_size = Some(2048);
     context.tcp_state.mss = Some(1200);
     let matched = plan_tcp(&group, payload, 7, 64, context).expect("plan below thresholds");
-    assert_eq!(matched.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }]);
+    assert_eq!(
+        matched.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5, source_send_step_index: Some(0) }]
+    );
 
     context.tcp_state.window_size = Some(8192);
     let skipped_window = plan_tcp(&group, payload, 7, 64, context).expect("plan above window threshold");
@@ -910,7 +1040,10 @@ fn plan_tcp_supports_mixed_tls_preludes_before_send_steps() {
 
     let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("mixed tls preludes");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4, source_send_step_index: Some(0) }]
+    );
     assert_eq!(tls_record_lengths(&plan.tampered), vec![payload_len - 96, 32, 32, 32]);
 }
 
@@ -940,7 +1073,15 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: payload.len() as i64 }]);
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep {
+            kind: TcpChainStepKind::HostFake,
+            start: 0,
+            end: payload.len() as i64,
+            source_send_step_index: Some(0)
+        }]
+    );
     assert_eq!(
         plan.actions,
         vec![
@@ -1005,7 +1146,12 @@ fn plan_tcp_hostfake_resolves_fragmented_tls_host_after_tlsrec_prelude() {
 
     assert_eq!(
         plan.steps,
-        vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: tampered.bytes.len() as i64 }]
+        vec![PlannedStep {
+            kind: TcpChainStepKind::HostFake,
+            start: 0,
+            end: tampered.bytes.len() as i64,
+            source_send_step_index: Some(0)
+        }]
     );
     assert_eq!(plan.tampered, tampered.bytes);
     assert_eq!(
@@ -1045,7 +1191,12 @@ fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
 
     assert_eq!(
         plan.steps,
-        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 }]
+        vec![PlannedStep {
+            kind: TcpChainStepKind::Split,
+            start: 0,
+            end: markers.host_start as i64,
+            source_send_step_index: Some(0)
+        }]
     );
     assert_eq!(
         plan.actions,

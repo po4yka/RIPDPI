@@ -426,6 +426,29 @@ fn embedded_proxy_control_rejects_desync_evidence_from_late_generation() {
 
 #[cfg(not(feature = "loom"))]
 #[test]
+fn allocated_desync_connection_without_receipt_marks_snapshot_incomplete() {
+    let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 7);
+    let token = AttemptCorrelationId::new("receipt-gap").expect("valid attempt token");
+    let first = test_desync_evidence(7, "receipt-gap", 1);
+    assert_eq!(control.next_desync_connection_ordinal(&token), Some(1));
+    assert!(control.record_desync_execution_evidence(first.clone()));
+    assert!(!control.desync_execution_evidence_overflowed());
+
+    assert_eq!(control.next_desync_connection_ordinal(&token), Some(2));
+    assert_eq!(control.desync_execution_evidence(), vec![first.clone()]);
+    assert!(
+        control.desync_execution_evidence_overflowed(),
+        "an allocated connection without a receipt must not appear complete",
+    );
+
+    let second = test_desync_evidence(7, "receipt-gap", 2);
+    assert!(control.record_desync_execution_evidence(second.clone()));
+    assert_eq!(control.desync_execution_evidence(), vec![first, second]);
+    assert!(!control.desync_execution_evidence_overflowed(), "recording the missing receipt closes the gap");
+}
+
+#[cfg(not(feature = "loom"))]
+#[test]
 fn embedded_proxy_control_bounds_desync_evidence_and_marks_overflow() {
     let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 7);
 

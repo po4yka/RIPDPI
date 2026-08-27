@@ -15,9 +15,12 @@ pub(crate) fn requires_special_tcp_execution(
     plan: &DesyncPlan,
     supports_fake_retransmit: bool,
 ) -> bool {
-    group.effective_tcp_chain().iter().any(|step| {
-        matches!(step.kind(), TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
-            || tcp_step_has_flag_overrides(step)
+    let send_steps =
+        group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).collect::<Vec<_>>();
+    plan.steps.iter().any(|planned| {
+        let source_step = planned.source_send_step_index.and_then(|index| send_steps.get(index));
+        matches!(planned.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
+            || source_step.is_some_and(tcp_step_has_flag_overrides)
     }) || plan.steps.iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
             && (supports_fake_retransmit

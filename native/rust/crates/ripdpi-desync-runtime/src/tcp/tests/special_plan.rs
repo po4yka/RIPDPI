@@ -11,9 +11,24 @@ fn execute_multidisorder_tcp_plan_rejects_non_contiguous_segment_bounds() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 3, end: 4 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 0,
+                    end: 2,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 3,
+                    end: 4,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 4,
+                    end: 6,
+                    source_send_step_index: Some(0),
+                },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
@@ -39,9 +54,24 @@ fn execute_multidisorder_tcp_plan_rejects_partial_payload_coverage() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 5 },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 0,
+                    end: 2,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 2,
+                    end: 4,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 4,
+                    end: 5,
+                    source_send_step_index: Some(0),
+                },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
@@ -68,9 +98,24 @@ fn prepare_multidisorder_tcp_plan_accepts_contiguous_full_payload() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 0,
+                    end: 2,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 2,
+                    end: 4,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 4,
+                    end: 6,
+                    source_send_step_index: Some(0),
+                },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
@@ -109,8 +154,8 @@ fn plan_rejects_step_count_mismatch() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 3 },
-                PlannedStep { kind: TcpChainStepKind::Split, start: 3, end: 6 },
+                PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 3, source_send_step_index: Some(0) },
+                PlannedStep { kind: TcpChainStepKind::Split, start: 3, end: 6, source_send_step_index: Some(0) },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
@@ -138,7 +183,12 @@ fn plan_rejects_negative_start() {
         &group,
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: -1, end: 3 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: -1,
+                end: 3,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -165,7 +215,12 @@ fn plan_rejects_negative_end() {
         &group,
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: -1 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: 0,
+                end: -1,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -192,7 +247,12 @@ fn plan_rejects_out_of_order_bounds() {
         &group,
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 4, end: 2 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: 4,
+                end: 2,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -219,7 +279,12 @@ fn plan_rejects_end_beyond_payload() {
         &group,
         &DesyncPlan {
             tampered: b"abc".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 10 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: 0,
+                end: 10,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -246,7 +311,12 @@ fn plan_split_step_writes_chunk() {
         &group,
         &DesyncPlan {
             tampered: b"hello".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: 0,
+                end: 5,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -284,7 +354,12 @@ fn plan_ipfrag2_fallback_writes_full_payload() {
         &group,
         &DesyncPlan {
             tampered: b"hello".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 2 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::IpFrag2,
+                start: 0,
+                end: 2,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -320,7 +395,12 @@ fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
         &group,
         &DesyncPlan {
             tampered: b"hello".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 2 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::IpFrag2,
+                start: 0,
+                end: 2,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -353,7 +433,12 @@ fn plan_fakerst_writes_payload_after_fake_reset_attempt() {
         &group,
         &DesyncPlan {
             tampered: b"ping".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeRst, start: 0, end: 4 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::FakeRst,
+                start: 0,
+                end: 4,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -386,7 +471,12 @@ fn plan_hostfake_without_resolved_span_writes_chunk() {
         &group,
         &DesyncPlan {
             tampered: payload.to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: markers.host_start as i64 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::HostFake,
+                start: 0,
+                end: markers.host_start as i64,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -427,7 +517,12 @@ fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
         &group,
         &DesyncPlan {
             tampered: payload.to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: markers.host_start as i64 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::HostFake,
+                start: 0,
+                end: markers.host_start as i64,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -464,7 +559,12 @@ fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
         &group,
         &DesyncPlan {
             tampered: b"hello".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 5 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::FakeSplit,
+                start: 0,
+                end: 5,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -501,7 +601,12 @@ fn plan_fakeddisorder_terminal_step_with_original_flags_fails_closed() {
         &group,
         &DesyncPlan {
             tampered: b"hello".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 5 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::FakeDisorder,
+                start: 0,
+                end: 5,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -533,7 +638,12 @@ fn plan_tlsrec_step_errors() {
         &group,
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
-            steps: vec![PlannedStep { kind: TcpChainStepKind::TlsRec, start: 0, end: 6 }],
+            steps: vec![PlannedStep {
+                kind: TcpChainStepKind::TlsRec,
+                start: 0,
+                end: 6,
+                source_send_step_index: Some(0),
+            }],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
             tls_prelude: TlsPreludeApplication::default(),
@@ -561,9 +671,24 @@ fn multidisorder_rejects_mixed_kinds_in_chain() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 0,
+                    end: 2,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 2,
+                    end: 4,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 4,
+                    end: 6,
+                    source_send_step_index: Some(0),
+                },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
@@ -588,9 +713,24 @@ fn multidisorder_rejects_single_step() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 0,
+                    end: 2,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 2,
+                    end: 4,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 4,
+                    end: 6,
+                    source_send_step_index: Some(0),
+                },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),
@@ -614,8 +754,18 @@ fn multidisorder_rejects_too_few_planned() {
         &DesyncPlan {
             tampered: b"abcdef".to_vec(),
             steps: vec![
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 3 },
-                PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 3, end: 6 },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 0,
+                    end: 3,
+                    source_send_step_index: Some(0),
+                },
+                PlannedStep {
+                    kind: TcpChainStepKind::MultiDisorder,
+                    start: 3,
+                    end: 6,
+                    source_send_step_index: Some(0),
+                },
             ],
             proto: ProtoInfo::default(),
             actions: Vec::new(),

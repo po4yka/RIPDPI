@@ -177,23 +177,32 @@ fn plan_tcp_with_fake_reference(
 
     if send_steps.iter().any(|step| step.kind() == TcpChainStepKind::MultiDisorder) {
         let steps = plan_multi_disorder_steps(&send_steps, &tampered.bytes, &mut info, &mut rng, context)?;
+        if steps.is_empty() {
+            actions.push(DesyncAction::Write(tampered.bytes.clone()));
+        }
         return Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions, tls_prelude });
     }
 
-    for step in send_steps {
+    for (source_send_step_index, step) in send_steps.iter().enumerate() {
         if !activation_filter_matches(step.activation_filter(), context) {
             continue;
         }
-        let Some(pos) = resolve_send_step_offset(&step, &tampered.bytes, lp, &mut info, &mut rng, context)? else {
+        let Some(pos) = resolve_send_step_offset(step, &tampered.bytes, lp, &mut info, &mut rng, context)? else {
             continue;
         };
         let chunk = tampered.bytes[lp as usize..pos as usize].to_vec();
         let mut planned_kind = step.kind();
+        let planned_source = Some(source_send_step_index);
 
         match step.kind() {
             TcpChainStepKind::IpFrag2 => {
-                push_ipfrag2_or_fallback(&mut actions, &step, &tampered.bytes, lp, pos, context.round);
-                steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+                push_ipfrag2_or_fallback(&mut actions, step, &tampered.bytes, lp, pos, context.round);
+                steps.push(PlannedStep {
+                    kind: planned_kind,
+                    start: lp,
+                    end: pos,
+                    source_send_step_index: planned_source,
+                });
                 lp = tampered.bytes.len() as i64;
                 continue;
             }
@@ -213,7 +222,12 @@ fn plan_tcp_with_fake_reference(
                     let real_chunk = chunk[..split].to_vec();
                     let remainder = tampered.bytes[pos as usize..].to_vec();
                     actions.push(DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder });
-                    steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+                    steps.push(PlannedStep {
+                        kind: planned_kind,
+                        start: lp,
+                        end: pos,
+                        source_send_step_index: planned_source,
+                    });
                     lp = tampered.bytes.len() as i64;
                     continue;
                 }
@@ -269,7 +283,7 @@ fn plan_tcp_with_fake_reference(
                 planned_kind = push_hostfake_actions(
                     &mut actions,
                     HostfakePlan {
-                        step: &step,
+                        step,
                         group,
                         tampered: &tampered.bytes,
                         step_start: lp,
@@ -289,7 +303,7 @@ fn plan_tcp_with_fake_reference(
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => return Err(DesyncError),
             _ => return Err(DesyncError),
         }
-        steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+        steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos, source_send_step_index: planned_source });
         if matches!(planned_kind, TcpChainStepKind::Oob) {
             actions.push(DesyncAction::AwaitWritable);
         }
