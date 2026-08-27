@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,10 @@ sealed interface BootstrapConsumeResult {
         val consumedAtMillis: Long,
         val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
         val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile> = emptyList(),
+        val subscriptionMirrors: SubscriptionMirrorSet = SubscriptionMirrorSet(),
+        val cloudflareMemberIds: Set<String> = emptySet(),
+        val isSelector: Boolean = false,
+        val failover: SelectorFailover? = null,
     ) : BootstrapConsumeResult
 
     /**
@@ -225,11 +230,20 @@ class BootstrapConsumer(
             singBoxProfileCount in 1..MaxSubscriptionProfiles &&
             singBox.profiles.fitsSubscriptionLimits()
         ) {
+            val selector = SelectorUrltestGroupImport.import(body, groupId)
+            if (selector !is SelectorUrltestImportResult.Success) {
+                return BootstrapConsumeResult.ParseError("invalid bootstrap selector")
+            }
             return BootstrapConsumeResult.Consumed(
                 profiles = singBox.profiles,
                 consumedAtMillis = clockMillis(),
                 packageRoutingRules = singBox.packageRoutingRules,
                 amneziaWgProfiles = singBox.amneziaWgProfiles,
+                subscriptionMirrors = singBox.subscriptionMirrors ?: SubscriptionMirrorSet(),
+                // These ids belong to singBox.profiles, not the selector's independent parse.
+                cloudflareMemberIds = singBox.cloudflareMemberIds.orEmpty(),
+                isSelector = selector.group != null,
+                failover = selector.failoverPolicy.toSelectorFailover(),
             )
         }
         val base64 = Base64SubscriptionParser.parse(body, groupId)

@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -139,25 +140,48 @@ class AppShortcutsPublisherTest {
 
 private class FakeSelectorSelectionStore : SelectorSelectionStore {
     private val flows = HashMap<String, MutableStateFlow<String?>>()
+    private val manual = mutableSetOf<String>()
+    private val revisions = mutableMapOf<String, Long>()
 
     fun set(
         groupId: String,
         profileId: String?,
-    ) {
-        flowFor(groupId).value = profileId
-    }
+    ) = write(groupId, profileId, false)
 
     override fun selectedProfileId(groupId: String): StateFlow<String?> = flowFor(groupId).asStateFlow()
+
+    override fun invalidatePendingSelection(groupId: String) {
+        revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
+    }
+
+    override fun snapshot(groupId: String): SelectorSelectionSnapshot =
+        SelectorSelectionSnapshot(flowFor(groupId).value, groupId in manual, revisions[groupId] ?: 0L)
+
+    override fun selectAutomatically(
+        groupId: String,
+        expected: SelectorSelectionSnapshot,
+        profileId: String,
+    ): Boolean {
+        if (snapshot(groupId) != expected) return false
+        write(groupId, profileId, false)
+        return true
+    }
 
     override fun select(
         groupId: String,
         profileId: String,
-    ) {
-        flowFor(groupId).value = profileId
-    }
+    ) = write(groupId, profileId, true)
 
-    override fun clearSelection(groupId: String) {
-        flowFor(groupId).value = null
+    override fun clearSelection(groupId: String) = write(groupId, null, false)
+
+    private fun write(
+        groupId: String,
+        profileId: String?,
+        isManual: Boolean,
+    ) {
+        if (isManual) manual.add(groupId) else manual.remove(groupId)
+        revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
+        flowFor(groupId).value = profileId
     }
 
     private fun flowFor(groupId: String): MutableStateFlow<String?> = flows.getOrPut(groupId) { MutableStateFlow(null) }

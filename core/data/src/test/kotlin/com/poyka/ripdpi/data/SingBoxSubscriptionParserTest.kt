@@ -17,6 +17,25 @@ import org.junit.Test
 class SingBoxSubscriptionParserTest {
     private val groupId = "sub-singbox"
 
+    @Test
+    fun `rejects insecure subscription mirror metadata as a unit`() {
+        val payload = """{"outbounds":[],"ripdpi":{"schema_version":1,"subscription_mirrors":[
+            {"id":"direct","url":"http://mirror.example/sub/device","token":"device-token","transport":"direct"}
+        ]}}"""
+
+        assertTrue(SingBoxSubscriptionParser.parse(payload, groupId) is SingBoxParseResult.Error)
+    }
+
+    @Test
+    fun `invalid known Cloudflare classification rejects the complete bundle`() {
+        for (tags in listOf("[42]", "[\"missing\"]", "[\"edge\",\"edge\"]", "{}")) {
+            val payload = """{"outbounds":[{"type":"trojan","tag":"edge","server":"edge.example",
+              "server_port":443,"password":"fixture"}],"ripdpi":{"schema_version":1,
+              "cloudflare_outbound_tags":$tags}}"""
+            assertTrue(SingBoxSubscriptionParser.parse(payload, groupId) is SingBoxParseResult.Error)
+        }
+    }
+
     private fun success(result: SingBoxParseResult): SingBoxParseResult.Success {
         assertTrue("expected success, got $result", result is SingBoxParseResult.Success)
         return result as SingBoxParseResult.Success

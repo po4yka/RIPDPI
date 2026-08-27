@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
@@ -16,9 +18,12 @@ import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
+import com.poyka.ripdpi.data.subscription.SubscriptionMirror
+import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import com.poyka.ripdpi.data.subscription.SubscriptionPayloadTooLargeException
 import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
+import com.poyka.ripdpi.data.subscription.isValidForRefresh
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
@@ -32,6 +37,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -92,6 +98,14 @@ class SubscriptionRefreshCoordinator private constructor(
     ) : this(repository, awgProfileRepository, signalPublisher, httpClient, clockMillis)
 
     private val log = Logger.withTag("subscription-auto-update")
+    private val deliveryHttpClient =
+        httpClient
+            .newBuilder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .retryOnConnectionFailure(false)
+            .callTimeout(EndpointTimeoutSeconds, TimeUnit.SECONDS)
+            .build()
 
     internal suspend fun refreshAll(): SubscriptionRefreshRunResult {
         val allGroups = repository.list()
@@ -127,7 +141,10 @@ class SubscriptionRefreshCoordinator private constructor(
             group.subscription
                 ?: return SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
         val priorFailure = subscription.lastRefreshFailure
-        return if (priorFailure?.isTerminal == true) {
+        return if (subscription.kind == SubscriptionKind.BOOTSTRAP) {
+            // Only BootstrapConsumer may consume this URL; refresh never replays single-use delivery.
+            SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.INVALIDATED, retryable = false)
+        } else if (priorFailure?.isTerminal == true) {
             SubscriptionRefreshResult.Failed(priorFailure, retryable = false)
         } else {
             val outcome =
@@ -149,11 +166,7 @@ class SubscriptionRefreshCoordinator private constructor(
                     }
 
                     else -> {
-                        fetchAndParse(
-                            group = group,
-                            url = subscription.link,
-                            customUserAgent = subscription.customUserAgent,
-                        )
+                        fetchMirrors(group, subscription)
                     }
                 }
             when (outcome) {
@@ -180,12 +193,14 @@ class SubscriptionRefreshCoordinator private constructor(
                 val subscription = current.subscription ?: return@updateGroup current
                 val withMembers =
                     if (outcome.clearRelayMembers) {
-                        current.copy(members = emptyList())
+                        current.copy(members = emptyList(), cloudflareMemberIds = emptySet())
                     } else {
                         SubscriptionMemberPersistence.apply(
                             group = current,
                             members = outcome.profiles,
                             failover = outcome.failover,
+                            cloudflareMemberIds = outcome.cloudflareMemberIds,
+                            isSelector = outcome.isSelector,
                         )
                     }
                 withMembers.copy(
@@ -199,6 +214,7 @@ class SubscriptionRefreshCoordinator private constructor(
                                 tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
                                 lifecycleState = SubscriptionLifecycleState.ACTIVE,
                                 lastRefreshFailure = null,
+                                mirrors = outcome.subscriptionMirrors ?: subscription.mirrors,
                             ),
                 )
             }
@@ -226,6 +242,7 @@ class SubscriptionRefreshCoordinator private constructor(
         group: ProxyGroup,
         url: String,
         customUserAgent: String,
+        token: String,
     ): RefreshOutcome =
         withContext(Dispatchers.IO) {
             val request =
@@ -235,9 +252,10 @@ class SubscriptionRefreshCoordinator private constructor(
                     .get()
                     .apply {
                         if (customUserAgent.isNotBlank()) header("User-Agent", customUserAgent)
+                        if (token.isNotBlank()) header("Authorization", "Bearer $token")
                     }.build()
             try {
-                httpClient.newCall(request).execute().use { response ->
+                deliveryHttpClient.newCall(request).execute().use { response ->
                     classifyHttpFailure(response.code, group)?.let { return@use it }
                     val body =
                         try {
@@ -246,6 +264,13 @@ class SubscriptionRefreshCoordinator private constructor(
                             return@use payloadTooLargeFailure()
                         }
                     val singBox = SingBoxSubscriptionParser.parse(body, group.id) as? SingBoxParseResult.Success
+                    if (singBox?.tokenExpiresAtEpochMillis?.let { clockMillis() >= it } == true) {
+                        return@use RefreshOutcome.Failure(
+                            SubscriptionRefreshFailure.EXPIRED,
+                            SubscriptionLifecycleState.EXPIRED,
+                            false,
+                        )
+                    }
                     val wireGuard =
                         if (WireGuardIniSubscriptionParser.looksLikeWireGuardIni(body)) {
                             WireGuardIniSubscriptionParser.parse(body, group.id)
@@ -261,7 +286,10 @@ class SubscriptionRefreshCoordinator private constructor(
                             payloadTooLargeFailure()
                         } else {
                             persistWireGuardProfiles(singBox, wireGuard)
-                            profiles.copy(subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty())
+                            profiles.copy(
+                                subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty(),
+                                subscriptionMirrors = singBox?.subscriptionMirrors,
+                            )
                         }
                     } else {
                         RefreshOutcome.Failure(
@@ -331,6 +359,47 @@ class SubscriptionRefreshCoordinator private constructor(
             }
         }
 
+    private suspend fun fetchMirrors(
+        group: ProxyGroup,
+        subscription: Subscription,
+    ): RefreshOutcome {
+        if (!subscription.mirrors.isValidForRefresh() ||
+            (
+                subscription.token.isNotBlank() &&
+                    !SubscriptionMirrorSet(
+                        listOf(SubscriptionMirror("original", subscription.link, subscription.token)),
+                    ).isValidForRefresh()
+            )
+        ) {
+            return RefreshOutcome.Failure(SubscriptionRefreshFailure.PARSE_ERROR, null, false)
+        }
+        return fetchValidatedMirrors(group, subscription)
+    }
+
+    private suspend fun fetchValidatedMirrors(
+        group: ProxyGroup,
+        subscription: Subscription,
+    ): RefreshOutcome {
+        val endpoints =
+            subscription.mirrors
+                .refreshOrder()
+                .map { it.url to it.token }
+                .toMutableList()
+        if (endpoints.none { it.first == subscription.link }) endpoints += subscription.link to subscription.token
+        var last: RefreshOutcome = RefreshOutcome.Failure(SubscriptionRefreshFailure.UNREACHABLE, null, true)
+        var retry = false
+        for ((url, token) in endpoints) {
+            last = fetchAndParse(group, url, subscription.customUserAgent, token)
+            if (last is RefreshOutcome.Updated ||
+                (last is RefreshOutcome.Failure && last.failure.isTerminal)
+            ) {
+                return last
+            }
+            retry = retry || (last as RefreshOutcome.Failure).retry
+        }
+        return (last as RefreshOutcome.Failure).copy(retry = retry)
+    }
+
     private suspend fun parseProfiles(
         body: String,
         groupId: String,
@@ -343,6 +412,8 @@ class SubscriptionRefreshCoordinator private constructor(
                 RefreshOutcome.Updated(
                     selector.profiles,
                     selector.failoverPolicy.toSelectorFailover(),
+                    cloudflareMemberIds = selector.cloudflareMemberIds,
+                    isSelector = selector.group != null,
                     tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
                     packageRoutingRules = singBox?.packageRoutingRules.orEmpty(),
                 )
@@ -413,6 +484,9 @@ class SubscriptionRefreshCoordinator private constructor(
             val tokenExpiresAtEpochMillis: Long? = null,
             val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
             val clearRelayMembers: Boolean = false,
+            val subscriptionMirrors: SubscriptionMirrorSet? = null,
+            val cloudflareMemberIds: Set<String>? = null,
+            val isSelector: Boolean = false,
         ) : RefreshOutcome
 
         data class Failure(
@@ -431,6 +505,7 @@ class SubscriptionRefreshCoordinator private constructor(
         const val HttpServerErrorStart = 500
         const val HttpServerErrorEnd = 599
         const val SubscriptionUserinfoHeader = "Subscription-Userinfo"
+        const val EndpointTimeoutSeconds = 15L
     }
 }
 

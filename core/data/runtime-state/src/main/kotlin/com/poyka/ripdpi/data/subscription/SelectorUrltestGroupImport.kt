@@ -71,6 +71,7 @@ sealed interface SelectorUrltestImportResult {
         val defaultMemberTag: String?,
         val failoverPolicy: FailoverPolicy,
         val skipped: List<SingBoxSkippedNode> = emptyList(),
+        val cloudflareMemberIds: Set<String>? = null,
     ) : SelectorUrltestImportResult
 
     /** Import was rejected as a unit (e.g. a selector named a missing tag, or the JSON was malformed). */
@@ -149,6 +150,7 @@ object SelectorUrltestGroupImport {
                 defaultMemberTag = null,
                 failoverPolicy = FailoverPolicy.Manual,
                 skipped = parsed.skipped,
+                cloudflareMemberIds = parsed.cloudflareMemberIds,
             )
         }
 
@@ -178,11 +180,19 @@ object SelectorUrltestGroupImport {
 
         return SelectorUrltestImportResult.Success(
             profiles = profiles,
-            group = selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy, parsed.packageRoutingRules),
+            group =
+                selectorGroup(groupId, selectorEntry, memberProfiles, failoverPolicy, parsed.packageRoutingRules)
+                    .copy(
+                        cloudflareMemberIds =
+                            parsed.cloudflareMemberIds.orEmpty().intersect(
+                                memberProfiles.map { it.id }.toSet(),
+                            ),
+                    ),
             memberOrder = memberOrder,
             defaultMemberTag = selectorEntry.string("default"),
             failoverPolicy = failoverPolicy,
             skipped = parsed.skipped,
+            cloudflareMemberIds = parsed.cloudflareMemberIds,
         )
     }
 

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleTypeConverters
+import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
@@ -355,6 +356,7 @@ object BackupGroupRedactor {
                 sub.copy(
                     token = "",
                     link = scrubLink(sub.link),
+                    mirrors = SubscriptionMirrorSet(),
                 ),
         )
     }

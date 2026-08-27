@@ -1,10 +1,15 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.activities.TestEmptyProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
+import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +31,54 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SelectorUrltestProberTest {
+    @Test
+    fun `manual Cloudflare choice survives an in-flight automatic probe`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "origin")
+            val group =
+                urltestGroup(listOf(member("edge"), member("origin")))
+                    .copy(cloudflareMemberIds = setOf("edge"))
+            var calls = 0
+            val prober =
+                SelectorUrltestProber(store) { _, _ ->
+                    calls++
+                    store.select("g", "edge")
+                    100L
+                }
+
+            prober.runProbePass(group, "https://probe", 0)
+            prober.runProbePass(group, "https://probe", 0)
+
+            assertEquals("edge", store.selectedProfileId("g").value)
+            assertEquals(1, calls)
+        }
+
+    @Test
+    fun `explicit Cloudflare tag cannot win automatic selection even when fastest and default`() =
+        runTest {
+            val payload = """{"outbounds":[
+            {"type":"selector","tag":"select","outbounds":["edge","origin","auto"],"default":"edge"},
+            {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
+            {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
+            {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
+            ],"ripdpi":{"schema_version":1,"cloudflare_outbound_tags":["edge"]}}"""
+            val parsed = SelectorUrltestGroupImport.import(payload, "g") as SelectorUrltestImportResult.Success
+            val group = requireNotNull(parsed.group)
+            val store = FakeSelectorSelectionStore()
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    FakeLatencyProbe(
+                        parsed.profiles.associate { it.id to if (it.displayName == "edge") 1L else 100L },
+                    ),
+                )
+
+            prober.runProbePass(group, "https://probe.example", 0)
+
+            assertEquals(parsed.profiles.single { it.displayName == "origin" }.id, store.selectedProfileId("g").value)
+        }
+
     private fun member(id: String) =
         ProxyProfile.Trojan(
             id = id,
@@ -119,6 +172,113 @@ class SelectorUrltestProberTest {
             assertEquals("fast", store.selectedProfileId("g").value)
         }
 
+    @Test
+    fun `coordinator restarts probing when refreshed classification changes`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            val groups = MutableStateFlow(listOf(group))
+            val repository =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override fun groups() = groups
+                }
+            val prober = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
+            coordinator.start()
+            runCurrent()
+            advanceTimeBy(10_001)
+            runCurrent()
+            assertEquals("fast", store.selectedProfileId("g").value)
+
+            groups.value = listOf(group.copy(cloudflareMemberIds = setOf("fast")))
+            runCurrent()
+            advanceTimeBy(10_001)
+            runCurrent()
+
+            assertEquals("slow", store.selectedProfileId("g").value)
+            coordinator.stop()
+        }
+
+    @Test
+    fun `automatic existing fallback is retained until a direct candidate is reachable`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.selectAutomatically("g", store.snapshot("g"), "edge")
+            val group = urltestGroup(listOf(member("edge"), member("direct"))).copy(cloudflareMemberIds = setOf("edge"))
+            val unavailable = SelectorUrltestProber(store, FakeLatencyProbe(emptyMap()))
+            unavailable.runProbePass(group, "https://probe", toleranceMs = 50)
+            assertEquals("edge", store.selectedProfileId("g").value)
+
+            val recovered = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("direct" to 100L)))
+            recovered.runProbePass(group, "https://probe", toleranceMs = 50)
+            assertEquals("direct", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `coordinator metadata updates do not postpone the next probe`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            val groups = MutableStateFlow(listOf(group))
+            val repository =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override fun groups() = groups
+                }
+            val prober = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
+            coordinator.start()
+            runCurrent()
+            advanceTimeBy(5_000)
+            groups.value = listOf(group.copy(name = "Refreshed name"))
+            runCurrent()
+            advanceTimeBy(5_001)
+            runCurrent()
+
+            assertEquals("fast", store.selectedProfileId("g").value)
+            coordinator.stop()
+        }
+
+    @Test
+    fun `policy refresh invalidates a probe already entering its selection commit`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            val groups = MutableStateFlow(listOf(group))
+            val repository =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override fun groups() = groups
+                }
+            var updateBeforeCommit = true
+            val interceptedStore =
+                object : SelectorSelectionStore by store {
+                    override fun selectAutomatically(
+                        groupId: String,
+                        expected: SelectorSelectionSnapshot,
+                        profileId: String,
+                    ): Boolean {
+                        if (updateBeforeCommit) {
+                            updateBeforeCommit = false
+                            groups.value = listOf(group.copy(cloudflareMemberIds = setOf("fast")))
+                            runCurrent()
+                        }
+                        return store.selectAutomatically(groupId, expected, profileId)
+                    }
+                }
+            val prober =
+                SelectorUrltestProber(interceptedStore, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
+            coordinator.start()
+            runCurrent()
+            advanceTimeBy(10_001)
+            runCurrent()
+
+            assertNull(store.selectedProfileId("g").value)
+            advanceTimeBy(10_001)
+            runCurrent()
+            assertEquals("slow", store.selectedProfileId("g").value)
+            coordinator.stop()
+        }
+
     // bestSwitchCandidate — the pure decision the loop applies.
 
     @Test
@@ -161,18 +321,48 @@ class SelectorUrltestProberTest {
 
     private class FakeSelectorSelectionStore : SelectorSelectionStore {
         private val flows = HashMap<String, MutableStateFlow<String?>>()
+        private val manual = mutableSetOf<String>()
+        private val revisions = mutableMapOf<String, Long>()
+
+        fun set(
+            groupId: String,
+            profileId: String?,
+        ) = write(groupId, profileId, false)
 
         override fun selectedProfileId(groupId: String): StateFlow<String?> = flowFor(groupId).asStateFlow()
+
+        override fun invalidatePendingSelection(groupId: String) {
+            revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
+        }
+
+        override fun snapshot(groupId: String): SelectorSelectionSnapshot =
+            SelectorSelectionSnapshot(flowFor(groupId).value, groupId in manual, revisions[groupId] ?: 0L)
+
+        override fun selectAutomatically(
+            groupId: String,
+            expected: SelectorSelectionSnapshot,
+            profileId: String,
+        ): Boolean {
+            if (snapshot(groupId) != expected) return false
+            write(groupId, profileId, false)
+            return true
+        }
 
         override fun select(
             groupId: String,
             profileId: String,
-        ) {
-            flowFor(groupId).value = profileId
-        }
+        ) = write(groupId, profileId, true)
 
-        override fun clearSelection(groupId: String) {
-            flowFor(groupId).value = null
+        override fun clearSelection(groupId: String) = write(groupId, null, false)
+
+        private fun write(
+            groupId: String,
+            profileId: String?,
+            isManual: Boolean,
+        ) {
+            if (isManual) manual.add(groupId) else manual.remove(groupId)
+            revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
+            flowFor(groupId).value = profileId
         }
 
         private fun flowFor(groupId: String): MutableStateFlow<String?> =

@@ -50,6 +50,9 @@ sealed interface SingBoxParseResult {
         val tokenExpiresAtEpochMillis: Long? = null,
         /** Nodes rejected before mapping because their declared wire mode is unsupported. */
         val skipped: List<SingBoxSkippedNode> = emptyList(),
+        /** Absent preserves existing delivery endpoints; an explicit empty list removes them. */
+        val subscriptionMirrors: SubscriptionMirrorSet? = null,
+        val cloudflareMemberIds: Set<String>? = null,
     ) : SingBoxParseResult
 
     /** Parsing failed; [message] carries a human-readable, location-aware reason. */
@@ -140,14 +143,9 @@ object SingBoxSubscriptionParser {
         payload: String,
         groupId: String,
     ): SingBoxParseResult =
-        runCatching { singBoxJson.parseToJsonElement(payload) }.fold(
-            onSuccess = { rootElement -> parseRootElement(rootElement, groupId) },
-            onFailure = { error ->
-                SingBoxParseResult.Error(
-                    "malformed sing-box JSON: ${error.message ?: "could not be parsed"}",
-                )
-            },
-        )
+        runCatching { singBoxJson.parseToJsonElement(payload) }
+            .mapCatching { rootElement -> parseRootElement(rootElement, groupId) }
+            .getOrElse { SingBoxParseResult.Error("malformed sing-box JSON or metadata") }
 
     private fun parseRootElement(
         rootElement: JsonElement,
@@ -201,6 +199,8 @@ object SingBoxSubscriptionParser {
                     topology = ripdpi.topology,
                     tokenExpiresAtEpochMillis = ripdpi.tokenExpiresAtEpochMillis,
                     skipped = skipped,
+                    subscriptionMirrors = ripdpi.subscriptionMirrors,
+                    cloudflareMemberIds = ripdpi.cloudflareMemberIds,
                 )
             }
         }
@@ -586,6 +586,8 @@ private data class RipdpiBlockResult(
     val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile>,
     val topology: RipdpiTopology? = null,
     val tokenExpiresAtEpochMillis: Long? = null,
+    val subscriptionMirrors: SubscriptionMirrorSet? = null,
+    val cloudflareMemberIds: Set<String>? = null,
 )
 
 /**
@@ -604,6 +606,7 @@ private fun processRipdpiBlock(
     val versioned =
         ripdpiBlock?.takeIf { it.int("schema_version") == SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION }
             ?: return RipdpiBlockResult(profiles, emptyList())
+    val mirrors = parseSubscriptionMirrors(versioned)
     val awgProfiles =
         (versioned["amneziawg"] as? JsonArray)
             ?.mapNotNull { element -> (element as? JsonObject)?.let { mapRipdpiAwg(it, groupId) } }
@@ -615,6 +618,8 @@ private fun processRipdpiBlock(
         amneziaWgProfiles = awgProfiles,
         topology = parseRipdpiTopology(versioned["topology"] as? JsonObject),
         tokenExpiresAtEpochMillis = parseRipdpiExpiry(versioned.string("expires")),
+        subscriptionMirrors = mirrors,
+        cloudflareMemberIds = parseCloudflareMemberIds(versioned, patchedProfiles),
     )
 }
 

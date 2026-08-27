@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.data.subscription.SubscriptionMirror
+import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -31,7 +33,22 @@ class ProxyGroupSecretAtRestTest {
             type = ProxyGroupType.SUBSCRIPTION,
             order = 0,
             isSelector = true,
-            subscription = Subscription(link = "https://sub.example/x", token = subToken),
+            subscription =
+                Subscription(
+                    link = "https://sub.example/x",
+                    token = subToken,
+                    mirrors =
+                        SubscriptionMirrorSet(
+                            listOf(
+                                SubscriptionMirror(
+                                    "direct",
+                                    "https://direct.example/sub/device",
+                                    "fixture-mirror-token",
+                                ),
+                            ),
+                        ),
+                ),
+            cloudflareMemberIds = setOf("m1"),
             members =
                 listOf(
                     ProxyProfile.Trojan(
@@ -61,9 +78,12 @@ class ProxyGroupSecretAtRestTest {
             assertTrue("member secret must be inside the to-be-sealed blob", persisted!!.contains(memberPassword))
             assertTrue("subscription token must be inside the to-be-sealed blob", persisted.contains(subToken))
 
-            val loaded = repo.list().single()
+            assertTrue(persisted.contains("fixture-mirror-token"))
+            val loaded = SharedPreferencesProxyGroupRepository(blobStore).list().single()
             assertEquals(memberPassword, (loaded.members.single() as ProxyProfile.Trojan).password)
             assertEquals(subToken, loaded.subscription?.token)
+            assertEquals(sampleGroup().subscription?.mirrors, loaded.subscription?.mirrors)
+            assertEquals(setOf("m1"), loaded.cloudflareMemberIds)
         }
 
     @Test

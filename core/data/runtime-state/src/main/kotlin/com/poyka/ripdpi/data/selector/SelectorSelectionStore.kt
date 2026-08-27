@@ -12,6 +12,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** A selection observation used to reject stale asynchronous probe decisions. */
+data class SelectorSelectionSnapshot(
+    val profileId: String?,
+    val isManual: Boolean,
+    val revision: Long,
+)
+
 /**
  * The selected-member signal for selector [com.poyka.ripdpi.data.ProxyGroup]s.
  *
@@ -31,6 +38,18 @@ interface SelectorSelectionStore {
      * [clearSelection] for that group.
      */
     fun selectedProfileId(groupId: String): StateFlow<String?>
+
+    fun snapshot(groupId: String): SelectorSelectionSnapshot
+
+    /** Invalidates in-flight probe decisions without changing the selected member or its origin. */
+    fun invalidatePendingSelection(groupId: String)
+
+    /** Applies a probe result only while [expected] is still the current selection. */
+    fun selectAutomatically(
+        groupId: String,
+        expected: SelectorSelectionSnapshot,
+        profileId: String,
+    ): Boolean
 
     /** Sets [profileId] as the active member of the selector group [groupId]. */
     fun select(
@@ -55,31 +74,69 @@ class SharedPreferencesSelectorSelectionStore
     ) : SelectorSelectionStore {
         private val preferences = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
         private val flows = HashMap<String, MutableStateFlow<String?>>()
+        private val revisions = HashMap<String, Long>()
 
         override fun selectedProfileId(groupId: String): StateFlow<String?> = flowFor(groupId).asStateFlow()
+
+        override fun snapshot(groupId: String): SelectorSelectionSnapshot =
+            synchronized(flows) {
+                val profileId = flowFor(groupId).value
+                SelectorSelectionSnapshot(
+                    profileId = profileId,
+                    isManual = profileId != null && preferences.getBoolean(manualKeyFor(groupId), false),
+                    revision = revisions[groupId] ?: 0L,
+                )
+            }
+
+        override fun invalidatePendingSelection(groupId: String) {
+            synchronized(flows) {
+                advanceRevision(groupId)
+            }
+        }
+
+        override fun selectAutomatically(
+            groupId: String,
+            expected: SelectorSelectionSnapshot,
+            profileId: String,
+        ): Boolean =
+            synchronized(flows) {
+                if (snapshot(groupId) != expected) {
+                    false
+                } else {
+                    writeSelection(groupId, profileId, isManual = false)
+                    true
+                }
+            }
 
         override fun select(
             groupId: String,
             profileId: String,
         ) {
             synchronized(flows) {
-                preferences.edit().putString(keyFor(groupId), profileId).apply()
-                flowFor(groupId).value = profileId
+                writeSelection(groupId, profileId, isManual = true)
             }
         }
 
         override fun clearSelection(groupId: String) {
             synchronized(flows) {
-                preferences.edit().remove(keyFor(groupId)).apply()
+                preferences
+                    .edit()
+                    .remove(keyFor(groupId))
+                    .remove(manualKeyFor(groupId))
+                    .apply()
+                advanceRevision(groupId)
                 flowFor(groupId).value = null
             }
         }
 
         /** Clears every persisted selection. Intended for tests and reset flows. */
         fun clearAll() {
-            preferences.edit().clear().commit()
             synchronized(flows) {
-                flows.values.forEach { it.value = null }
+                preferences.edit().clear().commit()
+                flows.forEach { (groupId, flow) ->
+                    advanceRevision(groupId)
+                    flow.value = null
+                }
             }
         }
 
@@ -90,7 +147,28 @@ class SharedPreferencesSelectorSelectionStore
                 }
             }
 
+        // Called only under the flows monitor so provenance and the selected ID form one observation.
+        private fun writeSelection(
+            groupId: String,
+            profileId: String,
+            isManual: Boolean,
+        ) {
+            preferences
+                .edit()
+                .putString(keyFor(groupId), profileId)
+                .putBoolean(manualKeyFor(groupId), isManual)
+                .apply()
+            advanceRevision(groupId)
+            flowFor(groupId).value = profileId
+        }
+
+        private fun advanceRevision(groupId: String) {
+            revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
+        }
+
         private fun keyFor(groupId: String): String = "$KeyPrefix$groupId"
+
+        private fun manualKeyFor(groupId: String): String = "manual-selection-$groupId"
 
         private companion object {
             const val PrefsName = "selector_selection_store"

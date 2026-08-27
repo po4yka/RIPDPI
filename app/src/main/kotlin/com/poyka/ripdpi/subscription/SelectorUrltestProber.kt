@@ -4,7 +4,9 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
 
@@ -17,7 +19,7 @@ data class MemberLatency(
 /**
  * Measures a single selector member's reachability latency against the group's
  * `probeUrl`. Injectable so the prober is testable without a real network: the
- * production impl does a TCP connect / HTTP HEAD; a fake returns canned latencies.
+ * production impl measures TCP connect only; this does not prove payload health.
  */
 fun interface MemberLatencyProbe {
     /**
@@ -35,7 +37,7 @@ fun interface MemberLatencyProbe {
  * carrying a [com.poyka.ripdpi.data.SelectorFailover] now drives a real periodic
  * latency probe. Every `intervalSeconds`, each member is probed; when the
  * lowest-latency member beats the currently-selected member by more than
- * `toleranceMs`, the selection is updated through [SelectorSelectionStore.select]
+ * `toleranceMs`, the selection is updated through [SelectorSelectionStore.selectAutomatically]
  * — which the wired [com.poyka.ripdpi.services.selector.SelectorReloadCoordinator]
  * turns into a live hot-reload of the exit.
  *
@@ -49,6 +51,11 @@ class SelectorUrltestProber(
     private val probe: MemberLatencyProbe,
 ) {
     private val log = Logger.withTag("selector-urltest")
+
+    /** Fences a replaced or stopped policy against a probe already about to commit. */
+    internal fun invalidatePendingSelection(groupId: String) {
+        selectionStore.invalidatePendingSelection(groupId)
+    }
 
     /**
      * Runs the probe loop for [group] until the surrounding coroutine is
@@ -79,15 +86,19 @@ class SelectorUrltestProber(
         probeUrl: String,
         toleranceMs: Int,
     ) {
+        val selection = selectionStore.snapshot(group.id)
+        if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
         val latencies =
-            group.members.map { member ->
+            group.members.filterNot { it.id in group.cloudflareMemberIds }.map { member ->
                 MemberLatency(profileId = member.id, latencyMillis = probe.measure(member, probeUrl))
             }
-        val current = selectionStore.selectedProfileId(group.id).value
+        currentCoroutineContext().ensureActive()
+        // Keep the last active exit when no direct candidate is reachable. A prior automatic
+        // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
+        val current = selection.profileId
         val winner = bestSwitchCandidate(latencies, current, toleranceMs)
-        if (winner != null && winner != current) {
+        if (winner != null && winner != current && selectionStore.selectAutomatically(group.id, selection, winner)) {
             log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
-            selectionStore.select(group.id, winner)
         }
     }
 

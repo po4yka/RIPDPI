@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
+import com.poyka.ripdpi.data.subscription.SubscriptionMirror
+import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,6 +33,16 @@ class BackupGroupRedactionTest {
                     link = "https://user:s3cr3t@sub.example.com/sub/hash?token=bearer-abc&autoUpdate=true",
                     token = "fixture-token-xyz",
                     autoUpdate = true,
+                    mirrors =
+                        SubscriptionMirrorSet(
+                            listOf(
+                                SubscriptionMirror(
+                                    "direct",
+                                    "https://mirror.example/sub/private-device-path",
+                                    "mirror-bearer-secret",
+                                ),
+                            ),
+                        ),
                 ),
         )
 
@@ -52,6 +64,7 @@ class BackupGroupRedactionTest {
         val doc = export(BackupVariant.SHARE, listOf(subscriptionGroup))
         val sub = doc.groups.single().subscription!!
 
+        assertTrue("SHARE must remove mirror credentials and per-device URLs", sub.mirrors.mirrors.isEmpty())
         assertEquals("token must be emptied in SHARE", "", sub.token)
         assertFalse("link must not retain userinfo credentials", sub.link.contains("s3cr3t"))
         assertFalse("link must not retain the bearer token param", sub.link.contains("bearer-abc"))
@@ -76,6 +89,7 @@ class BackupGroupRedactionTest {
         val doc = export(BackupVariant.FULL, listOf(subscriptionGroup))
         val sub = doc.groups.single().subscription!!
 
+        assertEquals(subscriptionGroup.subscription!!.mirrors, sub.mirrors)
         assertEquals("fixture-token-xyz", sub.token)
         assertEquals(
             "https://user:s3cr3t@sub.example.com/sub/hash?token=bearer-abc&autoUpdate=true",

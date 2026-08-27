@@ -612,6 +612,75 @@ class SubscriptionImportConfirmViewModelTest {
         }
 
     @Test
+    fun `bootstrap import and reconfirm retain explicit delivery and selector metadata`() =
+        runTest {
+            MockWebServer().use { server ->
+                val payload = """{"outbounds":[
+              {"type":"selector","tag":"select","outbounds":["edge","origin","auto"],"default":"edge"},
+              {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
+              {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
+              {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
+              ],"ripdpi":{"schema_version":1,"cloudflare_outbound_tags":["edge"],
+              "subscription_mirrors":[{"id":"origin","url":"https://origin.example/sub/device",
+                "token":"fixture-scoped","transport":"direct"}]}}"""
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body(payload)
+                        .build(),
+                )
+                server.start()
+                val repository = FakeProxyGroupRepository()
+                val viewModel =
+                    SubscriptionImportConfirmViewModel(
+                        repository,
+                        BootstrapConsumer(clockMillis = { 42L }),
+                        groupIdFactory = { "bootstrap-metadata" },
+                    )
+                val url = server.url("/bootstrap/tok").toString()
+                viewModel.setRequest(url, "Boot", bootstrap = true)
+                viewModel.importedEvents.test {
+                    viewModel.confirm()
+                    advanceUntilIdle()
+                    awaitItem()
+                }
+                val first = repository.list().single()
+                assertTrue(first.isSelector)
+                assertEquals(setOf(first.members.single { it.displayName == "edge" }.id), first.cloudflareMemberIds)
+                assertEquals(
+                    "fixture-scoped",
+                    first.subscription
+                        ?.mirrors
+                        ?.mirrors
+                        ?.single()
+                        ?.token,
+                )
+                assertEquals(10, first.failover?.intervalSeconds)
+
+                viewModel.setRequest(url, "Renamed", bootstrap = false)
+                viewModel.confirm()
+                advanceUntilIdle()
+                val renamed = repository.list().single()
+                assertEquals(first.subscription, renamed.subscription)
+                assertEquals(first.cloudflareMemberIds, renamed.cloudflareMemberIds)
+                // A new screen/consumer must respect the durably consumed token too.
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .body(payload)
+                        .build(),
+                )
+                val reopened = SubscriptionImportConfirmViewModel(repository, BootstrapConsumer())
+                reopened.setRequest(url, "Again", bootstrap = true)
+                reopened.confirm()
+                reopened.uiState.first { !it.importing }
+                assertEquals(1, server.requestCount)
+            }
+        }
+
+    @Test
     fun `bootstrap import persists package routes on the subscription group`() =
         runTest {
             MockWebServer().use { server ->

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import android.content.Context
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.subscription.SubscriptionMirrorSet
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
@@ -82,6 +83,8 @@ data class Subscription(
     val lastRefreshFailure: SubscriptionRefreshFailure? = null,
     val kind: SubscriptionKind = SubscriptionKind.LONG_LIVED,
     val consumedAt: Long? = null,
+    /** Per-endpoint credentials, sealed together with the subscription blob. */
+    val mirrors: SubscriptionMirrorSet = SubscriptionMirrorSet(),
 ) {
     /** `true` once a [SubscriptionKind.BOOTSTRAP] token has been consumed. */
     val isConsumed: Boolean
@@ -115,6 +118,8 @@ data class ProxyGroup(
     val failover: SelectorFailover? = null,
     /** Subscription-owned Android package routes from the last valid bundle. */
     val packageRoutingRules: List<PackageRoutingRule> = emptyList(),
+    /** Explicit operator classification: these members cannot become new automatic probe winners. */
+    val cloudflareMemberIds: Set<String> = emptySet(),
 )
 
 /**

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
@@ -161,7 +162,7 @@ class SubscriptionImportConfirmViewModel
                     val groupId = existing?.id ?: groupIdFactory()
                     val groupName = state.name.takeIf { it.isNotBlank() } ?: hostOf(state.url)
                     val order = existing?.order ?: groups.size
-                    if (state.bootstrap) {
+                    if (state.bootstrap && existing?.subscription?.consumedAt == null) {
                         consumeBootstrap(state, existing, groupId, groupName, order)
                     } else {
                         repository.add(
@@ -170,7 +171,9 @@ class SubscriptionImportConfirmViewModel
                                 groupId = groupId,
                                 groupName = groupName,
                                 order = order,
-                                subscription = Subscription(link = state.url, kind = SubscriptionKind.LONG_LIVED),
+                                subscription =
+                                    existing?.subscription
+                                        ?: Subscription(link = state.url, kind = SubscriptionKind.LONG_LIVED),
                             ),
                         )
                         completeImport()
@@ -206,9 +209,13 @@ class SubscriptionImportConfirmViewModel
                                     link = state.url,
                                     kind = SubscriptionKind.BOOTSTRAP,
                                     consumedAt = result.consumedAtMillis,
+                                    mirrors = result.subscriptionMirrors,
                                 ),
                             members = result.profiles,
                             packageRoutingRules = result.packageRoutingRules,
+                            cloudflareMemberIds = result.cloudflareMemberIds,
+                            isSelector = result.isSelector,
+                            failover = result.failover,
                         ),
                     )
                     completeImport()
@@ -231,16 +238,20 @@ class SubscriptionImportConfirmViewModel
             subscription: Subscription,
             members: List<ProxyProfile> = existing?.members.orEmpty(),
             packageRoutingRules: List<PackageRoutingRule> = existing?.packageRoutingRules.orEmpty(),
+            cloudflareMemberIds: Set<String> = existing?.cloudflareMemberIds.orEmpty(),
+            isSelector: Boolean = existing?.isSelector ?: false,
+            failover: SelectorFailover? = existing?.failover,
         ): ProxyGroup =
             ProxyGroup(
                 id = groupId,
                 name = groupName,
                 type = ProxyGroupType.SUBSCRIPTION,
                 order = order,
-                isSelector = existing?.isSelector ?: false,
+                isSelector = isSelector,
                 subscription = subscription,
                 members = members,
-                failover = existing?.failover,
+                failover = failover,
+                cloudflareMemberIds = cloudflareMemberIds,
                 packageRoutingRules = packageRoutingRules,
             )
 

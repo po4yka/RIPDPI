@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
@@ -1099,6 +1100,16 @@ private object NoOpResetEventRecorder : ResetEventRecorder {
 }
 
 private object NoOpSelectorSelectionStore : SelectorSelectionStore {
+    override fun invalidatePendingSelection(groupId: String) = Unit
+
+    override fun snapshot(groupId: String): SelectorSelectionSnapshot = SelectorSelectionSnapshot(null, false, 0L)
+
+    override fun selectAutomatically(
+        groupId: String,
+        expected: SelectorSelectionSnapshot,
+        profileId: String,
+    ): Boolean = false
+
     override fun selectedProfileId(groupId: String): StateFlow<String?> = MutableStateFlow(null)
 
     override fun select(

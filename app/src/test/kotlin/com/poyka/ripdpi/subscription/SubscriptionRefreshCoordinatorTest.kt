@@ -1,52 +1,23 @@
 package com.poyka.ripdpi.subscription
 
-import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupBlobStore
-import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
-import com.poyka.ripdpi.data.awg.AwgProfileEntity
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
-import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
-import okhttp3.OkHttpClient
 import okio.Buffer
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 
-class SubscriptionRefreshCoordinatorTest {
-    private lateinit var server: MockWebServer
-
-    @Before
-    fun setUp() {
-        server = MockWebServer()
-        server.start()
-    }
-
-    @After
-    fun tearDown() {
-        runCatching { server.close() }
-    }
-
+class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
     @Test
     fun `valid payload persists members accounting and active lifecycle`() =
         runTest {
@@ -56,7 +27,7 @@ class SubscriptionRefreshCoordinatorTest {
                     .Builder()
                     .code(200)
                     .setHeader("Subscription-Userinfo", "upload=100; download=200; total=1000; expire=1900000000")
-                    .body(TrojanPayload)
+                    .body(trojanPayload)
                     .build(),
             )
             val fixture = fixture(now)
@@ -94,7 +65,7 @@ class SubscriptionRefreshCoordinatorTest {
                     .Builder()
                     .code(200)
                     .setHeader("Subscription-Userinfo", "expire=1893456000")
-                    .body(RipdpiPayload)
+                    .body(ripdpiPayload)
                     .build(),
             )
             val fixture = fixture(now)
@@ -208,7 +179,7 @@ class SubscriptionRefreshCoordinatorTest {
                     .Builder()
                     .code(200)
                     .setHeader("Subscription-Userinfo", "expire=1700000000")
-                    .body(TrojanPayload)
+                    .body(trojanPayload)
                     .build(),
             )
             val fixture = fixture(now = 1_800_000_000_000L)
@@ -388,7 +359,7 @@ class SubscriptionRefreshCoordinatorTest {
     @Test
     fun `valid refresh recovers a prior terminal state and publishes current groups`() =
         runTest {
-            server.enqueue(response(200, TrojanPayload))
+            server.enqueue(response(200, trojanPayload))
             val fixture =
                 fixture(
                     now = 2_000L,
@@ -416,65 +387,6 @@ class SubscriptionRefreshCoordinatorTest {
             )
         }
 
-    private suspend fun fixture(
-        now: Long,
-        initialLifecycle: SubscriptionLifecycleState = SubscriptionLifecycleState.UNKNOWN,
-        initialFailure: SubscriptionRefreshFailure? = null,
-        initialRules: List<PackageRoutingRule> = emptyList(),
-        initialMembers: List<ProxyProfile> = emptyList(),
-    ): Fixture {
-        val repository: ProxyGroupRepository = SharedPreferencesProxyGroupRepository(FakeBlobStore())
-        repository.add(
-            subscriptionGroup("subscription-group", 0, initialLifecycle, initialFailure).copy(
-                packageRoutingRules = initialRules,
-                members = initialMembers,
-            ),
-        )
-        val publisher = RecordingPublisher()
-        val coordinator =
-            SubscriptionRefreshCoordinator(
-                repository = repository,
-                awgProfileRepository = AwgProfileRepository(FakeAwgDao(), FakeAwgCredentialStore()),
-                signalPublisher = publisher,
-                httpClient = OkHttpClient(),
-                clockMillis = { now },
-                testOnly = Unit,
-            )
-        return Fixture(repository, coordinator, publisher)
-    }
-
-    private fun subscriptionGroup(
-        id: String,
-        order: Int,
-        lifecycleState: SubscriptionLifecycleState,
-        failure: SubscriptionRefreshFailure? = null,
-    ): ProxyGroup =
-        ProxyGroup(
-            id = id,
-            name = "Fixture subscription",
-            type = ProxyGroupType.SUBSCRIPTION,
-            order = order,
-            isSelector = false,
-            subscription =
-                Subscription(
-                    link = server.url("/subscription").toString(),
-                    autoUpdate = true,
-                    autoUpdateDelay = 60L,
-                    lifecycleState = lifecycleState,
-                    lastRefreshFailure = failure,
-                ),
-        )
-
-    private fun response(
-        code: Int,
-        body: String = "",
-    ): MockResponse =
-        MockResponse
-            .Builder()
-            .code(code)
-            .body(body)
-            .build()
-
     private fun singBoxPackageRoutePayload(outbound: String?): String {
         val route =
             if (outbound == null) {
@@ -492,12 +404,6 @@ class SubscriptionRefreshCoordinatorTest {
         }
     }
 
-    private data class Fixture(
-        val repository: ProxyGroupRepository,
-        val coordinator: SubscriptionRefreshCoordinator,
-        val publisher: RecordingPublisher,
-    )
-
     private data class FailureCase(
         val httpCode: Int,
         val lifecycle: SubscriptionLifecycleState,
@@ -506,17 +412,6 @@ class SubscriptionRefreshCoordinatorTest {
     )
 
     private companion object {
-        const val TrojanPayload = "trojan://fixture-password@relay.example.com:443#fixture"
-        val RipdpiPayload =
-            """
-            {
-              "outbounds": [
-                {"type":"shadowsocks","tag":"Fresh","server":"fresh.example","server_port":443,
-                 "method":"aes-256-gcm","password":"fixture"}
-              ],
-              "ripdpi": {"schema_version":1,"amneziawg":[],"hysteria_extras":{},"expires":"2026-12-31T23:59:59Z"}
-            }
-            """.trimIndent()
         val AwgOnlyPackageRoutePayload =
             """
             {
@@ -542,54 +437,4 @@ class SubscriptionRefreshCoordinatorTest {
             }
             """.trimIndent()
     }
-}
-
-private class RecordingPublisher : SubscriptionSignalPublisher {
-    val publications = mutableListOf<List<ProxyGroup>>()
-
-    override fun publish(
-        groups: List<ProxyGroup>,
-        nowEpochMillis: Long,
-    ) {
-        publications += groups
-    }
-}
-
-private class FakeBlobStore : ProxyGroupBlobStore {
-    private var value: String? = null
-
-    override fun read(): String? = value
-
-    override fun write(json: String) {
-        value = json
-    }
-
-    override fun clear() {
-        value = null
-    }
-}
-
-private class FakeAwgDao : AwgProfileDao {
-    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = flowOf(emptyList())
-
-    override suspend fun allProfiles(): List<AwgProfileEntity> = emptyList()
-
-    override suspend fun getProfile(id: String): AwgProfileEntity? = null
-
-    override suspend fun upsertProfile(profile: AwgProfileEntity) = Unit
-
-    override suspend fun deleteProfile(profile: AwgProfileEntity) = Unit
-
-    override suspend fun deleteAll() = Unit
-}
-
-private class FakeAwgCredentialStore : AwgCredentialStore {
-    override suspend fun load(profileId: String): AwgSecrets? = null
-
-    override suspend fun save(
-        profileId: String,
-        secrets: AwgSecrets,
-    ) = Unit
-
-    override suspend fun clear(profileId: String) = Unit
 }

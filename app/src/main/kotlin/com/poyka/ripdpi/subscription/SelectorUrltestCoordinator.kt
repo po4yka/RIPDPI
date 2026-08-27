@@ -28,7 +28,7 @@ class SelectorUrltestCoordinator(
     private val prober: SelectorUrltestProber,
 ) {
     private var watchJob: Job? = null
-    private val proberJobs = mutableMapOf<String, Job>()
+    private val proberJobs = mutableMapOf<String, RunningProbe>()
 
     /** Begins watching for urltest selector groups. Idempotent. */
     fun start() {
@@ -47,7 +47,10 @@ class SelectorUrltestCoordinator(
     fun stop() {
         watchJob?.cancel()
         watchJob = null
-        proberJobs.values.forEach(Job::cancel)
+        proberJobs.forEach { (id, running) ->
+            running.job.cancel()
+            prober.invalidatePendingSelection(id)
+        }
         proberJobs.clear()
     }
 
@@ -58,14 +61,30 @@ class SelectorUrltestCoordinator(
         val wanted = groups.associateBy { it.id }
         // Cancel probers for groups that disappeared or lost their urltest policy.
         (proberJobs.keys - wanted.keys).forEach { id ->
-            proberJobs.remove(id)?.cancel()
+            proberJobs.remove(id)?.job?.cancel()
+            prober.invalidatePendingSelection(id)
         }
-        // Launch a prober for each urltest group not already running one.
+        // Refresh only the inputs used by probing; timestamp/accounting changes must not
+        // restart the interval and indefinitely postpone the next probe.
         wanted.forEach { (id, group) ->
-            if (proberJobs[id]?.isActive != true) {
-                proberJobs[id] = scope.launch { prober.run(group) }
+            val previous = proberJobs[id]
+            if (previous == null || !previous.job.isActive || previous.policyChanged(group)) {
+                // Cancel first: the old loop must not acquire a fresh valid snapshot
+                // in the interval between invalidation and cancellation.
+                previous?.job?.cancel()
+                prober.invalidatePendingSelection(id)
+                proberJobs[id] = RunningProbe(group, scope.launch { prober.run(group) })
             }
         }
+    }
+
+    private data class RunningProbe(
+        val group: ProxyGroup,
+        val job: Job,
+    ) {
+        fun policyChanged(updated: ProxyGroup): Boolean =
+            group.members != updated.members || group.failover != updated.failover ||
+                group.cloudflareMemberIds != updated.cloudflareMemberIds
     }
 
     private companion object {
