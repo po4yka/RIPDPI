@@ -159,6 +159,14 @@ and native architecture contracts passed before that failure.
 [fleet-fixtures](https://github.com/po4yka/RIPDPI/actions/runs/33101396891)
 completed successfully for `28b23dc75`.
 
+A later snapshot of the same run also shows `cli-packet-smoke` PASS.
+`rust-workspace-tests` stopped before executing tests on the same 72/54 hotspot.
+`rust-lint` stopped before Clippy at the unsafe-boundary scanner:
+`ripdpi-flow-app-attribution/src/lib.rs:160`, `derive Clone on owner-named type`.
+The scanner failure was independently reproduced on base `2c8b471ef`; that
+source file, scanner, and allowlist are unchanged by this task. These failures
+remain blockers; neither allowlists nor quality thresholds were relaxed.
+
 ## Remaining acceptance
 
 Keep `TST-1786885745317178` unchecked until the required physical RAW_PATH /
