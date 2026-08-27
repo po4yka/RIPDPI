@@ -5,11 +5,11 @@ commit_sha: 5882155dba25403b80af8048fed2e15d7961385d
 local: required
 local_evidence: Affected Rust and Kotlin behavior checks, workspace Clippy, API snapshots, architecture checks, and staticAnalysis pass. The full diagnostics suite retains two DNS failures reproduced on base 2c8b471ef; the native hotspot gate retains the same baseline listener overage.
 remote_ci: required
-remote_ci_evidence: Pending exact-SHA hosted checks after the authorized push; historical runs are not credited to this revision.
+remote_ci_evidence: CI run 33101396871 at docs-only descendant 28b23dc75 is not green; architecture-health failed on the confirmed baseline listener hotspot (72 lines, limit 54), while the overall run remains in progress. CodeQL 33101396865, Secret Scan 33101396848, and fleet-fixtures 33101396891 passed for that SHA.
 device: required
 device_evidence: Pending permission to install the current APK and run physical proxy/VPN, Wi-Fi/cellular, and handover scenarios. No current device proof is claimed.
 artifact: required
-artifact_evidence: Current githubFullDebug arm64 APK assembly and artifact verification are in progress.
+artifact_evidence: githubFullDebug arm64 APK built from 5882155db; SHA-256 a15db6911fbf05022e92479b35893c1e9a07be096acf28ca0fb2a446f749c9ba. APK v2 signature, ZIP 16KiB alignment, all 11 packaged ELF architecture/alignment checks, and the five-library RIPDPI ELF/export verifier passed. Not installed.
 deployment: not_applicable
 deployment_evidence: No production deployment or release publication is owned by this change.
 ---
@@ -125,10 +125,44 @@ Selected local logs under `/private/tmp/`:
 - `ripdpi-split-host-prelude-review-red-20260827.log`
 - `ripdpi-split-host-linux-packet-final-20260827.log`
 
+## Current APK and hosted checks
+
+`assembleGithubFullDebug` completed successfully with native builds enabled.
+The local artifact is
+`/private/tmp/ripdpi-split-host-evidence-20260827/apk/RIPDPI-split-host-5882155db-arm64.apk`.
+It is a full debug build (682,470,594 bytes, about 651 MiB), not a release or
+four-ABI artifact. The final DEX files contain source commit `5882155db`.
+
+APK SHA-256:
+`a15db6911fbf05022e92479b35893c1e9a07be096acf28ca0fb2a446f749c9ba`.
+
+Observed checks: APK Signature Scheme v2 PASS; `zipalign -c -P 16 4` PASS;
+all ten shared libraries plus the packaged root-helper are AArch64 with LOAD
+alignment at least 16 KiB. The canonical `verify_native_elfs.py` check passed
+for all five RIPDPI libraries, including their dependency and export allowlists.
+No release size-budget or installed-device result is implied.
+
+The four implementation/evidence commits were pushed to `main` at
+`28b23dc75f9f17741304ec622c5bb8951b8ac4c8`. This documentation-only descendant
+has the same source files as the APK's code-bearing commit. GitHub accepted
+the explicitly requested direct push with existing actor bypass notices for
+PR/required-check/CodeQL expectations; no protection setting was changed.
+
+[CI run 33101396871](https://github.com/po4yka/RIPDPI/actions/runs/33101396871)
+remains in progress and cannot be credited as green. Its completed
+[architecture-health job](https://github.com/po4yka/RIPDPI/actions/runs/33101396871/job/98619808440)
+failed specifically at the native hotspot check: the same unchanged listener
+72/54 overage reproduced locally on the base revision. Architecture indicators
+and native architecture contracts passed before that failure.
+[CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/33101396865),
+[Secret Scan](https://github.com/po4yka/RIPDPI/actions/runs/33101396848), and
+[fleet-fixtures](https://github.com/po4yka/RIPDPI/actions/runs/33101396891)
+completed successfully for `28b23dc75`.
+
 ## Remaining acceptance
 
 Keep `TST-1786885745317178` unchecked until the required physical RAW_PATH /
-owned IN_PATH matrix, current artifact, and hosted checks are resolved. Device
-coverage includes available Wi-Fi/cellular, IPv4/IPv6, concurrent HTTP/HTTPS,
+owned IN_PATH matrix and hosted checks are resolved. The current artifact is
+verified but not installed. Device coverage includes available Wi-Fi/cellular, IPv4/IPv6, concurrent HTTP/HTTPS,
 QUIC-success with HTTPS-failure, cancellation, and handover. No installation or
 network-state changes have been performed without permission.
