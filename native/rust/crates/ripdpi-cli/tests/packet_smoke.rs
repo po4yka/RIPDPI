@@ -43,11 +43,13 @@ fn cli_packet_smoke_tcp_split_family() {
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         drive_http_echo_split,
         |run| {
-            assert_tcp_payload_split(run, run.manifest.tcp_echo_port)?;
             if supports_await_writable_split() {
+                assert_tcp_split_host_plus_one(&run.packets, run.manifest.tcp_echo_port, &run.manifest.fixture_domain)?;
                 assert_fixture_event(run, "tcp_echo")?;
             } else {
+                assert_tcp_payload_to_port_captured(run, run.manifest.tcp_echo_port)?;
                 assert_stderr_contains(run, "only supported on Linux/Android")?;
+                eprintln!("split(host+1) packet boundary is unsupported on this platform; only rejection was checked");
             }
             Ok(())
         },
@@ -530,7 +532,7 @@ fn assert_generated_tcp_http(run: &ScenarioRun, metadata: &Value) -> Result<(), 
     if generated_axis_value(metadata, "oob_byte_placement") != "off" {
         assert_outbound_urgent(run, run.manifest.tcp_echo_port)?;
     } else {
-        assert_tcp_payload_split(run, run.manifest.tcp_echo_port)?;
+        assert_tcp_payload_to_port_captured(run, run.manifest.tcp_echo_port)?;
     }
     assert_generated_ttl_if_enabled(run, metadata, run.manifest.tcp_echo_port)
 }
@@ -764,22 +766,81 @@ fn supports_await_writable_split() -> bool {
     cfg!(any(target_os = "android", target_os = "linux"))
 }
 
-fn assert_tcp_payload_split(run: &ScenarioRun, port: u16) -> Result<(), String> {
-    // The split strategy sends the HTTP request in 2+ TCP segments.
-    // On loopback, the kernel may coalesce adjacent small writes into a single
-    // TCP segment (even with TCP_NODELAY), so we only assert that at least one
-    // outbound payload packet was captured.  The echo round-trip assertion
-    // (assert_fixture_event) already confirms the full request arrived intact.
-    let count = run
-        .packets
-        .iter()
-        .filter(|packet| is_tcp_outbound(packet, port) && field_u64(packet, "tcp.len").unwrap_or_default() > 0)
-        .count();
-    if count >= 1 {
-        Ok(())
-    } else {
-        Err(format!("expected at least 1 outbound TCP payload packet for port {port}, got {count}"))
+fn assert_tcp_split_host_plus_one(packets: &[Value], port: u16, fixture_domain: &str) -> Result<(), String> {
+    let prefix = b"GET /split HTTP/1.1\r\nHost: ";
+    let expected = format!("GET /split HTTP/1.1\r\nHost: {fixture_domain}\r\nConnection: close\r\n\r\n");
+    let boundary = prefix.len() + 1;
+    let mut stream = None;
+    let mut segments = Vec::new();
+    for packet in packets.iter().filter(|packet| is_tcp_outbound(packet, port)) {
+        let length = field_u64(packet, "tcp.len").ok_or("missing TCP payload length")?;
+        if length == 0 {
+            if collect_field_values(packet, "tcp.payload").iter().any(|value| !value.is_empty()) {
+                return Err("zero TCP length with captured payload bytes".to_string());
+            }
+            continue;
+        }
+        let current_stream = field_u64(packet, "tcp.stream").ok_or("missing TCP stream identity")?;
+        if stream.replace(current_stream).is_some_and(|previous| previous != current_stream) {
+            return Err("split request spans multiple TCP streams".to_string());
+        }
+        let sequence = field_u64(packet, "tcp.seq_raw")
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or("missing or invalid raw TCP sequence")?;
+        let payload_fields = collect_field_values(packet, "tcp.payload");
+        let [payload_hex] = payload_fields.as_slice() else {
+            return Err("expected one TCP payload field".to_string());
+        };
+        let payload = split_oracle_payload(payload_hex, expected.len()).ok_or("invalid TCP payload hex")?;
+        if payload.len() as u64 != length {
+            return Err("TCP payload length disagrees with captured bytes".to_string());
+        }
+        segments.push((sequence, payload));
     }
+    let Some((anchor, _)) = segments.first() else {
+        return Err("no outbound TCP request payload captured".to_string());
+    };
+    // Signed wrapping distances locate the first byte even when capture order differs
+    // from sequence order or the small fixture request crosses the u32 sequence wrap.
+    let base = segments
+        .iter()
+        .map(|(sequence, _)| *sequence)
+        .min_by_key(|sequence| sequence.wrapping_sub(*anchor) as i32)
+        .ok_or("no TCP sequence origin")?;
+    // Allocate by the known request size, never by a potentially corrupt sequence gap.
+    let mut covered = vec![false; expected.len()];
+    let mut ends_at_boundary = false;
+    let mut starts_at_boundary = false;
+    for (sequence, payload) in segments {
+        let offset = sequence.wrapping_sub(base) as usize;
+        let end = offset.checked_add(payload.len()).ok_or("TCP sequence range overflow")?;
+        let expected_segment = expected.as_bytes().get(offset..end).ok_or("TCP segment outside expected request")?;
+        if payload != expected_segment {
+            return Err("TCP payload differs from expected request or has conflicting overlap".to_string());
+        }
+        if offset < boundary && end > boundary {
+            return Err("TCP packet crosses the Host+1 boundary".to_string());
+        }
+        ends_at_boundary |= end == boundary;
+        starts_at_boundary |= offset == boundary;
+        covered[offset..end].fill(true);
+    }
+    if !covered.into_iter().all(|byte| byte) || !ends_at_boundary || !starts_at_boundary {
+        return Err("incomplete TCP request or missing exact Host+1 packet boundary".to_string());
+    }
+    Ok(())
+}
+
+fn split_oracle_payload(value: &str, maximum_bytes: usize) -> Option<Vec<u8>> {
+    if value.len() > maximum_bytes.checked_mul(3)? {
+        return None;
+    }
+    let valid_hex = if value.contains(':') {
+        value.split(':').all(|byte| byte.len() == 2 && byte.bytes().all(|digit| digit.is_ascii_hexdigit()))
+    } else {
+        value.len().is_multiple_of(2) && value.bytes().all(|digit| digit.is_ascii_hexdigit())
+    };
+    valid_hex.then(|| parse_hex_bytes_field(value)).flatten().filter(|bytes| bytes.len() <= maximum_bytes)
 }
 
 fn assert_tcp_payload_to_port_captured(run: &ScenarioRun, port: u16) -> Result<(), String> {
@@ -954,6 +1015,124 @@ fn parse_hex_bytes_field(value: &str) -> Option<Vec<u8>> {
         bytes.push(byte);
     }
     Some(bytes)
+}
+
+#[test]
+fn split_host_packet_oracle_rejects_coalesced_request() {
+    let request = b"GET /split HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n";
+    let packets = [split_oracle_packet(7, 100, request)];
+
+    assert!(
+        assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test").is_err(),
+        "a complete coalesced request must not prove a Host+1 packet boundary"
+    );
+}
+
+#[test]
+fn split_host_packet_oracle_rejects_payload_declared_empty() {
+    let mut packets = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, 100);
+    let mut coalesced = split_oracle_packet(7, 100, SPLIT_ORACLE_REQUEST);
+    coalesced["layers"]["tcp"]["tcp.len"] = Value::String("0".to_string());
+    packets.push(coalesced);
+
+    assert!(
+        assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test").is_err(),
+        "a false zero length must not hide a captured packet crossing Host+1"
+    );
+}
+
+#[test]
+fn split_host_packet_oracle_accepts_reordered_retransmissions_across_sequence_wrap() {
+    let mut packets = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, u32::MAX - 10);
+    packets.reverse();
+    packets.extend(packets.clone());
+
+    assert_eq!(assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test"), Ok(()));
+}
+
+#[test]
+fn split_host_packet_oracle_accepts_exact_boundary_with_compact_hex() {
+    let mut packets = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, 100);
+    for packet in &mut packets {
+        let compact = packet["layers"]["tcp"]["tcp.payload"].as_str().unwrap().replace(':', "");
+        packet["layers"]["tcp"]["tcp.payload"] = Value::String(compact);
+    }
+
+    assert_eq!(assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test"), Ok(()));
+}
+
+#[test]
+fn split_host_packet_oracle_rejects_wrong_boundary_and_incomplete_coverage() {
+    for boundary in [SPLIT_ORACLE_BOUNDARY - 1, SPLIT_ORACLE_BOUNDARY + 1] {
+        let packets = split_oracle_packets_at(boundary, 100);
+        assert!(assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test").is_err(), "boundary {boundary}");
+    }
+    let [prefix, suffix]: [Value; 2] = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, 100).try_into().unwrap();
+    for packets in [vec![prefix.clone()], vec![suffix], vec![prefix.clone(), prefix]] {
+        assert!(assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test").is_err(), "incomplete request");
+    }
+    let mut gap = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, 100);
+    gap[1] =
+        split_oracle_packet(7, 101 + SPLIT_ORACLE_BOUNDARY as u32, &SPLIT_ORACLE_REQUEST[SPLIT_ORACLE_BOUNDARY + 1..]);
+    assert!(assert_tcp_split_host_plus_one(&gap, 8080, "fixture.test").is_err(), "one-byte capture gap");
+}
+
+#[test]
+fn split_host_packet_oracle_rejects_corrupt_metadata_and_payload() {
+    let malformed = [
+        ("tcp.stream", Value::String("8".to_string())),
+        ("tcp.stream", Value::Null),
+        ("tcp.seq_raw", Value::Null),
+        ("tcp.seq_raw", Value::String("2147483648".to_string())),
+        ("tcp.seq_raw", Value::String("4294967296".to_string())),
+        ("tcp.len", Value::Null),
+        ("tcp.len", Value::String("1".to_string())),
+        ("tcp.payload", Value::Null),
+        ("tcp.payload", serde_json::json!(["61", "62"])),
+        ("tcp.payload", Value::String("66:gg:69".to_string())),
+        ("tcp.payload", Value::String("66::69".to_string())),
+        ("tcp.payload", Value::String("666".to_string())),
+        ("tcp.payload", Value::String("aa:".repeat(SPLIT_ORACLE_REQUEST.len() + 1))),
+    ];
+    for (field, value) in malformed {
+        let mut packets = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, 100);
+        packets[1]["layers"]["tcp"][field] = value;
+        assert!(assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test").is_err(), "invalid {field}");
+    }
+}
+
+#[test]
+fn split_host_packet_oracle_rejects_conflicting_or_crossing_overlap_among_valid_packets() {
+    let crossing = split_oracle_packet(7, 100, SPLIT_ORACLE_REQUEST);
+    let mut wrong_payload = SPLIT_ORACLE_REQUEST[..SPLIT_ORACLE_BOUNDARY].to_vec();
+    wrong_payload[0] = b'X';
+    let conflicting = split_oracle_packet(7, 100, &wrong_payload);
+    for invalid in [crossing, conflicting] {
+        let mut packets = split_oracle_packets_at(SPLIT_ORACLE_BOUNDARY, 100);
+        packets.push(invalid);
+        assert!(assert_tcp_split_host_plus_one(&packets, 8080, "fixture.test").is_err());
+    }
+}
+
+const SPLIT_ORACLE_REQUEST: &[u8] = b"GET /split HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n";
+const SPLIT_ORACLE_BOUNDARY: usize = b"GET /split HTTP/1.1\r\nHost: f".len();
+
+fn split_oracle_packets_at(boundary: usize, base: u32) -> Vec<Value> {
+    vec![
+        split_oracle_packet(7, base, &SPLIT_ORACLE_REQUEST[..boundary]),
+        split_oracle_packet(7, base.wrapping_add(boundary as u32), &SPLIT_ORACLE_REQUEST[boundary..]),
+    ]
+}
+
+fn split_oracle_packet(stream: u64, sequence: u32, payload: &[u8]) -> Value {
+    let hex = payload.iter().map(|byte| format!("{byte:02x}")).collect::<Vec<_>>().join(":");
+    serde_json::json!({"layers": {"tcp": {
+        "tcp.dstport": "8080",
+        "tcp.stream": stream.to_string(),
+        "tcp.seq_raw": sequence.to_string(),
+        "tcp.len": payload.len().to_string(),
+        "tcp.payload": hex
+    }}})
 }
 
 #[test]
