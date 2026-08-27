@@ -34,3 +34,25 @@ current-strategy verdict only on evidence produced by that exact strategy.
 - Production-runtime behavioral tests cover `split(host+1)`, plain fallback,
   activation skip, runtime failure, cancellation generations, and verdict
   projection.
+
+## Current execution ownership — 2026-08-27
+
+- The coordinator owns native runtime and diagnostics fixes, task/spec evidence,
+  combined checks, and integration in the split-host execution worktree.
+- The isolated regression writer owns service route authority production/tests
+  and the non-serialized runtime-state lease contract. Native regression tests
+  were integrated before production fixes; service changes use the same cycle.
+- A separate packet writer owns only the existing CLI packet-smoke test file,
+  including the exact Host+1 boundary oracle and its negative tests.
+- After independent review, the native follow-up lane owns planner step
+  provenance, runtime receipt classification, special-executor step selection,
+  and focused regressions. The coordinator owns final repairs and regenerates
+  the `ripdpi-desync` API snapshot through its canonical generator.
+- Reviewers are read-only. Schema constants, wire contracts, goldens,
+  dependency/lock files, and locale sets remain unchanged; these delegated
+  assignments do not authorize schema changes or golden blessing.
+- Existing implementation claims are rechecked against current source. The
+  native execution step was reopened for missing failure-plan provenance and
+  silently rejected trailing evidence; both now have regression coverage.
+  Physical-device acceptance remains
+  separate from host tests and requires permission to change device state.

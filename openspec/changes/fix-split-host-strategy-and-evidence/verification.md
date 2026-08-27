@@ -1,91 +1,134 @@
 ---
 task_id: DGN-1786885244559735
 change: fix-split-host-strategy-and-evidence
-commit_sha: 0a9843b1e
+commit_sha: 5882155dba25403b80af8048fed2e15d7961385d
 local: required
-local_evidence: Combined Rust, Kotlin, contract, privacy, architecture, lint, harness, API-snapshot, translation-export, dependency-boundary, and task gates pass on the final code commit.
+local_evidence: Affected Rust and Kotlin behavior checks, workspace Clippy, API snapshots, architecture checks, and staticAnalysis pass. The full diagnostics suite retains two DNS failures reproduced on base 2c8b471ef; the native hotspot gate retains the same baseline listener overage.
 remote_ci: required
-remote_ci_evidence: Code-bearing SHA 0a9843b1e passed CI run 32404907342 (59/59 jobs), CodeQL 32404907272, Secret Scan 32404907472, Monitor-engine dependency guard 32404907332, and fleet-fixtures 32404907050.
+remote_ci_evidence: Pending exact-SHA hosted checks after the authorized push; historical runs are not credited to this revision.
 device: required
-device_evidence: Pixel 7 arm64 API 37 ran proxySplitHostPlusOneRoutesTlsTraffic successfully against the local TLS fixture; exact on-wire PCAP and cellular/handover coverage remain unavailable on this locked no-SIM device.
+device_evidence: Pending permission to install the current APK and run physical proxy/VPN, Wi-Fi/cellular, and handover scenarios. No current device proof is claimed.
 artifact: required
-artifact_evidence: githubFullDebug arm64 APK assembled with native assets; SHA-256 ee6e9b9d99e484d057d7cde146904e82c6d4ecc6a1a51132c387eac9e715ec69, valid Android debug v2 signature, and arm64 ELF verification passed.
+artifact_evidence: Current githubFullDebug arm64 APK assembly and artifact verification are in progress.
 deployment: not_applicable
-deployment_evidence: No deployment is owned by this change.
+deployment_evidence: No production deployment or release publication is owned by this change.
 ---
 
-# Verification
+# Verification — 2026-08-27
 
-The implementation, local source-level gates, governed API and archive
-snapshots, arm64 artifact, and physical-device application-path smoke are
-complete. Hosted CI is green for the final code-bearing SHA. Raw-PCAP proof of
-the exact TCP split boundary and the full Wi-Fi/cellular/handover device matrix
-remain distinct pending acceptance layers and are not upgraded from missing
-evidence to PASS.
+The code fixes are implemented and reviewed. Portfolio acceptance remains open:
+physical-device coverage and exact-SHA hosted results are separate from source,
+loopback packet, and artifact checks. Historical APK, CI, and Pixel 7 results
+from earlier revisions do not establish these fixes.
+
+## Implemented behavior
+
+- Planned TCP steps retain their source send-step index before activation or
+  offset filtering. Execution flags, effective family, marker, and resolved
+  offset now refer to that same step, including sorted MultiDisorder boundaries.
+- Generic and special execution errors preserve the plan and actual partial
+  action/write/await/byte counts. TLS-prelude failure metadata remains coherent.
+- Fully filtered plans still send HTTP-modified payloads, but report
+  `ActivationSkipped`. A prelude-only execution reports `TlsRecord`.
+- Allocated connection ordinals without accepted terminal receipts make the
+  bounded evidence snapshot incomplete, including a missing last receipt.
+- IN_PATH leases bind the authenticated listener to the actual TUN generation
+  and verified callback revision. Refresh revokes the old lease before rebuild;
+  route loss and restoration cannot revive an old issued lease.
+- Route authority is sampled before native start and throughout polling, then
+  frozen at terminal report acceptance before persistence can suspend. Missing
+  or lost ownership cannot credit the active strategy.
+- The CLI packet oracle checks exact HTTP bytes, one TCP stream, sequence
+  coverage, and a packet boundary after the first Host byte. Coalesced,
+  conflicting, incomplete, and malformed captures fail.
+
+Source API changes are intentional: `PlannedStep` requires
+`source_send_step_index`; the non-serialized Kotlin lease requires
+`issuedRevision`. All repository callers were updated. No wire/schema version,
+locale, dependency, golden fixture, or quality baseline was changed.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Rust candidate/config, exact-plan, marker, TLS-prelude, TCP/UDP receipt, and promotion tests passed in the affected nine-package suite | PASS |
-| REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Typed applied/skipped/plain-fallback/execution/runtime-failure receipt tests passed; UDP production proxy E2E ran on macOS | PASS |
-| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Bounded action/write/await/byte counter tests and exact PCAP reconstruction harness tests passed; physical arm64 split(host+1) TLS round-trip passed, while exact on-wire PCAP remains unavailable on the locked device | PARTIAL |
-| REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation, terminal-status, late-receipt, panic, cancellation, and worker-join tests passed | PASS |
-| REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate isolation and effective route-feature matching tests passed | PASS |
-| REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Authorized schema-11 golden family reviewed; unblessed owner tests and hostile whole-ZIP privacy scans passed | PASS |
-| REQ-STRATEGY-VERDICT-001 | DGN-1786885745300444 | Candidate-scoped current-strategy evaluator and exact snapshot/plan mismatch tests passed | PASS |
-| REQ-STRATEGY-VERDICT-002 | DGN-1786885745300444 | RAW candidate and authenticated active-service path axes, ownership, aggregation, persistence, and archive tests passed | PASS |
-| REQ-STRATEGY-VERDICT-003 | DGN-1786885745300444 | Partial, deadline, zero-attempt, launch, fallback, terminal, malformed-count, and cancellation tests passed | PASS |
-| REQ-STRATEGY-VERDICT-004 | DGN-1786885745300444 | DNS, TCP, TLS, HTTP/error-page, QUIC, route, and response-stage projections passed their Rust/Kotlin tests | PASS |
-| REQ-STRATEGY-VERDICT-005 | DGN-1786885745300444 | Nine-locale diagnostics wording, UI tone, session-scoped archive summary, and app unit tests passed | PASS |
+| REQ-STRATEGY-EVIDENCE-001 | DGN-1786885745283306 | Candidate/config and exact-plan tests in the complete Linux monitor/runtime suite | PASS |
+| REQ-STRATEGY-EVIDENCE-002 | RST-1786885745241507 | Applied, activation-skipped, fallback, partial-write, and typed failure tests; production authenticated SOCKS test | PASS |
+| REQ-STRATEGY-EVIDENCE-003 | RST-1786885745241507 | Actual action counters and exact Linux HTTP PCAP; physical and TLS PCAP remain pending | PARTIAL |
+| REQ-STRATEGY-EVIDENCE-004 | RST-1786885745241507 | Generation/terminal/late-receipt coverage and rejected trailing receipt regression | PASS |
+| REQ-STRATEGY-EVIDENCE-005 | DGN-1786885745283306 | Canonical candidate and effective marker/family matching tests; source-index regressions | PASS |
+| REQ-STRATEGY-EVIDENCE-006 | DGN-1786885745300444 | Existing archive/golden/privacy tests pass within diagnostics; fixtures unchanged and no blessing used | PASS |
+| REQ-STRATEGY-VERDICT-001 | DGN-1786885745300444 | Baseline-current evaluator, terminal ownership and persistence regressions | PASS |
+| REQ-STRATEGY-VERDICT-002 | DGN-1786885745300444 | RAW/IN_PATH separation, generation/revision leases, refresh invalidation, and terminal authority tests | PASS |
+| REQ-STRATEGY-VERDICT-003 | DGN-1786885745300444 | Missing terminal capture, partial/error receipts, fallback, cancellation, and route-loss tests | PASS |
+| REQ-STRATEGY-VERDICT-004 | DGN-1786885745300444 | Native endpoint/stage projections pass; two unrelated DNS planner tests remain baseline failures | PARTIAL |
+| REQ-STRATEGY-VERDICT-005 | DGN-1786885745300444 | App unit tests and staticAnalysis pass; UI/locale/archive schemas unchanged | PASS |
 
-## Required acceptance evidence
+## Observed checks
 
-- Local: all named Rust, Kotlin, contract, privacy, architecture, and task gates
-  in `tasks.md` at one exact commit SHA.
-- Remote CI: required workflows green for the same SHA; local PASS is not a
-  substitute.
-- Device: owned-route-correlated RAW_PATH and active-service IN_PATH matrix on a
-  supported physical device, with network handover and concurrent lanes.
-- Artifact: assembled debug artifact identity, hash, signature, and native ABI
-  verification for the tested SHA.
-- Deployment: not applicable; this change does not authorize publication or
-  production rollout.
+All heavy local commands used the machine-wide build gate and at most two
+Cargo jobs / one Gradle worker.
 
-## Observed local commands
+- Serial `cargo test --locked -j2 -p ripdpi-desync-runtime -p ripdpi-desync
+  -p ripdpi-runtime-api`: 310 tests passed, no failures or ignored tests.
+  This includes the TLS failure and prelude-only review regressions.
+- `cargo clippy --locked --workspace --all-targets --jobs 2 -- -D warnings`
+  and `cargo fmt --all -- --check`: PASS, including commit hooks.
+- Canonical API snapshot generation changed one public field; unblessed
+  `check_rust_api_snapshots.py`: PASS for this host. The runtime-platform
+  snapshot is explicitly Linux-owned and skipped on macOS.
+- Service: 1860/1860; runtime-state: 181/181; app: 1765/1765.
+  Diagnostics: 1406/1408 passed. Both remaining DNS planner failures reproduce
+  on detached base `2c8b471ef` (expected resolver count 16, actual 12).
+- Final `:core:service:detekt :core:service:ktlintCheck
+  :core:service:testDebugUnitTest staticAnalysis`: PASS.
+- Architecture health: zero new/worsened indicators. Native architecture
+  contracts: zero violations. Locked Cargo metadata, task validation, strict
+  OpenSpec validation, and staged whitespace checks: PASS.
+- Native hotspot check remains blocked by the unchanged
+  `ripdpi-tunnel-core/src/io_loop/tcp_accept/listener.rs`: 72 lines, limit 54.
+  The identical failure was observed on base `2c8b471ef`; no baseline was raised.
+- Read-only native and Kotlin reviews: no remaining actionable findings after
+  fixing their regressions. Published Markdown legal review is recorded
+  separately from software validation.
 
-- `cargo test --locked` for the nine affected Rust packages: PASS.
-- `cargo clippy --locked --workspace --all-targets -- -D warnings`: PASS.
-- `cargo fmt --all -- --check`, `cargo metadata --locked`, `cargo deny --locked
-  check`, unsafe-boundary and architecture-health checks: PASS.
-- Full `:core:diagnostics:testDebugUnitTest` and
-  `:core:service:testDebugUnitTest` with native build skipped: PASS.
-- Targeted app diagnostics/ViewModel tests and app/service Android lint: PASS.
-- Phase-16 PCAP reconstruction tests and Android packet-smoke shell harness:
-  PASS, including fail-closed zero-executed-scenario coverage.
-- Harness manifest/link/policy/Cargo-lock/skill/rule drift suite: PASS.
-- Canonical `ripdpi-desync` API snapshot update and the final unblessed
-  `check_rust_api_snapshots.py` run: PASS; the approved snapshot contains only
-  the typed TLS-prelude surface.
-- Monitor evidence-boundary follow-up: 205 monitor-engine tests, 55
-  diagnostics-contract tests, 17 runtime-api tests, and 8 monitor-proxy tests
-  passed. Unknown, malformed, partial-action, and rejected trailing receipts
-  now fail closed; the independent read-only review found no remaining
-  actionable issue.
-- Hosted-preflight reproductions: REALITY vector unit/guard tests,
-  translation export and nine-locale parity, monitor-engine Cargo-tree guards,
-  native hotspot budgets (`0` overages), native architecture contracts, and
-  runtime crate boundaries: PASS.
-- Hosted final code-bearing SHA `0a9843b1e`: CI run `32404907342` completed
-  59/59 jobs with no failures, including Linux workspace tests, Loom, enforced
-  Rust coverage, lint, Miri, Android instrumented tests, three release
-  variants, and `ci-required`; CodeQL, Secret Scan, monitor dependency guard,
-  and fleet fixtures also completed successfully.
-- `assembleGithubFullDebug` with `arm64-v8a` native assets: PASS. The APK
-  signature, package, native ABI/ELF metadata, and root-helper packaging were
-  verified before installation.
-- Pixel 7 arm64 API 37 instrumentation:
-  `proxySplitHostPlusOneRoutesTlsTraffic` PASS (1/1) against the repository TLS
-  fixture. `adbd` cannot run as root on the production build and no on-device
-  `tcpdump` is available, so this proves the Android service/TLS path but not
-  the precise packet boundary.
+The initial simultaneous Cargo test/Clippy run hit an E0463 doctest metadata
+error; the serial full rerun passed. One Linux full-suite repetition timed out
+in the existing QUIC echo test; no timeout or assertion was changed. Its final
+full-suite rerun status is recorded below, rather than discarded.
+
+## Linux execution and packet evidence
+
+The final seven-package production runtime/monitor suite passed: 794 tests,
+zero failures, and nine pre-existing ignored tests. The QUIC echo test also
+passed in this complete rerun. Both final Docker runs exited 0 without OOM.
+The full log is `ripdpi-split-host-linux-native-confirmed-20260827.log`.
+
+`run-cli-packet-smoke.sh` on Linux with scenario
+`cli_packet_smoke_tcp_split_family`: PASS (one executed scenario, zero ignored).
+Independent tshark inspection of the final PCAP found one stream with a
+28-byte prefix ending in `Host: f` and the following 34-byte segment starting
+with `ixture.test`. This proves the exact HTTP boundary for the controlled
+loopback fixture; it does not prove TLS segmentation or physical Android paths.
+
+Final PCAP SHA-256:
+`e66c21fd584f182daad486c9104b8973d81e36d43347e778819acb3489d162d3`.
+
+Local evidence directory:
+`/private/tmp/ripdpi-split-host-evidence-20260827/linux-packet-final/cli_packet_smoke_tcp_split_family/`.
+
+Selected local logs under `/private/tmp/`:
+
+- `ripdpi-split-host-native-final-serial-green-20260827.log`
+- `ripdpi-split-host-api-final-check-20260827.log`
+- `ripdpi-split-host-kotlin-gates-final-20260827.log`
+- `ripdpi-split-host-baseline-dns-20260827.log`
+- `ripdpi-split-host-prelude-review-red-20260827.log`
+- `ripdpi-split-host-linux-packet-final-20260827.log`
+
+## Remaining acceptance
+
+Keep `TST-1786885745317178` unchecked until the required physical RAW_PATH /
+owned IN_PATH matrix, current artifact, and hosted checks are resolved. Device
+coverage includes available Wi-Fi/cellular, IPv4/IPv6, concurrent HTTP/HTTPS,
+QUIC-success with HTTPS-failure, cancellation, and handover. No installation or
+network-state changes have been performed without permission.
