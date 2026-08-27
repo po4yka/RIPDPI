@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NetworkHandoverMonitorModule
 import com.poyka.ripdpi.services.PermissionChangeEvent
@@ -41,7 +42,6 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.PermissionWatchdogModule
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
@@ -137,9 +137,6 @@ class ServiceLifecycleIntegrationTest {
                 DestinationRoutingPolicy(canonicalDigest = ""),
             )
         }
-
-    @Inject
-    lateinit var serviceController: ServiceController
 
     @Inject
     lateinit var serviceIntentArbiter: ServiceIntentArbiter
@@ -760,7 +757,17 @@ class ServiceLifecycleIntegrationTest {
     }
 
     private fun stopService() {
-        serviceController.stop()
+        serviceIntentArbiter.userStop {
+            val mode = IntegrationTestOverrides.serviceStateStore.status.value.second
+            val serviceClass =
+                if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
+            appContext.startService(
+                Intent(appContext, serviceClass).setAction(stopAction).putExtra(
+                    explicitUserIntentGenerationExtra,
+                    serviceIntentArbiter.captureExplicitUserIntentGeneration(),
+                ),
+            )
+        }
     }
 
     private suspend fun awaitStatus(

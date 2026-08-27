@@ -6,11 +6,16 @@ import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.services.AcceptedUserStopRecorder
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
-import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
+import com.poyka.ripdpi.services.explicitUserIntentGenerationExtra
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
 import com.poyka.ripdpi.testing.RecordingNetworkHandoverMonitor
 import com.poyka.ripdpi.testing.RecordingPermissionWatchdog
@@ -19,6 +24,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 
 internal data class ServiceLifecycleIntegrationBindings(
     val appSettingsRepository: AppSettingsRepository,
@@ -49,17 +56,42 @@ internal suspend fun stopIntegrationTestServices(
     context: Context,
     settleDelayMs: Long = 200L,
 ) {
-    EntryPointAccessors
-        .fromApplication(context, IntegrationServiceControllerEntryPoint::class.java)
-        .serviceController()
-        .stop()
-    context.stopService(Intent(context, RipDpiProxyService::class.java))
-    context.stopService(Intent(context, RipDpiVpnService::class.java))
-    delay(settleDelayMs)
+    val entryPoint =
+        EntryPointAccessors.fromApplication(context, IntegrationServiceCleanupEntryPoint::class.java)
+    val stateStore = entryPoint.serviceStateStore()
+    val arbiter = entryPoint.serviceIntentArbiter()
+    try {
+        arbiter.serialize {
+            entryPoint.acceptedUserStopRecorder().record()
+            val (status, mode) = stateStore.status.value
+            if (status != AppStatus.Halted) {
+                val serviceClass =
+                    if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
+                // Cleanup must not create a new foreground-service obligation before hard stop.
+                context.startService(
+                    Intent(context, serviceClass).setAction(stopAction).putExtra(
+                        explicitUserIntentGenerationExtra,
+                        arbiter.captureExplicitUserIntentGeneration(),
+                    ),
+                )
+            }
+        }
+        withTimeout(10_000L) {
+            stateStore.status.first { (status, _) -> status == AppStatus.Halted }
+        }
+    } finally {
+        context.stopService(Intent(context, RipDpiProxyService::class.java))
+        context.stopService(Intent(context, RipDpiVpnService::class.java))
+        delay(settleDelayMs)
+    }
 }
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
-internal interface IntegrationServiceControllerEntryPoint {
-    fun serviceController(): ServiceController
+internal interface IntegrationServiceCleanupEntryPoint {
+    fun acceptedUserStopRecorder(): AcceptedUserStopRecorder
+
+    fun serviceIntentArbiter(): ServiceIntentArbiter
+
+    fun serviceStateStore(): ServiceStateStore
 }
