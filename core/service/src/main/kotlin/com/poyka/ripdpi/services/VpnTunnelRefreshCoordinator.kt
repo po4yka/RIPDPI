@@ -41,16 +41,19 @@ internal class VpnTunnelRefreshCoordinator(
                 return@withLock
             }
             try {
+                refreshSession.revokeInPathLease()
+                val endpoint =
+                    checkNotNull(state.currentLocalProxyEndpoint()) {
+                        "VPN tunnel refresh requires an active local proxy endpoint"
+                    }
                 dependencies.vpnTunnelRuntime.rebuild(
                     activeDns = latestConnectionPolicy.activeDns,
                     overrideReason = latestConnectionPolicy.resolverFallbackReason,
                     logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
-                    localProxyEndpoint =
-                        checkNotNull(state.currentLocalProxyEndpoint()) {
-                            "VPN tunnel refresh requires an active local proxy endpoint"
-                        },
+                    localProxyEndpoint = endpoint,
                     splitStrictDnsPolicy = latestConnectionPolicy.splitStrictDnsPolicy,
                 )
+                dependencies.vpnTunnelRuntime.publishInPathLease(refreshSession, endpoint)
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
             } catch (cancelled: CancellationException) {
                 throw cancelled

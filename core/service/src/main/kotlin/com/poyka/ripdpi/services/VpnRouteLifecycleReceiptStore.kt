@@ -283,6 +283,14 @@ class VpnRouteLifecycleReceiptStore
                 ?: activeReceipt
     }
 
+internal fun VpnRouteEvidence.isEligibleForInPathLease(): Boolean =
+    lifecycle?.state == VpnRouteLifecycleState.BridgeReady &&
+        callbackState == VpnRouteCallbackState.Complete &&
+        callbackRevision != null &&
+        ownerVerification == VpnRouteOwnerVerification.Verified &&
+        routeConsistency == VpnRouteConsistency.Consistent &&
+        forwardingTerminal != true
+
 private val liveLifecycleStates =
     setOf(
         VpnRouteLifecycleState.Established,
@@ -319,6 +327,7 @@ private class VpnRouteCallbackReducer {
         if (!available) {
             candidates.clear()
             losses.clear()
+            lastFingerprint = null
         }
     }
 
@@ -367,6 +376,7 @@ private class VpnRouteCallbackReducer {
         eventOrder += 1L
         candidates.remove(networkKey)
         losses[networkKey] = eventOrder
+        if (lastFingerprint?.networkKey == networkKey) lastFingerprint = null
     }
 
     fun discard(networkKey: Any) {
@@ -383,7 +393,11 @@ private class VpnRouteCallbackReducer {
             forwardingLifecycleGeneration =
                 record.receipt.generation.takeIf { record.forwardingOutcome != "unavailable" },
             forwardingTerminal = record.forwardingTerminal,
-        )
+        ).also { evidence ->
+            if (!evidence.isEligibleForInPathLease()) {
+                lastFingerprint = null
+            }
+        }
 
     private fun projectLiveEvidence(
         receipt: VpnRouteLifecycleReceipt,
@@ -391,6 +405,7 @@ private class VpnRouteCallbackReducer {
     ): VpnRouteEvidence {
         val complete = selectCompleteCandidate(anchor)
         return if (complete == null) {
+            lastFingerprint = null
             val state =
                 if (hasCurrentGenerationLoss(anchor) && !hasPartialCandidate(anchor)) {
                     VpnRouteCallbackState.Lost

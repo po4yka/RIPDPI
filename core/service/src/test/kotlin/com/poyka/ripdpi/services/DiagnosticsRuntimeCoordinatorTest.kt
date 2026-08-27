@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.Build
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -12,6 +13,13 @@ import com.poyka.ripdpi.data.RawPathRuntimeStatus
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.VpnRouteCallbackState
+import com.poyka.ripdpi.data.VpnRouteConsistency
+import com.poyka.ripdpi.data.VpnRouteEvidence
+import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
+import com.poyka.ripdpi.data.VpnRouteFamilyIpv4
+import com.poyka.ripdpi.data.VpnRouteLifecycleState
+import com.poyka.ripdpi.data.VpnRouteOwnerVerification
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
 import com.poyka.ripdpi.service.runtime.control.DefaultRuntimeControlPlane
@@ -38,6 +46,151 @@ import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsRuntimeCoordinatorTest {
+    @Test
+    fun `published proxy endpoint without verified VPN evidence cannot issue a route lease`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val registry = DefaultServiceRuntimeRegistry()
+            val session = VpnRuntimeSession("runtime-test")
+            session.publishInPathLease(LocalProxyEndpoint("127.0.0.1", 18080, "user", "secret"), routeGeneration = 1L)
+            registry.register(session)
+            val coordinator = buildCoordinator(FakeServiceController(stateStore), stateStore, registry = registry)
+
+            assertEquals(null, coordinator.acquireInPathRouteLease())
+        }
+
+    @Test
+    fun `current verified route issues revision bound lease even without recent validated traffic`() =
+        runTest {
+            var nowNanos = 1L
+            val evidenceStore = VpnRouteLifecycleReceiptStore { nowNanos }
+            val generation = evidenceStore.beginReadyRoute()
+            evidenceStore.recordForwardingOutcome(generation, "no_flow", terminal = false, revision = 1L)
+            nowNanos += 120_000_000_000L
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val registry = DefaultServiceRuntimeRegistry()
+            val session = VpnRuntimeSession("runtime-test")
+            session.publishInPathLease(LocalProxyEndpoint("127.0.0.1", 18080, "user", "secret"), routeGeneration = 1L)
+            registry.register(session)
+            val coordinator =
+                buildCoordinator(
+                    FakeServiceController(stateStore),
+                    stateStore,
+                    registry = registry,
+                    evidenceProvider = evidenceStore,
+                )
+
+            val initialLease = requireNotNull(coordinator.acquireInPathRouteLease())
+            assertEquals(evidenceStore.capture().callbackRevision, initialLease.issuedRevision)
+            assertEquals(false, evidenceStore.capture().validated)
+            assertEquals("stale", evidenceStore.capture().evidenceAgeBand)
+            assertTrue(coordinator.isInPathRouteLeaseCurrent(initialLease))
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(requireNotNull(session.diagnosticsInPathRouteLease)))
+
+            evidenceStore.observeLost("vpn-a")
+            assertEquals(null, coordinator.acquireInPathRouteLease())
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(initialLease))
+            evidenceStore.observeReadyRouteCallbacks()
+            val restoredLease = requireNotNull(coordinator.acquireInPathRouteLease())
+            assertTrue(requireNotNull(restoredLease.issuedRevision) > requireNotNull(initialLease.issuedRevision))
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(initialLease))
+            assertTrue(coordinator.isInPathRouteLeaseCurrent(restoredLease))
+
+            evidenceStore.recordForwardingOutcome(generation, "tun_ingress_no_upstream", terminal = true, revision = 2L)
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(restoredLease))
+            evidenceStore.recordForwardingOutcome(generation, "no_flow", terminal = false, revision = 3L)
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(restoredLease))
+            val recoveredLease = requireNotNull(coordinator.acquireInPathRouteLease())
+            assertTrue(requireNotNull(recoveredLease.issuedRevision) > requireNotNull(restoredLease.issuedRevision))
+        }
+
+    @Test
+    fun `lease revoked during issuance evidence capture is not returned`() =
+        runTest {
+            val evidenceStore = VpnRouteLifecycleReceiptStore()
+            val generation = evidenceStore.beginReadyRoute()
+            val ready = evidenceStore.capture()
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val registry = DefaultServiceRuntimeRegistry()
+            val session = VpnRuntimeSession("runtime-test")
+            session.publishInPathLease(LocalProxyEndpoint("127.0.0.1", 18080, "user", "secret"), generation)
+            registry.register(session)
+            var captures = 0
+            val provider =
+                object : VpnRouteEvidenceProvider {
+                    override val changes = MutableStateFlow(0L)
+
+                    override fun capture(): VpnRouteEvidence {
+                        captures += 1
+                        if (captures == 2) session.revokeInPathLease()
+                        return ready
+                    }
+                }
+            val coordinator =
+                buildCoordinator(
+                    FakeServiceController(stateStore),
+                    stateStore,
+                    registry = registry,
+                    evidenceProvider = provider,
+                )
+
+            assertEquals(null, coordinator.acquireInPathRouteLease())
+            assertEquals(2, captures)
+        }
+
+    @Test
+    fun `ineligible route evidence or runtime invalidates issued leases`() =
+        runTest {
+            val evidenceStore = VpnRouteLifecycleReceiptStore()
+            evidenceStore.beginReadyRoute()
+            val ready = evidenceStore.capture()
+            var current = ready
+            val provider =
+                object : VpnRouteEvidenceProvider {
+                    override val changes = MutableStateFlow(0L)
+
+                    override fun capture() = current
+                }
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val registry = DefaultServiceRuntimeRegistry()
+            val session = VpnRuntimeSession("runtime-test")
+            session.publishInPathLease(LocalProxyEndpoint("127.0.0.1", 18080, "user", "secret"), routeGeneration = 1L)
+            registry.register(session)
+            val coordinator =
+                buildCoordinator(
+                    FakeServiceController(stateStore),
+                    stateStore,
+                    registry = registry,
+                    evidenceProvider = provider,
+                )
+            val issued = requireNotNull(coordinator.acquireInPathRouteLease())
+            val lifecycle = requireNotNull(ready.lifecycle)
+            val invalidEvidence =
+                listOf(
+                    ready.copy(lifecycle = lifecycle.copy(state = VpnRouteLifecycleState.Established)),
+                    ready.copy(lifecycle = lifecycle.copy(generation = lifecycle.generation + 1L)),
+                    ready.copy(callbackState = VpnRouteCallbackState.Awaiting),
+                    ready.copy(callbackRevision = null),
+                    ready.copy(ownerVerification = VpnRouteOwnerVerification.Unavailable),
+                    ready.copy(routeConsistency = VpnRouteConsistency.Mismatch),
+                    ready.copy(forwardingTerminal = true),
+                )
+            for (invalid in invalidEvidence) {
+                current = invalid
+                assertEquals(null, coordinator.acquireInPathRouteLease())
+                assertFalse(coordinator.isInPathRouteLeaseCurrent(issued))
+            }
+            current = ready
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertEquals(null, coordinator.acquireInPathRouteLease())
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(issued))
+            stateStore.setStatus(AppStatus.Running, Mode.Proxy)
+            assertEquals(null, coordinator.acquireInPathRouteLease())
+            stateStore.setStatus(AppStatus.Running, Mode.VPN)
+            session.revokeInPathLease()
+            assertFalse(coordinator.isInPathRouteLeaseCurrent(issued))
+        }
+
     @Test
     @OptIn(ExperimentalCoroutinesApi::class)
     fun `concurrent raw path scans resume only after the last scan finishes`() =
@@ -309,6 +462,7 @@ class DiagnosticsRuntimeCoordinatorTest {
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    vpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
                     waitAttempts = 50,
                     waitDelayMs = 1,
                 )
@@ -422,6 +576,7 @@ class DiagnosticsRuntimeCoordinatorSettlementTest {
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    vpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
                     waitAttempts = 50,
                     waitDelayMs = 1_000,
                 )
@@ -468,6 +623,7 @@ class DiagnosticsRuntimeCoordinatorSettlementTest {
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    vpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
                     waitAttempts = 2,
                     waitDelayMs = 1,
                 )
@@ -519,6 +675,7 @@ class DiagnosticsRuntimeCoordinatorSettlementTest {
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    vpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
                     waitAttempts = 2,
                     waitDelayMs = 1,
                 )
@@ -782,6 +939,7 @@ class DiagnosticsRuntimeCoordinatorIntentRaceTest {
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    vpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
                     waitAttempts = 50,
                     waitDelayMs = 1,
                 )
@@ -974,6 +1132,7 @@ class DiagnosticsRuntimeCoordinatorIntentRaceTest {
                     runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
                     serviceController = controller,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+                    vpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
                     waitAttempts = 50,
                     waitDelayMs = 1,
                 )
@@ -1001,6 +1160,8 @@ private fun buildCoordinator(
     controller: FakeServiceController,
     stateStore: FakeCoordinatorStateStore,
     settings: AppSettingsRepository = FakeCoordinatorSettingsRepository(),
+    registry: ServiceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+    evidenceProvider: VpnRouteEvidenceProvider = VpnRouteLifecycleReceiptStore(),
 ): DefaultDiagnosticsRuntimeCoordinator =
     DefaultDiagnosticsRuntimeCoordinator(
         runtimeControlPlane =
@@ -1010,7 +1171,8 @@ private fun buildCoordinator(
         appSettingsRepository = settings,
         runtimeResumeIntentTracker = controller.runtimeResumeIntentTracker,
         serviceController = controller,
-        serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+        serviceRuntimeRegistry = registry,
+        vpnRouteEvidenceProvider = evidenceProvider,
         waitAttempts = 2,
         waitDelayMs = 0,
     )
@@ -1151,4 +1313,31 @@ private class FakeServiceController(
             stateStore.setStatus(AppStatus.Halted, stateStore.status.value.second)
         }
     }
+}
+
+private fun VpnRouteLifecycleReceiptStore.beginReadyRoute(): Long {
+    val generation =
+        beginIntended(
+            ipv6Enabled = false,
+            dns = "1.1.1.1",
+            appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+            ownPackage = "com.poyka.ripdpi",
+            networkParameters = VpnTunnelNetworkParameters(),
+            apiLevel = Build.VERSION_CODES.Q,
+        )
+    markEstablished(generation)
+    markBridgeReady(generation)
+    observeReadyRouteCallbacks()
+    return generation
+}
+
+private fun VpnRouteLifecycleReceiptStore.observeReadyRouteCallbacks() {
+    observeCapabilities(
+        networkKey = "vpn-a",
+        hasInternet = true,
+        validated = false,
+        captivePortal = false,
+        ownerVerification = VpnRouteOwnerVerification.Verified,
+    )
+    observeDefaultRoutes("vpn-a", setOf(VpnRouteFamilyIpv4))
 }

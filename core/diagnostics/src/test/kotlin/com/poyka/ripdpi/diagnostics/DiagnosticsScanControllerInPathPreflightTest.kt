@@ -67,6 +67,7 @@ class DiagnosticsScanControllerInPathPreflightTest {
                 DiagnosticsInPathRouteLease(
                     runtimeId = "vpn-runtime-7",
                     routeGeneration = 42L,
+                    issuedRevision = 1L,
                     host = "127.0.0.1",
                     port = 19_080,
                     credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
@@ -139,9 +140,51 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     request.inPathRoute?.credentials?.password,
                 ),
             )
-            assertEquals(1, runtimeCoordinator.leaseValidationCount)
+            assertEquals(4, runtimeCoordinator.leaseValidationCount)
             assertEquals(0, runtimeCoordinator.rawScanCount)
             assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
+        }
+
+    @Test
+    fun `route revoked during bridge creation is rejected before native start`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            runtimeCoordinator.updateInPathRouteLease(
+                DiagnosticsInPathRouteLease(
+                    runtimeId = "vpn-bridge-race",
+                    routeGeneration = 1,
+                    issuedRevision = 1L,
+                    host = "127.0.0.1",
+                    port = 19_080,
+                    credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+                ),
+            )
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    beforeCreate = { runtimeCoordinator.updateInPathRouteLease(null) }
+                }
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(activeMode = "VPN"),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = runtimeCoordinator,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            assertSuspendFailsWith<InPathRuntimeUnavailableException> {
+                services.scanController.startScan(ScanPathMode.IN_PATH)
+            }
+            advanceUntilIdle()
+            assertNull(bridgeFactory.bridge.startedRequestJson)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
         }
 
     @Test

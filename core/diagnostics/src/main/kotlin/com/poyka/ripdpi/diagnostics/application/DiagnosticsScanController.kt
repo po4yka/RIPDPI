@@ -434,14 +434,6 @@ internal class DefaultDiagnosticsScanController
             prepared: PreparedDiagnosticsScan,
             startup: StartupTransactionResources,
         ): PreparedBridgeSession {
-            prepared.inPathRouteLease?.let { lease ->
-                if (!runtimeCoordinator.isInPathRouteLeaseCurrent(lease)) {
-                    throw InPathRuntimeUnavailableException(
-                        "In-path diagnostics unavailable: the active VPN route changed before scan start",
-                        DiagnosticsHomeCompositeStageUnavailableReason.RUNTIME_CHANGED_OR_UNAVAILABLE,
-                    )
-                }
-            }
             val handle =
                 bridgeExecutionService.createHandle(
                     sessionId = prepared.sessionId,
@@ -451,6 +443,15 @@ internal class DefaultDiagnosticsScanController
             ensureStartupActive(scope)
             val startBridgeBeforeAwait = prepared.pathMode == ScanPathMode.RAW_PATH
             if (startBridgeBeforeAwait) return PreparedBridgeSession(handle, true)
+
+            prepared.inPathRouteLease?.let { lease ->
+                if (!runtimeCoordinator.isInPathRouteLeaseCurrent(lease)) {
+                    throw InPathRuntimeUnavailableException(
+                        "In-path diagnostics unavailable: the active VPN route changed before scan start",
+                        DiagnosticsHomeCompositeStageUnavailableReason.RUNTIME_CHANGED_OR_UNAVAILABLE,
+                    )
+                }
+            }
 
             bridgeExecutionService.start(
                 handle = handle,

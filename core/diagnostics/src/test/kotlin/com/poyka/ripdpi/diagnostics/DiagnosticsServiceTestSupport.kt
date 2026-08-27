@@ -1042,8 +1042,12 @@ internal class FakeNetworkDiagnosticsBridgeFactory(
     private val json: Json,
 ) : NetworkDiagnosticsBridgeFactory {
     val bridge = FakeNetworkDiagnosticsBridge(json)
+    var beforeCreate: () -> Unit = {}
 
-    override fun create(): NetworkDiagnosticsBridge = bridge
+    override fun create(): NetworkDiagnosticsBridge {
+        beforeCreate()
+        return bridge
+    }
 }
 
 internal enum class DiagnosticsBridgeFaultTarget {

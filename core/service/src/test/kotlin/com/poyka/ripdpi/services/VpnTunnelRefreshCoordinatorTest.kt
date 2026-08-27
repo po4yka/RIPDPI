@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -47,6 +48,7 @@ class VpnTunnelRefreshCoordinatorTest {
                 localProxyEndpoint = localProxyEndpoint,
             )
             val staleSession = VpnRuntimeSession(runtimeId = "stale")
+            runtime.publishInPathLease(staleSession, localProxyEndpoint)
             var activeSession: VpnRuntimeSession = staleSession
             val state = TestRefreshState { activeSession }
             val failures = mutableListOf<String>()
@@ -62,28 +64,7 @@ class VpnTunnelRefreshCoordinatorTest {
             val overrides = TestResolverOverrideStore()
             val coordinator =
                 VpnTunnelRefreshCoordinator(
-                    dependencies =
-                        object : VpnTunnelRefreshDependencies {
-                            override val mutex = Mutex()
-                            override val vpnTunnelRuntime = runtime
-                            override val dnsPolicyCoordinator =
-                                VpnDnsPolicyCoordinator(
-                                    resolverRefreshPlanner =
-                                        VpnResolverRefreshPlanner(
-                                            connectionPolicyResolver = resolver,
-                                            resolverOverrideStore = overrides,
-                                        ),
-                                    encryptedDnsFailoverController =
-                                        VpnEncryptedDnsFailoverController(
-                                            resolverOverrideStore = overrides,
-                                            networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                                            networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
-                                            networkFingerprintProvider =
-                                                TestNetworkFingerprintProvider(sampleFingerprint()),
-                                            clock = TestServiceClock(),
-                                        ),
-                                )
-                        },
+                    dependencies = buildRefreshDependencies(runtime, resolver, overrides),
                     state = state,
                     callbacks =
                         object : VpnTunnelRefreshCallbacks {
@@ -114,6 +95,7 @@ class VpnTunnelRefreshCoordinatorTest {
 
             coordinator.refreshIfNeeded(staleSession)
 
+            assertEquals(null, staleSession.diagnosticsInPathRouteLease)
             assertTrue(failures.isEmpty())
             assertTrue(updates.isEmpty())
             assertEquals(ServiceStatus.Connected, state.status())
@@ -130,6 +112,7 @@ class VpnTunnelRefreshCoordinatorTest {
             val events = mutableListOf<String>()
             val initialRule = packageRule("com.example.a")
             val groups = TestProxyGroupRepository(listOf(proxyGroup(listOf(initialRule))))
+            val receiptStore = VpnRouteLifecycleReceiptStore()
             val host =
                 TestVpnServiceHost(backgroundScope).apply {
                     appRoutingPlanResolver = { _, rules, _ ->
@@ -146,6 +129,7 @@ class VpnTunnelRefreshCoordinatorTest {
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(initialSettings),
                     proxyGroupRepository = groups,
+                    routeLifecycleReceiptStore = receiptStore,
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
                     vpnTunnelSessionProvider = sessionProvider,
                 )
@@ -156,6 +140,10 @@ class VpnTunnelRefreshCoordinatorTest {
                 localProxyEndpoint = localProxyEndpoint,
             )
             val session = VpnRuntimeSession(runtimeId = "current")
+            runtime.publishInPathLease(session, localProxyEndpoint)
+            val originalLease = requireNotNull(session.diagnosticsInPathRouteLease)
+            val leasesDuringEstablish = mutableListOf<DiagnosticsInPathRouteLease?>()
+            sessionProvider.beforeEstablish = { leasesDuringEstablish += session.diagnosticsInPathRouteLease }
             val state = TestRefreshState { session }
             val updates = mutableListOf<String>()
             val resolver =
@@ -184,6 +172,11 @@ class VpnTunnelRefreshCoordinatorTest {
                 async { coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true) },
             ).awaitAll()
             assertEquals(2, events.count { it == "vpn:establish" })
+            assertEquals(listOf(null), leasesDuringEstablish)
+            val rebuiltLease = requireNotNull(session.diagnosticsInPathRouteLease)
+            assertEquals(receiptStore.capture().lifecycle?.generation, rebuiltLease.routeGeneration)
+            assertTrue(rebuiltLease.routeGeneration > originalLease.routeGeneration)
+            assertEquals(null, rebuiltLease.issuedRevision)
 
             coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
             assertEquals(2, events.count { it == "vpn:establish" })
@@ -197,6 +190,33 @@ class VpnTunnelRefreshCoordinatorTest {
             runtime.stop()
         }
 
+    private fun buildRefreshDependencies(
+        runtime: VpnTunnelRuntime,
+        resolver: TestConnectionPolicyResolver,
+        overrides: TestResolverOverrideStore,
+    ): VpnTunnelRefreshDependencies =
+        object : VpnTunnelRefreshDependencies {
+            override val mutex = Mutex()
+            override val vpnTunnelRuntime = runtime
+            override val dnsPolicyCoordinator =
+                VpnDnsPolicyCoordinator(
+                    resolverRefreshPlanner =
+                        VpnResolverRefreshPlanner(
+                            connectionPolicyResolver = resolver,
+                            resolverOverrideStore = overrides,
+                        ),
+                    encryptedDnsFailoverController =
+                        VpnEncryptedDnsFailoverController(
+                            resolverOverrideStore = overrides,
+                            networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                            networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
+                            networkFingerprintProvider =
+                                TestNetworkFingerprintProvider(sampleFingerprint()),
+                            clock = TestServiceClock(),
+                        ),
+                )
+        }
+
     private fun buildRefreshCoordinator(
         runtime: VpnTunnelRuntime,
         state: VpnTelemetryStateAccess,
@@ -205,28 +225,7 @@ class VpnTunnelRefreshCoordinatorTest {
         updates: MutableList<String>,
     ): VpnTunnelRefreshCoordinator =
         VpnTunnelRefreshCoordinator(
-            dependencies =
-                object : VpnTunnelRefreshDependencies {
-                    override val mutex = Mutex()
-                    override val vpnTunnelRuntime = runtime
-                    override val dnsPolicyCoordinator =
-                        VpnDnsPolicyCoordinator(
-                            resolverRefreshPlanner =
-                                VpnResolverRefreshPlanner(
-                                    connectionPolicyResolver = resolver,
-                                    resolverOverrideStore = overrides,
-                                ),
-                            encryptedDnsFailoverController =
-                                VpnEncryptedDnsFailoverController(
-                                    resolverOverrideStore = overrides,
-                                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                                    networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
-                                    networkFingerprintProvider =
-                                        TestNetworkFingerprintProvider(sampleFingerprint()),
-                                    clock = TestServiceClock(),
-                                ),
-                        )
-                },
+            dependencies = buildRefreshDependencies(runtime, resolver, overrides),
             state = state,
             callbacks =
                 object : VpnTunnelRefreshCallbacks {

@@ -316,7 +316,7 @@ class DiagnosticsScanPolicyFinalizationTest {
         }
 
     @Test
-    fun `in-path route generation change after report does not discard historical scan evidence`() =
+    fun `in-path route generation change before report does not discard scan results`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = timelineSource(stores, backgroundScope)
@@ -332,6 +332,7 @@ class DiagnosticsScanPolicyFinalizationTest {
                 DiagnosticsInPathRouteLease(
                     runtimeId = "vpn-runtime",
                     routeGeneration = 1,
+                    issuedRevision = 1L,
                     host = "127.0.0.1",
                     port = 19080,
                     credentials = DiagnosticsProxyCredentials("scan-user", "scan-secret"),
@@ -514,6 +515,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
                     DiagnosticsInPathRouteLease(
                         runtimeId = "vpn-runtime",
                         routeGeneration = 7,
+                        issuedRevision = 1L,
                         host = "127.0.0.1",
                         port = 19080,
                         credentials = DiagnosticsProxyCredentials("reprobe-user", "reprobe-secret"),
@@ -1108,6 +1110,82 @@ internal data class ExecutionCoordinatorFixtures(
     val runtimeCoordinator: FakeDiagnosticsRuntimeCoordinator,
     val rawPathSettlementBarrier: RawPathSettlementBarrier,
 )
+
+class DiagnosticsInPathRouteAuthorityTest {
+    private val json = diagnosticsTestJson()
+
+    @Test
+    fun `owned route through terminal response grants active observation authority`() =
+        runTest { verifyAuthority(RouteChange.None, StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN) }
+
+    @Test
+    fun `route change before terminal response leaves active observation unverified`() =
+        runTest { verifyAuthority(RouteChange.BeforeTerminal, StrategyActivePathAuthority.UNVERIFIED) }
+
+    @Test
+    fun `route change during persistence preserves measured historical authority`() =
+        runTest {
+            verifyAuthority(
+                RouteChange.DuringPersistence,
+                StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN,
+            )
+        }
+
+    @Test
+    fun `observed route loss cannot be healed before terminal receipt`() {
+        var current = true
+        val state = BridgeReportPollingState { current }
+        current = false
+        state.observeRoute()
+        current = true
+        val (_, report) = ownedActiveObservationFixture("session-sticky-route-loss")
+        state.observe(json.encodeToString(report.toEngineScanReportWire()))
+        assertEquals(false, state.ownedInPathRouteAtCompletion)
+    }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.verifyAuthority(
+        change: RouteChange,
+        expected: StrategyActivePathAuthority,
+    ) {
+        val stores = FakeDiagnosticsHistoryStores()
+        val fixtures =
+            executionCoordinatorFixtures(
+                stores = stores,
+                timelineSource = timelineSource(stores, backgroundScope),
+                serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+            )
+        val (prepared, report) = ownedActiveObservationFixture("session-route-authority-$change")
+        val lease = requireNotNull(prepared.inPathRouteLease)
+        fixtures.runtimeCoordinator.updateInPathRouteLease(lease)
+        seedPreparedScan(stores, prepared)
+        fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+        val bridge = fixtures.bridgeFactory.bridge
+        bridge.autoCompleteOnStart = false
+        bridge.enqueueReport(report)
+        bridge.startScan(prepared.requestJson, prepared.sessionId)
+        fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+        if (change == RouteChange.BeforeTerminal) {
+            fixtures.runtimeCoordinator.updateInPathRouteLease(lease.copy(routeGeneration = lease.routeGeneration + 1))
+        }
+        if (change == RouteChange.DuringPersistence) {
+            stores.beforeUpsertSnapshot = {
+                fixtures.runtimeCoordinator.updateInPathRouteLease(null)
+            }
+        }
+        fixtures.coordinator.execute(
+            prepared,
+            BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge),
+            rawPathRunner = { block -> runSettledRawPathBlock(block) },
+        )
+        val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+        assertEquals("completed", session.status)
+        val persisted = json.decodeEngineScanReportWire(requireNotNull(session.reportJson))
+        assertEquals(expected, persisted.strategyProbeReport?.activePathObservation?.activePathAuthority)
+        assertEquals(change == RouteChange.None, fixtures.runtimeCoordinator.isInPathRouteLeaseCurrent(lease))
+    }
+
+    private enum class RouteChange { None, BeforeTerminal, DuringPersistence }
+}
 
 @Suppress("LongMethod")
 internal fun executionCoordinatorFixtures(

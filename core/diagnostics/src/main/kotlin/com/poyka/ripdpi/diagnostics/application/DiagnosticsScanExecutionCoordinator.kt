@@ -73,7 +73,7 @@ internal class DiagnosticsScanExecutionCoordinator
             startBridgeBeforeAwait: Boolean,
             ownerId: String?,
         ) {
-            val pollingState = BridgeReportPollingState()
+            val pollingState = routePollingState(prepared)
             val outcome =
                 runPrimaryScan(
                     prepared = prepared,
@@ -106,6 +106,12 @@ internal class DiagnosticsScanExecutionCoordinator
                 )
             }
         }
+
+        private fun routePollingState(prepared: PreparedDiagnosticsScan): BridgeReportPollingState =
+            BridgeReportPollingState {
+                prepared.pathMode == ScanPathMode.IN_PATH &&
+                    prepared.inPathRouteLease?.let(runtimeCoordinator::isInPathRouteLeaseCurrent) == true
+            }
 
         private suspend fun runPrimaryScan(
             prepared: PreparedDiagnosticsScan,
@@ -372,6 +378,7 @@ internal class DiagnosticsScanExecutionCoordinator
                         scanFinalizationService.finalize(
                             prepared = prepared,
                             reportJson = reportJson,
+                            ownedInPathRouteAtCompletion = pollingState.ownedInPathRouteAtCompletion,
                         ),
                     )
                     bridgePollingService.persistPassiveEvents(handle)
@@ -432,6 +439,7 @@ internal class DiagnosticsScanExecutionCoordinator
                             scanFinalizationService.finalize(
                                 prepared = prepared,
                                 reportJson = outcome.reportJson,
+                                ownedInPathRouteAtCompletion = outcome.ownedInPathRouteAtCompletion,
                             )
                         }.exceptionOrNull()
                     if (finalizeFailure is CancellationException) throw finalizeFailure
@@ -490,7 +498,7 @@ internal class DiagnosticsScanExecutionCoordinator
                 )
             var reprobe = preparedReprobe
             var reprobeHandle: BridgeSessionHandle? = null
-            val reprobePollingState = BridgeReportPollingState()
+            var reprobePollingState = BridgeReportPollingState()
             val reprobeFailure =
                 runCatching {
                     activeScanRegistry.rememberPreparedScan(preparedReprobe, ownerId)
@@ -521,6 +529,7 @@ internal class DiagnosticsScanExecutionCoordinator
                             runtimeCoordinator = runtimeCoordinator,
                             scanRequestFactory = scanRequestFactory,
                         )
+                    reprobePollingState = routePollingState(reprobe)
                     bridgeExecutionService.start(
                         handle = requireNotNull(reprobeHandle),
                         requestJson = reprobe.requestJson,
@@ -534,6 +543,7 @@ internal class DiagnosticsScanExecutionCoordinator
                         scanFinalizationService.finalize(
                             prepared = reprobe,
                             reportJson = reportJson,
+                            ownedInPathRouteAtCompletion = reprobePollingState.ownedInPathRouteAtCompletion,
                         )
                         bridgePollingService.persistPassiveEvents(requireNotNull(reprobeHandle))
                     }

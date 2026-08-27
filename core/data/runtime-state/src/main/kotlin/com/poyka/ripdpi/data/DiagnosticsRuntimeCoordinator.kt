@@ -29,12 +29,14 @@ data class DiagnosticsProxyCredentials(
 data class DiagnosticsInPathRouteLease(
     val runtimeId: String,
     val routeGeneration: Long,
+    val issuedRevision: Long?,
     val host: String,
     val port: Int,
     val credentials: DiagnosticsProxyCredentials,
 ) {
     init {
         require(runtimeId.isNotBlank()) { "Diagnostics route runtimeId must not be blank" }
+        require(issuedRevision == null || issuedRevision > 0) { "Diagnostics route revision must be positive" }
         require(routeGeneration > 0) { "Diagnostics route generation must be positive" }
         require(host == "127.0.0.1" || host == "::1") { "Diagnostics route must use a loopback listener" }
         require(port in 1..MaxTcpPort) { "Diagnostics route port must be valid" }

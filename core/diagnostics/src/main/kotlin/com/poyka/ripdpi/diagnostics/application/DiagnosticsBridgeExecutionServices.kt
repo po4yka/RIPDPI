@@ -169,6 +169,7 @@ class BridgePollingService
             pollingState: BridgeReportPollingState,
         ): String? {
             repeat(FinishedReportPollAttempts) { attempt ->
+                pollingState.observeRoute()
                 handle.bridge.takeReportJson()?.let { reportJson ->
                     if (pollingState.observe(reportJson) == EngineScanReportDisposition.TERMINAL) {
                         return reportJson
@@ -188,6 +189,7 @@ class BridgePollingService
             var terminalReportJson = pollingState.terminalReportJson
             if (terminalReportJson == null) {
                 for (attempt in 0 until FinalReportPollAttempts) {
+                    pollingState.observeRoute()
                     val reportJson = handle.bridge.takeReportJson()
                     if (
                         reportJson != null &&
@@ -201,7 +203,9 @@ class BridgePollingService
                     }
                 }
             }
-            return terminalReportJson?.let(TerminalReportAwaitOutcome::Terminal)
+            return terminalReportJson?.let {
+                TerminalReportAwaitOutcome.Terminal(it, pollingState.ownedInPathRouteAtCompletion)
+            }
                 ?: TerminalReportAwaitOutcome.TerminalUnavailable(
                     latestCheckpointJson = pollingState.latestCheckpointJson,
                 )
@@ -228,6 +232,7 @@ class BridgePollingService
             try {
                 withTimeout(PollScanResultTimeoutMs) {
                     while (true) {
+                        pollingState.observeRoute()
                         persistPassiveEvents(handle)
                         handle.bridge.takeReportJson()?.let { reportJson ->
                             if (pollingState.observe(reportJson) == EngineScanReportDisposition.TERMINAL) {

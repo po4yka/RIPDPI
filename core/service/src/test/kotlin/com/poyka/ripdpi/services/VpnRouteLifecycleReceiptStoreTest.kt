@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.VpnRouteLifecycleState
 import com.poyka.ripdpi.data.VpnRouteObservationConvergenceMillis
 import com.poyka.ripdpi.data.VpnRouteOwnerVerification
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VpnRouteLifecycleReceiptStoreTest {
@@ -178,6 +179,30 @@ class VpnRouteLifecycleReceiptStoreTest {
         assertEquals(true, evidence.validated)
         assertEquals(listOf(VpnRouteFamilyIpv4), evidence.observedDefaultRouteFamilies)
         assertEquals(VpnRouteOwnerVerification.Verified, evidence.ownerVerification)
+    }
+
+    @Test
+    fun `identical route restored after loss invalidates the previous callback revision`() {
+        val store = VpnRouteLifecycleReceiptStore()
+        val generation = store.beginTestGeneration()
+        store.markEstablished(generation)
+        store.observeVerifiedNetworkShape("vpn-a")
+        val initialEvidence = store.capture()
+        assertEquals(VpnRouteCallbackState.Complete, initialEvidence.callbackState)
+        val initialRevision = requireNotNull(initialEvidence.callbackRevision)
+
+        store.observeLost("vpn-a")
+        assertEquals(VpnRouteCallbackState.Lost, store.capture().callbackState)
+        store.observeVerifiedNetworkShape("vpn-a")
+
+        val restoredEvidence = store.capture()
+        assertEquals(VpnRouteCallbackState.Complete, restoredEvidence.callbackState)
+        assertEquals(initialEvidence.observedDefaultRouteFamilies, restoredEvidence.observedDefaultRouteFamilies)
+        val restoredRevision = requireNotNull(restoredEvidence.callbackRevision)
+        assertTrue(
+            "Restored revision $restoredRevision must invalidate the previous revision $initialRevision",
+            restoredRevision > initialRevision,
+        )
     }
 
     @Test

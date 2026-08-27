@@ -115,6 +115,13 @@ internal class VpnTunnelRuntime(
     val isForwarding: Boolean
         get() = tun2SocksBridge != null
 
+    fun publishInPathLease(
+        session: VpnRuntimeSession,
+        endpoint: LocalProxyEndpoint,
+    ) {
+        session.publishInPathLease(endpoint, checkNotNull(activeRouteLifecycleGeneration))
+    }
+
     fun desiredInterfacePolicySignatures(): Flow<String> =
         combine(
             appSettingsRepository.settings,
@@ -127,8 +134,15 @@ internal class VpnTunnelRuntime(
         }.distinctUntilChanged()
 
     suspend fun requiresInterfacePolicyRebuild(): Boolean {
-        val appliedSignature = currentInterfacePolicySignature ?: return false
-        return isRunning && desiredInterfacePolicySignature() != appliedSignature
+        val appliedSignature = currentInterfacePolicySignature
+        if (appliedSignature == null || !isRunning) return false
+        val desiredPolicy =
+            resolveInterfacePolicy(
+                settings = appSettingsRepository.snapshot(),
+                groups = proxyGroupRepository.list(),
+                installedPackages = vpnHost.currentInstalledPackages(),
+            )
+        return desiredPolicy.signature != appliedSignature
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -350,15 +364,6 @@ internal class VpnTunnelRuntime(
             }
         routeLifecycleReceiptStore.markEstablished(generation)
         return session to generation
-    }
-
-    private suspend fun desiredInterfacePolicySignature(): String {
-        val settings = appSettingsRepository.snapshot()
-        return resolveInterfacePolicy(
-            settings = settings,
-            groups = proxyGroupRepository.list(),
-            installedPackages = vpnHost.currentInstalledPackages(),
-        ).signature
     }
 
     private suspend fun resolveInterfacePolicy(

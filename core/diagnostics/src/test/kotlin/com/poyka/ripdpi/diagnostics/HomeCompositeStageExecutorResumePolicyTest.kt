@@ -87,6 +87,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                             DiagnosticsInPathRouteLease(
                                 runtimeId = "vpn-runtime",
                                 routeGeneration = 1,
+                                issuedRevision = 1L,
                                 host = "127.0.0.1",
                                 port = 19080,
                                 credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),

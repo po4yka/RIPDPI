@@ -93,6 +93,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             ).finalize(
                 prepared,
                 json.encodeToString(report.toEngineScanReportWire()),
+                ownedInPathRouteAtCompletion = true,
             )
 
             val persisted =
@@ -103,6 +104,27 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val observation = requireNotNull(strategy.activePathObservation)
             assertEquals(StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH, observation.role)
             assertEquals(StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN, observation.activePathAuthority)
+        }
+
+    @Test
+    fun `in-path finalization without terminal route verification cannot grant authority`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val (prepared, report) = ownedActiveObservationFixture("session-unverified-terminal")
+
+            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                prepared,
+                json.encodeToString(report.toEngineScanReportWire()),
+            )
+
+            val persisted =
+                json.decodeEngineScanReportWire(
+                    requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
+                )
+            assertEquals(
+                StrategyActivePathAuthority.UNVERIFIED,
+                persisted.strategyProbeReport?.activePathObservation?.activePathAuthority,
+            )
         }
 
     @Test
@@ -136,7 +158,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
         }
 
     @Test
-    fun `lease replacement after measured response preserves historical scan authority`() =
+    fun `captured terminal authority survives delayed finalization`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val (prepared, report) = ownedActiveObservationFixture("session-route-replaced-at-commit")
@@ -146,7 +168,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     TestDiagnosticsHistoryClock(),
                 )
 
-            service.finalize(prepared, json.encodeToString(report.toEngineScanReportWire()))
+            service.finalize(
+                prepared,
+                json.encodeToString(report.toEngineScanReportWire()),
+                ownedInPathRouteAtCompletion = true,
+            )
 
             val persisted =
                 json.decodeEngineScanReportWire(
@@ -174,6 +200,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                         DiagnosticsInPathRouteLease(
                             runtimeId = "vpn-runtime",
                             routeGeneration = 8,
+                            issuedRevision = 1L,
                             host = "127.0.0.1",
                             port = 19_080,
                             credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
@@ -474,7 +501,7 @@ private fun scanFinalizationService(
         json = diagnosticsTestJson(),
     )
 
-private fun ownedActiveObservationFixture(sessionId: String): Pair<PreparedDiagnosticsScan, ScanReport> {
+internal fun ownedActiveObservationFixture(sessionId: String): Pair<PreparedDiagnosticsScan, ScanReport> {
     val settings = defaultDiagnosticsAppSettings()
     val prepared =
         preparedStrategyProbeScan(
@@ -487,6 +514,7 @@ private fun ownedActiveObservationFixture(sessionId: String): Pair<PreparedDiagn
                 DiagnosticsInPathRouteLease(
                     runtimeId = "vpn-runtime",
                     routeGeneration = 7,
+                    issuedRevision = 1L,
                     host = "127.0.0.1",
                     port = 19_080,
                     credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),

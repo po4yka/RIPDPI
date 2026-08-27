@@ -133,7 +133,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
-        session.publishInPathLease(proxyStartResult.endpoint)
+        vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
         updateRuntimeDnsState(session, resolution)
         return proxyStartResult
     }
@@ -185,7 +185,7 @@ internal class VpnRuntimeCompositionCoordinator(
                 forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
         )
-        session.publishInPathLease(proxyStartResult.endpoint)
+        vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
         updateRuntimeDnsState(session, resolution)
         return proxyStartResult
     }

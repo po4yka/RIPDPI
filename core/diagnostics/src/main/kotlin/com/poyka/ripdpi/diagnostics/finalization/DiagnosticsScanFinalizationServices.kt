@@ -64,6 +64,7 @@ class ScanFinalizationService
         internal suspend fun finalize(
             prepared: PreparedDiagnosticsScan,
             reportJson: String,
+            ownedInPathRouteAtCompletion: Boolean = false,
         ): ScanFinalizationResult =
             withContext(NonCancellable) {
                 val rawReport = json.decodeEngineScanReportWire(reportJson)
@@ -71,7 +72,7 @@ class ScanFinalizationService
                 val finalizedWire =
                     DiagnosticsDiagnosisAuthority
                         .finalizeReport(rawReport)
-                        .withOwnedInPathRouteAuthority(prepared)
+                        .withOwnedInPathRouteAuthority(prepared, ownedInPathRouteAtCompletion)
                 val enrichedReport =
                     DiagnosticsScanWorkflow.enrichScanReport(
                         report = finalizedWire.toScanReport(),
@@ -419,30 +420,31 @@ class ScanFinalizationService
 
 private fun com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire.withOwnedInPathRouteAuthority(
     prepared: PreparedDiagnosticsScan,
-): com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire =
-    if (prepared.pathMode == ScanPathMode.IN_PATH && prepared.inPathRouteLease != null) {
-        copy(
-            strategyProbeReport =
-                strategyProbeReport?.let { strategyProbe ->
-                    val observation = strategyProbe.activePathObservation
-                    strategyProbe.copy(
-                        activePathObservation =
-                            observation?.copy(
-                                activePathAuthority =
-                                    if (
-                                        observation.role == StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH &&
-                                        observation.hasOwnedRouteExecutionEvidence()
-                                    ) {
-                                        StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN
-                                    } else {
-                                        StrategyActivePathAuthority.UNVERIFIED
-                                    },
-                            ),
-                    )
-                },
-        )
-    } else {
-        this
-    }
+    ownedInPathRouteAtCompletion: Boolean,
+): com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire {
+    val ownsRoute =
+        prepared.pathMode == ScanPathMode.IN_PATH && prepared.inPathRouteLease != null && ownedInPathRouteAtCompletion
+    return copy(
+        strategyProbeReport =
+            strategyProbeReport?.let { strategyProbe ->
+                val observation = strategyProbe.activePathObservation
+                strategyProbe.copy(
+                    activePathObservation =
+                        observation?.copy(
+                            activePathAuthority =
+                                if (
+                                    ownsRoute &&
+                                    observation.role == StrategyProbeObservationRole.ACTIVE_SERVICE_IN_PATH &&
+                                    observation.hasOwnedRouteExecutionEvidence()
+                                ) {
+                                    StrategyActivePathAuthority.OWNED_ROUTE_LEASE_AT_SCAN
+                                } else {
+                                    StrategyActivePathAuthority.UNVERIFIED
+                                },
+                        ),
+                )
+            },
+    )
+}
 
 private fun StrategyActivePathObservation.hasOwnedRouteExecutionEvidence(): Boolean = hasCoherentResponseCounts()

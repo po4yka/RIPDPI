@@ -69,17 +69,30 @@ class VpnRuntimeCompositionCoordinatorTest {
                 )
             val events = mutableListOf<String>()
             val host = TestVpnServiceHost(backgroundScope)
+            val receiptStore = VpnRouteLifecycleReceiptStore()
+            val abandonedGeneration =
+                receiptStore.beginIntended(
+                    ipv6Enabled = false,
+                    dns = "1.1.1.1",
+                    appRoutingPlan = VpnAppRoutingPlan.Disallow(setOf("com.poyka.ripdpi")),
+                    ownPackage = "com.poyka.ripdpi",
+                    networkParameters = VpnTunnelNetworkParameters(),
+                    apiLevel = android.os.Build.VERSION_CODES.Q,
+                )
+            receiptStore.abortIntended(abandonedGeneration)
+            val sessionProvider =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = TestVpnTunnelSession(events = events),
+                )
             val tunnelRuntime =
                 VpnTunnelRuntime(
                     vpnHost = host,
                     appSettingsRepository = TestAppSettingsRepository(),
                     proxyGroupRepository = TestProxyGroupRepository(),
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
-                    vpnTunnelSessionProvider =
-                        TestVpnTunnelSessionProvider(
-                            events = events,
-                            session = TestVpnTunnelSession(events = events),
-                        ),
+                    vpnTunnelSessionProvider = sessionProvider,
+                    routeLifecycleReceiptStore = receiptStore,
                 )
             val exitHandler =
                 VpnSupervisorExitHandler(
@@ -108,10 +121,18 @@ class VpnRuntimeCompositionCoordinatorTest {
             assertSame(readySnapshot, result?.readySnapshot)
             val routeLease = session.diagnosticsInPathRouteLease
             assertNotNull(routeLease)
+            assertEquals(receiptStore.capture().lifecycle?.generation, routeLease?.routeGeneration)
+            assertEquals(null, routeLease?.issuedRevision)
             assertEquals(result?.endpoint?.host, routeLease?.host)
             assertEquals(result?.endpoint?.port, routeLease?.port)
             assertEquals(result?.endpoint?.username, routeLease?.credentials?.username)
             assertEquals(result?.endpoint?.password, routeLease?.credentials?.password)
+            sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
+            coordinator.restartAfterPolicyChange(session, sampleResolution(mode = Mode.VPN), 1L, "test_recompose")
+            val rebuiltLease = requireNotNull(session.diagnosticsInPathRouteLease)
+            assertEquals(receiptStore.capture().lifecycle?.generation, rebuiltLease.routeGeneration)
+            assertTrue(rebuiltLease.routeGeneration > requireNotNull(routeLease).routeGeneration)
+            assertEquals(null, rebuiltLease.issuedRevision)
             coordinator.stop(skipRuntimeShutdown = false)
         }
 }

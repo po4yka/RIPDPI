@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RawPathExecutionCancelledException
@@ -12,6 +13,8 @@ import com.poyka.ripdpi.data.RawPathExecutionSettlement
 import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
 import com.poyka.ripdpi.data.RawPathRuntimeContext
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.VpnRouteEvidence
+import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
 import com.poyka.ripdpi.data.toRawPathRuntimeStatus
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.service.runtime.RuntimeModeProjectionStore
@@ -56,6 +59,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceController: ServiceController,
         private val serviceRuntimeRegistry: ServiceRuntimeRegistry,
+        private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
     ) : DiagnosticsRuntimeCoordinator {
         private var waitAttempts: Int = 50
         private var waitDelayMs: Long = 200L
@@ -71,6 +75,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
             serviceController: ServiceController,
             serviceRuntimeRegistry: ServiceRuntimeRegistry,
+            vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
             waitAttempts: Int,
             waitDelayMs: Long,
         ) : this(
@@ -81,6 +86,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             runtimeResumeIntentTracker,
             serviceController,
             serviceRuntimeRegistry,
+            vpnRouteEvidenceProvider,
         ) {
             this.waitAttempts = waitAttempts
             this.waitDelayMs = waitDelayMs
@@ -102,15 +108,31 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 block = block,
             )
 
-        override suspend fun acquireInPathRouteLease() =
-            serviceRuntimeRegistry
-                .current(Mode.VPN)
-                ?.diagnosticsInPathRouteLease
-                ?.takeIf { serviceStateStore.status.value == (AppStatus.Running to Mode.VPN) }
+        override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? {
+            val published = serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease ?: return null
+            val evidence = vpnRouteEvidenceProvider.capture()
+            return if (isRouteEligible(published, evidence)) {
+                published.copy(issuedRevision = evidence.callbackRevision).takeIf(::isInPathRouteLeaseCurrent)
+            } else {
+                null
+            }
+        }
 
-        override fun isInPathRouteLeaseCurrent(lease: com.poyka.ripdpi.data.DiagnosticsInPathRouteLease): Boolean =
+        override fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean {
+            if (lease.issuedRevision == null) return false
+            val evidence = vpnRouteEvidenceProvider.capture()
+            return isRouteEligible(lease, evidence) && lease.issuedRevision == evidence.callbackRevision &&
+                serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease ==
+                lease.copy(issuedRevision = null)
+        }
+
+        private fun isRouteEligible(
+            lease: DiagnosticsInPathRouteLease,
+            evidence: VpnRouteEvidence,
+        ): Boolean =
             serviceStateStore.status.value == (AppStatus.Running to Mode.VPN) &&
-                serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease == lease
+                evidence.lifecycle?.generation == lease.routeGeneration &&
+                evidence.isEligibleForInPathLease()
 
         @Suppress("TooGenericExceptionCaught")
         private suspend fun runInRawPathWindow(

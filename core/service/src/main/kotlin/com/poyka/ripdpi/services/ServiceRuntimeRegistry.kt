@@ -75,19 +75,20 @@ class VpnRuntimeSession(
     @Volatile
     private var inPathRouteLease: DiagnosticsInPathRouteLease? = null
 
-    private var nextInPathRouteGeneration: Long = 0
-
     override val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
         get() = inPathRouteLease
 
-    internal fun publishInPathLease(endpoint: LocalProxyEndpoint) {
+    internal fun publishInPathLease(
+        endpoint: LocalProxyEndpoint,
+        routeGeneration: Long,
+    ) {
         val username = checkNotNull(endpoint.username) { "VPN diagnostics route requires proxy authentication" }
         val password = checkNotNull(endpoint.password) { "VPN diagnostics route requires proxy authentication" }
-        nextInPathRouteGeneration += 1
         inPathRouteLease =
             DiagnosticsInPathRouteLease(
                 runtimeId = runtimeId,
-                routeGeneration = nextInPathRouteGeneration,
+                routeGeneration = routeGeneration,
+                issuedRevision = null,
                 host = endpoint.host,
                 port = endpoint.port,
                 credentials = DiagnosticsProxyCredentials(username, password),

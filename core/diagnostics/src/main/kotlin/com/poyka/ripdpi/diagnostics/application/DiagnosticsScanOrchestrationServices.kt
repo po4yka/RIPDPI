@@ -650,7 +650,19 @@ internal fun String.diagnosticsReportDispositionOrNull(): EngineScanReportDispos
         diagnosticsReportDispositionJson.decodeEngineScanReportDisposition(this)
     }.getOrNull()
 
-internal class BridgeReportPollingState {
+internal class BridgeReportPollingState(
+    private val isInPathRouteCurrent: () -> Boolean = { false },
+) {
+    private var routeRemainedCurrent = isInPathRouteCurrent()
+    var ownedInPathRouteAtCompletion: Boolean = false
+        private set
+
+    fun observeRoute() {
+        if (terminalReportJson == null) {
+            routeRemainedCurrent = routeRemainedCurrent && isInPathRouteCurrent()
+        }
+    }
+
     var latestCheckpointJson: String? = null
         private set
     var terminalReportJson: String? = null
@@ -658,10 +670,21 @@ internal class BridgeReportPollingState {
 
     fun observe(reportJson: String): EngineScanReportDisposition? =
         reportJson.diagnosticsReportDispositionOrNull().also { disposition ->
+            observeRoute()
             when (disposition) {
-                EngineScanReportDisposition.CHECKPOINT -> latestCheckpointJson = reportJson
-                EngineScanReportDisposition.TERMINAL -> terminalReportJson = reportJson
-                null -> Unit
+                EngineScanReportDisposition.CHECKPOINT -> {
+                    latestCheckpointJson = reportJson
+                }
+
+                EngineScanReportDisposition.TERMINAL -> {
+                    // Freeze at report acceptance, before completion or persistence can suspend.
+                    ownedInPathRouteAtCompletion = routeRemainedCurrent
+                    terminalReportJson = reportJson
+                }
+
+                null -> {
+                    Unit
+                }
             }
         }
 }
@@ -669,6 +692,7 @@ internal class BridgeReportPollingState {
 internal sealed interface TerminalReportAwaitOutcome {
     data class Terminal(
         val reportJson: String,
+        val ownedInPathRouteAtCompletion: Boolean,
     ) : TerminalReportAwaitOutcome
 
     data class TerminalUnavailable(
