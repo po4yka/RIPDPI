@@ -72,7 +72,9 @@ import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
+import com.poyka.ripdpi.services.TransportFailoverTarget
 import com.poyka.ripdpi.services.VpnAppRoutingPlan
+import com.poyka.ripdpi.services.VpnTransportActivationController
 import com.poyka.ripdpi.services.VpnTunnelBuilderHost
 import com.poyka.ripdpi.services.VpnTunnelNetworkParameters
 import com.poyka.ripdpi.services.VpnTunnelSession
@@ -112,8 +114,10 @@ class FakeInstrumentedAppSettingsRepository(
 
 class RecordingInstrumentedServiceController :
     ServiceController,
-    StartupFallbackController {
+    StartupFallbackController,
+    VpnTransportActivationController {
     val startedModes = CopyOnWriteArrayList<Mode>()
+    val transportStarts = CopyOnWriteArrayList<Pair<Long, TransportFailoverTarget>>()
     var stopCount: Int = 0
         private set
 
@@ -128,6 +132,14 @@ class RecordingInstrumentedServiceController :
 
     override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
         StartupFallbackDispatchResult.Dispatched(start(Mode.VPN))
+
+    override fun startVpnTransport(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): ServiceStartResult {
+        transportStarts += requestId to expectedTarget
+        return start(Mode.VPN)
+    }
 }
 
 class MutablePermissionStatusProvider(

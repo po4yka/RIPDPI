@@ -52,6 +52,7 @@ import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceControllerModule
 import com.poyka.ripdpi.services.StartupFallbackController
+import com.poyka.ripdpi.services.VpnTransportActivationController
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.testing.FakeInstrumentedAppSettingsRepository
@@ -178,6 +179,11 @@ class MainActivityShellInstrumentedTest {
     @BindValue
     @JvmField
     var startupFallbackController: StartupFallbackController =
+        serviceController as RecordingInstrumentedServiceController
+
+    @BindValue
+    @JvmField
+    var vpnTransportActivationController: VpnTransportActivationController =
         serviceController as RecordingInstrumentedServiceController
 
     @BindValue
