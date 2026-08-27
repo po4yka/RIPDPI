@@ -104,7 +104,13 @@ class SoBindToDeviceUidPolicyEligibility private constructor(
         )
     }
 
-    fun isEligible(): Boolean = cachedQualification.uidPolicyEligible
+    fun isEligible(): Boolean {
+        val qualification = cachedQualification
+        check(qualification.unprivilegedBindToDevice != BindToDeviceProbeOutcome.BridgeFailure.wireValue) {
+            "Native UID policy qualification failed"
+        }
+        return qualification.uidPolicyEligible
+    }
 
     fun qualification(): RemoteDeviceUidPolicyQualification = cachedQualification
 

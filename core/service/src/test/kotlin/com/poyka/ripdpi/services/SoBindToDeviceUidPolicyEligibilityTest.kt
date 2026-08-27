@@ -56,10 +56,10 @@ class SoBindToDeviceUidPolicyEligibilityTest {
     }
 
     @Test
-    fun `JNI bridge failure is fail closed on android 12 with a modern kernel`() {
+    fun `JNI bridge failure refuses policy qualification on android 12 with a modern kernel`() {
         val eligibility = eligibility(Build.VERSION_CODES.S, "6.1.99-android14", BindToDeviceProbeOutcome.BridgeFailure)
 
-        assertFalse(eligibility.isEligible())
+        assertThrows(IllegalStateException::class.java) { eligibility.isEligible() }
         assertEquals("bridge_failure", eligibility.qualification().unprivilegedBindToDevice)
     }
 

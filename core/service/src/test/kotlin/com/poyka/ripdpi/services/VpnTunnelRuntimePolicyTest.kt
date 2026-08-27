@@ -15,12 +15,65 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpnTunnelRuntimePolicyTest {
+    @Test
+    fun `native probe bridge failure aborts before tunnel establishment`() =
+        runTest {
+            val events = mutableListOf<String>()
+            val eligibility =
+                SoBindToDeviceUidPolicyEligibility.forTest(
+                    sdkInt = android.os.Build.VERSION_CODES.S,
+                    kernelRelease = "6.1.99-android",
+                    probe = { (-1).toProbeOutcome() },
+                )
+            val host =
+                TestVpnServiceHost(backgroundScope, events).apply {
+                    appRoutingPlan = VpnAppRoutingPlan.AllowOnly(setOf("com.example.allowed"))
+                }
+            val sessionProvider = TestVpnTunnelSessionProvider(events = events)
+            val bridge = TestTun2SocksBridge(events)
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = sessionProvider,
+                    nativeUidPolicyProvider = { plan ->
+                        nativeUidPolicyFor(
+                            plan = plan,
+                            eligible = eligibility.isEligible(),
+                            ownPackage = "com.poyka.ripdpi",
+                            uidForPackage = { 10_321 },
+                        )
+                    },
+                )
+
+            val failure =
+                runCatching {
+                    runtime.start(
+                        activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                        overrideReason = null,
+                        logContext = null,
+                        localProxyEndpoint = localProxyEndpoint,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals("bridge_failure", eligibility.qualification().unprivilegedBindToDevice)
+            assertEquals(listOf("dns:prepare", "dns:abort:1"), events)
+            assertNull(sessionProvider.lastAppRoutingPlan)
+            assertNull(bridge.startedConfig)
+            assertFalse(runtime.isRunning)
+            assertFalse(runtime.isForwarding)
+        }
+
     @Test
     fun startUsesPersistedPackageRulesForOneAndroidAndNativePlan() =
         runTest {
