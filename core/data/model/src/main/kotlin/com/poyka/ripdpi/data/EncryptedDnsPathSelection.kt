@@ -139,12 +139,12 @@ fun buildEncryptedDnsCandidatePlan(
     blockedPathKeys: Set<String> = emptySet(),
 ): List<EncryptedDnsPathCandidate> {
     val currentPath = activeDns.toEncryptedDnsPathCandidate()
-    val automaticPreferredPath = preferredPath?.takeUnless { it.isCloudflareProvider() }
+    val automaticPreferredPath = preferredPath?.takeIf { isAutomaticEncryptedDnsProvider(it.resolverId) }
     val candidates =
         linkedMapOf<String, EncryptedDnsPathCandidate>()
             .apply {
                 builtInEncryptedDnsPathCandidates().forEach { candidate ->
-                    if (!candidate.isCloudflareProvider()) {
+                    if (isAutomaticEncryptedDnsProvider(candidate.resolverId)) {
                         put(candidate.pathKey(), candidate)
                     }
                 }
@@ -185,8 +185,9 @@ fun buildEncryptedDnsCandidatePlan(
     return interleaveByProtocol(candidates, protocolOrder, comparator)
 }
 
-private fun EncryptedDnsPathCandidate.isCloudflareProvider(): Boolean =
-    resolverId == DnsProviderCloudflare || resolverId == DnsProviderCloudflareIp
+/** Automatic DNS policy; Cloudflare remains available only through explicit selection. */
+fun isAutomaticEncryptedDnsProvider(providerId: String): Boolean =
+    providerId != DnsProviderCloudflare && providerId != DnsProviderCloudflareIp && providerId != "cloudflare-malware"
 
 private fun candidateComparator(
     blockedPathKeys: Set<String>,

@@ -37,6 +37,7 @@ import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
@@ -190,7 +191,45 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `remembered vpn dns policy beats cold start encrypted default`() =
+    fun `learned Cloudflare preference cannot suppress encrypted cold start fallback`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val preferences = TestNetworkDnsPathPreferenceStore()
+            preferences.rememberPreferredPath(
+                fingerprint,
+                builtInEncryptedDnsPathCandidates().first { it.resolverId == DnsProviderCloudflare },
+            )
+            val selector = ConnectionPolicyDnsSelector(preferences, ResolverMappingPolicy(), ResolverMappingCache())
+
+            val selection =
+                selector.baselineSelection(
+                    mode = Mode.VPN,
+                    dnsResolution = resolveEffectiveDns(plainUdpSettings(), override = null),
+                    networkScopeKey = fingerprint.scopeKey(),
+                    directPathCapabilities = emptyList(),
+                )
+
+            assertEquals(DnsProviderAdGuard, selection.activeDns.providerId)
+            assertEquals(EncryptedDnsProtocolDoh, selection.activeDns.encryptedDnsProtocol)
+            assertNull(selection.preferredPath)
+        }
+
+    @Test
+    fun `remembered catalog malware resolver cannot replace independent DNS`() {
+        val baseDns = resolveEffectiveDns(encryptedGoogleSettings(), override = null).activeDns
+        val selection =
+            resolveVpnDnsSelection(
+                mode = Mode.VPN,
+                baseDns = baseDns,
+                preferredPath = null,
+                rememberedVpnDnsPolicy = cloudflareRememberedPolicy().copy(providerId = "cloudflare-malware"),
+            )
+
+        assertEquals(DnsProviderGoogle, selection.activeDns.providerId)
+    }
+
+    @Test
+    fun `remembered Cloudflare policy cannot replace independent cold start DNS`() =
         runTest {
             val rememberedStore =
                 TestRememberedNetworkPolicyStore().apply {
@@ -225,8 +264,8 @@ class ConnectionPolicyResolverTest {
             val resolution = resolver.resolve(mode = Mode.VPN)
 
             assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
-            assertEquals(DnsProviderCloudflare, resolution.activeDns.providerId)
-            assertEquals("cloudflare-dns.com", resolution.activeDns.encryptedDnsHost)
+            assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
+            assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
         }
 
     @Test

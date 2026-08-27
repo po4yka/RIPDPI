@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.isAutomaticEncryptedDnsProvider
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -90,7 +91,9 @@ internal class ConnectionPolicyDnsSelector
 
             val learnedPath =
                 networkScopeKey?.let { scopeKey ->
-                    networkDnsPathPreferenceStore.getPreferredPath(scopeKey)
+                    networkDnsPathPreferenceStore
+                        .getPreferredPath(scopeKey)
+                        ?.takeIf { isAutomaticEncryptedDnsProvider(it.resolverId) }
                         ?: derivePreferredVpnDnsPathFromDirectPathCapabilities(scopeKey, directPathCapabilities)
                 }
             return learnedPath
@@ -176,16 +179,18 @@ internal fun resolveVpnDnsSelection(
     if (resolverOverride != null) {
         return VpnDnsSelection(activeDns = resolverOverride.toActiveDnsSettings())
     }
-    if (preferredPath != null) {
+    val automaticPreferredPath = preferredPath?.takeIf { isAutomaticEncryptedDnsProvider(it.resolverId) }
+    if (automaticPreferredPath != null) {
         return VpnDnsSelection(
-            activeDns = preferredPath.toActiveDnsSettings(),
-            preferredPath = preferredPath,
+            activeDns = automaticPreferredPath.toActiveDnsSettings(),
+            preferredPath = automaticPreferredPath,
         )
     }
-    val rememberedDns = rememberedVpnDnsPolicy?.toActiveDnsSettings()
+    val rememberedDns =
+        rememberedVpnDnsPolicy?.toActiveDnsSettings()?.takeIf { isAutomaticEncryptedDnsProvider(it.providerId) }
     return VpnDnsSelection(
         activeDns = rememberedDns ?: baseDns,
-        rememberedVpnDnsPolicy = rememberedVpnDnsPolicy,
+        rememberedVpnDnsPolicy = rememberedVpnDnsPolicy.takeIf { rememberedDns != null },
     )
 }
 

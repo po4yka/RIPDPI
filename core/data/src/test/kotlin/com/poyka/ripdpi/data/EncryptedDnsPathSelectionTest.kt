@@ -7,24 +7,21 @@ import org.junit.Test
 class EncryptedDnsPathSelectionTest {
     @Test
     fun `automatic candidate plan excludes Cloudflare including remembered paths`() {
-        val rememberedCloudflare =
-            activeDnsSettings(
-                dnsMode = DnsModeEncrypted,
-                dnsProviderId = DnsProviderCloudflare,
-                dnsIp = "",
-                encryptedDns = EncryptedDnsConfigInput(protocol = EncryptedDnsProtocolDot),
-            ).toEncryptedDnsPathCandidate()
-        val active =
-            activeDnsSettings(
-                dnsMode = DnsModeEncrypted,
-                dnsProviderId = DnsProviderAdGuard,
-                dnsIp = "",
+        val active = activeDnsSettings(dnsMode = DnsModeEncrypted, dnsProviderId = DnsProviderAdGuard, dnsIp = "")
+        val excludedProviders = listOf(DnsProviderCloudflare, DnsProviderCloudflareIp, "cloudflare-malware")
+
+        excludedProviders.forEach { providerId ->
+            val remembered =
+                activeDnsSettings(dnsMode = DnsModeEncrypted, dnsProviderId = providerId, dnsIp = "")
+                    .toEncryptedDnsPathCandidate()
+            val plan = buildEncryptedDnsCandidatePlan(active, preferredPath = remembered)
+
+            assertTrue(plan.isNotEmpty())
+            assertTrue(
+                "Remembered $providerId must not become an automatic candidate",
+                plan.none { it.resolverId in excludedProviders },
             )
-
-        val plan = buildEncryptedDnsCandidatePlan(active, preferredPath = rememberedCloudflare)
-
-        assertTrue(plan.isNotEmpty())
-        assertTrue(plan.none { it.resolverId in setOf(DnsProviderCloudflare, DnsProviderCloudflareIp) })
+        }
     }
 
     @Test
