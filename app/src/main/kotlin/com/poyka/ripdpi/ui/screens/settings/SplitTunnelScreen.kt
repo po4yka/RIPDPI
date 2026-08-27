@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.ActivityNotFoundException
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,6 +71,7 @@ fun SplitTunnelRoute(
         onBack = onBack,
         onModeSelected = viewModel::setMode,
         onSelectionConfirmed = viewModel::setSelectedPackages,
+        onOpenSystemSettings = { context.startActivity(SplitTunnelSystemUiGate.createExclusionSettingsIntent()) },
         modifier = modifier,
     )
 }
@@ -82,9 +84,11 @@ internal fun SplitTunnelScreen(
     onBack: () -> Unit,
     onModeSelected: (String) -> Unit,
     onSelectionConfirmed: (Set<String>) -> Unit,
+    onOpenSystemSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showAppPicker by remember { mutableStateOf(false) }
+    var systemSettingsLaunchFailed by remember(state.usesSystemExclusionScreen) { mutableStateOf(false) }
 
     RipDpiSettingsScaffold(
         modifier =
@@ -103,9 +107,19 @@ internal fun SplitTunnelScreen(
                     tone = WarningBannerTone.Info,
                 )
             }
-        } else if (state.usesSystemExclusionScreen) {
+        } else if (state.usesSystemExclusionScreen && !systemSettingsLaunchFailed) {
             item(key = "split_tunnel_system_managed") {
-                SplitTunnelSystemManagedCard()
+                SplitTunnelSystemManagedCard(
+                    onOpenSystemSettings = {
+                        try {
+                            onOpenSystemSettings()
+                        } catch (_: ActivityNotFoundException) {
+                            systemSettingsLaunchFailed = true
+                        } catch (_: SecurityException) {
+                            systemSettingsLaunchFailed = true
+                        }
+                    },
+                )
             }
         } else {
             item(key = "split_tunnel_editor") {
@@ -132,8 +146,7 @@ internal fun SplitTunnelScreen(
 }
 
 @Composable
-private fun SplitTunnelSystemManagedCard() {
-    val context = LocalContext.current
+private fun SplitTunnelSystemManagedCard(onOpenSystemSettings: () -> Unit) {
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             Text(
@@ -143,9 +156,7 @@ private fun SplitTunnelSystemManagedCard() {
             )
             RipDpiButton(
                 text = stringResource(R.string.split_tunnel_open_system_settings),
-                onClick = {
-                    runCatching { context.startActivity(SplitTunnelSystemUiGate.createExclusionSettingsIntent()) }
-                },
+                onClick = onOpenSystemSettings,
                 modifier = Modifier.fillMaxWidth(),
                 variant = RipDpiButtonVariant.Outline,
                 density = RipDpiControlDensity.Compact,
@@ -228,6 +239,7 @@ private fun previewSplitTunnelScreen() {
             onBack = {},
             onModeSelected = {},
             onSelectionConfirmed = {},
+            onOpenSystemSettings = {},
         )
     }
 }
@@ -248,6 +260,7 @@ private fun previewSplitTunnelScreenDark() {
             onBack = {},
             onModeSelected = {},
             onSelectionConfirmed = {},
+            onOpenSystemSettings = {},
         )
     }
 }
