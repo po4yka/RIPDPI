@@ -22,6 +22,7 @@ class ServiceShellDelegateCancellationTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {
@@ -37,11 +38,11 @@ class ServiceShellDelegateCancellationTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 1)
+            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("start-begin"), operations)
-            delegate.onStartCommand(stopAction, 2)
+            delegate.onStartCommand(stopAction, 2, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertTrue(startCancelled)
@@ -55,6 +56,7 @@ class ServiceShellDelegateCancellationTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
@@ -66,11 +68,11 @@ class ServiceShellDelegateCancellationTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 1)
+            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
             runCurrent()
-            delegate.onStartCommand(startAction, 2)
-            delegate.onStartCommand(stopAction, 3)
-            delegate.onStartCommand(startAction, 4)
+            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(stopAction, 3, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(startAction, 4, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("start-1", "stop", "start-4"), operations)
@@ -84,6 +86,7 @@ class ServiceShellDelegateCancellationTest {
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -106,7 +109,7 @@ class ServiceShellDelegateCancellationTest {
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
             )
             runCurrent()
-            delegate.onStartCommand(stopAction, 2)
+            delegate.onStartCommand(stopAction, 2, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("failover", "stop"), operations)

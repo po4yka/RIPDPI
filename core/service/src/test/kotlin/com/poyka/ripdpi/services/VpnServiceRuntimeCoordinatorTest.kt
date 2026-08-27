@@ -1920,6 +1920,62 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(emptyList<Int?>(), env.host.stopRequests)
         }
 
+    @Test
+    fun explicitTransportActivationStartsColdRuntimeAndAcknowledgesExactTarget() =
+        runTest {
+            val target = TransportFailoverTarget(RelayKindVlessReality, "editor-profile")
+            val resolution =
+                sampleResolution(
+                    mode = Mode.VPN,
+                    proxyPreferences =
+                        RipDpiProxyUIPreferences(
+                            relay =
+                                RipDpiRelayConfig(
+                                    enabled = true,
+                                    kind = target.transportKind,
+                                    profileId = target.profileId,
+                                ),
+                        ),
+                )
+            val env =
+                newEnv(
+                    resolutions = listOf(resolution),
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ).copy(udpEnabled = true),
+                )
+            val requestId = env.transportFailoverApplyTracker.begin()
+            env.coordinator.activateTransport(requestId, target)
+            runCurrent()
+            assertEquals(
+                TransportFailoverApplyOutcome.Applied,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
+            assertEquals(emptyList<Int?>(), env.host.stopRequests)
+        }
+
+    @Test
+    fun explicitTransportActivationRejectsMismatchedColdTargetBeforeStartingProxy() =
+        runTest {
+            val env = newEnv()
+            val requestId = env.transportFailoverApplyTracker.begin()
+            env.coordinator.activateTransport(requestId, TransportFailoverTarget(TransportKindAmneziaWg, "missing"))
+            runCurrent()
+            assertEquals(
+                TransportFailoverApplyOutcome.RollbackSafeFailure,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertTrue(env.factory.runtimes.isEmpty())
+            assertTrue(
+                env.bridgeFactory.bridge.startedConfigs
+                    .isEmpty(),
+            )
+        }
+
     private fun plainDnsResolution(): ConnectionPolicyResolution {
         val settings =
             AppSettingsSerializer.defaultValue

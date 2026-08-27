@@ -50,9 +50,18 @@ class VpnRouteLifecycleReceiptStore
             ownPackage: String?,
             networkParameters: VpnTunnelNetworkParameters,
             apiLevel: Int,
+            profileInterface: VpnProfileInterface? = null,
         ): Long {
             val generation = nextGeneration.incrementAndGet()
-            val routeFamilies = intendedDefaultRouteFamilies(ipv6Enabled)
+            val addressFamilies = intendedDefaultRouteFamilies(ipv6Enabled)
+            val routeFamilies =
+                profileInterface
+                    ?.routePlan()
+                    ?.routes
+                    ?.filter { it.prefixLength == 0 }
+                    ?.map { if (':' in it.address) VpnRouteFamilyIpv6 else VpnRouteFamilyIpv4 }
+                    ?.distinct()
+                    ?.sorted() ?: addressFamilies
             pendingReceipts[generation] =
                 ReceiptRecord(
                     receipt =
@@ -60,8 +69,12 @@ class VpnRouteLifecycleReceiptStore
                             generation = generation,
                             state = VpnRouteLifecycleState.Intended,
                             intendedDefaultRouteFamilies = routeFamilies,
-                            addressFamilies = routeFamilies,
-                            dnsServerFamilies = dnsAddressFamilies(dns),
+                            addressFamilies = addressFamilies,
+                            dnsServerFamilies =
+                                (profileInterface?.dnsServers?.takeIf { it.isNotEmpty() } ?: listOf(dns))
+                                    .flatMap(::dnsAddressFamilies)
+                                    .distinct()
+                                    .sorted(),
                             appRoutingShape = appRoutingPlan.shape(),
                             configuredAppCount = boundedNetworkPathCount(appRoutingPlan.configuredAppCount()),
                             ownPackageExcluded = appRoutingPlan.excludesOwnPackage(ownPackage),

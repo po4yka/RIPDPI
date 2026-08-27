@@ -130,8 +130,16 @@ internal class VpnRuntimeCompositionCoordinator(
             logContext = logContext,
             localProxyEndpoint = proxyStartResult.endpoint,
             forceTunnelDns =
-                forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
+                resolution.proxyPreferences
+                    .awgConfigOrNull()
+                    ?.dnsServers
+                    ?.isEmpty()
+                    ?: (
+                        forceTunnelDnsForRelay(resolution.settings) &&
+                            resolution.proxyPreferences.relayConfigOrNull() != null
+                    ),
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
+            profileInterface = resolution.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
         )
         vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
         updateRuntimeDnsState(session, resolution)
@@ -182,8 +190,16 @@ internal class VpnRuntimeCompositionCoordinator(
             logContext = logContext,
             localProxyEndpoint = proxyStartResult.endpoint,
             forceTunnelDns =
-                forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
+                resolution.proxyPreferences
+                    .awgConfigOrNull()
+                    ?.dnsServers
+                    ?.isEmpty()
+                    ?: (
+                        forceTunnelDnsForRelay(resolution.settings) &&
+                            resolution.proxyPreferences.relayConfigOrNull() != null
+                    ),
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
+            profileInterface = resolution.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
         )
         vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
         updateRuntimeDnsState(session, resolution)
@@ -199,8 +215,8 @@ internal class VpnRuntimeCompositionCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
-        val configuredRelay = resolution.proxyPreferences.relayConfigOrNull()
         val configuredAwg = resolution.proxyPreferences.awgConfigOrNull()
+        val configuredRelay = resolution.proxyPreferences.relayConfigOrNull().takeIf { configuredAwg == null }
         val requirements =
             EgressRequirements(
                 tcpConnect = true,

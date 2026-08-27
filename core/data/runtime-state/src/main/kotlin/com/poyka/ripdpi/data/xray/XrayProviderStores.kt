@@ -452,9 +452,9 @@ data class XrayProviderSelectionRecord(
  * `:app` selection UI writes it; `:core:service` reads [current] at VPN startup.
  */
 interface XrayProviderSelectionStore {
-    suspend fun current(): XrayProviderSelectionRecord
+    fun current(): XrayProviderSelectionRecord
 
-    suspend fun update(record: XrayProviderSelectionRecord)
+    fun update(record: XrayProviderSelectionRecord)
 }
 
 @Singleton
@@ -466,12 +466,12 @@ class SharedPreferencesXrayProviderSelectionStore
         private val preferences = context.getSharedPreferences(SelectionPrefsName, Context.MODE_PRIVATE)
         private val json = RipDpiJson
 
-        override suspend fun current(): XrayProviderSelectionRecord =
+        override fun current(): XrayProviderSelectionRecord =
             preferences.getString(SelectionKey, null)?.let {
                 runCatching { json.decodeFromString(XrayProviderSelectionRecord.serializer(), it) }.getOrNull()
             } ?: XrayProviderSelectionRecord()
 
-        override suspend fun update(record: XrayProviderSelectionRecord) {
+        override fun update(record: XrayProviderSelectionRecord) {
             preferences
                 .edit()
                 .putString(SelectionKey, json.encodeToString(XrayProviderSelectionRecord.serializer(), record))

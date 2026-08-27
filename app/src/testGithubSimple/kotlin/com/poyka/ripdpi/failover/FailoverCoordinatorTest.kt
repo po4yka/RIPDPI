@@ -32,6 +32,7 @@ import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
@@ -214,7 +215,7 @@ private class FakeAppSettingsRepository(
     fun simpleFailoverAwgProfileId(): String = settingsState.value.simpleFailoverAwgProfileId
 }
 
-private class FakeAwgProfileDao(
+internal class FakeAwgProfileDao(
     rows: List<AwgProfileEntity> = emptyList(),
 ) : AwgProfileDao {
     private val rowsState = MutableStateFlow(rows.toMutableList())
@@ -241,7 +242,7 @@ private class FakeAwgProfileDao(
     }
 }
 
-private class FakeAwgCredentialStore : AwgCredentialStore {
+internal class FakeAwgCredentialStore : AwgCredentialStore {
     override suspend fun load(profileId: String): AwgSecrets = AwgSecrets()
 
     override suspend fun save(
@@ -343,12 +344,18 @@ private fun buildCoordinator(
     awgProfiles: List<AwgProfileEntity> = emptyList(),
     clock: FakeFailoverClock = FakeFailoverClock(now = 0L),
     settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+    bootSelection: TestAwgBootSelection = TestAwgBootSelection(),
     egressProbe: FailoverEgressProbe =
         FailoverEgressProbe { _, _ -> FailoverEgressProbeResult(succeeded = false) },
     egressHealthMemory: SimpleEgressHealthMemory = RecordingSimpleEgressHealthMemory(),
 ): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
-    val awgSelection = SimpleAwgEgressSelection(awgRepo, settings)
+    val awgSelection =
+        SimpleAwgEgressSelection(
+            awgRepo,
+            settings,
+            bootSelection,
+        )
     val transportFailoverApplyTracker = TransportFailoverApplyTracker()
     controller.transportFailoverApplyTracker = transportFailoverApplyTracker
     val coordinator =
@@ -466,6 +473,7 @@ class FailoverCoordinatorTest {
     fun `explicit VPN start restores embedded Reality after automatic fallback`() =
         runTest {
             val settings = FakeAppSettingsRepository()
+            val bootSelection = TestAwgBootSelection().apply { setActiveAwgProfileId("awg-editor-current") }
             settings.update {
                 setEnableCmdSettings(true)
                 setRelayEnabled(false)
@@ -473,9 +481,9 @@ class FailoverCoordinatorTest {
                 setRelayProfileId("simple-seed-Hysteria2")
                 setSimpleFailoverAwgProfileId(SIMPLE_SEED_AWG_PROFILE_ID)
             }
-            val (coordinator, _, _) = buildCoordinator(settings = settings)
+            val (coordinator, _, _) = buildCoordinator(settings = settings, bootSelection = bootSelection)
 
-            coordinator.prepare(Mode.VPN)
+            coordinator.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
 
             assertFalse(settings.snapshot().enableCmdSettings)
             assertTrue(settings.relayEnabled())
@@ -483,6 +491,31 @@ class FailoverCoordinatorTest {
             assertEquals("simple-seed-VlessReality", settings.relayProfileId())
             assertEquals("", settings.simpleFailoverAwgProfileId())
             assertNull(coordinator.activeCandidate.value)
+            assertNull(bootSelection.activeAwgProfileId())
+        }
+
+    @Test
+    fun `suspended ordinary preparation preserves newer standalone selection`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            val boot = TestAwgBootSelection()
+            val arbiter = ServiceIntentArbiter()
+            val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
+            val updateStarted = CompletableDeferred<Unit>()
+            val releaseUpdate = CompletableDeferred<Unit>()
+            settings.beforeUpdate = {
+                updateStarted.complete(Unit)
+                releaseUpdate.await()
+            }
+            val (coordinator, _, _) = buildCoordinator(settings = settings, bootSelection = boot)
+            val prepare = async { coordinator.prepare(Mode.VPN, arbiter.explicitUserStartGuard(generation)) }
+            updateStarted.await()
+            arbiter.userStart({ boot.setActiveAwgProfileId("awg-newer") }) { true }
+            releaseUpdate.complete(Unit)
+            prepare.await()
+            assertEquals("awg-newer", boot.activeAwgProfileId())
+            coordinator.prepare(Mode.VPN, arbiter.explicitUserStartGuard(arbiter.captureExplicitUserIntentGeneration()))
+            assertNull(boot.activeAwgProfileId())
         }
 
     @Test
@@ -1268,7 +1301,7 @@ class FailoverCoordinatorTest {
             runCurrent()
             assertEquals(1, controller.transportRestartRequestIds.size)
 
-            fixture.coordinator.prepare(Mode.VPN)
+            fixture.coordinator.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
             runCurrent()
 
             assertTrue(settings.relayEnabled())
@@ -1374,7 +1407,8 @@ class FailoverCoordinatorTest {
                 stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
             }
             fallbackWriteStarted.await()
-            val prepare = async { fixture.coordinator.prepare(Mode.VPN) }
+            val prepare =
+                async { fixture.coordinator.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L)) }
             runCurrent()
 
             releaseFallbackWrite.complete(Unit)
@@ -3497,4 +3531,29 @@ class FailoverCoordinatorTest {
 
             coordinator.stopObserving()
         }
+}
+
+internal class TestAwgBootSelection : com.poyka.ripdpi.data.boot.BootSessionStateStore {
+    private var selectedId: String? = null
+
+    override fun lastSession(): com.poyka.ripdpi.data.boot.BootSessionPointer? = null
+
+    override fun recordSession(
+        profileId: String,
+        mode: Mode,
+    ) = Unit
+
+    override fun activeAwgProfileId(): String? = selectedId
+
+    override fun setActiveAwgProfileId(profileId: String?) {
+        selectedId = profileId
+    }
+
+    override fun clear() {
+        selectedId = null
+    }
+
+    override fun wasRunningAtUpdate(): Boolean = false
+
+    override fun setWasRunningAtUpdate(value: Boolean) = Unit
 }

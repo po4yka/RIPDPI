@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.content.Intent
 import android.net.VpnService
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.startAction
@@ -14,11 +15,22 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
+const val explicitUserIntentGenerationExtra = "explicit_user_intent_generation"
+
+internal fun Intent?.explicitUserIntentGeneration(): Long? =
+    this
+        ?.takeIf {
+            it.hasExtra(
+                explicitUserIntentGenerationExtra,
+            )
+        }?.getLongExtra(explicitUserIntentGenerationExtra, -1L)
+
 internal const val notificationStopAction = "notification_stop"
 internal const val diagnosticsStopAction = "diagnostics_stop"
 internal const val diagnosticsStartAction = "diagnostics_start"
 internal const val diagnosticsCompensatingStopAction = "diagnostics_compensating_stop"
 internal const val transportFailoverRestartAction = "transport_failover_restart"
+internal const val transportActivationStartAction = "transport_activation_start"
 internal const val transportFailoverRequestIdExtra = "transport_failover_request_id"
 internal const val transportFailoverTargetKindExtra = "transport_failover_target_kind"
 internal const val transportFailoverTargetProfileIdExtra = "transport_failover_target_profile_id"
@@ -37,21 +49,27 @@ internal fun isServiceRecoveryStartAction(action: String?): Boolean =
 internal class TransportFailoverCommandHandler(
     val restart: suspend (Long, TransportFailoverTarget) -> Unit,
     val reject: (Long) -> Unit = {},
+    val activate: (suspend (Long, TransportFailoverTarget) -> Unit)? = null,
+)
+
+internal class ServiceShellIntentCallbacks(
+    val acceptedStart: () -> Unit = {},
+    val acceptedStop: (Long?) -> Unit = {},
 )
 
 internal class ServiceShellDelegate(
     private val serviceScope: CoroutineScope,
+    private val serviceIntentArbiter: ServiceIntentArbiter,
     private val serviceLabel: String,
     private val onStart: suspend () -> Unit,
     private val onStartWithId: suspend (String?, Int) -> Unit = { _, _ -> onStart() },
     private val onStop: suspend (Int?, ServiceStopProvenance) -> Unit,
     private val transportFailoverCommandHandler: TransportFailoverCommandHandler =
         TransportFailoverCommandHandler(restart = { _, _ -> onStart() }),
-    private val beforeUserStart: suspend () -> Unit = {},
+    private val beforeUserStart: suspend (ExplicitUserStartGuard) -> Unit = {},
     private val shouldPrepareUserStart: () -> Boolean = { true },
     private val isStopAllowed: (String) -> Boolean = { true },
-    private val onAcceptedStart: () -> Unit = {},
-    private val onAcceptedStop: () -> Unit = {},
+    private val intentCallbacks: ServiceShellIntentCallbacks = ServiceShellIntentCallbacks(),
     private val isCompensatingStopCurrent: () -> Boolean = { true },
     private val onRevoke: (suspend () -> Unit)? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -107,6 +125,7 @@ internal class ServiceShellDelegate(
         startId: Int,
         transportFailoverRequestId: Long? = null,
         transportFailoverTarget: TransportFailoverTarget? = null,
+        explicitUserIntentGeneration: Long? = null,
     ): Int =
         when (action) {
             // null is a sticky restart after process death. Android's Always-on
@@ -122,12 +141,7 @@ internal class ServiceShellDelegate(
             }
 
             startAction -> {
-                val prepareUserStart = shouldPrepareUserStart()
-                onAcceptedStart()
-                enqueue(cancellableByUserStop = true) {
-                    if (prepareUserStart) beforeUserStart()
-                    onStartWithId(action, startId)
-                }
+                enqueueExplicitUserStart(action, startId, explicitUserIntentGeneration)
                 android.app.Service.START_STICKY
             }
 
@@ -141,28 +155,23 @@ internal class ServiceShellDelegate(
                 android.app.Service.START_STICKY
             }
 
+            transportActivationStartAction -> {
+                val guard = acceptExplicitUserStart(explicitUserIntentGeneration)
+                if (guard == null) {
+                    transportFailoverRequestId?.let(transportFailoverCommandHandler.reject)
+                } else {
+                    enqueueTransportFailoverRestart(transportFailoverRequestId, transportFailoverTarget, guard)
+                }
+                android.app.Service.START_STICKY
+            }
+
             startupFallbackStartAction -> {
                 enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
                 android.app.Service.START_STICKY
             }
 
             stopAction, notificationStopAction -> {
-                if (isStopAllowed(action)) {
-                    onAcceptedStop()
-                    cancelStartsAcceptedBeforeUserStop()
-                    val provenance =
-                        if (action == notificationStopAction) {
-                            ServiceStopProvenance.NotificationAction
-                        } else {
-                            ServiceStopProvenance.UserRequest
-                        }
-                    enqueue { stopWithProvenance(startId, provenance) }
-                    android.app.Service.START_NOT_STICKY
-                } else {
-                    Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
-                    enqueue(cancellableByUserStop = true, block = onStart)
-                    android.app.Service.START_STICKY
-                }
+                enqueueUserStop(action, startId, explicitUserIntentGeneration)
             }
 
             diagnosticsStopAction -> {
@@ -196,6 +205,69 @@ internal class ServiceShellDelegate(
             }
         }
 
+    private fun enqueueUserStop(
+        action: String,
+        startId: Int,
+        generation: Long?,
+    ): Int {
+        if (!isStopAllowed(action)) {
+            Logger.w { "Ignoring stop action for $serviceLabel service while disconnect is blocked" }
+            enqueue(cancellableByUserStop = true, block = onStart)
+            return android.app.Service.START_STICKY
+        }
+        val acceptedGuard =
+            serviceIntentArbiter.serialize {
+                if (action == stopAction && (
+                        generation == null ||
+                            !serviceIntentArbiter.explicitUserStartGuard(generation).isCurrent()
+                    )
+                ) {
+                    null
+                } else {
+                    intentCallbacks.acceptedStop(if (action == stopAction) generation else null)
+                    cancelStartsAcceptedBeforeUserStop()
+                    serviceIntentArbiter.explicitUserStartGuard(
+                        serviceIntentArbiter.captureExplicitUserIntentGeneration(),
+                    )
+                }
+            }
+        return if (acceptedGuard != null) {
+            val provenance =
+                if (action == notificationStopAction) {
+                    ServiceStopProvenance.NotificationAction
+                } else {
+                    ServiceStopProvenance.UserRequest
+                }
+            enqueue {
+                if (acceptedGuard.isCurrent()) stopWithProvenance(startId, provenance)
+            }
+            android.app.Service.START_NOT_STICKY
+        } else {
+            android.app.Service.START_STICKY
+        }
+    }
+
+    private fun acceptExplicitUserStart(generation: Long?): ExplicitUserStartGuard? {
+        if (generation == null) return null
+        val guard = serviceIntentArbiter.explicitUserStartGuard(generation)
+        return guard.takeIf { it.runIfCurrent(intentCallbacks.acceptedStart) }
+    }
+
+    private fun enqueueExplicitUserStart(
+        action: String,
+        startId: Int,
+        generation: Long?,
+    ) {
+        val guard = acceptExplicitUserStart(generation) ?: return
+        val prepareUserStart = shouldPrepareUserStart()
+        enqueue(cancellableByUserStop = true) {
+            if (guard.isCurrent()) {
+                if (prepareUserStart) beforeUserStart(guard)
+                if (guard.isCurrent()) onStartWithId(action, startId)
+            }
+        }
+    }
+
     private suspend fun stopWithProvenance(
         startId: Int,
         provenance: ServiceStopProvenance,
@@ -206,14 +278,33 @@ internal class ServiceShellDelegate(
     private fun enqueueTransportFailoverRestart(
         requestId: Long?,
         target: TransportFailoverTarget?,
+        explicitGuard: ExplicitUserStartGuard? = null,
     ) {
         if (requestId == null || target == null) {
             requestId?.let(transportFailoverCommandHandler.reject)
             Logger.w { "Ignoring transport failover restart without request identity" }
             return
         }
+        val apply =
+            if (explicitGuard !=
+                null
+            ) {
+                transportFailoverCommandHandler.activate
+            } else {
+                transportFailoverCommandHandler.restart
+            }
+        if (apply == null) {
+            transportFailoverCommandHandler.reject(requestId)
+            return
+        }
         enqueue(
-            block = { transportFailoverCommandHandler.restart(requestId, target) },
+            block = {
+                if (explicitGuard == null || explicitGuard.isCurrent()) {
+                    apply(requestId, target)
+                } else {
+                    transportFailoverCommandHandler.reject(requestId)
+                }
+            },
             onDrop = { transportFailoverCommandHandler.reject(requestId) },
             cancellableByUserStop = true,
         )

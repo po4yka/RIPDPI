@@ -35,6 +35,7 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeStartEvidence
+import com.poyka.ripdpi.services.RuntimeStartTransaction
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
@@ -471,6 +472,50 @@ internal class VpnServiceRuntimeCoordinator(
             if (failure !is CancellationException) {
                 throw failure
             }
+        }
+    }
+
+    /** Explicit editor activation supports cold start and barrier-preserving replacement. */
+    suspend fun activateTransport(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ) {
+        if (mutex.withLock { status == ServiceStatus.Connected && !stopping }) {
+            restartAfterTransportFailover(requestId, expectedTarget)
+            return
+        }
+        var claimed = false
+        var applied = false
+        try {
+            withContext(NonCancellable) {
+                withTimeout(transportFailoverRuntimeTimeoutMillis) {
+                    startTransaction(
+                        RuntimeStartTransaction(
+                            beforeStart = { resolution ->
+                                check(resolution.transportFailoverTargetOrNull() == expectedTarget) {
+                                    "Selected transport changed before startup"
+                                }
+                                check(transportFailoverApplyTracker.claimApplying(requestId)) {
+                                    "Transport activation request expired before startup"
+                                }
+                                claimed = true
+                            },
+                            onStarted = {
+                                check(transportFailoverApplyTracker.recordApplied(requestId)) {
+                                    "Transport activation acknowledgement rejected"
+                                }
+                                applied = true
+                            },
+                        ),
+                    )
+                }
+            }
+        } finally {
+            if (!applied) {
+                val rollbackSafe = !claimed || terminateFailedTransportReplacement(requestId)
+                transportFailoverApplyTracker.recordRuntimeFailure(requestId, rollbackSafe)
+            }
+            if (claimed) transportFailoverApplyTracker.releaseRuntimeOwnership(requestId)
         }
     }
 

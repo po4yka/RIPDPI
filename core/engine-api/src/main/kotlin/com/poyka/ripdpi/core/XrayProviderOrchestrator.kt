@@ -172,6 +172,16 @@ class XrayProviderOrchestrator(
         return HandoffOutcome.Stopped
     }
 
+    /** Release the provider while the service retains the TUN barrier for a native replacement. */
+    suspend fun releaseProviderForNativeReplacement() {
+        withContext(NonCancellable) {
+            val stopCause = activeXray?.stop()
+            check(stopCause !is StopCause.Failed) { "Xray stop failed during native replacement" }
+            activeXray = null
+            activeRoute = null
+        }
+    }
+
     /**
      * Whether a route change between [from] and [to] forces a dual restart.
      *

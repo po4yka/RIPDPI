@@ -21,10 +21,11 @@ internal class VpnServiceSessionLifecycle(
     private val sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>,
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+    private val serviceIntentArbiter: ServiceIntentArbiter,
     private val acceptedUserStopRecorder: AcceptedUserStopRecorder,
     private val transportFailoverApplyTracker: TransportFailoverApplyTracker,
     private val serviceStopProvenanceRecorder: ServiceStopProvenanceRecorder,
-    private val beforeUserStart: suspend () -> Unit = {},
+    private val beforeUserStart: suspend (ExplicitUserStartGuard) -> Unit = {},
     private val awaitStartupReadiness: suspend () -> Boolean = { true },
     private val recoverProfileMutations: suspend () -> Unit = {},
     private val awaitRecoveryUnderlay: suspend () -> Unit = {},
@@ -39,6 +40,11 @@ internal class VpnServiceSessionLifecycle(
     private var coordinator: VpnServiceRuntimeCoordinator? = null
     private var protectSocketServer: VpnProtectSocketServer? = null
     private val cleanup = VpnServiceSessionCleanup()
+    private val intentCallbacks =
+        ServiceShellIntentCallbacks(
+            acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+            acceptedStop = acceptedUserStopRecorder::record,
+        )
 
     fun createShellDelegate(): ServiceShellDelegate {
         hardKillSwitchRefreshBroadcastLifecycle.start()
@@ -64,6 +70,7 @@ internal class VpnServiceSessionLifecycle(
             }
             ServiceShellDelegate(
                 serviceScope = service.serviceScope,
+                serviceIntentArbiter = serviceIntentArbiter,
                 serviceLabel = "vpn",
                 onStart = runtimeCoordinator::start,
                 onStartWithId = { action, startId ->
@@ -90,15 +97,15 @@ internal class VpnServiceSessionLifecycle(
                         restart = { requestId, expectedTarget ->
                             runtimeCoordinator.restartAfterTransportFailover(requestId, expectedTarget)
                         },
-                        reject = transportFailoverApplyTracker::recordRollbackSafeFailure,
+                        reject = transportFailoverApplyTracker::cancel,
+                        activate = runtimeCoordinator::activateTransport,
                     ),
                 beforeUserStart = beforeUserStart,
                 shouldPrepareUserStart = {
                     serviceStateStore.status.value.first != AppStatus.Running
                 },
                 isStopAllowed = service::isUserStopAllowed,
-                onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
-                onAcceptedStop = acceptedUserStopRecorder::record,
+                intentCallbacks = intentCallbacks,
                 isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
                 onRevoke = {
                     serviceStateStore.emitFailed(

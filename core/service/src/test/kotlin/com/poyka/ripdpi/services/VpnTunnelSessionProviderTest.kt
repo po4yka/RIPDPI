@@ -16,6 +16,8 @@ class VpnTunnelSessionProviderTest {
             val expectedSettings = AppSettings.getDefaultInstance()
             var receivedPlan: VpnAppRoutingPlan? = null
             var receivedSettings: AppSettings? = null
+            val profile = VpnProfileInterface(listOf("10.0.0.1", "10.0.0.2"), listOf("10.0.0.0/8"), false, 1400)
+            var receivedProfile: VpnProfileInterface? = null
             val host =
                 object : VpnTunnelBuilderHost {
                     override suspend fun resolveAppRoutingPlan(
@@ -31,12 +33,14 @@ class VpnTunnelSessionProviderTest {
                         interfaceSettings: AppSettings,
                         httpProxyPort: Int?,
                         networkParameters: VpnTunnelNetworkParameters,
+                        profileInterface: VpnProfileInterface?,
                     ): VpnTunnelBuilder =
                         object : VpnTunnelBuilder {
                             override fun establish(): VpnTunnelSession = expected
                         }.also {
                             receivedPlan = appRoutingPlan
                             receivedSettings = interfaceSettings
+                            receivedProfile = profileInterface
                         }
                 }
 
@@ -47,11 +51,13 @@ class VpnTunnelSessionProviderTest {
                     ipv6 = true,
                     appRoutingPlan = expectedPlan,
                     interfaceSettings = expectedSettings,
+                    profileInterface = profile,
                 )
 
             assertSame(expected, session)
             assertSame(expectedPlan, receivedPlan)
             assertSame(expectedSettings, receivedSettings)
+            assertSame(profile, receivedProfile)
         }
 
     @Test
@@ -72,6 +78,7 @@ class VpnTunnelSessionProviderTest {
                         interfaceSettings: AppSettings,
                         httpProxyPort: Int?,
                         networkParameters: VpnTunnelNetworkParameters,
+                        profileInterface: VpnProfileInterface?,
                     ): VpnTunnelBuilder =
                         object : VpnTunnelBuilder {
                             override fun establish(): VpnTunnelSession? = null

@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.system.OsConstants
-import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.BuildConfig
@@ -16,14 +15,14 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.setStrategyChains
-import com.poyka.ripdpi.data.startAction
-import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsAddress
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsPort
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility
 import com.poyka.ripdpi.services.SplitTunnelMode
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -84,6 +83,9 @@ class NetworkPathE2ETest {
         } else {
             TestRule { statement, _ -> statement }
         }
+
+    @Inject
+    lateinit var serviceController: ServiceController
 
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
@@ -1557,15 +1559,13 @@ class NetworkPathE2ETest {
 
     private fun startService(serviceClass: Class<*>) {
         startedServices += serviceClass
-        ContextCompat.startForegroundService(
-            appContext,
-            Intent(appContext, serviceClass).setAction(startAction),
-        )
+        val mode = if (serviceClass == RipDpiVpnService::class.java) Mode.VPN else Mode.Proxy
+        assertTrue(serviceController.start(mode) is ServiceStartResult.Accepted)
     }
 
     private fun stopService(serviceClass: Class<*>) {
         if (startedServices.remove(serviceClass)) {
-            appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+            serviceController.stop()
         } else {
             appContext.stopService(Intent(appContext, serviceClass))
         }

@@ -210,6 +210,30 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
+    fun explicitTransportStartCarriesTargetAndSupersedesResumeLease() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val tracker = RuntimeResumeIntentTracker()
+        val lease = tracker.captureResumeLease()
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = tracker,
+                serviceIntentArbiter = ServiceIntentArbiter(),
+            )
+        val target = TransportFailoverTarget(TransportKindAmneziaWg, "awg-editor")
+        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.startVpnTransport(42L, target))
+        assertEquals(transportActivationStartAction, starter.lastIntent?.action)
+        assertEquals(target, starter.lastIntent.decodeTransportFailoverCommand().target)
+        assertEquals(42L, starter.lastIntent.decodeTransportFailoverCommand().requestId)
+        assertFalse(tracker.ownership(lease) == ResumeLeaseOwnership.Owned)
+    }
+
+    @Test
     fun startupFallbackUsesInternalVpnStartAction() {
         ShadowServiceControllerVpnPrepareService.prepareIntent = null
         val tracker = RuntimeResumeIntentTracker()
@@ -574,7 +598,53 @@ class ServiceControllerForegroundDenialTest {
     }
 }
 
-private class InMemoryBootSessionStateStore : BootSessionStateStore {
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [Build.VERSION_CODES.S])
+class ServiceIntentGenerationTest {
+    @Test
+    fun `dispatch carries generation already visible to delivery`() {
+        val arbiter = ServiceIntentArbiter()
+        val intents = mutableListOf<Intent>()
+        val starter =
+            object : ForegroundServiceStarter {
+                override fun startForegroundService(
+                    context: Context,
+                    intent: Intent,
+                ) {
+                    assertEquals(arbiter.captureExplicitUserIntentGeneration(), intent.explicitUserIntentGeneration())
+                    intents += intent
+                }
+            }
+        val controller = controller(arbiter, starter)
+        controller.start(Mode.Proxy)
+        controller.start(Mode.Proxy)
+        assertEquals(listOf(1L, 2L), intents.map { it.explicitUserIntentGeneration() })
+    }
+
+    @Test
+    fun `rejected dispatch restores previous generation and recovery authority`() {
+        val arbiter = ServiceIntentArbiter()
+        val controller = controller(arbiter, RecordingForegroundServiceStarter { error("denied") })
+        assertTrue(controller.start(Mode.Proxy) is ServiceStartResult.Rejected)
+        assertEquals(0L, arbiter.captureExplicitUserIntentGeneration())
+        assertEquals("still-owned", arbiter.recovery { "still-owned" })
+    }
+
+    private fun controller(
+        arbiter: ServiceIntentArbiter,
+        starter: ForegroundServiceStarter,
+    ) = DefaultServiceController(
+        context = RuntimeEnvironment.getApplication(),
+        serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy),
+        serviceAutomationController = Optional.empty(),
+        foregroundServiceStarter = starter,
+        bootSessionStateStore = InMemoryBootSessionStateStore(),
+        runtimeResumeIntentTracker = RuntimeResumeIntentTracker(),
+        serviceIntentArbiter = arbiter,
+    )
+}
+
+internal class InMemoryBootSessionStateStore : BootSessionStateStore {
     private var pointer: BootSessionPointer? = null
     private var wasRunningAtUpdate = false
 

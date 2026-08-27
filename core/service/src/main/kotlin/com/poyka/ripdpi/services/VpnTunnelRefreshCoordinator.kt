@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -52,6 +53,12 @@ internal class VpnTunnelRefreshCoordinator(
                     logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
                     localProxyEndpoint = endpoint,
                     splitStrictDnsPolicy = latestConnectionPolicy.splitStrictDnsPolicy,
+                    profileInterface = latestConnectionPolicy.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
+                    forceTunnelDns =
+                        latestConnectionPolicy.proxyPreferences
+                            .awgConfigOrNull()
+                            ?.dnsServers
+                            ?.isEmpty() == true,
                 )
                 dependencies.vpnTunnelRuntime.publishInPathLease(refreshSession, endpoint)
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)

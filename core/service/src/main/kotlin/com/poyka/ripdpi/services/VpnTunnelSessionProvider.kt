@@ -35,6 +35,7 @@ interface VpnTunnelSessionProvider {
         interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
         networkParameters: VpnTunnelNetworkParameters = host.currentTunnelNetworkParameters(),
+        profileInterface: VpnProfileInterface? = null,
     ): VpnTunnelSession
 }
 
@@ -50,6 +51,7 @@ class DefaultVpnTunnelSessionProvider
             interfaceSettings: AppSettings,
             httpProxyPort: Int?,
             networkParameters: VpnTunnelNetworkParameters,
+            profileInterface: VpnProfileInterface?,
         ): VpnTunnelSession {
             val descriptor =
                 host
@@ -60,6 +62,7 @@ class DefaultVpnTunnelSessionProvider
                         interfaceSettings,
                         httpProxyPort,
                         networkParameters,
+                        profileInterface,
                     ).establish()
                     ?: error("VPN connection failed")
             return descriptor

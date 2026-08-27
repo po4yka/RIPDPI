@@ -660,9 +660,9 @@ private class InMemoryXraySecretStore : XrayProfileSecretStore {
 private class InMemoryXraySelectionStore : XrayProviderSelectionStore {
     private var value = XrayProviderSelectionRecord()
 
-    override suspend fun current() = value
+    override fun current() = value
 
-    override suspend fun update(record: XrayProviderSelectionRecord) {
+    override fun update(record: XrayProviderSelectionRecord) {
         value = record
     }
 }

@@ -34,7 +34,6 @@ import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.startAction
-import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NetworkHandoverMonitorModule
 import com.poyka.ripdpi.services.PermissionChangeEvent
@@ -42,8 +41,11 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.PermissionWatchdogModule
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
+import com.poyka.ripdpi.services.explicitUserIntentGenerationExtra
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule
@@ -137,6 +139,12 @@ class ServiceLifecycleIntegrationTest {
         }
 
     @Inject
+    lateinit var serviceController: ServiceController
+
+    @Inject
+    lateinit var serviceIntentArbiter: ServiceIntentArbiter
+
+    @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
 
     @Before
@@ -171,7 +179,7 @@ class ServiceLifecycleIntegrationTest {
             awaitStatus(AppStatus.Running, Mode.Proxy)
             assertEquals(listOf("proxy:start"), IntegrationTestOverrides.orderSnapshot())
 
-            stopService(RipDpiProxyService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.Proxy)
 
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
@@ -188,7 +196,7 @@ class ServiceLifecycleIntegrationTest {
 
             assertEquals(Mode.Proxy, activePolicy.mode)
 
-            stopService(RipDpiProxyService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.Proxy)
             awaitClearedActivePolicy(Mode.Proxy)
         }
@@ -213,7 +221,7 @@ class ServiceLifecycleIntegrationTest {
                     ?.contains("\"kind\":\"command_line\"") == true,
             )
 
-            stopService(RipDpiProxyService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.Proxy)
         }
     }
@@ -256,7 +264,7 @@ class ServiceLifecycleIntegrationTest {
 
             assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "proxy:start" })
 
-            stopService(RipDpiProxyService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.Proxy)
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
         }
@@ -307,7 +315,7 @@ class ServiceLifecycleIntegrationTest {
             )
             assertTrue(IntegrationTestOverrides.orderSnapshot().contains("proxy:start"))
 
-            stopService(RipDpiVpnService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.VPN)
 
             assertContainsSubsequence(
@@ -328,7 +336,7 @@ class ServiceLifecycleIntegrationTest {
 
             assertEquals(Mode.VPN, activePolicy.mode)
 
-            stopService(RipDpiVpnService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.VPN)
             awaitClearedActivePolicy(Mode.VPN)
         }
@@ -492,10 +500,10 @@ class ServiceLifecycleIntegrationTest {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
 
-            stopService(RipDpiVpnService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.VPN)
 
-            stopService(RipDpiVpnService::class.java)
+            stopService()
             delay(200)
 
             assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
@@ -605,10 +613,10 @@ class ServiceLifecycleIntegrationTest {
                 ),
             )
 
-            stopService(RipDpiProxyService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.Proxy)
 
-            stopService(RipDpiProxyService::class.java)
+            stopService()
             delay(200)
 
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
@@ -665,7 +673,7 @@ class ServiceLifecycleIntegrationTest {
                 ),
             )
 
-            stopService(RipDpiVpnService::class.java)
+            stopService()
             awaitStatus(AppStatus.Halted, Mode.VPN)
 
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
@@ -737,14 +745,22 @@ class ServiceLifecycleIntegrationTest {
     }
 
     private fun startService(serviceClass: Class<*>) {
-        ContextCompat.startForegroundService(
-            appContext,
-            Intent(appContext, serviceClass).setAction(startAction),
+        serviceIntentArbiter.userStart(
+            action = {
+                ContextCompat.startForegroundService(
+                    appContext,
+                    Intent(appContext, serviceClass).setAction(startAction).putExtra(
+                        explicitUserIntentGenerationExtra,
+                        serviceIntentArbiter.captureExplicitUserIntentGeneration(),
+                    ),
+                )
+            },
+            isAccepted = { true },
         )
     }
 
-    private fun stopService(serviceClass: Class<*>) {
-        appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+    private fun stopService() {
+        serviceController.stop()
     }
 
     private suspend fun awaitStatus(

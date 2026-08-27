@@ -73,6 +73,9 @@ class RipDpiVpnService :
     lateinit var runtimeResumeIntentTracker: RuntimeResumeIntentTracker
 
     @Inject
+    lateinit var serviceIntentArbiter: ServiceIntentArbiter
+
+    @Inject
     lateinit var acceptedUserStopRecorder: AcceptedUserStopRecorder
 
     @Inject
@@ -134,11 +137,12 @@ class RipDpiVpnService :
                 sessionComponentBuilderProvider = sessionComponentBuilderProvider,
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
+                serviceIntentArbiter = serviceIntentArbiter,
                 acceptedUserStopRecorder = acceptedUserStopRecorder,
                 transportFailoverApplyTracker = transportFailoverApplyTracker,
                 serviceStopProvenanceRecorder = serviceStopProvenanceRecorder,
-                beforeUserStart = {
-                    explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN)
+                beforeUserStart = { guard ->
+                    explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN, guard)
                 },
                 awaitStartupReadiness = {
                     serviceRecoveryStartGate.orElse(null)?.awaitReady() ?: true
@@ -222,6 +226,7 @@ class RipDpiVpnService :
             startId = startId,
             transportFailoverRequestId = transportFailoverCommand.requestId,
             transportFailoverTarget = transportFailoverCommand.target,
+            explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
         )
     }
 
@@ -276,6 +281,7 @@ class RipDpiVpnService :
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
         networkParameters: VpnTunnelNetworkParameters,
+        profileInterface: VpnProfileInterface?,
     ): VpnTunnelBuilder =
         AndroidVpnTunnelBuilder(
             builder =
@@ -286,6 +292,7 @@ class RipDpiVpnService :
                     interfaceSettings,
                     httpProxyPort,
                     networkParameters,
+                    profileInterface,
                 ),
         )
 
@@ -333,6 +340,7 @@ class RipDpiVpnService :
         interfaceSettings: AppSettings,
         httpProxyPort: Int? = null,
         networkParameters: VpnTunnelNetworkParameters = currentTunnelNetworkParameters(),
+        profileInterface: VpnProfileInterface? = null,
     ): Builder {
         Logger.v { "DNS configured" }
         val builder = Builder()
@@ -348,11 +356,10 @@ class RipDpiVpnService :
             ),
         )
 
-        builder.applyTunnelRoutePlan(vpnTunnelRoutePlan(ipv6))
+        builder.applyTunnelRoutePlan(profileInterface?.routePlan(dns) ?: vpnTunnelRoutePlan(ipv6))
 
-        if (dns.isNotBlank()) {
-            builder.addDnsServer(dns)
-        }
+        val dnsServers = profileInterface?.dnsServers?.takeIf { it.isNotEmpty() } ?: listOf(dns)
+        dnsServers.filter(String::isNotBlank).forEach(builder::addDnsServer)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(networkParameters.metered)
             if (httpProxyPort != null) {

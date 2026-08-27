@@ -445,6 +445,7 @@ class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
         networkParameters: VpnTunnelNetworkParameters,
+        profileInterface: com.poyka.ripdpi.services.VpnProfileInterface?,
     ): VpnTunnelSession = StubInstrumentedVpnTunnelSession()
 }
 

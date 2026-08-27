@@ -3,7 +3,6 @@ package com.poyka.ripdpi.e2e
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStoreFactory
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
@@ -17,8 +16,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.setRawStrategyChainDsl
-import com.poyka.ripdpi.data.startAction
-import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
@@ -44,6 +41,8 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.CoroutineScope
@@ -73,6 +72,9 @@ class DiagnosticsNetworkE2ETest {
     @get:Rule(order = 2)
     val notificationPermissionRule: GrantPermissionRule =
         GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+
+    @Inject
+    lateinit var serviceController: ServiceController
 
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
@@ -670,15 +672,13 @@ class DiagnosticsNetworkE2ETest {
 
     private fun startService(serviceClass: Class<*>) {
         startedServices += serviceClass
-        ContextCompat.startForegroundService(
-            appContext,
-            Intent(appContext, serviceClass).setAction(startAction),
-        )
+        val mode = if (serviceClass == RipDpiVpnService::class.java) Mode.VPN else Mode.Proxy
+        assertTrue(serviceController.start(mode) is ServiceStartResult.Accepted)
     }
 
     private fun stopService(serviceClass: Class<*>) {
         if (startedServices.remove(serviceClass)) {
-            appContext.startService(Intent(appContext, serviceClass).setAction(stopAction))
+            serviceController.stop()
         } else {
             appContext.stopService(Intent(appContext, serviceClass))
         }

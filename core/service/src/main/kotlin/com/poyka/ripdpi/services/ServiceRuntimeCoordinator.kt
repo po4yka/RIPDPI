@@ -121,6 +121,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 
     suspend fun start(stopSelfStartId: Int? = null) = sessionLifecycle.start(stopSelfStartId = stopSelfStartId)
 
+    protected suspend fun startTransaction(transaction: RuntimeStartTransaction) =
+        sessionLifecycle.start(transaction = transaction)
+
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,

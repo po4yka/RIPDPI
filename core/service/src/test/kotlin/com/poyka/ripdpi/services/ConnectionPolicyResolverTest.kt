@@ -362,109 +362,6 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `resolver injects selected standalone awg egress into vpn preferences`() =
-        runTest {
-            val selectedAwg =
-                AwgActivationRequest(
-                    profileId = "awg-selected",
-                    privateKey = "private",
-                    peerPublicKey = "peer",
-                    endpointHost = "198.51.100.10",
-                    endpointPort = 51820,
-                    interfaceAddressV4 = "10.8.0.2/32",
-                )
-            val resolver =
-                DefaultConnectionPolicyResolver(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
-                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                )
-
-            val resolution = resolver.resolve(mode = Mode.VPN)
-
-            assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
-            assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
-        }
-
-    @Test
-    fun `remembered vpn policy replay preserves selected awg egress`() =
-        runTest {
-            val selectedAwg =
-                AwgActivationRequest(
-                    profileId = "awg-selected",
-                    privateKey = "private",
-                    peerPublicKey = "peer",
-                    endpointHost = "198.51.100.10",
-                    endpointPort = 51820,
-                    interfaceAddressV4 = "10.8.0.2/32",
-                )
-            val rememberedStore =
-                TestRememberedNetworkPolicyStore().apply {
-                    validatedMatch =
-                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
-                            proxyConfigJson =
-                                RipDpiProxyUIPreferences(
-                                    relay =
-                                        RipDpiRelayConfig(
-                                            enabled = true,
-                                            kind = RelayKindVlessReality,
-                                            profileId = "remembered-relay",
-                                        ),
-                                ).toNativeConfigJson(),
-                            connectionConcurrencyPolicyJson =
-                                Json.encodeToString(
-                                    RememberedConnectionConcurrencyPolicyJson(
-                                        selectedProfileId = "firefox_stable",
-                                        perProfileCaps = mapOf("firefox_stable" to 4),
-                                    ),
-                                ),
-                        )
-                }
-            val resolver =
-                DefaultConnectionPolicyResolver(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository =
-                        TestAppSettingsRepository(
-                            AppSettingsSerializer.defaultValue
-                                .toBuilder()
-                                .setNetworkStrategyMemoryEnabled(true)
-                                .build(),
-                        ),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                    rememberedNetworkPolicyStore = rememberedStore,
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
-                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                )
-
-            val resolution = resolver.resolve(mode = Mode.VPN)
-
-            assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
-            assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
-            assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
-            val concurrencyPolicy =
-                decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
-                    ?.runtimeContext
-                    ?.connectionConcurrency
-            assertEquals("firefox_stable", concurrencyPolicy?.selectedProfileId)
-            assertEquals(4, concurrencyPolicy?.perProfileCaps?.get("firefox_stable"))
-        }
-
-    @Test
     fun `retired remembered config schema records failure and falls back to baseline`() =
         runTest {
             val retiredConfig =
@@ -696,25 +593,6 @@ class ConnectionPolicyResolverTest {
             bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
         )
 
-    private fun antiCorrelationRoutingPolicy(): AntiCorrelationRoutingPolicy =
-        DefaultAntiCorrelationRoutingPolicy(
-            asnRoutingCatalogProvider =
-                object : AsnRoutingCatalogProvider {
-                    override fun load(): AsnRoutingMapCatalog =
-                        AsnRoutingMapCatalog(
-                            entries =
-                                listOf(
-                                    AsnRoutingMapEntry(
-                                        asn = 13238,
-                                        label = "Yandex",
-                                        country = "RU",
-                                        cdn = true,
-                                    ),
-                                ),
-                        )
-                },
-        )
-
     private class FakeRootHelperManager(
         private val startedSocketPath: String,
     ) : RootHelperManager() {
@@ -737,4 +615,141 @@ class ConnectionPolicyResolverTest {
             activePath = null
         }
     }
+}
+
+private fun antiCorrelationRoutingPolicy(): AntiCorrelationRoutingPolicy =
+    DefaultAntiCorrelationRoutingPolicy(
+        asnRoutingCatalogProvider =
+            object : AsnRoutingCatalogProvider {
+                override fun load(): AsnRoutingMapCatalog =
+                    AsnRoutingMapCatalog(
+                        entries =
+                            listOf(
+                                AsnRoutingMapEntry(
+                                    asn = 13238,
+                                    label = "Yandex",
+                                    country = "RU",
+                                    cdn = true,
+                                ),
+                            ),
+                    )
+            },
+    )
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class ConnectionPolicyAwgResolverTest {
+    @Test
+    fun `resolver injects selected standalone awg egress into vpn preferences`() =
+        runTest {
+            val selectedAwg =
+                AwgActivationRequest(
+                    profileId = "awg-selected",
+                    privateKey = "private",
+                    peerPublicKey = "peer",
+                    endpointHost = "198.51.100.10",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                    dnsServers = listOf("10.8.0.1", "10.8.0.3"),
+                )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        TestAppSettingsRepository(
+                            AppSettingsSerializer.defaultValue
+                                .toBuilder()
+                                .setEnableCmdSettings(true)
+                                .build(),
+                        ),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(false, resolution.settings.enableCmdSettings)
+            assertEquals("10.8.0.1", resolution.activeDns.dnsIp)
+            assertEquals(com.poyka.ripdpi.data.DnsModePlainUdp, resolution.activeDns.mode)
+            assertEquals(true, resolution.activeDns.routeThroughProxy)
+            assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
+            assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
+        }
+
+    @Test
+    fun `remembered vpn policy replay preserves selected awg egress`() =
+        runTest {
+            val selectedAwg =
+                AwgActivationRequest(
+                    profileId = "awg-selected",
+                    privateKey = "private",
+                    peerPublicKey = "peer",
+                    endpointHost = "198.51.100.10",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                )
+            val rememberedStore =
+                TestRememberedNetworkPolicyStore().apply {
+                    validatedMatch =
+                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                            proxyConfigJson =
+                                RipDpiProxyUIPreferences(
+                                    relay =
+                                        RipDpiRelayConfig(
+                                            enabled = true,
+                                            kind = RelayKindVlessReality,
+                                            profileId = "remembered-relay",
+                                        ),
+                                ).toNativeConfigJson(),
+                            connectionConcurrencyPolicyJson =
+                                Json.encodeToString(
+                                    RememberedConnectionConcurrencyPolicyJson(
+                                        selectedProfileId = "firefox_stable",
+                                        perProfileCaps = mapOf("firefox_stable" to 4),
+                                    ),
+                                ),
+                        )
+                }
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        TestAppSettingsRepository(
+                            AppSettingsSerializer.defaultValue
+                                .toBuilder()
+                                .setNetworkStrategyMemoryEnabled(true)
+                                .build(),
+                        ),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
+            assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
+            assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
+            val concurrencyPolicy =
+                decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+                    ?.runtimeContext
+                    ?.connectionConcurrency
+            assertEquals("firefox_stable", concurrencyPolicy?.selectedProfileId)
+            assertEquals(4, concurrencyPolicy?.perProfileCaps?.get("firefox_stable"))
+        }
 }

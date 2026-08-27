@@ -693,9 +693,9 @@ private class FakeDurableXrayProviderSelectionStore(
 ) : DurableXrayProviderSelectionStore {
     private var record = initial
 
-    override suspend fun current(): XrayProviderSelectionRecord = record
+    override fun current(): XrayProviderSelectionRecord = record
 
-    override suspend fun update(record: XrayProviderSelectionRecord) {
+    override fun update(record: XrayProviderSelectionRecord) {
         this.record = record
     }
 }

@@ -23,6 +23,47 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpnTunnelRuntimePolicyTest {
     @Test
+    fun profileInterfacePreservesDnsRoutesMtuAndFamilyAcrossSettingsRefresh() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setIpv6Enable(false)
+                    .build()
+            val provider = TestVpnTunnelSessionProvider()
+            val receipts = VpnRouteLifecycleReceiptStore()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
+                    vpnTunnelSessionProvider = provider,
+                    routeLifecycleReceiptStore = receipts,
+                )
+            val profile =
+                VpnProfileInterface(
+                    dnsServers = listOf("10.77.0.1", "fd77::1"),
+                    allowedIps = listOf("10.77.0.17/24", "fd77::17/64"),
+                    ipv6Enabled = true,
+                    mtu = 1420,
+                )
+            runtime.start(settings.activeDnsSettings(), null, null, localProxyEndpoint, profileInterface = profile)
+            assertEquals(profile, provider.lastProfileInterface)
+            assertEquals(true, provider.lastIpv6)
+            assertEquals(1420, provider.lastNetworkParameters?.tunnelMtu)
+            assertEquals(emptyList<String>(), receipts.lifecycleReceipt?.intendedDefaultRouteFamilies)
+            assertEquals(listOf("ipv4", "ipv6"), receipts.lifecycleReceipt?.addressFamilies)
+            assertEquals(listOf("ipv4", "ipv6"), receipts.lifecycleReceipt?.dnsServerFamilies)
+            assertFalse(runtime.requiresInterfacePolicyRebuild())
+            val routes = profile.routePlan().routes
+            assertTrue(routes.contains(VpnTunnelRouteEntry("10.77.0.0", 24)))
+            assertTrue(routes.contains(VpnTunnelRouteEntry("10.77.0.1", 32)))
+            assertTrue(routes.any { it.prefixLength == 128 })
+            runtime.stop()
+        }
+
+    @Test
     fun `native probe bridge failure aborts before tunnel establishment`() =
         runTest {
             val events = mutableListOf<String>()

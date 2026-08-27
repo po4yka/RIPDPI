@@ -7,13 +7,17 @@ import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
 import com.poyka.ripdpi.testing.RecordingNetworkHandoverMonitor
 import com.poyka.ripdpi.testing.RecordingPermissionWatchdog
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.delay
 
 internal data class ServiceLifecycleIntegrationBindings(
@@ -45,7 +49,17 @@ internal suspend fun stopIntegrationTestServices(
     context: Context,
     settleDelayMs: Long = 200L,
 ) {
-    context.startService(Intent(context, RipDpiProxyService::class.java).setAction(stopAction))
-    context.startService(Intent(context, RipDpiVpnService::class.java).setAction(stopAction))
+    EntryPointAccessors
+        .fromApplication(context, IntegrationServiceControllerEntryPoint::class.java)
+        .serviceController()
+        .stop()
+    context.stopService(Intent(context, RipDpiProxyService::class.java))
+    context.stopService(Intent(context, RipDpiVpnService::class.java))
     delay(settleDelayMs)
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface IntegrationServiceControllerEntryPoint {
+    fun serviceController(): ServiceController
 }

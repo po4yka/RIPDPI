@@ -1220,6 +1220,7 @@ internal class TestVpnTunnelSessionProvider(
         private set
     var lastInterfaceSettings: AppSettings? = null
         private set
+    var lastProfileInterface: VpnProfileInterface? = null
     var lastNetworkParameters: VpnTunnelNetworkParameters? = null
         private set
 
@@ -1231,12 +1232,14 @@ internal class TestVpnTunnelSessionProvider(
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
         networkParameters: VpnTunnelNetworkParameters,
+        profileInterface: VpnProfileInterface?,
     ): VpnTunnelSession {
         lastDns = dns
         lastIpv6 = ipv6
         lastAppRoutingPlan = appRoutingPlan
         lastInterfaceSettings = interfaceSettings
         lastNetworkParameters = networkParameters
+        lastProfileInterface = profileInterface
         events += "vpn:establish"
         beforeEstablish?.invoke()
         establishFailure?.let { throw it }
@@ -1361,6 +1364,7 @@ internal class TestVpnServiceHost(
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
         networkParameters: VpnTunnelNetworkParameters,
+        profileInterface: VpnProfileInterface?,
     ): VpnTunnelBuilder =
         object : VpnTunnelBuilder {
             override fun establish(): VpnTunnelSession? = builderSession

@@ -143,6 +143,13 @@ internal class XrayProviderSessionController(
         probeCoordinator?.clear()
     }
 
+    /** Transfer the still-established TUN to native composition; retain ownership on stop failure. */
+    suspend fun releaseForNativeReplacement() {
+        orchestrator.releaseProviderForNativeReplacement()
+        clearStoppedSessionState()
+        emitSnapshot()
+    }
+
     @Suppress("TooGenericExceptionCaught")
     private suspend fun bringUp(
         profileId: String,

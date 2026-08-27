@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.HandoffOutcome
 import com.poyka.ripdpi.core.RipDpiLogContext
+import com.poyka.ripdpi.core.awgConfigOrNull
 
 /**
  * Thin connect-flow collaborator that keeps the embedded-Xray provider logic out
@@ -122,34 +123,41 @@ internal class XrayConnectFlowDelegate(
             return false
         }
         requireTransactionalPolicyRefresh(restartReason)
-        val outcome =
-            try {
-                controller.restart(startParams(session, resolution))
-            } catch (error: Exception) {
-                active = controller.isActive
-                throw error
-            }
-        active = outcome is HandoffOutcome.Running
-        when (outcome) {
-            is HandoffOutcome.Running -> {
-                resetSessionDnsState(session)
-                applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
-                publishActiveDnsState(session, resolution)
-            }
+        return if (resolution.proxyPreferences.awgConfigOrNull() != null && !controller.isXraySelected()) {
+            controller.releaseForNativeReplacement()
+            active = false
+            ownsProviderPath = false
+            false
+        } else {
+            val outcome =
+                try {
+                    controller.restart(startParams(session, resolution))
+                } catch (error: Exception) {
+                    active = controller.isActive
+                    throw error
+                }
+            active = outcome is HandoffOutcome.Running
+            when (outcome) {
+                is HandoffOutcome.Running -> {
+                    resetSessionDnsState(session)
+                    applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
+                    publishActiveDnsState(session, resolution)
+                }
 
-            is HandoffOutcome.Failed -> {
-                throw XrayProviderHandoverException(outcome.reason)
-            }
+                is HandoffOutcome.Failed -> {
+                    throw XrayProviderHandoverException(outcome.reason)
+                }
 
-            HandoffOutcome.Stopped -> {
-                ownsProviderPath = false
-                // The provider selection changed while this handover was in
-                // flight. Xray has stopped cleanly and the coordinator should
-                // treat the active provider path as handled for this lifecycle
-                // turn, not fall through to a second native restart.
+                HandoffOutcome.Stopped -> {
+                    ownsProviderPath = false
+                    // The provider selection changed while this handover was in
+                    // flight. Xray has stopped cleanly and the coordinator should
+                    // treat the active provider path as handled for this lifecycle
+                    // turn, not fall through to a second native restart.
+                }
             }
+            true
         }
-        return true
     }
 
     /** Clear the provider-active flag after a full stop. */

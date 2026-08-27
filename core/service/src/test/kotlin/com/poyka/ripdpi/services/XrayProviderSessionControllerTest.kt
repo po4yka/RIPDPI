@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.HandoffOutcome
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
 import com.poyka.ripdpi.core.TunnelUpstream
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
@@ -8,6 +9,7 @@ import com.poyka.ripdpi.core.testing.FakeManagedTunnel
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProfile
@@ -404,6 +406,72 @@ class XrayProviderSessionControllerTest {
             assertEquals(oldDigest, session.currentDestinationRoutingDigest)
         }
 
+    @Test
+    fun `awg replacement releases xray ownership without closing the tun`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val ctrl = controller()
+            val delegate =
+                XrayConnectFlowDelegate(
+                    controller = ctrl,
+                    startParams = { _, _ -> params() },
+                    publishActiveDnsState = { _, _ -> },
+                    applyActiveConnectionPolicy = { _, _, _, _ -> },
+                )
+            val session = VpnRuntimeSession()
+            assertTrue(delegate.tryStart(session, sampleResolution()))
+            val previousTunnelStops = tunnel.stopCount
+            val previousBridgeStops = bridge.stopCount
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Native, null))
+            val awg =
+                AwgActivationRequest(
+                    profileId = "awg-editor",
+                    privateKey = "test-private-key",
+                    peerPublicKey = "test-peer-key",
+                    endpointHost = "127.0.0.1",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                )
+
+            val handled =
+                delegate.tryRestart(
+                    session,
+                    sampleResolution(proxyPreferences = RipDpiProxyUIPreferences(awg = awg)),
+                    appliedAt = 2L,
+                    restartReason = "transport_failover",
+                )
+
+            assertEquals(previousTunnelStops, tunnel.stopCount)
+            assertTrue(tunnel.isRunning)
+            assertFalse(handled)
+            assertFalse(delegate.isActive)
+            assertFalse(delegate.ownsActiveProviderPath)
+            assertFalse(ctrl.isActive)
+            assertTrue(bridge.stopCount > previousBridgeStops)
+        }
+
+    @Test
+    fun `awg replacement retains cleanup ownership when xray stop fails`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val ctrl = controller()
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Running)
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Throw
+
+            val failure = runCatching { ctrl.releaseForNativeReplacement() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertTrue(ctrl.isActive)
+            assertTrue(tunnel.isRunning)
+            assertEquals(0, tunnel.stopCount)
+            assertTrue(startParamsHolder.current != null)
+            ctrl.stop()
+            assertFalse(ctrl.isActive)
+            assertFalse(tunnel.isRunning)
+        }
+
     private fun params(): XrayTunnelStartParams =
         XrayTunnelStartParams(
             activeDns =
@@ -434,12 +502,12 @@ internal class FakeSelectionStore : XrayProviderSelectionStore {
         this.record = record
     }
 
-    override suspend fun current(): XrayProviderSelectionRecord {
+    override fun current(): XrayProviderSelectionRecord {
         onCurrent()
         return record
     }
 
-    override suspend fun update(record: XrayProviderSelectionRecord) {
+    override fun update(record: XrayProviderSelectionRecord) {
         this.record = record
     }
 }

@@ -64,6 +64,14 @@ interface StartupFallbackController {
     fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult
 }
 
+/** Explicit profile activation, distinct from automatic transport failover and ordinary Start. */
+interface VpnTransportActivationController {
+    fun startVpnTransport(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+    ): ServiceStartResult
+}
+
 interface StartupFallbackLease
 
 sealed interface StartupFallbackDispatchResult {
@@ -129,10 +137,17 @@ class ServiceIntentArbiter
             isAccepted: (T) -> Boolean,
         ): T =
             lock.withLock {
-                action().also { result ->
-                    if (isAccepted(result)) {
-                        explicitUserIntentRecorded = true
-                        explicitUserIntentGeneration += 1
+                val previousRecorded = explicitUserIntentRecorded
+                val previousGeneration = explicitUserIntentGeneration
+                explicitUserIntentRecorded = true
+                explicitUserIntentGeneration += 1
+                var accepted = false
+                try {
+                    action().also { accepted = isAccepted(it) }
+                } finally {
+                    if (!accepted) {
+                        explicitUserIntentRecorded = previousRecorded
+                        explicitUserIntentGeneration = previousGeneration
                     }
                 }
             }
@@ -144,6 +159,8 @@ class ServiceIntentArbiter
                 action()
             }
         }
+
+        fun explicitUserStartGuard(generation: Long): ExplicitUserStartGuard = ExplicitUserStartGuard(this, generation)
 
         fun captureExplicitUserIntentGeneration(): Long = lock.withLock { explicitUserIntentGeneration }
 
@@ -170,11 +187,17 @@ class AcceptedUserStopRecorder
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceIntentArbiter: ServiceIntentArbiter,
     ) {
-        fun record() {
-            serviceIntentArbiter.userStop {
-                bootSessionStateStore.setWasRunningAtUpdate(false)
-                runtimeResumeIntentTracker.recordAcceptedStop()
+        fun record(generation: Long? = null) {
+            if (generation == null) {
+                serviceIntentArbiter.userStop(::recordState)
+            } else {
+                serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation, ::recordState)
             }
+        }
+
+        private fun recordState() {
+            bootSessionStateStore.setWasRunningAtUpdate(false)
+            runtimeResumeIntentTracker.recordAcceptedStop()
         }
     }
 
@@ -202,6 +225,7 @@ class DefaultServiceController
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceIntentArbiter: ServiceIntentArbiter,
     ) : ServiceController,
+        VpnTransportActivationController,
         StartupFallbackController {
         internal constructor(
             context: Context,
@@ -244,6 +268,22 @@ class DefaultServiceController
                 },
             )
 
+        override fun startVpnTransport(
+            requestId: Long,
+            expectedTarget: TransportFailoverTarget,
+        ): ServiceStartResult =
+            serviceIntentArbiter.userStart(
+                action = {
+                    runtimeResumeIntentTracker.withUserStart(
+                        action = {
+                            startInternal(Mode.VPN, transportActivationStartAction, requestId, expectedTarget)
+                        },
+                        isAccepted = { it is ServiceStartResult.Accepted },
+                    )
+                },
+                isAccepted = { it is ServiceStartResult.Accepted },
+            )
+
         override fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult =
             startInternal(mode, processDeathRecoveryStartAction)
 
@@ -271,6 +311,7 @@ class DefaultServiceController
                     val intent =
                         Intent(context, RipDpiVpnService::class.java).apply {
                             this.action = action
+                            stampExplicitIntent(action)
                             transportFailoverRequestId?.let { requestId ->
                                 putExtra(transportFailoverRequestIdExtra, requestId)
                             }
@@ -296,6 +337,7 @@ class DefaultServiceController
                     val intent =
                         Intent(context, RipDpiProxyService::class.java).apply {
                             this.action = action
+                            stampExplicitIntent(action)
                         }
                     try {
                         foregroundServiceStarter.startForegroundService(context, intent)
@@ -310,6 +352,12 @@ class DefaultServiceController
                 }
             }
             return ServiceStartResult.Accepted(mode)
+        }
+
+        private fun Intent.stampExplicitIntent(action: String) {
+            if (action == startAction || action == transportActivationStartAction || action == stopAction) {
+                putExtra(explicitUserIntentGenerationExtra, serviceIntentArbiter.captureExplicitUserIntentGeneration())
+            }
         }
 
         override fun stop() {
@@ -378,6 +426,7 @@ class DefaultServiceController
                         Logger.i { "Stopping VPN" }
                         Intent(context, RipDpiVpnService::class.java).apply {
                             this.action = action
+                            stampExplicitIntent(action)
                         }
                     }
 
@@ -385,6 +434,7 @@ class DefaultServiceController
                         Logger.i { "Stopping proxy" }
                         Intent(context, RipDpiProxyService::class.java).apply {
                             this.action = action
+                            stampExplicitIntent(action)
                         }
                     }
                 }
@@ -400,6 +450,12 @@ class DefaultServiceController
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ServiceControllerModule {
+    @Binds
+    @Singleton
+    abstract fun bindVpnTransportActivationController(
+        serviceController: DefaultServiceController,
+    ): VpnTransportActivationController
+
     @Binds
     @Singleton
     abstract fun bindServiceController(serviceController: DefaultServiceController): ServiceController

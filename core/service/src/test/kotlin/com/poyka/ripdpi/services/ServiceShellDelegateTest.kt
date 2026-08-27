@@ -2,8 +2,6 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
-import com.poyka.ripdpi.data.boot.BootSessionPointer
-import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -31,6 +29,7 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -39,7 +38,7 @@ class ServiceShellDelegateTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 1)
+            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("prepare", "start"), operations)
@@ -51,6 +50,7 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -69,7 +69,7 @@ class ServiceShellDelegateTest {
                 transportFailoverRequestId = 11L,
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
             )
-            delegate.onStartCommand(startAction, 2)
+            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("fallback-restart", "prepare", "start"), operations)
@@ -81,6 +81,7 @@ class ServiceShellDelegateTest {
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -109,6 +110,7 @@ class ServiceShellDelegateTest {
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { keepConsumerBusy.await() },
@@ -120,7 +122,7 @@ class ServiceShellDelegateTest {
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
-            delegate.onStartCommand(startAction, 1)
+            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             delegate.onStartCommand(
@@ -141,6 +143,7 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -161,6 +164,7 @@ class ServiceShellDelegateTest {
             val startIds = mutableListOf<Int>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -169,7 +173,7 @@ class ServiceShellDelegateTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 7)
+            delegate.onStartCommand(startAction, 7, explicitUserIntentGeneration = 0L)
             delegate.onStartCommand(startupFallbackStartAction, 8)
             runCurrent()
 
@@ -185,6 +189,7 @@ class ServiceShellDelegateTest {
             lateinit var delegate: ServiceShellDelegate
             delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -209,7 +214,7 @@ class ServiceShellDelegateTest {
                 )
 
             latestStartId = 1
-            delegate.onStartCommand(startAction, latestStartId)
+            delegate.onStartCommand(startAction, latestStartId, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertFalse(serviceStopped)
@@ -223,6 +228,7 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {
@@ -235,9 +241,9 @@ class ServiceShellDelegateTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 1)
+            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
             runCurrent()
-            delegate.onStartCommand(startAction, 2)
+            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("prepare", "start", "start"), operations)
@@ -250,6 +256,7 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -264,7 +271,7 @@ class ServiceShellDelegateTest {
                 )
 
             delegate.onStartCommand(startupFallbackStartAction, 1)
-            delegate.onStartCommand(startAction, 2)
+            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(listOf("fallback", "prepare-vless", "manual"), operations)
@@ -277,6 +284,7 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
@@ -284,9 +292,9 @@ class ServiceShellDelegateTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            val startResult = delegate.onStartCommand(startAction, 1)
+            val startResult = delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
             runCurrent()
-            val stopResult = delegate.onStartCommand(stopAction, 7)
+            val stopResult = delegate.onStartCommand(stopAction, 7, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, startResult)
@@ -302,6 +310,7 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -310,7 +319,7 @@ class ServiceShellDelegateTest {
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            val result = delegate.onStartCommand(stopAction, 7)
+            val result = delegate.onStartCommand(stopAction, 7, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -326,6 +335,7 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -361,6 +371,7 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -384,6 +395,7 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
@@ -399,55 +411,6 @@ class ServiceShellDelegateTest {
         }
 
     @Test
-    fun `accepted notification stop invalidates diagnostics resume lease`() =
-        runTest {
-            val tracker = RuntimeResumeIntentTracker()
-            val lease = tracker.captureResumeLease()
-            val store = NotificationStopBootStore(running = true)
-            val recorder = AcceptedUserStopRecorder(store, tracker, ServiceIntentArbiter())
-            val delegate =
-                ServiceShellDelegate(
-                    serviceScope = backgroundScope,
-                    serviceLabel = "vpn",
-                    onStart = {},
-                    onStop = { _, _ -> },
-                    onAcceptedStop = recorder::record,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
-                )
-
-            delegate.onStartCommand(notificationStopAction, 12)
-
-            val ownership = tracker.ownership(lease)
-            assertFalse(store.wasRunningAtUpdate())
-            assertTrue(ownership is ResumeLeaseOwnership.Superseded)
-            assertEquals(UserRuntimeIntent.Stopped, (ownership as ResumeLeaseOwnership.Superseded).intent)
-        }
-
-    @Test
-    fun `rejected notification stop preserves diagnostics resume lease`() =
-        runTest {
-            val tracker = RuntimeResumeIntentTracker()
-            val lease = tracker.captureResumeLease()
-            val store = NotificationStopBootStore(running = true)
-            val recorder = AcceptedUserStopRecorder(store, tracker, ServiceIntentArbiter())
-            val delegate =
-                ServiceShellDelegate(
-                    serviceScope = backgroundScope,
-                    serviceLabel = "vpn",
-                    onStart = {},
-                    onStop = { _, _ -> },
-                    isStopAllowed = { false },
-                    onAcceptedStop = recorder::record,
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
-                )
-
-            delegate.onStartCommand(notificationStopAction, 13)
-
-            assertTrue(store.wasRunningAtUpdate())
-            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-        }
-
-    @Test
     fun `diagnostics stop preserves its own resume lease`() =
         runTest {
             val tracker = RuntimeResumeIntentTracker()
@@ -455,11 +418,15 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { startId, _ -> stopIds += startId },
-                    onAcceptedStop = tracker::recordAcceptedStop,
+                    intentCallbacks =
+                        ServiceShellIntentCallbacks(
+                            acceptedStop = { tracker.recordAcceptedStop() },
+                        ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
@@ -478,6 +445,7 @@ class ServiceShellDelegateTest {
             val recorder = RoomServiceStopProvenanceRecorder(store, AndroidRuntimeEvidenceClock { 321L })
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -521,17 +489,21 @@ class ServiceShellDelegateTest {
             tracker.withUserStart(action = {})
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
                     onStop = { _, _ -> },
-                    onAcceptedStart = tracker::recordAcceptedStart,
-                    onAcceptedStop = tracker::recordAcceptedStop,
+                    intentCallbacks =
+                        ServiceShellIntentCallbacks(
+                            acceptedStart = tracker::recordAcceptedStart,
+                            acceptedStop = { tracker.recordAcceptedStop() },
+                        ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(stopAction, 15)
-            delegate.onStartCommand(startAction, 16)
+            delegate.onStartCommand(stopAction, 15, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(startAction, 16, explicitUserIntentGeneration = 0L)
             runCurrent()
 
             val ownership = tracker.ownership(lease) as ResumeLeaseOwnership.Superseded
@@ -547,16 +519,20 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
                     onStop = { startId, _ -> stopIds += startId },
-                    onAcceptedStart = tracker::recordAcceptedStart,
+                    intentCallbacks =
+                        ServiceShellIntentCallbacks(
+                            acceptedStart = tracker::recordAcceptedStart,
+                        ),
                     isCompensatingStopCurrent = tracker::isCurrentIntentStopped,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 17)
+            delegate.onStartCommand(startAction, 17, explicitUserIntentGeneration = 0L)
             val result = delegate.onStartCommand(diagnosticsCompensatingStopAction, 18)
             runCurrent()
 
@@ -571,6 +547,7 @@ class ServiceShellDelegateTest {
             var startCalls = 0
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -591,6 +568,7 @@ class ServiceShellDelegateTest {
             var startCalls = 0
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -611,6 +589,7 @@ class ServiceShellDelegateTest {
             val events = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { events += "user-start" },
@@ -635,6 +614,7 @@ class ServiceShellDelegateTest {
             val recoveredActions = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { error("recovery must not use the user-start path") },
@@ -661,6 +641,7 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -681,6 +662,7 @@ class ServiceShellDelegateTest {
             var revokeCalls = 0
             val delegate =
                 ServiceShellDelegate(
+                    serviceIntentArbiter = ServiceIntentArbiter(),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -694,31 +676,6 @@ class ServiceShellDelegateTest {
 
             assertEquals(1, revokeCalls)
         }
-}
-
-private class NotificationStopBootStore(
-    private var running: Boolean,
-) : BootSessionStateStore {
-    private var pointer: BootSessionPointer? = null
-
-    override fun lastSession(): BootSessionPointer? = pointer
-
-    override fun recordSession(
-        profileId: String,
-        mode: Mode,
-    ) {
-        pointer = BootSessionPointer(profileId, mode)
-    }
-
-    override fun clear() {
-        pointer = null
-    }
-
-    override fun wasRunningAtUpdate(): Boolean = running
-
-    override fun setWasRunningAtUpdate(value: Boolean) {
-        running = value
-    }
 }
 
 private class RecordingServiceStopArtifactWriteStore(

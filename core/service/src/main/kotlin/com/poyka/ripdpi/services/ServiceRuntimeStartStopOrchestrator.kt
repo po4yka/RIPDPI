@@ -16,7 +16,10 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     private val dependencies: ServiceRuntimeStartStopDependencies<TSession>,
     private val callbacks: ServiceRuntimeStartStopCallbacks<TSession>,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
-    suspend fun start(stopSelfStartId: Int? = null) {
+    suspend fun start(
+        stopSelfStartId: Int? = null,
+        transaction: RuntimeStartTransaction? = null,
+    ) {
         Logger.i { "Starting ${dependencies.serviceLabel()}" }
 
         var matchedRememberedPolicy: RememberedNetworkPolicyEntity? = null
@@ -35,6 +38,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 val session = callbacks.createRuntimeSession()
                 session.networkHandoverState = null
                 val resolution = callbacks.resolveInitialConnectionPolicy()
+                transaction?.beforeStart?.invoke(resolution)
                 matchedRememberedPolicy = resolution.matchedNetworkPolicy
                 callbacks.applyActiveConnectionPolicy(
                     session,
@@ -58,6 +62,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 dependencies.handoverProcessor.startMonitoring()
                 callbacks.startModeTelemetryUpdates()
                 dependencies.loopOwner.startPermissionWatchdog()
+                transaction?.onStarted?.invoke()
             }
                 ?: return
         val error =
@@ -189,6 +194,12 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         }
     }
 }
+
+/** Runs inside lifecycle serialization, before side effects and after complete startup respectively. */
+internal class RuntimeStartTransaction(
+    val beforeStart: (ConnectionPolicyResolution) -> Unit,
+    val onStarted: () -> Unit,
+)
 
 private sealed interface TerminalTelemetryCaptureOutcome {
     data object Completed : TerminalTelemetryCaptureOutcome

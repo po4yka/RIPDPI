@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.failover
 
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.FailureReason
@@ -13,13 +14,17 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
 import com.poyka.ripdpi.services.StartupFallbackLease
 import com.poyka.ripdpi.services.TransportFailoverTarget
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +44,93 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SimpleVlessRuntimeMonitorTest {
+    @Test
+    fun `suspended explicit preparation cannot clear newer standalone profile`() =
+        runTest {
+            val backing = FakeAppSettingsRepository()
+            val updateStarted = CompletableDeferred<Unit>()
+            val releaseUpdate = CompletableDeferred<Unit>()
+            val settings =
+                object : AppSettingsRepository by backing {
+                    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+                        updateStarted.complete(Unit)
+                        releaseUpdate.await()
+                        backing.update(transform)
+                    }
+                }
+            val boot = TestAwgBootSelection()
+            val selection =
+                SimpleAwgEgressSelection(
+                    AwgProfileRepository(FakeAwgProfileDao(), FakeAwgCredentialStore()),
+                    settings,
+                    boot,
+                )
+            val monitor = buildMonitor(DefaultServiceStateStore(), settings, awgSelection = selection)
+            val arbiter = ServiceIntentArbiter()
+            val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
+            val prepare = launch { monitor.prepare(Mode.VPN, arbiter.explicitUserStartGuard(generation)) }
+            updateStarted.await()
+            arbiter.userStart({ boot.setActiveAwgProfileId("awg-newer") }) { true }
+            releaseUpdate.complete(Unit)
+            prepare.join()
+            assertEquals("awg-newer", boot.activeAwgProfileId())
+            monitor.prepare(Mode.VPN, arbiter.explicitUserStartGuard(arbiter.captureExplicitUserIntentGeneration()))
+            assertNull(boot.activeAwgProfileId())
+        }
+
+    @Test
+    fun `superseded AWG lookup and rollback preserve newer standalone authority`() =
+        runTest {
+            val stateStore = DefaultServiceStateStore()
+            val settings = FakeAppSettingsRepository()
+            val controller = RecordingServiceController()
+            val bootSelection = TestAwgBootSelection()
+            val selection =
+                SimpleAwgEgressSelection(
+                    AwgProfileRepository(FakeAwgProfileDao(), FakeAwgCredentialStore()),
+                    settings,
+                    bootSelection,
+                )
+            val lookupStarted = CompletableDeferred<Unit>()
+            val lookupResult = CompletableDeferred<AwgActivationRequest?>()
+            val suspendedSelection =
+                object : SimpleAwgFallbackSelection by selection {
+                    override suspend fun firstAvailable(): AwgActivationRequest? {
+                        lookupStarted.complete(Unit)
+                        return lookupResult.await()
+                    }
+                }
+            settings.update {
+                setRelayEnabled(true)
+                setRelayKind(RelayKindVlessReality)
+                setRelayProfileId(SeededVlessProfileId)
+            }
+            val monitor =
+                buildMonitor(
+                    stateStore = stateStore,
+                    settings = settings,
+                    profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
+                    awgSelection = suspendedSelection,
+                    controller = controller,
+                )
+            monitor.bind(backgroundScope)
+            runCurrent()
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
+            runCurrent()
+            stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("Hysteria2 readiness failed"))
+            runCurrent()
+            assertTrue(lookupStarted.isCompleted)
+
+            bootSelection.setActiveAwgProfileId("awg-editor-newer")
+            controller.acceptUserStart()
+            lookupResult.complete(sampleAwgRequest())
+            runCurrent()
+
+            assertEquals("awg-editor-newer", bootSelection.activeAwgProfileId())
+            assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
+            assertNull(selection.selectedAwgEgress())
+        }
+
     @Test
     fun `manual VPN preparation is not blocked by a stale fallback wait`() =
         runTest {
@@ -64,7 +156,7 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("stale startup failure"))
             runCurrent()
 
-            val preparation = launch { monitor.prepare(Mode.VPN) }
+            val preparation = launch { monitor.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L)) }
             runCurrent()
 
             assertTrue(preparation.isCompleted)
@@ -351,7 +443,7 @@ class SimpleVlessRuntimeMonitorTest {
             assertEquals(emptyList<Mode>(), controller.userStartCalls)
             assertEquals(emptyList<Mode>(), controller.failoverRestartCalls)
 
-            monitor.prepare(Mode.VPN)
+            monitor.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
 
             val prepared = settings.snapshot()
             assertEquals(true, prepared.relayEnabled)
@@ -656,7 +748,7 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
 
             assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
-            monitor.prepare(Mode.VPN)
+            monitor.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
             assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
         }
 
@@ -736,10 +828,10 @@ class SimpleVlessRuntimeMonitorTest {
 
     private fun buildMonitor(
         stateStore: ServiceStateStore,
-        settings: FakeAppSettingsRepository,
+        settings: AppSettingsRepository,
         profiles: List<RelayProfileRecord> = emptyList(),
         relayCatalog: SimpleFailoverRelayCatalog = SimpleFailoverRelayCatalog { profiles },
-        awgSelection: RecordingAwgFallbackSelection = RecordingAwgFallbackSelection(),
+        awgSelection: SimpleAwgFallbackSelection = RecordingAwgFallbackSelection(),
         controller: RecordingServiceController = RecordingServiceController(),
     ): SimpleVlessRuntimeMonitor =
         SimpleVlessRuntimeMonitor(
@@ -822,6 +914,8 @@ private class RecordingAwgFallbackSelection(
         clearCalls += 1
         currentRequest = null
     }
+
+    override fun clearForUserStart() = clear()
 }
 
 private class RecordingServiceController(

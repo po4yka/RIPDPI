@@ -63,6 +63,7 @@ class VpnServiceSessionHardKillSwitchLifecycleTest {
         val service = Robolectric.buildService(RipDpiVpnService::class.java).get()
         val runtimeResumeIntentTracker = RuntimeResumeIntentTracker()
         return VpnServiceSessionLifecycle(
+            serviceIntentArbiter = ServiceIntentArbiter(),
             service = service,
             serviceStateStore = TestServiceStateStore(),
             sessionComponentBuilderProvider = sessionComponentBuilderProvider,

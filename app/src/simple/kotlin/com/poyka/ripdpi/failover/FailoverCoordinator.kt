@@ -19,6 +19,7 @@ import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.EgressRequirements
+import com.poyka.ripdpi.services.ExplicitUserStartGuard
 import com.poyka.ripdpi.services.ExplicitUserStartPreparer
 import com.poyka.ripdpi.services.InitialRelayCandidate
 import com.poyka.ripdpi.services.InitialRelayTransportClass
@@ -314,26 +315,33 @@ class FailoverCoordinator
          * // NOT cancel-safe: persists the primary selection before the service reads settings.
          * Cancellation leaves the fail-closed VLESS primary selected for the next attempt.
          */
-        override suspend fun prepare(mode: Mode) {
+        override suspend fun prepare(
+            mode: Mode,
+            guard: ExplicitUserStartGuard,
+        ) {
             if (mode != Mode.VPN) return
             startupRecoveryMutex.withLock {
+                if (!guard.isCurrent()) return@withLock
                 startupRecoveryEpoch++
                 startupRelayProbeAttemptBudget.clear()
                 stopObserving()
                 settingsRepository.update {
+                    if (!guard.isCurrent()) return@update
                     setEnableCmdSettings(false)
                     setRelayEnabled(true)
                     setRelayKind(RelayKindVlessReality)
                     setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
                     setSimpleFailoverAwgProfileId("")
                 }
-                awgEgressSelection.clear()
-                startupFailureSwitchesInCycle = 0
-                startupFailureCandidates = emptyList()
-                startupFailureStartedOutsideCandidates = false
-                initialRaceSelection = null
-                skipNextInitialRelayRace = false
-                Logger.i { "FailoverCoordinator: explicit VPN attempt restored embedded VLESS+Reality" }
+                guard.runIfCurrent {
+                    awgEgressSelection.clearForUserStart()
+                    startupFailureSwitchesInCycle = 0
+                    startupFailureCandidates = emptyList()
+                    startupFailureStartedOutsideCandidates = false
+                    initialRaceSelection = null
+                    skipNextInitialRelayRace = false
+                    Logger.i { "FailoverCoordinator: explicit VPN attempt restored embedded VLESS+Reality" }
+                }
             }
         }
 

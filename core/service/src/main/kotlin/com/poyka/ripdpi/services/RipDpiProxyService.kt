@@ -66,6 +66,9 @@ class RipDpiProxyService :
     lateinit var runtimeResumeIntentTracker: RuntimeResumeIntentTracker
 
     @Inject
+    lateinit var serviceIntentArbiter: ServiceIntentArbiter
+
+    @Inject
     lateinit var acceptedUserStopRecorder: AcceptedUserStopRecorder
 
     @Inject
@@ -98,6 +101,7 @@ class RipDpiProxyService :
         shellDelegate =
             ServiceShellDelegate(
                 serviceScope = lifecycleScope,
+                serviceIntentArbiter = serviceIntentArbiter,
                 serviceLabel = "proxy",
                 onStart = coordinator::start,
                 onStartWithId = { _, startId -> coordinator.start(stopSelfStartId = startId) },
@@ -105,8 +109,11 @@ class RipDpiProxyService :
                     serviceStopProvenanceRecorder.record(Mode.Proxy, provenance)
                     coordinator.stop(startId)
                 },
-                onAcceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
-                onAcceptedStop = acceptedUserStopRecorder::record,
+                intentCallbacks =
+                    ServiceShellIntentCallbacks(
+                        acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+                        acceptedStop = acceptedUserStopRecorder::record,
+                    ),
                 isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
             )
     }
@@ -156,7 +163,11 @@ class RipDpiProxyService :
         if (intent?.action == null && serviceStateStore.status.value.first == AppStatus.Halted) {
             serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.Proxy)
         }
-        return shellDelegate.onStartCommand(intent?.action, startId)
+        return shellDelegate.onStartCommand(
+            intent?.action,
+            startId,
+            explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
+        )
     }
 
     override fun updateNotification(

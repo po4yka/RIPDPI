@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
 import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
+import com.poyka.ripdpi.services.ExplicitUserStartGuard
 import com.poyka.ripdpi.services.ExplicitUserStartPreparer
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
@@ -64,23 +65,30 @@ internal class SimpleVlessRuntimeMonitor
 
         override val activeTransport: StateFlow<ActiveTransportDescriptor?> = _activeTransport.asStateFlow()
 
-        override suspend fun prepare(mode: Mode) {
+        override suspend fun prepare(
+            mode: Mode,
+            guard: ExplicitUserStartGuard,
+        ) {
             if (mode != Mode.VPN) return
             fallbackMutex.withLock {
+                if (!guard.isCurrent()) return@withLock
                 settingsRepository.update {
+                    if (!guard.isCurrent()) return@update
                     setEnableCmdSettings(false)
                     setRelayEnabled(true)
                     setRelayKind(RelayKindVlessReality)
                     setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
                     setSimpleFailoverAwgProfileId("")
                 }
-                awgFallbackSelection.clear()
-                startupFallbackStage = StartupFallbackStage.Vless
-                activeHysteriaProfileId = null
-                activeAwgProfileId = null
-                recoveryEpoch += 1
-                startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
-                Logger.i { "SimpleVlessRuntimeMonitor: explicit VPN attempt restored embedded VLESS+Reality" }
+                guard.runIfCurrent {
+                    awgFallbackSelection.clearForUserStart()
+                    startupFallbackStage = StartupFallbackStage.Vless
+                    activeHysteriaProfileId = null
+                    activeAwgProfileId = null
+                    recoveryEpoch += 1
+                    startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
+                    Logger.i { "SimpleVlessRuntimeMonitor: explicit VPN attempt restored embedded VLESS+Reality" }
+                }
             }
         }
 

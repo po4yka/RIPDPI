@@ -344,6 +344,7 @@ class RecordingVpnTunnelSessionProvider(
         interfaceSettings: AppSettings,
         httpProxyPort: Int?,
         networkParameters: VpnTunnelNetworkParameters,
+        profileInterface: com.poyka.ripdpi.services.VpnProfileInterface?,
     ): VpnTunnelSession {
         lastDns = dns
         lastIpv6 = ipv6

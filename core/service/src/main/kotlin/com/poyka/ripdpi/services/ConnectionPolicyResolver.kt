@@ -10,6 +10,7 @@ import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -131,7 +132,8 @@ class DefaultConnectionPolicyResolver
             resolverOverride: TemporaryResolverOverride?,
             fingerprint: NetworkFingerprint?,
         ): BaselineConnectionPolicy {
-            val settings = appSettingsRepository.snapshot()
+            val selectedAwgEgress = if (mode == Mode.VPN) selectedAwgEgress() else null
+            val settings = appSettingsRepository.snapshot().forAwg(selectedAwgEgress)
             rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
@@ -144,11 +146,10 @@ class DefaultConnectionPolicyResolver
                     dnsResolution = dnsResolution,
                     networkScopeKey = networkScopeKey,
                     directPathCapabilities = directPathCapabilities,
-                )
+                ).forAwg(selectedAwgEgress)
             val protectPath = runtimeContextAssembler.protectPath(mode)
             val preferredEdges = runtimeContextAssembler.preferredEdges(settings, networkScopeKey)
             val hostAutolearnStorePath = runtimeContextAssembler.hostAutolearnStorePath()
-            val selectedAwgEgress = selectedAwgEgress(mode, settings)
             val baselinePreferences =
                 baselinePreferences(
                     settings = settings,
@@ -208,12 +209,28 @@ class DefaultConnectionPolicyResolver
             )
         }
 
-        private suspend fun selectedAwgEgress(): AwgActivationRequest? = awgEgressSelectionProvider.selectedAwgEgress()
+        private fun VpnDnsSelection.forAwg(request: AwgActivationRequest?): VpnDnsSelection =
+            when {
+                request == null -> {
+                    this
+                }
 
-        private suspend fun selectedAwgEgress(
-            mode: Mode,
-            settings: AppSettings,
-        ): AwgActivationRequest? = if (mode == Mode.VPN && !settings.enableCmdSettings) selectedAwgEgress() else null
+                request.dnsServers.isEmpty() -> {
+                    copy(activeDns = activeDns.copy(routeThroughProxy = true))
+                }
+
+                else -> {
+                    VpnDnsSelection(
+                        activeDns.copy(
+                            mode = DnsModePlainUdp,
+                            dnsIp = request.dnsServers.first(),
+                            routeThroughProxy = true,
+                        ),
+                    )
+                }
+            }
+
+        private suspend fun selectedAwgEgress(): AwgActivationRequest? = awgEgressSelectionProvider.selectedAwgEgress()
 
         private suspend fun baselineVpnDnsSelection(
             mode: Mode,
@@ -272,13 +289,7 @@ class DefaultConnectionPolicyResolver
                         proxyConfigJson = matchedPolicy.proxyConfigJson,
                         activeDns = baseline.baselineVpnDnsSelection.activeDns,
                     )
-                val vpnDnsSelection =
-                    dnsSelector.rememberedSelection(
-                        mode = mode,
-                        baselineSelection = baseline.baselineVpnDnsSelection,
-                        rememberedVpnDnsPolicy = rememberedPolicy?.vpnDnsPolicy,
-                        resolverOverride = baseline.dnsResolution.override,
-                    )
+                val vpnDnsSelection = rememberedVpnDnsSelection(mode, baseline, rememberedPolicy?.vpnDnsPolicy)
                 val effectiveDns = vpnDnsSelection.activeDns
                 val splitStrictDnsPolicy =
                     splitStrictDnsPolicy(
@@ -334,6 +345,26 @@ class DefaultConnectionPolicyResolver
                 null
             }
         }
+
+        private fun rememberedVpnDnsSelection(
+            mode: Mode,
+            baseline: BaselineConnectionPolicy,
+            rememberedPolicy: VpnDnsPolicyJson?,
+        ): VpnDnsSelection =
+            if (baseline.baselinePreferences
+                    .awgConfigOrNull()
+                    ?.dnsServers
+                    ?.isNotEmpty() == true
+            ) {
+                baseline.baselineVpnDnsSelection
+            } else {
+                dnsSelector.rememberedSelection(
+                    mode = mode,
+                    baselineSelection = baseline.baselineVpnDnsSelection,
+                    rememberedVpnDnsPolicy = rememberedPolicy,
+                    resolverOverride = baseline.dnsResolution.override,
+                )
+            }
 
         private fun applyRememberedConnectionConcurrencyPolicy(
             baseRuntimeContext: RipDpiRuntimeContext?,
@@ -486,3 +517,6 @@ abstract class ConnectionPolicyResolverModule {
     @Singleton
     abstract fun bindConnectionPolicyResolver(resolver: RecoveringConnectionPolicyResolver): ConnectionPolicyResolver
 }
+
+private fun AppSettings.forAwg(request: AwgActivationRequest?): AppSettings =
+    if (request != null && enableCmdSettings) toBuilder().setEnableCmdSettings(false).build() else this
