@@ -6,6 +6,45 @@ import org.junit.Test
 
 class EncryptedDnsPathSelectionTest {
     @Test
+    fun `automatic candidate plan excludes Cloudflare including remembered paths`() {
+        val rememberedCloudflare =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCloudflare,
+                dnsIp = "",
+                encryptedDns = EncryptedDnsConfigInput(protocol = EncryptedDnsProtocolDot),
+            ).toEncryptedDnsPathCandidate()
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderAdGuard,
+                dnsIp = "",
+            )
+
+        val plan = buildEncryptedDnsCandidatePlan(active, preferredPath = rememberedCloudflare)
+
+        assertTrue(plan.isNotEmpty())
+        assertTrue(plan.none { it.resolverId in setOf(DnsProviderCloudflare, DnsProviderCloudflareIp) })
+    }
+
+    @Test
+    fun `explicit Cloudflare selection remains usable with independent fallback candidates`() {
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCloudflare,
+                dnsIp = "",
+            )
+
+        val plan = buildEncryptedDnsCandidatePlan(active)
+
+        assertEquals(active.toEncryptedDnsPathCandidate()?.pathKey(), plan.first().pathKey())
+        assertEquals(1, plan.count { it.resolverId in setOf(DnsProviderCloudflare, DnsProviderCloudflareIp) })
+        assertTrue(plan.any { it.resolverId == DnsProviderAdGuard })
+        assertTrue(plan.any { it.resolverId == DnsProviderGoogle })
+    }
+
+    @Test
     fun `built in dot settings preserve provider identity and defaults`() {
         val active =
             activeDnsSettings(

@@ -139,15 +139,20 @@ fun buildEncryptedDnsCandidatePlan(
     blockedPathKeys: Set<String> = emptySet(),
 ): List<EncryptedDnsPathCandidate> {
     val currentPath = activeDns.toEncryptedDnsPathCandidate()
+    val automaticPreferredPath = preferredPath?.takeUnless { it.isCloudflareProvider() }
     val candidates =
         linkedMapOf<String, EncryptedDnsPathCandidate>()
             .apply {
                 builtInEncryptedDnsPathCandidates().forEach { candidate ->
+                    if (!candidate.isCloudflareProvider()) {
+                        put(candidate.pathKey(), candidate)
+                    }
+                }
+                automaticPreferredPath?.let { candidate ->
                     put(candidate.pathKey(), candidate)
                 }
-                preferredPath?.let { candidate ->
-                    put(candidate.pathKey(), candidate)
-                }
+                // Explicit user selection remains available; automatic discovery and remembered
+                // winners must not silently promote Cloudflare back into the critical path.
                 currentPath?.let { candidate ->
                     put(candidate.pathKey(), candidate)
                 }
@@ -162,7 +167,7 @@ fun buildEncryptedDnsCandidatePlan(
         BuiltInDnsProviders
             .mapIndexed { index, provider -> provider.providerId to index }
             .toMap()
-    val preferredProtocol = preferredPath?.protocol?.takeIf { it.isNotBlank() }
+    val preferredProtocol = automaticPreferredPath?.protocol?.takeIf { it.isNotBlank() }
     val currentProtocol = currentPath?.protocol?.takeIf { it.isNotBlank() }
     val protocolSeed = preferredProtocol ?: currentProtocol ?: EncryptedDnsProtocolDoh
     val protocolOrder =
@@ -176,9 +181,12 @@ fun buildEncryptedDnsCandidatePlan(
             ).filterTo(this) { protocol -> protocol != protocolSeed }
         }
 
-    val comparator = candidateComparator(blockedPathKeys, preferredPath, currentPath, providerOrder)
+    val comparator = candidateComparator(blockedPathKeys, automaticPreferredPath, currentPath, providerOrder)
     return interleaveByProtocol(candidates, protocolOrder, comparator)
 }
+
+private fun EncryptedDnsPathCandidate.isCloudflareProvider(): Boolean =
+    resolverId == DnsProviderCloudflare || resolverId == DnsProviderCloudflareIp
 
 private fun candidateComparator(
     blockedPathKeys: Set<String>,

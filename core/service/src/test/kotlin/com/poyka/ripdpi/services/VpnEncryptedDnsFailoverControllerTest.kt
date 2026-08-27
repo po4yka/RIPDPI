@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.DnsProviderCloudflareIp
 import com.poyka.ripdpi.data.EncryptedDnsConfigInput
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.buildEncryptedDnsCandidatePlan
+import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -16,6 +19,41 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VpnEncryptedDnsFailoverControllerTest {
+    @Test
+    fun `exhausted independent resolvers never activate remembered Cloudflare`() =
+        runTest {
+            val env = newEnv()
+            val currentDns = activeDnsSettings(dnsMode = "encrypted", dnsProviderId = DnsProviderAdGuard, dnsIp = "")
+            val rememberedCloudflare = requireNotNull(cloudflareDohDns().toEncryptedDnsPathCandidate())
+            env.preferredPaths.rememberPreferredPath(env.fingerprint, rememberedCloudflare)
+            val signature = dnsSignature(currentDns, overrideReason = null)
+
+            env.controller.evaluate(
+                state = env.state,
+                activeDns = currentDns,
+                currentDnsSignature = signature,
+                networkScopeKey = env.fingerprint.scopeKey(),
+                telemetry = dnsTelemetry(queries = 0, failures = 0),
+            )
+            // Enumerate the catalog independently of the planner under test.
+            builtInEncryptedDnsPathCandidates()
+                .filterNot { it.resolverId in setOf(DnsProviderCloudflare, DnsProviderCloudflareIp) }
+                .forEach { env.state.attemptedPathKeys += it.pathKey() }
+
+            val failoverTriggered =
+                env.controller.evaluate(
+                    state = env.state,
+                    activeDns = currentDns,
+                    currentDnsSignature = signature,
+                    networkScopeKey = env.fingerprint.scopeKey(),
+                    telemetry = dnsTelemetry(queries = 1, failures = 1, lastDnsError = "Connection refused"),
+                )
+
+            assertFalse(failoverTriggered)
+            assertTrue(env.state.exhausted)
+            assertNull(env.overrides.override.value)
+        }
+
     @Test
     fun `single dns failure event does not trigger failover`() =
         runTest {
