@@ -238,6 +238,7 @@ internal fun projectActiveVpnObservation(
     capabilities: NetworkCapabilities?,
     linkProperties: LinkProperties?,
     generation: Long?,
+    platformSdk: Int = Build.VERSION.SDK_INT,
 ): NetworkPathObservation {
     if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true || generation == null) {
         return NetworkPathObservation()
@@ -247,6 +248,7 @@ internal fun projectActiveVpnObservation(
         linkProperties = linkProperties,
         association = NetworkPathAssociationActiveDefault,
         generation = generation,
+        platformSdk = platformSdk,
     )
 }
 
@@ -255,6 +257,7 @@ private fun projectPathObservation(
     linkProperties: LinkProperties?,
     association: String,
     generation: Long,
+    platformSdk: Int,
 ): NetworkPathObservation {
     val addresses = linkProperties?.linkAddresses.orEmpty()
     val routes = linkProperties?.routes.orEmpty()
@@ -275,7 +278,7 @@ private fun projectPathObservation(
         roaming = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING),
         suspended = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED),
         congested =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (platformSdk >= Build.VERSION_CODES.P) {
                 !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)
             } else {
                 null
@@ -291,22 +294,22 @@ private fun projectPathObservation(
             networkPathCountWasTruncated(addresses.size) ||
                 networkPathCountWasTruncated(routes.size) ||
                 networkPathCountWasTruncated(dnsServers.size),
-        nat64Present = linkProperties.networkPathNat64Present(),
-        privateDnsCategory = linkProperties.networkPathPrivateDnsCategory(),
-        mtuBand = networkPathMtuBand(linkProperties.networkPathMtu()),
+        nat64Present = linkProperties.networkPathNat64Present(platformSdk),
+        privateDnsCategory = linkProperties.networkPathPrivateDnsCategory(platformSdk),
+        mtuBand = networkPathMtuBand(linkProperties.networkPathMtu(platformSdk)),
         upstreamBandwidthBand = networkPathBandwidthBand(capabilities.linkUpstreamBandwidthKbps),
         downstreamBandwidthBand = networkPathBandwidthBand(capabilities.linkDownstreamBandwidthKbps),
     )
 }
 
-private fun LinkProperties?.networkPathNat64Present(): Boolean =
-    this != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && nat64PresentOnR()
+private fun LinkProperties?.networkPathNat64Present(platformSdk: Int): Boolean =
+    this != null && platformSdk >= Build.VERSION_CODES.R && nat64PresentOnR()
 
 @RequiresApi(Build.VERSION_CODES.R)
 private fun LinkProperties.nat64PresentOnR(): Boolean = nat64Prefix != null
 
-private fun LinkProperties?.networkPathMtu(): Int? =
-    if (this != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) mtuOnQ() else null
+private fun LinkProperties?.networkPathMtu(platformSdk: Int): Int? =
+    if (this != null && platformSdk >= Build.VERSION_CODES.Q) mtuOnQ() else null
 
 @RequiresApi(Build.VERSION_CODES.Q)
 private fun LinkProperties.mtuOnQ(): Int = mtu
@@ -320,9 +323,9 @@ private fun List<InetAddress>.networkPathFamilies(): List<String> =
         }
     }.distinct().sorted()
 
-private fun LinkProperties?.networkPathPrivateDnsCategory(): String =
+private fun LinkProperties?.networkPathPrivateDnsCategory(platformSdk: Int): String =
     when {
-        this == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.P -> "unknown"
+        this == null || platformSdk < Build.VERSION_CODES.P -> "unknown"
         !isPrivateDnsActive -> "inactive"
         privateDnsServerName.isNullOrBlank() -> "opportunistic"
         else -> "strict"

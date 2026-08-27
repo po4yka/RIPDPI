@@ -24,13 +24,13 @@ import java.net.InetAddress
 @Config(sdk = [35])
 class NetworkPathObservationProjectionTest {
     @Test
-    @Config(sdk = [27])
     fun `pre Q projection does not access newer link properties`() {
         val observation =
             projectActiveVpnObservation(
                 capabilities(NetworkCapabilities.TRANSPORT_VPN),
                 LinkProperties(),
                 generation = 1L,
+                platformSdk = Build.VERSION_CODES.O_MR1,
             )
 
         assertFalse(requireNotNull(observation.nat64Present))

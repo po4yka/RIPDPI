@@ -50,8 +50,6 @@
 //! the `std` level — `TcpStream` shares one fd across clones — so this
 //! contract is documentation, not types.
 
-#[cfg(target_os = "linux")]
-use std::hash::{BuildHasher, Hasher};
 use std::io;
 use std::net::TcpStream;
 #[cfg(target_os = "linux")]
