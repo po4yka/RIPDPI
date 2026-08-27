@@ -104,8 +104,9 @@ Surface:
   device or VPS claim. The existing network E2E CI script now runs this fixture.
 - The final combined Kotlin run passed 3059 tests, including the complete service
   suite (1884); native unit tests (93) and network E2E tests (62) also passed.
-  Static analysis and exact-commit hosted CI are tracked in the linked
-  OpenSpec verification record. Existing failures on baseline main are not
+  Full static analysis passed. Hosted CI for the published implementation failed
+  the native hotspot guard; the exact run is linked in the OpenSpec verification
+  record. Existing failures on baseline main are not
   treated as successful acceptance; the item must remain open until resolved.
 
 ## Runtime-composition decision (D2 — resolved)

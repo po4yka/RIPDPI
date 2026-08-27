@@ -1,11 +1,11 @@
 ---
 task_id: TRN-1786264762917775
 change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
-commit_sha: 75193a72afd7b0475eeef5913b1fcb94b1908fff
+commit_sha: 0299de9e072a4ac0b784709f7ff10e3ef1726336
 local: blocked
 local_evidence: "3059 Kotlin tests, 93 native tests, 62 network E2E tests, AndroidTest Kotlin compilation and full staticAnalysis passed. Unchanged native hotspot and unsafe-boundary baseline failures remain acceptance blockers."
-remote_ci: required
-remote_ci_evidence: "Exact implementation SHA has not been pushed yet. Baseline 7d8580c92dc6f011a4e685d0677e87a59469c248 has failing CI jobs; no green hosted claim."
+remote_ci: blocked
+remote_ci_evidence: "Published implementation bundle 0299de9e072a4ac0b784709f7ff10e3ef1726336: CI run 33110649324 passed task/OpenSpec contracts but architecture-health failed at Run native hotspot budgets. Remaining jobs were still running at evidence capture. No green hosted acceptance is claimed."
 device: not_applicable
 device_evidence: "Acceptance permits independent loopback-peer evidence. No physical-device installation or execution was performed."
 artifact: not_applicable
@@ -56,6 +56,10 @@ Android native artifact. Rust commands use the pinned toolchain and `--locked`.
 - `:app:compileGithubFullDebugAndroidTestKotlin` passed; instrumentation was not run.
 - The same combined Gradle invocation completed `staticAnalysis`: BUILD SUCCESSFUL,
   809 actionable tasks. No lint, detekt or architecture baseline was extended.
+- After fetch/rebase, the combined Kotlin/static-analysis gate passed again on
+  `0299de9e072a4ac0b784709f7ff10e3ef1726336` (818 actionable tasks), followed by
+  successful integration to main. The 93 native tests and 62 network E2E tests
+  also passed again on that exact tree before push.
 - Architecture health, runtime boundaries, native architecture contracts and
   async-safety guards passed without baseline changes.
 - The final architecture report contains 23 current and 23 baseline indicators,
@@ -68,6 +72,17 @@ and every caller are updated. This lets the existing intent arbiter atomically
 publish provider selection and enqueue activation without a second lifecycle.
 
 ## Existing baseline failures
+
+The implementation bundle was pushed to main and its exact remote SHA was
+confirmed. [Hosted CI run 33110649324](https://github.com/po4yka/RIPDPI/actions/runs/33110649324)
+passed the task/OpenSpec contract gate; its
+[architecture-health job](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98652343619)
+failed at `Run native hotspot budgets`. The same guard rerun locally on the
+published tree reported exactly one over-budget file: `listener.rs`, 72 > 54.
+The hosted job log download timed out; the job/step conclusion was retrieved
+separately from the Actions API. Other jobs were still running at capture.
+GitHub accepted the requested direct main push with the existing bypass
+authority; that acceptance is not evidence that required checks passed.
 
 Baseline main `7d8580c92dc6f011a4e685d0677e87a59469c248` has failing
 [CI jobs](https://github.com/po4yka/RIPDPI/actions/runs/33103005845).
