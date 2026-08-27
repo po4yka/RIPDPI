@@ -15,7 +15,7 @@ updated: 2026-08-27
 source_wiki_pages:
   - android-so-bindtodevice-vpn-bypass
 linked_task: null
-status_detail: Native UID admission and Android physical harness are implemented; final source-bound Android runs on kernel >=5.7 and <5.7 plus adb socket-table evidence require connected devices. No adb device is available.
+status_detail: Native UID admission and physical harness are implemented and locally verified. Pixel 8 Pro is attached (kernel 6.1, API 37); source-bound physical runs and socket-table evidence still require an authorized routed dual-stack fixture and APK/VPN test permission, plus a kernel <5.7 device.
 ---
 
 ## Motivation
@@ -54,6 +54,8 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## Work log
+
+- 2026-08-27: During final checks a Pixel 8 Pro became available (kernel 6.1, API 37). No physical run was performed: routed dual-stack fixture details and APK/VPN test permission remain pending, and no kernel <5.7 device is available. The integration lane also corrected the physical runner's build invocation: preserve the machine gate while removing its Gradle-rejected ambient Cargo jobs override, with an explicit two-job native budget. A behavioral command regression failed before this fix and passed afterward.
 
 - 2026-08-27: Implemented the remaining source hardening: UID admission precedes raw TCP/UDP/MapDNS egress; queued packets retain their original lookup generation and a five-second deadline; pending TCP listeners own and retire lookup tokens; accepted smoltcp handles are reconciled to actual source tuples before cleanup; active retransmitted SYNs cannot steal token ownership; denied TCP gets a local IPv4/IPv6 RST; UDP attribution metadata is bounded to 64 exact tuples per association. Regression tests reproduced raw egress, stale-generation replay, pending-GC, listener-stealing, and duplicate-owner failures before their fixes. The Android runtime/acceptance bridge now shares a singleton activation epoch.
 - 2026-08-27: Physical harness v4 now supports actual kernel >=5.7 and <5.7 profiles, capability-based backport behavior, live armed/disarmed state assertions, and timestamped `/proc/net/tcp{,6}` samples with a held positive-control socket. Evidence remains fail-closed on missing permissions, stale provenance, absent positive controls, or observed denied sockets. The v3 evidence contract is intentionally replaced; old evidence cannot qualify the new source. Samples do not claim continuous kernel tracing. No Android device was attached in this run, so current-source protocol, both-kernel, and socket-table acceptance remain blocked. Historical July results below are not proof for this revision.
