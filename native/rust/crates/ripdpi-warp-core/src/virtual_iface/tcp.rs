@@ -1,40 +1,41 @@
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::net::IpAddr;
+use std::collections::{HashMap, VecDeque};
+use std::net::{IpAddr, Ipv6Addr};
 
 use anyhow::Context;
 use bytes::Bytes;
 use smoltcp::iface::{Config as IfaceConfig, Interface, SocketHandle, SocketSet};
 use smoltcp::socket::tcp;
 use smoltcp::time::Instant;
-use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr, IpVersion};
+use smoltcp::wire::{HardwareAddress, IpAddress};
 use tokio::time::Duration;
 
 use crate::ports::{PortProtocol, VirtualPort};
 
 use super::bus::{Bus, Event};
 use super::device::VirtualIpDevice;
-use super::socket_factory::new_tcp_client_socket;
+use super::socket_factory::{configure_interface, new_tcp_client_socket, select_source};
 
 pub(crate) struct DynamicTcpInterface {
     bus: Bus,
     source_peer_ip: IpAddr,
+    source_peer_ipv6: Option<Ipv6Addr>,
     mtu: usize,
 }
 
 impl DynamicTcpInterface {
-    pub(crate) fn new(bus: Bus, source_peer_ip: IpAddr, mtu: usize) -> Self {
-        Self { bus, source_peer_ip, mtu }
+    pub(crate) fn new(bus: Bus, source_peer_ip: IpAddr, source_peer_ipv6: Option<Ipv6Addr>, mtu: usize) -> Self {
+        Self { bus, source_peer_ip, source_peer_ipv6, mtu }
     }
 
+    /// # Cancel safety
+    /// Not cancel-safe for continuation: interface polling consumes bus packets.
+    /// Terminal cancellation drops this interface and all owned virtual sockets.
+    // NOT cancel-safe: the runtime aborts only during complete interface teardown.
     pub(crate) async fn run(self) -> anyhow::Result<()> {
         let mut sockets = SocketSet::new([]);
         let mut device = VirtualIpDevice::new(PortProtocol::Tcp, self.bus.clone(), self.mtu);
         let mut iface = Interface::new(IfaceConfig::new(HardwareAddress::Ip), &mut device, Instant::now());
-        let mut ip_addrs = HashSet::new();
-        ip_addrs.insert(IpAddress::from(self.source_peer_ip));
-        iface.update_ip_addrs(|addrs| {
-            addrs.push(IpCidr::new(IpAddress::from(self.source_peer_ip), 32)).expect("source ip");
-        });
+        configure_interface(&mut iface, self.source_peer_ip, self.source_peer_ipv6)?;
         let mut endpoint = self.bus.new_endpoint();
         let mut next_poll: Option<tokio::time::Instant> = None;
         let mut port_client_handle_map: HashMap<VirtualPort, SocketHandle> = HashMap::new();
@@ -88,16 +89,10 @@ impl DynamicTcpInterface {
                 event = endpoint.recv() => match event {
                     Event::Shutdown => break,
                     Event::ClientConnectionInitiated(port_forward, virtual_port) if matches!(port_forward.protocol, PortProtocol::Tcp) => {
-                        let dest_ip = IpAddress::from(port_forward.destination.ip());
-                        if ip_addrs.insert(dest_ip) {
-                            iface.update_ip_addrs(|addrs| {
-                                let prefix = match dest_ip.version() {
-                                    IpVersion::Ipv4 => 32,
-                                    IpVersion::Ipv6 => 128,
-                                };
-                                let _ = addrs.push(IpCidr::new(dest_ip, prefix));
-                            });
-                        }
+                        let Some(source) = select_source(self.source_peer_ip, self.source_peer_ipv6, port_forward.destination.ip()) else {
+                            endpoint.send(Event::ClientConnectionDropped(virtual_port));
+                            continue;
+                        };
                         let client_handle = sockets.add(new_tcp_client_socket());
                         port_client_handle_map.insert(virtual_port, client_handle);
                         send_queue.insert(virtual_port, VecDeque::new());
@@ -106,7 +101,7 @@ impl DynamicTcpInterface {
                             .connect(
                                 iface.context(),
                                 (IpAddress::from(port_forward.destination.ip()), port_forward.destination.port()),
-                                (IpAddress::from(self.source_peer_ip), virtual_port.num()),
+                                (IpAddress::from(source), virtual_port.num()),
                             )
                             .context("TCP virtual connect failed")?;
                         next_poll = None;

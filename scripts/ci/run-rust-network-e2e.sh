@@ -33,3 +33,6 @@ run_fixture_tests
 
 echo "==> repo-owned proxy runtime E2E"
 run_proxy_e2e
+
+echo "==> standalone AmneziaWG independent peer interoperability"
+python3 "$repo_root/scripts/tests/run-standalone-awg-interop.py"

@@ -151,6 +151,7 @@ impl WarpRuntime {
                     endpoint,
                     reserved,
                     source_peer_ip,
+                    source_peer_ipv6: None,
                     amnezia_cfg: &self.config.amnezia,
                     // AWG 2.0 I1..I5 special-junk frames, sourced from the
                     // resolved WARP config's own `i1..i5` hex fields. Empty
@@ -195,7 +196,8 @@ impl WarpRuntime {
             tasks.push(tokio::spawn(async move { tunnel.routine_task().await }));
         }
         {
-            let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
+            let interface =
+                DynamicTcpInterface::new(bus.clone(), source_peer_ip, None, self.config.mtu.max(1280) as usize);
             tasks.push(tokio::spawn(async move {
                 if let Err(error) = interface.run().await {
                     tracing::warn!("WARP TCP virtual interface stopped: {error}");
@@ -203,7 +205,8 @@ impl WarpRuntime {
             }));
         }
         {
-            let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
+            let interface =
+                DynamicUdpInterface::new(bus.clone(), source_peer_ip, None, self.config.mtu.max(1280) as usize);
             tasks.push(tokio::spawn(async move {
                 if let Err(error) = interface.run().await {
                     tracing::warn!("WARP UDP virtual interface stopped: {error}");

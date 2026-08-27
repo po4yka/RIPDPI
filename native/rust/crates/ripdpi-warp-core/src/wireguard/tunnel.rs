@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -23,11 +23,9 @@ use crate::virtual_iface::{Bus, Event};
 /// (hex strings). The native WARP runtime now sources them from the resolved
 /// config's own `i1..i5` fields (via [`WarpAmneziaConfig::special_junk_hex`]),
 /// and a generic AmneziaWG profile maps its `AmneziaWgObfuscation` `I*` fields
-/// here; empty strings mean unset. An invalid config (e.g. inverted junk range,
-/// colliding headers, malformed `I*` hex) is logged and treated as disabled
-/// rather than failing tunnel construction -- a malformed obfuscation knob must
-/// not take the whole runtime down. Platform compatibility errors are the
-/// exception and propagate so activation fails closed.
+/// here; empty strings mean unset. Invalid active parameters and platform
+/// compatibility errors fail tunnel construction. Only an explicitly disabled
+/// config may select plain WireGuard.
 pub(crate) fn build_authenticated_awg_codec(
     cfg: &WarpAmneziaConfig,
     special_junk_hex: &[&str],
@@ -50,17 +48,11 @@ fn build_awg_codec_for_platform(
     if !cfg.enabled {
         return Ok(None);
     }
-    match AwgParams::from_config_for_platform(cfg, special_junk_hex, is_android_arm64) {
-        Ok(params) => Ok(Some(match mac_keys {
-            Some(mac_keys) => AwgWireCodec::new_authenticated(params, mac_keys),
-            None => AwgWireCodec::new(params),
-        })),
-        Err(error @ AwgParamsError::Arm64S34VersionFloor { .. }) => Err(error),
-        Err(error) => {
-            tracing::warn!("invalid AmneziaWG config, obfuscation disabled: {error}");
-            Ok(None)
-        }
-    }
+    let params = AwgParams::from_config_for_platform(cfg, special_junk_hex, is_android_arm64)?;
+    Ok(Some(match mac_keys {
+        Some(mac_keys) => AwgWireCodec::new_authenticated(params, mac_keys),
+        None => AwgWireCodec::new(params),
+    }))
 }
 
 /// Construction parameters for a [`WireGuardTunnel`].
@@ -88,6 +80,7 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     pub reserved: [u8; 3],
     /// Local interface IPv4 used to classify inbound tunnel packets.
     pub source_peer_ip: IpAddr,
+    pub source_peer_ipv6: Option<Ipv6Addr>,
     /// AmneziaWG `Jc/Jmin/Jmax/H1..H4/S1..S4` obfuscation knobs.
     pub amnezia_cfg: &'a WarpAmneziaConfig,
     /// AmneziaWG 2.0 `I1..I5` special-junk frames (hex). Empty strings = unset.
@@ -105,6 +98,7 @@ pub(crate) struct WireGuardTunnel {
     carrier: WgCarrier,
     endpoint: SocketAddr,
     source_peer_ip: IpAddr,
+    source_peer_ipv6: Option<Ipv6Addr>,
     reserved: [u8; 3],
     amnezia: Option<AwgWireCodec>,
     handshake_readiness: HandshakeReadiness,
@@ -137,6 +131,7 @@ impl WireGuardTunnel {
             endpoint,
             reserved,
             source_peer_ip,
+            source_peer_ipv6,
             amnezia_cfg,
             special_junk_hex,
             carrier,
@@ -174,6 +169,7 @@ impl WireGuardTunnel {
             carrier,
             endpoint,
             source_peer_ip,
+            source_peer_ipv6,
             reserved,
             amnezia,
             handshake_readiness: HandshakeReadiness::default(),
@@ -322,7 +318,7 @@ impl WireGuardTunnel {
                     }
                 }
                 TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
-                    if let Some(protocol) = route_protocol(packet, self.source_peer_ip) {
+                    if let Some(protocol) = route_protocol(packet, self.source_peer_ip, self.source_peer_ipv6) {
                         endpoint.send(Event::InboundInternetPacket(protocol, Bytes::copy_from_slice(packet)));
                     }
                 }
@@ -371,6 +367,7 @@ mod tests {
             endpoint: dummy_endpoint(),
             reserved: [0u8; 3],
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
+            source_peer_ipv6: None,
             amnezia_cfg: &amnezia,
             special_junk_hex: ["", "", "", "", ""],
             carrier: None,
@@ -394,6 +391,18 @@ mod tests {
         // Decodes cleanly from base64 but yields fewer than 32 bytes.
         let error = build_error(Some("AAAA")).expect("short PSK must fail closed");
         assert!(error.contains("invalid WireGuard preshared key"), "error must be the PSK context, got: {error}");
+    }
+
+    #[test]
+    fn invalid_active_awg_headers_fail_closed() {
+        let config = WarpAmneziaConfig { enabled: true, h1: 42, h2: 42, ..WarpAmneziaConfig::default() };
+
+        let result = build_awg_codec_for_platform(&config, &[""; 5], false, None);
+
+        assert!(
+            matches!(result, Err(AwgParamsError::HeaderCollision { .. })),
+            "invalid active AWG config must not silently fall back to plain WireGuard"
+        );
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -13,6 +14,7 @@ pub(crate) enum Event {
     ClientConnectionDropped(VirtualPort),
     LocalData(PortForwardConfig, VirtualPort, Bytes),
     RemoteData(VirtualPort, Bytes),
+    RemoteUdpDatagram(VirtualPort, SocketAddr, Bytes),
     InboundInternetPacket(PortProtocol, Bytes),
     OutboundInternetPacket(Bytes),
     VirtualDeviceFed(PortProtocol),

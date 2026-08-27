@@ -22,13 +22,14 @@
 // special-junk frames.
 
 use std::io;
+use std::net::Ipv6Addr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
 use crate::config::{ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, now_ms, parse_ipv4_cidr, resolve_endpoint};
@@ -73,7 +74,7 @@ async fn poll_runtime(listener: &TcpListener, failures: &mut UnboundedReceiver<S
 /// `ripdpi-amneziawg-android` bridge deserializes from the
 /// `AmneziaWgProfileScreen` form. Unlike [`crate::config::ResolvedWarpRuntimeConfig`]
 /// it carries no Cloudflare account/device/scanner fields.
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AmneziaWgProfileConfig {
     /// When `false`, [`AmneziaWgRuntime::run`] returns immediately without
@@ -130,6 +131,22 @@ pub struct AmneziaWgProfileConfig {
     pub local_socks_host: String,
     /// Loopback SOCKS5 bind port.
     pub local_socks_port: i32,
+}
+
+impl std::fmt::Debug for AmneziaWgProfileConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("AmneziaWgProfileConfig")
+            .field("enabled", &self.enabled)
+            .field("profile_id", &self.profile_id)
+            .field("private_key", &"<redacted>")
+            .field("preshared_key", &"<redacted>")
+            .field("carrier_ws_url", &"<redacted>")
+            .field("carrier", &self.carrier)
+            .field("mtu", &self.mtu)
+            .field("local_socks_port", &self.local_socks_port)
+            .finish_non_exhaustive()
+    }
 }
 
 /// Selects the transport the AmneziaWG tunnel's WireGuard datagrams ride over.
@@ -388,6 +405,7 @@ impl AmneziaWgRuntime {
         let source_peer_ip = parse_ipv4_cidr(Some(self.config.interface_address_v4.as_str())).ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "AmneziaWG runtime requires an IPv4 interface address")
         })?;
+        let source_peer_ipv6 = parse_interface_ipv6(&self.config.interface_address_v6)?;
         let endpoint = resolve_endpoint(&self.endpoint_descriptor()).await?;
 
         let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
@@ -413,6 +431,7 @@ impl AmneziaWgRuntime {
                     // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
                     reserved: [0u8; 3],
                     source_peer_ip,
+                    source_peer_ipv6,
                     amnezia_cfg: &amnezia_cfg,
                     special_junk_hex: [
                         self.config.amnezia.i1.as_str(),
@@ -439,6 +458,7 @@ impl AmneziaWgRuntime {
         crate::socks::ensure_loopback_socks_host(&self.config.local_socks_host)?;
         let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
+        let bind_addr = listener.local_addr()?.to_string();
         let mtu = self.config.mtu.max(MIN_MTU) as usize;
 
         {
@@ -456,7 +476,7 @@ impl AmneziaWgRuntime {
             tasks.push(tokio::spawn(async move { tunnel.routine_task().await }));
         }
         {
-            let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, mtu);
+            let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
             let failure_tx = failure_tx.clone();
             tasks.push(tokio::spawn(async move {
                 if let Err(error) = interface.run().await {
@@ -467,7 +487,7 @@ impl AmneziaWgRuntime {
             }));
         }
         {
-            let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, mtu);
+            let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, source_peer_ipv6, mtu);
             let failure_tx = failure_tx.clone();
             tasks.push(tokio::spawn(async move {
                 if let Err(error) = interface.run().await {
@@ -503,7 +523,11 @@ impl AmneziaWgRuntime {
         }
 
         let mut runtime_failure = None;
+        // The owner must retain even clients stalled before their bus subscription.
+        // A bus shutdown alone cannot reach an incomplete SOCKS greeting.
+        let mut clients = JoinSet::new();
         while self.running.load(Ordering::SeqCst) && !self.stop_requested.load(Ordering::SeqCst) {
+            while clients.try_join_next().is_some() {}
             match poll_runtime(&listener, &mut failure_rx).await {
                 RuntimePoll::Client(stream) => {
                     self.active_sessions.fetch_add(1, Ordering::SeqCst);
@@ -512,7 +536,7 @@ impl AmneziaWgRuntime {
                     let bus = bus.clone();
                     let tcp_pool = Arc::clone(&tcp_pool);
                     let udp_pool = Arc::clone(&udp_pool);
-                    tokio::spawn(async move {
+                    clients.spawn(async move {
                         if let Err(error) = handle_socks_client(stream, bus, tcp_pool, udp_pool).await {
                             *runtime.last_error.lock().expect("last error") = Some(error.to_string());
                         }
@@ -532,8 +556,19 @@ impl AmneziaWgRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
+        drop(listener);
         shutdown_runtime_tasks(&bus, tasks).await;
+        // Cancellation is terminal: close owned client sockets, then observe all
+        // handlers exiting before this runtime reports a completed shutdown.
+        clients.shutdown().await;
+        self.active_sessions.store(0, Ordering::SeqCst);
+        let cleared_listener = self
+            .listener_address
+            .lock()
+            .map(|mut address| *address = None)
+            .map_err(|_| io::Error::other("AmneziaWG listener state poisoned after shutdown"));
         emit_runtime_stopped();
+        cleared_listener?;
         runtime_failure.map_or(Ok(()), |message| Err(io::Error::other(message)))
     }
 
@@ -601,6 +636,26 @@ impl AmneziaWgRuntime {
     }
 }
 
+fn parse_interface_ipv6(value: &str) -> io::Result<Option<Ipv6Addr>> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let (address, prefix) = value.split_once('/').unwrap_or((value, "128"));
+    let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "invalid AmneziaWG IPv6 interface address");
+    let prefix: u8 = prefix.parse().map_err(|_| invalid())?;
+    if prefix > 128 {
+        return Err(invalid());
+    }
+    let address: Ipv6Addr = address.parse().map_err(|_| invalid())?;
+    if address.is_unspecified() || address.is_multicast() {
+        return Err(invalid());
+    }
+    Ok(Some(address))
+}
+
+/// # Cancel safety
+/// Not cancel-safe: completion requires joining every child after aborting it.
+// NOT cancel-safe: only the non-cancelled runtime shutdown path awaits this helper.
 async fn shutdown_runtime_tasks(bus: &Bus, tasks: Vec<JoinHandle<()>>) {
     bus.shutdown();
     for task in tasks {
@@ -639,6 +694,29 @@ mod tests {
 
     fn obf(jc: i32, s1: i32, h1: i64) -> AmneziaWgObfuscation {
         AmneziaWgObfuscation { jc, s1, h1, ..Default::default() }
+    }
+
+    #[test]
+    fn standalone_config_debug_redacts_secrets_and_carrier_url() {
+        let config = AmneziaWgProfileConfig {
+            private_key: "private-key-secret".into(),
+            preshared_key: "preshared-secret".into(),
+            carrier_ws_url: "wss://example.invalid/private-token".into(),
+            ..Default::default()
+        };
+        let debug = format!("{config:?}");
+        assert!(!debug.contains(&config.private_key), "private key leaked");
+        assert!(!debug.contains(&config.preshared_key), "preshared key leaked");
+        assert!(!debug.contains(&config.carrier_ws_url), "carrier URL leaked");
+    }
+
+    #[test]
+    fn optional_ipv6_interface_is_validated_before_runtime_start() {
+        assert_eq!(parse_interface_ipv6("").expect("unset"), None);
+        assert_eq!(parse_interface_ipv6("fd77::2/128").expect("valid IPv6"), Some("fd77::2".parse().expect("address")));
+        for invalid in ["fd77::2/129", "fd77::2/bad", "10.0.0.2/32", "::/128", "ff02::1/128"] {
+            assert_eq!(parse_interface_ipv6(invalid).expect_err("invalid IPv6").kind(), io::ErrorKind::InvalidInput);
+        }
     }
 
     #[test]
