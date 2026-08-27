@@ -103,10 +103,12 @@ readonly source_sha
     fail "physical evidence requires a clean source checkout"
 readonly gradle_bin="${GRADLE_BIN:-$source_root/gradlew}"
 [[ -x "$gradle_bin" ]] || fail "Gradle wrapper is unavailable"
-build-gate -- "$gradle_bin" -p "$source_root" --max-workers=4 \
+build-gate -- env -u CARGO_BUILD_JOBS "$gradle_bin" -p "$source_root" --max-workers=4 \
     :app:assembleGithubFullDebug \
     :app:assembleGithubFullDebugAndroidTest \
     -Pripdpi.localNativeAbis=arm64-v8a \
+    -Pripdpi.nativeCpuBudget=2 \
+    -Pripdpi.nativeAbiParallelism=1 \
     -Pripdpi.enableAbiSplits=false \
     -Pripdpi.skipNativeBuild=false \
     -Pripdpi.prebuiltJniLibsDir= || fail "source-bound physical APK build failed"

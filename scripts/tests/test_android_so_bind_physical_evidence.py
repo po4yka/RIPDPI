@@ -131,6 +131,37 @@ def valid_evidence() -> dict[str, object]:
 
 
 class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
+    def test_physical_build_keeps_gate_without_ambient_cargo_jobs(self) -> None:
+        runner = (ROOT / "scripts/ci/run-android-so-bind-physical-e2e.sh").read_text()
+        build_command = runner.split('build-gate -- ', 1)[1].split(
+            ' || fail "source-bound physical APK build failed"', 1
+        )[0]
+        with tempfile.TemporaryDirectory() as directory:
+            gradle = Path(directory) / "gradle"
+            gradle.write_text(
+                '#!/bin/sh\n'
+                '[ "$BUILD_GATE_HELD" = 1 ] || exit 41\n'
+                '[ "${CARGO_BUILD_JOBS+x}" != x ] || exit 42\n'
+                'printf "%s\\n" "$@"\n'
+            )
+            gradle.chmod(0o700)
+            result = subprocess.run(
+                ["bash", "-c", '''
+build-gate() {
+    shift
+    BUILD_GATE_HELD=1 CARGO_BUILD_JOBS=3 "$@"
+}
+gradle_bin="$1"
+source_root="$2"
+build-gate -- ''' + build_command, "physical-build-test", str(gradle), directory],
+                capture_output=True, text=True, check=False,
+            )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn(":app:assembleGithubFullDebug", result.stdout.splitlines())
+        self.assertIn(":app:assembleGithubFullDebugAndroidTest", result.stdout.splitlines())
+        self.assertIn("-Pripdpi.nativeCpuBudget=2", result.stdout.splitlines())
+        self.assertIn("-Pripdpi.nativeAbiParallelism=1", result.stdout.splitlines())
+
     def validate(self, evidence: dict[str, object], **expected: object) -> str:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "evidence.json"
