@@ -104,6 +104,16 @@ Surface:
   device or VPS claim. The existing network E2E CI script now runs this fixture.
 - The same peer test passed in hosted Linux CI. Native builds passed for all
   four Android ABIs; JNI API snapshot, native-bloat and CodeQL also passed.
+  Subsequent hosted GitHub, F-Droid and Play release verification passed.
+- Hilt test bindings and lifecycle Stop fixtures were corrected after real CI
+  failures. Local API34 integration passed 50 tests (6 assumption skips and 1
+  ignored), including all 24 lifecycle tests; five JNI instrumentation tests
+  also passed. These direct-runner emulator checks do not establish real Android
+  AWG peer connectivity; that protocol evidence comes from the separate loopback peer.
+- The same local suites passed through Orchestrator. Final hosted API27/33/35
+  JUnit artifacts each confirm 50 Full passes, 6 skips, all 24 lifecycle passes
+  and one Simple pass; API35 additionally confirms five JNI passes. All debug
+  APK and release-verification jobs passed on the fixture-correction commit.
 - The final combined Kotlin run passed 3059 tests, including the complete service
   suite (1884); native unit tests (93) and network E2E tests (62) also passed.
   Full static analysis passed. Hosted CI for the published implementation failed

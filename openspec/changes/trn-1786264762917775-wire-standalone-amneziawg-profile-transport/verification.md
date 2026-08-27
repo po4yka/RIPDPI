@@ -1,15 +1,15 @@
 ---
 task_id: TRN-1786264762917775
 change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
-commit_sha: 9f9960b2b1ca83ca57cebb7793824524c5a12a20
+commit_sha: c0e0ec7a1efbe182b982bb010daf1806bdb869ec
 local: blocked
-local_evidence: "3059 Kotlin tests, 93 native tests, 62 network E2E tests and full staticAnalysis passed. A new Hilt test-graph regression was reproduced and fixed; full AndroidTest APK assembly, app detekt and ktlint passed. Unchanged native hotspot and unsafe-boundary baseline failures remain acceptance blockers."
+local_evidence: "3059 Kotlin tests, 93 native tests, 62 network E2E tests and full staticAnalysis passed. Hilt and lifecycle test-fixture regressions were reproduced and fixed. API34 integration: 50 passed, 6 assumption skips, 1 ignored via direct runner; Orchestrator also passed 50 with 6 assumption skips. All 24 lifecycle tests passed in both runs, no FGS crash. JNI instrumentation: 5 passed; Simple navigation: 1 passed. AndroidTest APK assembly, app detekt and ktlint passed. Unchanged native hotspot and unsafe-boundary baseline failures remain acceptance blockers."
 remote_ci: blocked
-remote_ci_evidence: "Runtime bundle 0299de9e072a4ac0b784709f7ff10e3ef1726336 passed hosted AWG interop, native builds and APK builds in CI33110649324. Baseline guards and DNS tests failed; a new AndroidTest Hilt binding failure was fixed in9f9960b2b1ca83ca57cebb7793824524c5a12a20 and needs a hosted rerun. No green overall acceptance is claimed."
+remote_ci_evidence: "CI33120994370 on c0e0ec7a1 completed: API27/33/35 instrumentation, all four native ABIs, all three debug APK and release verification jobs passed. Preserved JUnit XML confirms 50 Full passes plus 6 skips and 24/24 lifecycle passes per API, Simple 1/1 per API, JNI 5/5 on API35. Overall CI remains failed on the unchanged hotspot guard and two DNS planner tests. Independent Linux AWG interop passed in prior CI33115299094 on unchanged runtime sources. No green overall acceptance is claimed."
 device: not_applicable
 device_evidence: "Acceptance permits independent loopback-peer evidence. No physical-device installation or execution was performed."
 artifact: not_applicable
-artifact_evidence: "Hosted native builds passed for all four Android ABIs and debug APK builds passed for GitHub, F-Droid and Play. Release verification was still running at this capture. No APK was independently downloaded, installed on a physical device or published as a release."
+artifact_evidence: "Hosted native builds passed for all four Android ABIs; debug APK builds and release verification passed for GitHub, F-Droid and Play in both CI33115299094 and CI33120994370. Real arm64 artifacts from the former run were consumed by owning prebuilt Gradle tasks to build local Full and Simple debug APKs; APK signatures verified and emulator installation succeeded. No physical-device installation or release publication was performed."
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---
@@ -53,7 +53,8 @@ Android native artifact. Rust commands use the pinned toolchain and `--locked`.
 - The GithubSimple selection covers `FailoverCoordinatorTest` and
   `SimpleVlessRuntimeMonitorTest`, including suspended preparation and newer-intent races.
 - `:core:engine-api:testDebugUnitTest`: 55 passed, including 6 AWG configuration contract tests.
-- `:app:compileGithubFullDebugAndroidTestKotlin` passed; local instrumentation was not run.
+- `:app:compileGithubFullDebugAndroidTestKotlin` passed. Subsequent full test-APK
+  assembly and local instrumentation are recorded below.
 - The same combined Gradle invocation completed `staticAnalysis`: BUILD SUCCESSFUL,
   809 actionable tasks. No lint, detekt or architecture baseline was extended.
 - After fetch/rebase, the combined Kotlin/static-analysis gate passed again on
@@ -108,7 +109,137 @@ The failure was reproduced locally with
 `:app:assembleGithubFullDebugAndroidTest :app:detekt :app:ktlintCheck` passed
 (385 actionable tasks). Compiling only AndroidTest Kotlin had not exercised
 Hilt Java generation; future validation of this boundary must assemble the
-test APK. Hosted emulator verification of the correction remains required.
+  test APK. In subsequent [CI33115299094](https://github.com/po4yka/RIPDPI/actions/runs/33115299094),
+  all API27/33/35 test graphs compiled and reached device execution. GitHub
+  release verification also passed, including Release AndroidTest Hilt compilation.
+
+## Lifecycle test-fixture regression and correction
+
+The same run exposed a second new regression after Hilt compilation was fixed:
+the lifecycle test helpers used `ServiceController.stop()` to dispatch a
+foreground-service Stop immediately before forced service cleanup. An already
+halted service could be recreated by that Stop, then destroyed before foreground
+promotion, causing a delayed `ForegroundServiceDidNotStartInTimeException`.
+The repeated-stop test's body helper could trigger the same sequence.
+
+Commit `c0e0ec7a1efbe182b982bb010daf1806bdb869ec` restores plain `startService`
+Stop dispatch in the test body while retaining the intent-generation stamp.
+Cleanup records the accepted user Stop under the existing intent arbiter,
+gracefully stops an active runtime with a stamped plain-service intent, waits
+for `Halted` outside the arbiter lock, and finally stops any remaining service.
+It does not recreate a halted foreground service. Production code, test-method
+bodies, assertions and their timeout values are unchanged by this correction.
+
+Both failure sequences were reproduced in real emulator logs. After correction:
+
+- The full integration package on an isolated arm64 API34 emulator produced
+  **50 passes, 6 assumption skips, 1 ignored and zero failures/errors**. All
+  **24 lifecycle tests passed**; logcat contained no foreground-promotion crash,
+  fatal exception or ANR. The runner's `OK (56 tests)` includes the six
+  assumption skips and must not be reported as 56 passes.
+- The five `StrategyEngineJniInstrumentedTest` tests passed with no skips.
+- The Simple-only navigation test passed with no skips using the correct
+  `com.poyka.ripdpi.simple.test` instrumentation package. An earlier invocation
+  against the Full package produced an assumption skip and is not credited.
+- `:app:assembleGithubFullDebugAndroidTest :app:detekt :app:ktlintCheck` passed
+  again after fetch/rebase (386 actionable tasks). Architecture health reported
+  zero new or worsened indicators; locked Cargo metadata and task validation passed.
+- The debug app was assembled using real arm64 native artifacts from exact
+  hosted SHA `5428b2bf8e8047a327d64d6d6e7f38b80b44cdda`, through the normal
+  prebuilt Gradle tasks, without `skipNativeBuild`. The source changes since
+  that SHA affect test fixtures only.
+
+Local evidence files are
+`/private/tmp/ripdpi-awg-api34-lifecycle-corrected-20260828-instrumentation.log`,
+`/private/tmp/ripdpi-awg-api34-lifecycle-corrected-20260828-logcat.log` and
+`/private/tmp/ripdpi-awg-api34-jni-c0e0-20260828-instrumentation.log`.
+A read-only reviewer independently verified the counts and lifecycle method list.
+These runs use direct AndroidJUnitRunner, not AndroidX Test Orchestrator.
+Lifecycle tests retain their existing fake proxy/TUN bindings; they do not prove
+real Android AWG peer connectivity. Real protocol interoperability is proved
+separately by the independent rootless Go peer test. No physical device was used.
+
+An additional full integration run used the repository-pinned AndroidX Test
+Orchestrator 1.6.1 with test-services 1.6.0 and `clearPackageData=true`, following
+the [official command-line procedure](https://developer.android.com/training/testing/instrumented-tests/androidx-test-libraries/runner#enable-command).
+On the same isolated API34 emulator it completed **50 passes, 6 assumption skips
+and zero failures/errors**, including **24/24 lifecycle tests**. The ignored
+biometric class is excluded from this Orchestrator collection. Logcat contained
+no foreground-promotion crash, fatal exception, fatal signal or ANR. This closes
+the local direct-runner isolation gap; it is still emulator fixture evidence,
+not physical-device or Android AWG peer evidence.
+
+Additional local logs:
+`/private/tmp/ripdpi-awg-api34-simple-correct-package-c0e0-20260828-instrumentation.log`,
+`/private/tmp/ripdpi-awg-api34-orchestrator-c0e0-20260828-instrumentation.log` and
+`/private/tmp/ripdpi-awg-api34-orchestrator-c0e0-20260828-logcat.log`.
+
+The separate Simple navigation and JNI suites also passed through Orchestrator
+with `clearPackageData=true`: one and five passes respectively, without skips.
+Their logs are
+`/private/tmp/ripdpi-awg-api34-orchestrator-simple-c0e0-20260828-instrumentation.log`
+and `/private/tmp/ripdpi-awg-api34-orchestrator-jni-c0e0-20260828-instrumentation.log`.
+
+The local arm64 GitHub Full debug APK is at
+`/private/tmp/ripdpi-standalone-awg-profile-20260827/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk`:
+133113712 bytes, SHA256
+`02ee81a75c69ec6cfe1a6f29ccbbb02680b85b651451829b0d548af9b7168034`.
+`apksigner verify --verbose` passed using APK Signature Scheme v2, and the APK
+contains `libripdpi-amneziawg.so` plus the other four repository JNI libraries.
+This is a debug artifact; signature verification is not release publication.
+
+## Completed hosted follow-up and current correction
+
+[CI33115299094](https://github.com/po4yka/RIPDPI/actions/runs/33115299094), on exact
+SHA `5428b2bf8e8047a327d64d6d6e7f38b80b44cdda`, completed with:
+
+- Passed Linux AWG network E2E, all four Android native ABI builds, JNI API
+  snapshot, static analysis, Rust coverage/cross-check, native-bloat and Roborazzi.
+- Passed all GitHub, F-Droid and Play debug APK and release verification jobs.
+- Passed [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/33115299099),
+  [Secret Scan](https://github.com/po4yka/RIPDPI/actions/runs/33115299093) and fleet fixtures.
+- Failed the unchanged native hotspot/Clone guards and the same two diagnostic
+  DNS planner tests described below. API27/33/35 instrumentation failed on the
+  newly exposed lifecycle fixture issue; that issue was not classified as baseline.
+
+The fixture correction was pushed to `main` as
+`c0e0ec7a1efbe182b982bb010daf1806bdb869ec`; remote SHA was confirmed.
+[CI33120994370](https://github.com/po4yka/RIPDPI/actions/runs/33120994370) completed
+with 23 successful, 31 skipped and five failed jobs. Skipped jobs are not credited
+as passes. Rust workspace/lint/network E2E jobs were skipped for this test-only
+correction; the prior runtime-source verification remains the relevant evidence.
+
+All four native ABI builds, static analysis, JNI API snapshot, Roborazzi, all
+three debug APK jobs and all three release-verification jobs passed. The full
+instrumentation matrix passed, including each job's required-result validators.
+A read-only reviewer independently downloaded the artifacts in memory and
+verified the preserved JUnit XML, matching declared/actual counts without duplicates:
+
+| API | Job | Artifact ID | Full PASS / skip / failure / error | Lifecycle | Simple | JNI |
+|---|---|---|---|---|---|---|
+| 27 | [98693284949](https://github.com/po4yka/RIPDPI/actions/runs/33120994370/job/98693284949) | 9667588231 | 50 / 6 / 0 / 0 | 24/24 passed | 1/1 passed, no skips | Not scheduled |
+| 33 | [98693284868](https://github.com/po4yka/RIPDPI/actions/runs/33120994370/job/98693284868) | 9667631964 | 50 / 6 / 0 / 0 | 24/24 passed | 1/1 passed, no skips | Not scheduled |
+| 35 | [98693284902](https://github.com/po4yka/RIPDPI/actions/runs/33120994370/job/98693284902) | 9667663443 | 50 / 6 / 0 / 0 | 24/24 passed | 1/1 passed, no skips | 5/5 passed, no skips |
+
+The six Full skips per API are the ECH/DoQ/H3 network probes, API37 NSC,
+root-helper opt-in, and Simple-only test. The last test passed separately in
+the Simple variant on every API. Existing fake lifecycle bindings remain in use;
+these results do not establish physical-device or Android AWG peer connectivity.
+
+[CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/33120994367),
+[Secret Scan](https://github.com/po4yka/RIPDPI/actions/runs/33120994366) and
+[fleet-fixtures](https://github.com/po4yka/RIPDPI/actions/runs/33120994377) also
+passed on the exact correction SHA.
+
+The remaining failures are the unchanged
+[hotspot guard](https://github.com/po4yka/RIPDPI/actions/runs/33120994370/job/98687569574)
+(`listener.rs`, 72 > 54), the same two DNS planner cases in
+[unit tests](https://github.com/po4yka/RIPDPI/actions/runs/33120994370/job/98690815018)
+and [coverage](https://github.com/po4yka/RIPDPI/actions/runs/33120994370/job/98690815317),
+and their preflight/required-check aggregates. Both DNS logs report
+`1408 tests completed, 2 failed`, at the unchanged lines 201 and 107.
+The task remains in review; no baseline, assertion, security check or quality
+gate was weakened to obtain these results.
 
 ## Existing baseline failures
 
@@ -131,11 +262,11 @@ Clone owner pattern in `ripdpi-flow-app-attribution/src/lib.rs:160`. Neither fil
 nor its baseline is changed by this task. These failures remain visible and do
 not count as passed gates.
 
-Current [Rust workspace](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977628)
+The earlier implementation [Rust workspace](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977628)
 and [Rust lint](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977653)
 logs confirm those same hotspot and Clone-pattern failures respectively.
 
-Current [Android unit tests](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977248)
+The earlier implementation [Android unit tests](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977248)
 and [Kotlin coverage](https://github.com/po4yka/RIPDPI/actions/runs/33110649324/job/98656977613)
 both fail on the same two `ConnectivityDnsTargetPlannerTest` cases:
 `resolver audit keeps full resolver matrix` (line 201) and
