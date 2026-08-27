@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import re
 import time
@@ -11,8 +12,9 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "android_so_bind_physical_evidence_v3"
-PROFILE = "physical_pixel_api37_kernel61"
+VERSION = "android_so_bind_physical_evidence_v4"
+PROFILE = "physical_kernel_ge57"
+LEGACY_PROFILE = "physical_kernel_lt57"
 FAMILIES = ("ipv4", "ipv6")
 POSITIVE_COUNTERS = (
     "directTcpRoundTrips",
@@ -64,6 +66,9 @@ TOP_LEVEL_FIELDS = {
     "tunPacketPathObserved",
     "mapDns",
     "families",
+    "socketTable",
+    "qualification",
+    "legacy",
 }
 HEX_32 = re.compile(r"[0-9a-f]{32}")
 HEX_40 = re.compile(r"[0-9a-f]{40}")
@@ -117,6 +122,43 @@ UDP_BLOCK_FAILURE_KINDS = {"ERRNO", "TIMEOUT"}
 ICMP_BLOCK_FAILURE_KINDS = {"ERRNO", "TIMEOUT"}
 
 
+def summarize_socket_sample(tcp: str, tcp6: str, *, uid: int, host: str, control_port: int, denied_port: int) -> dict[str, int]:
+    """Parse private adb snapshots. Only redacted counts may leave this function."""
+    target = ipaddress.ip_address(host)
+    if control_port == denied_port or not 0 < control_port <= 65535 or not 0 < denied_port <= 65535:
+        raise ValueError("socket control and denied endpoints must be distinct")
+    positive = 0
+    for text, width in ((tcp, 8), (tcp6, 32)):
+        lines = text.splitlines()
+        if not lines or not re.fullmatch(r"\s*sl\s+local_address\s+(?:rem_address|remote_address)\s+st\s+tx_queue\s+rx_queue\s+tr\s+tm->when\s+retrnsmt\s+uid\s+timeout\s+inode\s*", lines[0]):
+            raise ValueError("unreadable or malformed socket table header")
+        for line in lines[1:]:
+            fields = line.split()
+            if len(fields) < 10 or not re.fullmatch(r"[0-9]+:", fields[0]):
+                raise ValueError("malformed socket table row")
+            endpoint = re.fullmatch(rf"([0-9A-Fa-f]{{{width}}}):([0-9A-Fa-f]{{4}})", fields[2])
+            local = re.fullmatch(rf"[0-9A-Fa-f]{{{width}}}:[0-9A-Fa-f]{{4}}", fields[1])
+            if not endpoint or not local or not re.fullmatch(r"[0-9A-Fa-f]{2}", fields[3]) or not fields[7].isdecimal() or not fields[9].isdecimal():
+                raise ValueError("malformed socket table tuple")
+            if (not re.fullmatch(r"[0-9A-Fa-f]{8}:[0-9A-Fa-f]{8}", fields[4])
+                    or not re.fullmatch(r"[0-9A-Fa-f]{2}:[0-9A-Fa-f]{8}", fields[5])
+                    or not re.fullmatch(r"[0-9A-Fa-f]{8}", fields[6]) or not fields[8].isdecimal()):
+                raise ValueError("malformed socket table queue or timer")
+            packed = bytes.fromhex(endpoint[1])
+            address = ipaddress.ip_address(b"".join(packed[n:n+4][::-1] for n in range(0, len(packed), 4)))
+            if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+                address = address.ipv4_mapped
+            port = int(endpoint[2], 16)
+            if int(fields[7]) == uid and address == target:
+                if port == denied_port:
+                    raise ValueError("leaked app-owned remote connection observed")
+                if port == control_port and fields[3] == "01":
+                    positive += 1
+    if positive == 0:
+        raise ValueError("socket table lacks the established positive visibility control")
+    return {"positiveControlRows": positive, "deniedRemoteRows": 0}
+
+
 def validate_icmp_block(record: dict[str, Any], family: str, prefix: str) -> None:
     failure_kind = record[f"{prefix}FailureKind"]
     failure_stage = record[f"{prefix}FailureStage"]
@@ -148,13 +190,17 @@ def require_exact_fields(value: dict[str, Any], expected: set[str], label: str) 
 def validate(
     path: Path,
     *,
+    expected_profile: str | None = None,
+    expected_device_manufacturer: str | None = None,
+    expected_device_codename: str | None = None,
+    expected_api_level: int | None = None,
     expected_run_id: str | None = None,
     expected_source_sha: str | None = None,
     expected_app_apk_sha256: str | None = None,
     expected_test_apk_sha256: str | None = None,
     expected_started_at_epoch_ms: int | None = None,
     now_epoch_ms: int | None = None,
-) -> None:
+) -> str:
     raw = path.read_bytes()
     if len(raw) > 32_768:
         raise ValueError("evidence exceeds the 32 KiB redacted artifact limit")
@@ -164,17 +210,32 @@ def validate(
     require_exact_fields(document, TOP_LEVEL_FIELDS, "evidence")
     if document["version"] != VERSION:
         raise ValueError("unsupported evidence version")
-    if document["status"] != "PASS" or document["profile"] != PROFILE:
+    if document["status"] != "PASS" or document["profile"] not in (PROFILE, LEGACY_PROFILE):
         raise ValueError("evidence status/profile is not the qualified physical PASS")
-    if (
-        document["deviceManufacturer"] != "Google"
-        or document["deviceCodename"] != "panther"
-        or document["apiLevel"] != 37
-        or document["kernelFamily"] != "6.1"
-    ):
-        raise ValueError(
-            "evidence device facts do not match the qualified Pixel 7 profile"
-        )
+    kernel = document["kernelFamily"]
+    if not isinstance(kernel, str) or not re.fullmatch(r"[0-9]{1,2}\.[0-9]{1,3}", kernel):
+        raise ValueError("device facts require a parsed kernel family")
+    modern = tuple(map(int, kernel.split("."))) >= (5, 7)
+    if modern != (document["profile"] == PROFILE):
+        raise ValueError("device facts do not match the requested kernel profile")
+    if type(document["apiLevel"]) is not int or document["apiLevel"] < 29:
+        raise ValueError("device facts require API 29+ for the UID lookup API")
+    for field in ("deviceManufacturer", "deviceCodename"):
+        if not isinstance(document[field], str) or not re.fullmatch(r"[A-Za-z0-9 _.-]{1,64}", document[field]):
+            raise ValueError("device facts are malformed")
+    qualification = document["qualification"]
+    if not isinstance(qualification, dict):
+        raise ValueError("qualification must be an object")
+    require_exact_fields(qualification, {"unprivilegedBindToDevice", "uidPolicyEligible", "uidPolicyArmed"}, "qualification")
+    if type(qualification["uidPolicyEligible"]) is not bool:
+        raise ValueError("production eligibility must be boolean")
+    legacy = document["profile"] == LEGACY_PROFILE and qualification["unprivilegedBindToDevice"] == "permission_denied" and qualification["uidPolicyEligible"] is False
+    if type(qualification["uidPolicyArmed"]) is not bool:
+        raise ValueError("runtime uidPolicyArmed must be boolean")
+    if legacy and qualification["uidPolicyArmed"] is not False:
+        raise ValueError("legacy evidence must confirm runtime UID policy is disarmed")
+    if not legacy and qualification != {"unprivilegedBindToDevice": "supported", "uidPolicyEligible": True, "uidPolicyArmed": True}:
+        raise ValueError("armed evidence requires a supported production capability")
     if not isinstance(document["runId"], str) or not HEX_32.fullmatch(
         document["runId"]
     ):
@@ -198,6 +259,10 @@ def validate(
     if finished_at > now + 60_000 or now - finished_at > MAX_EVIDENCE_AGE_MS:
         raise ValueError("physical evidence is stale or from the future")
     expected_values = {
+        "profile": expected_profile,
+        "deviceManufacturer": expected_device_manufacturer,
+        "deviceCodename": expected_device_codename,
+        "apiLevel": expected_api_level,
         "runId": expected_run_id,
         "sourceSha": expected_source_sha,
         "appApkSha256": expected_app_apk_sha256,
@@ -209,6 +274,40 @@ def validate(
             raise ValueError(f"{field} does not match the current run")
     if document["realTun"] is not True or document["tunPacketPathObserved"] is not True:
         raise ValueError("physical TUN packet-path observation is missing")
+
+    if legacy:
+        facts = document["legacy"]
+        if not isinstance(facts, dict):
+            raise ValueError("legacy permission-denied evidence requires liveness facts")
+        require_exact_fields(facts, {"bindFailureKind", "bindFailureStage", "bindErrno", "distinctUidVerified",
+                                    "vpnTcpRoundTrips", "vpnUdpRoundTrips", "vpnTcpFixtureEvents", "vpnUdpFixtureEvents"}, "legacy")
+        if facts["bindFailureKind"] != "ERRNO" or facts["bindFailureStage"] != "bind" or type(facts["bindErrno"]) is not int or facts["bindErrno"] not in (1, 13):
+            raise ValueError("legacy bind must fail with EPERM/EACCES at SO_BINDTODEVICE")
+        if facts["distinctUidVerified"] is not True:
+            raise ValueError("legacy probe must run under a distinct UID")
+        for field in ("vpnTcpRoundTrips", "vpnUdpRoundTrips", "vpnTcpFixtureEvents", "vpnUdpFixtureEvents"):
+            if type(facts[field]) is not int or facts[field] != 1:
+                raise ValueError("legacy VPN liveness must contain one exact round trip and fixture event")
+        if document["mapDns"] is not None or document["families"] != [] or document["socketTable"] != []:
+            raise ValueError("legacy disarmed evidence must not claim armed denial")
+        return "legacy_ipv4"
+    if document["legacy"] is not None:
+        raise ValueError("armed evidence must not contain legacy disarmed facts")
+
+    samples = document["socketTable"]
+    if not isinstance(samples, list) or len(samples) != 2:
+        raise ValueError("socketTable must contain both live family observations")
+    for family, record in zip(FAMILIES, samples):
+        if not isinstance(record, dict):
+            raise ValueError("socketTable record must be an object")
+        require_exact_fields(record, {"family", "liveSamples", "minimumPositiveControlRows", "deniedRemoteRows", "synchronized"}, "socketTable")
+        if record["family"] != family or record["synchronized"] is not True:
+            raise ValueError("socketTable family order or synchronization missing")
+        for field, minimum in (("liveSamples", 3), ("minimumPositiveControlRows", 1)):
+            if type(record[field]) is not int or record[field] < minimum:
+                raise ValueError("socketTable requires live samples and positive visibility control")
+        if type(record["deniedRemoteRows"]) is not int or record["deniedRemoteRows"] != 0:
+            raise ValueError("socketTable contains leaked remote connections")
 
     mapdns = document["mapDns"]
     if not isinstance(mapdns, dict):
@@ -336,11 +435,16 @@ def validate(
         by_family[family] = record
     if tuple(by_family) != FAMILIES:
         raise ValueError("family evidence must be ordered ipv4 then ipv6")
+    return "armed_dual_stack"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("evidence", type=Path)
+    parser.add_argument("--profile", required=True, choices=(PROFILE, LEGACY_PROFILE))
+    parser.add_argument("--device-manufacturer", required=True)
+    parser.add_argument("--device-codename", required=True)
+    parser.add_argument("--api-level", required=True, type=int)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--app-apk-sha256", required=True)
@@ -348,8 +452,12 @@ def main() -> int:
     parser.add_argument("--started-at-epoch-ms", required=True, type=int)
     args = parser.parse_args()
     try:
-        validate(
+        scope = validate(
             args.evidence,
+            expected_profile=args.profile,
+            expected_device_manufacturer=args.device_manufacturer,
+            expected_device_codename=args.device_codename,
+            expected_api_level=args.api_level,
             expected_run_id=args.run_id,
             expected_source_sha=args.source_sha,
             expected_app_apk_sha256=args.app_apk_sha256,
@@ -359,7 +467,10 @@ def main() -> int:
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
         print(f"Android SO_BIND physical evidence validation failed: {error}")
         return 1
-    print("Validated physical Android SO_BIND evidence for IPv4 and IPv6.")
+    if scope == "legacy_ipv4":
+        print("pre-5.7 SO_BINDTODEVICE permission denial and ordinary IPv4 VPN liveness")
+    else:
+        print("armed UID denial and synchronized IPv4/IPv6 socket observation")
     return 0
 
 

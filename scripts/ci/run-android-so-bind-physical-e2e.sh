@@ -15,7 +15,7 @@ source "$script_dir/android-so-bind-physical-lib.sh"
 readonly test_class="com.poyka.ripdpi.e2e.NetworkPathE2ETest"
 readonly test_method="vpnServiceDeniesExcludedTestUidBoundToTun0"
 readonly test_selector="$test_class#$test_method"
-readonly evidence_profile="physical_pixel_api37_kernel61"
+readonly evidence_profile="${RIPDPI_SO_BIND_EVIDENCE_PROFILE:-physical_kernel_ge57}"
 readonly instrumentation_timeout_seconds="${RIPDPI_SO_BIND_INSTRUMENTATION_TIMEOUT_SECONDS:-180}"
 readonly test_probe_allowlist_duration_ms="300000"
 readonly adb_bin="${ADB_BIN:-adb}"
@@ -43,10 +43,14 @@ fail_infra() {
 }
 
 [[ -n "$android_serial" ]] || fail "ANDROID_SERIAL is required"
+[[ "$evidence_profile" == "physical_kernel_ge57" || "$evidence_profile" == "physical_kernel_lt57" ]] || fail "unknown physical kernel profile"
 so_bind_physical_valid_fixture_host "$fixture_host" || fail "a directly routed, non-loopback RIPDPI_FIXTURE_ANDROID_HOST is required"
 command -v python3 >/dev/null 2>&1 || fail "python3 is unavailable"
-fixture_ipv6_host="$(so_bind_physical_normalize_routed_ipv6 "$fixture_ipv6_host_raw")" ||
-    fail_infra IPV6_ENDPOINT_REQUIRED "RIPDPI_FIXTURE_ANDROID_IPV6_HOST must be a numeric routed unicast IPv6 address"
+fixture_ipv6_host=""
+if [[ "$evidence_profile" == "physical_kernel_ge57" || -n "$fixture_ipv6_host_raw" ]]; then
+    fixture_ipv6_host="$(so_bind_physical_normalize_routed_ipv6 "$fixture_ipv6_host_raw")" ||
+        fail_infra IPV6_ENDPOINT_REQUIRED "RIPDPI_FIXTURE_ANDROID_IPV6_HOST must be a numeric routed unicast IPv6 address"
+fi
 readonly fixture_ipv6_host
 so_bind_physical_valid_port "$fixture_port" || fail "RIPDPI_FIXTURE_CONTROL_PORT must be in 1..65535"
 so_bind_physical_valid_port "$fixture_tcp_echo_port" || fail "RIPDPI_FIXTURE_TCP_ECHO_PORT must be in 1..65535"
@@ -58,6 +62,7 @@ command -v "$git_bin" >/dev/null 2>&1 || fail "git is unavailable"
 
 fixture_manifest="$($curl_bin -fsS --max-time 5 "http://$fixture_host:$fixture_port/manifest")" ||
     fail_infra FIXTURE_MANIFEST_UNAVAILABLE "fixture manifest could not be fetched"
+if [[ "$evidence_profile" == "physical_kernel_ge57" ]]; then
 python3 - "$fixture_manifest" <<'PY' ||
 import json
 import sys
@@ -67,6 +72,8 @@ if manifest.get("icmpIpv4Observer") is not True or manifest.get("icmpIpv6Observe
     raise SystemExit(1)
 PY
     fail_infra ICMP_OBSERVER_UNAVAILABLE "fixture requires CAP_NET_RAW observers for both IPv4 and IPv6"
+
+fi
 
 source_root="$($git_bin -C "$script_dir/../.." rev-parse --show-toplevel 2>/dev/null)" ||
     fail "could not resolve source checkout"
@@ -96,7 +103,7 @@ readonly source_sha
     fail "physical evidence requires a clean source checkout"
 readonly gradle_bin="${GRADLE_BIN:-$source_root/gradlew}"
 [[ -x "$gradle_bin" ]] || fail "Gradle wrapper is unavailable"
-"$gradle_bin" -p "$source_root" \
+build-gate -- "$gradle_bin" -p "$source_root" --max-workers=4 \
     :app:assembleGithubFullDebug \
     :app:assembleGithubFullDebugAndroidTest \
     -Pripdpi.localNativeAbis=arm64-v8a \
@@ -143,10 +150,17 @@ adb_device() {
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-so-bind-physical.XXXXXX")"
 device_state_dir="$temp_dir/device-state"
 device_state_captured=false
+socket_observer_pid=""
 cleanup() {
     local status=$?
     trap - EXIT
     set +e
+    if [[ -n "$socket_observer_pid" ]]; then
+        touch "$temp_dir/socket-observer.stop"
+        kill "$socket_observer_pid" 2>/dev/null || true
+        wait "$socket_observer_pid" 2>/dev/null || true
+    fi
+    adb_device shell run-as com.poyka.ripdpi rm -f files/so-bind-socket-window.json files/so-bind-socket-window.tmp files/so-bind-socket-ack.txt >/dev/null 2>&1 || true
     adb_device shell cmd deviceidle tempwhitelist -r com.poyka.ripdpi.test >/dev/null 2>&1 || true
     adb_device shell am force-stop com.poyka.ripdpi >/dev/null 2>&1 || true
     adb_device shell am force-stop com.poyka.ripdpi.test >/dev/null 2>&1 || true
@@ -196,16 +210,23 @@ boot_qemu="$(adb_device shell getprop ro.boot.qemu 2>/dev/null | tr -d '\r')"
 hardware="$(adb_device shell getprop ro.hardware 2>/dev/null | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
 [[ "$qemu" != "1" && "$boot_qemu" != "1" && "$hardware" != *ranchu* && "$hardware" != *goldfish* ]] ||
     fail "selected target is an emulator"
-manufacturer="$(adb_device shell getprop ro.product.manufacturer 2>/dev/null | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+manufacturer="$(adb_device shell getprop ro.product.manufacturer 2>/dev/null | tr -d '\r')"
 product_device="$(adb_device shell getprop ro.product.device 2>/dev/null | tr -d '\r')"
-[[ "$manufacturer" == "google" && "$product_device" == "panther" ]] ||
-    fail "physical evidence requires the qualified Google Pixel 7 hardware profile"
-
 api_level="$(adb_device shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')"
-[[ "$api_level" == "37" ]] || fail "physical evidence requires Android API 37"
 kernel_release="$(adb_device shell uname -r 2>/dev/null | tr -d '\r')"
-[[ "$kernel_release" == 6.1.* ]] || fail "physical evidence requires the qualified 6.1 kernel family"
+python3 - "$api_level" "$kernel_release" "$evidence_profile" <<'PYPROFILE' || fail "physical device does not match requested kernel band or API 29+"
+import re
+import sys
+api, release, profile = sys.argv[1:]
+match = re.match(r"^(\d+)\.(\d+)(?:[.\-+_]|$)", release)
+if not api.isdecimal() or int(api) < 29 or match is None:
+    raise SystemExit(1)
+modern = tuple(map(int, match.groups())) >= (5, 7)
+if modern != (profile == "physical_kernel_ge57"):
+    raise SystemExit(1)
+PYPROFILE
 
+if [[ -n "$fixture_ipv6_host" ]]; then
 ipv6_route="$temp_dir/ipv6-route.txt"
 adb_device shell ip -6 route get "$fixture_ipv6_host" >"$ipv6_route" 2>/dev/null ||
     fail_infra IPV6_ROUTE_UNAVAILABLE "selected physical network has no route to the IPv6 fixture"
@@ -219,6 +240,8 @@ so_bind_physical_is_underlay_interface "$ipv6_interface" ||
     fail_infra IPV6_UNDERLAY_REQUIRED "IPv6 route does not select a physical Android underlay interface"
 so_bind_physical_normalize_routed_ipv6 "$ipv6_source" >/dev/null ||
     fail_infra IPV6_SOURCE_UNAVAILABLE "IPv6 route does not select a routed unicast source address"
+
+fi
 
 python3 "$source_root/test-lab/scripts/android-device-session.py" capture \
     --adb "$adb_bin" \
@@ -245,7 +268,8 @@ test_pids="$(adb_device shell pidof com.poyka.ripdpi.test 2>/dev/null | tr -d '\
 [[ -z "$target_pids" && -z "$test_pids" ]] ||
     fail "target or instrumentation process remained alive after force-stop"
 adb_device shell run-as com.poyka.ripdpi rm -f \
-    "files/$evidence_file_name" "files/$infra_gap_file_name" >/dev/null 2>&1 ||
+    "files/$evidence_file_name" "files/$infra_gap_file_name" \
+    files/so-bind-socket-window.json files/so-bind-socket-ack.txt >/dev/null 2>&1 ||
     fail "could not clear prior physical evidence and infrastructure status"
 
 test_uid_line="$(adb_device shell pm list packages -U com.poyka.ripdpi.test 2>/dev/null | tr -d '\r')" ||
@@ -262,6 +286,7 @@ grep -Eq "^[[:space:]]*UID=${test_uid}:" "$temp_dir/deviceidle.txt" ||
 
 adb_device shell toybox nc -4 -z -w 5 "$fixture_host" "$fixture_port" >/dev/null 2>&1 ||
     fail "fixture control port is not directly reachable from the physical device"
+if [[ -n "$fixture_ipv6_host" ]]; then
 adb_device shell toybox nc -6 -n -z -w 5 "$fixture_ipv6_host" "$fixture_port" >/dev/null 2>&1 ||
     fail_infra IPV6_FIXTURE_UNREACHABLE "fixture control port is not reachable over IPv6"
 tcp_echo_marker="so-bind-ipv6-tcp-preflight-$run_id"
@@ -274,6 +299,8 @@ udp_echo_response="$(printf '%s' "$udp_echo_marker" | adb_device shell toybox nc
     fail_infra IPV6_UDP_FIXTURE_UNREACHABLE "IPv6 UDP echo endpoint did not complete a round trip"
 [[ "$udp_echo_response" == "$udp_echo_marker" ]] ||
     fail_infra IPV6_UDP_FIXTURE_MISMATCH "IPv6 UDP echo endpoint did not return the exact preflight marker"
+
+fi
 
 instrumentation_components="$(
     adb_device shell pm list instrumentation 2>/dev/null | tr -d '\r' | awk '
@@ -298,6 +325,12 @@ PY
 )"
 readonly started_at_epoch_ms
 
+python3 "$script_dir/capture_android_so_bind_sockets.py" \
+    --adb "$adb_bin" --serial "$android_serial" --run-id "$run_id" \
+    --stop "$temp_dir/socket-observer.stop" --output "$temp_dir/socket-observation.json" \
+    --timeout "$instrumentation_timeout_seconds" >"$temp_dir/socket-observer.log" 2>&1 &
+socket_observer_pid=$!
+
 set +e
 adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r \
     -e class "$test_selector" \
@@ -313,6 +346,10 @@ adb_device shell timeout "$instrumentation_timeout_seconds" am instrument -w -r 
     -e ripdpi.soBindTestApkSha256 "$test_apk_sha256" \
     "$instrumentation_component" >"$output_file" 2>&1
 instrumentation_status=$?
+touch "$temp_dir/socket-observer.stop"
+wait "$socket_observer_pid"
+socket_observer_status=$?
+socket_observer_pid=""
 set -e
 
 infra_gap_reason="$(
@@ -324,6 +361,8 @@ if [[ -n "$infra_gap_reason" ]]; then
     fail_infra ICMP_PING_SOCKET_UNAVAILABLE "device denied the unprivileged ICMP ping socket with EPERM/EACCES"
 fi
 [[ "$instrumentation_status" == "0" ]] || fail "instrumentation command failed"
+[[ "$socket_observer_status" != "2" ]] || fail_infra SOCKET_TABLE_OBSERVATION_UNAVAILABLE "socket table capture was unreadable, malformed, or late"
+[[ "$socket_observer_status" == "0" ]] || fail "socket table observation detected a leak or observer failure"
 if ! so_bind_physical_output_is_exact_pass "$output_file" "$test_class" "$test_method"; then
     sed 's/^/SO_BIND instrumentation: /' "$output_file" >&2
     fail "instrumentation output was skipped, failed, incomplete, or ambiguous"
@@ -339,32 +378,38 @@ print(time.time_ns() // 1_000_000)
 PY
 )"
 readonly finished_at_epoch_ms
-python3 - "$physical_evidence" "$started_at_epoch_ms" "$finished_at_epoch_ms" <<'PY'
+python3 - "$physical_evidence" "$started_at_epoch_ms" "$finished_at_epoch_ms" "$temp_dir/socket-observation.json" <<'PY'
 import json
 import sys
 
 path = sys.argv[1]
 with open(path, encoding="utf-8") as source:
     evidence = json.load(source)
-if "startedAtEpochMs" in evidence or "finishedAtEpochMs" in evidence:
+if "startedAtEpochMs" in evidence or "finishedAtEpochMs" in evidence or "socketTable" in evidence:
     raise SystemExit("device evidence must not supply host capture timestamps")
 evidence["startedAtEpochMs"] = int(sys.argv[2])
 evidence["finishedAtEpochMs"] = int(sys.argv[3])
+with open(sys.argv[4], encoding="utf-8") as source:
+    evidence["socketTable"] = json.load(source)
 with open(path, "w", encoding="utf-8") as output:
     json.dump(evidence, output, separators=(",", ":"), sort_keys=True)
     output.write("\n")
 PY
-python3 "$script_dir/check_android_so_bind_physical_evidence.py" \
+validation_summary="$(python3 "$script_dir/check_android_so_bind_physical_evidence.py" \
     "$physical_evidence" \
+    --profile "$evidence_profile" \
+    --device-manufacturer "$manufacturer" \
+    --device-codename "$product_device" \
+    --api-level "$api_level" \
     --run-id "$run_id" \
     --source-sha "$source_sha" \
     --app-apk-sha256 "$app_apk_sha256" \
     --test-apk-sha256 "$test_apk_sha256" \
-    --started-at-epoch-ms "$started_at_epoch_ms" >/dev/null ||
+    --started-at-epoch-ms "$started_at_epoch_ms")" ||
     fail "physical evidence was missing, partial, or malformed"
 if [[ -n "$evidence_output" ]]; then
     [[ "$evidence_output" == /* ]] || fail "RIPDPI_SO_BIND_EVIDENCE_OUTPUT must be absolute"
     install -m 0600 "$physical_evidence" "$evidence_output"
 fi
 
-echo "SO_BIND physical E2E passed: exact IPv4/IPv6 instrumentation and evidence"
+echo "SO_BIND physical E2E passed: $validation_summary"

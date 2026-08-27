@@ -6,8 +6,11 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -24,6 +27,41 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+sys.modules[SPEC.name] = MODULE
+OBSERVER_SPEC = importlib.util.spec_from_file_location("capture_android_so_bind_sockets", ROOT / "scripts/ci/capture_android_so_bind_sockets.py")
+assert OBSERVER_SPEC and OBSERVER_SPEC.loader
+OBSERVER = importlib.util.module_from_spec(OBSERVER_SPEC)
+OBSERVER_SPEC.loader.exec_module(OBSERVER)
+
+
+class FakeSocketCaptureAdb:
+    def __init__(self, stop: Path, phases: list[str], *, denied: bool = False) -> None:
+        self.stop = stop
+        self.phases = iter(phases)
+        self.last_phase = ""
+        self.denied = denied
+        self.acknowledgements: list[str] = []
+
+    def run(self, command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        header = "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n"
+        if command[-2:] == ["cat", OBSERVER.WINDOW]:
+            phase = next(self.phases, self.last_phase)
+            self.last_phase = phase
+            if phase == "done":
+                self.stop.touch()
+            data = json.dumps({"runId": RUN_ID, "family": "ipv4", "phase": phase, "uid": 10001,
+                               "host": "10.0.0.2", "controlPort": 45057, "deniedPort": 45058})
+        elif command[-2:] == ["cat", "/proc/net/tcp"]:
+            row = "0: 0100007F:A001 0200000A:B001 01 00000000:00000000 00:00000000 00000000 10001 0 42\n"
+            data = header + row
+            if self.denied:
+                return subprocess.CompletedProcess(command, 1, "", "private permission error")
+        elif command[-2:] == ["cat", "/proc/net/tcp6"]:
+            data = header
+        else:
+            self.acknowledgements.append(kwargs.get("input", ""))
+            data = ""
+        return subprocess.CompletedProcess(command, 0, data, "")
 
 
 def valid_evidence() -> dict[str, object]:
@@ -43,6 +81,9 @@ def valid_evidence() -> dict[str, object]:
         "deviceCodename": "panther",
         "apiLevel": 37,
         "kernelFamily": "6.1",
+        "qualification": {"unprivilegedBindToDevice": "supported", "uidPolicyEligible": True, "uidPolicyArmed": True},
+        "legacy": None,
+        "socketTable": [{"family": family, "liveSamples": 3, "minimumPositiveControlRows": 1, "deniedRemoteRows": 0, "synchronized": True} for family in MODULE.FAMILIES],
         "realTun": True,
         "tunPacketPathObserved": True,
         "mapDns": {
@@ -90,14 +131,151 @@ def valid_evidence() -> dict[str, object]:
 
 
 class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
-    def validate(self, evidence: dict[str, object], **expected: object) -> None:
+    def validate(self, evidence: dict[str, object], **expected: object) -> str:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "evidence.json"
             path.write_text(json.dumps(evidence), encoding="utf-8")
-            MODULE.validate(path, now_epoch_ms=NOW_EPOCH_MS, **expected)
+            return MODULE.validate(path, now_epoch_ms=NOW_EPOCH_MS, **expected)
 
     def test_accepts_complete_ipv4_ipv6_evidence(self) -> None:
-        self.validate(valid_evidence())
+        self.assertEqual("armed_dual_stack", self.validate(valid_evidence()))
+
+    def test_accepts_pre57_backport_with_real_supported_capability(self) -> None:
+        evidence = valid_evidence()
+        evidence.update(profile="physical_kernel_lt57", kernelFamily="4.19", apiLevel=30)
+        evidence["qualification"] = {"unprivilegedBindToDevice": "supported", "uidPolicyEligible": True, "uidPolicyArmed": True}
+        self.validate(evidence)
+
+    def test_accepts_pre57_permission_denied_only_with_vpn_liveness(self) -> None:
+        evidence = valid_evidence()
+        evidence.update(profile="physical_kernel_lt57", kernelFamily="4.19", apiLevel=30)
+        evidence["qualification"] = {"unprivilegedBindToDevice": "permission_denied", "uidPolicyEligible": False, "uidPolicyArmed": False}
+        evidence.update(mapDns=None, families=[], socketTable=[], legacy={
+            "bindFailureKind": "ERRNO", "bindFailureStage": "bind", "bindErrno": 1,
+            "distinctUidVerified": True, "vpnTcpRoundTrips": 1, "vpnUdpRoundTrips": 1,
+            "vpnTcpFixtureEvents": 1, "vpnUdpFixtureEvents": 1,
+        })
+        self.assertEqual("legacy_ipv4", self.validate(evidence))
+
+    def test_socket_sample_requires_visible_control_and_detects_leaked_tuple(self) -> None:
+        header = "  sl  local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n"
+        control = " 0: 0100007F:A001 0200000A:B001 01 00000000:00000000 00:00000000 00000000 10001 0 42\n"
+        leak = " 1: 0100007F:A002 0200000A:B002 02 00000000:00000000 00:00000000 00000000 10001 0 43\n"
+        with self.assertRaisesRegex(ValueError, "leaked"):
+            MODULE.summarize_socket_sample(header + control + leak, header, uid=10001,
+                host="10.0.0.2", control_port=45057, denied_port=45058)
+
+    def test_rejects_armed_proof_without_live_host_socket_capture(self) -> None:
+        evidence = valid_evidence()
+        evidence.pop("socketTable", None)
+        with self.assertRaisesRegex(ValueError, "socketTable"):
+            self.validate(evidence)
+
+    def test_rejects_malformed_socket_queue_even_with_visible_control(self) -> None:
+        header = "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n"
+        row = "0: 0100007F:A001 0200000A:B001 01 invalid 00:00000000 00000000 10001 0 42\n"
+        with self.assertRaisesRegex(ValueError, "malformed"):
+            MODULE.summarize_socket_sample(header + row, header, uid=10001,
+                host="10.0.0.2", control_port=45057, denied_port=45058)
+
+    def test_rejects_integer_as_production_eligibility(self) -> None:
+        evidence = valid_evidence()
+        evidence["qualification"]["uidPolicyEligible"] = 1
+        with self.assertRaisesRegex(ValueError, "boolean"):
+            self.validate(evidence)
+
+    def test_socket_visibility_rejects_empty_hidden_and_permission_denied_tables(self) -> None:
+        header = "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n"
+        for tcp in ("", "cat: /proc/net/tcp: Permission denied\n", header):
+            with self.subTest(tcp=tcp), self.assertRaises(ValueError):
+                MODULE.summarize_socket_sample(tcp, header, uid=10001,
+                    host="10.0.0.2", control_port=45057, denied_port=45058)
+
+    def test_socket_visibility_decodes_ipv6_and_ipv4_mapped_rows(self) -> None:
+        header = "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode\n"
+        for host, remote in (("2001:db8::2", "B80D0120000000000000000002000000"),
+                             ("10.0.0.2", "0000000000000000FFFF00000200000A")):
+            row = f"0: 00000000000000000000000001000000:A001 {remote}:B001 01 00000000:00000000 00:00000000 00000000 10001 0 42\n"
+            with self.subTest(host=host):
+                self.assertEqual(MODULE.summarize_socket_sample(header, header + row, uid=10001,
+                    host=host, control_port=45057, denied_port=45058),
+                    {"positiveControlRows": 1, "deniedRemoteRows": 0})
+
+    def test_socket_evidence_rejects_unsynchronized_invisible_and_leaking_capture(self) -> None:
+        for field, value in (("synchronized", False), ("liveSamples", 2),
+                             ("minimumPositiveControlRows", 0), ("deniedRemoteRows", 1)):
+            evidence = valid_evidence()
+            evidence["socketTable"][0][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "socketTable"):
+                self.validate(evidence)
+
+    def test_legacy_permission_denied_never_passes_without_positive_vpn_liveness(self) -> None:
+        evidence = valid_evidence()
+        evidence.update(profile="physical_kernel_lt57", kernelFamily="4.19", apiLevel=30,
+            mapDns=None, families=[], socketTable=[], legacy={
+            "bindFailureKind": "ERRNO", "bindFailureStage": "bind", "bindErrno": 1,
+            "distinctUidVerified": True, "vpnTcpRoundTrips": 0, "vpnUdpRoundTrips": 1,
+            "vpnTcpFixtureEvents": 1, "vpnUdpFixtureEvents": 1})
+        evidence["qualification"] = {"unprivilegedBindToDevice": "permission_denied", "uidPolicyEligible": False, "uidPolicyArmed": False}
+        with self.assertRaisesRegex(ValueError, "liveness"):
+            self.validate(evidence)
+
+    def test_observer_requires_ordered_live_handshake_before_redacted_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            stop = Path(directory) / "stop"
+            fake = FakeSocketCaptureAdb(stop, ["ready", "active", "active", "active", "done"])
+            with patch.object(OBSERVER.subprocess, "run", fake.run), patch.object(OBSERVER.time, "sleep"):
+                result = OBSERVER.observe("adb", "private-serial", RUN_ID, stop, 2)
+            self.assertEqual(result, [{"family": "ipv4", "liveSamples": 3, "minimumPositiveControlRows": 1,
+                                      "deniedRemoteRows": 0, "synchronized": True}])
+            self.assertEqual(fake.acknowledgements, [f"{RUN_ID}:ipv4:start", f"{RUN_ID}:ipv4:done"])
+
+    def test_observer_rejects_late_capture_and_permission_denied_before_ack(self) -> None:
+        for phases, denied in ((["done"], False), (["ready"], True)):
+            with self.subTest(phases=phases, denied=denied), tempfile.TemporaryDirectory() as directory:
+                stop = Path(directory) / "stop"
+                fake = FakeSocketCaptureAdb(stop, phases, denied=denied)
+                with patch.object(OBSERVER.subprocess, "run", fake.run), self.assertRaises(ValueError):
+                    OBSERVER.observe("adb", "private-serial", RUN_ID, stop, 2)
+                self.assertEqual(fake.acknowledgements, [])
+
+    def test_observer_rejects_done_without_three_live_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            stop = Path(directory) / "stop"
+            fake = FakeSocketCaptureAdb(stop, ["ready", "active", "done"])
+            with patch.object(OBSERVER.subprocess, "run", fake.run), patch.object(OBSERVER.time, "sleep"), self.assertRaisesRegex(ValueError, "insufficient"):
+                OBSERVER.observe("adb", "private-serial", RUN_ID, stop, 2)
+            self.assertEqual(fake.acknowledgements, [f"{RUN_ID}:ipv4:start"])
+
+    def test_rejects_mismatched_host_device_and_requested_profile(self) -> None:
+        with self.assertRaisesRegex(ValueError, "profile does not match"):
+            self.validate(valid_evidence(), expected_profile="physical_kernel_lt57")
+
+    def test_legacy_cached_eligibility_without_live_armed_state_cannot_pass(self) -> None:
+        evidence = valid_evidence()
+        evidence.update(profile="physical_kernel_lt57", kernelFamily="4.19", apiLevel=30,
+            mapDns=None, families=[], socketTable=[], legacy={
+            "bindFailureKind": "ERRNO", "bindFailureStage": "bind", "bindErrno": 1,
+            "distinctUidVerified": True, "vpnTcpRoundTrips": 1, "vpnUdpRoundTrips": 1,
+            "vpnTcpFixtureEvents": 1, "vpnUdpFixtureEvents": 1})
+        evidence["qualification"] = {"unprivilegedBindToDevice": "permission_denied", "uidPolicyEligible": False, "uidPolicyArmed": False}
+        evidence["qualification"].pop("uidPolicyArmed")
+        with self.assertRaisesRegex(ValueError, "uidPolicyArmed"):
+            self.validate(evidence)
+
+    def test_legacy_rejects_an_armed_runtime_even_when_eligibility_is_false(self) -> None:
+        evidence = valid_evidence()
+        evidence.update(profile="physical_kernel_lt57", kernelFamily="4.19", apiLevel=30)
+        evidence["qualification"] = {"unprivilegedBindToDevice": "permission_denied",
+                                     "uidPolicyEligible": False, "uidPolicyArmed": True}
+        with self.assertRaisesRegex(ValueError, "runtime UID policy is disarmed"):
+            self.validate(evidence)
+
+    def test_armed_profile_rejects_a_disarmed_runtime_snapshot(self) -> None:
+        evidence = valid_evidence()
+        evidence["qualification"]["uidPolicyArmed"] = False
+        with self.assertRaisesRegex(ValueError, "armed evidence"):
+            self.validate(evidence)
 
     def test_rejects_missing_ipv6_family(self) -> None:
         evidence = valid_evidence()
@@ -388,7 +566,7 @@ class AndroidSoBindPhysicalEvidenceTest(unittest.TestCase):
 
     def test_rejects_unqualified_device_facts(self) -> None:
         evidence = valid_evidence()
-        evidence["deviceCodename"] = "generic"
+        evidence["kernelFamily"] = "unknown"
         with self.assertRaisesRegex(ValueError, "device facts"):
             self.validate(evidence)
 

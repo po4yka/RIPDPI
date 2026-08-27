@@ -21,8 +21,10 @@ import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsAddress
 import com.poyka.ripdpi.debug.PacketSmokeMapDnsPort
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.SoBindToDeviceUidPolicyEligibility
 import com.poyka.ripdpi.services.SplitTunnelMode
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -45,6 +47,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.util.UUID
@@ -60,10 +63,10 @@ private const val SoBindRunIdArg = "ripdpi.soBindRunId"
 private const val SoBindSourceShaArg = "ripdpi.soBindSourceSha"
 private const val SoBindAppApkSha256Arg = "ripdpi.soBindAppApkSha256"
 private const val SoBindTestApkSha256Arg = "ripdpi.soBindTestApkSha256"
-private const val PhysicalSoBindEvidenceProfile = "physical_pixel_api37_kernel61"
+private const val PhysicalSoBindEvidenceProfile = "physical_kernel_ge57"
 private const val PhysicalSoBindEvidenceFile = "so-bind-physical-evidence.json"
 private const val PhysicalSoBindInfraGapFile = "so-bind-physical-infra-gap.txt"
-private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v3"
+private const val PhysicalSoBindEvidenceVersion = "android_so_bind_physical_evidence_v4"
 private const val PhysicalSoBindDnsQuerySuffix = "so-bind-mapdns.fixture.test"
 
 @HiltAndroidTest
@@ -75,14 +78,24 @@ class NetworkPathE2ETest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 2)
-    val notificationPermissionRule: GrantPermissionRule =
-        GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+    val notificationPermissionRule: TestRule =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            TestRule { statement, _ -> statement }
+        }
 
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
 
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
+
+    @Inject
+    lateinit var uidPolicyEligibility: SoBindToDeviceUidPolicyEligibility
+
+    @Inject
+    lateinit var flowAttributionBridge: FlowAttributionBridge
 
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
@@ -637,7 +650,6 @@ class NetworkPathE2ETest {
     fun vpnServiceDeniesExcludedTestUidBoundToTun0() {
         assumePhysicalSoBindEvidencePrerequisites()
         ensureVpnConsentGranted(appContext)
-        val ipv6Host = requirePhysicalIpv6FixtureHost()
         requirePhysicalFixturePort(SoBindTcpEchoPortArg, fixture.tcpEchoPort)
         requirePhysicalFixturePort(SoBindUdpEchoPortArg, fixture.udpEchoPort)
         val testPackage =
@@ -647,6 +659,24 @@ class NetworkPathE2ETest {
                 .packageName
         val appPackage = appContext.packageName
         val testUid = assertDistinctPackageUids(appPackage, testPackage)
+        val qualification =
+            PhysicalSoBindQualification(
+                appContext,
+                uidPolicyEligibility,
+                flowAttributionBridge,
+                appSettingsRepository,
+                serviceStateStore,
+                fixture,
+                fixtureClient,
+            )
+        if (qualification.runLegacyIfRequired(
+                testUid,
+                testPackage,
+            ) { startService(RipDpiVpnService::class.java) }
+        ) {
+            return
+        }
+        val ipv6Host = requirePhysicalIpv6FixtureHost()
         val nonce =
             UUID
                 .randomUUID()
@@ -763,6 +793,7 @@ class NetworkPathE2ETest {
 
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        assertTrue("Live native allowlist must be armed", flowAttributionBridge.snapshot().uidPolicyArmed)
         val allowedBaselineTelemetry = serviceStateStore.telemetry.value
         val armedAllowlistPayload = physicalSoBindPayload("armed-allowlist", "tcp", families.first(), nonce)
         val armedAllowlistControl =
@@ -994,17 +1025,20 @@ class NetworkPathE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         fixtureClient.resetEvents()
+        assertTrue("Live native denylist must be armed", flowAttributionBridge.snapshot().uidPolicyArmed)
         val baselineTelemetry = serviceStateStore.telemetry.value
         families.forEach { family ->
             val deniedTcp =
-                testProcessTcpRoundTrip(
-                    host = family.host,
-                    port = fixture.tcpEchoPort,
-                    payload = physicalSoBindPayload("denied", "tcp", family, nonce),
-                    readTimeoutMs = 1_000L,
-                    throwOnBroadcastTimeout = false,
-                    bindDevice = "tun0",
-                )
+                observePhysicalSoBindDenial(appContext, family.host, fixture.socks5Port, fixture.tcpEchoPort) {
+                    testProcessTcpRoundTrip(
+                        host = family.host,
+                        port = fixture.tcpEchoPort,
+                        payload = physicalSoBindPayload("denied", "tcp", family, nonce),
+                        readTimeoutMs = 1_000L,
+                        throwOnBroadcastTimeout = false,
+                        bindDevice = "tun0",
+                    )
+                }
             assertEquals("${family.id} denied TCP did not retain SO_BINDTODEVICE", "tun0", deniedTcp.boundDevice)
             assertFalse("${family.id} bound TCP unexpectedly reached fixture", deniedTcp.ok)
             val deniedTcpAtNetworkStage = deniedTcp.failureStage in setOf("connect", "send", "receive")
@@ -1413,6 +1447,7 @@ class NetworkPathE2ETest {
         )
         val appApkSha256 = requirePhysicalEvidenceArgument(arguments, SoBindAppApkSha256Arg, Regex("[0-9a-f]{64}"))
         val testApkSha256 = requirePhysicalEvidenceArgument(arguments, SoBindTestApkSha256Arg, Regex("[0-9a-f]{64}"))
+        assertTrue("Live UID policy must remain armed before evidence", flowAttributionBridge.snapshot().uidPolicyArmed)
         val familyEvidence =
             JSONArray().apply {
                 families.forEach { family ->
@@ -1471,7 +1506,7 @@ class NetworkPathE2ETest {
             JSONObject()
                 .put("version", PhysicalSoBindEvidenceVersion)
                 .put("status", "PASS")
-                .put("profile", PhysicalSoBindEvidenceProfile)
+                .put("profile", arguments.getString(SoBindEvidenceProfileArg))
                 .put("runId", runId)
                 .put("sourceSha", sourceSha)
                 .put("appApkSha256", appApkSha256)
@@ -1479,7 +1514,9 @@ class NetworkPathE2ETest {
                 .put("deviceManufacturer", Build.MANUFACTURER)
                 .put("deviceCodename", Build.DEVICE)
                 .put("apiLevel", Build.VERSION.SDK_INT)
-                .put("kernelFamily", "6.1")
+                .put("kernelFamily", uidPolicyEligibility.qualification().kernelMajorMinorBand)
+                .put("qualification", physicalSoBindQualificationJson(flowAttributionBridge))
+                .put("legacy", JSONObject.NULL)
                 .put("realTun", true)
                 .put("tunPacketPathObserved", true)
                 .put(
@@ -1637,18 +1674,17 @@ class NetworkPathE2ETest {
                 .getString(SoBindEvidenceProfileArg)
         assumeTrue(
             "SO_BINDTODEVICE evidence requires an explicit dedicated physical profile",
-            evidenceProfile == PhysicalSoBindEvidenceProfile,
+            evidenceProfile in setOf(PhysicalSoBindEvidenceProfile, "physical_kernel_lt57"),
         )
-        assumeTrue("SO_BINDTODEVICE evidence is qualified on Android API 37", Build.VERSION.SDK_INT == 37)
-        assumeTrue(
-            "SO_BINDTODEVICE evidence is qualified on the Google Pixel 7 hardware profile",
-            Build.MANUFACTURER.equals("Google", ignoreCase = true) && Build.DEVICE == "panther",
-        )
-        val kernelRelease = System.getProperty("os.version").orEmpty()
-        assumeTrue(
-            "SO_BINDTODEVICE evidence is qualified on the Pixel 6.1 kernel family",
-            kernelRelease.startsWith("6.1."),
-        )
+        assertTrue("UID lookup requires Android API 29+", Build.VERSION.SDK_INT >= 29)
+        val kernel =
+            uidPolicyEligibility
+                .qualification()
+                .kernelMajorMinorBand
+                .split('.')
+                .map(String::toInt)
+        val modern = kernel[0] > 5 || (kernel[0] == 5 && kernel[1] >= 7)
+        assertEquals("Physical kernel profile mismatch", modern, evidenceProfile == PhysicalSoBindEvidenceProfile)
     }
 
     private fun redactedTunnelSummary(): String {
@@ -1730,7 +1766,7 @@ private data class PhysicalSoBindMapDnsCounters(
 
 private fun Bundle.optionalProbeInt(key: String): Int? = getInt(key).takeIf { containsKey(key) }
 
-private fun FixtureEventDto.matchesEcho(
+internal fun FixtureEventDto.matchesEcho(
     service: String,
     protocol: String,
     targetPort: Int,
