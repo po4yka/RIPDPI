@@ -303,13 +303,20 @@ private fun projectPathObservation(
 }
 
 private fun LinkProperties?.networkPathNat64Present(platformSdk: Int): Boolean =
-    this != null && platformSdk >= Build.VERSION_CODES.R && nat64PresentOnR()
+    this != null &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+        platformSdk >= Build.VERSION_CODES.R &&
+        nat64PresentOnR()
 
 @RequiresApi(Build.VERSION_CODES.R)
 private fun LinkProperties.nat64PresentOnR(): Boolean = nat64Prefix != null
 
 private fun LinkProperties?.networkPathMtu(platformSdk: Int): Int? =
-    if (this != null && platformSdk >= Build.VERSION_CODES.Q) mtuOnQ() else null
+    if (this != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && platformSdk >= Build.VERSION_CODES.Q) {
+        mtuOnQ()
+    } else {
+        null
+    }
 
 @RequiresApi(Build.VERSION_CODES.Q)
 private fun LinkProperties.mtuOnQ(): Int = mtu
@@ -325,9 +332,14 @@ private fun List<InetAddress>.networkPathFamilies(): List<String> =
 
 private fun LinkProperties?.networkPathPrivateDnsCategory(platformSdk: Int): String =
     when {
-        this == null || platformSdk < Build.VERSION_CODES.P -> "unknown"
+        this == null ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
+            platformSdk < Build.VERSION_CODES.P -> "unknown"
+
         !isPrivateDnsActive -> "inactive"
+
         privateDnsServerName.isNullOrBlank() -> "opportunistic"
+
         else -> "strict"
     }
 
