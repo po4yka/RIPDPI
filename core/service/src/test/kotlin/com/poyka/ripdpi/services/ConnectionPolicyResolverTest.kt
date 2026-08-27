@@ -215,57 +215,48 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `remembered catalog malware resolver cannot replace independent DNS`() {
-        val baseDns = resolveEffectiveDns(encryptedGoogleSettings(), override = null).activeDns
-        val selection =
-            resolveVpnDnsSelection(
-                mode = Mode.VPN,
-                baseDns = baseDns,
-                preferredPath = null,
-                rememberedVpnDnsPolicy = cloudflareRememberedPolicy().copy(providerId = "cloudflare-malware"),
-            )
-
-        assertEquals(DnsProviderGoogle, selection.activeDns.providerId)
-    }
-
-    @Test
     fun `remembered Cloudflare policy cannot replace independent cold start DNS`() =
         runTest {
-            val rememberedStore =
-                TestRememberedNetworkPolicyStore().apply {
-                    validatedMatch =
-                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
-                            proxyConfigJson = RipDpiProxyUIPreferences().toNativeConfigJson(),
-                            vpnDnsPolicyJson = Json.encodeToString(cloudflareRememberedPolicy()),
-                        )
-                }
-            val resolver =
-                DefaultConnectionPolicyResolver(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository =
-                        TestAppSettingsRepository(
-                            plainUdpSettings()
-                                .toBuilder()
-                                .setNetworkStrategyMemoryEnabled(true)
-                                .build(),
-                        ),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                    rememberedNetworkPolicyStore = rememberedStore,
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
-                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                )
+            listOf(DnsProviderCloudflare, "cloudflare-malware").forEach { providerId ->
+                val rememberedStore =
+                    TestRememberedNetworkPolicyStore().apply {
+                        validatedMatch =
+                            sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                                proxyConfigJson = RipDpiProxyUIPreferences().toNativeConfigJson(),
+                                vpnDnsPolicyJson =
+                                    Json.encodeToString(
+                                        cloudflareRememberedPolicy().copy(providerId = providerId),
+                                    ),
+                            )
+                    }
+                val resolver =
+                    DefaultConnectionPolicyResolver(
+                        context = RuntimeEnvironment.getApplication(),
+                        appSettingsRepository =
+                            TestAppSettingsRepository(
+                                plainUdpSettings()
+                                    .toBuilder()
+                                    .setNetworkStrategyMemoryEnabled(true)
+                                    .build(),
+                            ),
+                        networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                        networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                        networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                        antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                        rememberedNetworkPolicyStore = rememberedStore,
+                        rootHelperManager = RootHelperManager(),
+                        environmentDetector = EnvironmentDetector(),
+                        serverCapabilityStore = TestServerCapabilityStore(),
+                        awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                        destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    )
 
-            val resolution = resolver.resolve(mode = Mode.VPN)
+                val resolution = resolver.resolve(mode = Mode.VPN)
 
-            assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
-            assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
-            assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
+                assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
+                assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
+                assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
+            }
         }
 
     @Test
