@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917694-surface-xray-diagnostics-and-telemetry",
+  "evidence_summary": "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained.",
+  "execution_sha256": "cb5004c0cde2664fb19b0cbf35e190541c526cbe9e7732f27ea2bab37a0a0228",
+  "issue_sha256": "ac42d9eeb857072285f404e9985bb56f09435d7174506eabe0a30c6c16d84ee4",
+  "outcome": "done",
+  "prepared_at": "2026-08-28T19:44:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917694"
+}
