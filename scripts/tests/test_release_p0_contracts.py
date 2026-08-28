@@ -39,14 +39,15 @@ class ReleaseP0ContractsTest(unittest.TestCase):
             '--contract quality/release-gates/release-contract.json', preflight
         )
         self.assertIn("needs: candidate-preflight", producer)
-        self.assertIn("needs: pluggable-transport-assets", signing)
+        self.assertIn("needs: candidate-preflight", job(source, "xray-native"))
+        self.assertIn("needs: [pluggable-transport-assets, xray-native]", signing)
 
     def test_candidate_is_built_once_inside_signing_environment(self) -> None:
         source = workflow("release-candidate.yml")
         signing = job(source, "build-signed-candidate")
         producer = job(source, "pluggable-transport-assets")
 
-        self.assertIn("needs: pluggable-transport-assets", signing)
+        self.assertIn("needs: [pluggable-transport-assets, xray-native]", signing)
         self.assertIn(":core:engine:buildPluggableTransportAssets", producer)
         self.assertIn("-Pripdpi.pluggableTransportAssetsMode=source", producer)
         self.assertIn("-Pripdpi.pluggableTransportAssetsStrictFailures=true", producer)

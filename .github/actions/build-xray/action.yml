@@ -1,0 +1,44 @@
+name: Build patched libXray
+description: Build and verify the source-pinned managed Xray runtime for all Android ABIs
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup-android-rust
+      with:
+        setup-rust: "false"
+        setup-sccache: "false"
+        setup-gradle: "false"
+
+    - name: Install pinned Go mobile toolchain
+      shell: bash
+      env:
+        GOTOOLCHAIN: go1.27.0
+        GOSUMDB: sum.golang.org
+        GOPROXY: https://proxy.golang.org,direct
+        GOMAXPROCS: "1"
+        GOFLAGS: -p=1
+      run: |
+        set -euo pipefail
+        gomobile_version="$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["gomobile"])')"
+        export GOBIN="$RUNNER_TEMP/xray-go-bin"
+        go install "golang.org/x/mobile/cmd/gomobile@v$gomobile_version"
+        go install "golang.org/x/mobile/cmd/gobind@v$gomobile_version"
+        export PATH="$GOBIN:$PATH"
+        gomobile init
+        echo "$GOBIN" >> "$GITHUB_PATH"
+        ndk_version="$(sed -n 's/^ripdpi.nativeNdkVersion=//p' gradle.properties)"
+        {
+          echo "GOTOOLCHAIN=$GOTOOLCHAIN"
+          echo "GOSUMDB=$GOSUMDB"
+          echo "GOPROXY=$GOPROXY"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/$ndk_version"
+        } >> "$GITHUB_ENV"
+
+    - name: Build actual runtime and run native protection regressions
+      shell: bash
+      run: |
+        set -euo pipefail
+        bash scripts/native/build-libxray.sh
+        bash scripts/native/verify-libxray-artifacts.sh --release
+        python3 -m unittest scripts.tests.test_libxray_artifacts

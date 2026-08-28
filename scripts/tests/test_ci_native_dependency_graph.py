@@ -4,6 +4,8 @@ import re
 import unittest
 from pathlib import Path
 
+from scripts.ci.resolve_change_routing import routing_outputs
+
 
 ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
@@ -18,6 +20,54 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_xray_sources_and_recipe_trigger_full_ci(self) -> None:
+        for path in ("native/xray/patches/libxray-managed-runtime.patch",
+                     "scripts/native/build-libxray.sh", ".github/actions/build-xray/action.yml"):
+            with self.subTest(path=path):
+                outputs = routing_outputs([path])
+                self.assertEqual("true", outputs["run_full_ci"])
+
+    def test_xray_producer_and_linked_lane_are_required(self) -> None:
+        producer = job_source("xray-native")
+        self.assertIn("uses: ./.github/actions/build-xray", producer)
+        self.assertIn("name: xray-native", producer)
+        linked = job_source("xray-linked-unit-tests")
+        self.assertIn("xray-native]", linked)
+        self.assertIn("native/xray/artifacts", linked)
+        self.assertIn(":core:engine:testDebugUnitTest", linked)
+        self.assertIn(":core:service:testDebugUnitTest", linked)
+        required = job_source("ci-required")
+        for job in ("xray-native", "xray-linked-unit-tests"):
+            self.assertIn(f"      - {job}\n", required)
+            self.assertIn(f'"{job}",', required)
+
+    def test_every_apk_consumer_downloads_verified_xray(self) -> None:
+        for name in ("build-android-debug", "release-verification", "android-instrumented-tests",
+                     "phase0-baseline", "android-macrobenchmark", "android-network-e2e",
+                     "android-journeys", "android-relay-emulator-smoke"):
+            with self.subTest(job=name):
+                source = job_source(name)
+                self.assertIn("xray-native]", source)
+                self.assertIn("name: xray-native", source)
+                self.assertIn("path: native/xray/artifacts", source)
+                self.assertIn("verify-libxray-artifacts.sh --release", source)
+        candidate = (ROOT / ".github/workflows/release-candidate.yml").read_text()
+        self.assertIn("needs: [pluggable-transport-assets, xray-native]", candidate)
+        self.assertIn("uses: ./.github/actions/build-xray", candidate)
+        self.assertIn("path: native/xray/artifacts", candidate)
+        self.assertIn("verify-libxray-artifacts.sh --release", candidate)
+
+    def test_xray_action_builds_pinned_sources_without_checksum_bypass(self) -> None:
+        action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
+        self.assertIn("GOTOOLCHAIN: go1.27.0", action)
+        self.assertIn("GOSUMDB: sum.golang.org", action)
+        self.assertIn("gradle/libs.versions.toml", action)
+        self.assertIn("ripdpi.nativeNdkVersion", action)
+        self.assertIn("bash scripts/native/build-libxray.sh", action)
+        self.assertIn("verify-libxray-artifacts.sh --release", action)
+        self.assertIn("scripts.tests.test_libxray_artifacts", action)
+        self.assertNotIn("GOSUMDB=off", action)
+
     def test_native_producers_cache_the_gradle_cargo_target_per_abi(self) -> None:
         expected_mapping = (
             'rust-cache-workspaces: "native/rust -> '
@@ -50,19 +100,19 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
     def test_instrumented_tests_wait_for_x86_64_and_verified_pt_assets(self) -> None:
         self.assertIn(
-            "needs: [change-routing, rust-native-x86_64, pluggable-transport-assets]",
+            "needs: [change-routing, rust-native-x86_64, pluggable-transport-assets, xray-native]",
             job_source("android-instrumented-tests"),
         )
 
     def test_packaging_consumers_wait_for_complete_abi_set(self) -> None:
         expected_needs = (
             "needs: [change-routing, rust-native-packaging, rust-native-x86_64, "
-            "pluggable-transport-assets]"
+            "pluggable-transport-assets, xray-native]"
         )
         self.assertIn(expected_needs, job_source("build-android-debug"))
         self.assertIn(
             "needs: [change-routing, rust-native-packaging, rust-native-x86_64, "
-            "owned-stack-tls-fingerprint, pluggable-transport-assets]",
+            "owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]",
             job_source("release-verification"),
         )
 
@@ -181,11 +231,11 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
     def test_every_android_asset_consumer_uses_the_pt_producer(self) -> None:
         workflow_consumers = {
-            "phase0-baseline": "needs: [change-routing, pluggable-transport-assets]",
-            "android-macrobenchmark": "needs: [change-routing, pluggable-transport-assets]",
-            "android-network-e2e": "needs: [change-routing, pluggable-transport-assets]",
-            "android-journeys": "needs: [change-routing, pluggable-transport-assets]",
-            "android-relay-emulator-smoke": "needs: [change-routing, pluggable-transport-assets]",
+            "phase0-baseline": "needs: [change-routing, pluggable-transport-assets, xray-native]",
+            "android-macrobenchmark": "needs: [change-routing, pluggable-transport-assets, xray-native]",
+            "android-network-e2e": "needs: [change-routing, pluggable-transport-assets, xray-native]",
+            "android-journeys": "needs: [change-routing, pluggable-transport-assets, xray-native]",
+            "android-relay-emulator-smoke": "needs: [change-routing, pluggable-transport-assets, xray-native]",
         }
         for job_name, expected_needs in workflow_consumers.items():
             with self.subTest(job=job_name):

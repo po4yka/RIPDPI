@@ -61,7 +61,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         self.assertIn("./gradlew --stop", job)
         self.assertIn(
             "needs: [change-routing, rust-native-packaging, rust-native-x86_64, "
-            "owned-stack-tls-fingerprint, pluggable-transport-assets]",
+            "owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]",
             job,
         )
         self.assertNotIn("Check owned-stack TLS fingerprint snapshot", job)
