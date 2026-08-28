@@ -2,7 +2,7 @@
 id: OUT-1786264762917107
 title: Run Xray as managed VPN relay runtime
 kind: feature
-status: review
+status: blocked
 area: outbound
 priority: high
 owner: codex
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
 created: 2026-04-24
 updated: 2026-08-28
-status_detail: Implemented with real four-ABI AAR and Android API34 loopback smoke (2/2); final static analysis and exact-SHA hosted CI acceptance pending.
+status_detail: Implementation ae4926a9f is pushed; committed-tree local gates and real Android smoke pass. Exact-SHA CI is blocked by unchanged native listener hotspot budget 72 > 54; unrelated pre-existing Rust/DNS fixes require separate scope authorization.
 ---
 
 ## Summary
