@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.DnsProviderCloudflareIp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
+import com.poyka.ripdpi.data.isAutomaticEncryptedDnsProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -103,8 +105,7 @@ class ConnectivityDnsTargetPlannerTest {
                 activeDns = plainUdpDns(),
                 preferredPath = null,
             )
-        val expectedCount = builtInEncryptedDnsPathCandidates().size
-        assertEquals(expectedCount, result.size)
+        assertAutomaticResolverMatrix(result)
         assertTrue(result.all { it.domain == "example.com" })
         assertTrue(result.all { !it.encryptedResolverId.isNullOrBlank() })
         assertTrue(result.any { it.encryptedProtocol == EncryptedDnsProtocolDoh })
@@ -188,7 +189,7 @@ class ConnectivityDnsTargetPlannerTest {
     }
 
     @Test
-    fun `resolver audit keeps full resolver matrix`() {
+    fun `resolver audit keeps full automatic resolver matrix`() {
         val target = DnsTarget(domain = "example.com")
         val result =
             ConnectivityDnsTargetPlanner.expandTargets(
@@ -198,7 +199,20 @@ class ConnectivityDnsTargetPlannerTest {
                 resolverCandidateLimit = defaultDiagnosticsResolverCandidateLimit("resolver-audit"),
             )
 
-        assertEquals(builtInEncryptedDnsPathCandidates().size, result.size)
+        assertAutomaticResolverMatrix(result)
+    }
+
+    private fun assertAutomaticResolverMatrix(targets: List<DnsTarget>) {
+        val expected =
+            builtInEncryptedDnsPathCandidates()
+                .filter { isAutomaticEncryptedDnsProvider(it.resolverId) }
+        assertEquals(expected.size, targets.size)
+        assertEquals(
+            expected.map { it.resolverId to it.protocol }.toSet(),
+            targets.map { it.encryptedResolverId to it.encryptedProtocol }.toSet(),
+        )
+        val explicitOnlyProviders = setOf(DnsProviderCloudflare, DnsProviderCloudflareIp, "cloudflare-malware")
+        assertTrue(targets.none { it.encryptedResolverId in explicitOnlyProviders })
     }
 
     @Test
