@@ -2,7 +2,7 @@
 id: EPC-1786264762917329
 title: Epic - Xray provider mode
 kind: epic
-status: review
+status: blocked
 area: epic
 priority: high
 owner: codex
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
 updated: 2026-08-28
-status_detail: Provider implementation is under review; final rebased-tree gates, refreshed APK acceptance, and exact hosted CI remain pending.
+status_detail: Local gates, ARM64 debug APK and real API35 Xray TCP/XHTTP TUN plus DNS acceptance passed at 0f6124c66. Pending epic PR/merge authorization and exact hosted CI; not integrated.
 ---
 
 ## Goal
@@ -45,9 +45,11 @@ Direct-mode now has enough product framing to be honest when it cannot solve a n
 - After the lifecycle handoff, the coordinator owns the session controller, route builder, session DI module and their tests for reading the selected provider and profile atomically through the mutation journal. The product writer retains journal and UI ownership.
 - Review agents are read-only. Every heavy local build uses the machine-wide `build-gate`; writers do not merge or push independently.
 
-Current source inspection supersedes the historical claim that only toolchain blockers remain: ordinary navigation/onboarding, durable selection restoration, typed JSON import, failed-replacement TUN retention and live diagnostic/export correctness require implementation. Existing real libXray loopback tests do not prove Android VPN/TUN egress. Acceptance remains open until the real path and exact hosted CI are observed.
+Initial source inspection found missing navigation/onboarding, durable selection restoration, typed JSON import, failed-replacement TUN retention and live diagnostic/export correctness. Those paths are now implemented and locally verified in `5b06d7ed4`, with translation export in `e3142fcc8` and real DNS acceptance in `0f6124c66`. The branch was rebased onto `29987d625bf111a719d7205eee5a33a6a3d5ef88`. See the linked OpenSpec verification record for observed local, artifact and Android evidence. Epic PR/merge authorization and exact hosted CI remain outstanding; the epic is not closed.
 
-## Ship definition
+## Ship definition (historical annotations)
+
+The acceptance criteria remain in force. Inline environment and verification annotations below are historical; current results are recorded in `openspec/changes/epc-1786264762917329-epic-xray-provider-mode/verification.md`.
 
 - [ ] RIPDPI can start Android VPN mode with Xray selected as the active provider. — OPEN: requires the real libXray bridge (`RunXrayFromJSON`) which needs the gomobile-built AAR + NDK29 native link + a device; none are present in the build environment, so a real Xray-backed VPN start has never run.
 - [x] At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSON without leaking secrets. — `XrayConfigRenderer` + `XrayConfigValidator` + `XrayProfileRedactor`, golden- and redaction-tested green offline.
@@ -55,7 +57,7 @@ Current source inspection supersedes the historical claim that only toolchain bl
 - [ ] Home, Diagnostics, and Settings show typed Xray provider state. — the typed provider-state substrate (`XrayProviderSnapshot`, `XrayConnectionStage`, failure classes, redacted summaries) AND the `:core:service` live-population backend now both landed and are CI-tested with fakes: `XrayProviderSnapshotDeriver` derives a secret-free snapshot from the live orchestrator state + bridge reads, threaded additively as `ServiceTelemetrySnapshot.xrayProviderSnapshot` on the existing telemetry loop; `XrayProviderDiagnosticsProbeRunner` + `XrayProviderSessionController.runProbes()` expose the user-triggered provider-path check (`:core:service:testDebugUnitTest` green). The `:app` Home/Diagnostics/Settings Compose surfaces that RENDER it now also landed and are CI + Roborazzi verified: `HomeXrayProviderBanner` (Home), `XrayProviderStatusCard` (Diagnostics, with the user-triggered probe via `DiagnosticsViewModel.runXrayProviderProbe()` → the process-`@Singleton` `XrayProviderProbeCoordinator` that the active session registers/clears), and `XrayProviderSettingsStatusRow` (Settings) — all provider-DISTINCT from tunnel failures (own `XrayProviderTone`/banner family; protect-loop & DNS-loop use `Restricted`, never the tunnel destructive `Error`), consuming the additive `ServiceTelemetrySnapshot.xrayProviderSnapshot`. New strings in all 8 locales; `XrayProviderStatusScreenshotTest` locks all five fixtures (light+dark); `:app:testGithubDebugUnitTest` (1262, 0) + `:app:lintGithubDebug` + `:app:assembleGithubDebug` (real `.so` links) green. STILL OPEN: live snapshots from a real running engine (device/gomobile-verified) — the only reason this checkbox stays `[ ]`.
 - [ ] Lifecycle, config, protect-fd, telemetry, and smoke tests cover the first internal build. — lifecycle, config, protect-fd, DNS-loop, and telemetry tests are green offline; the device/emulator egress smoke remains OPEN (blocked on gomobile/libXray + NDK29 + device + server).
 
-## Current status
+## Historical status
 
 **2026-05-30** — The full Kotlin/Gradle software substrate for Xray provider mode has landed across seven commits and is offline-test-verified where the toolchain allows. What is in the tree and proven by green offline tests: the **config renderer + validation gate + secret-safe redactor** (`:core:data:catalog`), the **managed Xray runtime adapter** mapping libXray onto the `start/awaitReady/stop/pollTelemetry` contract with protect-first ordering and typed lifecycle/stop causes (`:core:engine-api`, verified against a fake native bridge), the **TUN-to-Xray-local-inbound bridge orchestration** with tunnel-owned DNS and dual-restart handover (`:core:engine-api`), the **profile-selection + fail-closed import UX** with capability labels and 7-locale strings (`:app` + `:core:data` parsers), the **typed diagnostics/telemetry substrate** (snapshot, connection stages, failure classes, redacted summaries, regression fixtures) (`:core:data:runtime-state`), and the **offline regression matrix** (config golden, service lifecycle, protect-fd contract, DNS-loop). The libXray/xray-core **version pins, stable-vs-canary policy, license/NOTICE capture, gomobile build script, and artifact-verification gate** are also committed (no native binary committed).
 
