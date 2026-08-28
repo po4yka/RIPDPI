@@ -1,17 +1,17 @@
 ---
 task_id: "EPC-1786264762917329"
 change: "epc-1786264762917329-epic-xray-provider-mode"
-commit_sha: "0f6124c663b5bbcedb4514eb5ea631d12e958f58"
+commit_sha: "9b18e5122d3a9d99d1946ec2701f147aa67ad80d"
 local: "passed"
-local_evidence: "6227 unit tests, zero failures/errors/skips; full staticAnalysis; four authorized PNG goldens and renderer expectations; architecture 23 existing/0 new/0 worsened; native hotspot budgets and locked Cargo metadata passed. Go fixture full suite repeated three times after opcode RED-to-GREEN. Logs: /private/tmp/ripdpi-xray-rebased-{units,static,goldens}.log, /private/tmp/ripdpi-xray-dns-peer-tests.log; final Android ktlint/detekt/build: /private/tmp/ripdpi-xray-dns-android-build.log."
-remote_ci: "required"
-remote_ci_evidence: "User authorized epic PR publication and ordinary protected merge after successful checks. Exact-SHA hosted CI remains pending; earlier June-audit CI is not evidence for this epic."
+local_evidence: "Observed telemetry regression RED then GREEN. Full real-AAR-linked service1918 + engine313 unit tests (2231 total), zero failures/errors/skips; full staticAnalysis passed and passed again after no-op rebase. Architecture23 existing/0new/0worsened, locked metadata114members and taskctl46/221 passed. Independent code and evidence review passed. Stable logs: /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/combined-unit-static.log and telemetry-{red,green}.xml."
+remote_ci: "passed"
+remote_ci_evidence: "https://github.com/po4yka/RIPDPI/actions/runs/33199013272 succeeded on 9b18e5122d3a9d99d1946ec2701f147aa67ad80d:44 successful jobs,17 intentional skips, no failures/cancellations. API27/33/35, linked Xray tests, Roborazzi, native ABIs and all debug/release variants passed; API35 real Xray TUN acceptance passed. All67 latest PR checks:50success+17skip; CodeQL and Secret Scan passed. PR455 protected rebase merge baeaf98cab8e1da646527d262fb0bc4184555269 has a byte-identical source tree to the tested commit."
 device: "passed"
-device_evidence: "Owned emulator-5570, Android API35 ARM64; real VpnService, Keystore, libXray 26.3.27 and TUN, independent loopback peer. Exact two E2E methods passed with zero skips in 53.049s. Receipts: HTTP 2, DNS 2 (owned.test.), direct sentinels 4 before/after VPN, no direct fallback with bad identity. Log and JSON: /private/tmp/ripdpi-xray-provider-artifacts-0f6124c66/ripdpi-xray-dns-emulator{.log,-evidence.json}."
+device_evidence: "Owned API35 ARM64 emulator: full24 lifecycle tests, no failures/errors/skips; telemetry regression exactly once. Subsequent real libXray26.3.27 TCP/REALITY and XHTTP TUN tests both passed in51.067s. Peer receipts HTTP0-to-2,DNS0-to-2 with owned.test.,direct0-to-4 before/after bad-identity sessions, no direct fallback while active. Explicit Diagnostics action asserted live typed snapshots and cached observations. Peer and owned emulator stopped. /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/lifecycle-results and xray-acceptance.json. Hosted API27/33/35 is a separate successful evidence boundary."
 artifact: "passed"
-artifact_evidence: "ARM64 debug APK 937877125 bytes, SHA256 c6e1d457a9b6d812a2d29460dfe13cb6b5f77c26442037e3455161bc8d8e736d; test APK SHA256 d4525b774875485c1b0ca9a5989bdd59360c91d82612ee4f3ec472ecb8f852e9. Both signatures verified; packaged five RIPDPI ELF gates passed and Go JNI LOAD alignment >=16KiB. Stable copies and verification.json: /private/tmp/ripdpi-xray-provider-artifacts-0f6124c66/."
+artifact_evidence: "Fresh ARM64 debug app166492411bytes SHA256001fb599a7bdf4895ec821bf4ff6fb97a2851c763583d932705fd73e274d8cb2; test1908197bytes SHA256506873709a23f0b8e8196fe49057b59083775002485730db7693beaf9f749e91. Signatures and embedded BuildConfig9b18e5122 verified; six required native ELF payloads and16KiB alignment verified. Packaged gojni equals verified four-ABI CI AAR SHA256ca7b03fce7a6a447a40956435950aca4912427a6e2a2b02d545a8ac8609f8f1b. Copies: /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/verified-apks-9b18e5122; report: /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/apk-verification.json."
 deployment: "not_applicable"
-deployment_evidence: "No server, production, physical-device, or store publication action is owned by this change."
+deployment_evidence: "No server deployment, physical-device installation, production changes, store publication or paid infrastructure is part of this change."
 ---
 
 # Verification
@@ -20,16 +20,18 @@ deployment_evidence: "No server, production, physical-device, or store publicati
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-EPC-1786264762917329-001 | EPC-1786264762918691 | Real Android VPN start, distinct-UID TUN traffic and stop/start for TCP/REALITY and XHTTP; final E2E log above. | passed |
-| REQ-EPC-1786264762917329-002 | EPC-1786264762918648 | Typed URI/JSON parser, validator, renderer and redactor unit suites; authorized renderer goldens; both real transports accepted by libXray. | passed |
-| REQ-EPC-1786264762917329-003 | EPC-1786264762918646 | Protect-first and DNS ownership contract tests; real TCP and UDP DNS through TUN/Xray, exact owned DNS answer and receipts. Encrypted MapDNS and upstream hostname bootstrap are not claimed as live-tested here. | passed |
-| REQ-EPC-1786264762917329-004 | EPC-1786264762918997 | Live typed snapshot assertions in E2E; Home/Diagnostics/Settings presentation and stale-probe unit coverage; manual import validation, rejection, save and process-restart restoration on emulator. | passed |
-| REQ-EPC-1786264762917329-005 | EPC-1786264762918562 | Full local module suites, static analysis, APK/ELF/signature checks and exact two real Android smoke tests. Hosted CI remains pending separately. | passed |
+| REQ-EPC-1786264762917329-001 | EPC-1786264762918691 | Real Android VPN start and distinct-UID TUN traffic through TCP/REALITY and XHTTP; both exact XrayProviderE2ETest methods pass locally and in hosted API35 acceptance. | passed |
+| REQ-EPC-1786264762917329-002 | EPC-1786264762918648 | Exact-SHA parser, validator, renderer, redactor and import suites; authorized renderer and screenshot goldens; both real transports accepted by libXray26.3.27. | passed |
+| REQ-EPC-1786264762917329-003 | EPC-1786264762918646 | Protect-first and DNS ownership contract tests; real distinct-UID TCP and UDP DNS through TUN/Xray with exact owned answer and peer receipts. Live MapDNS and provider-hostname bootstrap are not claimed. | passed |
+| REQ-EPC-1786264762917329-004 | EPC-1786264762918997 | Live typed version/listener snapshots and explicit Diagnostics action in XrayProviderE2ETest; Home/Diagnostics/Settings presentation and durable import/restoration unit and screenshot coverage in the exact-SHA CI. | passed |
+| REQ-EPC-1786264762917329-005 | EPC-1786264762918562 | Full hosted CI, linked engine/service suites, native artifacts, APK/ELF/signatures, all three Android API jobs and real Xray TUN acceptance passed. | passed |
 
 ## Evidence boundaries
 
-The epic is not closed or archived. Required hosted CI and protected integration remain outstanding; execution checkboxes stay open until that acceptance step. Old toolchain-blocker annotations in migrated planning records are historical and superseded by the observations above.
+The exact tested source is the commit in this record. PR455 integrated it through the normal protected rebase merge after successful checks, without bypass; the merge tree equals that tested tree. Closure records do not claim a rebuilt APK from their documentation-only commit.
 
-The device result is an owned API35 ARM64 emulator result, not physical-device, VPS, release-signing or store proof. Positive restart means stop then fresh start, not an on-device live handover. Encrypted MapDNS and provider hostname bootstrap retain their existing contract coverage; this run exercises plain UDP DNS to the owned peer through both Xray transports.
+The local result combines the successful full24-case lifecycle run and a subsequent successful2-case real Xray run. Between them, the local runner stopped because Gradle had removed AndroidX Test Services; installing the exact cached test utilities resolved that harness precondition. The earlier failed harness report remains preserved and is not reported as a product failure or a single uninterrupted26-case run.
 
-The manual UI checks used a synthetic TEST-NET profile without starting it: empty/invalid input was rejected, valid input enabled confirmation, and the selected provider/profile survived process restart without redisplaying the raw credential string. Screenshots: `/private/tmp/ripdpi-xray-import-ui-{selected,error-scrolled,valid,restored}.png`. Previously saved revisionless provider records require reimport; no compatibility shim is added.
+Emulator and owned loopback-peer results are not physical-device, VPS, release-signing or store-publication proof. Restart means stop and fresh start, not live handover. DNS acceptance covers plain UDP; encrypted MapDNS and provider-hostname bootstrap retain contract coverage only. The Diagnostics action reads native-worker observations; it does not claim a fresh JNI or remote ping, and StatApi remains explicitly not applicable.
+
+Earlier revisionless saved provider records require reimport; no compatibility shim is added. Historical missing-toolchain and pending-CI annotations in migrated execution descriptions are superseded by this record. Earlier temporary artifact directories were removed by external cleanup; the current verified artifacts and logs are retained at the stable paths above.
