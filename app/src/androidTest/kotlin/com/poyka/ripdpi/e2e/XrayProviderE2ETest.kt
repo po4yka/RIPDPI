@@ -7,6 +7,7 @@ import android.os.Process
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -20,6 +21,8 @@ import com.poyka.ripdpi.data.xray.XrayListenerState
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProfileRedactor
 import com.poyka.ripdpi.data.xray.XrayProviderBuildInfo
+import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
+import com.poyka.ripdpi.data.xray.XrayProviderProbeKind
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
@@ -32,12 +35,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -72,6 +78,10 @@ class XrayProviderE2ETest {
 
     @Inject lateinit var selection: XrayProviderSelectionStore
 
+    @Inject lateinit var providerProbes: XrayProviderProbeCoordinator
+
+    private val diagnosticsScope = MainScope()
+    private lateinit var diagnostics: DiagnosticsXrayProviderController
     private var initialized = false
     private lateinit var previousSettings: AppSettings
     private lateinit var previousSelection: XrayProviderSelectionRecord
@@ -90,6 +100,7 @@ class XrayProviderE2ETest {
         check(isLikelyEmulator()) { "This acceptance lane only targets the owned emulator" }
         controlPort = requireNotNull(configuredPort).toInt().also { require(it in 1..65_535) }
         hilt.inject()
+        diagnostics = DiagnosticsXrayProviderController(diagnosticsScope, state, providerProbes)
         failureJob =
             CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
                 state.events.collect { event ->
@@ -138,6 +149,7 @@ class XrayProviderE2ETest {
                 settings.replace(previousSettings)
             }
         } finally {
+            diagnosticsScope.cancel()
             failureJob?.cancel()
             clearTestProbeNetworkEligibility()
         }
@@ -170,10 +182,36 @@ class XrayProviderE2ETest {
                     ?.xrayVersion
                     ?.contains("26.3.27") == true,
             )
+            assertLiveDiagnosticsAction()
             controller.stop()
             awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+            awaitUntil { diagnostics.probeReport.value == null }
+            assertNull("Stopped provider must unbind its diagnostics action", providerProbes.runProbes())
             assertFalse("TEST-NET destination must not succeed outside the provider", exchange("stopped").ok)
         }
+    }
+
+    private fun assertLiveDiagnosticsAction() {
+        assertNull("Diagnostics must not run automatically", diagnostics.probeReport.value)
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { diagnostics.runProbe() }
+        awaitUntil { diagnostics.probeReport.value != null && !diagnostics.probeRunning.value }
+        val report = requireNotNull(diagnostics.probeReport.value)
+        assertTrue(report.snapshot.xrayVersion?.contains("26.3.27") == true)
+        assertEquals(XrayListenerState.Bound, report.snapshot.listenerState)
+        assertEquals(
+            mapOf(
+                XrayProviderProbeKind.Version to true,
+                XrayProviderProbeKind.ListenerReadiness to true,
+                XrayProviderProbeKind.WrapperPing to true,
+                XrayProviderProbeKind.StatApi to false,
+            ),
+            report.probes.associate { it.kind to it.ok },
+        )
+        val stat = report.probes.single { it.kind == XrayProviderProbeKind.StatApi }
+        assertTrue(
+            "Stat API must remain explicitly inapplicable",
+            stat.detailRedacted?.contains("not applicable") == true,
+        )
     }
 
     private fun assertOwnedDnsThroughProvider() {
