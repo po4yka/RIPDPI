@@ -3,7 +3,7 @@
 # manifest from source.
 #
 # Extracts every translatable <string name="..."> key from the two source string
-# catalogs, EXCLUDING any string carrying translatable="false", sorts -u, and
+# resource directories, EXCLUDING any string carrying translatable="false", sorts -u, and
 # writes the result to config/i18n/translatable-keys.txt. App keys are prefixed
 # with "app:" and core/service keys with "service:".
 #
@@ -20,38 +20,37 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-APP_STRINGS="app/src/main/res/values/strings.xml"
-SERVICE_STRINGS="core/service/src/main/res/values/strings.xml"
 OUT_DIR="config/i18n"
-# Output path may be overridden (used by check-translation-export.sh to write a
-# temp manifest with the identical extraction logic). Defaults to the canonical
-# committed manifest.
+# The checker overrides the output path to compare an independently regenerated manifest.
 OUT_FILE="${1:-$OUT_DIR/translatable-keys.txt}"
 
-# Emit "<prefix>:<key>" for every translatable <string name="KEY"> in $file.
-# A <string ...> tag carrying translatable="false" is excluded. Only <string>
-# entries are considered (not <plurals>, <string-array>, or comments).
-extract_keys() {
-    local file="$1"
-    local prefix="$2"
-    if [[ ! -f "$file" ]]; then
-        echo "ERROR: source string file not found: $file" >&2
-        exit 1
-    fi
-    # Match the opening <string name="..."> tag (possibly spanning attributes on
-    # the same line), drop any that declare translatable="false", and capture the
-    # key. grep -o keeps us robust to leading whitespace and trailing attributes.
-    grep -oE '<string[[:space:]][^>]*name="[^"]+"[^>]*>' "$file" \
-        | grep -v 'translatable="false"' \
-        | sed -E 's/.*name="([^"]+)".*/'"$prefix"':\1/'
-}
+python3 - "$OUT_FILE" <<'PY_EXPORT'
+import pathlib
+import sys
+import xml.etree.ElementTree as ET
 
-mkdir -p "$(dirname "$OUT_FILE")"
+keys = set()
+for prefix, resource_dir in (
+    ("app", "app/src/main/res/values"),
+    ("service", "core/service/src/main/res/values"),
+):
+    directory = pathlib.Path(resource_dir)
+    if not directory.is_dir():
+        raise SystemExit(f"ERROR: source resource directory not found: {directory}")
+    seen = set()
+    for source in sorted(directory.glob("*.xml")):
+        for resource in ET.parse(source).getroot():
+            if resource.tag != "string":
+                continue
+            name = resource.attrib["name"]
+            if name in seen:
+                raise SystemExit(f"ERROR: duplicate source string key: {prefix}:{name}")
+            seen.add(name)
+            if resource.get("translatable") != "false":
+                keys.add(f"{prefix}:{name}")
 
-{
-    extract_keys "$APP_STRINGS" "app"
-    extract_keys "$SERVICE_STRINGS" "service"
-} | sort -u > "$OUT_FILE"
-
-COUNT="$(wc -l < "$OUT_FILE" | tr -d '[:space:]')"
-echo "Wrote $COUNT translatable keys to $OUT_FILE"
+output = pathlib.Path(sys.argv[1])
+output.parent.mkdir(parents=True, exist_ok=True)
+output.write_text("\n".join(sorted(keys)) + "\n", encoding="utf-8")
+print(f"Wrote {len(keys)} translatable keys to {output}")
+PY_EXPORT
