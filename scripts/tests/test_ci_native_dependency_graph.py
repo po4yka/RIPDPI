@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import textwrap
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -20,6 +27,61 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_xray_bootstrap_preserves_both_installed_tool_pins(self) -> None:
+        action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
+        bootstrap = re.search(
+            r"(?ms)^    - name: Install pinned Go mobile toolchain\n.*?^      run: \|\n"
+            r"((?:^        [^\n]*\n|^\n)+)", action,
+        )
+        self.assertIsNotNone(bootstrap)
+        version = "v" + tomllib.loads((ROOT / "gradle/libs.versions.toml").read_text())["versions"]["gomobile"]
+        with tempfile.TemporaryDirectory(prefix="xray bootstrap ") as temporary:
+            directory = Path(temporary)
+            tools = directory / "tools"
+            tools.mkdir()
+            for name in ("bash", "sed", "python3"):
+                executable = shutil.which(name)
+                self.assertIsNotNone(executable, name)
+                (tools / name).symlink_to(executable)
+            # Executable bootstrap fixture: upstream init installs gobind@latest.
+            # Actual Go/Android compilation is covered by the native producer.
+            fake_go = tools / "go"
+            fake_go.write_text(f"#!{sys.executable}\n" + textwrap.dedent('''\
+                import os
+                from pathlib import Path
+                import sys
+
+                if len(sys.argv) != 3 or sys.argv[1] != "install":
+                    sys.exit(90)
+                package, version = sys.argv[2].rsplit("@", 1)
+                name = package.rsplit("/", 1)[1]
+                if name not in ("gomobile", "gobind"):
+                    sys.exit(91)
+                destination = Path(os.environ["GOBIN"])
+                destination.mkdir(parents=True, exist_ok=True)
+                (destination / (name + ".version")).write_text(version)
+                executable = destination / name
+                executable.write_text(
+                    "#!/usr/bin/env bash\\nset -euo pipefail\\n"
+                    'test "$1" = init\\n'
+                    "go install golang.org/x/mobile/cmd/gobind@latest\\n"
+                )
+                executable.chmod(0o755)
+                '''))
+            fake_go.chmod(0o755)
+            environment = dict(os.environ, PATH=str(tools),
+                               RUNNER_TEMP=str(directory), ANDROID_SDK_ROOT=str(directory / "sdk"),
+                               GITHUB_PATH=str(directory / "github-path"),
+                               GITHUB_ENV=str(directory / "github-env"),
+                               GOTOOLCHAIN="go1.27.0", GOSUMDB="sum.golang.org",
+                               GOPROXY="https://proxy.golang.org,direct")
+            result = subprocess.run(["bash", "--noprofile", "--norc", "-c", textwrap.dedent(bootstrap[1])],
+                                    cwd=ROOT, env=environment, capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stderr)
+            for tool in ("gomobile", "gobind"):
+                self.assertEqual(version, (directory / "xray-go-bin" / (tool + ".version")).read_text(), tool)
+            self.assertEqual(f"{directory / 'xray-go-bin'}\n", (directory / "github-path").read_text())
+
     def test_xray_sources_and_recipe_trigger_full_ci(self) -> None:
         for path in ("native/xray/patches/libxray-managed-runtime.patch",
                      "scripts/native/build-libxray.sh", ".github/actions/build-xray/action.yml"):
