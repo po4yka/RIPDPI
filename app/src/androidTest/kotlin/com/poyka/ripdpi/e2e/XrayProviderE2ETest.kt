@@ -122,6 +122,7 @@ class XrayProviderE2ETest {
                 desyncUdp = false
                 setStrategyChains(emptyList(), emptyList())
             }
+            settings.applyPacketSmokePlainDns(proxyPort = settings.snapshot().proxyPort, dnsIp = "192.0.2.53")
         }
     }
 
@@ -153,6 +154,7 @@ class XrayProviderE2ETest {
                 response.probeUid != null && response.probeUid != Process.myUid(),
             )
             assertTrue("Expected independent peer echo", response.response.orEmpty().contains("xray-owned-echo"))
+            assertOwnedDnsThroughProvider()
             awaitUntil {
                 val current = state.telemetry.value
                 current.tunnelStats.txPackets > 0 && current.tunnelStats.rxPackets > 0 &&
@@ -172,6 +174,27 @@ class XrayProviderE2ETest {
             awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
             assertFalse("TEST-NET destination must not succeed outside the provider", exchange("stopped").ok)
         }
+    }
+
+    private fun assertOwnedDnsThroughProvider() {
+        val before = readControl("dns-receipts").getInt("count")
+        val packetsBefore = state.telemetry.value.tunnelStats
+        val response = testProcessDnsProbe(queryHost = "owned.test", serverHost = "192.0.2.53", timeoutMs = 3_000L)
+        assertTrue(
+            "DNS must originate from a distinct test UID",
+            response.probeUid != null && response.probeUid != Process.myUid(),
+        )
+        assertTrue("Owned UDP DNS query must succeed through the active provider", response.ok)
+        assertEquals(0, response.rcode)
+        assertEquals(listOf("192.0.2.77"), response.answers)
+        val receipts = readControl("dns-receipts")
+        assertEquals(before + 1, receipts.getInt("count"))
+        assertEquals("owned.test.", receipts.getString("lastQuery"))
+        awaitUntil {
+            val packets = state.telemetry.value.tunnelStats
+            packets.txPackets > packetsBefore.txPackets && packets.rxPackets > packetsBefore.rxPackets
+        }
+        assertEquals(AppStatus.Running, state.status.value.first)
     }
 
     @Test

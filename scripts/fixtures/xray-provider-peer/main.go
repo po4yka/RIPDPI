@@ -28,25 +28,30 @@ import (
 	"github.com/xtls/reality"
 	"github.com/xtls/xray-core/core"
 	_ "github.com/xtls/xray-core/main/distro/all"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 const peerID = "550e8400-e29b-41d4-a716-446655440000"
 const serverName = "fixture.test"
 const destination = "192.0.2.77:80"
+const ownedDNSName = "owned.test."
 
 type peerManifest struct {
 	TCPPort    int    `json:"tcpPort"`
 	XHTTPPort  int    `json:"xhttpPort"`
 	DirectPort int    `json:"directPort"`
+	DNSPort    int    `json:"dnsPort,omitempty"`
 	PublicKey  string `json:"publicKey"`
 	UUID       string `json:"uuid"`
 }
 
 type peer struct {
-	manifest    peerManifest
-	count       atomic.Int64
-	directCount atomic.Int64
-	closers     []io.Closer
+	manifest     peerManifest
+	count        atomic.Int64
+	directCount  atomic.Int64
+	dnsCount     atomic.Int64
+	dnsLastQuery atomic.Value
+	closers      []io.Closer
 }
 
 func startPeer(ctx context.Context) (*peer, error) {
@@ -107,6 +112,12 @@ func startPeer(ctx context.Context) (*peer, error) {
 	}
 	p.closers = append(p.closers, direct)
 	go func() { _ = direct.Serve(directListener) }()
+	dnsListener, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	p.closers = append(p.closers, dnsListener)
+	go p.serveOwnedDNS(dnsListener)
 	// Hold both reservations simultaneously; never derive an adjacent port.
 	tcp, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -122,6 +133,7 @@ func startPeer(ctx context.Context) (*peer, error) {
 		TCPPort:    tcp.Addr().(*net.TCPAddr).Port,
 		XHTTPPort:  xhttp.Addr().(*net.TCPAddr).Port,
 		DirectPort: directListener.Addr().(*net.TCPAddr).Port,
+		DNSPort:    dnsListener.LocalAddr().(*net.UDPAddr).Port,
 		PublicKey:  base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
 		UUID:       peerID,
 	}
@@ -149,9 +161,11 @@ func startPeer(ctx context.Context) (*peer, error) {
 		"outbounds": []any{
 			map[string]any{"tag": "deny", "protocol": "blackhole"},
 			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": map[string]any{"redirect": echoListener.Addr().String()}},
+			map[string]any{"tag": "owned-dns", "protocol": "freedom", "settings": map[string]any{"redirect": dnsListener.LocalAddr().String()}},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 		}},
 	}
 	_ = tcp.Close()
@@ -166,6 +180,57 @@ func startPeer(ctx context.Context) (*peer, error) {
 	}
 	ready = true
 	return p, nil
+}
+
+func (p *peer) serveOwnedDNS(conn net.PacketConn) {
+	buffer := make([]byte, 512)
+	for {
+		n, addr, err := conn.ReadFrom(buffer)
+		if err != nil {
+			return
+		}
+		response, query, ok := buildOwnedDNSResponse(buffer[:n])
+		if !ok {
+			continue
+		}
+		p.dnsCount.Add(1)
+		p.dnsLastQuery.Store(query)
+		_, _ = conn.WriteTo(response, addr)
+	}
+}
+
+func buildOwnedDNSResponse(packet []byte) ([]byte, string, bool) {
+	var query dnsmessage.Message
+	if err := query.Unpack(packet); err != nil {
+		return nil, "", false
+	}
+	if query.Header.Response || query.Header.OpCode != 0 || len(query.Questions) != 1 || len(query.Answers) != 0 {
+		return nil, "", false
+	}
+	question := query.Questions[0]
+	if question.Name.String() != ownedDNSName || question.Type != dnsmessage.TypeA || question.Class != dnsmessage.ClassINET {
+		return nil, "", false
+	}
+	response := dnsmessage.Message{
+		Header: dnsmessage.Header{
+			ID:                 query.Header.ID,
+			Response:           true,
+			Authoritative:      true,
+			RecursionDesired:   query.Header.RecursionDesired,
+			RecursionAvailable: false,
+			RCode:              dnsmessage.RCodeSuccess,
+		},
+		Questions: query.Questions,
+		Answers: []dnsmessage.Resource{{
+			Header: dnsmessage.ResourceHeader{Name: question.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 30},
+			Body:   &dnsmessage.AResource{A: [4]byte{192, 0, 2, 77}},
+		}},
+	}
+	packed, err := response.Pack()
+	if err != nil {
+		return nil, "", false
+	}
+	return packed, question.Name.String(), true
 }
 
 func awaitRealityMetadata(ctx context.Context, target string) error {
@@ -248,6 +313,10 @@ func (p *peer) controlHandler() http.Handler {
 	})
 	mux.HandleFunc("GET /direct-receipts", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]int64{"count": p.directCount.Load()})
+	})
+	mux.HandleFunc("GET /dns-receipts", func(w http.ResponseWriter, _ *http.Request) {
+		lastQuery, _ := p.dnsLastQuery.Load().(string)
+		_ = json.NewEncoder(w).Encode(map[string]any{"count": p.dnsCount.Load(), "lastQuery": lastQuery})
 	})
 	return mux
 }
