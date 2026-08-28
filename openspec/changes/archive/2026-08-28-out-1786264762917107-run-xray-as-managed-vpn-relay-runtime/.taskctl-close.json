@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917107-run-xray-as-managed-vpn-relay-runtime",
+  "evidence_summary": "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained.",
+  "execution_sha256": "d87a784d6f234e7b57c74a80992a6e895bb661c6366d682ee673ec5a1f72ced6",
+  "issue_sha256": "cbc456ee204c70b4ff72e2ee9e9759707413eea0da935673b0c34f10376cb324",
+  "outcome": "done",
+  "prepared_at": "2026-08-28T19:44:08Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917107"
+}

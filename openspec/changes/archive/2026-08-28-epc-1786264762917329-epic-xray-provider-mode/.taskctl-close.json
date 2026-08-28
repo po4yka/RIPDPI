@@ -1,0 +1,11 @@
+{
+  "change": "epc-1786264762917329-epic-xray-provider-mode",
+  "evidence_summary": "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained.",
+  "execution_sha256": "8f0b2e04fc8f927b50dca6e07ced6be88035072399727a19a0124f8eca0a6d40",
+  "issue_sha256": "c475b0ded2102628881ce90b97ff90e8f6dba8570453bad94ad232de980df6f2",
+  "outcome": "done",
+  "prepared_at": "2026-08-28T19:44:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "EPC-1786264762917329"
+}

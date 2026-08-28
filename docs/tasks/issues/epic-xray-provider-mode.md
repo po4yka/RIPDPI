@@ -2,7 +2,7 @@
 id: EPC-1786264762917329
 title: Epic - Xray provider mode
 kind: epic
-status: review
+status: done
 area: epic
 priority: high
 owner: codex
@@ -13,6 +13,9 @@ openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
 updated: 2026-08-28
 status_detail: Exact source 9b18e5122 passed local APK/emulator acceptance and hosted CI 33199013272; protected PR455 integration as baeaf98ca is verified.
+closed_at: "2026-08-28T19:44:20Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained."
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917422-bridge-tun-traffic-through-xray-local-inbound",
+  "evidence_summary": "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained.",
+  "execution_sha256": "87b5fb471a49927ad07ec1ef6053671f92bfc7bb13fe891e7e4f79d5ce6eaa32",
+  "issue_sha256": "d1db8155230a7b219ca2c553b4da050b70c3ea75495ded4a3049766974ec94a5",
+  "outcome": "done",
+  "prepared_at": "2026-08-28T19:44:10Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917422"
+}
