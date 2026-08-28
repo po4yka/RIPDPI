@@ -1,50 +1,50 @@
 ## Purpose
 
-Define the observable completion contract for Run Xray as managed VPN relay runtime. Implement a supervised Xray runtime that starts, reports readiness, exposes health, and stops cleanly inside RIPDPI's Android service layer
+Define observable acceptance for the real managed Android Xray VPN relay runtime.
 
 ## ADDED Requirements
 
-### Requirement: REQ-OUT-1786264762917107-001 — Runtime registers libXray dialer/listener protection before starting Xray. — Ri…
+### Requirement: REQ-OUT-1786264762917107-001 — Native protection and DNS ownership
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Runtime registers libXray dialer/listener protection before starting Xray. — RipDpiXrayRuntime registers the protect controller with the bridge BEFORE start; protect-first ordering is asserted by RipDpiXrayRuntimeTest and XrayProtectFdContractTest.
+The runtime MUST install protection before native startup and DNS initialization. Protection denial MUST abort the real Go dial/listen operation. Callback registration MUST not accumulate service owners across restart.
 
-#### Scenario: Verify criterion 1
+#### Scenario: Denied socket
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Runtime registers libXray dialer/listener protection before starting Xray. — RipDpiXrayRuntime registers the protect controller with the bridge BEFORE start; protect-first ordering is asserted by RipDpiXrayRuntimeTest and XrayProtectFdContractTest
+- **WHEN** the current VPN protection controller rejects a descriptor
+- **THEN** no connection or datagram is delivered through that socket and the runtime reports a safe failure without logging profile secrets
 
-### Requirement: REQ-OUT-1786264762917107-002 — Startup waits for a concrete listener or verified Xray state before VPN tunnel…
+### Requirement: REQ-OUT-1786264762917107-002 — Concrete readiness
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Startup waits for a concrete listener or verified Xray state before VPN tunnel handoff. — readiness success/timeout covered in RipDpiXrayRuntimeTest.
+Startup MUST verify the configured local SOCKS5 listener before handing TUN traffic to Xray. Cancellation or startup failure MUST request cleanup and retain native ownership until cleanup is confirmed.
 
-#### Scenario: Verify criterion 2
+#### Scenario: Listener unavailable
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Startup waits for a concrete listener or verified Xray state before VPN tunnel handoff. — readiness success/timeout covered in RipDpiXrayRuntimeTest
+- **WHEN** native startup reports success but the configured listener is not accepting the expected SOCKS protocol
+- **THEN** readiness fails within its deadline, TUN handoff is withheld, and cleanup remains owned
 
-### Requirement: REQ-OUT-1786264762917107-003 — Stop path is bounded, idempotent, and reports typed clean/failed stop causes. —…
+### Requirement: REQ-OUT-1786264762917107-003 — Bounded owned shutdown
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Stop path is bounded, idempotent, and reports typed clean/failed stop causes. — typed StopCause (Clean/AlreadyStopped/Failed), bounded via IO dispatcher; idempotent/late/hung-stop tests green.
+Stop MUST bound the caller's wait independently of a blocking native call. A pending or failed stop MUST retain ownership, prohibit overlapping starts and never report Stopped or AlreadyStopped until cleanup is confirmed.
 
-#### Scenario: Verify criterion 3
+#### Scenario: Native stop hangs
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Stop path is bounded, idempotent, and reports typed clean/failed stop causes. — typed StopCause (Clean/AlreadyStopped/Failed), bounded via IO dispatcher; idempotent/late/hung-stop tests green
+- **WHEN** native stop is blocked past the caller deadline
+- **THEN** stop returns a typed incomplete outcome before native completion, retains the session lease and refuses replacement; late completion can release only that lease
 
-### Requirement: REQ-OUT-1786264762917107-004 — Xray version and basic provider state flow into service telemetry without expos…
+### Requirement: REQ-OUT-1786264762917107-004 — Truthful telemetry and exit supervision
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Xray version and basic provider state flow into service telemetry without exposing profile secrets. — pollTelemetry() emits a NativeRuntimeSnapshot with version+state and a secret-free assertion test.
+Telemetry MUST expose version and lifecycle without secrets and MUST distinguish listener readiness from outbound reachability. Unexpected native exit MUST stop only its owning VPN session.
 
-#### Scenario: Verify criterion 4
+#### Scenario: Runtime exits after readiness
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Xray version and basic provider state flow into service telemetry without exposing profile secrets. — pollTelemetry() emits a NativeRuntimeSnapshot with version+state and a secret-free assertion test
+- **WHEN** an active Xray runtime exits after its listener was ready
+- **THEN** the service reports a typed failure and tears down that session without affecting a newer provider generation
 
-### Requirement: REQ-OUT-1786264762917107-005 — Unit or service tests cover startup failure, invalid config, late stop, and cra…
+### Requirement: REQ-OUT-1786264762917107-005 — Real Android runtime acceptance
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping. — 14 tests in RipDpiXrayRuntimeTest (green offline in :core:engine-api).
+The shipping Android build MUST include the verified pinned patched libXray AAR. Acceptance MUST exercise the actual gomobile bridge on an isolated Android emulator with controlled loopback traffic, not only a fake bridge.
 
-#### Scenario: Verify criterion 5
+#### Scenario: Real runtime restart
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping. — 14 tests in RipDpiXrayRuntimeTest (green offline in :core:engine-api)
+- **WHEN** a valid profile starts, exchanges traffic with the controlled peer, stops, and starts again
+- **THEN** the linked runtime delivers the expected bytes, releases its listener on clean stop and starts without stale protection callbacks; invalid config and denied protection fail safely

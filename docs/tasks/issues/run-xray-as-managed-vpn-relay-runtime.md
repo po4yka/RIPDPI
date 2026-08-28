@@ -2,17 +2,17 @@
 id: OUT-1786264762917107
 title: Run Xray as managed VPN relay runtime
 kind: feature
-status: blocked
+status: review
 area: outbound
 priority: high
-owner: unassigned
+owner: codex
 parent: EPC-1786264762917329
 blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
 created: 2026-04-24
-updated: 2026-07-26
-status_detail: externally-gated — real gomobile-backed bridge and Android device execution remain unavailable
+updated: 2026-08-28
+status_detail: Implemented with real four-ABI AAR and Android API34 loopback smoke (2/2); final static analysis and exact-SHA hosted CI acceptance pending.
 ---
 
 ## Summary
@@ -28,15 +28,23 @@ Xray must behave like the existing managed proxy/relay runtimes: no ambiguous "r
 - In scope: `RunXrayFromJSON` startup, `StopXray` shutdown, protect-controller registration, DNS initialization, readiness probing, state mapping, telemetry snapshots, and supervisor exit causes.
 - Out of scope: UI profile editing and non-Xray providers.
 
+## Ownership
+
+- Root writer, `codex/xray-managed-runtime-20260828`: engine-api runtime/bridge contracts, linked Kotlin bridge, service lifecycle and their tests; profile snapshots, Gradle integration, Android runtime smoke, task/specification files.
+- Native build writer, `codex/xray-managed-native-20260828`: `scripts/native/*libxray*`, `native/xray/patches/`, and focused native packaging/protection tests under `scripts/tests/`. Ownership was subsequently extended to `.github/actions/build-xray/`, `ci.yml`, `release-candidate.yml` and their Python contract tests. Separate worktree; no Kotlin, shared version catalog, lockfile, or task state edits.
+- Read-only architecture and final review agents own no files. Root serializes all integration and shared-file changes. No new production dependencies or pin changes are planned.
+
 ## Acceptance criteria
 
-- [x] Runtime registers libXray dialer/listener protection before starting Xray. — `RipDpiXrayRuntime` registers the protect controller with the bridge BEFORE start; protect-first ordering is asserted by `RipDpiXrayRuntimeTest` and `XrayProtectFdContractTest`.
-- [x] Startup waits for a concrete listener or verified Xray state before VPN tunnel handoff. — readiness success/timeout covered in `RipDpiXrayRuntimeTest`.
-- [x] Stop path is bounded, idempotent, and reports typed clean/failed stop causes. — typed `StopCause` (Clean/AlreadyStopped/Failed), bounded via IO dispatcher; idempotent/late/hung-stop tests green.
-- [x] Xray version and basic provider state flow into service telemetry without exposing profile secrets. — `pollTelemetry()` emits a `NativeRuntimeSnapshot` with version+state and a secret-free assertion test.
-- [x] Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping. — 14 tests in `RipDpiXrayRuntimeTest` (green offline in `:core:engine-api`).
+- [x] Real linked libXray registers one replaceable protection callback before startup and DNS setup; a denied callback aborts the Go socket operation, including Xray system dialer/listener paths.
+- [x] Startup verifies the configured local SOCKS listener before TUN handoff. Start failure/cancellation retains native ownership until cleanup is confirmed.
+- [x] Stop has a bounded caller wait, typed outcomes, idempotency, and retained ownership while native cleanup is pending or failed. Late completion cannot release a newer session.
+- [x] Version and lifecycle telemetry are secret-free. A ready local listener is not reported as verified outbound reachability. Unexpected runtime exit stops the owning VPN session.
+- [x] Regression tests cover invalid config, denied protection, readiness, cancellation, hung/failed/late stop, and exit mapping. A real linked Android runtime exchanges traffic with a controlled loopback peer, stops and restarts successfully; shipping builds include the verified AAR.
 
-> All five criteria are verified against `FakeXrayNativeBridge`, which replays the full observable native contract. The criteria are met at the adapter/contract level. The real gomobile-backed `XrayNativeBridgeLibXrayImpl` now COMPILES and LINKS against the per-ABI libXray AAR (`:core:engine`, `src/xrayLinked`) and is bound as the `XrayNativeBridge` singleton (`XrayBridgeModule`, `@Provides @XrayDatDir`); its pure logic — base64 `CallResponse` parsing, `version()` `data` extraction, the `DialerController` protect adapter, protect-first ordering, and the request-builder throw path — is unit-verified OFFLINE via the `LibXrayFfi` seam (`XrayNativeBridgeLibXrayImplTest`, no gojni load). What has NOT executed is the real native `RunXrayFromJSON`/`StopXray`/`getXrayState` against a live Xray process. The sole remaining gates are (1) device + live-server egress smoke (B-3) and (2) the missing service-integration consumer — no `:core:service` code injects `XrayNativeBridge` yet, so the binding is ready-to-inject but not yet constructed in production. Frontmatter `status` reflects the device-smoke-pending state.
+## Current evidence boundary
+
+The historical fake-only checks below do not establish native acceptance. On 2026-08-28 all five execution steps were reopened after source review found ignored protection denial, swallowed native stop errors, an unbounded blocking stop, and missing post-readiness exit handling. The service consumer now exists; older statements that it is missing are historical. Required evidence is a built, verified AAR plus real linked Android emulator execution and exact-SHA CI. Physical-device/VPS deployment is not part of this task.
 
 ## Progress
 
@@ -64,3 +72,5 @@ Map Xray readiness and stop outcomes into the same service-level language used f
 - 2026-06-05: Audit confirmed — all 5 [x] criteria verified against source: protect-first registration at `RipDpiXrayRuntime.kt:83-84`, bounded idempotent stop with `StopCause` sealed interface at lines 150-185/274-284, `pollTelemetry()` with `NativeRuntimeSnapshot` at lines 199-206, 14 tests in `RipDpiXrayRuntimeTest` covering startup failure/invalid config/late stop/crash mapping (function names confirmed). `XrayNativeBridgeLibXrayImpl` confirmed to throw `NotImplementedError` on all 6 methods (lines 47-80). Status remains `blocked` — real end-to-end path blocked on gomobile libXray AAR; `blocked_by: []` reflects no tracked sibling task for the blocker. Note inside criteria block says "backlog" but frontmatter `blocked` is correct; no change to status.
 - 2026-06-11 (offline re-verify): `:core:engine-api:testDebugUnitTest` green — `RipDpiXrayRuntimeTest` (14) + `XrayProtectFdContractTest` (4), 0 failures, against `FakeXrayNativeBridge`. All 5 criteria stay code-complete at the adapter/contract level; real `RunXrayFromJSON`/`StopXray`/`XrayVersion` still unexecuted (AAR gate). See `docs/native/libxray-unblock-checklist.md`. Status stays `blocked`.
 - 2026-06-15 (A-3 bridge link + bind): The throwing `XrayNativeBridgeLibXrayImpl` was removed from `:core:engine-api` and re-implemented as the real gomobile-backed bridge in `:core:engine` `src/xrayLinked` (FFI seam `LibXrayFfi` / `GomobileLibXrayFfi` over `libXray.LibXray.*`; the only gojni-loading code), with a parity `src/xrayStub` for offline builds — exactly one variant is added to `main`. `XrayBridgeModule` binds it as the `XrayNativeBridge` singleton (`@Provides`, `@XrayDatDir` from `resolveGeoDatabasePaths`). Corrected the native contract vs the old stub comments: `CallResponse` error key is `error` (not `err`); `runXrayFromJSON`/`stopXray`/`xrayVersion` all return a base64-wrapped `CallResponse` (`version` reads `data`); flow is `newXrayRunFromJSONRequest(datDir, mph, json)` → base64 req → `runXrayFromJSON(req)`. New gated offline tests (`XrayNativeBridgeLibXrayImplTest`, `src/testXrayLinked`) cover parsing + protect adapter + ordering via a `FakeLibXrayFfi` (never classloads `LibXray`). Known device gaps for B-3: the Go wrapper discards `protectFd`'s boolean (denial can't abort the socket natively); `GeoDatabasePaths` names files `.db` while xray-core expects `.dat` (datDir/filename reconciliation); no `:core:service` consumer injects the binding yet. Status → `device-smoke-pending`.
+
+- 2026-08-28: Replaced fake-only acceptance with actual pinned patched libXray. Native protection denial now aborts dial/listen/DNS; partial construction/start and failed Close retain the owner. A process-owned worker bounds caller waits without cancelling Go calls; service destruction permanently revokes late callbacks, and failed cleanup retains the TUN barrier. Endpoint-only underlay bootstrap preserves SNI/Host and profile DNS policy. Native, linked bridge, lifecycle and stale-exit regressions pass. Engine-api 61, engine 311 and service 1894 unit tests pass without skips. API34 AndroidTestOrchestrator runs both actual VLESS loopback tests successfully (14.082s): payload, stop/restart, denied protection and invalid identity. The four-ABI AAR passes provenance/API/16 KiB ELF checks. Exact-SHA hosted CI remains a separate required acceptance gate; no phone/VPS deployment is claimed.
