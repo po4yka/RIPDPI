@@ -113,6 +113,10 @@ impl RelaySession for ShadowsocksSession {
 }
 
 impl RelaySessionFactory for ShadowsocksSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = ShadowsocksSession;
     type Error = io::Error;
 

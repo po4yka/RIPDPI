@@ -39,6 +39,8 @@ pub enum SshError {
     /// The server rejected the supplied credentials.
     #[error("SSH authentication failed")]
     AuthFailed,
+    #[error("SSH worker cleanup failed")]
+    CleanupFailed,
     /// Underlying I/O failure.
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),

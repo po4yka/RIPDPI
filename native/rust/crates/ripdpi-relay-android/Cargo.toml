@@ -17,6 +17,7 @@ ripdpi-apps-script-core.workspace = true
 ripdpi-native-protect.workspace = true
 ripdpi-quality.workspace = true
 ripdpi-relay-core.workspace = true
+ripdpi-ssh.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }

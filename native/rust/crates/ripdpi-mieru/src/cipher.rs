@@ -68,7 +68,7 @@ pub(crate) fn derive_key(password: &[u8], username: &[u8], unix_secs: i64, windo
     key
 }
 
-/// A 24-byte AEAD nonce that increments (little-endian) per AEAD operation,
+/// A 24-byte AEAD nonce that increments (big-endian) per AEAD operation,
 /// matching upstream `increaseNonce`.
 #[derive(Clone)]
 pub(crate) struct Nonce {
@@ -99,10 +99,10 @@ impl Nonce {
         &self.bytes
     }
 
-    /// Increment the nonce by one, little-endian, matching upstream
-    /// `increaseNonce` (carry from byte 0 upward).
+    /// Increment the nonce by one, big-endian, matching upstream
+    /// `increaseNonce` (carry from the last byte toward the first).
     pub(crate) fn increment(&mut self) {
-        for byte in &mut self.bytes {
+        for byte in self.bytes.iter_mut().rev() {
             *byte = byte.wrapping_add(1);
             if *byte != 0 {
                 break;
@@ -172,13 +172,16 @@ mod tests {
     }
 
     #[test]
-    fn nonce_increment_is_little_endian_with_carry() {
-        let mut n =
-            Nonce::from_bytes([0xff, 0xff, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    fn nonce_increment_is_big_endian_with_carry() {
+        // Pinned upstream cipher/cipher_test.go's carry vector, extended to
+        // XChaCha20's full nonce width.
+        let mut bytes = [0; NONCE_LEN];
+        bytes[NONCE_LEN - 2..].fill(0xff);
+        let mut n = Nonce::from_bytes(bytes);
         n.increment();
-        assert_eq!(n.as_bytes()[0], 0x00);
-        assert_eq!(n.as_bytes()[1], 0x00);
-        assert_eq!(n.as_bytes()[2], 0x01);
+        let mut expected = [0; NONCE_LEN];
+        expected[NONCE_LEN - 3] = 1;
+        assert_eq!(n.as_bytes(), &expected);
     }
 
     #[test]

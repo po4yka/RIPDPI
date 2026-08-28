@@ -12,7 +12,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync", "time"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync", "time", "test-util"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time", "test-util"] }
 
 [lints]
 workspace = true

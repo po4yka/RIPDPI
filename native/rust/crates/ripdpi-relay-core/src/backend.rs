@@ -69,6 +69,27 @@ impl RelayBackend {
         io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented"))
     }
 
+    /// # Cancel safety
+    /// Affected factories close admission and retain unfinished cleanup on cancellation.
+    pub(crate) async fn shutdown(&self) -> io::Result<()> {
+        match self {
+            Self::Hysteria2(backend) => backend.shutdown().await,
+            Self::Tuic(backend) => backend.shutdown().await,
+            Self::VlessReality(backend) => backend.shutdown().await,
+            Self::Mieru(backend) => backend.shutdown().await,
+            Self::Ssh(backend) => backend.shutdown().await,
+            Self::Xhttp(backend) => backend.shutdown().await,
+            Self::ChainRelay { backend, .. } => backend.shutdown().await,
+            Self::Masque(backend) => backend.shutdown().await,
+            Self::ShadowTls(backend) => backend.shutdown().await,
+            Self::Trojan(backend) => backend.shutdown().await,
+            Self::AnyTls(backend) => backend.shutdown().await,
+            Self::Shadowsocks(backend) => backend.shutdown().await,
+            // These variants have no relay-session factory join registry.
+            Self::Tor(_) | Self::Unsupported { .. } => Ok(()),
+        }
+    }
+
     pub(crate) fn capabilities(&self) -> RelayCapabilities {
         dispatch_pooled_backend!(self, backend => backend.capabilities(), unsupported => _kind => RelayCapabilities::default())
     }

@@ -17,6 +17,12 @@ use tokio_boring::SslStream;
 use crate::frame::{Command, Frame, FrameError};
 use crate::padding::{DEFAULT_PADDING_SCHEME, PaddingAction, PaddingScheme};
 
+mod bridge;
+mod owned_tasks;
+mod udp;
+pub use bridge::AnyTlsIo;
+use owned_tasks::{OwnedTasks, Owner};
+
 const UDP_OVER_TCP_V2_TARGET: &str = "sp.v2.udp-over-tcp.arpa";
 
 /// Open a protected TCP connection to the AnyTLS server.
@@ -164,6 +170,9 @@ pub struct AnyTlsClient {
     config: Arc<AnyTlsClientConfig>,
     state: Arc<Mutex<ClientState>>,
     padding_scheme: Arc<Mutex<PaddingScheme>>,
+    tasks: Arc<OwnedTasks>,
+    _owner: Option<Arc<Owner>>,
+    owner_ref: Weak<Owner>,
 }
 
 struct ClientState {
@@ -175,7 +184,9 @@ struct SessionHandle {
     outbound: mpsc::Sender<Outbound>,
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     next_stream_id: Arc<Mutex<u32>>,
+    settings_sent: Arc<Mutex<bool>>,
     closing: Arc<AtomicBool>,
+    tasks: Arc<OwnedTasks>,
 }
 
 impl Clone for SessionHandle {
@@ -184,7 +195,9 @@ impl Clone for SessionHandle {
             outbound: self.outbound.clone(),
             streams: Arc::clone(&self.streams),
             next_stream_id: Arc::clone(&self.next_stream_id),
+            settings_sent: Arc::clone(&self.settings_sent),
             closing: Arc::clone(&self.closing),
+            tasks: Arc::clone(&self.tasks),
         }
     }
 }
@@ -223,10 +236,13 @@ pub struct AnyTlsStream {
     /// Set once [`AnyTlsStream::close`] queued the substream's FIN so `Drop`
     /// does not send a duplicate.
     fin_queued: bool,
+    tasks: Arc<OwnedTasks>,
+    owner: Option<Arc<Owner>>,
 }
 
 pub struct AnyTlsUdpOverTcp {
     stream: AnyTlsStream,
+    pending: Vec<u8>,
 }
 
 impl std::fmt::Debug for AnyTlsStream {
@@ -242,24 +258,63 @@ impl AnyTlsClient {
         }
         let padding_scheme = PaddingScheme::parse(DEFAULT_PADDING_SCHEME.as_bytes())
             .map_err(|error| AnyTlsError::Padding(error.to_string()))?;
+        let tasks = Arc::new(OwnedTasks::default());
+        let owner = Arc::new(Owner(Arc::clone(&tasks)));
         Ok(Self {
+            tasks,
+            owner_ref: Arc::downgrade(&owner),
+            _owner: Some(owner),
             config: Arc::new(config),
             state: Arc::new(Mutex::new(ClientState { session: None, session_waiters: Vec::new() })),
             padding_scheme: Arc::new(Mutex::new(padding_scheme)),
         })
     }
 
-    /// cancel-safe: a detached worker owns session establishment and pending-route
-    /// cleanup; dropping this future signals cancellation without abandoning state.
+    fn worker_clone(&self) -> Self {
+        Self {
+            config: Arc::clone(&self.config),
+            state: Arc::clone(&self.state),
+            padding_scheme: Arc::clone(&self.padding_scheme),
+            tasks: Arc::clone(&self.tasks),
+            _owner: None,
+            owner_ref: self.owner_ref.clone(),
+        }
+    }
+
+    /// Close admission and signal every owned worker, including bridge pumps.
+    pub fn cancel(&self) {
+        self.tasks.cancel();
+    }
+
+    /// # Cancel safety
+    /// The task group retains all joins across cancellation; repeated close
+    /// resumes draining and does not erase an observed worker panic.
+    pub async fn close(&self) -> Result<(), AnyTlsError> {
+        let result = self.tasks.close().await;
+        let mut state = self.state.lock().await;
+        state.session = None;
+        state.session_waiters.clear();
+        result
+    }
+
+    /// # Cancel safety
+    /// An owned worker retains pending-route cleanup; dropping this future
+    /// signals cancellation without abandoning factory-owned work.
     pub async fn open_tcp(&self, target: TargetAddr, port: u16) -> Result<AnyTlsStream, AnyTlsError> {
+        self.open_encoded_target(encode_target(&target, port)?).await
+    }
+
+    /// # Cancel safety
+    /// Cancel-safe: the owned worker rolls back an unaccepted route.
+    async fn open_encoded_target(&self, target: Vec<u8>) -> Result<AnyTlsStream, AnyTlsError> {
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let (result_tx, result_rx) = oneshot::channel();
         let (accepted_tx, accepted_rx) = oneshot::channel();
         let mut cancel_on_drop = CancelOpenOnDrop(Some(cancel_tx));
-        let client = self.clone();
-        tokio::spawn(async move {
-            client.open_tcp_worker(target, port, cancel_rx, result_tx, accepted_rx).await;
-        });
+        let client = self.worker_clone();
+        self.tasks.spawn(async move {
+            client.open_tcp_worker(target, cancel_rx, result_tx, accepted_rx).await;
+        })?;
 
         let result = result_rx.await.unwrap_or(Err(AnyTlsError::SessionClosed));
         if result.is_ok() {
@@ -269,10 +324,13 @@ impl AnyTlsClient {
         result
     }
 
+    /// # Cancel safety:
+    /// Conditional: cancellation during session/send/ack waits removes the
+    /// pending route. Abrupt abort requires whole-client teardown, whose
+    /// carrier worker clears all routes.
     async fn open_tcp_worker(
         &self,
-        target: TargetAddr,
-        port: u16,
+        target: Vec<u8>,
         mut cancel_rx: oneshot::Receiver<()>,
         result_tx: oneshot::Sender<Result<AnyTlsStream, AnyTlsError>>,
         accepted_rx: oneshot::Receiver<()>,
@@ -290,21 +348,7 @@ impl AnyTlsClient {
         };
         let stream_id = session.allocate_stream_id().await;
 
-        let mut frames = Vec::new();
-        if stream_id == 1 {
-            let padding_md5 = self.padding_scheme.lock().await.padding_md5().to_owned();
-            let settings = crate::frame::ClientSettings::new(&self.config.client_name, padding_md5).encode();
-            frames.push(Frame::with_data(Command::Settings, 0, settings));
-        }
-        frames.push(Frame::control(Command::Syn, stream_id));
-        let target = match encode_target(&target, port) {
-            Ok(target) => target,
-            Err(error) => {
-                result_tx.send(Err(error)).ok();
-                return;
-            }
-        };
-        frames.push(Frame::with_data(Command::Psh, stream_id, target));
+        let frames = vec![Frame::control(Command::Syn, stream_id), Frame::with_data(Command::Psh, stream_id, target)];
 
         if !matches!(cancel_rx.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
             return;
@@ -321,13 +365,13 @@ impl AnyTlsClient {
         let send_result = tokio::select! {
             biased;
             _ = &mut cancel_rx => {
-                close_pending_stream(&session, stream_id);
+                close_pending_stream(&session, stream_id, false);
                 return;
             }
-            result = session.send_batch(frames) => result,
+            result = session.send_open(frames, &self.config.client_name, &self.padding_scheme) => result,
         };
         if let Err(error) = send_result {
-            close_pending_stream(&session, stream_id);
+            close_pending_stream(&session, stream_id, false);
             self.clear_cached_session(&session).await;
             result_tx.send(Err(error)).ok();
             return;
@@ -336,14 +380,21 @@ impl AnyTlsClient {
         let ack_result = tokio::select! {
             biased;
             _ = &mut cancel_rx => {
-                close_pending_stream(&session, stream_id);
+                close_pending_stream(&session, stream_id, true);
                 return;
             }
             result = &mut ack_rx => result,
         };
         match ack_result {
             Ok(Ok(())) => {
+                let Some(owner) = self.owner_ref.upgrade() else {
+                    close_pending_stream(&session, stream_id, true);
+                    let _ = result_tx.send(Err(AnyTlsError::SessionClosed));
+                    return;
+                };
                 let stream = AnyTlsStream {
+                    tasks: Arc::clone(&self.tasks),
+                    owner: Some(owner),
                     stream_id,
                     outbound: session.outbound.clone(),
                     inbound: inbound_rx,
@@ -352,18 +403,18 @@ impl AnyTlsClient {
                     fin_queued: false,
                 };
                 if result_tx.send(Ok(stream)).is_err() || accepted_rx.await.is_err() {
-                    close_pending_stream(&session, stream_id);
+                    close_pending_stream(&session, stream_id, true);
                 }
             }
             Ok(Err(error)) => {
-                close_pending_stream(&session, stream_id);
+                close_pending_stream(&session, stream_id, true);
                 if matches!(error, AnyTlsError::SessionClosed) {
                     self.clear_cached_session(&session).await;
                 }
                 result_tx.send(Err(error)).ok();
             }
             Err(_) => {
-                close_pending_stream(&session, stream_id);
+                close_pending_stream(&session, stream_id, true);
                 self.clear_cached_session(&session).await;
                 result_tx.send(Err(AnyTlsError::SessionClosed)).ok();
             }
@@ -378,9 +429,17 @@ impl AnyTlsClient {
         }
     }
 
+    /// # Cancel safety:
+    /// Cancel-safe: the owned open worker rolls back an unaccepted route; after
+    /// the open returns, association publication has no intervening await.
     pub async fn open_udp_over_tcp(&self) -> Result<AnyTlsUdpOverTcp, AnyTlsError> {
-        let stream = self.open_tcp(TargetAddr::Domain(UDP_OVER_TCP_V2_TARGET.to_owned()), 0).await?;
-        Ok(AnyTlsUdpOverTcp { stream })
+        let mut target = encode_target(&TargetAddr::Domain(UDP_OVER_TCP_V2_TARGET.to_owned()), 0)?;
+        // UoT v2 requires its request before the server can acknowledge SYN:
+        // isConnect=false, followed by an unused SOCKS destination 0.0.0.0:0.
+        // Datagram mode carries the actual destination in every packet.
+        target.extend_from_slice(&[0, 1, 0, 0, 0, 0, 0, 0]);
+        let stream = self.open_encoded_target(target).await?;
+        Ok(AnyTlsUdpOverTcp { stream, pending: Vec::new() })
     }
 
     pub async fn open_tcp_over<S>(
@@ -397,8 +456,9 @@ impl AnyTlsClient {
         client.open_tcp(target, port).await
     }
 
-    /// cancel-safe: establishment runs in a detached singleflight task; dropping
-    /// one waiter only closes its oneshot receiver and cannot cancel the carrier.
+    /// # Cancel safety
+    /// Establishment is owned by the client task group. Cancelling one waiter
+    /// leaves siblings intact; client close joins the shared construction.
     async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
         let (receiver, should_start) = {
             let mut state = self.state.lock().await;
@@ -416,9 +476,12 @@ impl AnyTlsClient {
         };
 
         if should_start {
-            let client = self.clone();
-            tokio::spawn(async move {
-                let result = client.establish_network_session().await;
+            let client = self.worker_clone();
+            self.tasks.spawn(async move {
+                let result =
+                    tokio::time::timeout(std::time::Duration::from_secs(10), client.establish_network_session())
+                        .await
+                        .unwrap_or_else(|_| Err(AnyTlsError::Io("AnyTLS connection timed out".into())));
                 let waiters = {
                     let mut state = client.state.lock().await;
                     std::mem::take(&mut state.session_waiters)
@@ -426,7 +489,7 @@ impl AnyTlsClient {
                 for waiter in waiters {
                     waiter.send(result.clone()).ok();
                 }
-            });
+            })?;
         }
 
         receiver.await.unwrap_or(Err(AnyTlsError::SessionClosed))
@@ -451,6 +514,9 @@ impl AnyTlsClient {
         self.establish_session(tcp).await
     }
 
+    /// # Cancel safety:
+    /// Cancel-safe: cancellation drops the unpublished TLS transport. Worker
+    /// registration and cached-session publication have no intervening await.
     async fn establish_session<S>(&self, transport: S) -> Result<SessionHandle, AnyTlsError>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -468,16 +534,21 @@ impl AnyTlsClient {
             outbound: outbound_tx,
             streams: Arc::clone(&streams),
             next_stream_id: Arc::new(Mutex::new(1)),
+            settings_sent: Arc::new(Mutex::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
+            tasks: Arc::clone(&self.tasks),
         };
         let state = Arc::downgrade(&self.state);
         let session_padding_scheme = Arc::clone(&self.padding_scheme);
-        let closing = Arc::clone(&session.closing);
         let reader_outbound = session.outbound.downgrade();
-        tokio::spawn(async move {
-            run_session(tls, outbound_rx, reader_outbound, streams, session_padding_scheme, state, closing).await;
-        });
-        self.state.lock().await.session = Some(session.clone());
+        let lifetime = SessionWorker { streams, closing: Arc::clone(&session.closing), tasks: Arc::clone(&self.tasks) };
+        // Acquire the publication lock before spawning: no await can abandon an
+        // unreturned carrier after it has entered the owned task group.
+        let mut client_state = self.state.lock().await;
+        self.tasks.spawn(async move {
+            run_session(tls, outbound_rx, reader_outbound, session_padding_scheme, state, lifetime).await;
+        })?;
+        client_state.session = Some(session.clone());
         Ok(session)
     }
 }
@@ -494,42 +565,65 @@ impl SessionHandle {
         id
     }
 
-    /// cancel-safe: Tokio's bounded `mpsc::Sender::send` does not enqueue the
-    /// batch when its future is cancelled before capacity becomes available.
-    async fn send_batch(&self, frames: Vec<Frame>) -> Result<(), AnyTlsError> {
-        self.outbound.send(Outbound::Batch(frames)).await.map_err(|_| AnyTlsError::SessionClosed)
+    /// # Cancel safety
+    /// Cancel-safe: sender cancellation does not commit a batch. The Settings
+    /// flag changes only after commit, with no await between commit and flag.
+    async fn send_open(
+        &self,
+        mut frames: Vec<Frame>,
+        client_name: &str,
+        padding: &Mutex<PaddingScheme>,
+    ) -> Result<(), AnyTlsError> {
+        let mut sent = self.settings_sent.lock().await;
+        if !*sent {
+            let padding_md5 = padding.lock().await.padding_md5().to_owned();
+            let settings = crate::frame::ClientSettings::new(client_name, padding_md5).encode();
+            frames.insert(0, Frame::with_data(Command::Settings, 0, settings));
+        }
+        self.outbound.send(Outbound::Batch(frames)).await.map_err(|_| AnyTlsError::SessionClosed)?;
+        *sent = true;
+        Ok(())
     }
 }
 
-fn close_pending_stream(session: &SessionHandle, stream_id: u32) {
-    if session.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&stream_id).is_some() {
-        queue_fin(&session.outbound, stream_id);
+fn close_pending_stream(session: &SessionHandle, stream_id: u32, syn_committed: bool) {
+    if session.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&stream_id).is_some() && syn_committed {
+        queue_fin(&session.outbound, stream_id, &session.tasks);
     }
 }
 
-fn queue_fin(outbound: &mpsc::Sender<Outbound>, stream_id: u32) {
+fn queue_fin(outbound: &mpsc::Sender<Outbound>, stream_id: u32, tasks: &OwnedTasks) {
     let frame = Outbound::Batch(vec![Frame::control(Command::Fin, stream_id)]);
     match outbound.try_send(frame) {
         Ok(()) | Err(mpsc::error::TrySendError::Closed(_)) => {}
         Err(mpsc::error::TrySendError::Full(frame)) => {
-            if let Ok(runtime) = tokio::runtime::Handle::try_current() {
-                let outbound = outbound.clone();
-                runtime.spawn(async move {
-                    outbound.send(frame).await.ok();
-                });
-            }
+            let outbound = outbound.clone();
+            let _ = tasks.spawn(async move {
+                let _ = outbound.send(frame).await;
+            });
         }
     }
 }
 
 impl AnyTlsStream {
+    /// # Cancel safety
+    /// Not cancel-safe: completed chunks remain queued if a later chunk is
+    /// cancelled. Callers must close the logical stream after cancellation.
     pub async fn write_all(&mut self, data: &[u8]) -> Result<(), AnyTlsError> {
-        self.outbound
-            .send(Outbound::Batch(vec![Frame::with_data(Command::Psh, self.stream_id, data.to_vec())]))
-            .await
-            .map_err(|_| AnyTlsError::SessionClosed)
+        // The wire length is u16. Oversized application writes must be split
+        // before entering the writer queue, otherwise frame encoding terminates
+        // the entire shared TLS carrier, including unrelated streams.
+        for chunk in data.chunks(usize::from(u16::MAX)) {
+            self.outbound
+                .send(Outbound::Batch(vec![Frame::with_data(Command::Psh, self.stream_id, chunk.to_vec())]))
+                .await
+                .map_err(|_| AnyTlsError::SessionClosed)?;
+        }
+        Ok(())
     }
 
+    /// # Cancel safety
+    /// Partial chunks remain buffered until the complete read returns.
     pub async fn read_exact_len(&mut self, len: usize) -> Result<Vec<u8>, AnyTlsError> {
         while self.read_buffer.len() < len {
             let chunk = self.inbound.recv().await.ok_or(AnyTlsError::SessionClosed)?;
@@ -538,6 +632,8 @@ impl AnyTlsStream {
         Ok(self.read_buffer.drain(..len).collect())
     }
 
+    /// # Cancel safety
+    /// No bytes are consumed until this future returns a complete chunk.
     pub async fn read_chunk(&mut self) -> Result<Vec<u8>, AnyTlsError> {
         if !self.read_buffer.is_empty() {
             return Ok(self.read_buffer.drain(..).collect());
@@ -552,6 +648,10 @@ impl AnyTlsStream {
     /// data. Dropping the stream instead closes it in one step (route release
     /// plus FIN). Idempotent: a second `close` is a no-op, and after a
     /// successful `close` the `Drop` impl no longer sends a duplicate FIN.
+    ///
+    /// # Cancel safety
+    /// Cancel-safe: a cancelled bounded send does not enqueue FIN. Once the
+    /// send commits, the flag is set without another await.
     pub async fn close(&mut self) -> Result<(), AnyTlsError> {
         if self.fin_queued {
             return Ok(());
@@ -567,50 +667,11 @@ impl AnyTlsStream {
 
 impl Drop for AnyTlsStream {
     fn drop(&mut self) {
-        if !self.fin_queued
-            && self.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.stream_id).is_some()
+        if self.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.stream_id).is_some()
+            && !self.fin_queued
         {
-            queue_fin(&self.outbound, self.stream_id);
+            queue_fin(&self.outbound, self.stream_id, &self.tasks);
         }
-    }
-}
-
-impl AnyTlsUdpOverTcp {
-    pub async fn send_datagram(&mut self, target: TargetAddr, port: u16, payload: &[u8]) -> Result<(), AnyTlsError> {
-        let mut packet = encode_target(&target, port)?;
-        let len = u16::try_from(payload.len()).map_err(|_| AnyTlsError::DatagramTooLong(payload.len()))?;
-        packet.extend_from_slice(&len.to_be_bytes());
-        packet.extend_from_slice(payload);
-        self.stream.write_all(&packet).await
-    }
-
-    pub async fn recv_datagram(&mut self) -> Result<AnyTlsDatagram, AnyTlsError> {
-        let header = self.stream.read_exact_len(1).await?;
-        let atyp = header[0];
-        let target = match atyp {
-            0x01 => {
-                let octets = self.stream.read_exact_len(4).await?;
-                TargetAddr::Ipv4(Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3]))
-            }
-            0x03 => {
-                let len = usize::from(self.stream.read_exact_len(1).await?[0]);
-                let domain = self.stream.read_exact_len(len).await?;
-                TargetAddr::Domain(String::from_utf8(domain).map_err(|_| AnyTlsError::InvalidDatagram)?)
-            }
-            0x04 => {
-                let octets = self.stream.read_exact_len(16).await?;
-                let mut array = [0_u8; 16];
-                array.copy_from_slice(&octets);
-                TargetAddr::Ipv6(Ipv6Addr::from(array))
-            }
-            _ => return Err(AnyTlsError::InvalidDatagram),
-        };
-        let port_bytes = self.stream.read_exact_len(2).await?;
-        let port = u16::from_be_bytes([port_bytes[0], port_bytes[1]]);
-        let len_bytes = self.stream.read_exact_len(2).await?;
-        let payload_len = usize::from(u16::from_be_bytes([len_bytes[0], len_bytes[1]]));
-        let payload = self.stream.read_exact_len(payload_len).await?;
-        Ok(AnyTlsDatagram { target, port, payload })
     }
 }
 
@@ -657,17 +718,33 @@ where
     Ok(())
 }
 
+struct SessionWorker {
+    streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
+    closing: Arc<AtomicBool>,
+    tasks: Arc<OwnedTasks>,
+}
+impl Drop for SessionWorker {
+    fn drop(&mut self) {
+        self.closing.store(true, Ordering::Release);
+        fail_all_streams(&self.streams, AnyTlsError::SessionClosed);
+    }
+}
+
+/// # Cancel safety:
+/// Conditional: cancellation discards the whole TLS carrier. The worker guard
+/// marks it closed and removes every stream route when either direction ends.
 async fn run_session<S>(
     tls: SslStream<S>,
     mut outbound_rx: mpsc::Receiver<Outbound>,
     outbound_tx: mpsc::WeakSender<Outbound>,
-    streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     padding_scheme: Arc<Mutex<PaddingScheme>>,
     client_state: Weak<Mutex<ClientState>>,
-    closing: Arc<AtomicBool>,
+    lifetime: SessionWorker,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
+    let streams = Arc::clone(&lifetime.streams);
+    let closing = Arc::clone(&lifetime.closing);
     let (mut reader, mut writer) = tokio::io::split(tls);
     let write_padding_scheme = Arc::clone(&padding_scheme);
     let writer = async move {
@@ -717,7 +794,7 @@ async fn run_session<S>(
                         // terminates only that stream instead of parking the carrier
                         // reader and blocking every multiplexed sibling behind it.
                         if let Some(outbound_tx) = outbound_tx.upgrade() {
-                            queue_fin(&outbound_tx, stream_id);
+                            queue_fin(&outbound_tx, stream_id, &lifetime.tasks);
                         }
                     }
                 }
@@ -922,7 +999,9 @@ mod session_cache_tests {
             outbound,
             streams: Arc::new(std::sync::Mutex::new(HashMap::new())),
             next_stream_id: Arc::new(Mutex::new(1)),
+            settings_sent: Arc::new(Mutex::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
+            tasks: Arc::clone(&client.tasks),
         });
 
         let result = tokio::time::timeout(
@@ -967,6 +1046,107 @@ mod session_cache_tests {
         })
         .await
         .expect("session task must not keep client state alive");
+    }
+
+    #[tokio::test]
+    async fn cancelled_open_before_batch_commit_does_not_enqueue_fin() {
+        let client = AnyTlsClient::new(AnyTlsClientConfig {
+            server_host: "127.0.0.1".into(),
+            server_port: 1,
+            server_name: "outbound.invalid".into(),
+            password: "loopback-test-password".into(),
+            tls_fingerprint_profile: "chrome".into(),
+            root_certificate_pem: None,
+            client_name: "outbound-test".into(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+        })
+        .expect("client");
+        let (outbound, mut receiver) = mpsc::channel(1);
+        outbound.send(Outbound::Batch(Vec::new())).await.expect("fill carrier queue");
+        let routes = Arc::new(std::sync::Mutex::new(HashMap::new()));
+        client.state.lock().await.session = Some(SessionHandle {
+            outbound,
+            streams: routes.clone(),
+            next_stream_id: Arc::new(Mutex::new(1)),
+            settings_sent: Arc::new(Mutex::new(false)),
+            closing: Arc::new(AtomicBool::new(false)),
+            tasks: Arc::clone(&client.tasks),
+        });
+        let caller = client.clone();
+        let opening =
+            tokio::spawn(async move { caller.open_tcp(TargetAddr::Domain("interop.invalid".into()), 443).await });
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while routes.lock().expect("routes").is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("open route inserted before blocked batch");
+        opening.abort();
+        let _ = opening.await;
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while !routes.lock().expect("routes").is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("cancelled route removed");
+        receiver.recv().await.expect("original queued batch");
+        let unexpected = tokio::time::timeout(Duration::from_millis(30), receiver.recv()).await;
+        assert!(unexpected.is_err(), "a stream whose SYN was never queued must not create a background FIN send");
+        let caller = client.clone();
+        let second =
+            tokio::spawn(async move { caller.open_tcp(TargetAddr::Domain("interop.invalid".into()), 443).await });
+        let Outbound::Batch(frames) = tokio::time::timeout(Duration::from_secs(1), receiver.recv())
+            .await
+            .expect("second batch deadline")
+            .expect("second open batch");
+        let syn = frames.iter().find(|frame| frame.command() == super::Command::Syn).expect("SYN");
+        assert_eq!(syn.stream_id(), 2, "cancelled allocation is not reused");
+        super::handle_synack(&routes, syn.stream_id(), &[]);
+        let stream = second.await.expect("second caller joined").expect("second stream accepted");
+        client.close().await.expect("join client workers");
+        assert_eq!(
+            frames[0].command(),
+            super::Command::Settings,
+            "first committed open must send Settings even when stream 1 was cancelled"
+        );
+        drop(stream);
+    }
+
+    #[tokio::test]
+    async fn cancelled_datagram_read_preserves_partial_wire_header() {
+        use std::future::Future;
+        let (outbound, _outbound_rx) = mpsc::channel(1);
+        let (inbound_tx, inbound) = mpsc::channel(2);
+        let stream = super::AnyTlsStream {
+            stream_id: 1,
+            outbound,
+            inbound,
+            read_buffer: std::collections::VecDeque::new(),
+            streams: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            fin_queued: false,
+            tasks: Arc::default(),
+            owner: None,
+        };
+        let mut udp = super::AnyTlsUdpOverTcp { stream, pending: Vec::new() };
+        inbound_tx.send(vec![0]).await.expect("first partial IPv4 header");
+        let mut recv = Box::pin(udp.recv_datagram());
+        std::future::poll_fn(|cx| {
+            assert!(recv.as_mut().poll(cx).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        drop(recv); // The uplink branch of the SOCKS pump can win here.
+        inbound_tx.send(vec![127, 0, 0, 1, 1, 187, 0, 3, b'a', b'b', b'c']).await.expect("remaining frame");
+        let packet = tokio::time::timeout(Duration::from_millis(100), udp.recv_datagram())
+            .await
+            .expect("datagram deadline")
+            .expect("cancelled header must be retained");
+        assert_eq!(packet.target, TargetAddr::Ipv4(std::net::Ipv4Addr::LOCALHOST));
+        assert_eq!(packet.port, 443);
+        assert_eq!(packet.payload, b"abc");
     }
 
     #[tokio::test]

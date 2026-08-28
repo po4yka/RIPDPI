@@ -22,21 +22,23 @@ use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_network_time::NetworkTimeProvider;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{Semaphore, mpsc, oneshot};
 use tokio::time::timeout;
 
+use crate::MieruStream;
 use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
 use crate::metadata::{DataAckMeta, ProtocolType, SessionMeta, session_id_of, timestamp_estimate_unix};
-use crate::segment::{Decryptor, Encryptor, MAX_PDU, decapsulate, encapsulate};
+use crate::owned_tasks::OwnedTasks;
+use crate::segment::{Decryptor, Encryptor, MAX_PDU};
 use crate::session::{encode_socks5_address, split_host_port};
 
 /// In-process duplex bridging the caller to a sub-session's pumps.
 const BRIDGE_BUF: usize = 64 * 1024;
 /// Pump copy buffer (one application chunk; `<= MAX_PDU`).
 const PUMP_BUF: usize = 32 * 1024;
-/// Per-sub-session inbound mailbox depth (decapsulated fragments).
+/// Per-sub-session inbound mailbox depth (decrypted fragments).
 const MAILBOX_DEPTH: usize = 64;
 /// Bounded commands waiting for the single cancel-safe carrier writer.
 const WRITER_QUEUE_DEPTH: usize = 256;
@@ -110,14 +112,16 @@ impl MuxWriter {
             .await
     }
 
+    /// # Cancel safety:
+    /// Not cancel-safe: partial writes advance AEAD and sequence state. The
+    /// owning writer may be aborted only while discarding the whole carrier.
     async fn send_data(&mut self, session_id: u32, seq: &mut u32, bytes: &[u8]) -> Result<()> {
         for chunk in bytes.chunks(MAX_PDU) {
-            let blob = encapsulate(chunk)?;
             let (prefix, suffix) = self.enc.next_padding()?;
             let now = self.time.now_unix();
             let this_seq = next(seq);
             let payload_len =
-                u16::try_from(blob.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
+                u16::try_from(chunk.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
             self.enc
                 .write_segment(
                     &mut self.writer,
@@ -137,7 +141,7 @@ impl MuxWriter {
                         }
                         .marshal(now)
                     },
-                    Some(&blob),
+                    Some(chunk),
                 )
                 .await?;
         }
@@ -148,6 +152,9 @@ impl MuxWriter {
 #[derive(Clone)]
 struct MuxWriteQueue {
     tx: mpsc::Sender<WriterCommand>,
+    carrier: Arc<OwnedTasks>,
+    table: DemuxTable,
+    limit: Arc<Semaphore>,
 }
 
 enum WriterCommandKind {
@@ -182,7 +189,16 @@ impl MuxWriteQueue {
 
     fn try_close(&self, session_id: u32) {
         let (done, _completed) = oneshot::channel();
-        let _ = self.tx.try_send(WriterCommand { session_id, kind: WriterCommandKind::Close, done });
+        match self.tx.try_send(WriterCommand { session_id, kind: WriterCommandKind::Close, done }) {
+            Ok(()) | Err(mpsc::error::TrySendError::Closed(_)) => {}
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                // A lost Close would orphan the session remotely. Discard the
+                // carrier without spawning unbounded teardown work; retain joins.
+                self.limit.close();
+                self.carrier.abort();
+                self.table.lock().unwrap_or_else(PoisonError::into_inner).clear();
+            }
+        }
     }
 }
 
@@ -214,7 +230,7 @@ fn next(seq: &mut u32) -> u32 {
     value
 }
 
-/// Inbound side of one sub-session: an mpsc mailbox of decapsulated fragments
+/// Inbound side of one sub-session: an mpsc mailbox of decrypted fragments
 /// fed by the carrier reader task, with a leftover buffer for partial reads.
 struct MuxReader {
     rx: mpsc::Receiver<Vec<u8>>,
@@ -222,29 +238,28 @@ struct MuxReader {
     pos: usize,
 }
 
-struct SessionRegistration {
+pub(crate) struct SessionRegistration {
     table: DemuxTable,
     writer: MuxWriteQueue,
     session_id: u32,
-    armed: bool,
+    _permit: tokio::sync::OwnedSemaphorePermit,
 }
 
 impl SessionRegistration {
-    fn new(table: DemuxTable, writer: MuxWriteQueue, session_id: u32) -> Self {
-        Self { table, writer, session_id, armed: true }
-    }
-
-    fn transfer(mut self) {
-        self.armed = false;
+    fn new(
+        table: DemuxTable,
+        writer: MuxWriteQueue,
+        session_id: u32,
+        permit: tokio::sync::OwnedSemaphorePermit,
+    ) -> Self {
+        Self { table, writer, session_id, _permit: permit }
     }
 }
 
 impl Drop for SessionRegistration {
     fn drop(&mut self) {
-        if self.armed {
-            deregister(&self.table, self.session_id);
-            self.writer.try_close(self.session_id);
-        }
+        deregister(&self.table, self.session_id);
+        self.writer.try_close(self.session_id);
     }
 }
 
@@ -288,30 +303,24 @@ impl MuxReader {
 /// A multiplexed Mieru carrier: reusable across many [`open_stream`] calls.
 ///
 /// [`open_stream`]: MieruMuxConnection::open_stream
-// Drop order: abort reader_task and writer_task before clearing table; mailbox
-// receivers must observe EOF only after both carrier halves begin teardown.
 pub struct MieruMuxConnection {
     writer: MuxWriteQueue,
     table: DemuxTable,
     limit: Arc<Semaphore>,
     rng: SystemRandom,
-    /// The carrier reader task. Aborted on drop so the carrier read half is
-    /// released (otherwise the reader would block forever on the half-closed
-    /// carrier, leaking the connection).
-    reader_task: tokio::task::JoinHandle<()>,
-    /// Dedicated owner of the carrier write half. Aborting it tears down the carrier, so partial-frame cancellation cannot be observed by a reused connection.
-    writer_task: tokio::task::JoinHandle<()>,
+    carrier: Arc<OwnedTasks>,
+    streams: StdMutex<StreamTasks>,
+}
+
+#[derive(Default)]
+struct StreamTasks {
+    closed: bool,
+    groups: Vec<Arc<OwnedTasks>>,
 }
 
 impl Drop for MieruMuxConnection {
     fn drop(&mut self) {
-        // Abort the reader (releases the carrier read half) AND drop every mailbox
-        // sender: aborting skips run_reader's own end-of-loop cleanup, so without
-        // this clear, inbound pumps parked on a still-registered mailbox would
-        // leak until runtime shutdown. Clearing EOFs their receivers so they end.
-        self.reader_task.abort();
-        self.writer_task.abort();
-        self.table.lock().unwrap_or_else(PoisonError::into_inner).clear();
+        self.cancel();
     }
 }
 
@@ -321,6 +330,9 @@ impl MieruMuxConnection {
     /// task reads and demultiplexes inbound segments. `time` is the shared
     /// network-time source (never the device clock); it is calibrated once from
     /// the server's first authenticated segment.
+    /// # Cancel safety:
+    /// Cancel-safe: there is no await; both spawned tasks belong to the returned
+    /// carrier before this future can yield.
     pub async fn connect_over<T>(transport: T, config: &MieruConfig, time: Arc<NetworkTimeProvider>) -> Result<Self>
     where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -335,21 +347,39 @@ impl MieruMuxConnection {
         let dec = Decryptor::new(key);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (writer_tx, writer_rx) = mpsc::channel(WRITER_QUEUE_DEPTH);
-        let writer = MuxWriteQueue { tx: writer_tx };
-        let writer_task = tokio::spawn(run_writer(
+        let writer_task = run_writer(
             MuxWriter { enc, writer: Box::new(write_half), time: Arc::clone(&time) },
             writer_rx,
             Arc::clone(&table),
-        ));
+        );
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
-        let reader_task = tokio::spawn(run_reader(dec, Box::new(read_half), Arc::clone(&table), time));
-        Ok(Self { writer, table, limit, rng: SystemRandom::new(), reader_task, writer_task })
+        let reader_task = run_reader(dec, Box::new(read_half), Arc::clone(&table), time);
+        // Carrier tasks do not retain the queue, so this shared owner has no cycle.
+        let carrier = Arc::new(OwnedTasks::spawn(reader_task, writer_task));
+        let writer = MuxWriteQueue {
+            tx: writer_tx,
+            carrier: Arc::clone(&carrier),
+            table: Arc::clone(&table),
+            limit: Arc::clone(&limit),
+        };
+        Ok(Self {
+            writer,
+            table,
+            limit,
+            rng: SystemRandom::new(),
+            carrier,
+            streams: StdMutex::new(StreamTasks::default()),
+        })
     }
 
     /// Open a tunnelled byte stream to `target` (`host:port`) over a fresh
     /// sub-session multiplexed onto the shared carrier. Applies backpressure once
     /// the per-carrier concurrent-stream ceiling is reached.
-    pub async fn open_stream(&self, target: &str) -> Result<DuplexStream> {
+    /// # Cancel safety:
+    /// Cancel-safe: the registration guard removes the route and queues Close,
+    /// or aborts an overloaded carrier. Committed commands remain writer-owned;
+    /// pump registration and stream publication have no intervening await.
+    pub async fn open_stream(&self, target: &str) -> Result<MieruStream> {
         let permit = Arc::clone(&self.limit)
             .acquire_owned()
             .await
@@ -357,7 +387,7 @@ impl MieruMuxConnection {
 
         let (tx, rx) = mpsc::channel::<Vec<u8>>(MAILBOX_DEPTH);
         let session_id = self.register_session(tx)?;
-        let registration = SessionRegistration::new(Arc::clone(&self.table), self.writer.clone(), session_id);
+        let registration = SessionRegistration::new(Arc::clone(&self.table), self.writer.clone(), session_id, permit);
         let mut reader = MuxReader::new(rx);
 
         // Open-session handshake + in-tunnel SOCKS5 connect, time-bounded so a
@@ -372,7 +402,8 @@ impl MieruMuxConnection {
             Err(_elapsed) => Err(MieruError::Protocol("Mieru sub-session handshake timed out".to_owned())),
         };
         if let Err(error) = handshake {
-            // Dropping the guard synchronously rolls back the mailbox and queues a best-effort close without extending the handshake deadline on a stalled carrier.
+            // Dropping the guard queues Close or aborts an overloaded carrier,
+            // without extending the handshake deadline on a stalled writer.
             drop(registration);
             return Err(error);
         }
@@ -380,14 +411,10 @@ impl MieruMuxConnection {
         let (caller, engine) = tokio::io::duplex(BRIDGE_BUF);
         let (mut engine_read, mut engine_write) = tokio::io::split(engine);
 
-        // The outbound pump OWNS the concurrency permit. It ends when the caller
-        // closes its write half or drops the stream (engine_read EOF), which fires
-        // reliably on caller teardown — so a slot is never leaked even if the
-        // server never sends a close response. (With `tokio::io::duplex` the
-        // inbound pump cannot observe a silent caller drop without a write, so it
-        // must NOT gate the permit; it only cleans up the mailbox.)
+        // The logical stream owns its registration and permit. A write
+        // half-close must not tear down the read direction or release its slot.
         let writer_out = self.writer.clone();
-        tokio::spawn(async move {
+        let outbound = async move {
             let mut buf = vec![0u8; PUMP_BUF];
             loop {
                 match engine_read.read(&mut buf).await {
@@ -399,15 +426,13 @@ impl MieruMuxConnection {
                     }
                 }
             }
-            writer_out.try_close(session_id);
-            drop(permit);
-        });
+        };
 
         // Inbound: this sub-session's mailbox -> caller reads. Ends when the
         // carrier closes the mailbox (server close, carrier death, or `Drop`
         // clearing the table) or a caller-side write error; deregisters on exit.
         let table_in = Arc::clone(&self.table);
-        tokio::spawn(async move {
+        let inbound = async move {
             let mut buf = vec![0u8; PUMP_BUF];
             loop {
                 let n = reader.read(&mut buf).await;
@@ -416,11 +441,60 @@ impl MieruMuxConnection {
                 }
             }
             deregister(&table_in, session_id);
-        });
+        };
 
-        registration.transfer();
+        let mut streams = self.streams.lock().unwrap_or_else(PoisonError::into_inner);
+        if streams.closed || self.limit.is_closed() {
+            return Err(MieruError::Protocol("mux carrier closed".into()));
+        }
+        // Finished groups are joined before being removed; the parent never
+        // loses ownership merely because a child stream was dropped.
+        let mut index = 0;
+        while index < streams.groups.len() {
+            if streams.groups[index].reap_finished()? {
+                streams.groups.swap_remove(index);
+            } else {
+                index += 1;
+            }
+        }
+        let tasks = Arc::new(OwnedTasks::spawn(inbound, outbound));
+        streams.groups.push(Arc::clone(&tasks));
+        Ok(MieruStream::new(caller, tasks, Some(registration)))
+    }
 
-        Ok(caller)
+    /// Stop admission and abort every owned task before any shutdown await.
+    /// Signal every owned task to stop. Call `close` to join before reporting stopped.
+    pub fn cancel(&self) {
+        self.limit.close();
+        let mut streams = self.streams.lock().unwrap_or_else(PoisonError::into_inner);
+        streams.closed = true;
+        for group in &streams.groups {
+            group.abort();
+        }
+        self.carrier.abort();
+        self.table.lock().unwrap_or_else(PoisonError::into_inner).clear();
+    }
+
+    /// # Cancel safety
+    /// Cancel-safe: groups stay registered until all joins finish. Cancellation
+    /// leaves the connection closed, with handles available for another close.
+    pub async fn close(&self) -> Result<()> {
+        self.cancel();
+        let groups = self.streams.lock().unwrap_or_else(PoisonError::into_inner).groups.clone();
+        let mut failure = None;
+        for group in &groups {
+            if let Err(error) = group.close().await {
+                failure.get_or_insert(error);
+            }
+        }
+        if let Err(error) = self.carrier.close().await {
+            failure.get_or_insert(error);
+        }
+        if let Some(error) = failure {
+            return Err(error);
+        }
+        self.streams.lock().unwrap_or_else(PoisonError::into_inner).groups.clear();
+        Ok(())
     }
 
     /// Allocate a unique non-zero `session_id` and register its mailbox in one
@@ -448,6 +522,9 @@ fn deregister(table: &DemuxTable, session_id: u32) {
 /// Single carrier reader: decrypt each inbound segment and route its payload to
 /// the owning sub-session's mailbox by `session_id`. On carrier EOF/error, drop
 /// every mailbox so all sub-sessions see EOF.
+/// # Cancel safety:
+/// Conditional: a partial frame cannot be resumed after cancellation. The owner
+/// must discard the carrier and clear the demux table, as cancel/close do.
 async fn run_reader(
     mut dec: Decryptor,
     mut reader: Box<dyn AsyncRead + Unpin + Send>,
@@ -468,8 +545,7 @@ async fn run_reader(
         let Ok(protocol) = ProtocolType::from_u8(meta[0]) else { continue };
         match protocol {
             ProtocolType::DataServerToClient | ProtocolType::DataClientToServer => {
-                let Some(blob) = payload else { continue };
-                let Ok(data) = decapsulate(&blob) else { continue };
+                let Some(data) = payload else { continue };
                 if data.is_empty() {
                     continue;
                 }
@@ -494,6 +570,9 @@ async fn run_reader(
 /// In-tunnel SOCKS5 client handshake + CONNECT over a multiplexed sub-session,
 /// writing through the shared serialized writer and reading from the sub-
 /// session's mailbox.
+/// # Cancel safety:
+/// Conditional: queued commands can finish and partial replies can be consumed.
+/// The caller's registration guard must remove and close the logical session.
 async fn mux_socks5_connect(
     writer: &MuxWriteQueue,
     reader: &mut MuxReader,
@@ -502,13 +581,8 @@ async fn mux_socks5_connect(
 ) -> Result<()> {
     let (host, port) = split_host_port(target)?;
 
-    writer.send_data(session_id, &[0x05, 0x01, 0x00]).await?;
-    let mut greeting = [0u8; 2];
-    reader.read_exact(&mut greeting).await?;
-    if greeting != [0x05, 0x00] {
-        return Err(MieruError::Socks5(format!("unexpected method selection {greeting:?}")));
-    }
-
+    // Authentication belongs to the Mieru carrier. Upstream expects CONNECT
+    // directly, without another SOCKS method-negotiation exchange.
     let mut request = vec![0x05, 0x01, 0x00];
     encode_socks5_address(&mut request, host, port)?;
     writer.send_data(session_id, &request).await?;
@@ -541,6 +615,7 @@ mod tests {
     use super::*;
     use std::pin::Pin;
     use std::task::{Context, Poll, Waker};
+    use tokio::io::DuplexStream;
 
     use crate::cipher::{self, KEY_LEN};
     use crate::config::{MieruConfig, MieruMux, MieruProtocol};
@@ -550,6 +625,36 @@ mod tests {
     const NOW: i64 = 1_700_000_000;
     const USERNAME: &str = "alice";
     const PASSWORD: &str = "correct-horse-battery";
+
+    /// # Cancel safety:
+    /// Not cancel-safe: the test joins the carrier after observing peer EOF.
+    #[tokio::test]
+    async fn cancelled_opens_close_carrier_when_teardown_queue_is_full() {
+        let (client, mut peer) = tokio::io::duplex(8);
+        let conn =
+            MieruMuxConnection::connect_over(client, &config(MieruMux::Low), Arc::new(NetworkTimeProvider::fixed(NOW)))
+                .await
+                .expect("carrier");
+        for _ in 0..=WRITER_QUEUE_DEPTH {
+            let mut open = Box::pin(conn.open_stream("backpressure.example:443"));
+            std::future::poll_fn(|cx| {
+                assert!(!matches!(open.as_mut().poll(cx), Poll::Ready(Ok(_))));
+                Poll::Ready(())
+            })
+            .await;
+            drop(open);
+            tokio::task::yield_now().await;
+            if conn.limit.is_closed() {
+                break;
+            }
+        }
+        let admission_closed = conn.limit.is_closed();
+        let mut bytes = Vec::new();
+        let stopped = timeout(Duration::from_millis(200), peer.read_to_end(&mut bytes)).await;
+        conn.close().await.expect("join retained carrier tasks");
+        assert!(admission_closed, "lost teardown must close carrier admission");
+        stopped.expect("peer EOF without dropping or explicitly closing connection").expect("peer read");
+    }
 
     #[derive(Default)]
     struct BlockingWriteState {
@@ -608,7 +713,6 @@ mod tests {
     #[derive(PartialEq)]
     enum SessionState {
         New,
-        Greeted,
         Connected,
     }
 
@@ -640,16 +744,10 @@ mod tests {
                     state.remove(&session_id);
                 }
                 ProtocolType::DataClientToServer => {
-                    let Some(blob) = payload else { continue };
-                    let data = decapsulate(&blob)?;
+                    let Some(data) = payload else { continue };
                     let entry = state.entry(session_id).or_insert(SessionState::New);
                     match *entry {
                         SessionState::New => {
-                            assert_eq!(data, vec![0x05, 0x01, 0x00], "SOCKS5 greeting for session {session_id}");
-                            *entry = SessionState::Greeted;
-                            server_send(&mut enc, &mut write_half, &mut seqs, session_id, &[0x05, 0x00]).await?;
-                        }
-                        SessionState::Greeted => {
                             assert_eq!(data[0], 0x05);
                             assert_eq!(data[1], 0x01, "CONNECT command for session {session_id}");
                             *entry = SessionState::Connected;
@@ -677,11 +775,10 @@ mod tests {
         W: AsyncWrite + Unpin,
     {
         for chunk in bytes.chunks(MAX_PDU) {
-            let blob = encapsulate(chunk)?;
             let (prefix, suffix) = enc.next_padding()?;
             let seq = seqs.entry(session_id).or_insert(0);
             let this_seq = next(seq);
-            let payload_len = u16::try_from(blob.len()).expect("fragment fits u16");
+            let payload_len = u16::try_from(chunk.len()).expect("fragment fits u16");
             enc.write_segment(
                 writer,
                 prefix,
@@ -700,7 +797,7 @@ mod tests {
                     }
                     .marshal(NOW)
                 },
-                Some(&blob),
+                Some(chunk),
             )
             .await?;
         }
@@ -825,6 +922,88 @@ mod tests {
         let _ = server.await;
     }
 
+    /// # Cancel safety
+    /// Not cancel-safe: the complete test joins its owned peer after the observation.
+    #[tokio::test]
+    async fn dropping_idle_stream_releases_mailbox_and_permit() {
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let (client_side, server_side) = tokio::io::duplex(1 << 16);
+        let mut server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
+        let conn = MieruMuxConnection::connect_over(
+            client_side,
+            &config(MieruMux::Low),
+            Arc::new(NetworkTimeProvider::fixed(NOW)),
+        )
+        .await
+        .expect("carrier");
+        let stream = conn.open_stream("idle.example:443").await.expect("open");
+        drop(stream);
+        let released = timeout(Duration::from_millis(200), async {
+            loop {
+                if conn.table.lock().expect("table").is_empty()
+                    && conn.limit.available_permits() == MieruMux::Low.max_concurrent_streams()
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        drop(conn);
+        let stopped = timeout(Duration::from_secs(1), &mut server).await;
+        if stopped.is_err() {
+            server.abort();
+            let _ = server.await;
+        }
+        stopped.expect("peer EOF after connection drop").expect("peer task").expect("peer result");
+        released.expect("idle stream drop must release mailbox and concurrency permit");
+    }
+
+    /// # Cancel safety
+    /// Not cancel-safe: the test explicitly joins the active writer and peer.
+    #[tokio::test]
+    async fn close_joins_active_pumps_and_carrier_before_return() {
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let (client_side, server_side) = tokio::io::duplex(1 << 16);
+        let mut server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
+        let conn = MieruMuxConnection::connect_over(
+            client_side,
+            &config(MieruMux::Low),
+            Arc::new(NetworkTimeProvider::fixed(NOW)),
+        )
+        .await
+        .expect("carrier");
+        let mut stream = conn.open_stream("active.example:443").await.expect("open");
+        let (started, ready) = oneshot::channel();
+        let mut writing = tokio::spawn(async move {
+            stream.write_all(&[0x5a; 65536]).await.expect("initial buffered payload");
+            let _ = started.send(());
+            loop {
+                if stream.write_all(&[0xa5; 32768]).await.is_err() {
+                    break;
+                }
+            }
+        });
+        ready.await.expect("writer active");
+        timeout(Duration::from_secs(1), conn.close()).await.expect("close deadline").expect("close");
+        assert!(conn.carrier.reap_finished().expect("carrier joined"));
+        assert!(conn.streams.lock().expect("groups").groups.is_empty());
+        assert!(conn.table.lock().expect("table").is_empty());
+        let written = timeout(Duration::from_secs(1), &mut writing).await;
+        if written.is_err() {
+            writing.abort();
+            let _ = writing.await;
+        }
+        let stopped = timeout(Duration::from_secs(1), &mut server).await;
+        if stopped.is_err() {
+            server.abort();
+            let _ = server.await;
+        }
+        written.expect("application writer observes close").expect("writer task");
+        stopped.expect("peer observes EOF").expect("peer task").expect("peer result");
+        conn.close().await.expect("repeat close");
+    }
+
     #[tokio::test(start_paused = true)]
     async fn open_stream_times_out_on_a_silent_carrier() {
         // A carrier whose peer reads but never replies: the in-tunnel SOCKS5
@@ -895,16 +1074,17 @@ mod tests {
         let transport = BlockingTransport { state: Arc::clone(&state), blocked: Arc::clone(&blocked) };
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (tx, rx) = mpsc::channel(WRITER_QUEUE_DEPTH);
-        let handle = MuxWriteQueue { tx };
-        let writer = tokio::spawn(run_writer(
+        let writer = run_writer(
             MuxWriter {
                 enc: Encryptor::new(key, USERNAME.as_bytes().to_vec()),
                 writer: Box::new(transport),
                 time: Arc::new(NetworkTimeProvider::fixed(NOW)),
             },
             rx,
-            table,
-        ));
+            Arc::clone(&table),
+        );
+        let carrier = Arc::new(OwnedTasks::spawn(std::future::pending(), writer));
+        let handle = MuxWriteQueue { tx, carrier: Arc::clone(&carrier), table, limit: Arc::new(Semaphore::new(1)) };
         let first = {
             let handle = handle.clone();
             tokio::spawn(async move { handle.send_open(1).await })
@@ -927,6 +1107,6 @@ mod tests {
         assert_eq!(state.lock().expect("blocking writer state").flushes, 2);
 
         drop(handle);
-        writer.await.expect("writer task");
+        carrier.close().await.expect("writer task");
     }
 }

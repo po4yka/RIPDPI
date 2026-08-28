@@ -16,38 +16,12 @@ use crate::cipher::{self, KEY_LEN, NONCE_LEN, Nonce, TAG_LEN};
 use crate::error::{MieruError, Result};
 use crate::metadata::{DataAckMeta, METADATA_LEN, ProtocolType, SessionMeta};
 
-/// Inner-encapsulation markers (`PROTOCOL.md` §4).
-const MARKER_HEAD: u8 = 0x00;
-const MARKER_TAIL: u8 = 0xff;
 /// Upper bound on the random prefix/suffix padding we *emit* (the field is a
 /// `u8`, so the wire maximum is 255; we cap lower to bound per-segment overhead).
 /// The reader accepts any length the metadata declares.
 const MAX_EMIT_PADDING: u8 = 64;
 /// Largest plaintext fragment carried in one data segment (upstream `maxPDU`).
 pub(crate) const MAX_PDU: usize = 32 * 1024;
-
-/// Wrap relayed bytes as `[0x00][len u16 BE][data][0xff]` before sealing.
-pub(crate) fn encapsulate(data: &[u8]) -> Result<Vec<u8>> {
-    let len = u16::try_from(data.len()).map_err(|_| MieruError::Protocol("fragment exceeds u16".to_owned()))?;
-    let mut out = Vec::with_capacity(data.len() + 4);
-    out.push(MARKER_HEAD);
-    out.extend_from_slice(&len.to_be_bytes());
-    out.extend_from_slice(data);
-    out.push(MARKER_TAIL);
-    Ok(out)
-}
-
-/// Reverse [`encapsulate`]: validate markers and return the inner data.
-pub(crate) fn decapsulate(blob: &[u8]) -> Result<Vec<u8>> {
-    if blob.len() < 4 || blob[0] != MARKER_HEAD {
-        return Err(MieruError::Protocol("bad encapsulation head".to_owned()));
-    }
-    let len = usize::from(u16::from_be_bytes([blob[1], blob[2]]));
-    if blob.len() != len + 4 || blob[blob.len() - 1] != MARKER_TAIL {
-        return Err(MieruError::Protocol("bad encapsulation framing".to_owned()));
-    }
-    Ok(blob[3..3 + len].to_vec())
-}
 
 /// Outbound (encrypt) half of a connection: fixed AEAD key + this direction's
 /// incrementing nonce. The nonce seed is emitted on the wire with the first
@@ -81,7 +55,7 @@ impl Encryptor {
     /// Write one segment. `build_meta(prefix_len, suffix_len)` returns the
     /// 32-byte metadata with the chosen padding lengths already encoded, so the
     /// on-wire padding matches the sealed metadata. `payload` is the plaintext
-    /// to seal (already encapsulated for data segments), or `None`.
+    /// to seal (raw TCP bytes for data segments), or `None`.
     pub(crate) async fn write_segment<W, F>(
         &mut self,
         writer: &mut W,
@@ -223,23 +197,6 @@ mod tests {
     use super::*;
     use crate::metadata::DataAckMeta;
 
-    #[test]
-    fn encapsulate_round_trips() {
-        let data = b"some relayed bytes";
-        let blob = encapsulate(data).unwrap();
-        assert_eq!(blob[0], MARKER_HEAD);
-        assert_eq!(*blob.last().unwrap(), MARKER_TAIL);
-        assert_eq!(decapsulate(&blob).unwrap(), data);
-    }
-
-    #[test]
-    fn decapsulate_rejects_bad_markers() {
-        let mut blob = encapsulate(b"x").unwrap();
-        let last = blob.len() - 1;
-        blob[last] = 0x00; // corrupt tail marker
-        assert!(decapsulate(&blob).is_err());
-    }
-
     #[tokio::test]
     async fn segment_round_trips_through_a_pipe() {
         // Two codecs sharing a key model the two ends of one direction.
@@ -248,7 +205,7 @@ mod tests {
         let mut reader_codec = Decryptor::new(key);
 
         let (mut w, mut r) = tokio::io::duplex(64 * 1024);
-        let payload = encapsulate(b"hello through the segment layer").unwrap();
+        let payload = b"hello through the segment layer".to_vec();
         let payload_for_meta = payload.clone();
 
         let write = async {
@@ -281,7 +238,7 @@ mod tests {
             let (meta, got) = reader_codec.read_segment(&mut r).await.unwrap();
             assert_eq!(meta[0], ProtocolType::DataClientToServer.as_u8());
             let blob = got.expect("payload present");
-            assert_eq!(decapsulate(&blob).unwrap(), b"hello through the segment layer");
+            assert_eq!(blob, b"hello through the segment layer");
         };
         tokio::join!(write, read);
     }

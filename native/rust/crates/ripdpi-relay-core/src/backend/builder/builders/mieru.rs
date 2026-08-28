@@ -13,8 +13,7 @@ use crate::protocols::MieruSessionFactory;
 /// `high` make it a reusable carrier that multiplexes many sub-sessions. The
 /// `ripdpi-mieru` engine implements the real XChaCha20-Poly1305 time-rotated-key
 /// wire protocol, open-session handshake, and in-tunnel SOCKS5 connect; the
-/// session factory dials the carrier and runs it. On-wire interoperability with
-/// an upstream mieru server is not yet verified against a live server.
+/// session factory dials the carrier and runs it. The TCP carrier is covered by the pinned upstream loopback oracle.
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::Mieru(mieru) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected Mieru config"));
@@ -48,7 +47,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     client_config.validate().map_err(to_io_error)?;
 
     Ok(RelayBackend::Mieru(PooledRelayBackend::new(
-        MieruSessionFactory { config: client_config, socket_protection: context.socket_protection },
+        MieruSessionFactory::new(client_config, context.socket_protection),
         context.pool_config,
         None,
     )))

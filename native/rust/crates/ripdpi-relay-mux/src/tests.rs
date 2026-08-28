@@ -64,6 +64,10 @@ impl RelaySession for PendingOpenSession {
 }
 
 impl RelaySessionFactory for PendingOpenFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = PendingOpenSession;
     type Error = Infallible;
 
@@ -77,6 +81,10 @@ impl RelaySessionFactory for PendingOpenFactory {
 }
 
 impl RelaySessionFactory for TestFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = TestSession;
     type Error = Infallible;
 
@@ -91,6 +99,10 @@ impl RelaySessionFactory for TestFactory {
 }
 
 impl RelaySessionFactory for ControlledCreateFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = TestSession;
     type Error = Infallible;
 
@@ -322,6 +334,10 @@ impl RelaySession for StaleFirstCarrierSession {
 }
 
 impl RelaySessionFactory for StaleFirstCarrierFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = StaleFirstCarrierSession;
     type Error = std::io::Error;
 
@@ -379,6 +395,10 @@ async fn fresh_carrier_failure_surfaces_without_a_retry() {
     }
 
     impl RelaySessionFactory for AlwaysFailingFactory {
+        async fn shutdown(&self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
         type Session = AlwaysFailingSession;
         type Error = std::io::Error;
 
@@ -396,4 +416,48 @@ async fn fresh_carrier_failure_surfaces_without_a_retry() {
         panic!("a failing fresh carrier must surface its error");
     };
     assert_eq!(std::io::ErrorKind::ConnectionRefused, error.kind());
+}
+
+#[tokio::test]
+async fn shutdown_waits_for_factory_and_evicts_only_after_cleanup() {
+    #[derive(Clone)]
+    struct ClosingFactory {
+        entered: Arc<Notify>,
+        release: Arc<Notify>,
+    }
+    impl RelaySessionFactory for ClosingFactory {
+        type Session = TestSession;
+        type Error = Infallible;
+        fn capabilities(&self) -> RelayCapabilities {
+            RelayCapabilities { tcp: true, udp: true, reusable: true }
+        }
+        async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+            Ok(Arc::new(TestSession))
+        }
+        async fn shutdown(&self) -> Result<(), Self::Error> {
+            self.entered.notify_one();
+            self.release.notified().await;
+            Ok(())
+        }
+    }
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let mux = RelayMux::new(
+        ClosingFactory { entered: entered.clone(), release: release.clone() },
+        RelayPoolConfig::default(),
+    );
+    drop(mux.open_stream("interop.invalid:443").await.expect("open"));
+    let closing_mux = mux.clone();
+    let closing = tokio::spawn(async move { closing_mux.shutdown().await });
+    let observed = timeout(Duration::from_millis(100), entered.notified()).await;
+    if observed.is_err() {
+        closing.abort();
+        let _ = closing.await;
+        panic!("shutdown must invoke factory cleanup");
+    }
+    assert!(!closing.is_finished(), "must await factory-owned work");
+    assert_eq!(mux.health().idle_streams, 1, "retain cached owner during cleanup");
+    release.notify_one();
+    closing.await.expect("shutdown worker").expect("shutdown");
+    assert_eq!(mux.health().idle_streams, 0, "evict only after cleanup");
 }

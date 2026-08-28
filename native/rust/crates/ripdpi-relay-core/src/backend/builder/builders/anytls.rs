@@ -14,19 +14,17 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "AnyTLS server port must fit u16"))?;
     let password = required_secret(anytls.password.as_deref(), "AnyTLS password")?.to_string();
     Ok(RelayBackend::AnyTls(PooledRelayBackend::new(
-        AnyTlsSessionFactory {
-            client_config: ripdpi_relay_tls_transports::AnyTlsClientConfig {
-                server_host: config.common.server.clone(),
-                server_port,
-                server_name: config.common.server_name.clone(),
-                password,
-                tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
-                root_certificate_pem: anytls.root_certificate_pem.clone(),
-                client_name: "ripdpi-anytls/0.1.0".to_string(),
-                socket_protection: context.socket_protection,
-                outbound_bind_ip: context.outbound_bind_ip,
-            },
-        },
+        AnyTlsSessionFactory::new(ripdpi_relay_tls_transports::AnyTlsClientConfig {
+            server_host: config.common.server.clone(),
+            server_port,
+            server_name: config.common.server_name.clone(),
+            password,
+            tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
+            root_certificate_pem: anytls.root_certificate_pem.clone(),
+            client_name: "ripdpi-anytls/0.1.0".to_string(),
+            socket_protection: context.socket_protection,
+            outbound_bind_ip: context.outbound_bind_ip,
+        }),
         context.pool_config,
         None,
     )))

@@ -99,6 +99,9 @@ impl RelayRuntime {
         self.state.set_readiness_observer(observer);
     }
 
+    /// # Cancel safety
+    /// Not cancel-safe: signal `stop` and await this future to join session and
+    /// factory work. Dropping it skips the owned shutdown sequence.
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
         if self.state.stop_requested() {
             // A stop requested before `run` wins before any lifecycle side
@@ -125,6 +128,8 @@ impl RelayRuntime {
         }
         self.state.set_backend(Arc::clone(&backend))?;
 
+        // Mieru/SSH/AnyTLS factories are lazy: no session or task exists before
+        // the accept loop. Early listener setup failures cannot orphan their work.
         let bind_addr = format!("{}:{}", self.config.common.local_socks_host, self.config.common.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
         let listener_address = listener.local_addr()?.to_string();
@@ -136,31 +141,45 @@ impl RelayRuntime {
         // the Kotlin wrapper need not poll. No-op when no observer is set.
         self.state.notify_ready();
 
-        run_accept_loop(Arc::clone(&self), backend, listener, MAX_CONCURRENT_SOCKS_SESSIONS, ACCEPT_POLL_INTERVAL)
-            .await;
+        run_accept_loop(
+            Arc::clone(&self),
+            Arc::clone(&backend),
+            listener,
+            MAX_CONCURRENT_SOCKS_SESSIONS,
+            ACCEPT_POLL_INTERVAL,
+        )
+        .await;
 
         // The accept loop exited because `stop()` set `stop_requested` and
         // cancelled the shutdown token. Drain in-flight sessions within a
         // bounded window so shutdown is deterministic and no session leaks its
         // upstream connection until the runtime is dropped.
-        match self.state.drain_sessions(SESSION_DRAIN_GRACE).await {
-            SessionDrainOutcome::Graceful => {}
+        let drain_error = match self.state.drain_sessions(SESSION_DRAIN_GRACE).await {
+            SessionDrainOutcome::Graceful => None,
             SessionDrainOutcome::Aborted => {
                 self.state.record_listener_error(
                     "relay session drain exceeded grace window; remaining tasks aborted".to_string(),
                 );
+                None
             }
-            SessionDrainOutcome::AbortTimedOut => {
-                self.state.set_running(false);
-                emit_runtime_stopped();
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "relay session tasks did not terminate after forced abort",
-                ));
-            }
-        }
+            SessionDrainOutcome::AbortTimedOut => Some(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "relay session tasks did not terminate after forced abort",
+            )),
+        };
 
+        // Join carrier/open/bridge tasks even after a failed SOCKS drain. The
+        // owning factories close admission before cleanup so racing opens fail
+        // without creating an unowned session. Keep the original drain error.
+        let cleanup = backend.shutdown().await;
         self.state.set_running(false);
+        if let Some(error) = drain_error {
+            if let Err(cleanup_error) = cleanup {
+                self.state.record_listener_error(format!("relay backend cleanup failed: {cleanup_error}"));
+            }
+            return Err(error);
+        }
+        cleanup?;
         emit_runtime_stopped();
         Ok(())
     }

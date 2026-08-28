@@ -145,6 +145,10 @@ fn inner_vless_config(inner: &ShadowTlsInnerConfig) -> io::Result<ripdpi_vless::
 }
 
 impl RelaySessionFactory for ShadowTlsSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = ShadowTlsSession;
     type Error = io::Error;
 

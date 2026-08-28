@@ -13,6 +13,7 @@
 //!    return `SshError::HostKeyUntrusted`.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use russh::Channel;
 use russh::keys::ssh_key::private::Ed25519Keypair;
@@ -22,6 +23,189 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
 use ripdpi_ssh::{SshAuth, SshConfig, SshError, SshHostKeyPolicy, connect};
+
+#[derive(Clone)]
+struct ProbeServer {
+    authentication_attempts: Arc<AtomicUsize>,
+}
+
+impl russh::server::Handler for ProbeServer {
+    type Error = russh::Error;
+
+    /// # Cancel safety
+    /// Cancel-safe: the counter update contains no suspension point.
+    async fn auth_none(&mut self, _user: &str) -> Result<Auth, russh::Error> {
+        self.authentication_attempts.fetch_add(1, Ordering::Relaxed);
+        Ok(Auth::Accept)
+    }
+
+    /// # Cancel safety
+    /// Cancel-safe: the counter update contains no suspension point.
+    async fn auth_password(&mut self, _user: &str, _password: &str) -> Result<Auth, russh::Error> {
+        self.authentication_attempts.fetch_add(1, Ordering::Relaxed);
+        Ok(Auth::Accept)
+    }
+}
+
+struct ProbeSocketController(AtomicUsize);
+
+impl ripdpi_native_protect::ProtectCallback for ProbeSocketController {
+    fn protect(&self, fd: std::os::fd::RawFd) -> std::io::Result<()> {
+        assert!(fd >= 0, "controller must receive a live socket");
+        self.0.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+}
+
+/// # Cancel safety
+/// Not cancel-safe: this complete test owns and explicitly joins its server task.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn key_only_probe_observes_fingerprint_without_authentication() {
+    let key = make_host_key(&SERVER_KEY_SEED);
+    let expected = fingerprint_of(&key);
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind probe peer");
+    let address = listener.local_addr().expect("probe peer address");
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let server_attempts = Arc::clone(&attempts);
+    let mut server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.expect("accept probe");
+        let config = Arc::new(russh::server::Config { keys: vec![key], ..Default::default() });
+        if let Ok(session) =
+            russh::server::run_stream(config, stream, ProbeServer { authentication_attempts: server_attempts }).await
+        {
+            let _ = session.await;
+        }
+    });
+    let controller = Arc::new(ProbeSocketController(AtomicUsize::new(0)));
+    let probe_controller = Arc::clone(&controller);
+    let outcome = tokio::task::spawn_blocking(move || {
+        ripdpi_ssh::probe_host_key(address, std::time::Duration::from_secs(2), probe_controller)
+    })
+    .await;
+    // Let the peer consume every buffered packet and finish naturally before
+    // asserting zero authentication attempts; aborting first could hide one.
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(1), &mut server).await;
+    if stopped.is_err() {
+        server.abort();
+        let _ = server.await;
+    }
+    stopped.expect("probe peer must observe EOF").expect("probe peer must not panic");
+    let observation =
+        outcome.expect("probe thread must not panic").expect("key-only probe must return the peer's observed key");
+    assert_eq!(observation.fingerprint_sha256, expected);
+    assert_eq!(observation.algorithm, "ssh-ed25519");
+    assert_eq!(attempts.load(Ordering::Relaxed), 0, "probe must stop before any authentication request");
+    assert_eq!(controller.0.load(Ordering::Relaxed), 1, "every probe socket requires the call-scoped controller");
+}
+
+/// # Cancel safety
+/// Not cancel-safe: this test joins both the blocking probe and its socket peer.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn key_only_probe_timeout_closes_spawned_key_exchange_socket_before_return() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind stalled peer");
+    let address = listener.local_addr().expect("stalled peer address");
+    let mut server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept probe");
+        // Supplying an SSH banner makes russh spawn its KEX worker. Never reply
+        // to its key-exchange packet: the probe must own that worker on timeout.
+        stream.write_all(b"SSH-2.0-stalled-probe-peer\r\n").await.expect("send SSH banner");
+        let mut received = Vec::new();
+        stream.read_to_end(&mut received).await.expect("read until probe closes socket");
+        received
+    });
+    let result = tokio::task::spawn_blocking(move || {
+        ripdpi_ssh::probe_host_key(
+            address,
+            std::time::Duration::from_millis(100),
+            Arc::new(ProbeSocketController(AtomicUsize::new(0))),
+        )
+    })
+    .await
+    .expect("probe thread must not panic");
+    let closed = tokio::time::timeout(std::time::Duration::from_secs(1), &mut server).await;
+    if closed.is_err() {
+        server.abort();
+        let _ = server.await;
+    }
+    assert_eq!(result, Err(ripdpi_ssh::SshHostKeyProbeError::Timeout));
+    let received = closed.expect("timed-out KEX must leave no live socket").expect("peer task must not panic");
+    let banner_end = received.iter().position(|byte| *byte == b'\n').expect("client SSH banner");
+    assert!(received.len() > banner_end + 1, "test must reach the spawned KEX worker, not only TCP connect");
+}
+
+/// # Cancel safety
+/// The test joins its client request and peer even when the EOF assertion fails.
+#[tokio::test]
+async fn cancelled_connection_owner_closes_spawned_key_exchange() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("stalled peer");
+    let address = listener.local_addr().expect("peer address");
+    let (reached, kex) = tokio::sync::oneshot::channel();
+    let mut server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.expect("accept");
+        stream.write_all(b"SSH-2.0-stalled-owned-peer\r\n").await.expect("banner");
+        let mut received = Vec::new();
+        let mut buffer = [0; 2048];
+        loop {
+            let n = stream.read(&mut buffer).await.expect("KEX read");
+            assert!(n > 0, "must reach KEX before cancellation");
+            received.extend_from_slice(&buffer[..n]);
+            if received.iter().position(|b| *b == b'\n').is_some_and(|end| received.len() > end + 5) {
+                break;
+            }
+        }
+        reached.send(()).expect("KEX observer");
+        stream.read_to_end(&mut received).await.expect("EOF");
+    });
+    let config = SshConfig {
+        host: address.ip().to_string(),
+        port: address.port(),
+        username: "outbound-interop".into(),
+        auth: SshAuth::Password("loopback-test-password".into()),
+        host_key_policy: SshHostKeyPolicy::Strict { fingerprint: fingerprint_of(&make_host_key(&SERVER_KEY_SEED)) },
+    };
+    let client = Arc::new(connect(&config).expect("owned connection"));
+    let waiter = Arc::clone(&client);
+    let pending = tokio::spawn(async move { waiter.ready().await });
+    let started = tokio::time::timeout(std::time::Duration::from_secs(1), kex).await;
+    pending.abort();
+    let _ = pending.await;
+    tokio::time::timeout(std::time::Duration::from_secs(1), client.close())
+        .await
+        .expect("close deadline")
+        .expect("join KEX");
+    client.close().await.expect("repeat close");
+    let closed = tokio::time::timeout(std::time::Duration::from_millis(200), &mut server).await;
+    if closed.is_err() {
+        server.abort();
+        let _ = server.await;
+    }
+    started.expect("reach KEX deadline").expect("KEX signal");
+    closed.expect("cancelling the connection must not strand the spawned KEX socket").expect("peer task");
+}
+
+struct DenyProbeSocket;
+
+impl ripdpi_native_protect::ProtectCallback for DenyProbeSocket {
+    fn protect(&self, _fd: std::os::fd::RawFd) -> std::io::Result<()> {
+        Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "test protection refused"))
+    }
+}
+
+#[test]
+fn key_only_probe_protection_denial_prevents_connect() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind probe peer");
+    listener.set_nonblocking(true).expect("nonblocking peer");
+    let result = ripdpi_ssh::probe_host_key(
+        listener.local_addr().expect("peer address"),
+        std::time::Duration::from_secs(1),
+        Arc::new(DenyProbeSocket),
+    );
+    assert_eq!(result, Err(ripdpi_ssh::SshHostKeyProbeError::ProtectionDenied));
+    assert_eq!(
+        listener.accept().expect_err("no connection may precede protection").kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+}
 
 // ---------------------------------------------------------------------------
 // Fixed deterministic server key
@@ -162,7 +346,8 @@ async fn password_auth_echo() {
         host_key_policy: SshHostKeyPolicy::Strict { fingerprint },
     };
 
-    let client = connect(&config).await.expect("connect must succeed with correct pin");
+    let client = connect(&config).expect("owned connection");
+    client.ready().await.expect("connect must succeed with correct pin");
     let mut stream = client.tcp_connect("127.0.0.1:9").await.expect("tcp_connect must open channel");
 
     let payload = b"hello ripdpi-ssh loopback";
@@ -171,6 +356,7 @@ async fn password_auth_echo() {
     let mut echo_buf = vec![0u8; payload.len()];
     stream.read_exact(&mut echo_buf).await.expect("read_exact must receive the echo");
 
+    client.close().await.expect("close session");
     assert_eq!(echo_buf, payload, "echoed bytes must match the payload");
 }
 
@@ -194,7 +380,9 @@ async fn wrong_host_key_pin_rejected() {
         host_key_policy: SshHostKeyPolicy::Strict { fingerprint: wrong_fp },
     };
 
-    let error = connect(&config).await.expect_err("mismatched pin must cause connect to fail");
+    let client = connect(&config).expect("owned connection");
+    let error = client.ready().await.expect_err("mismatched pin must cause connect to fail");
+    client.close().await.expect("failed connection cleanup");
     assert!(matches!(error, SshError::HostKeyMismatch { .. }), "expected HostKeyMismatch, got {error:?}",);
 }
 
@@ -217,7 +405,8 @@ async fn tofu_no_pin_rejects_untrusted() {
         host_key_policy: SshHostKeyPolicy::Tofu { pinned_fingerprint: None },
     };
 
-    let error = connect(&config).await.expect_err("TOFU with no pin must reject the key");
+    let client = connect(&config).expect("owned connection");
+    let error = client.ready().await.expect_err("TOFU with no pin must reject the key");
 
     // The error must carry the exact base64 digest (without the "SHA256:" prefix)
     // so the UI can display it for user confirmation.

@@ -9,7 +9,8 @@ base64 = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 russh = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync"] }
+tokio-util = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "time", "macros", "io-util"] }

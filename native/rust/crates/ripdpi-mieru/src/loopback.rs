@@ -14,7 +14,7 @@ use crate::client::MieruClient;
 use crate::config::{MieruConfig, MieruMux, MieruProtocol};
 use crate::error::Result;
 use crate::metadata::{DataAckMeta, ProtocolType};
-use crate::segment::{Decryptor, Encryptor, MAX_PDU, decapsulate, encapsulate};
+use crate::segment::{Decryptor, Encryptor, MAX_PDU};
 
 const NOW: i64 = 1_700_000_000;
 const USERNAME: &str = "alice";
@@ -27,12 +27,7 @@ async fn run_server(transport: DuplexStream, key: [u8; KEY_LEN], username: Vec<u
     let mut dec = Decryptor::new(key);
     let mut enc = Encryptor::new(key, username);
 
-    // SOCKS5 greeting (the open-session request is skipped by recv_data).
-    let greeting = recv_data(&mut dec, &mut reader).await?.expect("greeting");
-    assert_eq!(greeting, vec![0x05, 0x01, 0x00], "client SOCKS5 greeting");
-    send_data(&mut enc, &mut writer, &[0x05, 0x00]).await?;
-
-    // SOCKS5 CONNECT request.
+    // Mieru authenticates the carrier and sends CONNECT without a greeting.
     let request = recv_data(&mut dec, &mut reader).await?.expect("connect request");
     assert_eq!(request[0], 0x05);
     assert_eq!(request[1], 0x01, "CONNECT command");
@@ -51,9 +46,8 @@ where
     W: tokio::io::AsyncWrite + Unpin,
 {
     for chunk in bytes.chunks(MAX_PDU) {
-        let blob = encapsulate(chunk)?;
         let (prefix, suffix) = enc.next_padding()?;
-        let payload_len = u16::try_from(blob.len()).expect("fragment fits u16");
+        let payload_len = u16::try_from(chunk.len()).expect("fragment fits u16");
         enc.write_segment(
             writer,
             prefix,
@@ -72,7 +66,7 @@ where
                 }
                 .marshal(NOW)
             },
-            Some(&blob),
+            Some(chunk),
         )
         .await?;
     }
@@ -92,7 +86,7 @@ where
         if ProtocolType::from_u8(meta[0])? == ProtocolType::DataClientToServer
             && let Some(blob) = payload
         {
-            return Ok(Some(decapsulate(&blob)?));
+            return Ok(Some(blob));
         }
         // open/close/ack control segments: skip.
     }
@@ -157,4 +151,24 @@ async fn udp_protocol_is_rejected() {
         Ok(_) => panic!("udp config must be rejected"),
         Err(other) => panic!("expected UdpUnsupported, got {other:?}"),
     }
+}
+
+/// # Cancel safety
+/// Not cancel-safe: the test explicitly joins its owned peer on either outcome.
+#[tokio::test]
+async fn dropping_idle_stream_closes_both_carrier_halves() {
+    let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+    let (client_side, server_side) = tokio::io::duplex(1 << 16);
+    let mut server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
+    let client = MieruClient::connect_over(client_side, &test_config(), Arc::new(NetworkTimeProvider::fixed(NOW)))
+        .await
+        .expect("session");
+    let stream = client.tcp_connect("example.com:443").await.expect("connect");
+    drop(stream);
+    let stopped = tokio::time::timeout(std::time::Duration::from_millis(200), &mut server).await;
+    if stopped.is_err() {
+        server.abort();
+        let _ = server.await;
+    }
+    stopped.expect("idle stream drop must close its carrier").expect("peer task").expect("peer EOF");
 }

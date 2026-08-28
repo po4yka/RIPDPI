@@ -3,6 +3,7 @@
 mod anytls;
 mod mieru;
 mod protect;
+mod session_registry;
 mod shadowsocks;
 mod shadowtls;
 mod ssh;

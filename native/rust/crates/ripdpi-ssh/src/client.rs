@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use russh::ChannelStream;
 use russh::client::{self, Config, Handler};
 use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKey, decode_secret_key};
-use russh::{ChannelStream, Disconnect};
 use tokio::sync::Mutex;
 
 use crate::config::{SshAuth, SshConfig, SshHostKeyPolicy, parse_fingerprint};
@@ -15,30 +15,9 @@ use crate::error::{Result, SshError};
 /// the type without depending on `russh` directly.
 pub type SshChannelStream = ChannelStream<client::Msg>;
 
-/// An established SSH outbound session.
-///
-/// Wraps a live `russh` [`client::Handle`]. The handle owns the SSH transport's
-/// background IO task; dropping `SshClient` drops the handle, which closes its
-/// channels and terminates that task, so no `russh` task is leaked per relay
-/// flow (the relay descriptor marks SSH sessions `reusable = false`, i.e. one
-/// fresh session per flow).
-pub struct SshClient {
-    /// The live `russh` session handle.
-    ///
-    /// `russh`'s `Handle` is `Send` but not `Sync` (it owns an mpsc receiver),
-    /// so it is parked behind a [`tokio::sync::Mutex`] to satisfy the
-    /// `RelaySession: Send + Sync` bound. Channel opens are short-lived and do
-    /// not contend in the single-channel-per-connection v1 model.
-    handle: Arc<Mutex<client::Handle<SshHandler>>>,
-}
-
-impl std::fmt::Debug for SshClient {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // The handle has no public fields worth rendering and carries no
-        // secrets; emit a stable opaque marker.
-        formatter.debug_struct("SshClient").field("handle", &"<russh session>").finish()
-    }
-}
+mod lifecycle;
+use lifecycle::ConnectionControl;
+pub use lifecycle::SshClient;
 
 /// The decision a host-key policy reaches for an observed server fingerprint.
 ///
@@ -127,49 +106,58 @@ impl Handler for SshHandler {
     }
 }
 
-/// Validate `config`, establish the SSH transport, verify the host key, and
-/// authenticate.
-///
-/// The configuration is fully validated first (port range, non-empty username,
-/// auth material present, strict fingerprint parse), so a malformed profile
-/// fails loudly before any I/O. The policy-aware path creates and protects the
-/// TCP socket before handing it to `russh::client::connect_stream`; the legacy
-/// [`connect`] entry point explicitly selects the inactive non-VPN policy. The
-/// host key is checked through [`evaluate_host_key`] before authentication.
-// cancel-safe: every `.await` here (`connect`, `authenticate_*`,
-// `best_supported_rsa_hash`) is a discrete request/response on a fresh session;
-// if the future is dropped mid-handshake the half-open session's `Handle` is
-// dropped with it, tearing down the russh IO task. No partial state escapes.
-pub async fn connect(config: &SshConfig) -> Result<SshClient> {
-    connect_with_socket_protection(config, ripdpi_native_protect::SocketProtectionPolicy::Inactive).await
+/// Validate and create the owner of a fresh SSH connection. Call `ready` for
+/// authentication, and `close` to join even if readiness is cancelled or fails.
+pub fn connect(config: &SshConfig) -> Result<SshClient> {
+    connect_with_socket_protection(config, ripdpi_native_protect::SocketProtectionPolicy::Inactive)
 }
 
-/// Connect with an explicit per-runtime socket-protection policy.
-pub async fn connect_with_socket_protection(
+/// Create an owned connection with explicit per-runtime socket protection.
+pub fn connect_with_socket_protection(
     config: &SshConfig,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> Result<SshClient> {
-    config.validate()?;
+    SshClient::start(config.clone(), socket_protection)
+}
 
+/// # Cancel safety
+/// Not cancel-safe: only the owned constructor task polls this future. Stop is
+/// delivered through transport I/O; connect_stream's failure path joins KEX.
+async fn establish(
+    config: SshConfig,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+    control: Arc<ConnectionControl>,
+) -> Result<client::Handle<SshHandler>> {
     let rejection: Arc<Mutex<Option<SshError>>> = Arc::new(Mutex::new(None));
     let handler = SshHandler { policy: config.host_key_policy.clone(), rejection: Arc::clone(&rejection) };
     let client_config = Arc::new(Config::default());
 
-    let server_addr = socket_protection
-        .resolve_host(&config.host, config.port)
-        .await
-        .map_err(SshError::Io)?
-        .into_iter()
-        .next()
-        .ok_or_else(|| SshError::Ssh("SSH server resolved to no addresses".to_string()))?;
-    let socket = match server_addr {
-        std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4(),
-        std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6(),
-    }
-    .map_err(|error| SshError::Ssh(error.to_string()))?;
-    use std::os::fd::AsRawFd as _;
-    socket_protection.protect_non_loopback(socket.as_raw_fd(), server_addr).map_err(SshError::Io)?;
-    let stream = socket.connect(server_addr).await.map_err(|error| SshError::Ssh(error.to_string()))?;
+    let transport = async {
+        let server_addr = socket_protection
+            .resolve_host(&config.host, config.port)
+            .await
+            .map_err(SshError::Io)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| SshError::Ssh("SSH server resolved to no addresses".to_string()))?;
+        let socket = match server_addr {
+            std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4(),
+            std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6(),
+        }
+        .map_err(|error| SshError::Ssh(error.to_string()))?;
+        use std::os::fd::AsRawFd as _;
+        socket_protection.protect_non_loopback(socket.as_raw_fd(), server_addr).map_err(SshError::Io)?;
+        let stream = socket.connect(server_addr).await.map_err(|error| SshError::Ssh(error.to_string()))?;
+
+        Ok::<_, SshError>(stream)
+    };
+    let stream = tokio::select! {
+        biased;
+        _ = control.cancel.cancelled() => return Err(SshError::Ssh("SSH connection cancelled".into())),
+        result = tokio::time::timeout_at(control.deadline, transport) => result
+            .map_err(|_| SshError::Io(std::io::Error::new(std::io::ErrorKind::TimedOut, "SSH connection timed out")))??,
+    };
+    let stream = control.wrap(stream);
 
     let mut handle = match client::connect_stream(client_config, stream, handler).await {
         Ok(handle) => handle,
@@ -182,9 +170,30 @@ pub async fn connect_with_socket_protection(
             let stashed = rejection.lock().await.take();
             return Err(stashed.unwrap_or_else(|| host_key_rejection(&config.host_key_policy)));
         }
+        Err(russh::Error::Join(_)) => return Err(SshError::CleanupFailed),
         Err(other) => return Err(SshError::Ssh(other.to_string())),
     };
 
+    let authenticated = if control.cancel.is_cancelled() {
+        Err(SshError::Ssh("SSH connection cancelled".into()))
+    } else {
+        authenticate(&config, &mut handle).await
+    };
+    if let Err(error) = authenticated {
+        control.cancel();
+        if matches!((&mut handle).await, Err(russh::Error::Join(_))) {
+            return Err(SshError::CleanupFailed);
+        }
+        return Err(error);
+    }
+    control.authenticated();
+    Ok(handle)
+}
+
+/// # Cancel safety
+/// Only the owned constructor polls authentication; cancellation closes the
+/// transport and the caller joins the session handle on every error path.
+async fn authenticate(config: &SshConfig, handle: &mut client::Handle<SshHandler>) -> Result<()> {
     match &config.auth {
         SshAuth::Password(password) => {
             let result = handle
@@ -201,7 +210,7 @@ pub async fn connect_with_socket_protection(
             // For RSA keys, query the server's preferred hash (ssh-rsa vs
             // rsa-sha2-256/512). For non-RSA keys this is ignored by
             // `PrivateKeyWithHashAlg::new`.
-            let hash_alg = best_rsa_hash(&handle).await;
+            let hash_alg = best_rsa_hash(handle).await;
             let key = PrivateKeyWithHashAlg::new(Arc::new(private_key), hash_alg);
             let result = handle
                 .authenticate_publickey(&config.username, key)
@@ -213,7 +222,7 @@ pub async fn connect_with_socket_protection(
         }
     }
 
-    Ok(SshClient { handle: Arc::new(Mutex::new(handle)) })
+    Ok(())
 }
 
 /// Map a host-key rejection (signalled by `russh::Error::UnknownKey`) back to
@@ -247,50 +256,6 @@ async fn best_rsa_hash(handle: &client::Handle<SshHandler>) -> Option<HashAlg> {
     match handle.best_supported_rsa_hash().await {
         Ok(Some(hash)) => hash,
         Ok(None) | Err(_) => None,
-    }
-}
-
-impl SshClient {
-    /// Open an SSH `direct-tcpip` channel to `target` (`host:port`) and return
-    /// its bidirectional stream.
-    ///
-    /// One `direct-tcpip` channel is opened per call (v1: a single channel per
-    /// connection, no multiplexing or pooling). The returned [`ChannelStream`]
-    /// implements `AsyncRead + AsyncWrite`; closing it closes the channel.
-    // cancel-safe: a single channel-open request/response; if dropped before it
-    // resolves, the half-opened channel is reclaimed by russh and the session
-    // stays usable. No state leaks.
-    pub async fn tcp_connect(&self, target: &str) -> Result<SshChannelStream> {
-        let (host, port) = parse_target(target)?;
-        let handle = self.handle.lock().await;
-        let channel = handle
-            .channel_open_direct_tcpip(host, u32::from(port), "127.0.0.1", 0)
-            .await
-            .map_err(|error| SshError::Ssh(error.to_string()))?;
-        Ok(channel.into_stream())
-    }
-}
-
-impl Drop for SshClient {
-    fn drop(&mut self) {
-        // `russh`'s own `Drop for Handle` tears the transport IO task down: when
-        // the handle's command `Sender` drops, the session loop's `recv()`
-        // returns `None`, the loop exits, and the task completes — so no task
-        // leaks even with no further action here. When this `SshClient` is the
-        // sole owner of the `Arc` AND a tokio runtime is current, send a
-        // best-effort fire-and-forget `BY_APPLICATION` disconnect first so the
-        // server sees a clean teardown rather than a dropped connection.
-        if Arc::strong_count(&self.handle) != 1 {
-            return;
-        }
-        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
-            return;
-        };
-        if let Ok(guard) = self.handle.clone().try_lock_owned() {
-            runtime.spawn(async move {
-                let _ = guard.disconnect(Disconnect::ByApplication, "", "").await;
-            });
-        }
     }
 }
 
@@ -365,7 +330,7 @@ mod tests {
         // An invalid config must fail validation before any network I/O.
         let mut config = valid_config();
         config.username = String::new();
-        let error = connect(&config).await.expect_err("invalid config must fail validation");
+        let error = connect(&config).expect_err("invalid config must fail validation");
         assert!(matches!(error, SshError::EmptyUsername));
     }
 
@@ -375,10 +340,12 @@ mod tests {
         let mut config = valid_config();
         config.host = "must-not-resolve.invalid".to_string();
 
-        let error = connect_with_socket_protection(&config, ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
-            .await
-            .expect_err("VPN SSH hostname must fail without the protected resolver");
+        let client =
+            connect_with_socket_protection(&config, ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+                .expect("owned connection");
+        let error = client.ready().await.expect_err("VPN SSH hostname must fail without the protected resolver");
 
+        client.close().await.expect("cleanup failed connection");
         let SshError::Io(error) = error else {
             panic!("expected typed I/O error");
         };
@@ -391,10 +358,12 @@ mod tests {
         let mut config = valid_config();
         config.host = "192.0.2.1".to_string();
 
-        let error = connect_with_socket_protection(&config, ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
-            .await
-            .expect_err("missing callback must fail before connect");
+        let client =
+            connect_with_socket_protection(&config, ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+                .expect("owned connection");
+        let error = client.ready().await.expect_err("missing callback must fail before connect");
 
+        client.close().await.expect("cleanup failed connection");
         let SshError::Io(error) = error else {
             panic!("expected typed I/O error");
         };
@@ -413,7 +382,9 @@ mod tests {
         // way the call must error rather than panic.
         config.host = "127.0.0.1".to_string();
         config.port = 9;
-        let error = connect(&config).await.expect_err("invalid PEM / unreachable host must error");
+        let client = connect(&config).expect("owned connection");
+        let error = client.ready().await.expect_err("invalid PEM / unreachable host must error");
+        client.close().await.expect("cleanup");
         assert!(matches!(error, SshError::Ssh(_)), "expected typed Ssh error, got {error:?}");
     }
 

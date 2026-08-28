@@ -3,18 +3,24 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
+
+use crate::session_registry::{OwnedSession, SessionRegistry};
 
 use crate::util::to_io_error;
 
 pub use ripdpi_anytls::session::AnyTlsClientConfig;
 
-pub trait AnyTlsAsyncIo: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
-impl<T> AnyTlsAsyncIo for T where T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
-
 #[derive(Clone)]
 pub struct AnyTlsSessionFactory {
-    pub client_config: ripdpi_anytls::session::AnyTlsClientConfig,
+    client_config: AnyTlsClientConfig,
+    sessions: Arc<SessionRegistry<AnyTlsSession>>,
+}
+
+impl AnyTlsSessionFactory {
+    pub fn new(client_config: AnyTlsClientConfig) -> Self {
+        Self { client_config, sessions: Arc::default() }
+    }
 }
 
 pub struct AnyTlsSession {
@@ -25,15 +31,24 @@ pub struct AnyTlsUdpSession {
     udp: ripdpi_anytls::session::AnyTlsUdpOverTcp,
 }
 
+impl OwnedSession for AnyTlsSession {
+    fn abort(&self) {
+        self.client.cancel();
+    }
+    async fn close(&self) -> io::Result<()> {
+        self.client.close().await.map_err(to_io_error)
+    }
+}
+
 impl RelaySession for AnyTlsSession {
-    type Stream = Box<dyn AnyTlsAsyncIo>;
+    type Stream = ripdpi_anytls::session::AnyTlsIo;
     type Datagram = AnyTlsUdpSession;
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         let (addr, port) = target_to_anytls(target)?;
         let stream = self.client.open_tcp(addr, port).await.map_err(to_io_error)?;
-        Ok(Box::new(bridge_stream(stream)) as Box<dyn AnyTlsAsyncIo>)
+        stream.into_io().map_err(to_io_error)
     }
 
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
@@ -43,6 +58,10 @@ impl RelaySession for AnyTlsSession {
 }
 
 impl RelaySessionFactory for AnyTlsSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        self.sessions.shutdown().await
+    }
+
     type Session = AnyTlsSession;
     type Error = io::Error;
 
@@ -51,9 +70,13 @@ impl RelaySessionFactory for AnyTlsSessionFactory {
     }
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
-        let config = self.client_config.clone();
-        let client = ripdpi_anytls::session::AnyTlsClient::new(config).map_err(to_io_error)?;
-        Ok(Arc::new(AnyTlsSession { client }))
+        self.sessions
+            .create(async {
+                let client =
+                    ripdpi_anytls::session::AnyTlsClient::new(self.client_config.clone()).map_err(to_io_error)?;
+                Ok(AnyTlsSession { client })
+            })
+            .await
     }
 }
 
@@ -76,7 +99,7 @@ pub async fn connect_anytls_tcp(
     let client = ripdpi_anytls::session::AnyTlsClient::new(config.clone()).map_err(to_io_error)?;
     let (addr, port) = target_to_anytls(target)?;
     let stream = client.open_tcp(addr, port).await.map_err(to_io_error)?;
-    Ok(bridge_stream(stream))
+    stream.into_io().map_err(to_io_error)
 }
 
 pub async fn connect_anytls_tcp_over<S>(
@@ -91,51 +114,11 @@ where
     let stream = ripdpi_anytls::session::AnyTlsClient::open_tcp_over(config.clone(), transport, addr, port)
         .await
         .map_err(to_io_error)?;
-    Ok(bridge_stream(stream))
+    stream.into_io().map_err(to_io_error)
 }
 
 pub fn anytls_proxy_target(config: &AnyTlsClientConfig) -> String {
     format!("{}:{}", config.server_host, config.server_port)
-}
-
-fn bridge_stream(mut anytls: ripdpi_anytls::session::AnyTlsStream) -> tokio::io::DuplexStream {
-    let (app_stream, relay_stream) = tokio::io::duplex(65_536);
-    let (mut app_read, mut app_write) = tokio::io::split(relay_stream);
-    tokio::spawn(async move {
-        let mut buffer = [0_u8; 16 * 1024];
-        loop {
-            tokio::select! {
-                read = app_read.read(&mut buffer) => {
-                    match read {
-                        // The application half is going away. Queue the
-                        // substream's FIN explicitly -- instead of relying on
-                        // Drop racing the relay teardown -- so the server sees
-                        // an ordered end-of-request rather than an abrupt
-                        // session-level failure.
-                        Ok(0) => {
-                            let _ = anytls.close().await;
-                            return;
-                        }
-                        Ok(read) => {
-                            if anytls.write_all(&buffer[..read]).await.is_err() {
-                                return;
-                            }
-                        }
-                        Err(_) => return,
-                    }
-                }
-                chunk = anytls.read_chunk() => {
-                    let Ok(chunk) = chunk else {
-                        return;
-                    };
-                    if app_write.write_all(&chunk).await.is_err() {
-                        return;
-                    }
-                }
-            }
-        }
-    });
-    app_stream
 }
 
 fn target_to_anytls(target: &str) -> io::Result<(ripdpi_anytls::session::TargetAddr, u16)> {
