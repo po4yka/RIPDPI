@@ -7,20 +7,22 @@ name: i18n translation-export gate
 on:
   pull_request:
     paths:
-      - "app/src/main/res/values/strings.xml"
-      - "core/service/src/main/res/values/strings.xml"
+      - "app/src/main/res/values/*.xml"
+      - "core/service/src/main/res/values/*.xml"
       - "config/i18n/translatable-keys.txt"
       - "scripts/ci/export-strings-for-translation.sh"
       - "scripts/ci/check-translation-export.sh"
+      - "scripts/ci/test_translation_export.py"
       - ".github/workflows/i18n-export.yml"
   push:
     branches: [main]
     paths:
-      - "app/src/main/res/values/strings.xml"
-      - "core/service/src/main/res/values/strings.xml"
+      - "app/src/main/res/values/*.xml"
+      - "core/service/src/main/res/values/*.xml"
       - "config/i18n/translatable-keys.txt"
       - "scripts/ci/export-strings-for-translation.sh"
       - "scripts/ci/check-translation-export.sh"
+      - "scripts/ci/test_translation_export.py"
       - ".github/workflows/i18n-export.yml"
 
 permissions:
@@ -32,5 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test translation export discovery
+        run: python3 -m unittest scripts.ci.test_translation_export
       - name: Check translation export manifest
         run: scripts/ci/check-translation-export.sh
