@@ -1,0 +1,46 @@
+--- a/core/functions.go
++++ b/core/functions.go
+@@ -24,0 +25 @@
++// On construction or start error, the caller must close the returned instance.
+@@ -35 +36 @@
+-		return nil, err
++		return instance, err
+@@ -38 +39 @@
+-		return nil, err
++		return instance, err
+--- a/core/xray.go
++++ b/core/xray.go
+@@ -165 +165,2 @@
+-// The instance is not started at this point.
++// The instance is not started at this point. On error, the caller owns the
++// returned partial instance and must close it before releasing ownership.
+@@ -172 +173 @@
+-		return nil, err
++		return server, err
+@@ -177,0 +179 @@
++// NewWithContext has the same partial-instance ownership contract as New.
+@@ -183 +185 @@
+-		return nil, err
++		return server, err
+--- a/transport/internet/system_dialer.go
++++ b/transport/internet/system_dialer.go
+@@ -69 +69 @@
+-					errors.LogInfoInner(ctx, err, "failed to apply external controller")
++					return err
+@@ -126 +126 @@
+-					errors.LogInfoInner(ctx, err, "failed to apply external controller")
++					return err
+--- a/transport/internet/system_listener.go
++++ b/transport/internet/system_listener.go
+@@ -25,0 +26,5 @@
++		for _, controller := range controllers {
++			if err := controller(network, address, c); err != nil {
++				return err
++			}
++		}
+@@ -27,5 +31,0 @@
+-			for _, controller := range controllers {
+-				if err := controller(network, address, c); err != nil {
+-					errors.LogInfoInner(ctx, err, "failed to apply external controller")
+-				}
+-			}

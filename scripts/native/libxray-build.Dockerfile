@@ -54,9 +54,9 @@ ENV ANDROID_NDK_HOME="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" \
 
 # gomobile toolchain, pinned to gradle/libs.versions.toml `gomobile`.
 # GOTOOLCHAIN=auto: fetch the exact Go a go.mod directive needs (libXray pins
-# go 1.26.2). GOSUMDB=off: sum.golang.org egress is filtered in some CI VMs.
+# go 1.26.2). Keep the public checksum database enabled.
 ARG GOMOBILE_VERSION=v0.0.0-20260529142300-ecb4cd65260a
-ENV GOSUMDB=off GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=auto
+ENV GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=auto
 RUN retry go install golang.org/x/mobile/cmd/gomobile@${GOMOBILE_VERSION} \
     && retry go install golang.org/x/mobile/cmd/gobind@${GOMOBILE_VERSION}
 ENV PATH="/go/bin:${PATH}"

@@ -1,0 +1,127 @@
+diff --git a/android_wrapper.go b/android_wrapper.go
+index 1e18a9e..0adb3b3 100644
+--- a/android_wrapper.go
++++ b/android_wrapper.go
+@@ -15,2 +15,2 @@ func InitDns(controller DialerController, server string) {
+-	dns.InitDns(server, func(fd uintptr) {
+-		controller.ProtectFd(int(fd))
++	dns.InitDns(server, func(fd uintptr) bool {
++		return controller.ProtectFd(int(fd))
+@@ -25,2 +25,2 @@ func RegisterDialerController(controller DialerController) {
+-	c.RegisterDialerController(func(fd uintptr) {
+-		controller.ProtectFd(int(fd))
++	c.RegisterDialerController(func(fd uintptr) bool {
++		return controller.ProtectFd(int(fd))
+@@ -31,2 +31,2 @@ func RegisterListenerController(controller DialerController) {
+-	c.RegisterListenerController(func(fd uintptr) {
+-		controller.ProtectFd(int(fd))
++	c.RegisterListenerController(func(fd uintptr) bool {
++		return controller.ProtectFd(int(fd))
+diff --git a/controller/controller_android.go b/controller/controller_android.go
+index f3db07f..1e2956a 100644
+--- a/controller/controller_android.go
++++ b/controller/controller_android.go
+@@ -5,0 +6 @@ import (
++	"errors"
+@@ -13 +14 @@ import (
+-func RegisterDialerController(controller func(fd uintptr)) {
++func RegisterDialerController(controller func(fd uintptr) bool) {
+@@ -15 +16 @@ func RegisterDialerController(controller func(fd uintptr)) {
+-		return conn.Control(controller)
++		return protectSocket(conn, controller)
+@@ -21 +22 @@ func RegisterDialerController(controller func(fd uintptr)) {
+-func RegisterListenerController(controller func(fd uintptr)) {
++func RegisterListenerController(controller func(fd uintptr) bool) {
+@@ -23 +24 @@ func RegisterListenerController(controller func(fd uintptr)) {
+-		return conn.Control(controller)
++		return protectSocket(conn, controller)
+@@ -25,0 +27,12 @@ func RegisterListenerController(controller func(fd uintptr)) {
++
++// A denied callback must abort the owning Go dial/listen operation.
++func protectSocket(conn syscall.RawConn, controller func(uintptr) bool) error {
++	allowed := false
++	if err := conn.Control(func(fd uintptr) { allowed = controller != nil && controller(fd) }); err != nil {
++		return err
++	}
++	if !allowed {
++		return errors.New("VPN socket protection denied")
++	}
++	return nil
++}
+diff --git a/dns/dns_android.go b/dns/dns_android.go
+index af7e0dc..a064af9 100644
+--- a/dns/dns_android.go
++++ b/dns/dns_android.go
+@@ -6,0 +7 @@ import (
++	"errors"
+@@ -13 +14 @@ import (
+-func InitDns(dns string, controller func(fd uintptr)) {
++func InitDns(dns string, controller func(fd uintptr) bool) {
+@@ -25 +26 @@ func InitDns(dns string, controller func(fd uintptr)) {
+-func makeDialer(controller func(fd uintptr)) *net.Dialer {
++func makeDialer(controller func(fd uintptr) bool) *net.Dialer {
+@@ -30,3 +31,4 @@ func makeDialer(controller func(fd uintptr)) *net.Dialer {
+-	if controller != nil {
+-		dialer.Control = func(network, address string, c syscall.RawConn) error {
+-			return c.Control(controller)
++	dialer.Control = func(network, address string, c syscall.RawConn) error {
++		allowed := false
++		if err := c.Control(func(fd uintptr) { allowed = controller != nil && controller(fd) }); err != nil {
++			return err
+@@ -33,0 +36,4 @@ func makeDialer(controller func(fd uintptr)) *net.Dialer {
++		if !allowed {
++			return errors.New("VPN DNS socket protection denied")
++		}
++		return nil
+diff --git a/xray/xray.go b/xray/xray.go
+index da91478..06cf6ec 100644
+--- a/xray/xray.go
++++ b/xray/xray.go
+@@ -3,0 +4,2 @@ import (
++	"bytes"
++	"errors"
+@@ -18 +20,2 @@ var (
+-	coreServer *core.Instance
++	coreServer        *core.Instance
++	nativeStopFailure error
+@@ -30 +33 @@ func StartXray(configPath string) (*core.Instance, error) {
+-		return nil, err
++		return server, err
+@@ -37,5 +40 @@ func StartXrayFromJSON(configJSON string) (*core.Instance, error) {
+-	// Convert JSON string to bytes
+-	configBytes := []byte(configJSON)
+-
+-	// Use core.StartInstance which can load configuration directly from bytes
+-	server, err := core.StartInstance("json", configBytes)
++	config, err := core.LoadConfig("json", bytes.NewReader([]byte(configJSON)))
+@@ -44,0 +44,8 @@ func StartXrayFromJSON(configJSON string) (*core.Instance, error) {
++	server, err := core.New(config)
++	if err != nil {
++		return server, err
++	}
++	// Retain the partially started instance so StopXray can release its resources.
++	if err := server.Start(); err != nil {
++		return server, err
++	}
+@@ -68,0 +76,3 @@ func RunXray(datDir string, mphCachePath string, configPath string) (err error)
++	if coreServer != nil {
++		return errors.New("Xray runtime is still owned")
++	}
+@@ -88,0 +99,3 @@ func RunXrayFromJSON(datDir string, mphCachePath string, configJSON string) (err
++	if coreServer != nil {
++		return errors.New("Xray runtime is still owned")
++	}
+@@ -106,0 +120,3 @@ func StopXray() error {
++	if nativeStopFailure != nil {
++		return nativeStopFailure
++	}
+@@ -108,3 +124,4 @@ func StopXray() error {
+-		err := coreServer.Close()
+-		coreServer = nil
+-		if err != nil {
++		if err := coreServer.Close(); err != nil {
++			// A feature may have consumed its close state before returning an error.
++			// Never turn that unknown cleanup into a false success on retry.
++			nativeStopFailure = err
+@@ -112,0 +130 @@ func StopXray() error {
++		coreServer = nil

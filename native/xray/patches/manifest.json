@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "libxray": "v26.3.27",
+  "libxrayCommit": "38ae3cd8914d5bc2a7f81122fc6206efe3c07ad6",
+  "xrayCore": "1.260327.0",
+  "xrayCoreModuleSum": "h1:g4TzxMwyPrxslZh6uD+FiG3lXKTrnNO+b4ky2OhogHE=",
+  "patches": {
+    "grpc-stdlib-trailer-prefix.patch": "3650c3927711a5d2b8e02531e9cad74334f3cb468dd19eb856a54d96b23d5d66",
+    "libxray-managed-runtime.patch": "884f9c2d154614f1c476c68280f5147610681162cf5c92dc851c8dc2550d60bf",
+    "xray-core-protect-errors.patch": "f05ca8aade87da818d8fcde1772b8e8da269902775a75675c692b50126678184"
+  },
+  "grpc": "1.79.3",
+  "grpcModuleSum": "h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE="
+}
