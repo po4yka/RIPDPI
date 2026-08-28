@@ -316,7 +316,12 @@ sealed interface ProxyProfile {
         val protocol: String = "tcp",
         val multiplexing: String = "middle",
         val mtu: Int = 1400,
-    ) : ProxyProfile
+    ) : ProxyProfile {
+        override fun toString(): String =
+            "Mieru(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +
+                "serverPort=$serverPort, username=<redacted>, password=<redacted>, " +
+                "protocol=$protocol, multiplexing=$multiplexing, mtu=$mtu)"
+    }
 
     /**
      * SSH outbound (direct-tcpip forwarding). Carries the endpoint, the

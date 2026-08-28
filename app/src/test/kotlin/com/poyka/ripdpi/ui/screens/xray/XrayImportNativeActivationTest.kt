@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -59,6 +60,37 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore as DurableXrayProvi
 class XrayImportNativeActivationTest {
     private val uuid = "550e8400-e29b-41d4-a716-446655440000"
     private val pbk = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
+
+    @Test
+    fun `Mieru import reaches the native relay with carrier settings and credentials`() =
+        runTest {
+            val groups = FakeProxyGroupRepository()
+            val profiles = FakeRelayProfileStore()
+            val credentials = FakeRelayCredentialStore()
+            val settings = FakeAppSettingsRepository()
+            val activator =
+                NativeRelayProfileActivator(groups, RelayProfileActivator(profiles, credentials, settings))
+            val profile =
+                ProxyProfile.Mieru(
+                    id = "mieru-import",
+                    displayName = "Mieru fixture",
+                    groupId = "import",
+                    server = "relay.example",
+                    serverPort = 443,
+                    username = "fixture-user",
+                    password = "fixture-password",
+                    multiplexing = "high",
+                    mtu = 1280,
+                )
+
+            assertTrue(activator.supports(profile))
+            activator.activate(profile)
+
+            assertEquals(RelayKindMieru, settings.snapshot().relayKind)
+            assertEquals("high", profiles.load(DefaultRelayProfileId)?.mieruMultiplexing)
+            assertEquals(1280, profiles.load(DefaultRelayProfileId)?.mieruMtu)
+            assertEquals(profile.password, credentials.load(DefaultRelayProfileId)?.mieruPassword)
+        }
 
     private fun firstProfile(input: String): ProxyProfile {
         val result = XrayConfigImportParser.parse(input, groupId = "xray-import")

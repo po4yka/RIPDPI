@@ -2,10 +2,30 @@ package com.poyka.ripdpi.data
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class ProxyGroupTest {
     private val json = Json { ignoreUnknownKeys = true }
+
+    @Test
+    fun `Mieru diagnostic string hides authentication material`() {
+        val profile =
+            ProxyProfile.Mieru(
+                id = "mieru-fixture",
+                displayName = "Fixture",
+                groupId = "fixture",
+                server = "relay.example",
+                serverPort = 443,
+                username = "fixture-mieru-user",
+                password = "fixture-mieru-password",
+            )
+
+        val diagnostic = profile.toString()
+
+        assertFalse(diagnostic.contains(profile.username))
+        assertFalse(diagnostic.contains(profile.password))
+    }
 
     @Test
     fun `proxy group round-trips without a subscription child`() {
