@@ -1,17 +1,17 @@
 ---
-task_id: OUT-1786264762917107
-change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
-commit_sha: 6e4bfccdd585d61107ab5f2d8bad158caf770d81
-local: passed
-local_evidence: Committed-tree tests and APK assembly with the Linux CI AAR passed in 2m10s; 61 engine-api, 311 engine, 1894 service tests; /private/tmp/ripdpi-xray-ci-aar-apk-gate-6e4bfccdd-20260828.log. Full staticAnalysis passed before the action-only bootstrap fix and on the corrected exact-SHA CI.
-remote_ci: blocked
-remote_ci_evidence: Corrected exact-SHA CI 33132895844 completed with failure; 37 jobs passed, including both Xray jobs, Android API27/33/35, all debug and release variants. Eight failed jobs stem from unchanged Rust hotspot/Clone guards, DNS assertions and an AddrInUse failure in an unchanged Rust fixture test, including aggregates. CodeQL, Secret Scan and fleet-fixtures passed separately. https://github.com/po4yka/RIPDPI/actions/runs/33132895844
-device: passed
-device_evidence: API34 arm64 isolated emulator; AndroidTestOrchestrator 1.6.1; XrayRuntimeInstrumentedTest 2/2 passed in 11.592s on clean committed 6e4bfccdd APK containing the Linux CI AAR; /private/tmp/ripdpi-xray-ci-aar-fresh-6e4bfccdd-api34-orchestrator-20260828.log
-artifact: passed
-artifact_evidence: Four-ABI Linux CI AAR SHA256 c088962b644268a497d6862f38c92d7f3dba8790481e3e25ce47a2ecac3c31fc; arm64 APK SHA256 243613cbc85be7e37c3f80dbd16be2ba8cbfab81c6119d55b9f57b784a38212e; signature, runtime DEX and six required native ELF payloads verified.
-deployment: not_applicable
-deployment_evidence: RIPDPI changes are not deployed by the task workflow.
+task_id: "OUT-1786264762917107"
+change: "out-1786264762917107-run-xray-as-managed-vpn-relay-runtime"
+commit_sha: "9b18e5122d3a9d99d1946ec2701f147aa67ad80d"
+local: "passed"
+local_evidence: "Observed telemetry regression RED then GREEN. Full real-AAR-linked service1918 + engine313 unit tests (2231 total), zero failures/errors/skips; full staticAnalysis passed and passed again after no-op rebase. Architecture23 existing/0new/0worsened, locked metadata114members and taskctl46/221 passed. Independent code and evidence review passed. Stable logs: /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/combined-unit-static.log and telemetry-{red,green}.xml."
+remote_ci: "passed"
+remote_ci_evidence: "https://github.com/po4yka/RIPDPI/actions/runs/33199013272 succeeded on 9b18e5122d3a9d99d1946ec2701f147aa67ad80d:44 successful jobs,17 intentional skips, no failures/cancellations. API27/33/35, linked Xray tests, Roborazzi, native ABIs and all debug/release variants passed; API35 real Xray TUN acceptance passed. All67 latest PR checks:50success+17skip; CodeQL and Secret Scan passed. PR455 protected rebase merge baeaf98cab8e1da646527d262fb0bc4184555269 has a byte-identical source tree to the tested commit."
+device: "passed"
+device_evidence: "Owned API35 ARM64 emulator: full24 lifecycle tests, no failures/errors/skips; telemetry regression exactly once. Subsequent real libXray26.3.27 TCP/REALITY and XHTTP TUN tests both passed in51.067s. Peer receipts HTTP0-to-2,DNS0-to-2 with owned.test.,direct0-to-4 before/after bad-identity sessions, no direct fallback while active. Explicit Diagnostics action asserted live typed snapshots and cached observations. Peer and owned emulator stopped. /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/lifecycle-results and xray-acceptance.json. Hosted API27/33/35 is a separate successful evidence boundary."
+artifact: "passed"
+artifact_evidence: "Fresh ARM64 debug app166492411bytes SHA256001fb599a7bdf4895ec821bf4ff6fb97a2851c763583d932705fd73e274d8cb2; test1908197bytes SHA256506873709a23f0b8e8196fe49057b59083775002485730db7693beaf9f749e91. Signatures and embedded BuildConfig9b18e5122 verified; six required native ELF payloads and16KiB alignment verified. Packaged gojni equals verified four-ABI CI AAR SHA256ca7b03fce7a6a447a40956435950aca4912427a6e2a2b02d545a8ac8609f8f1b. Copies: /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/verified-apks-9b18e5122; report: /Users/po4yka/GitRep/RIPDPI-xray-provider-evidence-20260828/apk-verification.json."
+deployment: "not_applicable"
+deployment_evidence: "No server deployment, physical-device installation, production changes, store publication or paid infrastructure is part of this change."
 ---
 
 # Verification
@@ -20,39 +20,18 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-OUT-1786264762917107-001 | OUT-1786264762919162 | native lifecycle/protection Go tests; linked bridge and XrayProtectFdContractTest; real Android denied-socket smoke | passed |
-| REQ-OUT-1786264762917107-002 | OUT-1786264762919691 | SOCKS5 handshake readiness; blocked/cancelled native start and service destruction regressions; real Android payload | passed |
-| REQ-OUT-1786264762917107-003 | OUT-1786264762919377 | failed/hung/late native stop and partial construction cleanup regressions; actual Android stop/rebind/restart | passed |
-| REQ-OUT-1786264762917107-004 | OUT-1786264762919314 | secret-free snapshot tests, stale-generation stop guard and STOPPING recovery tests | passed |
-| REQ-OUT-1786264762917107-005 | OUT-1786264762919536 | 61 engine-api + 311 engine + 1894 service tests; real Android VLESS loopback 2/2; verified AAR/APK | passed |
+| REQ-OUT-1786264762917107-001 | OUT-1786264762919162 | XrayProtectFdContractTest; VpnServiceXrayProtectControllerTest; managed Go protection tests; XrayRuntimeInstrumentedTest real protection-denial method in hosted Android lane. | passed |
+| REQ-OUT-1786264762917107-002 | OUT-1786264762919691 | RipDpiXrayRuntimeTest readiness/cancellation tests; XrayServiceLifecycleMatrixTest; real libXray listener and TUN handoff in XrayProviderE2ETest. | passed |
+| REQ-OUT-1786264762917107-003 | OUT-1786264762919377 | RipDpiXrayRuntimeTest blocked/failed stop and late completion; managed Go ownership tests. Hung cleanup is contract-tested, not device fault injection. | passed |
+| REQ-OUT-1786264762917107-004 | OUT-1786264762919314 | RipDpiXrayRuntimeTest telemetry/native-exit tests; XrayProviderSnapshotDeriverTest; XrayProviderFailureGenerationTest; real emulator version/listener snapshots. | passed |
+| REQ-OUT-1786264762917107-005 | OUT-1786264762919536 | LibXrayArtifactTest and verify-libxray-artifacts.sh in xray-native CI; XrayRuntimeInstrumentedTest plus both real XrayProviderE2ETest methods. | passed |
 
-## Acceptance environment
+## Evidence boundaries
 
-Use an isolated Android emulator and controlled loopback peer for real gomobile execution. Physical-device installation and VPS/deployment are outside scope. Fake/unit tests are separate evidence and do not satisfy device or artifact acceptance.
+The exact tested source is the commit in this record. PR455 integrated it through the normal protected rebase merge after successful checks, without bypass; the merge tree equals that tested tree. Closure records do not claim a rebuilt APK from their documentation-only commit.
 
-## Local artifact and execution boundary
+The local result combines the successful full24-case lifecycle run and a subsequent successful2-case real Xray run. Between them, the local runner stopped because Gradle had removed AndroidX Test Services; installing the exact cached test utilities resolved that harness precondition. The earlier failed harness report remains preserved and is not reported as a product failure or a single uninterrupted26-case run.
 
-The final emulator APK was rebuilt from clean, pushed commit `6e4bfccdd585d61107ab5f2d8bad158caf770d81` using its downloaded Linux CI AAR; its DEX contains that BuildConfig revision. Real Android execution passed 2/2 tests in 11.592s and the owned emulator stopped. A preceding APK using the locally built AAR also passed 2/2; it is historical evidence rather than the final artifact. Exact-SHA hosted CI is tracked separately below. APK byte/hash checks are not a release-signing or physical-device claim.
+Emulator and owned loopback-peer results are not physical-device, VPS, release-signing or store-publication proof. Restart means stop and fresh start, not live handover. DNS acceptance covers plain UDP; encrypted MapDNS and provider-hostname bootstrap retain contract coverage only. The Diagnostics action reads native-worker observations; it does not claim a fresh JNI or remote ping, and StatApi remains explicitly not applicable.
 
-- AAR: `/private/tmp/ripdpi-xray-ci-aar-6e4bfccdd-20260828/libxray.aar` (50,424,040 bytes), CI artifact `9671279439`; Go 1.27.0, pinned NDK29, all four ABIs. The downloaded artifact independently passes provenance/API/ELF checks, and its arm64 payload exactly matches the final APK.
-- Android: `/private/tmp/ripdpi-xray-ci-aar-fresh-android-smoke-run-6e4bfccdd-20260828.log`; owned `emulator-5580` stopped in the runner's finally block. Tests use real gomobile/VLESS and a local echo peer, but do not establish a physical-device, external TLS/REALITY server or full TUN route acceptance.
-- Kotlin: `/private/tmp/ripdpi-xray-combined-final-pass6-20260828.log`; tests and engine-api/service detekt pass. Final strengthened destruction test also passes in `/private/tmp/ripdpi-xray-apk-build-20260828.log`.
-- Packaging: missing real runtime is rejected on both initial and reused configuration cache (`ripdpi-xray-packaging-negative2/3-20260828.log`). A package-task dry run confirms the dependency edge; this is separate from the observed successful real APK assembly.
-- Native/CI: native protection, partial-construction/start and sticky-close RED/GREEN logs under `/private/tmp/ripdpi-xray-*`; Python packaging/CI contracts, actionlint, pinact, architecture health, locked Cargo metadata and strict task/OpenSpec validation pass.
-- A permanently hung native call requires process restart for recovery: callers return Pending, ownership and protection revocation remain intact, and no second native runtime is admitted. There is no unsafe thread termination.
-
-## Committed-tree artifacts
-
-- App: `/private/tmp/ripdpi-xray-managed-artifacts-20260828/ripdpi-xray-6e4bfccdd-ci-aar-fresh-arm64.apk`, 166,307,771 bytes, SHA256 `243613cbc85be7e37c3f80dbd16be2ba8cbfab81c6119d55b9f57b784a38212e`.
-- AndroidTest: `/private/tmp/ripdpi-xray-managed-artifacts-20260828/ripdpi-xray-6e4bfccdd-ci-aar-androidTest.apk`, 2,107,387 bytes, SHA256 `24ff107a619942b644fb07604eeab358ea162ebafe00be5b862b79ab2a6aa20f`.
-- Signature: `/private/tmp/ripdpi-xray-ci-fresh-apk-signature-20260828.log`; v2 verified. APK runtime DEX, embedded revision and all six required arm64 native ELF payloads were inspected; LOAD and ZIP data alignment are at least 16 KiB. Fresh packaging removed an incremental ZIP gap without changing any of the 1810 entry payloads; the final APK has no unallocated inter-entry gap.
-- Hosted CI: <https://github.com/po4yka/RIPDPI/actions/runs/33131473606>, exact source commit `ae4926a9ffb6533cfb20ac920ec5dc565ac19711`; static analysis, CodeQL, Secret Scan and fleet-fixtures passed. The new native producer rejected a mismatched gobind before compilation: upstream `gomobile init` installs `gobind@latest` over the previously pinned binary. This is a CI bootstrap regression, not successful native CI evidence. The corrected bootstrap required a new exact-SHA run; its results are recorded below. Architecture-health and Rust workspace guards also fail the unchanged listener hotspot budget (72 > 54); Rust lint repeats the existing `FlowAttributionToken` Clone guard failure.
-- Baseline CI <https://github.com/po4yka/RIPDPI/actions/runs/33125265188> on previous `9f5b4c233` failed before this implementation: listener hotspot budget 72 > 54; owner-name Clone guard for `FlowAttributionToken`; two DNS candidate planner assertions. These source paths are unchanged by the Xray commits. They are not waived or counted as successful checks.
-
-## CI bootstrap correction
-
-The action no longer invokes `gomobile init`: the pinned upstream command installs `gobind@latest`, while Android binding needs only the two explicitly pinned binaries. The artifact recipe, native source patches and strict toolchain guard are unchanged. An executable bootstrap regression fails before the correction and passes afterward; a real arm64 bind with a fresh GOPATH and no gomobile initialization also passes. This small binding test is toolchain evidence, not a replacement production AAR or runtime smoke. Logs: `/private/tmp/ripdpi-xray-bootstrap-regression-red-20260828.log`, `/private/tmp/ripdpi-xray-bootstrap-regression-green-20260828.log`, and `/private/tmp/ripdpi-xray-bootstrap-noinit-20260828.log`. Combined-tree validation passes 44 native/CI contracts, actionlint, pinact, architecture health and locked Cargo metadata.
-
-The corrected Linux run now passes native producer job `98728599320` (8 Go tests plus 12 subtests, 7 Python packaging tests, verified four-ABI AAR) and linked Kotlin job `98729501317`. Its remaining failures are not waived: the listener hotspot exceeds 54 at 72, the owner-name guard rejects `FlowAttributionToken`'s Clone derive, two `ConnectivityDnsTargetPlannerTest` assertions fail, and `repeated_tcp_resets_confirm_blocked_host_and_expose_telemetry` encounters `AddrInUse` while starting its second fixture. These Rust/DNS source paths are unchanged by this task; the port collision was observed in this run and is not claimed as a baseline failure. Overall CI remains blocked, so the task is not archived or closed.
-
-Final run `33132895844` completed on exact `6e4bfccdd`: 37 jobs passed and 8 failed, including aggregate gates. All three Android instrumented jobs (API27/33/35), all three debug distribution builds, and all three release-verification shards (Full and Simple) passed. The final job snapshot is `/private/tmp/ripdpi-xray-final-ci-33132895844-20260828.json`. These checks are build/emulator evidence, not a production release or physical-device deployment.
+Earlier revisionless saved provider records require reimport; no compatibility shim is added. Historical missing-toolchain and pending-CI annotations in migrated execution descriptions are superseded by this record. Earlier temporary artifact directories were removed by external cleanup; the current verified artifacts and logs are retained at the stable paths above.

@@ -2,7 +2,7 @@
 id: OUT-1786264762917422
 title: Bridge TUN traffic through Xray local inbound
 kind: feature
-status: doing
+status: review
 area: outbound
 priority: high
 owner: unassigned
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917422-bridge-tun-traffic-through-xray-local-inbound
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-08-28
+status_detail: Exact source 9b18e5122 passed local APK/emulator acceptance and hosted CI 33199013272; protected PR455 integration as baeaf98ca is verified.
 ---
 
 ## Summary

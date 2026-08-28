@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
 updated: 2026-08-28
-status_detail: Epic PR publication and ordinary protected merge are authorized. Local gates, ARM64 APK and API35 TCP/XHTTP TUN plus DNS acceptance passed; exact hosted CI and integration remain pending.
+status_detail: Exact source 9b18e5122 passed local APK/emulator acceptance and hosted CI 33199013272; protected PR455 integration as baeaf98ca is verified.
 ---
 
 ## Goal

@@ -2,7 +2,7 @@
 id: OUT-1786264762917107
 title: Run Xray as managed VPN relay runtime
 kind: feature
-status: blocked
+status: review
 area: outbound
 priority: high
 owner: codex
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
 created: 2026-04-24
 updated: 2026-08-28
-status_detail: Completed exact-SHA CI 33132895844 has 37 passing jobs and 8 failed jobs. Remaining blockers are unchanged Rust hotspot/Clone guards and DNS assertions, plus a port collision observed in an unchanged Rust fixture test. No closure or waiver.
+status_detail: Exact source 9b18e5122 passed local APK/emulator acceptance and hosted CI 33199013272; protected PR455 integration as baeaf98ca is verified.
 ---
 
 ## Summary
