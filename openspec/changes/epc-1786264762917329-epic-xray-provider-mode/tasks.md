@@ -10,6 +10,8 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
+Descriptions retain the migrated task history, including old environment blockers. The normative requirements are in `specs/epic-xray-provider-mode/spec.md`; current observations and remaining acceptance gates are in `verification.md`.
+
 - [ ] EPC-1786264762918691 RIPDPI can start Android VPN mode with Xray selected as the active provider. — OPEN: requires the real libXray bridge (RunXrayFromJSON) which needs the gomobile-built AAR + NDK29 native link + a device; none are present in the build enviro… #epic !high @item:EPC-1786264762917329
 - [x] EPC-1786264762918648 At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSON without leaking secrets. — XrayConfigRenderer + XrayConfigValidator + XrayProfileRedactor, golden- and redaction-tested green offline #epic !high @item:EPC-1786264762917329
 - [ ] EPC-1786264762918646 Xray sockets are protected from the VPN loop, including DNS and listener paths. — the protect-first ordering, DNS-loop avoidance, and protect-fd contract are test-proven offline against the runtime/bridge contract (XrayProtectFdContractTes… #epic !high @item:EPC-1786264762917329
