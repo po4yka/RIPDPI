@@ -4,8 +4,8 @@ change: "epc-1786264762917329-epic-xray-provider-mode"
 commit_sha: "0f6124c663b5bbcedb4514eb5ea631d12e958f58"
 local: "passed"
 local_evidence: "6227 unit tests, zero failures/errors/skips; full staticAnalysis; four authorized PNG goldens and renderer expectations; architecture 23 existing/0 new/0 worsened; native hotspot budgets and locked Cargo metadata passed. Go fixture full suite repeated three times after opcode RED-to-GREEN. Logs: /private/tmp/ripdpi-xray-rebased-{units,static,goldens}.log, /private/tmp/ripdpi-xray-dns-peer-tests.log; final Android ktlint/detekt/build: /private/tmp/ripdpi-xray-dns-android-build.log."
-remote_ci: "blocked"
-remote_ci_evidence: "Epic branch has not been published. Protected main requires an ordinary PR; epic PR/merge authorization and exact-SHA hosted CI remain pending. Earlier June-audit CI is not evidence for this epic."
+remote_ci: "required"
+remote_ci_evidence: "User authorized epic PR publication and ordinary protected merge after successful checks. Exact-SHA hosted CI remains pending; earlier June-audit CI is not evidence for this epic."
 device: "passed"
 device_evidence: "Owned emulator-5570, Android API35 ARM64; real VpnService, Keystore, libXray 26.3.27 and TUN, independent loopback peer. Exact two E2E methods passed with zero skips in 53.049s. Receipts: HTTP 2, DNS 2 (owned.test.), direct sentinels 4 before/after VPN, no direct fallback with bad identity. Log and JSON: /private/tmp/ripdpi-xray-provider-artifacts-0f6124c66/ripdpi-xray-dns-emulator{.log,-evidence.json}."
 artifact: "passed"
@@ -24,7 +24,7 @@ deployment_evidence: "No server, production, physical-device, or store publicati
 | REQ-EPC-1786264762917329-002 | EPC-1786264762918648 | Typed URI/JSON parser, validator, renderer and redactor unit suites; authorized renderer goldens; both real transports accepted by libXray. | passed |
 | REQ-EPC-1786264762917329-003 | EPC-1786264762918646 | Protect-first and DNS ownership contract tests; real TCP and UDP DNS through TUN/Xray, exact owned DNS answer and receipts. Encrypted MapDNS and upstream hostname bootstrap are not claimed as live-tested here. | passed |
 | REQ-EPC-1786264762917329-004 | EPC-1786264762918997 | Live typed snapshot assertions in E2E; Home/Diagnostics/Settings presentation and stale-probe unit coverage; manual import validation, rejection, save and process-restart restoration on emulator. | passed |
-| REQ-EPC-1786264762917329-005 | EPC-1786264762918562 | Full local module suites, static analysis, APK/ELF/signature checks and exact two real Android smoke tests. Hosted CI remains blocked separately. | passed |
+| REQ-EPC-1786264762917329-005 | EPC-1786264762918562 | Full local module suites, static analysis, APK/ELF/signature checks and exact two real Android smoke tests. Hosted CI remains pending separately. | passed |
 
 ## Evidence boundaries
 
