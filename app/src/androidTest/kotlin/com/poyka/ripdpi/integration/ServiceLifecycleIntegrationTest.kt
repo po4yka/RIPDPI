@@ -589,6 +589,8 @@ class ServiceLifecycleIntegrationTest {
             awaitFailure(Sender.VPN)
             awaitStatus(AppStatus.Halted, Mode.VPN)
             awaitVpnSessionClosed()
+            // TUN closes before the composed runtime finishes stopping its upstream proxy.
+            awaitProxyStopCount(1)
 
             assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
