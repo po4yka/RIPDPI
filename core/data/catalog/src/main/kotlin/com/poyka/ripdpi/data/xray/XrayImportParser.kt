@@ -12,8 +12,8 @@ import java.net.URLDecoder
  * 1. A `vless://` share link carrying a REALITY (`security=reality`) or XHTTP
  *    (`type=xhttp`) VLESS node. Parsed into a typed [XrayProfile] and then run
  *    through the same validate-and-test gate as the renderer.
- * 2. A raw xray-core config JSON string (the "paste a full config" path),
- *    validated through [XrayConfigValidator] before it can be saved/started.
+ * 2. A raw JSON representation of the supported client shape, projected into
+ *    the same typed profile. Supplied fields must survive rendering unchanged.
  *
  * ### Fail-closed contract
  * Anything outside the supported surface — an unknown scheme, a non-REALITY /
@@ -37,13 +37,13 @@ class XrayImportParser(
     /**
      * Outcome of an import attempt.
      *
-     * [Accepted] carries the validated typed [profile] (when the source was a
-     * share link) plus the rendered/validated [config] ready to persist.
+     * [Accepted] carries a validated typed profile for either input format plus
+     * the rendered/validated config ready to persist.
      * [Rejected] carries a typed [reason] and a redacted, user-safe [message].
      */
     sealed interface Result {
         data class Accepted(
-            val profile: XrayProfile?,
+            val profile: XrayProfile,
             val config: JsonObject,
             val capabilities: List<XrayCapability>,
         ) : Result
@@ -88,7 +88,7 @@ class XrayImportParser(
             }
 
             looksLikeJson(trimmed) -> {
-                parseRawJson(trimmed, upstreamTag)
+                parseRawJson(trimmed, upstreamTag, profileName)
             }
 
             else -> {
@@ -112,6 +112,12 @@ class XrayImportParser(
                     Reason.MISSING_REQUIRED_FIELD,
                     "Profile link is incomplete or malformed.",
                 )
+
+        val insecure = parsed.params["allowInsecure"] !in setOf(null, "0", "false")
+        val unknownEncryption = parsed.params["encryption"] !in setOf(null, "none")
+        if (parsed.params.keys.any { it !in supportedParametersFor(parsed.params) } || insecure || unknownEncryption) {
+            return Result.Rejected(Reason.FAILED_SAFETY_CHECK, "Profile contains unsupported or unsafe options.")
+        }
 
         val type = parsed.params["type"]?.lowercase() ?: "tcp"
         val networkEnum =
@@ -146,7 +152,9 @@ class XrayImportParser(
                         serverAddress = parsed.host,
                         serverPort = parsed.port,
                         uuid = parsed.uuid,
-                        flow = parsed.params["flow"].orEmpty().ifBlank { "xtls-rprx-vision" },
+                        flow =
+                            parsed.params["flow"]
+                                ?: if (networkEnum == XrayProfile.Network.XHTTP) "" else "xtls-rprx-vision",
                         security = stream.security,
                         network = networkEnum,
                         reality = stream.reality,
@@ -237,7 +245,7 @@ class XrayImportParser(
         XrayProfile.Xhttp(
             path =
                 if ("path" in parsed.params) {
-                    safeDecode(parsed.params.getValue("path"))
+                    parsed.params.getValue("path")
                 } else {
                     "/"
                 },
@@ -271,6 +279,7 @@ class XrayImportParser(
     private fun parseRawJson(
         raw: String,
         upstreamTag: String,
+        profileName: String,
     ): Result {
         val config =
             runCatching { json.decodeFromString(JsonObject.serializer(), raw) }
@@ -282,11 +291,26 @@ class XrayImportParser(
 
         return when (val validated = renderer.validateImported(config, upstreamTag)) {
             is XrayConfigRenderer.Result.Success -> {
-                Result.Accepted(
-                    profile = null,
-                    config = validated.config,
-                    capabilities = emptyList(),
-                )
+                val profile =
+                    XrayJsonProfileReader.read(config, profileName)
+                        ?: return unsupportedJson()
+                when (val result = gate(profile, upstreamTag)) {
+                    is Result.Accepted -> {
+                        if (XrayJsonProfileReader.preservesInput(
+                                config,
+                                result.config,
+                            )
+                        ) {
+                            result
+                        } else {
+                            unsupportedJson()
+                        }
+                    }
+
+                    is Result.Rejected -> {
+                        result
+                    }
+                }
             }
 
             is XrayConfigRenderer.Result.Rejected -> {
@@ -297,6 +321,12 @@ class XrayImportParser(
             }
         }
     }
+
+    private fun unsupportedJson() =
+        Result.Rejected(
+            Reason.FAILED_SAFETY_CHECK,
+            "Config contains unsupported or incomplete provider settings.",
+        )
 
     /**
      * Builds a user-safe, redacted message from a renderer rejection. Validator
@@ -318,8 +348,16 @@ class XrayImportParser(
     /** Jargon-free, secret-free description of a validation error code. */
     private fun describe(code: XrayConfigValidator.ErrorCode): String =
         when (code) {
+            XrayConfigValidator.ErrorCode.PROFILE_INVALID -> {
+                "Profile contains invalid connection settings."
+            }
+
             XrayConfigValidator.ErrorCode.VLESS_FLOW_MISSING -> {
                 "Profile is missing a required connection setting."
+            }
+
+            XrayConfigValidator.ErrorCode.VLESS_FLOW_UNSUPPORTED -> {
+                "Profile flow is incompatible with its transport."
             }
 
             XrayConfigValidator.ErrorCode.ALLOW_INSECURE_DISABLED -> {
@@ -360,30 +398,48 @@ class XrayImportParser(
         val port = hostPort.substring(colonIndex + 1).toIntOrNull() ?: return null
         if (host.isBlank() || port !in 1..PORT_MAX) return null
 
-        return VlessUri(uuid = uuid, host = host, port = port, params = parseQuery(query))
+        val params = parseQuery(query) ?: return null
+        return VlessUri(uuid = uuid, host = host, port = port, params = params)
     }
 
-    private fun parseQuery(query: String): Map<String, String> {
-        if (query.isBlank()) return emptyMap()
-        return query
-            .split('&')
-            .mapNotNull { pair ->
-                val eq = pair.indexOf('=')
-                if (eq <= 0) {
-                    null
-                } else {
-                    val key = pair.substring(0, eq)
-                    val value = safeDecode(pair.substring(eq + 1))
-                    key to value
-                }
-            }.toMap()
-    }
-
-    private fun safeDecode(value: String): String =
-        runCatching { URLDecoder.decode(value, "UTF-8") }.getOrDefault(value)
+    private fun parseQuery(query: String): Map<String, String>? =
+        runCatching {
+            if (query.isBlank()) {
+                emptyMap()
+            } else {
+                val entries =
+                    query.split('&').map { pair ->
+                        val eq = pair.indexOf('=')
+                        require(eq > 0)
+                        val key = URLDecoder.decode(pair.substring(0, eq), "UTF-8")
+                        val value = URLDecoder.decode(pair.substring(eq + 1), "UTF-8")
+                        key to value
+                    }
+                require(entries.map { it.first }.distinct().size == entries.size)
+                entries.toMap()
+            }
+        }.getOrNull()
 
     companion object {
         private const val VLESS_SCHEME = "vless://"
         private const val PORT_MAX = 65_535
+
+        private fun supportedParametersFor(params: Map<String, String>): Set<String> {
+            val xhttp = params["type"]?.lowercase() == "xhttp"
+            val reality = params["security"]?.lowercase() == "reality"
+            return supportedParameters +
+                (if (xhttp) setOf("path", "mode", "host") else emptySet()) +
+                (if (reality) setOf("pbk", "sid") else setOf("allowInsecure"))
+        }
+
+        private val supportedParameters =
+            setOf(
+                "type",
+                "security",
+                "sni",
+                "fp",
+                "flow",
+                "encryption",
+            )
     }
 }

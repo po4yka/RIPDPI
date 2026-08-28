@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.rollbackStoreMutation
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 
 internal class TestProfileMutationCoordinator(
@@ -29,6 +30,8 @@ internal class TestProfileMutationCoordinator(
     private val stagedPreimages = mutableMapOf<String, WarpPreimage>()
 
     override suspend fun recover() = Unit
+
+    override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
 
     override suspend fun runReset(block: suspend () -> Unit) = block()
 
@@ -101,6 +104,8 @@ internal class TestProfileMutationCoordinator(
         enabled: Boolean,
         select: Boolean,
         settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: XrayProviderSelectionRecord?,
     ) = unsupported()
 
     override suspend fun replacePrivateBackup(

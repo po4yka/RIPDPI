@@ -26,8 +26,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 /**
  * Bundled, immutable view state for the Diagnostics Xray provider card. Carries
  * the live snapshot, the latest user-triggered probe report (when run), and the
- * probe-running flag. When [probeReport] is present it supersedes [snapshot] for
- * display; otherwise the card renders the passive snapshot with no probes.
+ * probe-running flag. The live snapshot is authoritative; a report from an
+ * earlier health state must not mask a current failure or stopped provider.
  */
 data class XrayProviderToolUiModel(
     val snapshot: XrayProviderSnapshot? = null,
@@ -36,11 +36,15 @@ data class XrayProviderToolUiModel(
 ) {
     /** True when there is an active provider to render (live snapshot present). */
     val isVisible: Boolean
-        get() = snapshot != null || probeReport != null
+        get() = snapshot != null
 
     /** Report to render: the probe report if run, else a passive snapshot-only report. */
     val report: XrayProviderProbeReport?
-        get() = probeReport ?: snapshot?.let { XrayProviderProbeReport(snapshot = it) }
+        get() =
+            snapshot?.let { current ->
+                val matching = probeReport?.takeIf { it.snapshot.copy(capturedAt = 0) == current.copy(capturedAt = 0) }
+                matching?.copy(snapshot = current) ?: XrayProviderProbeReport(snapshot = current)
+            }
 }
 
 /**

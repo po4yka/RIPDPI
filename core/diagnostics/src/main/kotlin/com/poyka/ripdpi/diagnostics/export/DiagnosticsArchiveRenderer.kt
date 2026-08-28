@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
 import com.poyka.ripdpi.diagnostics.FileLogWriter
@@ -19,6 +20,7 @@ class DiagnosticsArchiveRenderer
         private val replayArchiveEntryBuilder: ReplayArchiveEntryBuilder,
         @param:Named("diagnosticsJson")
         private val json: Json,
+        private val serviceStateStore: ServiceStateStore,
     ) {
         private val jsonEntryBuilder = DiagnosticsArchiveJsonEntryBuilder(redactor, projector, json)
         private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json, redactor)
@@ -57,8 +59,17 @@ class DiagnosticsArchiveRenderer
                     compositeEntries = compositeEntries,
                     developerAnalytics = developerAnalytics,
                 )
-            val privacyEntries =
+            val providerContext = serviceStateStore.currentXrayExportContext()
+            val contextualEntries =
                 baseEntries.map { entry ->
+                    if (entry.name == "summary.txt" && providerContext != null) {
+                        entry.copy(bytes = "${entry.bytes.decodeToString()}\n\n$providerContext".toByteArray())
+                    } else {
+                        entry
+                    }
+                }
+            val privacyEntries =
+                contextualEntries.map { entry ->
                     if (entry.name == "logcat.txt") entry else correlationRedactor.redact(entry)
                 }
             return privacyEntries +

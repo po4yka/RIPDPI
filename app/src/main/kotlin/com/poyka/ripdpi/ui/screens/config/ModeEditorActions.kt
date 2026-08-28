@@ -74,6 +74,7 @@ internal data class ModeEditorActions(
     val onRelayFinalmaskFragmentMaxBytesChanged: (String) -> Unit,
     val onRelayUdpEnabledChanged: (Boolean) -> Unit,
     val onRelayLocalSocksPortChanged: (String) -> Unit,
+    val onOpenXrayImport: () -> Unit,
     val onSave: () -> Unit,
 )
 
@@ -150,5 +151,6 @@ internal val NoOpModeEditorActions =
         onRelayFinalmaskFragmentMaxBytesChanged = {},
         onRelayUdpEnabledChanged = {},
         onRelayLocalSocksPortChanged = {},
+        onOpenXrayImport = {},
         onSave = {},
     )

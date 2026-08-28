@@ -80,7 +80,7 @@ class VpnTunnelRefreshCoordinatorTest {
                                 updates += session.runtimeId
                             }
 
-                            override fun failTunnelRefresh(
+                            override suspend fun failTunnelRefresh(
                                 session: VpnRuntimeSession,
                                 error: Exception,
                             ) {
@@ -241,7 +241,7 @@ class VpnTunnelRefreshCoordinatorTest {
                         updates += session.runtimeId
                     }
 
-                    override fun failTunnelRefresh(
+                    override suspend fun failTunnelRefresh(
                         session: VpnRuntimeSession,
                         error: Exception,
                     ) = throw AssertionError("Unexpected refresh failure", error)

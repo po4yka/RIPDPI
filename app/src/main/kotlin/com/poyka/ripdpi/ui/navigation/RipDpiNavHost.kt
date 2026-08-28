@@ -411,6 +411,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
             onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
+            onOpenXrayImport = { navController.navigate(Route.XrayImport) { launchSingleTop = true } },
         )
     }
     addHomeRoute(navController, mainViewModel, onDiagnosticsInitialSectionChanged)
@@ -596,6 +597,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ModeEditorRoute(
                 onBack = { navController.popBackStack() },
+                onOpenXrayImport = { navController.navigate(Route.XrayImport) { launchSingleTop = true } },
                 viewModel = configViewModel,
             )
         }
@@ -891,6 +893,7 @@ private val configSubRouteStableKeys =
     setOf(
         Route.LocalBypassConfig.stableRoute,
         Route.VpnConfig.stableRoute,
+        Route.XrayImport.stableRoute,
     )
 
 private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =

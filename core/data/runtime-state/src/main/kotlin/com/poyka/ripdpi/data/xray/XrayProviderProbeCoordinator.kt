@@ -28,7 +28,7 @@ import javax.inject.Singleton
 interface XrayProviderProbeCoordinator {
     /**
      * Run the provider-path probes against the active Xray session. Returns null
-     * when no Xray session is currently bound (nothing to probe).
+     * when no Xray session is bound or its registration changes during the probe.
      */
     fun runProbes(): XrayProviderProbeReport?
 
@@ -43,20 +43,27 @@ interface XrayProviderProbeCoordinator {
 class DefaultXrayProviderProbeCoordinator
     @Inject
     constructor() : XrayProviderProbeCoordinator {
-        // AtomicReference: register/clear happen on the service session thread while
-        // runProbes is issued from the UI/viewModel thread. No lock needed for a
-        // single-slot publish/clear.
-        private val runner = AtomicReference<(() -> XrayProviderProbeReport)?>(null)
+        // Each binding has a distinct identity, even when the same callback is
+        // registered again. A stopped or replaced session cannot publish a stale probe.
+        private val registration = AtomicReference<Registration?>(null)
 
-        override fun runProbes(): XrayProviderProbeReport? = runner.get()?.invoke()
+        override fun runProbes(): XrayProviderProbeReport? {
+            val active = registration.get() ?: return null
+            val report = active.runner()
+            return report.takeIf { registration.get() === active }
+        }
 
         override fun register(runner: () -> XrayProviderProbeReport) {
-            this.runner.set(runner)
+            registration.set(Registration(runner))
         }
 
         override fun clear() {
-            runner.set(null)
+            registration.set(null)
         }
+
+        private class Registration(
+            val runner: () -> XrayProviderProbeReport,
+        )
     }
 
 @Module

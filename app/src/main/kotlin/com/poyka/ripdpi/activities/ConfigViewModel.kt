@@ -48,6 +48,7 @@ class ConfigViewModel
         private val capabilityObserver = dependencies.capabilityObserver
         private val dispatchers = dependencies.dispatchers
         private val editorDraftStore = dependencies.editorDraftStore
+        private val xrayNativeProviderSelection = dependencies.xrayNativeProviderSelection
         private val masqueClientCredentialImporter = importDependencies.masqueClientCredentialImporter
         private val masquePrivacyPassAvailability = importDependencies.masquePrivacyPassAvailability
         private val log = Logger.withTag(LogTags.UI)
@@ -241,8 +242,10 @@ class ConfigViewModel
             }
 
             viewModelScope.launch {
-                appSettingsRepository.update {
-                    setRipdpiMode(mode.preferenceValue)
+                if (mode == Mode.Proxy) {
+                    xrayNativeProviderSelection.selectNativeMode(mode)
+                } else {
+                    appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
                 }
             }
         }
@@ -550,6 +553,9 @@ class ConfigViewModel
                             ConfigSaveOutcome.Stale
                         } else {
                             relayArtifacts.persist(persistedDraft)
+                            if (persistedDraft.mode == Mode.Proxy) {
+                                xrayNativeProviderSelection.selectNativeMode(persistedDraft.mode)
+                            }
                             currentCoroutineContext().ensureActive()
                             if (editorSession.value.sessionId != request.sessionId) {
                                 ConfigSaveOutcome.Stale

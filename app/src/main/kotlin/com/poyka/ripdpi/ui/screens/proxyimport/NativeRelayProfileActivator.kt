@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.validateNativeRelayProfile
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import java.util.UUID
 import javax.inject.Inject
@@ -50,7 +51,11 @@ class NativeRelayProfileActivator
          * is a relay-activatable kind, activates it as the live native relay. Suspends
          * until the group, stores, and settings have been written.
          */
-        suspend fun activate(profile: ProxyProfile) {
+        suspend fun activate(
+            profile: ProxyProfile,
+            modeAfterImage: String? = null,
+            xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
+        ) {
             validateNativeRelayProfile(profile)
             val groupId = UUID.randomUUID().toString()
             repository.add(
@@ -63,6 +68,10 @@ class NativeRelayProfileActivator
                     subscription = null,
                 ),
             )
-            relayProfileActivator.activate(profile)
+            relayProfileActivator.activate(
+                profile = profile,
+                modeAfterImage = modeAfterImage,
+                xraySelectionAfterImage = xraySelectionAfterImage,
+            )
         }
     }

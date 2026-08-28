@@ -97,6 +97,7 @@ class ConfigViewModelSnapshotTest {
                         ),
                     dispatchers = testDispatchers(),
                     editorDraftStore = InMemoryConfigEditorDraftStore(),
+                    xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(appSettingsRepository),
                 ),
             importDependencies =
                 ConfigImportDependencies(

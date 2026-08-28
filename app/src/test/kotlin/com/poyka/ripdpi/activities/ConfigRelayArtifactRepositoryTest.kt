@@ -287,9 +287,13 @@ private class RecordingRelayMutationCoordinator(
         enabled: Boolean,
         select: Boolean,
         settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
     ) {
         profiles.save(profile)
         this.credentials.save(credentials)
+        check(modeAfterImage == null)
+        check(xraySelectionAfterImage == null)
         settings.replace(requireNotNull(settingsAfterImage))
     }
 }

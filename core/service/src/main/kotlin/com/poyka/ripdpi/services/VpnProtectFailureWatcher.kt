@@ -31,8 +31,18 @@ internal class VpnProtectFailureWatcher(
         if (state.status() != ServiceStatus.Connected || state.stopping()) {
             return
         }
+        val boundary =
+            VpnTelemetryFailureBoundary(
+                session = state.runtimeSession(),
+                xrayGeneration = event.providerGeneration ?: dependencies.xrayController?.currentGenerationIfActive(),
+            )
         Logger.e { "VPN protect failed for fd=${event.fd}: ${event.detail}" }
-        callbacks.updateStatus(ServiceStatus.Failed, event.reason)
-        callbacks.stopService()
+        val guard =
+            boundary.providerStopGuard(
+                controller = dependencies.xrayController,
+                failureReason = event.reason,
+                currentSession = state::runtimeSession,
+            )
+        callbacks.failAndStopService(event.reason, guard)
     }
 }

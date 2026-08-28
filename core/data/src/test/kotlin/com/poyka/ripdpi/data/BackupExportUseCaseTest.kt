@@ -98,8 +98,11 @@ class BackupExportUseCaseTest {
                                 secrets = AwgSecrets(privateKey = "private", presharedKey = "psk"),
                             ),
                         ),
-                    xrayMetadata = listOf(XrayProfileMetadataRecord(profileId = "xray-1")),
-                    xraySecrets = listOf(XrayProfileSecretRecord(profileId = "xray-1", uuid = "uuid")),
+                    xrayMetadata = listOf(XrayProfileMetadataRecord(profileId = "xray-1", revision = "fixture")),
+                    xraySecrets =
+                        listOf(
+                            XrayProfileSecretRecord(profileId = "xray-1", revision = "fixture", uuid = "uuid"),
+                        ),
                 )
             var snapshots = 0
             val store =

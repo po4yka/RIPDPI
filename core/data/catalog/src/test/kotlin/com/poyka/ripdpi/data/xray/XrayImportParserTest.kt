@@ -3,7 +3,6 @@ package com.poyka.ripdpi.data.xray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -23,11 +22,11 @@ import org.junit.Test
 class XrayImportParserTest {
     private val parser = XrayImportParser()
 
-    /** Pre-26.1.18 tag so REALITY+XHTTP is not version-gated in these tests. */
+    /** Fixed upstream version for the supported REALITY+XHTTP configuration. */
     private val stableTag = "v1.260206.0"
 
     private val uuid = "550e8400-e29b-41d4-a716-446655440000"
-    private val pbk = "AbCdEf0123456789AbCdEf0123456789AbCdEf01234"
+    private val pbk = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
 
     private fun accepted(result: XrayImportParser.Result): XrayImportParser.Result.Accepted {
         assertTrue("expected Accepted but was $result", result is XrayImportParser.Result.Accepted)
@@ -37,6 +36,52 @@ class XrayImportParserTest {
     private fun rejected(result: XrayImportParser.Result): XrayImportParser.Result.Rejected {
         assertTrue("expected Rejected but was $result", result is XrayImportParser.Result.Rejected)
         return result as XrayImportParser.Result.Rejected
+    }
+
+    @Test
+    fun `raw JSON rejects invalid endpoint identity and REALITY values`() {
+        val key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        val link = "vless://$uuid@edge.example.com:443?security=reality&pbk=$key&sni=fixture.test&sid=ab12"
+        val valid = accepted(parser.parse(link, stableTag)).config.toString()
+        val invalid =
+            listOf(
+                valid.replace("\"address\":\"edge.example.com\"", "\"address\":\"\""),
+                valid.replace("\"port\":443", "\"port\":0"),
+                valid.replace("\"port\":443", "\"port\":65536"),
+                valid.replace(uuid, ""),
+                valid.replace(uuid, "x".repeat(31)),
+                valid.replace(key, ""),
+                valid.replace(key, "invalid-key"),
+                valid.replace("ab12", "xyz"),
+            )
+        val acceptedIndices =
+            invalid.indices.filter {
+                parser.parse(invalid[it], stableTag) is XrayImportParser.Result.Accepted
+            }
+        assertEquals("Invalid field variants must be rejected", emptyList<Int>(), acceptedIndices)
+    }
+
+    @Test
+    fun `URI parameters incompatible with selected transport or security are rejected`() {
+        val tcp = "vless://$uuid@edge.example.com:443?security=tls&sni=fixture.test"
+        val reality = "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=fixture.test"
+        val links =
+            listOf(
+                tcp + "&path=%2Fignored",
+                tcp + "&host=ignored.test",
+                tcp + "&mode=stream-one",
+                tcp + "&pbk=$pbk",
+                tcp + "&sid=ab12",
+                reality + "&allowInsecure=false",
+            )
+        val acceptedIndices =
+            links.indices.filter {
+                parser.parse(
+                    links[it],
+                    stableTag,
+                ) is XrayImportParser.Result.Accepted
+            }
+        assertEquals("Supplied options must not disappear", emptyList<Int>(), acceptedIndices)
     }
 
     @Test
@@ -70,6 +115,45 @@ class XrayImportParserTest {
     }
 
     @Test
+    fun `fixed upstream supports REALITY XHTTP in both release and module tag formats`() {
+        val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=reality&pbk=$pbk&sni=decoy.example.com"
+        for (tag in listOf("v26.3.27", "1.260327.0", "v26.2.6", "v1.260206.0")) {
+            assertEquals("", accepted(parser.parse(link, tag)).profile!!.outbound.flow)
+        }
+    }
+
+    @Test
+    fun `XHTTP retains empty flow instead of injecting incompatible Vision`() {
+        val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=tls&sni=cdn.example.com&flow="
+        assertEquals("", accepted(parser.parse(link, stableTag)).profile!!.outbound.flow)
+    }
+
+    @Test
+    fun `encoded XHTTP path is decoded exactly once`() {
+        val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=tls&sni=cdn.example.com&path=%2F%252F"
+        assertEquals(
+            "/%2F",
+            accepted(parser.parse(link, stableTag))
+                .profile!!
+                .outbound.xhttp!!
+                .path,
+        )
+    }
+
+    @Test
+    fun `ambiguous or malformed URI query cannot silently discard options`() {
+        val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=tls&sni=cdn.example.com"
+        for (suffix in listOf(
+            "&allowInsecure=true&allowInsecure=false",
+            "&allowInsecure",
+            "&path=%GG",
+            "&sni=other.example",
+        )) {
+            rejected(parser.parse(link + suffix, stableTag))
+        }
+    }
+
+    @Test
     fun explicitEmptyXhttpPathRemainsEmpty() {
         val link =
             "vless://$uuid@edge.example.com:8443" +
@@ -82,27 +166,21 @@ class XrayImportParserTest {
     }
 
     @Test
-    fun rawJsonConfigImportsThroughValidateGate() {
-        // Minimal valid xray config: a single direct outbound with a flow'd vless user.
-        val rawConfig =
-            """
-            {
-              "outbounds": [
-                {
-                  "protocol": "vless",
-                  "settings": {
-                    "vnext": [
-                      { "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] }
-                    ]
-                  },
-                  "streamSettings": { "network": "tcp", "security": "reality" }
-                }
-              ]
-            }
-            """.trimIndent()
-        val result = accepted(parser.parse(rawConfig, stableTag))
-        assertNull("raw-json import has no typed profile", result.profile)
-        assertNotNull(result.config)
+    fun `raw JSON imports a durable typed profile without changing its config`() {
+        val link = "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=decoy.example.com"
+        val original = accepted(parser.parse(link, stableTag, "Saved profile"))
+
+        val imported = accepted(parser.parse(original.config.toString(), stableTag, "Saved profile"))
+
+        assertEquals(original.profile, imported.profile)
+        assertEquals(original.config, imported.config)
+        assertEquals(original.capabilities, imported.capabilities)
+    }
+
+    @Test
+    fun `unsafe URI options are rejected instead of silently rewritten`() {
+        val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=tls&sni=cdn.example.com&allowInsecure=1"
+        assertEquals(XrayImportParser.Reason.FAILED_SAFETY_CHECK, rejected(parser.parse(link, stableTag)).reason)
     }
 
     @Test

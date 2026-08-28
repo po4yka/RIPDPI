@@ -47,7 +47,7 @@ internal class NetworkHandoverProcessor<TSession>(
     private val recordPendingClassification: (String) -> Unit,
     private val updateHandoverState: (String?) -> Unit,
     private val performRestart: suspend (TSession, NetworkHandoverEvent, Long, () -> Boolean) -> String?,
-    private val onExhaustedFailure: suspend (Exception) -> Unit,
+    private val onExhaustedFailure: suspend (HandoverExhaustedFailure) -> Unit,
     private val handoverCooldownMillis: Long,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
     private val generation = AtomicLong()
@@ -142,7 +142,7 @@ internal class NetworkHandoverProcessor<TSession>(
             commands.send(ProcessorCommand.AttemptCompleted(command, result))
         }
 
-    private fun CoroutineScope.handleCompletion(result: HandoverAttemptResult): Job? =
+    private suspend fun CoroutineScope.handleCompletion(result: HandoverAttemptResult): Job? =
         when (result) {
             HandoverAttemptResult.Done -> {
                 null
@@ -153,7 +153,7 @@ internal class NetworkHandoverProcessor<TSession>(
             }
 
             is HandoverAttemptResult.Exhausted -> {
-                launch { onExhaustedFailure(result.error) }
+                onExhaustedFailure(result.failure)
                 null
             }
         }
@@ -267,8 +267,14 @@ internal class NetworkHandoverProcessor<TSession>(
             Logger.e(failure) {
                 "Failed to restart ${serviceLabel()} after handover (exhausted retries)"
             }
-            updateHandoverState(NetworkHandoverStates.Failed)
-            HandoverAttemptResult.Exhausted(failure)
+            HandoverAttemptResult.Exhausted(
+                HandoverExhaustedFailure(
+                    error = failure,
+                    attemptGeneration = context.command.generation,
+                    runtimeId = context.session.runtimeId,
+                    isCurrentAttempt = { isCurrent(context.command) },
+                ),
+            )
         }
     }
 
@@ -290,6 +296,13 @@ internal class NetworkHandoverProcessor<TSession>(
 
     private fun isCurrent(command: HandoverAttemptCommand): Boolean = generation.get() == command.generation
 }
+
+internal data class HandoverExhaustedFailure(
+    val error: Exception,
+    val attemptGeneration: Long,
+    val runtimeId: String,
+    val isCurrentAttempt: () -> Boolean,
+)
 
 private sealed interface ProcessorCommand {
     data class Event(
@@ -333,7 +346,7 @@ private sealed interface HandoverAttemptResult {
     ) : HandoverAttemptResult
 
     data class Exhausted(
-        val error: Exception,
+        val failure: HandoverExhaustedFailure,
     ) : HandoverAttemptResult
 
     data object Done : HandoverAttemptResult

@@ -201,6 +201,7 @@ val forwardedInstrumentationArguments =
         "coverage",
         "ripdpi.fixtureControlHost",
         "ripdpi.fixtureControlPort",
+        "ripdpi.xrayFixturePort",
         "ripdpi.packetSmokeDeviceProfile",
         "ripdpi.runNetworkTests",
     )

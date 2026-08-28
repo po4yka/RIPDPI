@@ -2,17 +2,17 @@
 id: EPC-1786264762917329
 title: Epic - Xray provider mode
 kind: epic
-status: blocked
+status: review
 area: epic
 priority: high
-owner: unassigned
+owner: codex
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
-updated: 2026-07-26
-status_detail: externally-gated — real gomobile libXray execution, native link, and device egress proof remain unavailable
+updated: 2026-08-28
+status_detail: Provider implementation is under review; final rebased-tree gates, refreshed APK acceptance, and exact hosted CI remain pending.
 ---
 
 ## Goal
@@ -35,6 +35,17 @@ Direct-mode now has enough product framing to be honest when it cannot solve a n
 
 - **In scope:** libXray packaging, provider architecture, Xray JSON profile rendering/validation, managed Xray runtime lifecycle, Android socket protection, VPN tunnel routing through Xray, profile UX, telemetry, diagnostics, and regression coverage.
 - **Out of scope:** non-Xray provider SDKs, server provisioning automation, paid subscription/payment flows, and replacing the existing direct-mode native engine.
+
+## Active ownership (2026-08-28)
+
+- Coordinator: `codex/xray-provider-epic-20260828`, based on `8704bc2800aa5d42a317db852ca402ad409c7931`. Owns typed import and durable storage in `core/data`, diagnostic export, Android instrumented acceptance, task/spec records, and combined-tree integration.
+- Product writer: isolated `codex/xray-provider-ui-20260828` worktree. Owns app onboarding, mode-editor and navigation entry points, Xray import UI/ViewModel and their unit tests; sole writer for all locale resources and their generated inventory. Does not own diagnostics probe controller/status models or Android instrumented tests.
+- Product writer also owns the provider/mode activation extension to `ProfileMutationRecoveryCoordinator`, its encrypted journal intent/decoder, and their tests. Changes to service callsites are coordinated with the lifecycle writer. `XrayProviderStores` and its tests are transferred to the product writer for a shared revision-bound record projection, preserving the coordinator's existing storage changes; catalog contracts remain coordinator-owned.
+- Lifecycle writer: isolated `codex/xray-provider-lifecycle-20260828` worktree. Owns `core/engine-api` Xray orchestration and `core/service` Xray session/composition/telemetry plus their tests. Shared data models, schemas, registries, native build files and contracts require coordinator agreement before edits.
+- After the lifecycle handoff, the coordinator owns the session controller, route builder, session DI module and their tests for reading the selected provider and profile atomically through the mutation journal. The product writer retains journal and UI ownership.
+- Review agents are read-only. Every heavy local build uses the machine-wide `build-gate`; writers do not merge or push independently.
+
+Current source inspection supersedes the historical claim that only toolchain blockers remain: ordinary navigation/onboarding, durable selection restoration, typed JSON import, failed-replacement TUN retention and live diagnostic/export correctness require implementation. Existing real libXray loopback tests do not prove Android VPN/TUN egress. Acceptance remains open until the real path and exact hosted CI are observed.
 
 ## Ship definition
 

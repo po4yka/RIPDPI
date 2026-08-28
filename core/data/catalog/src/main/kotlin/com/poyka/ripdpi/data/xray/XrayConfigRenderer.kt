@@ -65,21 +65,42 @@ class XrayConfigRenderer(
         profile: XrayProfile,
         upstreamTag: String,
     ): Result {
+        XrayProfileValidation.error(profile)?.let { return rejectProfile(it) }
         val config = build(profile)
         val errors = XrayConfigValidator.validate(config, XrayConfigValidator.Context(upstreamTag))
-        if (errors.isNotEmpty()) {
-            return Result.Rejected(validationErrors = errors)
-        }
-        return when (val test = tester.test(config)) {
-            is XrayConfigTester.TestResult.Ok -> {
-                Result.Success(config)
+        return when {
+            profile.inbound.listen != "127.0.0.1" || profile.inbound.port !in 1..MaxPort -> {
+                rejectProfile("Provider requires a loopback SOCKS listener with a valid port.")
             }
 
-            is XrayConfigTester.TestResult.Invalid -> {
-                Result.Rejected(validationErrors = emptyList(), testError = test.message)
+            errors.isNotEmpty() -> {
+                Result.Rejected(validationErrors = errors)
+            }
+
+            else -> {
+                when (val test = tester.test(config)) {
+                    is XrayConfigTester.TestResult.Ok -> {
+                        Result.Success(config)
+                    }
+
+                    is XrayConfigTester.TestResult.Invalid -> {
+                        Result.Rejected(validationErrors = emptyList(), testError = test.message)
+                    }
+                }
             }
         }
     }
+
+    private fun rejectProfile(message: String): Result.Rejected =
+        Result.Rejected(
+            listOf(
+                XrayConfigValidator.ValidationError(
+                    XrayConfigValidator.ErrorCode.PROFILE_INVALID,
+                    "profile",
+                    message,
+                ),
+            ),
+        )
 
     /**
      * Validate a raw, already-parsed Xray config (the "import raw JSON before
@@ -260,4 +281,8 @@ class XrayConfigRenderer(
             XrayProfile.Security.REALITY -> "reality"
             XrayProfile.Security.TLS -> "tls"
         }
+
+    private companion object {
+        const val MaxPort = 65_535
+    }
 }

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingDnsSystemId
+import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,6 +18,7 @@ class OnboardingSettingsCoordinator
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
+        private val xrayNativeProviderSelection: XrayNativeProviderSelection,
     ) {
         fun observeSelections(
             scope: CoroutineScope,
@@ -38,6 +40,9 @@ class OnboardingSettingsCoordinator
             dnsProviderId: String,
             persona: String,
         ) {
+            if (mode == Mode.Proxy) {
+                xrayNativeProviderSelection.selectNativeMode(mode)
+            }
             appSettingsRepository.update {
                 setRipdpiMode(mode.preferenceValue)
                 applyOnboardingDnsProvider(dnsProviderId)
@@ -46,6 +51,9 @@ class OnboardingSettingsCoordinator
         }
 
         suspend fun complete(state: OnboardingUiState) {
+            if (state.selectedMode == Mode.Proxy) {
+                xrayNativeProviderSelection.selectNativeMode(state.selectedMode)
+            }
             appSettingsRepository.update {
                 setOnboardingComplete(true)
                 setRipdpiMode(state.selectedMode.preferenceValue)

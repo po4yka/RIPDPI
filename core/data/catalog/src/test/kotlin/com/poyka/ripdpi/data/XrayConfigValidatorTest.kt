@@ -26,7 +26,7 @@ class XrayConfigValidatorTest {
     private fun parse(raw: String): JsonObject = json.decodeFromString(JsonObject.serializer(), raw)
 
     @Test
-    fun `valid vless+reality+xhttp config with flow passes`() {
+    fun `valid REALITY XHTTP config without Vision passes`() {
         val config =
             parse(
                 """
@@ -40,7 +40,7 @@ class XrayConfigValidatorTest {
                           "port": 443,
                           "users": [{
                             "id": "550e8400-e29b-41d4-a716-446655440000",
-                            "flow": "xtls-rprx-vision"
+                            "flow": ""
                           }]
                         }]
                       },
@@ -175,7 +175,7 @@ class XrayConfigValidatorTest {
     }
 
     @Test
-    fun `reality plus xhttp combination is accepted at pre-v26-1-18 tags`() {
+    fun `REALITY XHTTP is accepted after the upstream fix`() {
         val config =
             parse(
                 """
@@ -189,7 +189,7 @@ class XrayConfigValidatorTest {
                           "port": 443,
                           "users": [{
                             "id": "550e8400-e29b-41d4-a716-446655440000",
-                            "flow": "xtls-rprx-vision"
+                            "flow": ""
                           }]
                         }]
                       },

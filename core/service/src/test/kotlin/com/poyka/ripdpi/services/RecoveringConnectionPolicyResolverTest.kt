@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
@@ -106,6 +107,11 @@ private class RecoveryOnlyProfileMutationCoordinator(
 ) : ProfileMutationCoordinator {
     override suspend fun recover() = recovery()
 
+    override suspend fun <T> readRecovered(block: suspend () -> T): T {
+        recover()
+        return block()
+    }
+
     override suspend fun runReset(block: suspend () -> Unit) = unsupported()
 
     override suspend fun upsertAwg(
@@ -121,6 +127,8 @@ private class RecoveryOnlyProfileMutationCoordinator(
         enabled: Boolean,
         select: Boolean,
         settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: XrayProviderSelectionRecord?,
     ) = unsupported()
 
     override suspend fun upsertWarp(

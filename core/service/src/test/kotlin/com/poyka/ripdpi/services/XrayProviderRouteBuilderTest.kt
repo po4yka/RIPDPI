@@ -30,7 +30,7 @@ class XrayProviderRouteBuilderTest {
                     network = XrayProfile.Network.TCP,
                     reality =
                         XrayProfile.Reality(
-                            publicKey = "PUBKEY_SECRET",
+                            publicKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
                             serverName = "www.cloudflare.com",
                             shortId = "ab12",
                         ),
@@ -48,12 +48,12 @@ class XrayProviderRouteBuilderTest {
             store.save("default", profile)
             val requested = mutableListOf<String>()
             val builder =
-                XrayProviderRouteBuilder(store, resolveEndpoint = {
+                XrayProviderRouteBuilder(resolveEndpoint = {
                     requested += it
                     listOf("192.0.2.${requested.size}")
                 })
-            val first = builder.build("default") as XrayProviderRouteBuilder.Result.Resolved
-            val second = builder.build("default") as XrayProviderRouteBuilder.Result.Resolved
+            val first = builder.build(store.load("default")) as XrayProviderRouteBuilder.Result.Resolved
+            val second = builder.build(store.load("default")) as XrayProviderRouteBuilder.Result.Resolved
             assertTrue(first.renderedConfig.contains("192.0.2.1"))
             assertTrue(second.renderedConfig.contains("192.0.2.2"))
             assertTrue(first.renderedConfig.contains("www.cloudflare.com"))
@@ -65,11 +65,11 @@ class XrayProviderRouteBuilderTest {
     @Test
     fun `numeric endpoint needs no DNS and empty bootstrap is rejected`() =
         runTest {
-            val builder = XrayProviderRouteBuilder(store, resolveEndpoint = { emptyList() })
+            val builder = XrayProviderRouteBuilder(resolveEndpoint = { emptyList() })
             store.save("numeric", validProfile.copy(outbound = validProfile.outbound.copy(serverAddress = "192.0.2.1")))
-            assertTrue(builder.build("numeric") is XrayProviderRouteBuilder.Result.Resolved)
+            assertTrue(builder.build(store.load("numeric")) is XrayProviderRouteBuilder.Result.Resolved)
             store.save("hostname", validProfile)
-            assertTrue(runCatching { builder.build("hostname") }.isFailure)
+            assertTrue(runCatching { builder.build(store.load("hostname")) }.isFailure)
         }
 
     @Test
@@ -85,8 +85,8 @@ class XrayProviderRouteBuilderTest {
                         ),
                 )
             store.save("tls", profile)
-            val builder = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") })
-            val resolved = builder.build("tls") as XrayProviderRouteBuilder.Result.Resolved
+            val builder = XrayProviderRouteBuilder(resolveEndpoint = { listOf("192.0.2.1") })
+            val resolved = builder.build(store.load("tls")) as XrayProviderRouteBuilder.Result.Resolved
             assertTrue(resolved.renderedConfig.contains("\"serverName\":\"edge.example.com\""))
             assertTrue(resolved.renderedConfig.contains("192.0.2.1"))
         }
@@ -100,17 +100,18 @@ class XrayProviderRouteBuilderTest {
                     validProfile.outbound.copy(reality = reality.copy(serverName = "")),
                     validProfile.outbound.copy(security = XrayProfile.Security.TLS, tls = null),
                     validProfile.outbound.copy(
-                        security = XrayProfile.Security.TLS,
+                        security = XrayProfile.Security.REALITY,
                         network = XrayProfile.Network.XHTTP,
-                        tls = XrayProfile.Tls(serverName = ""),
+                        flow = "",
+                        reality = reality.copy(serverName = ""),
                         xhttp = XrayProfile.Xhttp(),
                     ),
                 )
-            val builder = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") })
+            val builder = XrayProviderRouteBuilder(resolveEndpoint = { listOf("192.0.2.1") })
             for (outbound in outbounds) {
                 val profile = validProfile.copy(outbound = outbound)
                 store.save("implicit", profile)
-                val resolved = builder.build("implicit") as XrayProviderRouteBuilder.Result.Resolved
+                val resolved = builder.build(store.load("implicit")) as XrayProviderRouteBuilder.Result.Resolved
                 assertTrue(resolved.renderedConfig.contains("\"serverName\":\"edge.example.com\""))
                 if (outbound.network == XrayProfile.Network.XHTTP) {
                     assertTrue(resolved.renderedConfig.contains("\"host\":\"edge.example.com\""))
@@ -120,9 +121,33 @@ class XrayProviderRouteBuilderTest {
         }
 
     @Test
+    fun `REALITY XHTTP validates against embedded upstream release tag`() =
+        runTest {
+            val xhttpProfile =
+                validProfile.copy(
+                    outbound =
+                        validProfile.outbound.copy(
+                            network = XrayProfile.Network.XHTTP,
+                            flow = "",
+                            xhttp = XrayProfile.Xhttp(),
+                        ),
+                )
+            store.save("xhttp", xhttpProfile)
+
+            val result =
+                XrayProviderRouteBuilder(resolveEndpoint = { listOf("192.0.2.1") })
+                    .build(store.load("xhttp"))
+
+            assertTrue(result is XrayProviderRouteBuilder.Result.Resolved)
+        }
+
+    @Test
     fun `NoProfile when no durable profile persisted`() =
         runTest {
-            val result = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") }).build("missing")
+            val result =
+                XrayProviderRouteBuilder(
+                    resolveEndpoint = { listOf("192.0.2.1") },
+                ).build(store.load("missing"))
             assertEquals(XrayProviderRouteBuilder.Result.NoProfile, result)
         }
 
@@ -130,7 +155,10 @@ class XrayProviderRouteBuilderTest {
     fun `Resolved aligns the route inbound port with the profile`() =
         runTest {
             store.save("default", validProfile)
-            val result = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") }).build("default")
+            val result =
+                XrayProviderRouteBuilder(
+                    resolveEndpoint = { listOf("192.0.2.1") },
+                ).build(store.load("default"))
             assertTrue(result is XrayProviderRouteBuilder.Result.Resolved)
             val resolved = result as XrayProviderRouteBuilder.Result.Resolved
             assertEquals(VpnProviderKind.Xray, resolved.route.kind)
@@ -144,14 +172,14 @@ class XrayProviderRouteBuilderTest {
             val invalid =
                 validProfile.copy(outbound = validProfile.outbound.copy(flow = ""))
             store.save("bad", invalid)
-            val result = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") }).build("bad")
+            val result = XrayProviderRouteBuilder(resolveEndpoint = { listOf("192.0.2.1") }).build(store.load("bad"))
             assertTrue(result is XrayProviderRouteBuilder.Result.Rejected)
             val rejected = result as XrayProviderRouteBuilder.Result.Rejected
             assertTrue(rejected.findings.isNotEmpty())
             // The rejection must never carry the UUID / key (only typed findings).
             val asText = rejected.findings.joinToString { "${it.code} ${it.path} ${it.message}" }
             assertFalse(asText.contains("11111111-2222-3333"))
-            assertFalse(asText.contains("PUBKEY_SECRET"))
+            assertFalse(asText.contains("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"))
         }
 }
 

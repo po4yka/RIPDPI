@@ -319,6 +319,7 @@ class DeveloperAnalyticsAllowListTest {
                         json,
                     ),
                     json,
+                    serviceStateStore = FakeServiceStateStore(),
                 ),
             fileStore =
                 DiagnosticsArchiveFileStore(

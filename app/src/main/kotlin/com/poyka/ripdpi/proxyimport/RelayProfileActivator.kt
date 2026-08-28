@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.validateNativeRelayProfile
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -58,6 +59,8 @@ class RelayProfileActivator
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
             tlsFingerprintOverride: String? = null,
+            modeAfterImage: String? = null,
+            xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
         ): Boolean {
             val relayKind = relayKindFor(profile)
             return if (relayKind == null || !validateNativeRelayProfile(profile)) {
@@ -68,6 +71,8 @@ class RelayProfileActivator
                     profileId = profileId,
                     relayKind = relayKind,
                     tlsFingerprintOverride = tlsFingerprintOverride,
+                    modeAfterImage = modeAfterImage,
+                    xraySelectionAfterImage = xraySelectionAfterImage,
                 )
                 true
             }
@@ -78,6 +83,8 @@ class RelayProfileActivator
             profileId: String,
             relayKind: String,
             tlsFingerprintOverride: String?,
+            modeAfterImage: String?,
+            xraySelectionAfterImage: XrayProviderSelectionRecord?,
         ) {
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)
@@ -122,6 +129,8 @@ class RelayProfileActivator
                 credentials = relayCredentials(profileId, profile),
                 enabled = true,
                 select = true,
+                modeAfterImage = modeAfterImage,
+                xraySelectionAfterImage = xraySelectionAfterImage,
             )
         }
 
@@ -310,6 +319,8 @@ private class DirectRelayProfileMutationCoordinator(
 ) : ProfileMutationCoordinator {
     override suspend fun recover() = Unit
 
+    override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
+
     override suspend fun runReset(block: suspend () -> Unit) = block()
 
     override suspend fun upsertRelay(
@@ -318,12 +329,15 @@ private class DirectRelayProfileMutationCoordinator(
         enabled: Boolean,
         select: Boolean,
         settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
     ) {
         profiles.save(profile)
         this.credentials.save(credentials)
+        check(xraySelectionAfterImage == null) { "Direct relay activation cannot update Xray provider selection" }
         if (settingsAfterImage != null) {
             settings.replace(settingsAfterImage)
-        } else if (select) {
+        } else if (select || modeAfterImage != null) {
             settings.update {
                 setRelayEnabled(enabled)
                 setRelayKind(profile.kind)
@@ -344,6 +358,7 @@ private class DirectRelayProfileMutationCoordinator(
                 setRelaySshAuthType(profile.sshAuthType)
                 setRelaySshHostKeyFingerprint(profile.sshHostKeyFingerprint)
                 setRelaySshStrictHostKey(profile.sshStrictHostKey)
+                modeAfterImage?.let(::setRipdpiMode)
             }
         }
     }

@@ -25,6 +25,7 @@ enum class ProfileMutationFamily {
     Relay,
     Warp,
     Backup,
+    Xray,
 }
 
 /** Encrypted write-ahead record for a cross-store profile mutation. */
@@ -47,9 +48,6 @@ interface ProfileMutationJournal {
     )
 
     suspend fun complete(mutationId: String)
-
-    /** Removes an unreadable marker after recovery has observed the same corruption twice. */
-    suspend fun discardCorruptPending()
 
     suspend fun clearForReset()
 }
@@ -135,11 +133,6 @@ class EncryptedProfileMutationJournal
                     check(pending.mutationId == mutationId) { "Profile mutation journal id changed" }
                     blobStore.remove(PendingEntryKey)
                 }
-            }
-
-        override suspend fun discardCorruptPending() =
-            mutex.withLock {
-                withContext(Dispatchers.IO) { blobStore.remove(PendingEntryKey) }
             }
 
         override suspend fun clearForReset() =

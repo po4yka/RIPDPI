@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">मौजूदा Xray प्रदाता स्थिति लोड नहीं हो सकी। समाप्त करने से पहले फिर कोशिश करें।</string>
+    <string name="xray_import_error_typed_unsupported">यह Xray ट्रांसपोर्ट या सुरक्षा विकल्प अभी समर्थित नहीं है।</string>
+    <string name="xray_import_error_typed_missing_field">इस Xray प्रोफ़ाइल में आवश्यक फ़ील्ड नहीं है। लिंक जाँचें और फिर कोशिश करें।</string>
+    <string name="xray_import_error_typed_unsafe">यह Xray प्रोफ़ाइल सुरक्षा जाँच में विफल रही और आयात नहीं हुई।</string>
+    <string name="xray_import_restore_loading_title">मौजूदा Xray मोड जाँचा जा रहा है</string>
+    <string name="xray_import_restore_loading_body">इस मोड का उपयोग करने से पहले सहेजा गया प्रदाता और प्रोफ़ाइल पढ़ी जा रही है।</string>
+    <string name="xray_import_restore_failed_title">Xray मोड लोड नहीं हो सका</string>
+    <string name="xray_import_restore_retry_action">फिर कोशिश करें</string>
+    <string name="xray_import_skipped_item_format">नोड %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">यूटिलिटी outbound: आयात करने के लिए कुछ नहीं।</string>
+    <string name="xray_skip_unsupported_protocol_safe">यह प्रोटोकॉल मूल रूप से समर्थित नहीं है।</string>
+    <string name="xray_skip_unsupported_transport_safe">यह ट्रांसपोर्ट मूल रूप से समर्थित नहीं है।</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">यह TLS फ़िंगरप्रिंट मूल रूप से समर्थित नहीं है।</string>
+    <string name="config_xray_import_title">उन्नत VPN प्रोफ़ाइल</string>
+    <string name="config_xray_import_body">एम्बेडेड प्रदाता के लिए Xray प्रोफ़ाइल आयात करें या देखें।</string>
+    <string name="onboarding_setup_mode_xray_title">उन्नत VPN सेट अप करें</string>
+    <string name="onboarding_setup_mode_xray_body">VPN मोड का परीक्षण करने से पहले Xray प्रोफ़ाइल आयात करें।</string>
+</resources>

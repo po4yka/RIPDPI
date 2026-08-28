@@ -51,6 +51,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun OnboardingModeSelectionContent(
     selectedMode: Mode,
     onModeSelected: (Mode) -> Unit,
+    onOpenXrayImport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -74,6 +75,13 @@ internal fun OnboardingModeSelectionContent(
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingModeProxy),
+        )
+        SettingsRow(
+            title = stringResource(R.string.onboarding_setup_mode_xray_title),
+            subtitle = stringResource(R.string.onboarding_setup_mode_xray_body),
+            onClick = onOpenXrayImport,
+            showChevron = true,
+            testTag = RipDpiTestTags.OnboardingXrayImport,
         )
     }
 }

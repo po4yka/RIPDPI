@@ -281,9 +281,20 @@ class ServiceSessionModuleTest {
                 renderedConfigProvider = { renderedConfigHolder.require() },
             )
         return XrayProviderSessionController(
-            selectionStore = selectionStore,
-            profileStore = profileStore,
-            routeBuilder = XrayProviderRouteBuilder(profileStore, resolveEndpoint = { listOf("192.0.2.1") }),
+            readSelectedProfile = {
+                val selection = selectionStore.current()
+                XraySelectedProfile(
+                    selection,
+                    if (selection.kind ==
+                        com.poyka.ripdpi.data.xray.VpnProviderKind.Xray
+                    ) {
+                        profileStore.load(selection.activeProfileId)
+                    } else {
+                        null
+                    },
+                )
+            },
+            routeBuilder = XrayProviderRouteBuilder(resolveEndpoint = { listOf("192.0.2.1") }),
             orchestrator = orchestrator,
             snapshotDeriver = XrayProviderSnapshotDeriver(),
             probeRunner = XrayProviderDiagnosticsProbeRunner(),

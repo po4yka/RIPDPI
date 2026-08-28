@@ -63,11 +63,7 @@ import com.poyka.ripdpi.services.VpnProtectFailureMonitor
 import com.poyka.ripdpi.services.VpnResolverRefreshPlanner
 import com.poyka.ripdpi.services.VpnRuntimeCompositionCoordinator
 import com.poyka.ripdpi.services.VpnRuntimeSession
-import com.poyka.ripdpi.services.VpnRuntimeTelemetryReporter
 import com.poyka.ripdpi.services.VpnSupervisorExitHandler
-import com.poyka.ripdpi.services.VpnTelemetryCoordinator
-import com.poyka.ripdpi.services.VpnTelemetryFailureCallbacks
-import com.poyka.ripdpi.services.VpnTelemetryRuntimeDependencies
 import com.poyka.ripdpi.services.VpnTelemetryStateAccess
 import com.poyka.ripdpi.services.VpnTunnelRefreshCallbacks
 import com.poyka.ripdpi.services.VpnTunnelRefreshCoordinator
@@ -178,65 +174,56 @@ internal class VpnServiceRuntimeCoordinator(
             initialRelayRacePolicy = initialRelayRacePolicy,
         )
     private val telemetryCoordinator =
-        VpnTelemetryCoordinator(
-            dependencies =
-                object : VpnTelemetryRuntimeDependencies {
-                    override val host: VpnCoordinatorHost = vpnHost
-                    override val xrayController = xrayProviderSessionController
-                    override val ioDispatcher: CoroutineDispatcher = ioDispatcher
-                    override val mutex = this@VpnServiceRuntimeCoordinator.mutex
-                    override val vpnProtectFailureMonitor = this@VpnServiceRuntimeCoordinator.vpnProtectFailureMonitor
-                    override val vpnTunnelRuntime = this@VpnServiceRuntimeCoordinator.vpnTunnelRuntime
-                    override val upstreamRelaySupervisor = this@VpnServiceRuntimeCoordinator.upstreamRelaySupervisor
-                    override val warpRuntimeSupervisor = this@VpnServiceRuntimeCoordinator.warpRuntimeSupervisor
-                    override val amneziaWgRuntimeSupervisor =
-                        this@VpnServiceRuntimeCoordinator
-                            .amneziaWgRuntimeSupervisor
-                    override val proxyRuntimeSupervisor = this@VpnServiceRuntimeCoordinator.proxyRuntimeSupervisor
-                    override val screenStateObserver = this@VpnServiceRuntimeCoordinator.screenStateObserver
-                    override val telemetryReporter =
-                        VpnRuntimeTelemetryReporter(
-                            host = vpnHost,
-                            statusReporter = this@VpnServiceRuntimeCoordinator.statusReporter,
-                            screenStateObserver = this@VpnServiceRuntimeCoordinator.screenStateObserver,
-                            directPathPolicyTelemetryConsumer =
-                                this@VpnServiceRuntimeCoordinator.directPathPolicyTelemetryConsumer,
-                            vpnTunnelRuntime = this@VpnServiceRuntimeCoordinator.vpnTunnelRuntime,
-                            xrayController = this@VpnServiceRuntimeCoordinator.xrayProviderSessionController,
+        createVpnRuntimeTelemetryCoordinator(
+            runtimePorts =
+                VpnRuntimeTelemetryRuntimePorts(
+                    host = vpnHost,
+                    ioDispatcher = ioDispatcher,
+                    mutex = mutex,
+                    protectFailureMonitor = vpnProtectFailureMonitor,
+                    tunnelRuntime = vpnTunnelRuntime,
+                    xrayController = xrayProviderSessionController,
+                ),
+            supervisors =
+                VpnRuntimeTelemetrySupervisors(
+                    upstreamRelay = upstreamRelaySupervisor,
+                    warp = warpRuntimeSupervisor,
+                    amneziaWg = amneziaWgRuntimeSupervisor,
+                    proxy = proxyRuntimeSupervisor,
+                ),
+            reporterPorts =
+                VpnRuntimeTelemetryReporterPorts(
+                    statusReporter = statusReporter,
+                    screenStateObserver = screenStateObserver,
+                    directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
+                ),
+            stateBindings =
+                VpnRuntimeTelemetryStateBindings(
+                    currentStatus = { status },
+                    isStopping = { stopping || handoverRestarting },
+                    currentSession = { runtimeSession },
+                    currentLocalProxyEndpoint = { runtimeCompositionCoordinator.currentLocalProxyEndpoint },
+                    currentNetworkHandoverState = { currentNetworkHandoverState() },
+                    applyPendingNetworkHandoverClass = { snapshot -> applyPendingNetworkHandoverClass(snapshot) },
+                ),
+            actions =
+                VpnRuntimeTelemetryActions(
+                    updateStatus = { status, failureReason ->
+                        if (status == ServiceStatus.Failed) {
+                            updateFailedStatusAfterRetainingProviderBarrier(failureReason)
+                        } else {
+                            updateStatus(status, failureReason)
+                        }
+                    },
+                    failAndStopService = { failureReason, guard, beforeFailureStatus ->
+                        failAndStopAfterRetainingProviderBarrier(
+                            failureReason = failureReason,
+                            guard = guard,
+                            beforeFailureStatus = beforeFailureStatus,
                         )
-                },
-            state =
-                object : VpnTelemetryStateAccess {
-                    override fun status(): ServiceStatus = status
-
-                    override fun stopping(): Boolean = stopping || handoverRestarting
-
-                    override fun runtimeSession(): VpnRuntimeSession? = runtimeSession
-
-                    override fun currentLocalProxyEndpoint(): LocalProxyEndpoint? =
-                        runtimeCompositionCoordinator.currentLocalProxyEndpoint
-
-                    override fun currentNetworkHandoverState(): String? =
-                        this@VpnServiceRuntimeCoordinator.currentNetworkHandoverState()
-
-                    override fun applyPendingNetworkHandoverClass(
-                        snapshot: com.poyka.ripdpi.data.NativeRuntimeSnapshot,
-                    ): com.poyka.ripdpi.data.NativeRuntimeSnapshot =
-                        this@VpnServiceRuntimeCoordinator.applyPendingNetworkHandoverClass(snapshot)
-                },
-            callbacks =
-                object : VpnTelemetryFailureCallbacks {
-                    override fun updateStatus(
-                        status: ServiceStatus,
-                        failureReason: FailureReason?,
-                    ) {
-                        this@VpnServiceRuntimeCoordinator.updateStatus(status, failureReason)
-                    }
-
-                    override suspend fun stopService(guard: RuntimeStopGuard?) {
-                        stop(guard = guard)
-                    }
-                },
+                    },
+                    stopService = { guard -> stop(guard = guard) },
+                ),
         )
     private val tunnelRefreshCoordinator =
         VpnTunnelRefreshCoordinator(
@@ -291,12 +278,15 @@ internal class VpnServiceRuntimeCoordinator(
                         runtimeCompositionCoordinator.updateRuntimeDnsState(session, resolution)
                     }
 
-                    override fun failTunnelRefresh(
+                    override suspend fun failTunnelRefresh(
                         session: VpnRuntimeSession,
                         error: Exception,
                     ) {
                         if (runtimeSession?.runtimeId != session.runtimeId) return
-                        updateStatus(ServiceStatus.Failed, classifyFailureReason(error, isTunnelContext = true))
+                        updateFailedStatusAfterRetainingProviderBarrier(
+                            failureReason = classifyFailureReason(error, isTunnelContext = true),
+                            lifecycleMutexHeld = true,
+                        )
                     }
                 },
         )
@@ -395,7 +385,7 @@ internal class VpnServiceRuntimeCoordinator(
             currentNetworkHandoverState = currentNetworkHandoverState,
             proxyTelemetry = evidence.snapshot,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
-            xrayProviderSnapshot = xrayProviderSessionController?.takeIf { it.isActive }?.currentSnapshot(),
+            xrayProviderSnapshot = xrayProviderSessionController?.currentSnapshotOrNull(),
         )
     }
 
@@ -553,7 +543,10 @@ internal class VpnServiceRuntimeCoordinator(
             }
 
             else -> {
-                updateStatus(ServiceStatus.Failed, classifyFailureReason(failure, isTunnelContext = true))
+                updateFailedStatusAfterRetainingProviderBarrier(
+                    failureReason = classifyFailureReason(failure, isTunnelContext = true),
+                    lifecycleMutexHeld = true,
+                )
                 false
             }
         }
@@ -639,6 +632,47 @@ internal class VpnServiceRuntimeCoordinator(
         }
     }
 
+    private suspend fun updateFailedStatusAfterRetainingProviderBarrier(
+        failureReason: FailureReason?,
+        lifecycleMutexHeld: Boolean = false,
+    ) {
+        val updateFailed =
+            suspend {
+                retainProviderFailClosedBarrierIfActiveLocked()
+                updateStatus(ServiceStatus.Failed, failureReason)
+            }
+        if (lifecycleMutexHeld) {
+            updateFailed()
+        } else {
+            mutex.withLock { updateFailed() }
+        }
+    }
+
+    private suspend fun failAndStopAfterRetainingProviderBarrier(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard?,
+        beforeFailureStatus: suspend () -> Unit,
+    ): Boolean =
+        failAndStopRuntime(
+            failureReason = failureReason,
+            guard = guard,
+        ) {
+            beforeFailureStatus()
+            retainProviderFailClosedBarrierIfActiveLocked()
+            updateStatus(ServiceStatus.Failed, failureReason)
+        }
+
+    private suspend fun retainProviderFailClosedBarrierIfActiveLocked() {
+        if (xrayProviderSessionController?.isActive != true) return
+        val retained =
+            withContext(NonCancellable) {
+                runtimeCompositionCoordinator.retainFailClosedAfterHandoverFailure()
+            }
+        if (!retained && vpnTunnelRuntime.isForwarding) {
+            Logger.e { "Failed to retain Xray fail-closed VPN barrier before status failure" }
+        }
+    }
+
     private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
@@ -655,6 +689,7 @@ internal class VpnServiceRuntimeCoordinator(
             currentNetworkHandoverState = currentNetworkHandoverState,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             failureReason = failureReason,
+            xrayProviderSnapshot = xrayProviderSessionController?.currentSnapshotOrNull(),
         )
     }
 

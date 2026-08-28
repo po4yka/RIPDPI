@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
@@ -132,6 +133,16 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         stopSelfStartId = stopSelfStartId,
         skipRuntimeShutdown = skipRuntimeShutdown,
         guard = guard,
+    )
+
+    protected suspend fun failAndStopRuntime(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard? = null,
+        beforeStopFinalization: suspend () -> Unit,
+    ) = sessionLifecycle.failAndStop(
+        failureReason = failureReason,
+        guard = guard,
+        beforeStopFinalization = beforeStopFinalization,
     )
 
     open fun onDestroy() {

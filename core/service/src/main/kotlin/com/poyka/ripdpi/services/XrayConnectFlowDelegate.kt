@@ -23,8 +23,8 @@ internal class XrayConnectFlowDelegate(
     private val controller: XrayProviderSessionController,
     /**
      * Supplies the per-start tunnel params for the Xray path from the live
-     * session + resolution, mirroring the native composition's derivation. Only
-     * invoked when the Xray path is taken.
+     * session + resolution, mirroring the native composition's derivation.
+     * The controller then decides the provider from one durable snapshot.
      */
     private val startParams: (
         session: VpnRuntimeSession,
@@ -55,6 +55,9 @@ internal class XrayConnectFlowDelegate(
     val ownsActiveProviderPath: Boolean
         get() = ownsProviderPath
 
+    val currentLocalProxyEndpoint: LocalProxyEndpoint?
+        get() = controller.currentLocalProxyEndpoint()
+
     /**
      * Attempt the Xray start. Returns `true` when the Xray provider is durably
      * selected and started successfully (the coordinator must then skip the
@@ -68,9 +71,6 @@ internal class XrayConnectFlowDelegate(
         resolution: ConnectionPolicyResolution,
     ): Boolean {
         controller.ensureStartAvailable()
-        if (!controller.isXraySelected()) {
-            return false
-        }
         val outcome =
             try {
                 controller.start(startParams(session, resolution))
@@ -78,6 +78,7 @@ internal class XrayConnectFlowDelegate(
                 ownsProviderPath = controller.isActive
             }
         active = outcome is HandoffOutcome.Running
+        if (outcome == HandoffOutcome.Stopped) return false
         if (outcome is HandoffOutcome.Running) {
             ownsProviderPath = true
             publishActiveDnsState(session, resolution)
@@ -125,41 +126,35 @@ internal class XrayConnectFlowDelegate(
         if (!ownsProviderPath) {
             return false
         }
-        requireTransactionalPolicyRefresh(restartReason)
-        return if (!controller.isXraySelected()) {
-            controller.releaseForNativeReplacement()
-            active = false
-            ownsProviderPath = false
-            false
-        } else {
-            val outcome =
-                try {
-                    controller.restart(startParams(session, resolution))
-                } catch (error: Exception) {
-                    active = controller.isActive
-                    throw error
-                }
-            active = outcome is HandoffOutcome.Running
-            when (outcome) {
-                is HandoffOutcome.Running -> {
-                    resetSessionDnsState(session)
-                    applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
-                    publishActiveDnsState(session, resolution)
-                }
-
-                is HandoffOutcome.Failed -> {
-                    throw XrayProviderHandoverException(outcome.reason)
-                }
-
-                HandoffOutcome.Stopped -> {
-                    ownsProviderPath = false
-                    // The provider selection changed while this handover was in
-                    // flight. Xray has stopped cleanly and the coordinator should
-                    // treat the active provider path as handled for this lifecycle
-                    // turn, not fall through to a second native restart.
-                }
+        val outcome =
+            try {
+                controller.restart(startParams(session, resolution))
+            } catch (error: Exception) {
+                active = controller.isActive
+                ownsProviderPath = controller.isActive
+                throw error
             }
-            true
+        active = outcome is HandoffOutcome.Running
+        ownsProviderPath = controller.isActive
+        return when (outcome) {
+            is HandoffOutcome.Running -> {
+                ownsProviderPath = true
+                resetSessionDnsState(session)
+                applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
+                publishActiveDnsState(session, resolution)
+                true
+            }
+
+            is HandoffOutcome.Failed -> {
+                throw XrayProviderHandoverException(outcome.reason)
+            }
+
+            HandoffOutcome.Stopped -> {
+                // The controller's single durable snapshot explicitly selected Native.
+                // Let composition start that replacement against the retained TUN.
+                ownsProviderPath = false
+                false
+            }
         }
     }
 
@@ -175,16 +170,6 @@ internal class XrayConnectFlowDelegate(
         session.currentDnsSignature = null
         session.currentNetworkScopeKey = null
         session.encryptedDnsFailoverState.resetAll()
-    }
-
-    private fun requireTransactionalPolicyRefresh(restartReason: String) {
-        if (restartReason == RoutingPolicyRefreshReason) {
-            throw XrayProviderPolicyRefreshUnsupportedException()
-        }
-    }
-
-    private companion object {
-        const val RoutingPolicyRefreshReason = "routing_policy_refresh"
     }
 }
 
@@ -206,9 +191,6 @@ internal class XrayProviderStartException(
 internal class XrayProviderHandoverException(
     message: String,
 ) : IllegalStateException(message)
-
-internal class XrayProviderPolicyRefreshUnsupportedException :
-    IllegalStateException("Active Xray route-policy refresh requires a transactional provider handoff")
 
 /**
  * Default Xray tunnel start-params derivation, mirroring the native composition

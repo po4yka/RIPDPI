@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import javax.inject.Inject
 
 class ConfigViewModelDependencies
@@ -24,6 +25,7 @@ class ConfigViewModelDependencies
         val capabilityObserver: ConfigCapabilityObserver,
         val dispatchers: AppCoroutineDispatchers,
         internal val editorDraftStore: ConfigEditorDraftStore,
+        val xrayNativeProviderSelection: XrayNativeProviderSelection,
     )
 
 class ConfigImportDependencies

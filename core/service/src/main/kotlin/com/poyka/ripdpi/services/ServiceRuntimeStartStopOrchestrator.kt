@@ -84,26 +84,58 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
-    ) {
+    ): Boolean =
+        stopInternal(
+            stopSelfStartId = stopSelfStartId,
+            skipRuntimeShutdown = skipRuntimeShutdown,
+            guard = guard,
+            terminalFailure = guard?.failureReason,
+        )
+
+    suspend fun failAndStop(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard? = null,
+        beforeStopFinalization: suspend () -> Unit,
+    ): Boolean =
+        stopInternal(
+            stopSelfStartId = null,
+            skipRuntimeShutdown = false,
+            guard = guard,
+            terminalFailure = failureReason,
+            beforeStopFinalization = beforeStopFinalization,
+        )
+
+    private suspend fun stopInternal(
+        stopSelfStartId: Int? = null,
+        skipRuntimeShutdown: Boolean = false,
+        guard: RuntimeStopGuard? = null,
+        terminalFailure: FailureReason?,
+        beforeStopFinalization: suspend () -> Unit = {},
+    ): Boolean {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
         if (guard == null) dependencies.handoverProcessor.cancel()
         var terminalTelemetryCancellation: CancellationException? = null
-        try {
-            dependencies.lifecycleRunner.stop(guard) {
-                if (guard != null) dependencies.handoverProcessor.cancel()
-                terminalTelemetryCancellation =
-                    finalizeRuntimeStop(
-                        skipRuntimeShutdown = skipRuntimeShutdown,
-                        stopSelfStartId = stopSelfStartId,
-                        requestServiceStop = true,
-                        terminalFailure = guard?.failureReason,
-                    )
+        val accepted =
+            try {
+                dependencies.lifecycleRunner.stop(guard) {
+                    if (guard != null) dependencies.handoverProcessor.cancel()
+                    terminalTelemetryCancellation =
+                        finalizeAfterStopCallback(beforeStopFinalization) {
+                            finalizeRuntimeStop(
+                                skipRuntimeShutdown = skipRuntimeShutdown,
+                                stopSelfStartId = stopSelfStartId,
+                                requestServiceStop = true,
+                                terminalFailure = terminalFailure,
+                            )
+                        }
+                }
+            } catch (_: RuntimeCleanupPendingException) {
+                // The process owner and installed TUN remain live. Never publish Disconnected.
+                callbacks.updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Xray cleanup is incomplete"))
+                true
             }
-        } catch (_: RuntimeCleanupPendingException) {
-            // The process owner and installed TUN remain live. Never publish Disconnected.
-            callbacks.updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Xray cleanup is incomplete"))
-        }
         terminalTelemetryCancellation?.let { throw it }
+        return accepted
     }
 
     private suspend fun finalizeRuntimeStop(
@@ -206,6 +238,23 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
             else -> TerminalTelemetryCaptureOutcome.TimedOut
         }
     }
+}
+
+/** Always finalizes an accepted stop, then propagates cancellation or failure without hiding pending cleanup. */
+private suspend fun finalizeAfterStopCallback(
+    beforeFinalization: suspend () -> Unit,
+    finalize: suspend () -> CancellationException?,
+): CancellationException? {
+    val callbackFailure = runCatching { beforeFinalization() }.exceptionOrNull()
+    val cleanup = runCatching { finalize() }
+    val cleanupFailure = cleanup.exceptionOrNull()
+    val failure = cleanupFailure ?: callbackFailure
+    if (failure != null) {
+        val suppressed = if (cleanupFailure != null) callbackFailure else cleanup.getOrNull()
+        if (suppressed != null && suppressed !== failure) failure.addSuppressed(suppressed)
+        throw failure
+    }
+    return cleanup.getOrNull()
 }
 
 /** Runs inside lifecycle serialization, before side effects and after complete startup respectively. */

@@ -33,8 +33,10 @@ class OnboardingViewModelTest {
         validationRunner: FakeOnboardingModeValidationRunner = FakeOnboardingModeValidationRunner(),
         permissionStatusProvider: FakePermissionStatusProvider = grantedPermissionStatusProvider(),
         permissionPlatformBridge: FakePermissionPlatformBridge = FakePermissionPlatformBridge(),
+        xrayNativeProviderSelection: RecordingXrayNativeProviderSelection =
+            RecordingXrayNativeProviderSelection(repository),
     ) = OnboardingViewModel(
-        settingsCoordinator = OnboardingSettingsCoordinator(repository),
+        settingsCoordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection),
         validationCoordinator = OnboardingValidationCoordinator(validationRunner),
         permissionCoordinator =
             OnboardingPermissionCoordinator(
@@ -56,6 +58,42 @@ class OnboardingViewModelTest {
                 runCurrent()
                 assertEquals(OnboardingDnsSystemId, vm.uiState.value.selectedDnsProviderId)
             }
+        }
+
+    @Test
+    fun `selecting proxy switches durable provider back to native`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository)
+            val vm = createViewModel(repository = repository, xrayNativeProviderSelection = xrayNativeProviderSelection)
+            runCurrent()
+
+            vm.selectMode(Mode.Proxy)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.Proxy), xrayNativeProviderSelection.selectedModes)
+        }
+
+    @Test
+    fun `proxy selection failure does not write onboarding settings`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val initialSettings = repository.snapshot()
+            val failure = IllegalStateException("durable selection failed")
+            val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository, failure = failure)
+            val coordinator = OnboardingSettingsCoordinator(repository, xrayNativeProviderSelection)
+
+            val result =
+                runCatching {
+                    coordinator.saveSelection(
+                        mode = Mode.Proxy,
+                        dnsProviderId = DnsProviderGoogle,
+                        persona = "advanced",
+                    )
+                }
+
+            assertEquals(failure, result.exceptionOrNull())
+            assertEquals(initialSettings, repository.snapshot())
         }
 
     @Test

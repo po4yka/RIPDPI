@@ -120,7 +120,12 @@ internal class VpnTunnelRuntime(
         session: VpnRuntimeSession,
         endpoint: LocalProxyEndpoint,
     ) {
-        session.publishInPathLease(endpoint, checkNotNull(activeRouteLifecycleGeneration))
+        val hasCredentials = !endpoint.username.isNullOrBlank() && !endpoint.password.isNullOrBlank()
+        if (hasCredentials) {
+            session.publishInPathLease(endpoint, checkNotNull(activeRouteLifecycleGeneration))
+        } else {
+            session.revokeInPathLease()
+        }
     }
 
     fun desiredInterfacePolicySignatures(): Flow<String> =

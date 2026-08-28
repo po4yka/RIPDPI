@@ -10,6 +10,7 @@ internal data class VpnProtectFailureEvent(
     val reason: FailureReason,
     val detail: String,
     val detectedAt: Long,
+    val providerGeneration: Long? = null,
 )
 
 internal interface VpnProtectFailureMonitor {
