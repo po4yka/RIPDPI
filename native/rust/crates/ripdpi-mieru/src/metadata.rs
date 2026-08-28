@@ -10,6 +10,9 @@ use crate::error::{MieruError, Result};
 
 /// Every metadata header is exactly 32 bytes on the wire.
 pub(crate) const METADATA_LEN: usize = 32;
+// Pinned upstream v3.36.0 sessionStruct.Unmarshal applies this to all four
+// session header types, before allocating or reading the encrypted payload.
+const MAX_SESSION_OPEN_PAYLOAD: u16 = 1024;
 
 /// Mieru protocol type (metadata byte 0). Values are wire-stable (upstream
 /// `protocolType` constants 0..=9).
@@ -164,16 +167,18 @@ impl SessionMeta {
         if !protocol.is_session() {
             return Err(MieruError::Protocol("data metadata in session slot".to_owned()));
         }
-        // payload_len is a u16, so it is inherently bounded (the segment reader
-        // allocates at most u16::MAX + tag). We do NOT hard-reject an inbound
-        // value: a guessed upper bound would risk rejecting a valid server
-        // segment, and the upstream `MaxSessionOpenPayload` value is unverified.
+        let payload_len = u16::from_be_bytes([b[15], b[16]]);
+        if payload_len > MAX_SESSION_OPEN_PAYLOAD {
+            return Err(MieruError::Protocol(format!(
+                "session payload {payload_len} exceeds {MAX_SESSION_OPEN_PAYLOAD}"
+            )));
+        }
         Ok(Self {
             protocol,
             session_id: u32::from_be_bytes([b[6], b[7], b[8], b[9]]),
             seq: u32::from_be_bytes([b[10], b[11], b[12], b[13]]),
             status_code: b[14],
-            payload_len: u16::from_be_bytes([b[15], b[16]]),
+            payload_len,
             suffix_len: b[17],
         })
     }
@@ -226,6 +231,22 @@ mod tests {
         assert_eq!(b[0], 2);
         assert_eq!(b[14], 0); // status code
         assert_eq!(SessionMeta::unmarshal(&b).unwrap(), meta);
+    }
+
+    #[test]
+    fn session_payload_matches_pinned_upstream_1024_byte_bound() {
+        for protocol in [
+            ProtocolType::OpenSessionRequest,
+            ProtocolType::OpenSessionResponse,
+            ProtocolType::CloseSessionRequest,
+            ProtocolType::CloseSessionResponse,
+        ] {
+            for payload_len in [0, 1024, 1025, u16::MAX] {
+                let meta = SessionMeta { protocol, session_id: 1, seq: 1, status_code: 0, payload_len, suffix_len: 0 };
+                let parsed = SessionMeta::unmarshal(&meta.marshal(1_000_000_000));
+                assert_eq!(parsed.is_ok(), payload_len <= 1024, "{protocol:?} payload={payload_len}");
+            }
+        }
     }
 
     #[test]

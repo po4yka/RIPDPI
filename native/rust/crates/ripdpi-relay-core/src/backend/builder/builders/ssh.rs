@@ -77,7 +77,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     client_config.validate().map_err(to_io_error)?;
 
     Ok(RelayBackend::Ssh(PooledRelayBackend::new(
-        SshSessionFactory { config: client_config, socket_protection: context.socket_protection },
+        SshSessionFactory::new(client_config, context.socket_protection),
         context.pool_config,
         None,
     )))

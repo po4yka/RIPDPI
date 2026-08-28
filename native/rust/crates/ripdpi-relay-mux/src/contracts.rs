@@ -32,4 +32,12 @@ pub trait RelaySessionFactory: Send + Sync + 'static {
     fn capabilities(&self) -> RelayCapabilities;
 
     fn create_session(&self) -> impl Future<Output = Result<Arc<Self::Session>, Self::Error>> + Send;
+
+    /// Stop and join factory-owned work, including evicted or abandoned sessions.
+    /// The caller normally drains stream opens first. Factories retaining work
+    /// must close admission before cleanup, including the forced-drain error path.
+    ///
+    /// # Cancel safety
+    /// Implementations retain unfinished cleanup ownership if this future is dropped.
+    fn shutdown(&self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }

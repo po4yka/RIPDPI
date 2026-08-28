@@ -4,6 +4,7 @@ internal data class RelayKindFieldActions(
     val endpoint: RelayEndpointActions = RelayEndpointActions(),
     val vless: RelayVlessActions = RelayVlessActions(),
     val hysteria: RelayHysteriaActions = RelayHysteriaActions(),
+    val onAnyTlsPasswordChanged: (String) -> Unit = {},
     val chain: RelayChainActions = RelayChainActions(),
     val masque: RelayMasqueActions = RelayMasqueActions(),
     val tuic: RelayTuicActions = RelayTuicActions(),

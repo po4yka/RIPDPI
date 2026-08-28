@@ -6158,6 +6158,7 @@ dependencies = [
  "ripdpi-native-protect",
  "ripdpi-quality",
  "ripdpi-relay-core",
+ "ripdpi-ssh",
  "rustls",
  "serde",
  "serde_json",
@@ -6447,6 +6448,7 @@ dependencies = [
  "russh",
  "thiserror 2.0.20",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

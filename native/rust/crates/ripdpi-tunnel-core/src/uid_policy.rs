@@ -178,13 +178,16 @@ impl UidFlowPolicy {
     }
 
     /// Admit a captured packet against its original registration generation.
-    pub(crate) fn admit_token(&self, token: &ripdpi_flow_app_attribution::FlowAttributionToken) -> Verdict {
+    pub(crate) fn admit_registration(
+        &self,
+        registration_id: &ripdpi_flow_app_attribution::FlowRegistrationId,
+    ) -> Verdict {
         if !self.is_enforcing() {
             return Verdict::Allow;
         }
         use ripdpi_flow_app_attribution::FlowUidLookup;
-        let protocol = token.request().protocol;
-        match ripdpi_flow_app_attribution::lookup_registered_flow_uid(token) {
+        let protocol = registration_id.request().protocol;
+        match ripdpi_flow_app_attribution::lookup_registered_flow_uid(registration_id) {
             FlowUidLookup::Missing => Verdict::deny_for(protocol),
             FlowUidLookup::Pending => Verdict::Pending,
             FlowUidLookup::Resolved(Some(uid)) => self.evaluate(uid, protocol),

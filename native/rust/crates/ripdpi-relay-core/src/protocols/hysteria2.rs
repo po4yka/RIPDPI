@@ -36,6 +36,10 @@ impl RelaySession for Hysteria2Session {
 }
 
 impl RelaySessionFactory for Hysteria2SessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = Hysteria2Session;
     type Error = io::Error;
 

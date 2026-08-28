@@ -27,6 +27,12 @@ where
         Self { mux: RelayMux::new(factory, config), migration }
     }
 
+    /// # Cancel safety
+    /// Factory cleanup retains unfinished join ownership for a subsequent call.
+    pub(crate) async fn shutdown(&self) -> io::Result<()> {
+        self.mux.shutdown().await
+    }
+
     pub(crate) fn capabilities(&self) -> ripdpi_relay_mux::RelayCapabilities {
         self.mux.capabilities()
     }

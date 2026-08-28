@@ -117,6 +117,10 @@ fn emit_carrier_reuse(outcome: &'static str, started: Instant, error: Option<&io
 }
 
 impl RelaySessionFactory for VlessRealitySessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = VlessRealitySession;
     type Error = io::Error;
 

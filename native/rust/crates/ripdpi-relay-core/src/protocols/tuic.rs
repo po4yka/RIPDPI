@@ -69,6 +69,10 @@ impl RelaySession for TuicSession {
 }
 
 impl RelaySessionFactory for TuicSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = TuicSession;
     type Error = io::Error;
 

@@ -21,6 +21,8 @@ if bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest --version >/dev/n
       -p ripdpi-tuic \
       -p ripdpi-shadowtls \
       -p ripdpi-anytls \
+      -p ripdpi-ssh \
+      -p ripdpi-mieru \
       -p ripdpi-masque \
       -p ripdpi-cloudflare-origin \
       -p ripdpi-naiveproxy \
@@ -49,6 +51,8 @@ else
       -p ripdpi-tuic \
       -p ripdpi-shadowtls \
       -p ripdpi-anytls \
+      -p ripdpi-ssh \
+      -p ripdpi-mieru \
       -p ripdpi-masque \
       -p ripdpi-cloudflare-origin \
       -p ripdpi-naiveproxy \

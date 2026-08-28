@@ -19,23 +19,21 @@
 //! The relay runtime carries an explicit socket-protection policy. SSH creates
 //! and protects its TCP socket before passing it to `russh::client::connect_stream`;
 //! VPN-required mode fails closed if protection is unavailable or rejected,
-//! while the legacy public `connect` entry point selects the inactive policy.
+//! while the public `connect` entry point selects the inactive policy.
 //!
 //! ## Engine shape
 //!
-//! [`connect`] validates the config, dials via the policy-aware stream path, drives
-//! host-key verification through [`evaluate_host_key`] (TOFU pin-match / strict
-//! pin / first-use surfacing), authenticates by password or private key, and
-//! returns an [`SshClient`]. [`SshClient::tcp_connect`] opens a single
-//! `direct-tcpip` channel per call (v1: one channel per connection, no
-//! multiplexing or pooling) and surfaces it as an `AsyncRead + AsyncWrite`
-//! stream. The `russh` `Handle` owns the transport's IO task; dropping
-//! `SshClient` drops the handle and terminates that task, so no task leaks per
-//! relay flow (the descriptor marks SSH sessions `reusable = false`).
+//! [`connect`] validates configuration and returns an owned pending [`SshClient`]
+//! synchronously. [`SshClient::ready`] awaits host-key verification and password
+//! or private-key authentication. The factory retains this owner before awaiting
+//! readiness, including failed or cancelled construction. [`SshClient::tcp_connect`]
+//! opens `direct-tcpip` channels; [`SshClient::close`] cancels transport I/O and joins
+//! construction and session work. Drop signals cancellation only; it is not proof
+//! of completed shutdown. The relay descriptor uses one session per flow.
 //!
 //! ## Prerelease crypto in the auth path
 //!
-//! `russh` 0.61.1 pulls **prerelease crypto** into the SSH authentication path:
+//! `russh` 0.62.7 pulls **prerelease crypto** into the SSH authentication path:
 //! `rsa 0.10.0-rc`, `ed25519-dalek 3.0-pre`, `ssh-key 0.7-rc`, `p521 0.14-rc`,
 //! and `ml-kem`. These `-rc` / `-pre` releases have not gone through a stable
 //! release's audit/freeze cycle. RIPDPI ships them because no `russh` release
@@ -51,7 +49,9 @@
 mod client;
 mod config;
 mod error;
+mod probe;
 
 pub use client::*;
 pub use config::*;
 pub use error::*;
+pub use probe::*;

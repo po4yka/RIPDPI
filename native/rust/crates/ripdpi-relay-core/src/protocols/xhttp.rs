@@ -33,6 +33,10 @@ impl RelaySession for XhttpSession {
 }
 
 impl RelaySessionFactory for XhttpSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = XhttpSession;
     type Error = io::Error;
 

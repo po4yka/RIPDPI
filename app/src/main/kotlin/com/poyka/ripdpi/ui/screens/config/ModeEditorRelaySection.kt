@@ -20,6 +20,7 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
 import com.poyka.ripdpi.activities.ConfigFieldRelayLocalSocksPort
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayPresetUiState
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -269,6 +270,7 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
             chips =
                 listOf(
                     RelayChipOption(RelayKindVlessReality, labelRes = R.string.config_relay_kind_vless),
+                    RelayChipOption(RelayKindAnyTls, label = "AnyTLS"),
                     RelayChipOption(RelayKindCloudflareTunnel, labelRes = R.string.config_relay_kind_cloudflare_tunnel),
                     RelayChipOption(RelayKindNaiveProxy, labelRes = R.string.relay_kind_naiveproxy_label),
                     RelayChipOption(RelayKindShadowTlsV3, labelRes = R.string.relay_kind_shadowtls_v3_label),
@@ -308,9 +310,7 @@ private fun ModeEditorRelayUdpToggle(
     actions: ModeEditorActions,
 ) {
     if (
-        draft.relayKind == RelayKindHysteria2 ||
-        draft.relayKind == RelayKindMasque ||
-        draft.relayKind == RelayKindTuicV5
+        draft.relayKind in setOf(RelayKindAnyTls, RelayKindHysteria2, RelayKindMasque, RelayKindTuicV5)
     ) {
         RipDpiSwitch(
             checked = draft.relayUdpEnabled,
@@ -368,6 +368,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayCloudflareTunnelCredentialsJsonChanged = actions.onRelayCloudflareTunnelCredentialsJsonChanged,
                 onRelayVlessUuidChanged = actions.onRelayVlessUuidChanged,
             ),
+        onAnyTlsPasswordChanged = actions.onRelayAnyTlsPasswordChanged,
         hysteria =
             RelayHysteriaActions(
                 onRelayHysteriaPasswordChanged = actions.onRelayHysteriaPasswordChanged,

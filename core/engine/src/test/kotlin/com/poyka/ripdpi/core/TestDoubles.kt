@@ -12,6 +12,24 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 
+class FakeRipDpiSshHostKeyBindings : RipDpiSshHostKeyBindings {
+    var resultCode: Int = 6
+    var fingerprintSha256: String? = null
+    var algorithm: String? = null
+
+    override fun probeHostKey(
+        addressLiteral: String,
+        port: Int,
+        timeoutMillis: Int,
+        socketController: SshProbeSocketController,
+        observationOut: Array<String?>,
+    ): Int {
+        observationOut[0] = fingerprintSha256
+        observationOut[1] = algorithm
+        return resultCode
+    }
+}
+
 class FakeProxyPreferencesResolver(
     private var preferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences(),
 ) : ProxyPreferencesResolver {

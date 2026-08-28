@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <application>
+        <!-- Bound-only key observation: no TUN, FGS, or advertised VPN component. -->
+        <service android:name="com.poyka.ripdpi.services.SshHostKeyProbeService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:exported="false" />
         <service android:name="com.poyka.ripdpi.services.RipDpiVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="specialUse"

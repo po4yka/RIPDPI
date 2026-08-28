@@ -373,7 +373,7 @@ class ConfigViewModel
 
                     current.presetId != null -> {
                         current.copy(
-                            draft = requireNotNull(current.draft).transform(),
+                            draft = requireNotNull(current.draft).applyRelayDraftEdit(transform),
                             draftRevision = current.draftRevision + 1,
                         )
                     }
@@ -384,7 +384,7 @@ class ConfigViewModel
                             sessionId = editorSessionIds.incrementAndGet(),
                             presetId = "custom",
                             baselineDraft = baseDraft,
-                            draft = baseDraft.transform(),
+                            draft = baseDraft.applyRelayDraftEdit(transform),
                             draftRevision = 1L,
                         )
                     }

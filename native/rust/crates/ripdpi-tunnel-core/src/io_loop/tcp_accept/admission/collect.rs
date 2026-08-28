@@ -50,7 +50,7 @@ pub(super) fn collect_admissible_sessions(
     let listeners = pending_listener_batch(pending_listens, admission_cursor, TCP_ADMISSION_WORK_BUDGET);
     for listener in listeners {
         let handle = listener.handle;
-        let token = listener.attribution_token();
+        let registration_id = listener.attribution_id();
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
         if !tcp.may_send() || sessions.contains(handle) {
             continue;
@@ -69,7 +69,7 @@ pub(super) fn collect_admissible_sessions(
                 handle,
                 tcp,
                 AdmissionTarget { resolved: target, synthetic_ip: None, dns_intercept: true },
-                token,
+                registration_id,
                 inputs.uid_policy,
                 &mut new_sessions,
                 &mut unresolvable,
@@ -82,7 +82,7 @@ pub(super) fn collect_admissible_sessions(
                     handle,
                     tcp,
                     AdmissionTarget { resolved: target, synthetic_ip, dns_intercept: false },
-                    token,
+                    registration_id,
                     inputs.uid_policy,
                     &mut new_sessions,
                     &mut unresolvable,
@@ -101,7 +101,7 @@ fn collect_resolved_session(
     handle: SocketHandle,
     tcp: &mut TcpSocket<'_>,
     target: AdmissionTarget,
-    token: &ripdpi_flow_app_attribution::FlowAttributionToken,
+    registration_id: &ripdpi_flow_app_attribution::FlowRegistrationId,
     uid_policy: &UidFlowPolicy,
     new_sessions: &mut Vec<PendingTcpSession>,
     unresolvable: &mut Vec<SocketHandle>,
@@ -110,7 +110,7 @@ fn collect_resolved_session(
     let ResolvedMappedTarget { addr: target_addr, host: target_host } = resolved;
     // The registration belongs to this exact pre-handshake listener. Never
     // create a fresh generation at admission after its original lookup expired.
-    let request = token.request();
+    let request = registration_id.request();
     if tcp.remote_endpoint().map(endpoint_to_socketaddr) != Some(request.local)
         || tcp_target_endpoint(tcp) != Some(request.remote)
     {
@@ -118,7 +118,7 @@ fn collect_resolved_session(
         unresolvable.push(handle);
         return;
     }
-    match uid_policy.admit_token(token) {
+    match uid_policy.admit_registration(registration_id) {
         Verdict::Allow => {
             new_sessions.push(PendingTcpSession { handle, target_addr, target_host, synthetic_ip, dns_intercept });
         }

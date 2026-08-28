@@ -1,20 +1,21 @@
 # Mieru wire protocol — RIPDPI implementation contract
 
 Byte-exact notes for the `ripdpi-mieru` engine, transcribed from upstream
-[enfein/mieru](https://github.com/enfein/mieru) `main` (fetched 2026-06-05):
+[enfein/mieru](https://github.com/enfein/mieru/tree/155ebbd60f86e472586a60d7ffe58ec8f8682cb1)
+v3.36.0, commit `155ebbd60f86e472586a60d7ffe58ec8f8682cb1`:
 `docs/protocol.md`, `pkg/cipher/api.go`, `pkg/protocol/{metadata,segment,session,padding}.go`.
 
-> **Scope of this crate.** TCP carrier only (the recommended, faster transport;
+> **Scope of this crate.** TCP carrier only (
 > upstream `MaxFragmentSize` returns `maxPDU` for the stream transport — no
 > KCP/ARQ fragmentation on TCP). The UDP carrier (KCP-like reliable ARQ) is
-> **out of scope** and returns `MieruError::UdpUnsupported`.
+> **not implemented** and returns `MieruError::UdpUnsupported` before DNS or dialing.
+> UDP carrier support remains an open epic requirement.
 >
 > **Verification status.** The cipher/codec primitives are covered by
-> deterministic unit vectors; the framed session is exercised by a
-> spec-faithful in-crate loopback peer (client ⇄ server using this same code) —
-> i.e. **self-consistency** is verified. **On-wire interoperability with a real
-> mieru server is NOT verified** (no server available offline). Treat interop as
-> unconfirmed until a live `mita` server test is run.
+> deterministic unit vectors and in-crate peers. The pinned upstream Go server
+> also exchanges TCP payloads with the production Rust client on loopback,
+> including concurrent streams and runtime-owned carrier shutdown. This proves
+> host interoperability, not Android VPN routing or external deployment.
 
 All integers are **big-endian** unless stated.
 
@@ -30,7 +31,7 @@ All integers are **big-endian** unless stated.
   at 2-min granularity). The client derives with its own `T`.
 - **Nonce**: 24 random bytes, then **the last 4 bytes are replaced** by the first
   4 bytes of `SHA256(username ‖ nonce[0..16])` (user-lookup acceleration).
-  Each AEAD operation **increments the nonce by 1** (little-endian counter over
+  Each AEAD operation **increments the nonce by 1** (big-endian counter over
   the 24 bytes, matching Go's `increaseNonce`) and the incremented value is used
   for the next operation.
 
@@ -56,7 +57,7 @@ accepts within ±1 minute.
 | 18 | 2 | windowSize |
 | 20 | 1 | fragment (0 = last) |
 | 21 | 1 | prefixLen (padding 1 length) |
-| 22 | 2 | payloadLen (encapsulated payload, excl. auth tag) |
+| 22 | 2 | payloadLen (raw stream payload, excl. auth tag) |
 | 24 | 1 | suffixLen (padding 2 length) |
 | 25 | 7 | unused |
 
@@ -73,11 +74,9 @@ accepts within ±1 minute.
 | 17 | 1 | suffixLen |
 | 18 | 14 | unused |
 
-Upstream bounds the payload an open-session segment may piggyback
-(`MaxSessionOpenPayload`); its exact value is unverified here, so this crate does
-NOT hard-reject an inbound session `payloadLen` (a `u16` is inherently bounded) —
-it only ever writes `payloadLen = 0` on open. Pin the real bound once a live
-server vector is available.
+Upstream bounds the payload an open-session segment may piggyback to
+`MaxSessionOpenPayload = 1024` (`pkg/protocol/metadata.go`). The client writes
+`payloadLen = 0` on open.
 
 ## 3. Segment wire frame (`docs/protocol.md`, `pkg/protocol/segment.go`)
 
@@ -95,11 +94,11 @@ server vector is available.
   filler (`newPadding`, bounded by `maxPaddingSize`); the receiver skips them
   using the decrypted metadata lengths. `maxPDU = 32 * 1024`.
 
-## 4. Inner payload encapsulation (relayed data)
+## 4. TCP carrier payload
 
-Relayed application bytes are wrapped before encryption as:
-`[ marker1 = 0x00 ][ data length = X (u16 BE) ][ data (X bytes) ][ marker2 = 0xff ]`,
-then this blob is the segment payload that gets AEAD-encrypted.
+The segment contains raw stream bytes before AEAD encryption. The upstream
+UDP-association encapsulation (`00`, length, payload, `ff`) does not apply to
+TCP stream data.
 
 ## 5. Session establishment (TCP, `pkg/protocol/session.go`)
 
@@ -107,12 +106,11 @@ then this blob is the segment payload that gets AEAD-encrypted.
    (`sessionID` = random non-zero u32, `seq` = `nextSend++`). It MAY carry the
    first ≤ `MaxSessionOpenPayload` bytes of payload.
 2. Server replies `openSessionResponse` (same `sessionID`); session → established.
-3. Data flows as `dataClientToServer` / `dataServerToClient` segments whose
-   (encapsulated) payload is a **plain end-to-end SOCKS5 stream**: the mieru
-   server runs a SOCKS5 server inside the tunnel, so the RIPDPI client performs a
-   SOCKS5 client handshake (`05 01 00`, expect `05 00`) then `CONNECT`
+3. Data flows as `dataClientToServer` / `dataServerToClient` segments. The server
+   has already authenticated the carrier, so the RIPDPI client sends `CONNECT`
    (`05 01 00 ATYP ADDR PORT`, expect `05 00 ...`) over the session to reach
-   `target`, after which the session is a raw bidirectional byte pipe.
+   `target`, after which the session is a raw bidirectional byte pipe. There is
+   no SOCKS method-negotiation greeting inside this authenticated session.
 4. Close: `closeSessionRequest` / `closeSessionResponse`.
 
 ## 6. RIPDPI mapping
@@ -138,7 +136,7 @@ Many logical sub-sessions share **one** carrier connection. The AEAD nonce is pe
 carrier *direction* (§3), so multiplexing must reuse the single per-direction
 cipher context, not create one per stream:
 
-- **One `Encryptor`** behind an async mutex: every sub-session's segments are
+- **One `Encryptor`** owned by the bounded writer queue: every sub-session's segments are
   sealed through one serialized writer, so the per-direction nonce is used exactly
   once no matter how many streams write concurrently (nonce-reuse-safe under
   reuse).
@@ -155,8 +153,9 @@ connections* with the level; RIPDPI's relay pool caches one carrier per backend,
 so the level maps instead to a **per-carrier concurrent-stream ceiling**
 (`off`→1, `low`→8, `middle`→32, `high`→128); beyond it, `open_stream` applies
 backpressure. The wire multiplexing (`sessionID`-tagged sub-sessions over one AEAD
-direction) is faithful to upstream; the ceilings are RIPDPI policy. `off` keeps
-the legacy one-stream-per-carrier path (non-reusable).
+direction) is faithful to upstream; the ceilings are RIPDPI policy. `off` uses
+the same owned carrier implementation with one stream and a non-reusable
+relay-pool entry.
 
 **Robustness properties and known limitations (loopback tier; adversarially reviewed):**
 
@@ -170,16 +169,13 @@ the legacy one-stream-per-carrier path (non-reusable).
   at carrier open, so a long-lived carrier's segments stay fresh against a server
   that enforces per-segment timestamps. (The replay key is still derived once at
   handshake, per the per-carrier-direction model.)
-- *Concurrency permit never leaks.* The per-carrier concurrent-stream slot is
-  owned by the outbound pump and released when the caller closes its write half or
-  drops the stream (which always fires on caller teardown), so a half-idle dropped
-  stream cannot leak a slot even if the server never sends a close response.
-  Dropping the carrier clears all mailboxes so any parked inbound pumps unwind.
-- *Head-of-line blocking (residual).* One reader task drains the carrier; if a
-  sub-session's consumer stalls, its bounded mailbox fills and the shared reader
-  blocks, pausing inbound delivery for all co-multiplexed sub-sessions until it
-  drains. Liveness, not correctness/isolation (no mis-delivery). Credit-based
-  per-session flow control is the follow-up if HoL latency becomes a problem.
+- *Stream teardown owns its pumps.* Closing a stream joins its child work;
+  dropping it aborts the pumps and unregisters its mailbox. Carrier shutdown
+  aborts all children before joining, retains joins across cancellation, and
+  rejects new work. Factory shutdown also owns evicted and pending carriers.
+- *Slow consumers are isolated.* A full bounded mailbox closes that logical
+  stream instead of blocking the shared reader. The shared TCP carrier still
+  has transport-level head-of-line blocking.
 - *`sessionID` reuse on close (residual).* A `closeSession*` is routed to whatever
   mailbox currently holds that random `u32` id. If an id were re-rolled for a new
   sub-session in the window after the old one was retired, a delayed close could
@@ -199,7 +195,11 @@ the legacy one-stream-per-carrier path (non-reusable).
   per-stream isolation (no cross-contamination) and sequential carrier reuse; the
   single-`Decryptor` server proves nonce safety under reuse (a reused nonce would
   fail the server's decrypt).
-- **NOT verified: on-wire interop with a real upstream `mita` server.** That
-  requires a live server and is infeasible offline; no live-interop claim is made.
-  Standing up a containerized `mita` fixture in CI is the path to close this and
-  remains future work.
+- **Pinned upstream loopback** (`tests/upstream_interop.rs` and
+  `scripts/tests/run-outbound-interop.py`): real upstream protocol/SOCKS server,
+  64 KiB payloads, and concurrent isolated streams for low/middle/high.
+- **Runtime stop** (`ripdpi-relay-core` backend fixture): two SOCKS flows in
+  `off` mode exchange payloads, then stop leaves zero accepted upstream carriers
+  active while the Rust runtime object and peer process remain alive.
+- Android routing/protection, UDP carrier operation, and external-server
+  acceptance require separate evidence; these host tests do not establish them.

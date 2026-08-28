@@ -8,7 +8,9 @@ import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
+import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -23,6 +25,7 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayXhttpModeAuto
@@ -86,6 +89,8 @@ data class ConfigDraft(
     val relayKind: String = RelayKindOff,
     val relayProfileId: String = DefaultRelayProfileId,
     val relayPresetId: String = "",
+    val sourceRelayProfile: RelayProfileRecord? = null,
+    val sourceRelayCredentials: RelayCredentialRecord? = null,
     val relayServer: String = "",
     val relayServerPort: String = "443",
     val relayServerName: String = "",
@@ -101,6 +106,7 @@ data class ConfigDraft(
     val relayCloudflareTunnelToken: String = "",
     val relayCloudflareTunnelCredentialsJson: String = "",
     val relayVlessUuid: String = "",
+    val relayAnyTlsPassword: String = "",
     val relayHysteriaPassword: String = "",
     val relayHysteriaSalamanderKey: String = "",
     val relayChainEntryServer: String = "",
@@ -156,6 +162,8 @@ data class ConfigDraft(
     val relayFinalmaskFragmentMinBytes: String = "",
     val relayFinalmaskFragmentMaxBytes: String = "",
 ) {
+    override fun toString(): String = "ConfigDraft(mode=$mode, relayEnabled=$relayEnabled, fields=<redacted>)"
+
     val chainSummary: String
         get() = resolvedChainSet().let { formatChainSummary(it.tcpSteps, it.udpSteps) }
 
@@ -166,6 +174,7 @@ data class ConfigDraft(
                 relayKind == RelayKindChainRelay -> "Chain relay"
                 relayKind == RelayKindMasque -> "MASQUE"
                 relayKind == RelayKindHysteria2 -> "Hysteria2"
+                relayKind == RelayKindAnyTls -> "AnyTLS"
                 relayKind == RelayKindCloudflareTunnel -> "Cloudflare Tunnel"
                 relayKind == RelayKindTuicV5 -> "TUIC v5"
                 relayKind == RelayKindShadowTlsV3 -> "ShadowTLS v3"
@@ -356,7 +365,7 @@ internal fun MutableStateFlow<ConfigEditorSession>.updateDraftForSession(
         }
         val updated =
             current.copy(
-                draft = requireNotNull(current.draft).transform(),
+                draft = requireNotNull(current.draft).applyRelayDraftEdit(transform),
                 draftRevision = current.draftRevision + 1,
             )
         if (compareAndSet(current, updated)) return true

@@ -361,6 +361,7 @@ async fn udp_uses_sing_box_udp_over_tcp_v2_magic_target() {
 
     assert_eq!(datagram.payload, b"dns");
     assert_eq!(fixture.observed().udp_magic_targets, vec!["sp.v2.udp-over-tcp.arpa:0".to_owned()]);
+    assert_eq!(fixture.observed().udp_requests, vec![(false, "0.0.0.0:0".to_owned())]);
 }
 
 #[tokio::test]
@@ -384,4 +385,108 @@ async fn session_honors_outbound_bind_ip_and_fails_closed_on_family_mismatch() {
         .await
         .expect_err("family mismatch must fail closed");
     assert!(error.to_string().contains("outbound bind IP family"), "unexpected error: {error}");
+}
+
+/// # Cancel safety
+/// Both the opening request and raw TLS peer are joined before assertions.
+#[tokio::test]
+async fn dropping_last_client_owner_closes_abandoned_tls_handshake() {
+    abandoned_tls_handshake_is_released(false).await;
+}
+
+#[tokio::test]
+async fn explicit_close_joins_abandoned_tls_handshake_while_owner_remains_live() {
+    abandoned_tls_handshake_is_released(true).await;
+}
+
+async fn abandoned_tls_handshake_is_released(explicit_close: bool) {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("stalled TLS peer");
+    let address = listener.local_addr().expect("peer address");
+    let (started, observed) = tokio::sync::oneshot::channel();
+    let mut peer = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.expect("accept TLS");
+        let mut data = [0; 2048];
+        assert!(socket.read(&mut data).await.expect("ClientHello") > 0);
+        started.send(()).expect("TLS observed");
+        socket.read_to_end(&mut Vec::new()).await.expect("client EOF");
+    });
+    let client = AnyTlsClient::new(AnyTlsClientConfig {
+        server_host: address.ip().to_string(),
+        server_port: address.port(),
+        server_name: "outbound.invalid".into(),
+        password: "loopback-test-password".into(),
+        tls_fingerprint_profile: "chrome".into(),
+        root_certificate_pem: None,
+        client_name: "outbound-test".into(),
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
+    })
+    .expect("client");
+    let opening_client = client.clone();
+    let opening =
+        tokio::spawn(async move { opening_client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), 443).await });
+    let started = tokio::time::timeout(Duration::from_secs(1), observed).await;
+    opening.abort();
+    let _ = opening.await;
+    let retained = if explicit_close {
+        tokio::time::timeout(Duration::from_secs(1), client.close())
+            .await
+            .expect("close deadline")
+            .expect("join workers");
+        Some(client)
+    } else {
+        drop(client);
+        None
+    };
+    let closed = tokio::time::timeout(Duration::from_millis(200), &mut peer).await;
+    if closed.is_err() {
+        peer.abort();
+        let _ = peer.await;
+    }
+    started.expect("TLS start deadline").expect("TLS started");
+    closed.expect("abandoned TLS worker must release its socket").expect("peer task");
+    if let Some(client) = retained {
+        client.close().await.expect("repeat close");
+        assert!(client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), 443).await.is_err());
+    }
+}
+
+#[tokio::test]
+async fn bridge_drop_preserves_sibling_and_client_close_joins_idle_pumps() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let first = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("first")
+        .into_io()
+        .expect("first bridge");
+    let mut second = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("second")
+        .into_io()
+        .expect("second bridge");
+    drop(first);
+    second.write_all(b"sibling").await.expect("sibling survives");
+    let mut payload = [0; 7];
+    tokio::time::timeout(Duration::from_secs(1), second.read_exact(&mut payload))
+        .await
+        .expect("echo deadline")
+        .expect("echo");
+    assert_eq!(&payload, b"sibling");
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while !fixture.observed().fin_stream_ids.contains(&1) {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("dropped bridge FIN");
+    client.close().await.expect("join carrier and bridges");
+    // Neither application wrapper nor client is dropped: joined pumps close
+    // their endpoints before the stop call can report success.
+    assert_eq!(second.read(&mut payload).await.expect("closed bridge"), 0);
+    client.close().await.expect("repeat joined close");
 }

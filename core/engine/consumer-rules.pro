@@ -20,6 +20,18 @@
     native <methods>;
 }
 
+-keepclasseswithmembernames class com.poyka.ripdpi.core.RipDpiSshHostKeyNativeBindings {
+    native <methods>;
+}
+
+# The call-scoped SSH probe invokes this callback by its JNI method name.
+-keep interface com.poyka.ripdpi.core.SshProbeSocketController {
+    boolean protectSocket(int);
+}
+-keepclassmembers class * implements com.poyka.ripdpi.core.SshProbeSocketController {
+    boolean protectSocket(int);
+}
+
 -keepclasseswithmembernames class com.poyka.ripdpi.core.RipDpiWarpNativeBindings {
     native <methods>;
 }

@@ -37,6 +37,7 @@ class NativeRelayProfileActivator
                 is ProxyProfile.AnyTls,
                 is ProxyProfile.VlessReality,
                 is ProxyProfile.Ssh,
+                is ProxyProfile.Mieru,
                 -> true
 
                 is ProxyProfile.Vless -> profile.xhttpPath != null || profile.xhttpHost != null

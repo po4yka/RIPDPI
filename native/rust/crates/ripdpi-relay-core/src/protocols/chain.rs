@@ -342,6 +342,10 @@ impl RelaySession for ChainRelaySession {
 }
 
 impl RelaySessionFactory for ChainRelaySessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = ChainRelaySession;
     type Error = io::Error;
 

@@ -28,9 +28,9 @@
 //! keeping the `VpnService.protect()` invariant intact.
 //!
 //! **Verification status.** Cipher/codec primitives are covered by deterministic
-//! unit vectors and the framed session by a spec-faithful in-crate loopback peer
-//! (self-consistency). On-wire interoperability with a real mieru server is
-//! **not** verified offline — see `PROTOCOL.md`.
+//! unit vectors and in-crate loopback tests. The pinned upstream oracle in
+//! `scripts/tests/run-outbound-interop.py` exercises TCP carrier authentication,
+//! SOCKS CONNECT, payload exchange and multiplexing against upstream Go code.
 
 mod cipher;
 mod client;
@@ -38,13 +38,16 @@ mod config;
 mod error;
 mod metadata;
 mod mux;
+mod owned_tasks;
 mod segment;
 mod session;
+mod stream;
 
 pub use client::*;
 pub use config::*;
 pub use error::*;
 pub use mux::MieruMuxConnection;
+pub use stream::MieruStream;
 
 #[cfg(test)]
 mod loopback;

@@ -3,7 +3,7 @@
 //! The client runs the Mieru session over a caller-supplied, **already
 //! protected** transport (the relay layer owns the `VpnService.protect()` dial,
 //! per `PROTOCOL.md` §6) and exposes a tunnelled target as a plain
-//! [`DuplexStream`]. This is the multiplexing-`off` path: one stream per session.
+//! [`crate::MieruStream`]. This is the multiplexing-`off` path: one stream per session.
 //! The multiplexed paths (`low`/`middle`/`high`) live in [`crate::MieruMuxConnection`]
 //! (see `mux.rs` and `PROTOCOL.md` §7), where many sub-sessions share one carrier.
 
@@ -12,11 +12,13 @@ use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_network_time::NetworkTimeProvider;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::timeout;
 
+use crate::MieruStream;
 use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
+use crate::owned_tasks::OwnedTasks;
 use crate::session::{DataReader, DataWriter, open_session, socks5_connect};
 
 /// Size of the in-process duplex bridging the caller to the tunnel pumps.
@@ -56,7 +58,10 @@ impl MieruClient {
     /// Open a tunnelled byte stream to `target` (`host:port`) via the in-tunnel
     /// SOCKS5 server, consuming this session. Returns the caller-facing end of a
     /// duplex; two background pumps move bytes to/from the tunnel.
-    pub async fn tcp_connect(self, target: &str) -> Result<DuplexStream> {
+    /// # Cancel safety:
+    /// Cancel-safe: cancellation during the handshake drops both exclusively
+    /// owned carrier halves. Pump registration and publication have no await.
+    pub async fn tcp_connect(self, target: &str) -> Result<MieruStream> {
         let MieruClient { mut writer, mut reader } = self;
         match timeout(SOCKS5_HANDSHAKE_TIMEOUT, socks5_connect(&mut writer, &mut reader, target)).await {
             Ok(result) => result?,
@@ -67,7 +72,7 @@ impl MieruClient {
         let (mut engine_read, mut engine_write) = tokio::io::split(engine);
 
         // Outbound: caller writes -> data segments.
-        tokio::spawn(async move {
+        let outbound = async move {
             let mut buf = vec![0u8; PUMP_BUF];
             loop {
                 match engine_read.read(&mut buf).await {
@@ -79,10 +84,10 @@ impl MieruClient {
                     }
                 }
             }
-        });
+        };
 
         // Inbound: data segments -> caller reads.
-        tokio::spawn(async move {
+        let inbound = async move {
             let mut buf = vec![0u8; PUMP_BUF];
             loop {
                 match reader.read(&mut buf).await {
@@ -94,9 +99,9 @@ impl MieruClient {
                     }
                 }
             }
-        });
+        };
 
-        Ok(caller)
+        Ok(MieruStream::new(caller, Arc::new(OwnedTasks::spawn(inbound, outbound)), None))
     }
 }
 

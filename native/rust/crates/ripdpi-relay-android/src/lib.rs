@@ -40,13 +40,27 @@ mod lifecycle;
 mod readiness;
 mod registry;
 mod runtime;
+mod ssh_probe;
 mod telemetry;
 mod vpn_protect;
 
 use android_support::ffi_boundary;
-use jni::objects::{JObject, JString};
+use jni::objects::{JObject, JObjectArray, JString};
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM};
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiSshHostKeyNativeBindings_jniProbeHostKey(
+    env: EnvUnowned<'_>,
+    _thiz: JObject<'_>,
+    address: JString<'_>,
+    port: jint,
+    timeout_millis: jint,
+    controller: JObject<'_>,
+    output: JObjectArray<'_>,
+) -> jint {
+    ffi_boundary(6, move || ssh_probe::probe_entry(env, address, port, timeout_millis, controller, output))
+}
 
 /// # Safety
 /// Called once by the JVM at library load; `vm` is a valid `*mut JavaVM` that outlives this call.

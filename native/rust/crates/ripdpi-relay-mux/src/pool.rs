@@ -46,6 +46,16 @@ where
         }
     }
 
+    /// Stop factory-owned work after normal or forced stream draining.
+    ///
+    /// # Cancel safety
+    /// Unfinished factory cleanup and the cached session remain owned for retry.
+    pub async fn shutdown(&self) -> Result<(), F::Error> {
+        self.inner.factory.shutdown().await?;
+        self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).cached_session = None;
+        Ok(())
+    }
+
     pub fn capabilities(&self) -> RelayCapabilities {
         self.inner.capabilities
     }

@@ -497,3 +497,84 @@ pub(super) fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static s
         RelayBackend::Unsupported { .. } => None,
     }
 }
+
+/// # Cancel safety
+/// The outer test always stops and joins the runtime before asserting an outcome.
+#[tokio::test]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn mieru_off_socks_payload_and_stop_with_upstream() {
+    let endpoint: SocketAddr =
+        std::env::var("RIPDPI_OUTBOUND_INTEROP_ENDPOINT").expect("upstream runner").parse().expect("loopback endpoint");
+    assert!(endpoint.ip().is_loopback() && endpoint.port() != 0);
+    let mut config = sample_config("mieru");
+    config.common.server = endpoint.ip().to_string();
+    config.common.server_port = i32::from(endpoint.port());
+    config.common.local_socks_port = 0;
+    let RelayBackendConfig::Mieru(mieru) = &mut config.backend else { unreachable!() };
+    mieru.username = Some("outbound-interop".into());
+    mieru.password = Some("loopback-test-password".into());
+    mieru.multiplexing = "off".into();
+    let runtime = RelayRuntime::new(config);
+    let run = tokio::spawn(Arc::clone(&runtime).run());
+    let exchange = tokio::time::timeout(Duration::from_secs(12), async {
+        let listener = loop {
+            if let Some(listener) = runtime.telemetry().listener_address {
+                break listener;
+            }
+            tokio::task::yield_now().await;
+        };
+        for byte in [0x5a, 0xa5] {
+            let mut stream = tokio::net::TcpStream::connect(&listener).await?;
+            stream.write_all(&[5, 1, 0]).await?;
+            let mut method = [0; 2];
+            stream.read_exact(&mut method).await?;
+            if method != [5, 0] {
+                return Err(io::Error::other("SOCKS auth reply"));
+            }
+            let mut request = vec![5, 1, 0, 3, 15];
+            request.extend_from_slice(b"interop.invalid");
+            request.extend_from_slice(&443_u16.to_be_bytes());
+            stream.write_all(&request).await?;
+            let mut reply = [0; 10];
+            stream.read_exact(&mut reply).await?;
+            if reply[..4] != [5, 0, 0, 1] {
+                return Err(io::Error::other("SOCKS connect reply"));
+            }
+            let payload = vec![byte; 65536];
+            stream.write_all(&payload).await?;
+            let mut received = vec![0; payload.len()];
+            stream.read_exact(&mut received).await?;
+            if received != payload {
+                return Err(io::Error::other("upstream payload mismatch"));
+            }
+        }
+        io::Result::Ok(())
+    })
+    .await;
+    runtime.stop();
+    let mut run = run;
+    let stopped = tokio::time::timeout(Duration::from_secs(7), &mut run).await;
+    if stopped.is_err() {
+        run.abort();
+        let _ = run.await;
+    }
+    exchange.expect("SOCKS exchange deadline").expect("SOCKS exchange");
+    stopped.expect("runtime stop deadline").expect("runtime task").expect("runtime shutdown");
+    // Keep the runtime (and backend registry) alive while the independent
+    // upstream reports EOF. Process/runtime destruction cannot manufacture this proof.
+    let stats = std::env::var("RIPDPI_OUTBOUND_STATS").expect("upstream stats endpoint");
+    let observed = tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            let mut stream = tokio::net::TcpStream::connect(&stats).await.expect("stats connect");
+            let mut report = String::new();
+            stream.read_to_string(&mut report).await.expect("stats read");
+            if report.trim() == "0 2" {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    assert!(observed.is_ok(), "stop must join both distinct Off carriers before returning");
+    assert_eq!(runtime.telemetry().active_sessions, 0);
+}

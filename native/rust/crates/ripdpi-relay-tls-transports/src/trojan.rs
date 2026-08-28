@@ -83,6 +83,10 @@ pub fn trojan_proxy_target(config: &TrojanClientConfig) -> String {
 }
 
 impl RelaySessionFactory for TrojanSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = TrojanSession;
     type Error = io::Error;
 

@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayChain
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
@@ -11,6 +14,7 @@ import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayChainHopStatusUiState
 import com.poyka.ripdpi.activities.RelayChainHopUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
@@ -23,6 +27,7 @@ import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +41,29 @@ import org.robolectric.annotation.GraphicsMode
 class RelayFieldsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun anyTlsFieldsRenderEndpointSniAndPassword() {
+        var editedPassword: String? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                RelayKindFields(
+                    draft = ConfigDraft(relayKind = RelayKindAnyTls),
+                    uiState = ConfigUiState(),
+                    actions = RelayKindFieldActions(onAnyTlsPasswordChanged = { editedPassword = it }),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Relay server").assertExists()
+        composeRule.onNodeWithText("Relay port").assertExists()
+        composeRule.onNodeWithText("TLS server name").assertExists()
+        composeRule.onNodeWithText("Password").assertExists()
+        composeRule
+            .onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+            .performTextReplacement("owned-password-fixture")
+        assertEquals("owned-password-fixture", editedPassword)
+    }
 
     @Test
     fun naiveProxyFieldsRenderEndpointCredentialsAndPathInputs() {

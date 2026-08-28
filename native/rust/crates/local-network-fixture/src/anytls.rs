@@ -38,6 +38,7 @@ pub struct AnyTlsLoopbackObserved {
     pub fin_stream_ids: Vec<u32>,
     pub tcp_targets: Vec<String>,
     pub udp_magic_targets: Vec<String>,
+    pub udp_requests: Vec<(bool, String)>,
     pub update_padding_scheme_count: usize,
     pub heart_responses: usize,
 }
@@ -242,8 +243,18 @@ async fn handle_connection(
                 let state = streams.entry(frame.stream_id).or_default();
                 if !state.target_received {
                     state.target_received = true;
-                    let target = decode_target(&frame.data)?;
+                    let mut cursor = 0;
+                    let target = decode_target(&frame.data, &mut cursor)?;
                     if target == "sp.v2.udp-over-tcp.arpa:0" {
+                        let is_connect = read_u8(&frame.data, &mut cursor)?;
+                        if is_connect != 0 {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "fixture requires UoT datagram mode",
+                            ));
+                        }
+                        let destination = decode_target(&frame.data, &mut cursor)?;
+                        observed.lock().expect("anytls observed").udp_requests.push((false, destination));
                         state.udp = true;
                         observed.lock().expect("anytls observed").udp_magic_targets.push(target);
                     } else {
@@ -266,6 +277,14 @@ async fn handle_connection(
                             }
                         }
                     }
+                } else if state.udp {
+                    state.udp_buffer.extend_from_slice(&frame.data);
+                    while let Some(length) = complete_uot_packet(&state.udp_buffer)? {
+                        let packet: Vec<u8> = state.udp_buffer.drain(..length).collect();
+                        for chunk in packet.chunks(usize::from(u16::MAX)) {
+                            write_frame(&mut tls, CMD_PSH, frame.stream_id, chunk).await?;
+                        }
+                    }
                 } else {
                     write_frame(&mut tls, CMD_PSH, frame.stream_id, &frame.data).await?;
                 }
@@ -283,6 +302,7 @@ async fn handle_connection(
 struct StreamState {
     target_received: bool,
     udp: bool,
+    udp_buffer: Vec<u8>,
 }
 
 struct FixtureFrame {
@@ -345,28 +365,43 @@ fn parse_padding_md5(settings: &[u8]) -> Option<String> {
     settings.lines().find_map(|line| line.strip_prefix("padding-md5=").map(ToOwned::to_owned))
 }
 
-fn decode_target(data: &[u8]) -> io::Result<String> {
-    let mut cursor = 0;
-    let atyp = read_u8(data, &mut cursor)?;
+fn complete_uot_packet(data: &[u8]) -> io::Result<Option<usize>> {
+    let Some(family) = data.first() else { return Ok(None) };
+    let address_length = match family {
+        0 => 5,
+        1 => 17,
+        2 => {
+            let Some(length) = data.get(1) else { return Ok(None) };
+            2 + usize::from(*length)
+        }
+        _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid UoT address family")),
+    };
+    let Some(length) = data.get(address_length + 2..address_length + 4) else { return Ok(None) };
+    let total = address_length + 4 + usize::from(u16::from_be_bytes([length[0], length[1]]));
+    Ok((data.len() >= total).then_some(total))
+}
+
+fn decode_target(data: &[u8], cursor: &mut usize) -> io::Result<String> {
+    let atyp = read_u8(data, cursor)?;
     let host = match atyp {
         0x01 => {
-            let octets = read_exact(data, &mut cursor, 4)?;
+            let octets = read_exact(data, cursor, 4)?;
             IpAddr::V4(Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3])).to_string()
         }
         0x03 => {
-            let len = usize::from(read_u8(data, &mut cursor)?);
-            let bytes = read_exact(data, &mut cursor, len)?;
+            let len = usize::from(read_u8(data, cursor)?);
+            let bytes = read_exact(data, cursor, len)?;
             String::from_utf8_lossy(bytes).into_owned()
         }
         0x04 => {
-            let octets = read_exact(data, &mut cursor, 16)?;
+            let octets = read_exact(data, cursor, 16)?;
             let mut array = [0_u8; 16];
             array.copy_from_slice(octets);
             IpAddr::V6(Ipv6Addr::from(array)).to_string()
         }
         _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid target atyp")),
     };
-    let port = read_u16(data, &mut cursor)?;
+    let port = read_u16(data, cursor)?;
     Ok(format!("{host}:{port}"))
 }
 

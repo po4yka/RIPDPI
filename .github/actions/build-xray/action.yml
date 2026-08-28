@@ -25,7 +25,8 @@ runs:
         go install "golang.org/x/mobile/cmd/gomobile@v$gomobile_version"
         go install "golang.org/x/mobile/cmd/gobind@v$gomobile_version"
         export PATH="$GOBIN:$PATH"
-        gomobile init
+        # Android binding needs these binaries, not OpenAL initialization.
+        # Pinned gomobile init would overwrite gobind with gobind@latest.
         echo "$GOBIN" >> "$GITHUB_PATH"
         ndk_version="$(sed -n 's/^ripdpi.nativeNdkVersion=//p' gradle.properties)"
         {

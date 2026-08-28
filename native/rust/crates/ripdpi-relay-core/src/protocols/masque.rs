@@ -35,6 +35,10 @@ impl RelaySession for MasqueSession {
 }
 
 impl RelaySessionFactory for MasqueSessionFactory {
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     type Session = MasqueSession;
     type Error = io::Error;
 

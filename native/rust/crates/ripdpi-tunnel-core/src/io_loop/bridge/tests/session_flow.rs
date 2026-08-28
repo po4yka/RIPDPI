@@ -27,7 +27,7 @@ async fn u22_pump_forwards_smoltcp_to_session() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        attribution_token: None,
+        attribution_id: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);
@@ -96,7 +96,7 @@ async fn u23_pump_forwards_session_to_smoltcp() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        attribution_token: None,
+        attribution_id: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);
@@ -143,7 +143,7 @@ async fn u25_pump_handles_partial_writes() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        attribution_token: None,
+        attribution_id: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);

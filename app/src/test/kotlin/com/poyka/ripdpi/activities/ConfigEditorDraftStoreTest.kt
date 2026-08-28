@@ -3,6 +3,9 @@ package com.poyka.ripdpi.activities
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
@@ -53,11 +56,17 @@ class ConfigEditorDraftStoreTest {
                 relayMasqueClientCertificateChainPem = "certificate-pem",
                 relayMasqueClientPrivateKeyPem = "fixture-key-pem",
                 relayCloudflareTunnelCredentialsJson = "{\"fixture\":true}",
+                relayAnyTlsPassword = "anytls-fixture",
+                sourceRelayProfile = RelayProfileRecord(id = "ssh-source", kind = RelayKindSsh),
+                sourceRelayCredentials =
+                    RelayCredentialRecord("ssh-source", sshPrivateKey = "ssh-key-fixture"),
             )
 
         val restored = RipDpiJson.decodeFromString<ConfigDraft>(RipDpiJson.encodeToString(draft))
 
         assertEquals(draft, restored)
+        assertFalse(restored.toString().contains("anytls-fixture"))
+        assertFalse(restored.toString().contains("ssh-key-fixture"))
     }
 
     @Test

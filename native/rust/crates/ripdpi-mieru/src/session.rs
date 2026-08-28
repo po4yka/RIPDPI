@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use crate::cipher::KEY_LEN;
 use crate::error::{MieruError, Result};
 use crate::metadata::{DataAckMeta, ProtocolType, SessionMeta, timestamp_estimate_unix};
-use crate::segment::{Decryptor, Encryptor, MAX_PDU, decapsulate, encapsulate};
+use crate::segment::{Decryptor, Encryptor, MAX_PDU};
 
 /// Outbound data path: owns the encryptor, the (boxed) transport write half,
 /// and the per-segment header fields. `time` stamps each segment's metadata
@@ -72,16 +72,16 @@ impl DataWriter {
     }
 
     /// Send `bytes` as one or more `dataClientToServer` segments, each carrying
-    /// an encapsulated fragment of at most `MAX_PDU` bytes.
+    /// a raw stream fragment of at most `MAX_PDU` bytes. UDP association
+    /// encapsulation is not part of a TCP stream's payload.
     pub(crate) async fn send_data(&mut self, bytes: &[u8]) -> Result<()> {
         for chunk in bytes.chunks(MAX_PDU) {
-            let blob = encapsulate(chunk)?;
             let (prefix, suffix) = self.enc.next_padding()?;
             let session_id = self.session_id;
             let now = self.time.now_unix();
             let seq = self.next_seq();
             let payload_len =
-                u16::try_from(blob.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
+                u16::try_from(chunk.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
             self.enc
                 .write_segment(
                     &mut self.writer,
@@ -101,7 +101,7 @@ impl DataWriter {
                         }
                         .marshal(now)
                     },
-                    Some(&blob),
+                    Some(chunk),
                 )
                 .await?;
         }
@@ -110,7 +110,7 @@ impl DataWriter {
 }
 
 /// Inbound data path: owns the decryptor, the (boxed) transport read half, and
-/// a buffer of decapsulated bytes not yet consumed by the caller. Control
+/// a buffer of decrypted bytes not yet consumed by the caller. Control
 /// segments (open/close session responses) are skipped transparently.
 pub(crate) struct DataReader {
     dec: Decryptor,
@@ -129,7 +129,7 @@ impl DataReader {
         Self { dec, reader, buffer: Vec::new(), pos: 0, time, calibrated: false }
     }
 
-    /// Pull the next decapsulated data fragment into the buffer, skipping any
+    /// Pull the next decrypted data fragment into the buffer, skipping any
     /// control segments. Returns `false` on clean EOF.
     async fn fill(&mut self) -> Result<bool> {
         loop {
@@ -151,7 +151,7 @@ impl DataReader {
             match protocol {
                 ProtocolType::DataServerToClient | ProtocolType::DataClientToServer => {
                     if let Some(blob) = payload {
-                        self.buffer = decapsulate(&blob)?;
+                        self.buffer = blob;
                         self.pos = 0;
                         if !self.buffer.is_empty() {
                             return Ok(true);
@@ -225,15 +225,8 @@ where
 pub(crate) async fn socks5_connect(writer: &mut DataWriter, reader: &mut DataReader, target: &str) -> Result<()> {
     let (host, port) = split_host_port(target)?;
 
-    // Greeting: VER=5, 1 method, NO-AUTH(0x00). Expect VER=5, METHOD=0x00.
-    writer.send_data(&[0x05, 0x01, 0x00]).await?;
-    let mut greeting = [0u8; 2];
-    reader.read_exact_tunnel(&mut greeting).await?;
-    if greeting != [0x05, 0x00] {
-        return Err(MieruError::Socks5(format!("unexpected method selection {greeting:?}")));
-    }
-
-    // CONNECT request.
+    // Mieru authenticates the user at the carrier layer. The upstream server
+    // skips SOCKS method negotiation and expects the CONNECT request directly.
     let mut request = vec![0x05, 0x01, 0x00];
     encode_socks5_address(&mut request, host, port)?;
     writer.send_data(&request).await?;

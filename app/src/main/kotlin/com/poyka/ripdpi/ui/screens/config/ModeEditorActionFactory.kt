@@ -112,6 +112,7 @@ private fun ModeEditorActions.withRelayChainAndMasqueActions(
 private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConfigViewModel): ModeEditorActions =
     copy(
         onRelayVlessUuidChanged = { viewModel.updateDraft { copy(relayVlessUuid = it) } },
+        onRelayAnyTlsPasswordChanged = { viewModel.updateDraft { copy(relayAnyTlsPassword = it) } },
         onRelayHysteriaPasswordChanged = { viewModel.updateDraft { copy(relayHysteriaPassword = it) } },
         onRelayHysteriaSalamanderKeyChanged = { viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) } },
         onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },

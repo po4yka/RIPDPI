@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-use ripdpi_flow_app_attribution::FlowAttributionToken;
+use ripdpi_flow_app_attribution::FlowRegistrationId;
 
 pub(in crate::io_loop) const PENDING_UID_CAPACITY: usize = 256;
 pub(in crate::io_loop) const PENDING_UID_POOL_CAPACITY: usize = PENDING_UID_CAPACITY + 1;
@@ -9,7 +9,8 @@ const PENDING_UID_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(crate) struct PendingUidPacket {
     pub(crate) bytes: Vec<u8>,
-    pub(crate) token: FlowAttributionToken,
+    // The TCP listener/session or UID cache owns the lifetime, not this queued packet.
+    pub(crate) registration_id: FlowRegistrationId,
     pub(crate) captured_at: Instant,
 }
 
@@ -48,7 +49,7 @@ impl PendingUidPackets {
     pub(in crate::io_loop) fn retain(
         &mut self,
         packet: &[u8],
-        token: FlowAttributionToken,
+        registration_id: FlowRegistrationId,
         captured_at: Instant,
     ) -> PendingUidRetainOutcome {
         if packet.len() > self.packet_capacity {
@@ -61,7 +62,7 @@ impl PendingUidPackets {
         };
         buffer.clear();
         buffer.extend_from_slice(packet);
-        self.queued.push_back(PendingUidPacket { bytes: buffer, token, captured_at });
+        self.queued.push_back(PendingUidPacket { bytes: buffer, registration_id, captured_at });
         if evicted_oldest { PendingUidRetainOutcome::EvictedOldest } else { PendingUidRetainOutcome::Stored }
     }
 
