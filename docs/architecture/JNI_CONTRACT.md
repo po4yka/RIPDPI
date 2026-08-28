@@ -75,6 +75,7 @@ class holds the raw `external fun`s; a sibling wrapper class
 | `TunDeviceQualificationNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs`, `src/session/bind_to_device_probe.rs` | `libripdpi-tunnel.so` |
 | `TunForwardingEvidenceNativeBindings` (`.../core/Tun2SocksTunnel.kt`) | `Java_com_poyka_ripdpi_core_TunForwardingEvidenceNativeBindings_*` | `ripdpi-tunnel-android` · `src/entry.rs` | `libripdpi-tunnel.so` |
 | `RipDpiRelayNativeBindings` (`.../core/RipDpiRelay.kt`) | `Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_*` | `ripdpi-relay-android` · `src/lib.rs` (+ `lifecycle.rs`, `registry.rs`, `runtime.rs`, `telemetry.rs`) | `libripdpi-relay.so` |
+| `RipDpiSshHostKeyNativeBindings` (`.../core/RipDpiSshHostKeyProbe.kt`) | `Java_com_poyka_ripdpi_core_RipDpiSshHostKeyNativeBindings_*` | `ripdpi-relay-android` · `src/ssh_probe.rs` | `libripdpi-relay.so` |
 | `RipDpiWarpNativeBindings` (`.../core/RipDpiWarp.kt`) | `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*` | `ripdpi-warp-android` · `src/lib.rs` (+ `lifecycle.rs`, `provisioning.rs`, `endpoint_probe.rs`, `telemetry.rs`, `vpn_protect.rs`) | `libripdpi-warp.so` |
 | `RipDpiAmneziaWgNativeBindings` (`.../core/RipDpiAmneziaWg.kt`) | `Java_com_poyka_ripdpi_core_RipDpiAmneziaWgNativeBindings_*` | `ripdpi-amneziawg-android` · `src/lib.rs` | `libripdpi-amneziawg.so` |
 
@@ -126,6 +127,34 @@ never a raw pointer.
   `RipDpiProxy.startProxy` registers `Job.invokeOnCompletion` to dispatch
   `stop`, and always `destroy`s in `finally`.
 - **`jniStart` blocking contract differs per library** — see [§12](#12-data-plane-work-must-not-cross-jni-frequently).
+
+### Credential-free SSH host-key observation
+
+`RipDpiSshHostKeyNativeBindings.jniProbeHostKey` is a blocking, handle-free call
+with descriptor `(Ljava/lang/String;IILjava/lang/Object;[Ljava/lang/String;)I`.
+Inputs are a literal IP, port, timeout in milliseconds (`1..30000`), an owned
+socket controller, and a two-element output array. Success writes the canonical
+`SHA256:` fingerprint and key algorithm. Status codes are `0` observed,
+`1` invalid input, `2` timeout, `3` connect failure, `4` handshake failure,
+`5` protection denied, and `6` internal failure (including the panic sentinel).
+
+The controller implements `protectSocket(I)Z`. It must protect the original fd
+and bind a duplicate to the selected underlay before permitting connect; the
+duplicate is closed by Kotlin, while Rust retains the original fd. A false
+return, Java exception, or JNI callback failure denies connect. Pending Java
+exceptions are cleared at this boundary. The controller `GlobalRef` outlives
+the private Tokio runtime and is released only after its teardown. This call
+does not register a process-global VPN callback, create a TUN, or send an SSH
+username, authentication request, or channel request: it observes the server
+key and rejects it so that the editor can ask for explicit acceptance.
+
+The service owns VPN consent, DNS, underlay generation, and operation lifetime.
+Caller cancellation revokes its lease immediately; an abandoned blocking DNS
+or JNI call retains the operation slot and binding until cleanup completes.
+The caller deadline therefore does not imply that Android DNS has terminated.
+The caller must persist the accepted fingerprint before separate authenticated
+relay startup, which verifies that pin again. R8 rules preserve both the native entry
+and the socket-controller callback.
 
 ---
 
