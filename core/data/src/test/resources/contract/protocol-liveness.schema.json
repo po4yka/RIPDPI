@@ -23,10 +23,12 @@
     "otp_ttl_seconds": { "type": "integer", "minimum": 60, "default": 3600 },
     "expected_runtime": {
       "type": "object",
-      "required": ["sing_box", "awg"],
+      "minProperties": 1,
       "properties": {
         "sing_box": { "type": "string", "minLength": 1 },
-        "awg": { "type": "string", "minLength": 1 }
+        "awg": { "type": "string", "minLength": 1 },
+        "xray": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "awg_toolchain": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       },
       "additionalProperties": false
     },
@@ -54,12 +56,23 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "ssh_target", "policy"],
+        "required": ["id", "ssh_target", "policy", "vantage"],
         "properties": {
           "id": { "$ref": "#/$defs/technical_id" },
-          "ssh_target": { "type": "string", "pattern": "^[A-Za-z0-9_.@-]+$" },
-          "ssh_transport_host": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
-          "ssh_host_key_alias": { "type": "string", "pattern": "^[A-Za-z0-9_.@-]+$" },
+          "ssh_target": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.@-]*$" },
+          "ssh_transport_host": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
+          "ssh_host_key_alias": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.@-]*$" },
+          "vantage": { "enum": ["external", "filtered"] },
+          "awg_target": {
+            "type": "object",
+            "required": ["provider", "environment", "instance"],
+            "properties": {
+              "provider": { "enum": ["upcloud", "vultr", "hetzner", "scaleway"] },
+              "environment": { "$ref": "#/$defs/technical_id" },
+              "instance": { "type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,14}$" }
+            },
+            "additionalProperties": false
+          },
           "policy": { "$ref": "#/$defs/technical_id" }
         },
         "dependentRequired": {
