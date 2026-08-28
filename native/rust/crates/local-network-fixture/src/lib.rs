@@ -619,7 +619,8 @@ mod tests {
             IpAddr::V4(Ipv4Addr::new(udp_reply[4], udp_reply[5], udp_reply[6], udp_reply[7])),
             u16::from_be_bytes([udp_reply[8], udp_reply[9]]),
         );
-        assert_eq!(relay_addr.port(), stack.manifest().socks5_port);
+        assert_eq!(relay_addr.ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
+        assert_ne!(relay_addr.port(), 0);
 
         let udp_client = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("bind udp client");
         udp_client.set_read_timeout(Some(Duration::from_secs(1))).expect("set udp timeout");
