@@ -54,7 +54,7 @@ fn stalled_udp_association(
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker,
         leased_synthetic_ips: std::collections::HashSet::new(),
-        attribution_tokens: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY),
+        attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     (association, alive, started_rx)
 }
@@ -395,7 +395,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        attribution_tokens: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY),
+        attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
     let mut eviction_heap = BoundedHeap::new(4);
@@ -424,7 +424,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         &CancellationToken::new(),
         &udp_tx,
         &stats,
-        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).token,
+        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id,
     );
 
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
@@ -451,7 +451,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        attribution_tokens: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY),
+        attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
     let mut eviction_heap = BoundedHeap::new(4);
@@ -478,7 +478,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         &CancellationToken::new(),
         &udp_tx,
         &stats,
-        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).token,
+        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id,
     );
 
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);

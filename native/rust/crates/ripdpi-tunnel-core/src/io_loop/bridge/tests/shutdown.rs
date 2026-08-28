@@ -47,7 +47,7 @@ fn insert_stalled_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        attribution_token: None,
+        attribution_id: None,
     };
     assert!(sessions.insert(socket_handle, entry).is_none());
     (cancel, alive, started_rx)
@@ -74,7 +74,7 @@ async fn u27_shutdown_cancels_all() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
-        attribution_token: None,
+        attribution_id: None,
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);

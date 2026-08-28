@@ -38,14 +38,14 @@ async fn queued_packet_cannot_borrow_reused_tuple_uid_generation() {
     };
     route_tun_packet(&packet, &mut state);
     let original = ripdpi_flow_app_attribution::note_flow(request.protocol, request.local, request.remote);
-    ripdpi_flow_app_attribution::evict_flow(original.token);
+    ripdpi_flow_app_attribution::evict_flow_if_current(original.registration_id);
     let replacement = ripdpi_flow_app_attribution::note_flow(request.protocol, request.local, request.remote);
     let job = ripdpi_flow_app_attribution::take_pending_request(request).expect("replacement job");
     ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
     retry_pending_uid_packets(&mut state);
     assert!(seen.lock().expect("seen packets").is_empty(), "old packet must not inherit a new owner's UID");
     assert!(state.pending_uid_packets.is_empty());
-    ripdpi_flow_app_attribution::evict_flow(replacement.token);
+    ripdpi_flow_app_attribution::evict_flow_if_current(replacement.registration_id);
     state.shutdown().await;
 }
 
@@ -139,19 +139,19 @@ fn expired_pending_packet_cannot_reach_raw_egress() {
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(true, Arc::clone(&seen))));
     state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
     let packet = ipv4_udp_packet(55_627, 443, b"expired-uid-packet");
-    let token = ripdpi_flow_app_attribution::note_flow(
+    let registration_id = ripdpi_flow_app_attribution::note_flow(
         crate::uid_policy::PROTO_UDP,
         "10.0.0.2:55627".parse().expect("local"),
         "93.184.216.34:443".parse().expect("remote"),
     )
-    .token;
-    let job = ripdpi_flow_app_attribution::take_pending_request(token.request()).expect("UID job");
+    .registration_id;
+    let job = ripdpi_flow_app_attribution::take_pending_request(registration_id.request()).expect("UID job");
     ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
-    state.pending_uid_packets.retain(&packet, token.clone(), std::time::Instant::now() - Duration::from_secs(6));
+    state.pending_uid_packets.retain(&packet, registration_id, std::time::Instant::now() - Duration::from_secs(6));
     retry_pending_uid_packets(&mut state);
     assert!(seen.lock().expect("seen packets").is_empty());
     assert!(state.pending_uid_packets.is_empty());
-    ripdpi_flow_app_attribution::evict_flow(token);
+    ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
 }
 
 /// # Cancel safety:
@@ -167,8 +167,16 @@ async fn pending_source_cannot_steal_an_allowed_syn_to_the_same_destination() {
         1,
         "allowed source must own the accepted socket, even when a prior UID is pending"
     );
-    let request =
-        state.sessions.iter_mut().next().expect("session").1.attribution_token.as_ref().expect("token").request();
+    let request = state
+        .sessions
+        .iter_mut()
+        .next()
+        .expect("session")
+        .1
+        .attribution_id
+        .as_ref()
+        .expect("registration_id")
+        .request();
     assert_eq!(request.local.port(), 55_641);
     assert_eq!(state.pending_listens.len(), 1, "the unresolved source still owns its lookup");
     state.shutdown().await;
@@ -219,14 +227,14 @@ fn establish_allowed_tcp(state: &mut LoopState, port: u16) {
 async fn consumed_repeated_syn_cannot_acquire_active_session_attribution() {
     let mut state = tcp_test_loop();
     establish_allowed_tcp(&mut state, 55_642);
-    let token = state.sessions.iter_mut().next().expect("session").1.attribution_token.clone().expect("token");
+    let registration_id = state.sessions.iter_mut().next().expect("session").1.attribution_id.expect("registration_id");
     state.runtime.tun_egress_interceptor =
         Box::new(RecordingEgressHandler::new(true, Arc::new(Mutex::new(Vec::new()))));
     let syn = build_ipv4_tcp_syn_packet(Ipv4Addr::new(10, 0, 0, 2), Ipv4Addr::new(93, 184, 216, 34), 55_642, 443);
     route_tun_packet(&syn, &mut state);
     gc_stale_pending_listens(&mut state.pending_listens, &mut state.socket_set, Duration::ZERO);
     assert_eq!(
-        ripdpi_flow_app_attribution::lookup_registered_flow_uid(&token),
+        ripdpi_flow_app_attribution::lookup_registered_flow_uid(&registration_id),
         ripdpi_flow_app_attribution::FlowUidLookup::Resolved(Some(10_123)),
         "an intercepted retransmission must not evict the active session's UID owner"
     );
@@ -253,7 +261,7 @@ fn pending_three_cycle_reconciles_before_gc() {
     for (key, listener) in &state.pending_listens {
         let tcp = state.socket_set.get::<TcpSocket>(listener.handle);
         assert_eq!(tcp.remote_endpoint().map(endpoint_to_socketaddr), Some(key.src));
-        assert_eq!(listener.attribution_token().request().local, key.src);
+        assert_eq!(listener.attribution_id().request().local, key.src);
     }
     let oldest =
         TcpFlowKey { src: SocketAddr::new(source.into(), 55_643), dst: SocketAddr::new(destination.into(), 443) };

@@ -32,8 +32,8 @@ pub(super) fn take_session_task(
     if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
         cache.unpin(ip);
     }
-    if let Some(token) = entry.attribution_token {
-        ripdpi_flow_app_attribution::evict_flow(token);
+    if let Some(registration_id) = entry.attribution_id {
+        ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
     }
     entry.cancel.cancel();
     drop(entry.smoltcp_side);

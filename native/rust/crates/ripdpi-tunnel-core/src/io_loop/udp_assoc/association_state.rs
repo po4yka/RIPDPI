@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicU64;
 use lru::LruCache;
 use tokio_util::sync::CancellationToken;
 
-use ripdpi_flow_app_attribution::{FlowAttributionToken, FlowResolveRequest};
+use ripdpi_flow_app_attribution::{FlowRegistrationId, FlowResolveRequest};
 
 mod activity;
 mod datagram;
@@ -18,7 +18,7 @@ pub(super) const UDP_OUTBOUND_QUEUE_CAPACITY: usize = 16;
 
 // At most 512 associations retain 32,768 tuple leases in total. Removing a lease
 // only forces a fresh UID lookup; it never grants admission to an unknown flow.
-pub(crate) const UDP_ATTRIBUTION_TOKEN_CAPACITY: NonZeroUsize = match NonZeroUsize::new(64) {
+pub(crate) const UDP_ATTRIBUTION_ID_CAPACITY: NonZeroUsize = match NonZeroUsize::new(64) {
     Some(capacity) => capacity,
     // Infallible: the literal capacity 64 is non-zero.
     None => panic!("UDP attribution capacity must be non-zero"),
@@ -35,5 +35,5 @@ pub(in crate::io_loop) struct UdpAssociation {
     /// one cache lease until association removal or shutdown.
     pub(super) leased_synthetic_ips: HashSet<u32>,
     /// One current generation per exact tuple, bounded independently of association lifetime.
-    pub(super) attribution_tokens: LruCache<FlowResolveRequest, FlowAttributionToken>,
+    pub(super) attribution_ids: LruCache<FlowResolveRequest, FlowRegistrationId>,
 }

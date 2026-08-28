@@ -27,7 +27,7 @@ pub struct SessionEntry {
     /// for the duration of this session, if any. Unpinned when the session ends.
     pub pinned_synthetic_ip: Option<u32>,
     /// Exact generation-stamped attribution registration released on close.
-    pub attribution_token: Option<ripdpi_flow_app_attribution::FlowAttributionToken>,
+    pub attribution_id: Option<ripdpi_flow_app_attribution::FlowRegistrationId>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -83,8 +83,8 @@ impl ActiveSessions {
                 self.sequences.remove(&evicted.handle);
                 self.entries.remove(&evicted.handle).map(|oldest| {
                     oldest.cancel.cancel();
-                    if let Some(token) = oldest.attribution_token {
-                        ripdpi_flow_app_attribution::evict_flow(token);
+                    if let Some(registration_id) = oldest.attribution_id {
+                        ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
                     }
                     drop(oldest.smoltcp_side);
                     oldest.handle.abort();
@@ -189,7 +189,7 @@ mod tests {
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
             pinned_synthetic_ip: None,
-            attribution_token: None,
+            attribution_id: None,
         };
         (entry, child)
     }
