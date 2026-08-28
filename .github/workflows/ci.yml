@@ -247,6 +247,10 @@ jobs:
             scripts.tests.test_run_android_e2e_emulator \
             scripts.tests.test_start_local_network_fixture
 
+      - name: Test bounded Android emulator diagnostics and teardown
+        timeout-minutes: 2
+        run: timeout --kill-after=2 30 bash scripts/ci/test-android-emulator-helpers.sh
+
   design-md-lint:
     needs: change-routing
     if: github.event_name != 'schedule' && (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
@@ -2319,6 +2323,7 @@ jobs:
           cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
 
       - name: Capture Android instrumented-test emulator diagnostics
+        timeout-minutes: 3
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
@@ -2331,6 +2336,7 @@ jobs:
           artifact-name: build-observability-android-instrumented-${{ matrix.device }}
 
       - name: Stop ${{ matrix.device }} emulator
+        timeout-minutes: 1
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd "${{ matrix.device }}"
 
@@ -2755,6 +2761,7 @@ jobs:
         run: bash scripts/ci/run-android-journeys-emulator.sh
 
       - name: Capture journeys emulator diagnostics
+        timeout-minutes: 3
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
@@ -2768,6 +2775,7 @@ jobs:
           artifact-name: build-observability-android-journeys
 
       - name: Stop emulator
+        timeout-minutes: 1
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd journeys
 
@@ -2840,6 +2848,7 @@ jobs:
         run: bash scripts/ci/run-android-relay-emulator-smoke.sh
 
       - name: Capture relay smoke emulator diagnostics
+        timeout-minutes: 3
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
@@ -2853,6 +2862,7 @@ jobs:
           artifact-name: build-observability-android-relay-smoke
 
       - name: Stop emulator
+        timeout-minutes: 1
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd relay-smoke
 

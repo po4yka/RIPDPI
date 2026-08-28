@@ -82,4 +82,52 @@ actual="$(
 )"
 assert_equals "$mac_sdk/cmdline-tools/latest/bin/avdmanager" "$actual" "avdmanager should resolve from discovered macOS SDK"
 
+(
+  # Use the real timeout process supervisor, with short test deadlines. ADB
+  # deliberately ignores TERM so the escalation path is exercised as well.
+  real_timeout="$(command -v timeout)"
+  fake_adb="$tmpdir/wedged-adb"
+  export EMULATOR_TEST_TIMEOUT_LOG="$tmpdir/timeout-calls"
+  export EMULATOR_TEST_CONNECTED=false
+  : > "$EMULATOR_TEST_TIMEOUT_LOG"
+  cat > "$fake_adb" <<'ADB'
+#!/usr/bin/env bash
+if [[ "$*" == *get-state && "$EMULATOR_TEST_CONNECTED" == true ]]; then
+  echo device
+  exit 0
+fi
+trap '' TERM
+while :; do sleep 1; done
+ADB
+  chmod +x "$fake_adb"
+
+  resolve_adb_bin() { printf '%s\n' "$fake_adb"; }
+  timeout() {
+    [[ "$1" == --kill-after=2 ]] || { echo "ADB timeout lacks kill escalation" >&2; return 97; }
+    shift
+    [[ "$1" -gt 0 && "$1" -le 30 ]] || return 98
+    printf '%s\n' "$1" >> "$EMULATOR_TEST_TIMEOUT_LOG"
+    shift
+    "$real_timeout" --kill-after=0.1 1 "$@"
+  }
+  pkill() { printf '%s\n' "$*" > "$tmpdir/emulator-stop-fallback"; }
+
+  echo "Checking diagnostics with unresponsive ADB"
+  capture_android_emulator_diagnostics "$tmpdir/offline-diagnostics"
+  assert_equals 2 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Offline ADB commands must be bounded"
+  for artifact in android-logcat.txt adb-devices.txt device-getprop.txt package-manager-health.txt emulator.log avd-config.ini avdmanager-create.log; do
+    [[ -f "$tmpdir/offline-diagnostics/$artifact" ]] || { echo "Missing diagnostic artifact: $artifact" >&2; exit 1; }
+  done
+
+  : > "$EMULATOR_TEST_TIMEOUT_LOG"
+  export EMULATOR_TEST_CONNECTED=true
+  capture_android_emulator_diagnostics "$tmpdir/connected-diagnostics"
+  assert_equals 5 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Connected device diagnostics must all be bounded"
+
+  : > "$EMULATOR_TEST_TIMEOUT_LOG"
+  stop_android_emulator test-owned-avd
+  assert_equals 2 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Emulator stop must bound get-state and emu kill"
+  [[ -s "$tmpdir/emulator-stop-fallback" ]] || { echo "Emulator stop did not reach its process fallback" >&2; exit 1; }
+)
+
 echo "Android emulator helper tests passed."

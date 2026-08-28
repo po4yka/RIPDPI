@@ -224,15 +224,24 @@ adb_cmd_timeout() {
   local adb_bin
   adb_bin="$(resolve_adb_bin)" || return 127
   if [[ -n "${ANDROID_SERIAL:-}" ]]; then
-    timeout "$timeout_seconds" "$adb_bin" -s "${ANDROID_SERIAL}" "$@"
+    timeout --kill-after=2 "$timeout_seconds" "$adb_bin" -s "${ANDROID_SERIAL}" "$@"
   else
-    timeout "$timeout_seconds" "$adb_bin" "$@"
+    timeout --kill-after=2 "$timeout_seconds" "$adb_bin" "$@"
   fi
+}
+
+adb_raw_timeout() {
+  local timeout_seconds="$1"
+  shift
+
+  local adb_bin
+  adb_bin="$(resolve_adb_bin)" || return 127
+  timeout --kill-after=2 "$timeout_seconds" "$adb_bin" "$@"
 }
 
 has_adb_device() {
   local state
-  state="$(adb_cmd get-state 2>/dev/null | tr -d '\r' || true)"
+  state="$(adb_cmd_timeout 5 get-state 2>/dev/null | tr -d '\r' || true)"
   [[ "$state" == "device" ]]
 }
 
@@ -279,14 +288,7 @@ capture_android_emulator_diagnostics() {
   : > "$output_dir/device-getprop.txt"
   : > "$output_dir/package-manager-health.txt"
 
-  adb_raw devices -l >"$output_dir/adb-devices.txt" 2>&1 || true
-
-  if has_adb_device; then
-    adb_cmd shell getprop >"$output_dir/device-getprop.txt" 2>&1 || true
-    adb_cmd shell pm path android >"$output_dir/package-manager-health.txt" 2>&1 || true
-    adb_cmd logcat -d >"$logcat_file" 2>&1 || true
-  fi
-
+  # Preserve host-side boot evidence before querying a potentially wedged ADB.
   if [[ -n "$avd_name" ]]; then
     if [[ -f "$HOME/.android/$avd_name/emulator.log" ]]; then
       cp "$HOME/.android/$avd_name/emulator.log" "$output_dir/emulator.log"
@@ -310,13 +312,21 @@ capture_android_emulator_diagnostics() {
     : > "$output_dir/avd-config.ini"
     : > "$output_dir/avdmanager-create.log"
   fi
+
+  adb_raw_timeout 10 devices -l >"$output_dir/adb-devices.txt" 2>&1 || true
+
+  if has_adb_device; then
+    adb_cmd_timeout 10 shell getprop >"$output_dir/device-getprop.txt" 2>&1 || true
+    adb_cmd_timeout 5 shell pm path android >"$output_dir/package-manager-health.txt" 2>&1 || true
+    adb_cmd_timeout 15 logcat -d >"$logcat_file" 2>&1 || true
+  fi
 }
 
 stop_android_emulator() {
   local avd_name="$1"
 
   if has_adb_device; then
-    adb_cmd emu kill >/dev/null 2>&1 || true
+    adb_cmd_timeout 5 emu kill >/dev/null 2>&1 || true
   fi
 
   pkill -f "emulator .* -avd ${avd_name}( |$)" >/dev/null 2>&1 || true
