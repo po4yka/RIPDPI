@@ -159,7 +159,7 @@ class DefaultFlowAppAttributionStore
         ): Int {
             val digest = flowAttributionDigest(remoteIp)
             // Overwrite rather than putIfAbsent: the native queue already dedupes
-            // noteFlow calls per destination (one per dest until evict_flow on
+            // noteFlow calls per destination (one per dest until evict_flow_if_current on
             // close), so a fresh call here means the destination was re-seen and
             // must be re-resolved -- e.g. after a different app reuses the IP.
             val (uid, attribution) = resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)

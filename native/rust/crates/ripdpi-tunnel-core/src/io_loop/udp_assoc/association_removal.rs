@@ -17,8 +17,8 @@ pub(super) fn remove_association(
                 cache.unpin(ip);
             }
         }
-        for (_request, token) in association.attribution_tokens {
-            ripdpi_flow_app_attribution::evict_flow(token);
+        for (_request, registration_id) in association.attribution_ids {
+            ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
         }
     }
 }

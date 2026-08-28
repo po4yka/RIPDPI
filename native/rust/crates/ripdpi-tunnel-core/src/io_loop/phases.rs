@@ -370,7 +370,7 @@ mod tests {
         assert_eq!(
             ripdpi_flow_app_attribution::lookup_flow_uid(request.protocol, request.local, request.remote,),
             ripdpi_flow_app_attribution::FlowUidLookup::Missing,
-            "denied UDP admission must evict its exact-tuple UID cache token",
+            "denied UDP admission must evict its exact-tuple UID cache registration",
         );
 
         let allowed_packet = ipv4_udp_packet(55_124, 443, b"uid-allowed");
@@ -854,16 +854,16 @@ mod tests {
     fn pending_uid_udp_storage_is_bounded_and_reuses_preallocated_buffers() {
         let mut packets = PendingUidPackets::new(64);
         assert_eq!(packets.free_len(), PENDING_UID_POOL_CAPACITY);
-        let token = ripdpi_flow_app_attribution::note_flow(
+        let registration_id = ripdpi_flow_app_attribution::note_flow(
             17,
             "10.0.0.2:55800".parse().unwrap(),
             "203.0.113.1:443".parse().unwrap(),
         )
-        .token;
+        .registration_id;
         let captured_at = std::time::Instant::now();
 
         for byte in 0..=PENDING_UID_CAPACITY {
-            assert!(packets.retain(&[byte as u8; 32], token.clone(), captured_at).is_stored());
+            assert!(packets.retain(&[byte as u8; 32], registration_id, captured_at).is_stored());
         }
         assert_eq!(packets.len(), PENDING_UID_CAPACITY);
         assert_eq!(packets.free_len(), 1);
@@ -872,9 +872,16 @@ mod tests {
         let allocation = packet.bytes.as_ptr();
         packets.recycle(packet);
         assert_eq!(packets.free_len(), 2);
-        assert!(packets.retain(&[7; 32], token, captured_at).is_stored());
+        assert!(packets.retain(&[7; 32], registration_id, captured_at).is_stored());
         assert_eq!(packets.back_ptr(), Some(allocation), "retention must reuse a preallocated buffer");
         assert_eq!(packets.free_len() + packets.len(), PENDING_UID_POOL_CAPACITY);
+        drop(packets);
+        assert_eq!(
+            ripdpi_flow_app_attribution::lookup_registered_flow_uid(&registration_id),
+            ripdpi_flow_app_attribution::FlowUidLookup::Pending,
+            "discarding packet references must not unregister their live flow"
+        );
+        assert!(ripdpi_flow_app_attribution::evict_flow_if_current(registration_id));
     }
 
     #[test]

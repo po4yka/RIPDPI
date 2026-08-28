@@ -81,7 +81,7 @@ pub(super) fn deliver_udp_datagram(
                 udp_tx,
                 stats,
             );
-            lease_udp_attribution(associations, src, replacement.token);
+            lease_udp_attribution(associations, src, replacement.registration_id);
             lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
             if let Some(association) = associations.get(&src) {
                 if association.outbound.try_send(datagram).is_err() {

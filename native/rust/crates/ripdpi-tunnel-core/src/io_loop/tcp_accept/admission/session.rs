@@ -41,7 +41,7 @@ pub(super) fn admit_session(
     let Some(mut listener) = remove_pending_listen(pending_listens, pending.handle) else {
         return;
     };
-    let attribution_token = listener.take_attribution();
+    let attribution_id = listener.take_attribution();
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
     let target = pending.target_host.as_ref().map_or(TargetAddr::Ip(pending.target_addr), |host| {
@@ -69,7 +69,7 @@ pub(super) fn admit_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: pending.synthetic_ip,
-        attribution_token: Some(attribution_token),
+        attribution_id: Some(attribution_id),
     };
     let evicted = sessions.insert(pending.handle, entry);
     if let Some((_, Some(ip))) = evicted

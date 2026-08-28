@@ -21,7 +21,7 @@
 //!
 //! Like `ripdpi-native-protect`, each `.so` links its own copy, so the cache is
 //! per-`.so`. State is bounded (LRU) and additionally evicted on flow close
-//! ([`evict_flow`]) and cleared on session teardown ([`end_attribution_session_if`]).
+//! ([`evict_flow_if_current`]) and cleared on session teardown ([`end_attribution_session_if`]).
 //!
 //! ## Conservative by default
 //!
@@ -51,7 +51,7 @@ use std::time::{Duration, Instant};
 use lru::LruCache;
 
 /// Max distinct destination IPs tracked before LRU eviction kicks in. A backstop
-/// for flows whose explicit [`evict_flow`] was missed; sized for many concurrent
+/// for flows whose explicit [`evict_flow_if_current`] was missed; sized for many concurrent
 /// destinations without unbounded growth under churn.
 const CACHE_CAPACITY: usize = 4096;
 
@@ -154,31 +154,35 @@ impl FlowResolveRequest {
     }
 }
 
-/// Opaque identity of one exact flow registration.
+/// Copyable identity of one exact flow registration, not its lifetime owner.
 ///
 /// The generation prevents a delayed cleanup from removing a later flow that reused the same protocol/local/remote tuple.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct FlowAttributionToken {
+/// Copying or discarding the ID does not retain or unregister the flow. The
+/// cache may invalidate it through eviction, admission expiry, or session end.
+/// TCP session and UDP association containers perform explicit cleanup using
+/// [`evict_flow_if_current`] when their flow lifetime ends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FlowRegistrationId {
     request: FlowResolveRequest,
     generation: u64,
 }
 
-impl FlowAttributionToken {
-    /// Exact tuple owned by this registration.
+impl FlowRegistrationId {
+    /// Exact tuple identified by this registration.
     #[must_use]
     pub const fn request(&self) -> FlowResolveRequest {
         self.request
     }
 }
 
-/// Result of recording a flow, including the token its owner must release.
-#[must_use = "the flow token must be retained and released with evict_flow"]
+/// Cached attribution and the identity shared by observations of the same flow.
+#[must_use = "flow lifetime containers use the registration ID for explicit generation-checked cleanup"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct FlowObservation {
     /// Destination-level app context already cached when the flow was noted.
     pub context: Option<FlowAppContext>,
-    /// Exact registration identity that must be released with [`evict_flow`].
-    pub token: FlowAttributionToken,
+    /// Non-owning identity; dropping this observation does not unregister it.
+    pub registration_id: FlowRegistrationId,
 }
 
 /// Generation-stamped unit of work drained by the asynchronous UID resolver.
@@ -275,7 +279,7 @@ fn lock() -> std::sync::MutexGuard<'static, State> {
     state().lock().expect("flow-app-attribution state poisoned")
 }
 
-/// Record a flow and return its cached attribution plus the exact generation token its owner must release.
+/// Record a flow and return cached attribution plus its non-owning registration ID.
 ///
 /// Non-blocking and hot-path safe: on a cache miss this marks the destination IP `Pending`, enqueues a [`FlowResolveRequest`] for the worker, and returns no context. A later flow to the same destination picks up the resolved answer.
 pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObservation {
@@ -290,10 +294,13 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
         guard.cache.put(key, Resolution::Pending);
     }
     if let Some(resolution) = guard.uid_cache.get(&request).copied() {
-        return FlowObservation { context, token: FlowAttributionToken { request, generation: resolution.generation } };
+        return FlowObservation {
+            context,
+            registration_id: FlowRegistrationId { request, generation: resolution.generation },
+        };
     }
     let generation = NEXT_FLOW_GENERATION.fetch_add(1, Ordering::Relaxed);
-    let token = FlowAttributionToken { request, generation };
+    let registration_id = FlowRegistrationId { request, generation };
     guard.uid_cache.put(
         request,
         UidResolution {
@@ -312,7 +319,7 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
     guard.pending.push_back(FlowResolutionJob { request, generation, kind: FlowResolutionKind::Attribution });
     drop(guard);
     pending_signal().notify_one();
-    FlowObservation { context, token }
+    FlowObservation { context, registration_id }
 }
 
 /// Ensure an exact tuple has an asynchronous UID resolution request without
@@ -323,16 +330,16 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
 /// never renew that security bound: the exact tuple is forcibly re-resolved
 /// after five seconds in case the kernel assigned it to a different socket
 /// owner. The cache is also bounded by LRU and cleared at session shutdown.
-pub fn request_uid_admission(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowAttributionToken {
+pub fn request_uid_admission(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowRegistrationId {
     let request = FlowResolveRequest { protocol, local, remote };
     request_uid_admission_at(request, Instant::now())
 }
 
-fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowAttributionToken {
+fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowRegistrationId {
     let mut guard = lock();
     remove_expired_admission(&mut guard, request, now);
     if let Some(entry) = guard.uid_cache.get(&request) {
-        return FlowAttributionToken { request, generation: entry.generation };
+        return FlowRegistrationId { request, generation: entry.generation };
     }
     let generation = NEXT_FLOW_GENERATION.fetch_add(1, Ordering::Relaxed);
     guard.uid_cache.put(
@@ -353,16 +360,16 @@ fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowAt
     guard.pending.push_back(FlowResolutionJob { request, generation, kind: FlowResolutionKind::AdmissionOnly });
     drop(guard);
     pending_signal().notify_one();
-    FlowAttributionToken { request, generation }
+    FlowRegistrationId { request, generation }
 }
 
 /// Read only this registration's UID; a reused tuple never supplies its successor's verdict.
 #[must_use]
-pub fn lookup_registered_flow_uid(token: &FlowAttributionToken) -> FlowUidLookup {
+pub fn lookup_registered_flow_uid(registration_id: &FlowRegistrationId) -> FlowUidLookup {
     let mut guard = lock();
-    remove_expired_admission(&mut guard, token.request, Instant::now());
-    match guard.uid_cache.get(&token.request) {
-        Some(entry) if entry.generation == token.generation => match entry.state {
+    remove_expired_admission(&mut guard, registration_id.request, Instant::now());
+    match guard.uid_cache.get(&registration_id.request) {
+        Some(entry) if entry.generation == registration_id.generation => match entry.state {
             UidResolutionState::Pending => FlowUidLookup::Pending,
             UidResolutionState::Resolved(uid) => FlowUidLookup::Resolved(uid),
         },
@@ -454,17 +461,20 @@ fn store_resolution(dest_ip: IpAddr, context: Option<FlowAppContext>) {
     lock().cache.put(dest_ip, Resolution::Resolved(context));
 }
 
-/// Release one exact flow registration if its generation is still current.
+/// Unregister one exact flow if the ID's generation is still current.
 ///
 /// The destination-level attribution remains cached while any other exact flow to that IP is registered.
-pub fn evict_flow(token: FlowAttributionToken) -> bool {
+/// A duplicate or stale ID returns `false`. Consuming this copyable ID does not
+/// imply ownership: the caller must be responsible for the flow's lifetime.
+pub fn evict_flow_if_current(registration_id: FlowRegistrationId) -> bool {
     let mut guard = lock();
-    if guard.uid_cache.peek(&token.request).is_none_or(|entry| entry.generation != token.generation) {
+    if guard.uid_cache.peek(&registration_id.request).is_none_or(|entry| entry.generation != registration_id.generation)
+    {
         return false;
     }
-    guard.uid_cache.pop(&token.request);
-    guard.pending.retain(|job| job.request != token.request || job.generation != token.generation);
-    let dest_ip = token.request.key();
+    guard.uid_cache.pop(&registration_id.request);
+    guard.pending.retain(|job| job.request != registration_id.request || job.generation != registration_id.generation);
+    let dest_ip = registration_id.request.key();
     if !guard.uid_cache.iter().any(|(request, _)| request.key() == dest_ip) {
         guard.cache.pop(&dest_ip);
     }
@@ -559,6 +569,35 @@ mod tests {
 
     fn sock(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
         SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(a, b, c, d), port))
+    }
+
+    #[test]
+    fn registration_id_is_shared_identity_not_a_lifetime_owner() {
+        fn copied(id: FlowRegistrationId) -> FlowRegistrationId {
+            let copy = id;
+            assert_eq!(copy, id);
+            copy
+        }
+
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let local = sock(10, 0, 0, 2, 50000);
+        let remote = sock(203, 0, 113, 7, 443);
+        let first = note_flow(6, local, remote);
+        let id = copied(first.registration_id);
+        let repeated = note_flow(6, local, remote);
+        assert_eq!(id, repeated.registration_id);
+        drop(first);
+        drop(repeated);
+
+        assert_eq!(lookup_registered_flow_uid(&id), FlowUidLookup::Pending);
+        assert!(evict_flow_if_current(id));
+        assert!(!evict_flow_if_current(id));
+        let replacement = note_flow(6, local, remote).registration_id;
+        assert_ne!(replacement, id);
+        assert!(!evict_flow_if_current(id));
+        assert_eq!(lookup_registered_flow_uid(&replacement), FlowUidLookup::Pending);
+        assert!(evict_flow_if_current(replacement));
     }
 
     #[test]
@@ -658,14 +697,14 @@ mod tests {
         let remote = sock(93, 184, 216, 34, 443);
         let observation = note_flow(6, local, remote);
         let job = pop_pending_request(Duration::from_millis(10)).expect("pending job");
-        assert!(evict_flow(observation.token));
+        assert!(evict_flow_if_current(observation.registration_id));
         let current = note_flow(6, local, remote);
         store_uid_resolution(&job, Some(10_123));
         store_flow_resolution(&job, Some(FlowAppContext::new("com.stale", 1)));
 
         assert_eq!(lookup_flow_uid(6, local, remote), FlowUidLookup::Pending);
         assert!(lookup_flow(remote.ip()).is_none());
-        assert!(evict_flow(current.token));
+        assert!(evict_flow_if_current(current.registration_id));
     }
 
     #[test]
@@ -677,9 +716,9 @@ mod tests {
         let second = note_flow(6, sock(10, 0, 0, 3, 50000), remote);
         store_resolution(remote.ip(), Some(FlowAppContext::new("com.example", 1)));
 
-        assert!(evict_flow(first.token));
+        assert!(evict_flow_if_current(first.registration_id));
         assert!(lookup_flow(remote.ip()).is_some(), "the other exact flow still owns the destination entry");
-        assert_eq!(lookup_flow_uid(6, second.token.request().local, remote), FlowUidLookup::Pending);
+        assert_eq!(lookup_flow_uid(6, second.registration_id.request().local, remote), FlowUidLookup::Pending);
     }
 
     #[test]
@@ -688,16 +727,16 @@ mod tests {
         clear();
         let local = sock(10, 0, 0, 2, 50000);
         let remote = sock(203, 0, 113, 7, 443);
-        let stale = note_flow(6, local, remote).token;
+        let stale = note_flow(6, local, remote).registration_id;
         let stale_request = stale.request;
         let stale_generation = stale.generation;
-        assert!(evict_flow(stale));
-        let current = note_flow(6, local, remote).token;
+        assert!(evict_flow_if_current(stale));
+        let current = note_flow(6, local, remote).registration_id;
 
-        let replayed_stale = FlowAttributionToken { request: stale_request, generation: stale_generation };
-        assert!(!evict_flow(replayed_stale));
+        let replayed_stale = FlowRegistrationId { request: stale_request, generation: stale_generation };
+        assert!(!evict_flow_if_current(replayed_stale));
         assert_eq!(lookup_flow_uid(6, local, remote), FlowUidLookup::Pending);
-        assert!(evict_flow(current));
+        assert!(evict_flow_if_current(current));
     }
 
     #[test]
@@ -747,8 +786,8 @@ mod tests {
         let remote = sock(198, 51, 100, 7, 443);
         store_resolution(remote.ip(), Some(FlowAppContext::new("com.example.c", 1)));
         assert!(lookup_flow(remote.ip()).is_some());
-        let token = note_flow(6, sock(10, 0, 0, 2, 40000), remote).token;
-        evict_flow(token);
+        let registration_id = note_flow(6, sock(10, 0, 0, 2, 40000), remote).registration_id;
+        evict_flow_if_current(registration_id);
         assert!(lookup_flow(remote.ip()).is_none());
     }
 

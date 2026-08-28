@@ -12,7 +12,7 @@ use crate::session::udp::UdpMemoryBudget;
 mod spawn;
 
 use super::association_state::{
-    OutboundDatagram, UDP_ATTRIBUTION_TOKEN_CAPACITY, UDP_OUTBOUND_QUEUE_CAPACITY, UdpAssociation, now_millis,
+    OutboundDatagram, UDP_ATTRIBUTION_ID_CAPACITY, UDP_OUTBOUND_QUEUE_CAPACITY, UdpAssociation, now_millis,
 };
 use super::event_handling::UdpEvent;
 use spawn::{UdpWorkerConfig, spawn_udp_worker};
@@ -65,6 +65,6 @@ pub(super) fn spawn_udp_association(
         last_activity,
         worker,
         leased_synthetic_ips: HashSet::new(),
-        attribution_tokens: LruCache::new(UDP_ATTRIBUTION_TOKEN_CAPACITY),
+        attribution_ids: LruCache::new(UDP_ATTRIBUTION_ID_CAPACITY),
     }
 }

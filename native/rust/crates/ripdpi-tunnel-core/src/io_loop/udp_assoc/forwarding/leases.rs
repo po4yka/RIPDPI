@@ -8,17 +8,17 @@ use super::super::association_state::UdpAssociation;
 pub(super) fn lease_udp_attribution(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     src: SocketAddr,
-    token: ripdpi_flow_app_attribution::FlowAttributionToken,
+    registration_id: ripdpi_flow_app_attribution::FlowRegistrationId,
 ) {
     if let Some(association) = associations.get_mut(&src) {
-        let request = token.request();
+        let request = registration_id.request();
         // Repeated packets may carry the same identity. Refresh its LRU position
         // without evicting the registration still owned by this association.
-        if association.attribution_tokens.get(&request) == Some(&token) {
+        if association.attribution_ids.get(&request) == Some(&registration_id) {
             return;
         }
-        if let Some((_request, removed)) = association.attribution_tokens.push(request, token) {
-            let _ = ripdpi_flow_app_attribution::evict_flow(removed);
+        if let Some((_request, removed)) = association.attribution_ids.push(request, registration_id) {
+            let _ = ripdpi_flow_app_attribution::evict_flow_if_current(removed);
         }
     }
 }
@@ -52,10 +52,10 @@ mod tests {
             let dst = SocketAddr::new("198.51.100.221".parse().expect("destination"), port);
             for _ in 0..2 {
                 let observation = ripdpi_flow_app_attribution::note_flow(17, src, dst);
-                lease_udp_attribution(&mut associations, src, observation.token);
+                lease_udp_attribution(&mut associations, src, observation.registration_id);
                 // Simulate expiry/LRU removal while the multiplexed association remains live.
                 let cleanup = ripdpi_flow_app_attribution::note_flow(17, src, dst);
-                assert!(ripdpi_flow_app_attribution::evict_flow(cleanup.token));
+                assert!(ripdpi_flow_app_attribution::evict_flow_if_current(cleanup.registration_id));
             }
         }
         let retained = finish_association(&mut associations, src).await;
@@ -68,10 +68,24 @@ mod tests {
         let src: SocketAddr = "192.0.2.222:53192".parse().expect("source");
         let dst: SocketAddr = "198.51.100.222:40000".parse().expect("destination");
         let mut associations = HashMap::from([(src, test_association())]);
-        lease_udp_attribution(&mut associations, src, ripdpi_flow_app_attribution::note_flow(17, src, dst).token);
-        assert!(ripdpi_flow_app_attribution::evict_flow(ripdpi_flow_app_attribution::note_flow(17, src, dst).token));
-        lease_udp_attribution(&mut associations, src, ripdpi_flow_app_attribution::note_flow(17, src, dst).token);
-        lease_udp_attribution(&mut associations, src, ripdpi_flow_app_attribution::note_flow(17, src, dst).token);
+        lease_udp_attribution(
+            &mut associations,
+            src,
+            ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id,
+        );
+        assert!(ripdpi_flow_app_attribution::evict_flow_if_current(
+            ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id
+        ));
+        lease_udp_attribution(
+            &mut associations,
+            src,
+            ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id,
+        );
+        lease_udp_attribution(
+            &mut associations,
+            src,
+            ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id,
+        );
         let current = ripdpi_flow_app_attribution::lookup_flow_uid(17, src, dst);
         let retained = finish_association(&mut associations, src).await;
         assert_eq!(retained, 1, "one tuple owns only its latest generation");
@@ -92,18 +106,18 @@ mod tests {
             lease_udp_attribution(
                 &mut associations,
                 src,
-                ripdpi_flow_app_attribution::note_flow(17, src, destination(port)).token,
+                ripdpi_flow_app_attribution::note_flow(17, src, destination(port)).registration_id,
             );
         }
         lease_udp_attribution(
             &mut associations,
             src,
-            ripdpi_flow_app_attribution::note_flow(17, src, destination(40_000)).token,
+            ripdpi_flow_app_attribution::note_flow(17, src, destination(40_000)).registration_id,
         );
         lease_udp_attribution(
             &mut associations,
             src,
-            ripdpi_flow_app_attribution::note_flow(17, src, destination(40_064)).token,
+            ripdpi_flow_app_attribution::note_flow(17, src, destination(40_064)).registration_id,
         );
         let oldest = ripdpi_flow_app_attribution::lookup_flow_uid(17, src, destination(40_001));
         let refreshed = ripdpi_flow_app_attribution::lookup_flow_uid(17, src, destination(40_000));
@@ -125,8 +139,8 @@ mod tests {
             last_activity: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
             worker: tokio::spawn(std::future::pending()),
             leased_synthetic_ips: std::collections::HashSet::new(),
-            attribution_tokens: lru::LruCache::new(
-                crate::io_loop::udp_assoc::association_state::UDP_ATTRIBUTION_TOKEN_CAPACITY,
+            attribution_ids: lru::LruCache::new(
+                crate::io_loop::udp_assoc::association_state::UDP_ATTRIBUTION_ID_CAPACITY,
             ),
         }
     }
@@ -135,9 +149,9 @@ mod tests {
     /// The worker is aborted before awaiting its join; tokens are synchronously released first.
     async fn finish_association(associations: &mut HashMap<SocketAddr, UdpAssociation>, src: SocketAddr) -> usize {
         let association = associations.remove(&src).expect("association remains live");
-        let retained = association.attribution_tokens.len();
-        for (_, token) in association.attribution_tokens {
-            let _ = ripdpi_flow_app_attribution::evict_flow(token);
+        let retained = association.attribution_ids.len();
+        for (_, registration_id) in association.attribution_ids {
+            let _ = ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
         }
         association.worker.abort();
         assert!(association.worker.await.expect_err("worker aborted").is_cancelled());

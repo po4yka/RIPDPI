@@ -19,12 +19,11 @@ mod tests;
 pub(crate) fn release_unowned_udp_attribution(
     associations: &std::collections::HashMap<std::net::SocketAddr, UdpAssociation>,
     src: std::net::SocketAddr,
-    token: ripdpi_flow_app_attribution::FlowAttributionToken,
+    registration_id: ripdpi_flow_app_attribution::FlowRegistrationId,
 ) {
-    if !associations
-        .get(&src)
-        .is_some_and(|association| association.attribution_tokens.peek(&token.request()) == Some(&token))
-    {
-        ripdpi_flow_app_attribution::evict_flow(token);
+    if !associations.get(&src).is_some_and(|association| {
+        association.attribution_ids.peek(&registration_id.request()) == Some(&registration_id)
+    }) {
+        ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
     }
 }

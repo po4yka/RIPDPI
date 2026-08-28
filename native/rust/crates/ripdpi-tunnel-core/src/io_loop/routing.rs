@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use ripdpi_flow_app_attribution::FlowAttributionToken;
+use ripdpi_flow_app_attribution::FlowRegistrationId;
 
 use crate::IpClass;
 use crate::classify::classify_ip_packet_with_parse_status;
@@ -22,7 +22,7 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
     route_tun_packet_inner(packet, state, None);
 }
 
-fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<(&FlowAttributionToken, Instant)>) {
+fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<(&FlowRegistrationId, Instant)>) {
     let (ip_class, parsed_ip) = classify_ip_packet_with_parse_status(packet, state.runtime.mapdns_classify);
     if !parsed_ip {
         state.stats.record_tun_parse_failure();
@@ -47,23 +47,23 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                 // Allocate a parked listener before queuing UID work. It owns
                 // the generation, but no unadmitted bytes reach smoltcp.
                 ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
-                let token = pending.map_or_else(
+                let registration_id = pending.map_or_else(
                     || {
                         state.pending_listens.get(&key).map_or_else(
-                            || ripdpi_flow_app_attribution::note_flow(PROTO_TCP, src, dst).token,
-                            |listener| listener.attribution_token().clone(),
+                            || ripdpi_flow_app_attribution::note_flow(PROTO_TCP, src, dst).registration_id,
+                            |listener| *listener.attribution_id(),
                         )
                     },
-                    |(token, _)| token.clone(),
+                    |(registration_id, _)| *registration_id,
                 );
-                match state.runtime.uid_policy.admit_token(&token) {
+                match state.runtime.uid_policy.admit_registration(&registration_id) {
                     Verdict::Pending => {
-                        retain_pending_uid_packet(packet, state, token, pending.map(|(_, time)| time));
+                        retain_pending_uid_packet(packet, state, registration_id, pending.map(|(_, time)| time));
                         return;
                     }
                     Verdict::ResetTcp | Verdict::DropUdp => {
                         retire_denied_tcp_flow(state, key);
-                        ripdpi_flow_app_attribution::evict_flow(token);
+                        ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
                         state.stats.record_tun_policy_drop();
                         if let Some(reset) = build_tcp_reset(packet) {
                             state.device.tx_queue.push_back(reset);
@@ -73,10 +73,16 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     Verdict::Allow => {}
                 }
                 if intercept_packet(packet, state) {
-                    if !state.pending_listens.get(&key).is_some_and(|listener| listener.attribution_token() == &token)
-                        && !state.sessions.iter_mut().any(|(_, entry)| entry.attribution_token.as_ref() == Some(&token))
+                    if !state
+                        .pending_listens
+                        .get(&key)
+                        .is_some_and(|listener| listener.attribution_id() == &registration_id)
+                        && !state
+                            .sessions
+                            .iter_mut()
+                            .any(|(_, entry)| entry.attribution_id.as_ref() == Some(&registration_id))
                     {
-                        ripdpi_flow_app_attribution::evict_flow(token);
+                        ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
                     }
                     return;
                 }
@@ -92,13 +98,13 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
         }
         IpClass::UdpDns { src, dst, payload } => {
             if state.runtime.uid_policy.is_enforcing() {
-                let token = pending.map_or_else(
+                let registration_id = pending.map_or_else(
                     || ripdpi_flow_app_attribution::request_uid_admission(PROTO_UDP, src, dst),
-                    |(token, _)| token.clone(),
+                    |(registration_id, _)| *registration_id,
                 );
-                match state.runtime.uid_policy.admit_token(&token) {
+                match state.runtime.uid_policy.admit_registration(&registration_id) {
                     Verdict::Pending => {
-                        retain_pending_uid_packet(packet, state, token, pending.map(|(_, time)| time));
+                        retain_pending_uid_packet(packet, state, registration_id, pending.map(|(_, time)| time));
                         return;
                     }
                     Verdict::DropUdp | Verdict::ResetTcp => {
@@ -134,17 +140,17 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
             if !state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
                 return;
             }
-            let token = pending.map_or_else(
-                || ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, dst).token,
-                |(token, _)| token.clone(),
+            let registration_id = pending.map_or_else(
+                || ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, dst).registration_id,
+                |(registration_id, _)| *registration_id,
             );
-            match state.runtime.uid_policy.admit_token(&token) {
+            match state.runtime.uid_policy.admit_registration(&registration_id) {
                 Verdict::Pending => {
-                    retain_pending_uid_packet(packet, state, token, pending.map(|(_, time)| time));
+                    retain_pending_uid_packet(packet, state, registration_id, pending.map(|(_, time)| time));
                     return;
                 }
                 Verdict::DropUdp | Verdict::ResetTcp => {
-                    ripdpi_flow_app_attribution::evict_flow(token);
+                    ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
                     state.stats.record_tun_policy_drop();
                     return;
                 }
@@ -152,7 +158,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
             }
             // A raw hook can send even when it does not consume the packet.
             if state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
-                release_unowned_udp_attribution(&state.udp_associations, src, token);
+                release_unowned_udp_attribution(&state.udp_associations, src, registration_id);
                 return;
             }
             state.stats.record_dht_trigger_destination(dst);
@@ -189,7 +195,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     &state.cancel,
                     &state.udp_tx,
                     &state.stats,
-                    token,
+                    registration_id,
                 );
             }
         }
@@ -201,8 +207,8 @@ fn retire_denied_tcp_flow(state: &mut LoopState, key: TcpFlowKey) {
         state.socket_set.remove(listener.handle);
     }
     let handle = state.sessions.iter_mut().find_map(|(handle, entry)| {
-        entry.attribution_token.as_ref().and_then(|token| {
-            let request = token.request();
+        entry.attribution_id.as_ref().and_then(|registration_id| {
+            let request = registration_id.request();
             (request.local == key.src && request.remote == key.dst).then_some(handle)
         })
     });
@@ -222,10 +228,10 @@ fn intercept_packet(packet: &[u8], state: &mut LoopState) -> bool {
 fn retain_pending_uid_packet(
     packet: &[u8],
     state: &mut LoopState,
-    token: FlowAttributionToken,
+    registration_id: FlowRegistrationId,
     captured_at: Option<Instant>,
 ) {
-    match state.pending_uid_packets.retain(packet, token, captured_at.unwrap_or_else(Instant::now)) {
+    match state.pending_uid_packets.retain(packet, registration_id, captured_at.unwrap_or_else(Instant::now)) {
         PendingUidRetainOutcome::Stored => {}
         PendingUidRetainOutcome::EvictedOldest | PendingUidRetainOutcome::Rejected => {
             state.stats.record_tun_queue_drop();
@@ -250,13 +256,13 @@ pub(in crate::io_loop) fn retry_pending_uid_packets(state: &mut LoopState) {
         };
         if packet.expired()
             || matches!(
-                ripdpi_flow_app_attribution::lookup_registered_flow_uid(&packet.token),
+                ripdpi_flow_app_attribution::lookup_registered_flow_uid(&packet.registration_id),
                 ripdpi_flow_app_attribution::FlowUidLookup::Missing
             )
         {
             state.stats.record_tun_policy_drop();
         } else {
-            route_tun_packet_inner(&packet.bytes, state, Some((&packet.token, packet.captured_at)));
+            route_tun_packet_inner(&packet.bytes, state, Some((&packet.registration_id, packet.captured_at)));
         }
         state.pending_uid_packets.recycle(packet);
     }
