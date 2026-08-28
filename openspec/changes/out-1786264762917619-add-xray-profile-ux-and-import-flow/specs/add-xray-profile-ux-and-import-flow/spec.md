@@ -1,50 +1,58 @@
 ## Purpose
 
-Define the observable completion contract for Add Xray profile UX and import flow. Add the user-facing flow for selecting Xray VPN mode and importing or editing initial Xray profiles
+Define the observable completion contract for Add Xray profile UX and import flow. Add the user-facing flow for selecting Xray VPN mode and importing or editing initial Xray profiles.
 
 ## ADDED Requirements
 
-### Requirement: REQ-OUT-1786264762917619-001 — Mode Editor can select Xray-backed VPN mode separately from native RIPDPI direc…
+### Requirement: REQ-OUT-1786264762917619-001 — Mode Editor can select Xray-backed VPN mode separately from native RIPDPI direct/proxy modes
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Mode Editor can select Xray-backed VPN mode separately from native RIPDPI direct/proxy modes. — XrayServiceModeOption (:core:data:runtime-state) flattens provider×mode into the mutually-exclusive picker set; XrayProviderSelection (:app) records the choice and….
+The Mode Editor MUST present Xray-backed VPN as a selectable service-mode option that is distinct from native direct and native proxy modes.
 
-#### Scenario: Verify criterion 1
+#### Scenario: Select Xray VPN mode
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Mode Editor can select Xray-backed VPN mode separately from native RIPDPI direct/proxy modes. — XrayServiceModeOption (:core:data:runtime-state) flattens provider×mode into the mutually-exclusive picker set; XrayProviderSelection (:app) records the choice and…
+- **WHEN** the user confirms the Xray VPN selection with an accepted profile in the Mode Editor
+- **THEN** the selection MUST persist the Xray provider kind and VPN mode without activating a native relay profile
+- **AND** confirming a native option MUST persist the native provider kind for the selected native mode
 
-### Requirement: REQ-OUT-1786264762917619-002 — Import supports at least the first approved share/config shapes and fails close…
+### Requirement: REQ-OUT-1786264762917619-002 — Import supports at least the first approved share/config shapes and fails closed on unsupported or unsafe fields
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Import supports at least the first approved share/config shapes and fails closed on unsupported or unsafe fields. — XrayImportParser (:core:data:catalog) parses vless:// REALITY/XHTTP links and raw config JSON, rejecting unsupported transports, missing fields….
+The import flow MUST accept the approved Xray profile inputs and reject unsupported or unsafe inputs without producing a runnable partial profile.
 
-#### Scenario: Verify criterion 2
+#### Scenario: Import accepted profile
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Import supports at least the first approved share/config shapes and fails closed on unsupported or unsafe fields. — XrayImportParser (:core:data:catalog) parses vless:// REALITY/XHTTP links and raw config JSON, rejecting unsupported transports, missing fields…
+- **WHEN** the user imports a supported VLESS share link or JSON representation of the approved client shape
+- **THEN** the flow MUST parse it into a typed Xray profile, validate the rendered configuration, and make it available for Xray provider selection without silently dropping supplied fields or changing their meaning; unsupported fields MUST cause rejection
 
-### Requirement: REQ-OUT-1786264762917619-003 — Validation errors are actionable but redact credentials and endpoints. — import…
+#### Scenario: Reject unsupported profile
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Validation errors are actionable but redact credentials and endpoints. — import errors return REDACTED, jargon-free messages; verified by XrayImportParserTest (offline) and the redaction regression suite.
+- **WHEN** the user imports an unsupported scheme, unsupported transport, missing required field, malformed JSON, or unsafe option
+- **THEN** the flow MUST reject the import and leave the previously persisted provider selection and profile unchanged
 
-#### Scenario: Verify criterion 3
+### Requirement: REQ-OUT-1786264762917619-003 — Validation errors are actionable but redact credentials and endpoints
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Validation errors are actionable but redact credentials and endpoints. — import errors return REDACTED, jargon-free messages; verified by XrayImportParserTest (offline) and the redaction regression suite
+Validation failures MUST return user-actionable error information without exposing profile credentials, private keys, UUIDs, server addresses, SNI values, or live endpoints.
 
-### Requirement: REQ-OUT-1786264762917619-004 — Onboarding can validate an Xray profile as the chosen mode before finish. — the…
+#### Scenario: Render safe validation message
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Onboarding can validate an Xray profile as the chosen mode before finish. — the reusable validation surface (XrayProfileImportViewModel, XrayCapability) exists and is wired for onboarding reuse, but the onboarding-to-finish flow is exercised only by :app test….
+- **WHEN** profile import or validation fails for an input that contains secrets or endpoints
+- **THEN** the UI-visible error MUST describe the missing or unsupported capability class
+- **AND** the error text MUST not contain raw credential or endpoint values from the rejected input
 
-#### Scenario: Verify criterion 4
+### Requirement: REQ-OUT-1786264762917619-004 — Onboarding can validate an Xray profile as the chosen mode before finish
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Onboarding can validate an Xray profile as the chosen mode before finish. — the reusable validation surface (XrayProfileImportViewModel, XrayCapability) exists and is wired for onboarding reuse, but the onboarding-to-finish flow is exercised only by :app test…
+Onboarding MUST provide access to Xray profile import and validation before completion.
 
-### Requirement: REQ-OUT-1786264762917619-005 — Compose/UI tests cover selection, validation failure, and successful imported-p…
+#### Scenario: Validate a profile before completing Xray import
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Compose/UI tests cover selection, validation failure, and successful imported-profile state. — XrayProfileImportScreenTest / XrayProfileImportViewModelTest are authored and were exercised to green during development, but the final :app:testGithubDebugUnitTest….
+- **WHEN** the user opens Xray import from onboarding with Xray VPN selected and no accepted profile is available
+- **THEN** completion of the Xray import flow MUST remain blocked
+- **AND** after the user confirms a supported profile for Xray VPN, completing onboarding in VPN mode MUST preserve Xray with that profile as the active provider selection
 
-#### Scenario: Verify criterion 5
+### Requirement: REQ-OUT-1786264762917619-005 — Compose/UI tests cover selection, validation failure, and successful imported-profile state
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Compose/UI tests cover selection, validation failure, and successful imported-profile state. — XrayProfileImportScreenTest / XrayProfileImportViewModelTest are authored and were exercised to green during development, but the final :app:testGithubDebugUnitTest…
+UI regression coverage MUST exercise the Xray import screen and view-model states that users can reach while selecting, rejecting, and accepting an Xray profile.
+
+#### Scenario: UI state coverage
+
+- **WHEN** the Xray profile UX tests run
+- **THEN** they MUST cover native-to-Xray selection, validation failure rendering, accepted profile rendering, and persistence of a successful imported-profile state
