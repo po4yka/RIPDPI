@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use futures::future::poll_fn;
 use futures::io::AsyncWriteExt as FuturesAsyncWriteExt;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::sync::Notify;
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use crate::AsyncIo;
@@ -29,6 +30,7 @@ impl Drop for AbortOnDrop {
 pub struct VlessYamuxSession {
     connection: Arc<Mutex<Connection>>,
     closed: Arc<AtomicBool>,
+    driver_notify: Arc<Notify>,
     _driver_guard: Arc<AbortOnDrop>,
 }
 
@@ -41,11 +43,21 @@ impl VlessYamuxSession {
         carrier.flush().await?;
         let connection = Arc::new(Mutex::new(yamux::Connection::new(carrier, config, yamux::Mode::Client)));
         let closed = Arc::new(AtomicBool::new(false));
+        let driver_notify = Arc::new(Notify::new());
         let driver_connection = Arc::clone(&connection);
         let driver_closed = Arc::clone(&closed);
+        let driver_wake = Arc::clone(&driver_notify);
         let driver = tokio::spawn(async move {
             loop {
-                let next = poll_fn(|cx| lock_connection(&driver_connection).poll_next_inbound(cx)).await;
+                // Cancel safety: `poll_next_inbound` owns protocol state inside
+                // the shared yamux connection. If `notified()` wins this
+                // select, the next loop iteration polls the same connection
+                // again without discarding an external future or stream state.
+                let next = tokio::select! {
+                    biased;
+                    _ = driver_wake.notified() => continue,
+                    next = poll_fn(|cx| lock_connection(&driver_connection).poll_next_inbound(cx)) => next,
+                };
                 match next {
                     Some(Ok(_)) => {
                         // Client VLESS mux sessions do not accept peer-opened
@@ -59,7 +71,7 @@ impl VlessYamuxSession {
                 }
             }
         });
-        Ok(Self { connection, closed, _driver_guard: Arc::new(AbortOnDrop(driver)) })
+        Ok(Self { connection, closed, driver_notify, _driver_guard: Arc::new(AbortOnDrop(driver)) })
     }
 
     /// Opens a TCP stream and completes the sing-mux stream request before
@@ -74,11 +86,17 @@ impl VlessYamuxSession {
         if self.is_closed() {
             return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "VLESS mux carrier closed"));
         }
+        let request = crate::mux::encode_tcp_stream_request(destination)?;
         let stream = poll_fn(|cx| lock_connection(&self.connection).poll_new_outbound(cx)).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionAborted, format!("VLESS mux carrier closed: {error}"))
         })?;
+        // `yamux::Connection` must be polled after `poll_new_outbound` pushes
+        // the new stream command receiver. The driver can otherwise stay
+        // asleep on the previous receiver set while this stream's first write
+        // waits for connection progress.
+        self.driver_notify.notify_one();
         let mut stream = stream.compat();
-        stream.write_all(&crate::mux::encode_tcp_stream_request(destination)?).await?;
+        stream.write_all(&request).await?;
         stream.flush().await?;
         crate::mux::read_stream_response(&mut stream).await?;
         Ok(stream)
@@ -114,7 +132,7 @@ mod tests {
 
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::sync::oneshot;
+    use tokio::sync::{oneshot, watch};
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
     struct DropTrackedIo {
@@ -249,6 +267,69 @@ mod tests {
         assert_eq!(first_reply, *b"one");
         assert_eq!(second_reply, *b"two");
         assert_eq!(third_reply, *b"tri");
+        server_task.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn later_stream_open_wakes_driver_after_existing_streams_are_idle() {
+        let (client, mut server) = tokio::io::duplex(64 * 1024);
+        let (release_tx, release_rx) = watch::channel(false);
+        let server_task = tokio::spawn(async move {
+            let mut preamble = [0u8; 2];
+            server.read_exact(&mut preamble).await.unwrap();
+            assert_eq!(preamble, crate::mux::encode_session_request());
+
+            let connection = Arc::new(Mutex::new(yamux::Connection::new(
+                server.compat(),
+                yamux::Config::default(),
+                yamux::Mode::Server,
+            )));
+            let mut workers = Vec::new();
+            for _ in 0..3 {
+                let mut release_rx = release_rx.clone();
+                let stream = poll_fn(|cx| lock_connection(&connection).poll_next_inbound(cx))
+                    .await
+                    .expect("carrier stays open")
+                    .expect("valid inbound yamux stream");
+                workers.push(tokio::spawn(async move {
+                    let mut stream = stream.compat();
+                    read_stream_request(&mut stream).await;
+                    stream.write_all(&[0]).await.unwrap();
+                    stream.flush().await.unwrap();
+                    release_rx.wait_for(|released| *released).await.unwrap();
+                }));
+            }
+            let driver_connection = Arc::clone(&connection);
+            let driver = tokio::spawn(async move {
+                while let Some(result) = poll_fn(|cx| lock_connection(&driver_connection).poll_next_inbound(cx)).await {
+                    if result.is_err() {
+                        break;
+                    }
+                }
+            });
+            for worker in workers {
+                worker.await.unwrap();
+            }
+            driver.abort();
+        });
+
+        let session = VlessYamuxSession::establish(Box::new(client), 3).await.unwrap();
+        let first = tokio::time::timeout(Duration::from_secs(1), session.open_stream("first.test:443"))
+            .await
+            .expect("first stream opens before deadline")
+            .expect("open first stream");
+        let second = tokio::time::timeout(Duration::from_secs(1), session.open_stream("second.test:443"))
+            .await
+            .expect("second stream opens before deadline")
+            .expect("open second stream");
+
+        let third = tokio::time::timeout(Duration::from_secs(1), session.open_stream("third.test:443"))
+            .await
+            .expect("later stream open must wake the yamux driver")
+            .expect("open third stream");
+
+        release_tx.send(true).unwrap();
+        drop((first, second, third));
         server_task.await.unwrap();
     }
 

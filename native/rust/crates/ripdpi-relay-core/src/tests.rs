@@ -393,16 +393,25 @@ async fn vless_reality_mux_interleaves_three_streams_over_one_carrier() {
 
     let backend = build_backend(&config).await.expect("build VLESS Reality mux backend");
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
-    let (first, second, third) =
-        tokio::join!(backend.connect_tcp(&target), backend.connect_tcp(&target), backend.connect_tcp(&target));
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    // Cancel safety: a timeout fails this test and drops all streams, backend
+    // and fixture; partially exchanged protocol state is never reused.
+    let (first, second, third) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(backend.connect_tcp(&target), backend.connect_tcp(&target), backend.connect_tcp(&target))
+    })
+    .await
+    .expect("three VLESS mux streams did not open before the deadline");
     let (mut first, mut second, mut third) = (
         first.expect("open first mux stream"),
         second.expect("open second mux stream"),
         third.expect("open third mux stream"),
     );
 
-    let (first_write, second_write, third_write) =
-        tokio::join!(first.write_all(b"one"), second.write_all(b"two"), third.write_all(b"tri"),);
+    let (first_write, second_write, third_write) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(first.write_all(b"one"), second.write_all(b"two"), third.write_all(b"tri"))
+    })
+    .await
+    .expect("VLESS mux payload writes stalled");
     first_write.expect("write first");
     second_write.expect("write second");
     third_write.expect("write third");
@@ -410,11 +419,15 @@ async fn vless_reality_mux_interleaves_three_streams_over_one_carrier() {
     let mut first_reply = [0u8; 3];
     let mut second_reply = [0u8; 3];
     let mut third_reply = [0u8; 3];
-    let (first_read, second_read, third_read) = tokio::join!(
-        first.read_exact(&mut first_reply),
-        second.read_exact(&mut second_reply),
-        third.read_exact(&mut third_reply),
-    );
+    let (first_read, second_read, third_read) = tokio::time::timeout_at(deadline, async {
+        tokio::join!(
+            first.read_exact(&mut first_reply),
+            second.read_exact(&mut second_reply),
+            third.read_exact(&mut third_reply),
+        )
+    })
+    .await
+    .expect("VLESS mux replies stalled");
     first_read.expect("read first");
     second_read.expect("read second");
     third_read.expect("read third");
