@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -109,6 +110,13 @@ private fun validateRelayKindDraft(
                     draft.relayServerName.isBlank() ||
                         draft.relayTuicUuid.isBlank() ||
                         draft.relayTuicPassword.isBlank(),
+            )
+        }
+
+        RelayKindAnyTls -> {
+            validateEndpointRelayDraft(
+                draft = draft,
+                credentialsMissing = draft.relayAnyTlsPassword.isBlank(),
             )
         }
 

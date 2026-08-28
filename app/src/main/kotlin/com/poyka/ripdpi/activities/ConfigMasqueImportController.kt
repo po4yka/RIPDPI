@@ -182,7 +182,7 @@ private fun updateConfigDraftForSession(
         }
         val updated =
             current.copy(
-                draft = requireNotNull(current.draft).transform(),
+                draft = requireNotNull(current.draft).applyRelayDraftEdit(transform),
                 draftRevision = current.draftRevision + 1,
             )
         if (editorSession.compareAndSet(current, updated)) return true

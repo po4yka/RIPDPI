@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -22,8 +23,11 @@ internal fun ConfigDraft.withRelayArtifacts(
     credentials: RelayCredentialRecord?,
 ): ConfigDraft =
     copy(
+        sourceRelayProfile = profile,
+        sourceRelayCredentials = credentials,
         relayPresetId = profile?.presetId.orEmpty(),
         relayVlessUuid = credentials?.vlessUuid.orEmpty(),
+        relayAnyTlsPassword = credentials?.anyTlsPassword.orEmpty(),
         relayHysteriaPassword = credentials?.hysteriaPassword.orEmpty(),
         relayHysteriaSalamanderKey = credentials?.hysteriaSalamanderKey.orEmpty(),
         relayTuicUuid = credentials?.tuicUuid.orEmpty(),
@@ -62,13 +66,13 @@ internal fun ConfigDraft.withRelayArtifacts(
     )
 
 internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRecord =
-    RelayProfileRecord(
+    (matchingSourceRelayProfile(profileId) ?: RelayProfileRecord()).copy(
         id = profileId,
         kind = relayKind,
         presetId = relayPresetId,
         server = relayServer,
         serverPort = relayServerPort.toIntOrNull() ?: defaultRelayPort,
-        serverName = relayServerName,
+        serverName = if (relayKind == RelayKindAnyTls) relayServerName.ifBlank { relayServer } else relayServerName,
         realityPublicKey = relayRealityPublicKey,
         realityShortId = relayRealityShortId,
         vlessTransport = relayVlessTransport,
@@ -118,11 +122,13 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
     )
 
 internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCredentialRecord =
-    RelayCredentialRecord(
+    (matchingSourceRelayCredentials(profileId) ?: RelayCredentialRecord(profileId)).copy(
         profileId = profileId,
+        updatedAtEpochMillis = System.currentTimeMillis(),
         vlessUuid = relayVlessUuid.ifBlank { null },
         chainEntryUuid = null,
         chainExitUuid = null,
+        anyTlsPassword = relayAnyTlsPassword.ifBlank { null },
         hysteriaPassword = relayHysteriaPassword.ifBlank { null },
         hysteriaSalamanderKey = relayHysteriaSalamanderKey.ifBlank { null },
         tuicUuid = relayTuicUuid.ifBlank { null },
@@ -138,6 +144,24 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         cloudflareTunnelToken = relayCloudflareTunnelToken.ifBlank { null },
         cloudflareTunnelCredentialsJson = relayCloudflareTunnelCredentialsJson.ifBlank { null },
     )
+
+private fun ConfigDraft.matchingSourceRelayProfile(profileId: String): RelayProfileRecord? =
+    sourceRelayProfile?.takeIf { it.id == profileId && it.kind == relayKind }
+
+private fun ConfigDraft.matchingSourceRelayCredentials(profileId: String): RelayCredentialRecord? =
+    sourceRelayCredentials?.takeIf {
+        it.profileId == profileId && matchingSourceRelayProfile(profileId) != null
+    }
+
+internal fun ConfigDraft.applyRelayDraftEdit(transform: ConfigDraft.() -> ConfigDraft): ConfigDraft =
+    transform().discardReboundRelaySource(this)
+
+private fun ConfigDraft.discardReboundRelaySource(previous: ConfigDraft): ConfigDraft =
+    if (relayProfileId != previous.relayProfileId || relayKind != previous.relayKind) {
+        copy(sourceRelayProfile = null, sourceRelayCredentials = null)
+    } else {
+        this
+    }
 
 internal suspend fun prepareRelayDraftForPersistence(
     draft: ConfigDraft,

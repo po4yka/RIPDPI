@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -64,6 +65,10 @@ internal fun RelayFieldsContent(
             )
         }
 
+        RelayKindAnyTls -> {
+            AnyTlsRelayFields(draft, actions.onAnyTlsPasswordChanged)
+        }
+
         RelayKindHysteria2 -> {
             HysteriaRelayFields(draft = draft, actions = actions.hysteria)
         }
@@ -116,7 +121,8 @@ internal fun RelayFieldsContent(
 }
 
 private fun String.supportsStandardRelayEndpointFields(): Boolean =
-    this == RelayKindVlessReality ||
+    this == RelayKindAnyTls ||
+        this == RelayKindVlessReality ||
         this == RelayKindCloudflareTunnel ||
         this == RelayKindHysteria2 ||
         this == RelayKindTuicV5 ||

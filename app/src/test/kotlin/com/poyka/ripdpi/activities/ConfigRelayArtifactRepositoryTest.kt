@@ -6,6 +6,9 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
+import com.poyka.ripdpi.data.RelayKindAnyTls
+import com.poyka.ripdpi.data.RelayKindMieru
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.proto.AppSettings
@@ -15,9 +18,148 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigRelayArtifactRepositoryTest {
+    @Test
+    fun `mode edits preserve imported SSH and Mieru authentication and carrier options`() =
+        runTest {
+            for (kind in listOf(RelayKindSsh, RelayKindMieru)) {
+                val profiles = FailingRelayProfileStore()
+                val credentials = FailingRelayCredentialRepository()
+                val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+                val profile =
+                    RelayProfileRecord(
+                        id = "imported-$kind",
+                        kind = kind,
+                        server = "relay.example",
+                        sshAuthType = "private_key",
+                        sshHostKeyFingerprint = "SHA256:" + "A".repeat(43),
+                        sshStrictHostKey = true,
+                        mieruMultiplexing = "high",
+                        mieruMtu = 1280,
+                    )
+                val secret =
+                    RelayCredentialRecord(
+                        profileId = profile.id,
+                        sshUsername = "ssh-fixture",
+                        sshPrivateKey = "key-fixture",
+                        sshPrivateKeyPassphrase = "passphrase-fixture",
+                        mieruUsername = "mieru-fixture",
+                        mieruPassword = "password-fixture",
+                    )
+                profiles.save(profile)
+                credentials.save(secret)
+                val draft =
+                    repository.hydrate(
+                        ConfigDraft(relayKind = kind, relayProfileId = profile.id, relayServer = profile.server),
+                    )
+
+                repository.persist(draft.copy(relayServerPort = "8443"))
+
+                val saved = requireNotNull(profiles.load(profile.id))
+                val savedSecret = requireNotNull(credentials.load(profile.id))
+                assertEquals(8443, saved.serverPort)
+                assertEquals(profile.sshHostKeyFingerprint, saved.sshHostKeyFingerprint)
+                assertEquals(profile.sshAuthType, saved.sshAuthType)
+                assertTrue(saved.sshStrictHostKey)
+                assertEquals(profile.mieruMultiplexing, saved.mieruMultiplexing)
+                assertEquals(profile.mieruMtu, saved.mieruMtu)
+                assertEquals(secret.sshPrivateKey, savedSecret.sshPrivateKey)
+                assertEquals(secret.sshPrivateKeyPassphrase, savedSecret.sshPrivateKeyPassphrase)
+                assertEquals(secret.mieruPassword, savedSecret.mieruPassword)
+            }
+        }
+
+    @Test
+    fun `rebinding a draft never revives hidden credentials from an earlier identity`() {
+        val source = RelayProfileRecord(id = "ssh-a", kind = RelayKindSsh, sshHostKeyFingerprint = "old-key")
+        val draft =
+            ConfigDraft(relayProfileId = source.id, relayKind = source.kind)
+                .withRelayArtifacts(source, RelayCredentialRecord(source.id, sshPrivateKey = "key-fixture"))
+
+        val rebound =
+            draft
+                .applyRelayDraftEdit { copy(relayProfileId = "ssh-b") }
+                .applyRelayDraftEdit { copy(relayProfileId = "ssh-a") }
+
+        assertEquals(null, rebound.toRelayCredentialRecord(source.id).sshPrivateKey)
+        assertEquals("", rebound.toRelayProfileRecord(source.id).sshHostKeyFingerprint)
+        assertEquals(null, draft.toRelayCredentialRecord("another-profile").sshPrivateKey)
+        assertEquals(null, draft.copy(relayKind = RelayKindMieru).toRelayCredentialRecord(source.id).sshPrivateKey)
+    }
+
+    @Test
+    fun `AnyTLS mode editor refuses an empty password`() {
+        val errors =
+            validateConfigDraft(
+                AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindAnyTls,
+                    relayServer = "relay.example",
+                ),
+            )
+
+        assertEquals("required", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `editing or clearing AnyTLS password never falls back to imported secret`() {
+        val profile = RelayProfileRecord(id = "anytls-source", kind = RelayKindAnyTls)
+        val draft =
+            ConfigDraft(relayProfileId = profile.id, relayKind = profile.kind)
+                .withRelayArtifacts(
+                    profile,
+                    RelayCredentialRecord(profile.id, anyTlsPassword = "imported-secret-fixture"),
+                )
+
+        assertEquals(
+            "edited-secret-fixture",
+            draft
+                .copy(
+                    relayAnyTlsPassword = "edited-secret-fixture",
+                ).toRelayCredentialRecord(profile.id)
+                .anyTlsPassword,
+        )
+        assertEquals(null, draft.copy(relayAnyTlsPassword = "").toRelayCredentialRecord(profile.id).anyTlsPassword)
+    }
+
+    @Test
+    fun `editing imported AnyTLS profile preserves its credential`() =
+        runTest {
+            val settings = FailingSettingsRepository()
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val profileId = "anytls-imported"
+            val passwordFixture = "anytls-editor-fixture"
+            profiles.save(RelayProfileRecord(id = profileId, kind = RelayKindAnyTls, server = "relay.example"))
+            credentials.save(
+                RelayCredentialRecord(
+                    profileId = profileId,
+                    anyTlsPassword = passwordFixture,
+                    updatedAtEpochMillis = 1L,
+                ),
+            )
+            val draft =
+                repository.hydrate(
+                    AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                        relayEnabled = true,
+                        relayKind = RelayKindAnyTls,
+                        relayProfileId = profileId,
+                        relayServer = "relay.example",
+                        relayServerName = "relay.example",
+                    ),
+                )
+
+            repository.persist(draft.copy(relayServerPort = "8443"))
+
+            assertEquals(passwordFixture, credentials.load(profileId)?.anyTlsPassword)
+            assertTrue(requireNotNull(credentials.load(profileId)).updatedAtEpochMillis > 1L)
+            assertEquals(8443, profiles.load(profileId)?.serverPort)
+        }
+
     @Test
     fun `journaled relay persistence keeps the complete config settings after-image`() =
         runTest {

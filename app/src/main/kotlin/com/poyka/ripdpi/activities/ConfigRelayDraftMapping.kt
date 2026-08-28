@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindOff
@@ -108,7 +109,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         setRelayServerPort(draft.relayServerPort.toIntOrNull() ?: defaultRelayPort)
         setRelayServerName(
             when (draft.relayKind) {
-                RelayKindCloudflareTunnel -> draft.relayServerName.ifBlank { draft.relayServer }
+                RelayKindCloudflareTunnel, RelayKindAnyTls -> draft.relayServerName.ifBlank { draft.relayServer }
                 else -> draft.relayServerName
             },
         )
