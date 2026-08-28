@@ -1,50 +1,55 @@
 ## Purpose
 
-Define the observable completion contract for Epic - Xray provider mode. Add a first remote VPN-client provider mode to RIPDPI by embedding xray-core through libXray, with VLESS/REALITY and XHTTP as the initial profile targets
+Define the observable contract for selecting Xray as an Android VPN provider, with VLESS/REALITY TCP and XHTTP profiles, managed runtime ownership, and redacted diagnostics.
 
 ## ADDED Requirements
 
-### Requirement: REQ-EPC-1786264762917329-001 — RIPDPI can start Android VPN mode with Xray selected as the active provider. —…
+### Requirement: REQ-EPC-1786264762917329-001 — Start Android VPN with Xray
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: RIPDPI can start Android VPN mode with Xray selected as the active provider. — OPEN: requires the real libXray bridge (RunXrayFromJSON) which needs the gomobile-built AAR + NDK29 native link + a device; none are present in the build environment, so a real Xra….
+RIPDPI MUST support Xray as the active Android VPN provider using the embedded libXray runtime and the TUN-to-local-inbound topology.
 
-#### Scenario: Verify criterion 1
+#### Scenario: Start a selected provider
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that RIPDPI can start Android VPN mode with Xray selected as the active provider. — OPEN: requires the real libXray bridge (RunXrayFromJSON) which needs the gomobile-built AAR + NDK29 native link + a device; none are present in the build environment, so a real Xra…
+- **WHEN** a user saves a supported, validated Xray profile, selects Xray, and starts Android VPN mode
+- **THEN** the managed libXray runtime MUST start and TUN traffic MUST pass through its local inbound to the configured outbound
 
-### Requirement: REQ-EPC-1786264762917329-002 — At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSO…
+### Requirement: REQ-EPC-1786264762917329-002 — Validate and render supported profiles
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSON without leaking secrets. — XrayConfigRenderer + XrayConfigValidator + XrayProfileRedactor, golden- and redaction-tested green offline.
+RIPDPI MUST validate and render supported VLESS/REALITY TCP and XHTTP profiles. Unsupported or invalid input MUST be rejected, and serialized diagnostic exports MUST NOT expose profile credentials or private endpoint values.
 
-#### Scenario: Verify criterion 2
+#### Scenario: Import and render a profile
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSON without leaking secrets. — XrayConfigRenderer + XrayConfigValidator + XrayProfileRedactor, golden- and redaction-tested green offline
+- **WHEN** a user imports a supported profile through the URI or JSON input
+- **THEN** validation MUST preserve its supported fields in the rendered Xray configuration and MUST reject unknown, malformed, or unsupported fields instead of silently dropping them
 
-### Requirement: REQ-EPC-1786264762917329-003 — Xray sockets are protected from the VPN loop, including DNS and listener paths.…
+#### Scenario: Export provider diagnostics
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Xray sockets are protected from the VPN loop, including DNS and listener paths. — the protect-first ordering, DNS-loop avoidance, and protect-fd contract are test-proven offline against the runtime/bridge contract (XrayProtectFdContractTest, XrayDnsLoopRegres….
+- **WHEN** provider state or a configuration failure is included in a serialized diagnostic export
+- **THEN** the result MUST contain only allowed typed diagnostic fields without profile credentials, endpoint values, or untrusted free-form details
 
-#### Scenario: Verify criterion 3
+### Requirement: REQ-EPC-1786264762917329-003 — Protect sockets and preserve DNS ownership
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Xray sockets are protected from the VPN loop, including DNS and listener paths. — the protect-first ordering, DNS-loop avoidance, and protect-fd contract are test-proven offline against the runtime/bridge contract (XrayProtectFdContractTest, XrayDnsLoopRegres…
+Socket protection MUST be installed before Xray opens outbound sockets. The local inbound MUST remain loopback-only. Tunnel DNS and provider bootstrap MUST retain their assigned tunnel and underlying-network ownership without routing provider traffic back into VPN capture.
 
-### Requirement: REQ-EPC-1786264762917329-004 — Home, Diagnostics, and Settings show typed Xray provider state. — the typed pro…
+#### Scenario: Start and route provider traffic
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Home, Diagnostics, and Settings show typed Xray provider state. — the typed provider-state substrate (XrayProviderSnapshot, XrayConnectionStage, failure classes, redacted summaries) AND the :core:service live-population backend now both landed and are CI-test….
+- **WHEN** the Xray provider starts under an active Android VPN
+- **THEN** outbound sockets MUST be protected before use, tunnel DNS MUST use the configured tunnel route, and provider bootstrap MUST use the underlying network
 
-#### Scenario: Verify criterion 4
+### Requirement: REQ-EPC-1786264762917329-004 — Present typed provider state
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Home, Diagnostics, and Settings show typed Xray provider state. — the typed provider-state substrate (XrayProviderSnapshot, XrayConnectionStage, failure classes, redacted summaries) AND the :core:service live-population backend now both landed and are CI-test…
+Home, Diagnostics, and Settings MUST display typed Xray provider state and distinguish provider failures from tunnel failures. Stale probe results MUST NOT replace the current session state.
 
-### Requirement: REQ-EPC-1786264762917329-005 — Lifecycle, config, protect-fd, telemetry, and smoke tests cover the first inter…
+#### Scenario: Replace a provider session during a probe
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Lifecycle, config, protect-fd, telemetry, and smoke tests cover the first internal build. — lifecycle, config, protect-fd, DNS-loop, and telemetry tests are green offline; the device/emulator egress smoke remains OPEN (blocked on gomobile/libXray + NDK29 + de….
+- **WHEN** a probe completes after its provider session has been stopped or replaced
+- **THEN** the result MUST be discarded and the UI MUST retain the current session's typed state
 
-#### Scenario: Verify criterion 5
+### Requirement: REQ-EPC-1786264762917329-005 — Verify the internal build
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Lifecycle, config, protect-fd, telemetry, and smoke tests cover the first internal build. — lifecycle, config, protect-fd, DNS-loop, and telemetry tests are green offline; the device/emulator egress smoke remains OPEN (blocked on gomobile/libXray + NDK29 + de…
+Lifecycle, configuration, socket-protection, and telemetry tests MUST cover the provider integration. Android smoke tests MUST exercise both supported transports through the real TUN, including owned TCP and plain UDP DNS traffic, stop/start, and rejection of direct fallback with an invalid identity.
+
+#### Scenario: Exercise an owned peer through Android VPN
+
+- **WHEN** the Android smoke suite runs with the real embedded runtime and an independent owned peer
+- **THEN** both transports MUST deliver the expected TCP and DNS receipts through the TUN, stop/start MUST succeed, and an invalid identity MUST produce no successful application response or owned-service receipt and MUST NOT reach the direct fallback sentinel while VPN capture is active
