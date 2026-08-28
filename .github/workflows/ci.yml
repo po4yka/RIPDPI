@@ -2371,6 +2371,7 @@ jobs:
           done
           curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/receipts" > "$evidence_dir/receipts.json"
           curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/direct-receipts" > "$evidence_dir/direct-receipts.json"
+          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/dns-receipts" > "$evidence_dir/dns-receipts.json"
           cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
 
       - name: Capture Android instrumented-test emulator diagnostics
