@@ -18,6 +18,21 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class ProcessCleanupTests(unittest.TestCase):
+    def test_peer_go_toolchain_tracks_go_mod_directive(self):
+        with tempfile.TemporaryDirectory(prefix="awg-go-toolchain-test-") as directory:
+            go_mod = Path(directory) / "go.mod"
+            go_mod.write_text("module ripdpi.test/peer\n\ngo 1.25.0\n", encoding="utf-8")
+
+            self.assertEqual(RUNNER.peer_go_toolchain(go_mod), "go1.25.0")
+
+    def test_peer_go_toolchain_rejects_missing_go_directive(self):
+        with tempfile.TemporaryDirectory(prefix="awg-go-toolchain-test-") as directory:
+            go_mod = Path(directory) / "go.mod"
+            go_mod.write_text("module ripdpi.test/peer\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "missing supported Go directive"):
+                RUNNER.peer_go_toolchain(go_mod)
+
     def test_timeout_terminates_descendant_that_ignores_term(self):
         with tempfile.TemporaryDirectory(prefix="awg-timeout-test-") as directory:
             pid_file = Path(directory) / "child.pid"
