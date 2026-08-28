@@ -1,50 +1,55 @@
 ## Purpose
 
-Define the observable completion contract for Bridge TUN traffic through Xray local inbound. Route Android VPN TUN traffic through Xray's local inbound for the first Xray tunneled outbound profile milestone
+Define the observable completion contract for Bridge TUN traffic through Xray local inbound. Route Android VPN TUN traffic through Xray's local inbound for the first Xray tunneled outbound profile milestone.
 
 ## ADDED Requirements
 
-### Requirement: REQ-OUT-1786264762917422-001 — VPN startup can select Xray as the tunnel's upstream local endpoint. — XrayTunn…
+### Requirement: REQ-OUT-1786264762917422-001 — VPN startup can select Xray as the tunnel's upstream local endpoint
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: VPN startup can select Xray as the tunnel's upstream local endpoint. — XrayTunnelHandoff resolves the upstream from VpnProviderKind (Native keeps tun2socks; Xray points the tunnel at 127.0.0.1:localInboundPort); covered by XrayTunnelHandoffTest and XrayProvid….
+VPN startup MUST route the managed tunnel to the Xray local inbound endpoint when Xray is the selected provider, and MUST retain the native endpoint when the native provider is selected.
 
-#### Scenario: Verify criterion 1
+#### Scenario: Xray provider handoff
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that VPN startup can select Xray as the tunnel's upstream local endpoint. — XrayTunnelHandoff resolves the upstream from VpnProviderKind (Native keeps tun2socks; Xray points the tunnel at 127.0.0.1:localInboundPort); covered by XrayTunnelHandoffTest and XrayProvid…
+- **WHEN** the durable provider selection is Xray and an accepted Xray profile resolves to a local inbound endpoint
+- **THEN** the VPN tunnel MUST use that loopback endpoint as its upstream instead of the native RIPDPI proxy endpoint
+- **AND** the selected route metadata MUST identify Xray as the active provider
 
-### Requirement: REQ-OUT-1786264762917422-002 — Xray outbound sockets and DNS are protected so provider traffic does not loop i…
+### Requirement: REQ-OUT-1786264762917422-002 — Xray outbound sockets and DNS are protected so provider traffic does not loop into the TUN fd
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Xray outbound sockets and DNS are protected so provider traffic does not loop into the TUN fd. — protect-first ordering in RipDpiXrayRuntime; DNS ownership pinned to the tunnel; proven by XrayProtectFdContractTest and XrayDnsLoopRegressionTest.
+The Xray provider path MUST protect outbound sockets and DNS activity from being routed back into the VPN TUN device.
 
-#### Scenario: Verify criterion 2
+#### Scenario: Protected provider egress
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Xray outbound sockets and DNS are protected so provider traffic does not loop into the TUN fd. — protect-first ordering in RipDpiXrayRuntime; DNS ownership pinned to the tunnel; proven by XrayProtectFdContractTest and XrayDnsLoopRegressionTest
+- **WHEN** Xray opens a non-loopback outbound socket or performs provider-owned DNS work while the VPN protection callback is active
+- **THEN** the descriptor MUST be protected before outbound use
+- **AND** protection failure MUST abort provider startup or the affected operation without handing TUN traffic to an unsafe provider
 
-### Requirement: REQ-OUT-1786264762917422-003 — Existing tunnel telemetry remains available when the upstream endpoint is Xray…
+### Requirement: REQ-OUT-1786264762917422-003 — Existing tunnel telemetry remains available when the upstream endpoint is Xray instead of RIPDPI-native proxy
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Existing tunnel telemetry remains available when the upstream endpoint is Xray instead of RIPDPI-native proxy. — XrayProviderOrchestrator drives the ManagedTunnel seam unchanged; orchestrator tests assert the tunnel lifecycle is preserved when upstream is Xray.
+Tunnel telemetry MUST continue to report tunnel lifecycle and packet-forwarding state when the upstream endpoint is Xray.
 
-#### Scenario: Verify criterion 3
+#### Scenario: Telemetry with Xray upstream
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Existing tunnel telemetry remains available when the upstream endpoint is Xray instead of RIPDPI-native proxy. — XrayProviderOrchestrator drives the ManagedTunnel seam unchanged; orchestrator tests assert the tunnel lifecycle is preserved when upstream is Xray
+- **WHEN** the managed tunnel is running with an Xray local inbound upstream
+- **THEN** existing tunnel telemetry MUST continue to publish tunnel status, route metadata, and counters
+- **AND** provider-specific telemetry MUST be additive rather than replacing the tunnel data-plane telemetry
 
-### Requirement: REQ-OUT-1786264762917422-004 — Network handover restarts both Xray and tunnel when the local inbound or provid…
+### Requirement: REQ-OUT-1786264762917422-004 — Network handover restarts both Xray and tunnel when the local inbound or provider route changes
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Network handover restarts both Xray and tunnel when the local inbound or provider route changes. — route-change dual-restart (tunnel stopped before Xray) covered by XrayProviderOrchestratorTest / XrayServiceLifecycleMatrixTest.
+Network handover MUST replace the provider and tunnel transactionally when a route change requires a new Xray local inbound or provider policy.
 
-#### Scenario: Verify criterion 4
+#### Scenario: Route-changing handover
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Network handover restarts both Xray and tunnel when the local inbound or provider route changes. — route-change dual-restart (tunnel stopped before Xray) covered by XrayProviderOrchestratorTest / XrayServiceLifecycleMatrixTest
+- **WHEN** network handover changes the Xray local inbound endpoint, provider configuration, or route policy
+- **THEN** the old tunnel forwarding path MUST be quiesced before the old Xray runtime is released
+- **AND** the new Xray runtime and tunnel MUST become active together, or the previous TUN ownership barrier MUST be retained for explicit stop or retry
 
-### Requirement: REQ-OUT-1786264762917422-005 — A local/device smoke test proves traffic exits through the Xray outbound. — doc…
+### Requirement: REQ-OUT-1786264762917422-005 — A local/device smoke test proves traffic exits through the Xray outbound
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: A local/device smoke test proves traffic exits through the Xray outbound. — documented in docs/contributor/xray-tun-bridge-smoke.md but UNVERIFIED IN CI. OPEN: requires gomobile/libXray + NDK29 native engine + device + live server; the smoke lane cannot run o….
+A device or local integration smoke test MUST prove that traffic entering the RIPDPI VPN exits through the configured Xray outbound rather than through the native provider or public fallback.
 
-#### Scenario: Verify criterion 5
+#### Scenario: Xray outbound smoke
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that A local/device smoke test proves traffic exits through the Xray outbound. — documented in docs/contributor/xray-tun-bridge-smoke.md but UNVERIFIED IN CI. OPEN: requires gomobile/libXray + NDK29 native engine + device + live server; the smoke lane cannot run o…
+- **WHEN** RIPDPI VPN is started with Xray selected and a controlled peer profile
+- **THEN** traffic sent through the VPN to an approved fixture destination MUST be received by the controlled Xray peer
+- **AND** the smoke evidence MUST distinguish Xray peer receipt from direct host reachability

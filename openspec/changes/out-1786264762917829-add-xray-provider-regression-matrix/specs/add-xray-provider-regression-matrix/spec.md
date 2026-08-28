@@ -1,59 +1,65 @@
 ## Purpose
 
-Define the observable completion contract for Add Xray provider regression matrix. Add focused automated coverage for the first Xray provider integration
+Define the observable completion contract for Add Xray provider regression matrix. Add focused automated coverage for the first Xray provider integration.
 
 ## ADDED Requirements
 
-### Requirement: REQ-OUT-1786264762917829-001 — Config golden tests cover VLESS/REALITY, XHTTP, invalid combinations, and redac…
+### Requirement: REQ-OUT-1786264762917829-001 — Config golden tests cover VLESS/REALITY, XHTTP, invalid combinations, and redaction
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Config golden tests cover VLESS/REALITY, XHTTP, invalid combinations, and redaction. — XrayConfigRendererTest, XrayProfileRedactorTest, XrayRedactionRegressionTest (:core:data:catalog, green offline).
+The regression matrix MUST include config-rendering coverage for supported VLESS/REALITY and VLESS/XHTTP profiles, rejected invalid combinations, and redacted diagnostic output.
 
-#### Scenario: Verify criterion 1
+#### Scenario: Config regression lane
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Config golden tests cover VLESS/REALITY, XHTTP, invalid combinations, and redaction. — XrayConfigRendererTest, XrayProfileRedactorTest, XrayRedactionRegressionTest (:core:data:catalog, green offline)
+- **WHEN** the config regression lane runs
+- **THEN** it MUST compare rendered configs for the supported profile shapes against stable fixtures
+- **AND** it MUST fail when unsupported combinations are accepted or when redacted output contains profile secrets or live endpoints
 
-### Requirement: REQ-OUT-1786264762917829-002 — Service tests cover Xray startup failure, readiness timeout, stop, restart, and…
+### Requirement: REQ-OUT-1786264762917829-002 — Service tests cover Xray startup failure, readiness timeout, stop, restart, and handover behavior
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Service tests cover Xray startup failure, readiness timeout, stop, restart, and handover behavior. — XrayServiceLifecycleMatrixTest (one named test per edge) + RipDpiXrayRuntimeTest (:core:engine-api, green offline).
+The service regression matrix MUST cover the lifecycle edges that can change Xray provider ownership or tunnel forwarding.
 
-#### Scenario: Verify criterion 2
+#### Scenario: Lifecycle regression lane
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Service tests cover Xray startup failure, readiness timeout, stop, restart, and handover behavior. — XrayServiceLifecycleMatrixTest (one named test per edge) + RipDpiXrayRuntimeTest (:core:engine-api, green offline)
+- **WHEN** the service lifecycle tests run
+- **THEN** they MUST exercise Xray startup failure, listener readiness timeout, clean stop, restart, failed replacement, and handover outcomes
+- **AND** each failure scenario MUST assert the resulting provider/tunnel ownership instead of only asserting a reported status
 
-### Requirement: REQ-OUT-1786264762917829-003 — Protect-fd tests prove Xray dialer/listener sockets use the Android VPN protect…
+### Requirement: REQ-OUT-1786264762917829-003 — Protect-fd tests prove Xray dialer/listener sockets use the Android VPN protection path
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Protect-fd tests prove Xray dialer/listener sockets use the Android VPN protection path. — XrayProtectFdContractTest: a socket-simulating fake bridge asserts protect strictly precedes connect, a denied protect aborts the socket, and the loopback inbound is ne….
+The regression matrix MUST prove that non-loopback Xray sockets are protected before outbound use and that protection denial fails safely.
 
-#### Scenario: Verify criterion 3
+#### Scenario: Protect-fd regression lane
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Protect-fd tests prove Xray dialer/listener sockets use the Android VPN protection path. — XrayProtectFdContractTest: a socket-simulating fake bridge asserts protect strictly precedes connect, a denied protect aborts the socket, and the loopback inbound is ne…
+- **WHEN** the protect-fd contract tests simulate Xray socket creation
+- **THEN** every non-loopback dialer or listener socket MUST be offered to the Android VPN protection path before connect or outbound use
+- **AND** a denied protection result MUST close the socket and surface a provider failure without using the unprotected descriptor
 
-### Requirement: REQ-OUT-1786264762917829-004 — DNS-loop regression proves provider bootstrap DNS does not re-enter TUN. — Xray…
+### Requirement: REQ-OUT-1786264762917829-004 — DNS-loop regression proves provider bootstrap DNS does not re-enter TUN
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: DNS-loop regression proves provider bootstrap DNS does not re-enter TUN. — XrayDnsLoopRegressionTest: DNS ownership pinned to the tunnel, split XrayDns not constructible for the bridged topology, SetTunFd topology refused (green offline).
+The regression matrix MUST cover the Xray DNS ownership rules so provider DNS cannot recursively enter the VPN tunnel.
 
-#### Scenario: Verify criterion 4
+#### Scenario: DNS-loop regression lane
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that DNS-loop regression proves provider bootstrap DNS does not re-enter TUN. — XrayDnsLoopRegressionTest: DNS ownership pinned to the tunnel, split XrayDns not constructible for the bridged topology, SetTunFd topology refused (green offline)
+- **WHEN** the DNS ownership tests exercise the bridged Xray topology
+- **THEN** provider hostname bootstrap MUST use an eligible underlying network without re-entering the TUN; client DNS handling MUST remain tunnel-owned
+- **AND** missing eligible bootstrap authority or unsupported split-DNS or direct-TUN configurations MUST fail closed instead of silently routing provider DNS through the TUN
 
-### Requirement: REQ-OUT-1786264762917829-005 — Device/emulator smoke test verifies active VPN traffic exits through the Xray o…
+### Requirement: REQ-OUT-1786264762917829-005 — Device/emulator smoke test verifies active VPN traffic exits through the Xray outbound path
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Device/emulator smoke test verifies active VPN traffic exits through the Xray outbound path. — documented in docs/contributor/xray-tun-bridge-smoke.md / xray-regression-matrix.md but UNVERIFIED IN CI. OPEN: requires gomobile/libXray + NDK29 native + device/em….
+The regression matrix MUST define a device or emulator smoke lane that proves active VPN traffic is carried by the Xray outbound path.
 
-#### Scenario: Verify criterion 5
+#### Scenario: Device traffic smoke lane
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Device/emulator smoke test verifies active VPN traffic exits through the Xray outbound path. — documented in docs/contributor/xray-tun-bridge-smoke.md / xray-regression-matrix.md but UNVERIFIED IN CI. OPEN: requires gomobile/libXray + NDK29 native + device/em…
+- **WHEN** the device smoke lane starts RIPDPI VPN with Xray selected and a controlled Xray peer profile
+- **THEN** traffic sent through the VPN MUST be observed by the controlled peer
+- **AND** traffic to destinations outside the approved fixture routes MUST remain denied by the fixture rather than falling through to the public network
 
-### Requirement: REQ-OUT-1786264762917829-006 — CI or documented manual lanes identify which Xray tests need network, emulator,…
+### Requirement: REQ-OUT-1786264762917829-006 — CI or documented manual lanes identify which Xray tests need network, emulator, or private fixture dependencies
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: CI or documented manual lanes identify which Xray tests need network, emulator, or private fixture dependencies. — docs/contributor/xray-regression-matrix.md indexes the whole surface and splits CI-offline lanes from device/emulator, live-network, and private….
+The regression matrix MUST label each Xray validation lane by its required environment and external dependency boundary.
 
-#### Scenario: Verify criterion 6
+#### Scenario: Lane dependency map
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that CI or documented manual lanes identify which Xray tests need network, emulator, or private fixture dependencies. — docs/contributor/xray-regression-matrix.md indexes the whole surface and splits CI-offline lanes from device/emulator, live-network, and private…
+- **WHEN** maintainers inspect the Xray regression matrix
+- **THEN** each lane MUST state whether it is offline JVM/Go, linked libXray, emulator/device, live-network, or private-fixture dependent
+- **AND** lanes that cannot run in ordinary local CI MUST name the manual or CI environment that can run them
