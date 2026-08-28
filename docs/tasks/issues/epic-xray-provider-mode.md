@@ -2,7 +2,7 @@
 id: EPC-1786264762917329
 title: Epic - Xray provider mode
 kind: epic
-status: blocked
+status: review
 area: epic
 priority: high
 owner: codex
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: epc-1786264762917329-epic-xray-provider-mode
 created: 2026-04-24
 updated: 2026-08-28
-status_detail: Local gates, ARM64 debug APK and real API35 Xray TCP/XHTTP TUN plus DNS acceptance passed at 0f6124c66. Pending epic PR/merge authorization and exact hosted CI; not integrated.
+status_detail: Epic PR publication and ordinary protected merge are authorized. Local gates, ARM64 APK and API35 TCP/XHTTP TUN plus DNS acceptance passed; exact hosted CI and integration remain pending.
 ---
 
 ## Goal
@@ -45,7 +45,7 @@ Direct-mode now has enough product framing to be honest when it cannot solve a n
 - After the lifecycle handoff, the coordinator owns the session controller, route builder, session DI module and their tests for reading the selected provider and profile atomically through the mutation journal. The product writer retains journal and UI ownership.
 - Review agents are read-only. Every heavy local build uses the machine-wide `build-gate`; writers do not merge or push independently.
 
-Initial source inspection found missing navigation/onboarding, durable selection restoration, typed JSON import, failed-replacement TUN retention and live diagnostic/export correctness. Those paths are now implemented and locally verified in `5b06d7ed4`, with translation export in `e3142fcc8` and real DNS acceptance in `0f6124c66`. The branch was rebased onto `29987d625bf111a719d7205eee5a33a6a3d5ef88`. See the linked OpenSpec verification record for observed local, artifact and Android evidence. Epic PR/merge authorization and exact hosted CI remain outstanding; the epic is not closed.
+Initial source inspection found missing navigation/onboarding, durable selection restoration, typed JSON import, failed-replacement TUN retention and live diagnostic/export correctness. Those paths are now implemented and locally verified in `5b06d7ed4`, with translation export in `e3142fcc8` and real DNS acceptance in `0f6124c66`. The branch was rebased onto `29987d625bf111a719d7205eee5a33a6a3d5ef88`. See the linked OpenSpec verification record for observed local, artifact and Android evidence. The user authorized epic PR publication and ordinary protected merge after successful checks. Exact hosted CI and integration remain outstanding; the epic is not closed.
 
 ## Ship definition (historical annotations)
 
