@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">تعذّر تحميل حالة مزوّد Xray الحالية. أعد المحاولة قبل الإنهاء.</string>
+    <string name="xray_import_error_typed_unsupported">خيار النقل أو الأمان هذا في Xray غير مدعوم بعد.</string>
+    <string name="xray_import_error_typed_missing_field">يفتقد ملف Xray هذا حقلاً مطلوباً. تحقق من الرابط وحاول مرة أخرى.</string>
+    <string name="xray_import_error_typed_unsafe">فشل ملف Xray هذا في فحص الأمان ولم يتم استيراده.</string>
+    <string name="xray_import_restore_loading_title">جارٍ فحص وضع Xray الحالي</string>
+    <string name="xray_import_restore_loading_body">تتم قراءة المزوّد والملف المحفوظين قبل استخدام هذا الوضع.</string>
+    <string name="xray_import_restore_failed_title">تعذّر تحميل وضع Xray</string>
+    <string name="xray_import_restore_retry_action">إعادة المحاولة</string>
+    <string name="xray_import_skipped_item_format">العقدة %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">وجهة صادرة خدمية: لا يوجد ما يمكن استيراده.</string>
+    <string name="xray_skip_unsupported_protocol_safe">هذا البروتوكول غير مدعوم محليًا.</string>
+    <string name="xray_skip_unsupported_transport_safe">هذا النقل غير مدعوم محليًا.</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">بصمة TLS هذه غير مدعومة محليًا.</string>
+    <string name="config_xray_import_title">ملف VPN متقدم</string>
+    <string name="config_xray_import_body">استورد أو راجع ملف Xray للموفر المدمج.</string>
+    <string name="onboarding_setup_mode_xray_title">إعداد VPN متقدم</string>
+    <string name="onboarding_setup_mode_xray_body">استورد ملف Xray قبل اختبار وضع VPN.</string>
+</resources>

@@ -53,6 +53,7 @@ class DiagnosticsArchiveRendererTest {
             explicitNulls = false
         }
 
+    private val providerState = FakeServiceStateStore()
     private val redactor = DiagnosticsArchiveRedactor(json)
     private val renderer =
         DiagnosticsArchiveRenderer(
@@ -64,7 +65,42 @@ class DiagnosticsArchiveRendererTest {
                 json,
             ),
             json,
+            serviceStateStore = providerState,
         )
+
+    @Test
+    fun `exported ZIP includes current Xray context with verified integrity`() {
+        providerState.updateTelemetry(
+            com.poyka.ripdpi.data.ServiceTelemetrySnapshot(
+                xrayProviderSnapshot = com.poyka.ripdpi.data.xray.XrayProviderDiagnosticsFixtures.healthy.snapshot,
+            ),
+        )
+        val directory = Files.createTempDirectory("xray-diagnostics").toFile()
+        val file = java.io.File(directory, "diagnostics.zip")
+        try {
+            val target = DiagnosticsArchiveTarget(file, file.name, 42L)
+            val entries = renderer.render(target, buildFullRendererSelection())
+            DiagnosticsArchiveZipWriter().write(file, entries)
+            ZipFile(file).use { zip ->
+                val summaryBytes = zip.getInputStream(zip.getEntry("summary.txt")).readBytes()
+                val summary = summaryBytes.decodeToString()
+                assertTrue(summary.contains("Current provider at export time"))
+                assertTrue(summary.contains("readiness: OutboundHealthy"))
+                assertFalse(summary.contains("profile: "))
+                val integrity = zip.getInputStream(zip.getEntry("integrity.json")).reader().readText()
+                val digest =
+                    MessageDigest
+                        .getInstance(
+                            "SHA-256",
+                        ).digest(summaryBytes)
+                        .joinToString("") { "%02x".format(it) }
+                assertTrue(integrity.contains(digest))
+            }
+        } finally {
+            file.delete()
+            directory.delete()
+        }
+    }
 
     @Test
     fun `schema 10 analysis decodes new strategy evidence as unverified defaults`() {

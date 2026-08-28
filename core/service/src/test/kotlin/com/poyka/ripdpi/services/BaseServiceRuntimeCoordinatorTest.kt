@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -185,6 +186,74 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(listOf(null), env.host.stopRequests)
         }
 
+    @Test
+    fun `failure callback exception still finalizes guarded stop before rethrow`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+
+            val failure =
+                runCatching {
+                    env.coordinator.failAndStopWithBeforeFinalizationFailure(
+                        IllegalStateException("failure callback crashed"),
+                    )
+                }.exceptionOrNull()
+
+            assertEquals("failure callback crashed", failure?.message)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertEquals(listOf(null), env.host.stopRequests)
+        }
+
+    @Test
+    fun `failure callback cancellation still finalizes guarded stop before rethrow`() =
+        runTest {
+            val env = newEnv()
+            val cancellation = CancellationException("failure callback cancelled")
+            env.coordinator.start()
+            runCurrent()
+
+            val failure =
+                runCatching {
+                    env.coordinator.failAndStopWithBeforeFinalizationFailure(cancellation)
+                }.exceptionOrNull()
+
+            assertSame(cancellation, failure)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertEquals(listOf(null), env.host.stopRequests)
+        }
+
+    @Test
+    fun `cleanup pending during failure callback exception keeps retained runtime`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val retained = env.runtimeRegistry.current(Mode.Proxy)
+            env.coordinator.cleanupPending = true
+
+            val accepted =
+                env.coordinator.failAndStopWithBeforeFinalizationFailure(
+                    IllegalStateException("failure callback crashed"),
+                )
+
+            assertTrue(accepted)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(listOf("final_telemetry", "runtime_stop"), env.coordinator.stopLifecycleEvents)
+            assertSame(retained, env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertTrue(env.host.stopRequests.isEmpty())
+        }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ServiceRuntimeHandoverTest {
     @Test
     fun nonActionableAndCooldownHandoverEventsAreIgnored() =
         runTest {
@@ -503,6 +572,96 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun `new handover invalidates paused exhausted failure from older event`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val fingerprintA = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val fingerprintB = sampleFingerprint(dnsServers = listOf("9.9.9.9"))
+            val retainGate = CompletableDeferred<Unit>()
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 5
+                    it.coordinator.handoverRetainGate = retainGate
+                }
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = fingerprintA,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+            assertEquals(1, env.coordinator.handoverRetainCalls)
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = fingerprintA,
+                    currentFingerprint = fingerprintB,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+            retainGate.complete(Unit)
+            repeat(8) { runCurrent() }
+
+            assertTrue(env.coordinator.statusTransitions.none { it == ServiceStatus.Failed })
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            assertEquals(
+                fingerprintB.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
+        }
+
+    @Test
+    fun `stop invalidates paused exhausted failure from older handover`() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val fingerprintA = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val retainGate = CompletableDeferred<Unit>()
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 5
+                    it.coordinator.handoverRetainGate = retainGate
+                }
+
+            env.coordinator.start()
+            runCurrent()
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = fingerprintA,
+                    classification = "link_refresh",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+            assertEquals(1, env.coordinator.handoverRetainCalls)
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+
+            val stopJob = launch { env.coordinator.stop() }
+            runCurrent()
+            assertFalse(stopJob.isCompleted)
+
+            retainGate.complete(Unit)
+            repeat(8) { runCurrent() }
+            stopJob.join()
+
+            assertTrue(env.coordinator.statusTransitions.none { it == ServiceStatus.Failed })
+            assertEquals(ServiceStatus.Disconnected, env.coordinator.statusTransitions.last())
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
     fun `new handover suppresses stale retry from older event`() =
         runTest {
             val initialFingerprint = sampleFingerprint()
@@ -763,6 +922,9 @@ private class TestCoordinator(
     var handoverFailuresRemaining: Int = 0
     var handoverTimeoutsRemaining: Int = 0
     var handoverRestartGate: CompletableDeferred<Unit>? = null
+    var handoverRetainGate: CompletableDeferred<Unit>? = null
+    var handoverRetainCalls: Int = 0
+    var handoverRetainResult: Boolean = false
     var finalTelemetryFailuresRemaining: Int = 0
     var finalTelemetryCalls: Int = 0
     var cancelFinalTelemetry: Boolean = false
@@ -796,6 +958,7 @@ private class TestCoordinator(
                     resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
                     restartAfterHandover = ::restartAfterHandover,
                     classifyFailure = ::classifyHandoverFailure,
+                    retainFailClosedAfterExhaustion = ::retainFailClosedAfterExhaustion,
                 ),
             statusHooks =
                 ServiceRuntimeStatusHooks(
@@ -908,6 +1071,18 @@ private class TestCoordinator(
             appliedAt = appliedAt,
         )
     }
+
+    private suspend fun retainFailClosedAfterExhaustion(): Boolean {
+        handoverRetainCalls += 1
+        handoverRetainGate?.await()
+        return handoverRetainResult
+    }
+
+    suspend fun failAndStopWithBeforeFinalizationFailure(failure: Throwable): Boolean =
+        failAndStopRuntime(
+            failureReason = FailureReason.NativeError("terminal failure"),
+            beforeStopFinalization = { throw failure },
+        )
 
     @Suppress("UnusedParameter")
     private fun updateStatus(

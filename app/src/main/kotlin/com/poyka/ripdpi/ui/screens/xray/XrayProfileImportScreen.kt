@@ -67,6 +67,7 @@ fun XrayProfileImportRoute(
         onSelectOption = viewModel::selectOption,
         onRawInputChange = viewModel::onRawInputChange,
         onValidate = { viewModel.validate() },
+        onRetryRestore = viewModel::retryRestore,
         onConfirm = viewModel::confirm,
         modifier = modifier,
     )
@@ -80,6 +81,7 @@ internal fun XrayProfileImportScreen(
     onSelectOption: (XrayServiceModeOption) -> Unit,
     onRawInputChange: (String) -> Unit,
     onValidate: () -> Unit,
+    onRetryRestore: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -90,8 +92,15 @@ internal fun XrayProfileImportScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.XrayImport)),
     ) {
+        XrayRestoreStatusCard(
+            restoreStatus = uiState.restoreStatus,
+            restoreErrorMessage = uiState.restoreErrorMessage,
+            onRetryRestore = onRetryRestore,
+        )
+
         XrayServiceModeCard(
             selectedOption = uiState.selectedOption,
+            enabled = uiState.canEdit,
             onSelectOption = onSelectOption,
         )
 
@@ -99,6 +108,7 @@ internal fun XrayProfileImportScreen(
             XrayProfileInputCard(
                 rawInput = uiState.rawInput,
                 validating = uiState.validating,
+                enabled = uiState.canEdit,
                 errorMessage = uiState.errorMessage,
                 onRawInputChange = onRawInputChange,
                 onValidate = onValidate,
@@ -115,14 +125,54 @@ internal fun XrayProfileImportScreen(
             text = stringResource(R.string.xray_import_finish_action),
             onClick = onConfirm,
             enabled = uiState.canFinish,
+            loading = uiState.persisting,
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
 @Composable
+private fun XrayRestoreStatusCard(
+    restoreStatus: XrayImportRestoreStatus,
+    restoreErrorMessage: String?,
+    onRetryRestore: () -> Unit,
+) {
+    when (restoreStatus) {
+        XrayImportRestoreStatus.Loading -> {
+            WarningBanner(
+                title = stringResource(R.string.xray_import_restore_loading_title),
+                message = stringResource(R.string.xray_import_restore_loading_body),
+                tone = WarningBannerTone.Warning,
+                testTag = "xray_import_restore_loading",
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        XrayImportRestoreStatus.Failed -> {
+            WarningBanner(
+                title = stringResource(R.string.xray_import_restore_failed_title),
+                message = restoreErrorMessage ?: stringResource(R.string.xray_import_error_restore_failed),
+                tone = WarningBannerTone.Error,
+                testTag = "xray_import_restore_failed",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.xray_import_restore_retry_action),
+                onClick = onRetryRestore,
+                variant = RipDpiButtonVariant.Secondary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        XrayImportRestoreStatus.Ready -> {
+        }
+    }
+}
+
+@Composable
 private fun XrayServiceModeCard(
     selectedOption: XrayServiceModeOption,
+    enabled: Boolean,
     onSelectOption: (XrayServiceModeOption) -> Unit,
 ) {
     RipDpiCard {
@@ -135,6 +185,7 @@ private fun XrayServiceModeCard(
                 title = stringResource(stringIdFor(option.titleKey)),
                 subtitle = stringResource(stringIdFor(option.descriptionKey)),
                 checked = selectedOption == option,
+                enabled = enabled,
                 onCheckedChange = { selected -> if (selected) onSelectOption(option) },
                 testTag = "xray_mode_${option.name}",
             )
@@ -146,6 +197,7 @@ private fun XrayServiceModeCard(
 private fun XrayProfileInputCard(
     rawInput: String,
     validating: Boolean,
+    enabled: Boolean,
     errorMessage: String?,
     onRawInputChange: (String) -> Unit,
     onValidate: () -> Unit,
@@ -166,12 +218,12 @@ private fun XrayProfileInputCard(
                     errorText = errorMessage,
                     testTag = "xray_import_input",
                 ),
-            behavior = RipDpiTextFieldBehavior(singleLine = false),
+            behavior = RipDpiTextFieldBehavior(enabled = enabled, singleLine = false),
         )
         RipDpiButton(
             text = stringResource(R.string.xray_import_validate_action),
             onClick = onValidate,
-            enabled = !validating,
+            enabled = enabled && !validating,
             loading = validating,
             variant = RipDpiButtonVariant.Secondary,
             modifier = Modifier.fillMaxWidth(),
@@ -231,7 +283,7 @@ private fun XraySkippedNodesCard(skipped: List<XraySkippedNode>) {
     val lines = StringBuilder()
     for ((index, node) in skipped.withIndex()) {
         if (index > 0) lines.append('\n')
-        lines.append(node.label).append(" — ").append(skipReasonText(node.reason, node.detail))
+        lines.append(stringResource(R.string.xray_import_skipped_item_format, index + 1, skipReasonText(node.reason)))
     }
     WarningBanner(
         title = stringResource(R.string.xray_import_skipped_title),
@@ -243,10 +295,7 @@ private fun XraySkippedNodesCard(skipped: List<XraySkippedNode>) {
 }
 
 @Composable
-private fun skipReasonText(
-    reason: XraySkipReason,
-    detail: String?,
-): String =
+private fun skipReasonText(reason: XraySkipReason): String =
     when (reason) {
         XraySkipReason.VMESS_REMOVED -> {
             stringResource(R.string.xray_skip_vmess_removed)
@@ -257,25 +306,19 @@ private fun skipReasonText(
         }
 
         XraySkipReason.NON_PROXY_OUTBOUND -> {
-            stringResource(R.string.xray_skip_non_proxy, detail.orEmpty())
+            stringResource(R.string.xray_skip_non_proxy_safe)
         }
 
         XraySkipReason.UNSUPPORTED_PROTOCOL -> {
-            stringResource(R.string.xray_skip_unsupported_protocol, detail.orEmpty())
+            stringResource(R.string.xray_skip_unsupported_protocol_safe)
         }
 
         XraySkipReason.UNSUPPORTED_TRANSPORT -> {
-            stringResource(
-                R.string.xray_skip_unsupported_transport,
-                detail.orEmpty(),
-            )
+            stringResource(R.string.xray_skip_unsupported_transport_safe)
         }
 
         XraySkipReason.UNSUPPORTED_FINGERPRINT -> {
-            stringResource(
-                R.string.xray_skip_unsupported_fingerprint,
-                detail.orEmpty(),
-            )
+            stringResource(R.string.xray_skip_unsupported_fingerprint_safe)
         }
 
         XraySkipReason.MALFORMED -> {
@@ -292,42 +335,26 @@ private fun skipReasonText(
  * `:core:data` models to keep them Android-free) to the `:app` `R.string` id.
  * Centralised here so the model keys and the resources cannot drift silently.
  */
-@Suppress("CyclomaticComplexMethod")
-internal fun stringIdFor(key: String): Int =
-    when (key) {
+internal fun stringIdFor(key: String): Int = XrayStringIds[key] ?: error("Unmapped Xray string key: $key")
+
+private val XrayStringIds =
+    mapOf(
         // Service-mode options.
-        "service_mode_native_direct_title" -> R.string.service_mode_native_direct_title
-
-        "service_mode_native_direct_desc" -> R.string.service_mode_native_direct_desc
-
-        "service_mode_native_proxy_title" -> R.string.service_mode_native_proxy_title
-
-        "service_mode_native_proxy_desc" -> R.string.service_mode_native_proxy_desc
-
-        "service_mode_xray_vpn_title" -> R.string.service_mode_xray_vpn_title
-
-        "service_mode_xray_vpn_desc" -> R.string.service_mode_xray_vpn_desc
-
+        "service_mode_native_direct_title" to R.string.service_mode_native_direct_title,
+        "service_mode_native_direct_desc" to R.string.service_mode_native_direct_desc,
+        "service_mode_native_proxy_title" to R.string.service_mode_native_proxy_title,
+        "service_mode_native_proxy_desc" to R.string.service_mode_native_proxy_desc,
+        "service_mode_xray_vpn_title" to R.string.service_mode_xray_vpn_title,
+        "service_mode_xray_vpn_desc" to R.string.service_mode_xray_vpn_desc,
         // Capability labels.
-        "xray_capability_vpn_privacy_title" -> R.string.xray_capability_vpn_privacy_title
-
-        "xray_capability_vpn_privacy_desc" -> R.string.xray_capability_vpn_privacy_desc
-
-        "xray_capability_relay_title" -> R.string.xray_capability_relay_title
-
-        "xray_capability_relay_desc" -> R.string.xray_capability_relay_desc
-
-        "xray_capability_anti_dpi_title" -> R.string.xray_capability_anti_dpi_title
-
-        "xray_capability_anti_dpi_desc" -> R.string.xray_capability_anti_dpi_desc
-
-        "xray_capability_dns_protection_title" -> R.string.xray_capability_dns_protection_title
-
-        "xray_capability_dns_protection_desc" -> R.string.xray_capability_dns_protection_desc
-
-        "xray_capability_realtime_media_title" -> R.string.xray_capability_realtime_media_title
-
-        "xray_capability_realtime_media_desc" -> R.string.xray_capability_realtime_media_desc
-
-        else -> error("Unmapped Xray string key: $key")
-    }
+        "xray_capability_vpn_privacy_title" to R.string.xray_capability_vpn_privacy_title,
+        "xray_capability_vpn_privacy_desc" to R.string.xray_capability_vpn_privacy_desc,
+        "xray_capability_relay_title" to R.string.xray_capability_relay_title,
+        "xray_capability_relay_desc" to R.string.xray_capability_relay_desc,
+        "xray_capability_anti_dpi_title" to R.string.xray_capability_anti_dpi_title,
+        "xray_capability_anti_dpi_desc" to R.string.xray_capability_anti_dpi_desc,
+        "xray_capability_dns_protection_title" to R.string.xray_capability_dns_protection_title,
+        "xray_capability_dns_protection_desc" to R.string.xray_capability_dns_protection_desc,
+        "xray_capability_realtime_media_title" to R.string.xray_capability_realtime_media_title,
+        "xray_capability_realtime_media_desc" to R.string.xray_capability_realtime_media_desc,
+    )

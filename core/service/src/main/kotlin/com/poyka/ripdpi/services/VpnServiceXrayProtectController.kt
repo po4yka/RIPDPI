@@ -48,6 +48,9 @@ internal class VpnServiceXrayProtectController(
     var lastFailureDetail: String? = null
         private set
 
+    @Volatile
+    var providerGenerationProvider: () -> Long? = { null }
+
     /** Reset the recorded failure detail at the start of a fresh session. */
     fun clearLastFailure() {
         lastFailureDetail = null
@@ -99,6 +102,7 @@ internal class VpnServiceXrayProtectController(
                 reason = reason,
                 detail = detail,
                 detectedAt = clock(),
+                providerGeneration = providerGenerationProvider(),
             ),
         )
         log.e { "xray protect failed for fd=$fd: $detail" }

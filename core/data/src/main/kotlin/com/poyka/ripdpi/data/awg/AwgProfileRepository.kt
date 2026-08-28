@@ -176,6 +176,8 @@ private class DirectAwgProfileMutationCoordinator(
 ) : ProfileMutationCoordinator {
     override suspend fun recover() = Unit
 
+    override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
+
     override suspend fun runReset(block: suspend () -> Unit) = block()
 
     override suspend fun upsertAwg(
@@ -218,6 +220,8 @@ private class DirectAwgProfileMutationCoordinator(
         enabled: Boolean,
         select: Boolean,
         settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
     ) = unsupported()
 
     override suspend fun upsertWarp(

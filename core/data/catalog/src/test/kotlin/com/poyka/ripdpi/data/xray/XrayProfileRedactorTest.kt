@@ -15,7 +15,7 @@ import org.junit.Test
  */
 class XrayProfileRedactorTest {
     private val uuid = "550e8400-e29b-41d4-a716-446655440000"
-    private val publicKey = "PUB_KEY_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    private val publicKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
     private val privateKey = "PRIV_KEY_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
     private val serverAddress = "edge.secret-host.example.com"
 

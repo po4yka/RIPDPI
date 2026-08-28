@@ -5,43 +5,28 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 
 /**
- * Catalog-publish-time validator for Xray-style outbound configurations.
- *
- * Catches three classes of error that xray-core has documented but does
- * not refuse at parse time:
- *
- * - VLESS outbound missing a `flow` value (deprecated 2026-06-01).
- * - `streamSettings.tlsSettings.allowInsecure = true` (auto-disabled
- *   2026-06-01).
- * - `streamSettings.network = "xhttp"` combined with
- *   `streamSettings.security = "reality"` at xray-core v26.1.18 or
- *   later (known wire break).
- *
- * The validator operates on a `JsonObject` representation of an Xray
- * config so it can be wired into any future import flow without
- * pre-committing to a typed schema. Forward-looking: no in-tree
- * consumer today (the typed `VlessOutbound` schema does not expose
- * `flow` or `allowInsecure`, and the native wire layer hardcodes the
- * Vision flow). Tracks
- * Completed task `render-validated-xray-client-configs` (see git history).
+ * Provider validation policy: Vision is required for the supported TCP shape
+ * and forbidden for XHTTP, certificate verification cannot be disabled, and
+ * REALITY/XHTTP rejects the upstream regression window before its v26.2.6 fix.
+ * Structural import validation belongs to the typed profile reader.
  */
 object XrayConfigValidator {
     /**
      * Context for time- and version-dependent rules.
      *
      * @property upstreamTag the xray-core release tag the host-pack is
-     *   targeting. Validation rules can branch on this; for example,
-     *   the REALITY+XHTTP wire break is only enforced at `v26.1.18+`.
+     *   targeting. Validation rules accept both release and Go module version formats.
      */
     data class Context(
         val upstreamTag: String,
     )
 
     enum class ErrorCode {
+        PROFILE_INVALID,
         VLESS_FLOW_MISSING,
+        VLESS_FLOW_UNSUPPORTED,
         ALLOW_INSECURE_DISABLED,
         REALITY_XHTTP_BROKEN_AT_TAG,
     }
@@ -70,7 +55,7 @@ object XrayConfigValidator {
             val pathPrefix = "outbounds[$index]"
 
             if (protocol == "vless") {
-                errors += checkVlessFlow(outbound, pathPrefix)
+                errors += checkVlessFlow(outbound, streamSettings, pathPrefix)
             }
 
             if (streamSettings != null) {
@@ -84,29 +69,42 @@ object XrayConfigValidator {
 
     private fun checkVlessFlow(
         outbound: JsonObject,
+        streamSettings: JsonObject?,
         pathPrefix: String,
     ): List<ValidationError> {
-        val vnext = outbound["settings"]?.jsonObject?.get("vnext") as? JsonArray ?: return emptyList()
+        val vnext = (outbound["settings"] as? JsonObject)?.get("vnext") as? JsonArray ?: return emptyList()
+        val xhttp = (streamSettings?.get("network") as? JsonPrimitive)?.contentOrNull == "xhttp"
         val errors = mutableListOf<ValidationError>()
         vnext.forEachIndexed { vIndex, vElement ->
             val users = (vElement as? JsonObject)?.get("users") as? JsonArray ?: return@forEachIndexed
             users.forEachIndexed { uIndex, uElement ->
                 val user = uElement as? JsonObject ?: return@forEachIndexed
                 val flow = (user["flow"] as? JsonPrimitive)?.contentOrNull
-                if (flow.isNullOrEmpty()) {
+                if (!xhttp && flow.isNullOrEmpty()) {
                     errors +=
                         ValidationError(
                             code = ErrorCode.VLESS_FLOW_MISSING,
                             path = "$pathPrefix.settings.vnext[$vIndex].users[$uIndex].flow",
                             message =
-                                "VLESS user is missing required 'flow' (xray-core deprecated " +
-                                    "VLESS-without-flow on 2026-06-01).",
+                                "VLESS TCP profile requires an explicit Vision flow.",
+                        )
+                } else if (unsupportedFlow(flow, xhttp)) {
+                    errors +=
+                        ValidationError(
+                            code = ErrorCode.VLESS_FLOW_UNSUPPORTED,
+                            path = "$pathPrefix.settings.vnext[$vIndex].users[$uIndex].flow",
+                            message = "VLESS flow is incompatible with the selected transport.",
                         )
                 }
             }
         }
         return errors
     }
+
+    private fun unsupportedFlow(
+        flow: String?,
+        xhttp: Boolean,
+    ): Boolean = if (xhttp) !flow.isNullOrEmpty() else flow !in setOf("xtls-rprx-vision", "xtls-rprx-vision-udp443")
 
     private fun checkAllowInsecure(
         streamSettings: JsonObject,
@@ -144,7 +142,7 @@ object XrayConfigValidator {
                     path = pathPrefix,
                     message =
                         "REALITY + XHTTP combination is known broken at xray-core " +
-                            "v26.1.18 or later; pick a different transport or downgrade upstreamTag.",
+                            "v26.1.18 through v26.2.5, or unverified build; use a verified fixed build.",
                 ),
             )
         } else {
@@ -152,21 +150,20 @@ object XrayConfigValidator {
         }
     }
 
-    /**
-     * Returns whether the supplied upstream tag is at or after the
-     * v26.1.18 REALITY+XHTTP wire break. Tag comparison is best-effort
-     * lexicographic on the version-number tuple (`v<a>.<b>.<c>`); tags
-     * outside that shape default to "not broken" so the validator
-     * stays permissive on unknown formats.
+    /** Release and Go-module tags identify the same known regression window.
+     * Upstream fixed auto + REALITY in v26.2.6 (XTLS/Xray-core#5638).
+     * Unknown builds are not evidence that the combination is safe.
      */
     private fun isBrokenRealityXhttpTag(tag: String): Boolean {
-        val parts = tag.removePrefix("v").split('.').mapNotNull { it.toLongOrNull() }
-        if (parts.size < brokenRealityXhttpVersion.size) return false
-        val firstDifference =
-            brokenRealityXhttpVersion.indices.firstOrNull { parts[it] != brokenRealityXhttpVersion[it] }
-        return firstDifference == null || parts[firstDifference] > brokenRealityXhttpVersion[firstDifference]
+        val parts = tag.removePrefix("v").split('.').map { it.toIntOrNull() }
+        if (parts.size != VersionParts || parts.any { it == null }) return true
+        val version = if (parts[0] == 1) parts[1]!! else parts[0]!! * YearScale + parts[1]!! * MonthScale + parts[2]!!
+        return version in BrokenRealityXhttpVersion until FixedRealityXhttpVersion
     }
 
-    /** xray-core version (v26.1.18) at which the REALITY + XHTTP combination became wire-broken. */
-    private val brokenRealityXhttpVersion: List<Long> = "26.1.18".split('.').map(String::toLong)
+    private const val VersionParts = 3
+    private const val YearScale = 10_000
+    private const val MonthScale = 100
+    private const val BrokenRealityXhttpVersion = 260118
+    private const val FixedRealityXhttpVersion = 260206
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">بارگذاری وضعیت فعلی ارائه‌دهنده Xray ناموفق بود. پیش از پایان، دوباره تلاش کنید.</string>
+    <string name="xray_import_error_typed_unsupported">این ترابری یا گزینه امنیتی Xray هنوز پشتیبانی نمی‌شود.</string>
+    <string name="xray_import_error_typed_missing_field">این نمایه Xray یک فیلد ضروری کم دارد. پیوند را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="xray_import_error_typed_unsafe">این نمایه Xray از بررسی ایمنی عبور نکرد و وارد نشد.</string>
+    <string name="xray_import_restore_loading_title">در حال بررسی حالت فعلی Xray</string>
+    <string name="xray_import_restore_loading_body">پیش از استفاده از این حالت، ارائه‌دهنده و نمایه ذخیره‌شده خوانده می‌شوند.</string>
+    <string name="xray_import_restore_failed_title">بارگذاری حالت Xray ناموفق بود</string>
+    <string name="xray_import_restore_retry_action">تلاش دوباره</string>
+    <string name="xray_import_skipped_item_format">گره %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">مسیر خروجی کمکی: چیزی برای وارد کردن نیست.</string>
+    <string name="xray_skip_unsupported_protocol_safe">این پروتکل به‌صورت بومی پشتیبانی نمی‌شود.</string>
+    <string name="xray_skip_unsupported_transport_safe">این انتقال به‌صورت بومی پشتیبانی نمی‌شود.</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">این اثرانگشت TLS به‌صورت بومی پشتیبانی نمی‌شود.</string>
+    <string name="config_xray_import_title">نمایه VPN پیشرفته</string>
+    <string name="config_xray_import_body">یک نمایه Xray را برای ارائه‌دهنده داخلی وارد یا بررسی کنید.</string>
+    <string name="onboarding_setup_mode_xray_title">راه‌اندازی VPN پیشرفته</string>
+    <string name="onboarding_setup_mode_xray_body">پیش از آزمایش حالت VPN، یک نمایه Xray وارد کنید.</string>
+</resources>

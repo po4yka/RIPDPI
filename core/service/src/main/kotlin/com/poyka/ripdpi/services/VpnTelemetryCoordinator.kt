@@ -43,12 +43,18 @@ internal interface VpnTelemetryStateAccess {
 }
 
 internal interface VpnTelemetryFailureCallbacks {
-    fun updateStatus(
+    suspend fun updateStatus(
         status: ServiceStatus,
         failureReason: FailureReason?,
     )
 
-    suspend fun stopService(guard: RuntimeStopGuard? = null)
+    suspend fun failAndStopService(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard? = null,
+        beforeFailureStatus: suspend () -> Unit = {},
+    ): Boolean
+
+    suspend fun stopService(guard: RuntimeStopGuard? = null): Boolean
 }
 
 internal class VpnTelemetryCoordinator(
@@ -88,13 +94,27 @@ internal class VpnTelemetryCoordinator(
                 val session = state.runtimeSession() ?: return@replaceTelemetryJob
                 tunnelRefreshCoordinator.refreshIfNeeded(session)
                 if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
+                val failureBoundary = VpnTelemetryFailureBoundary.capture(state, dependencies.xrayController)
                 val telemetry = pollCurrentTelemetry(evidenceCollector)
                 if (activeEvidenceCollector.get() !== evidenceCollector) return@replaceTelemetryJob
                 if (tunnelRefreshCoordinator.recoverIfNeeded(session, telemetry)) {
                     tunnelRefreshCoordinator.refreshIfNeeded(session)
                     if (state.status() != ServiceStatus.Connected) return@replaceTelemetryJob
                 }
-                if (failureHandler.handle(telemetry)) return@replaceTelemetryJob
+                when (failureHandler.handleOutcome(telemetry, failureBoundary)) {
+                    VpnTelemetryFailureHandling.StopAccepted -> {
+                        return@replaceTelemetryJob
+                    }
+
+                    VpnTelemetryFailureHandling.DiscardStale -> {
+                        delay(nextTelemetryPollInterval())
+                        continue
+                    }
+
+                    VpnTelemetryFailureHandling.Continue -> {
+                        Unit
+                    }
+                }
                 dependencies.telemetryReporter.report(telemetry, state)
                 delay(nextTelemetryPollInterval())
             }

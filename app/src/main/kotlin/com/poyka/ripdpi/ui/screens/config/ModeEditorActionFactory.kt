@@ -17,9 +17,10 @@ internal fun createModeEditorActions(
     viewModel: ConfigViewModel,
     onBack: () -> Unit,
     onCancel: () -> Unit,
+    onOpenXrayImport: () -> Unit,
     externalActions: ModeEditorExternalActions,
 ): ModeEditorActions =
-    createBaseActions(viewModel, onBack, onCancel)
+    createBaseActions(viewModel, onBack, onCancel, onOpenXrayImport)
         .withRelayEndpointActions(viewModel)
         .withRelayTransportActions(viewModel)
         .withRelayChainAndMasqueActions(viewModel, externalActions)
@@ -30,10 +31,12 @@ private fun createBaseActions(
     viewModel: ConfigViewModel,
     onBack: () -> Unit,
     onCancel: () -> Unit,
+    onOpenXrayImport: () -> Unit,
 ): ModeEditorActions =
     NoOpModeEditorActions.copy(
         onBack = onBack,
         onCancel = onCancel,
+        onOpenXrayImport = onOpenXrayImport,
         onModeSelected = { viewModel.updateDraft { copy(mode = it) } },
         onDnsIpChanged = { viewModel.updateDraft { copy(dnsIp = it) } },
         onProxyIpChanged = { viewModel.updateDraft { copy(proxyIp = it) } },

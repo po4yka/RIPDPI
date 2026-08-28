@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,14 +115,61 @@ class BackupPrivateDataStoreTest {
                                 secrets = AwgSecrets(privateKey = "private", presharedKey = "psk"),
                             ),
                         ),
-                    xrayMetadata = listOf(XrayProfileMetadataRecord(profileId = "xray-1", name = "Xray")),
-                    xraySecrets = listOf(XrayProfileSecretRecord(profileId = "xray-1", uuid = "xray-uuid")),
+                    xrayMetadata =
+                        listOf(
+                            XrayProfileMetadataRecord(profileId = "xray-1", revision = "fixture", name = "Xray"),
+                        ),
+                    xraySecrets =
+                        listOf(
+                            XrayProfileSecretRecord(profileId = "xray-1", revision = "fixture", uuid = "xray-uuid"),
+                        ),
                 )
 
             store.replaceAll(expected)
 
             assertEquals(expected, store.snapshot())
             assertTrue(warpEndpoints.loadAll("old-warp").isEmpty())
+        }
+
+    @Test
+    fun `snapshot rejects an unknown selected provider`() =
+        runTest {
+            val result =
+                runCatching {
+                    consistentBackupSnapshot {
+                        BackupPrivateDataV1(xraySelection = XrayProviderSelectionRecord(providerKind = "unknown"))
+                    }
+                }
+            assertTrue(result.isFailure)
+        }
+
+    @Test
+    fun `snapshot waits for matching Xray profile revisions`() =
+        runTest {
+            var reads = 0
+            val snapshot =
+                consistentBackupSnapshot {
+                    reads += 1
+                    BackupPrivateDataV1(
+                        xrayMetadata = listOf(XrayProfileMetadataRecord(profileId = "xray-1", revision = "old")),
+                        xraySecrets =
+                            listOf(
+                                XrayProfileSecretRecord(
+                                    profileId = "xray-1",
+                                    revision =
+                                        if (reads ==
+                                            1
+                                        ) {
+                                            "new"
+                                        } else {
+                                            "old"
+                                        },
+                                ),
+                            ),
+                    )
+                }
+            assertEquals(2, reads)
+            assertEquals(snapshot.xrayMetadata.single().revision, snapshot.xraySecrets.single().revision)
         }
 
     @Test
@@ -274,10 +322,6 @@ private class BackupProfileMutationJournal : ProfileMutationJournal {
 
     override suspend fun complete(mutationId: String) {
         check(value?.mutationId == mutationId)
-        value = null
-    }
-
-    override suspend fun discardCorruptPending() {
         value = null
     }
 

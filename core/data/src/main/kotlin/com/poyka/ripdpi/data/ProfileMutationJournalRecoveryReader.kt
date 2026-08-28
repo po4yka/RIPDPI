@@ -1,85 +1,30 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.serialization.RipDpiContractJson
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 
+/** A corrupt intent cannot prove which stores committed; only explicit reset may discard it. */
 internal class ProfileMutationJournalRecoveryReader(
     private val journal: ProfileMutationJournal,
 ) {
     private val json = RipDpiContractJson
-    private var observedCorruptionIdentity: String? = null
 
     suspend fun read(): RecoverablePendingMutation? {
-        val pending = readPendingOrHandleCorruption()
-        return pending?.let {
-            check(
-                it.schemaVersion == ProfileMutationIntentSchemaVersion,
-            ) { "Unsupported profile mutation journal" }
-            decodePendingOrHandleCorruption(it)?.let { intent ->
-                observedCorruptionIdentity = null
-                RecoverablePendingMutation(it, intent)
-            }
+        val pending = journal.pending() ?: return null
+        check(pending.schemaVersion == ProfileMutationIntentSchemaVersion) { "Unsupported profile mutation journal" }
+        val intent = decode(pending)
+        if (intent.family != pending.family) {
+            throw ProfileMutationJournalCorruptionException("Profile mutation journal family mismatch")
         }
+        return RecoverablePendingMutation(pending, intent)
     }
 
-    private suspend fun readPendingOrHandleCorruption(): PendingProfileMutation? =
+    private fun decode(pending: PendingProfileMutation): ProfileMutationIntent =
         try {
-            journal.pending().also { pending ->
-                if (pending == null) observedCorruptionIdentity = null
-            }
-        } catch (error: ProfileMutationJournalCorruptionException) {
-            handleCorruptPending(UnreadableJournalIdentity, error)
-            null
-        }
-
-    private suspend fun decodePendingOrHandleCorruption(pending: PendingProfileMutation): ProfileMutationIntent? =
-        try {
-            val intent = json.decodeFromString(ProfileMutationIntent.serializer(), pending.payload)
-            if (intent.family == pending.family) {
-                intent
-            } else {
-                handleCorruptPending(
-                    identity = pending.mutationId,
-                    error = ProfileMutationJournalCorruptionException("Profile mutation journal family mismatch"),
-                )
-                null
-            }
+            json.decodeFromString(ProfileMutationIntent.serializer(), pending.payload)
         } catch (error: SerializationException) {
-            handleCorruptPending(
-                identity = pending.mutationId,
-                error =
-                    ProfileMutationJournalCorruptionException(
-                        message = "Profile mutation journal payload is unreadable",
-                        cause = error,
-                    ),
-            )
-            null
+            throw ProfileMutationJournalCorruptionException("Profile mutation journal payload is unreadable", error)
         }
-
-    private suspend fun handleCorruptPending(
-        identity: String,
-        error: ProfileMutationJournalCorruptionException,
-    ) {
-        if (observedCorruptionIdentity != identity) {
-            observedCorruptionIdentity = identity
-            throw error
-        }
-        val discardFailure =
-            runCatching {
-                withContext(NonCancellable) { journal.discardCorruptPending() }
-            }.exceptionOrNull()
-        if (discardFailure != null) {
-            error.addSuppressed(discardFailure)
-            throw error
-        }
-        observedCorruptionIdentity = null
-    }
-
-    private companion object {
-        const val UnreadableJournalIdentity = "unreadable-journal-marker"
-    }
 }
 
 internal data class RecoverablePendingMutation(

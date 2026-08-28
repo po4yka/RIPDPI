@@ -179,11 +179,31 @@ class XrayProviderOrchestrator(
                 )
             }
 
-            // DUAL RESTART: tear the whole session down, then bring the new one up.
             else -> {
-                val stopped = tearDown(releaseTunnel = false)
-                if (stopped is HandoffOutcome.Failed) stopped else bringUp(newRoute)
+                replaceRetainingTunnel(newRoute)
             }
+        }
+    }
+
+    /**
+     * Force a full provider/tunnel replacement for a resolved route, even when
+     * the local inbound is unchanged. Used for policy refreshes and profile
+     * edits where credentials, DNS, routing rules, or the upstream server can
+     * change without moving the loopback port.
+     */
+    suspend fun replace(newRoute: ProviderRoute): HandoffOutcome =
+        if (activeRoute == null) {
+            bringUp(newRoute)
+        } else {
+            replaceRetainingTunnel(newRoute)
+        }
+
+    private suspend fun replaceRetainingTunnel(newRoute: ProviderRoute): HandoffOutcome {
+        val stopped = tearDown(releaseTunnel = false)
+        return if (stopped is HandoffOutcome.Failed) {
+            stopped
+        } else {
+            bringUp(newRoute, retainTunnelBarrierOnFailure = true)
         }
     }
 
@@ -232,7 +252,10 @@ class XrayProviderOrchestrator(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun bringUp(route: ProviderRoute): HandoffOutcome {
+    private suspend fun bringUp(
+        route: ProviderRoute,
+        retainTunnelBarrierOnFailure: Boolean = false,
+    ): HandoffOutcome {
         val upstream =
             try {
                 XrayTunnelHandoff.resolveUpstream(route.kind, route.xrayConfig)
@@ -242,8 +265,8 @@ class XrayProviderOrchestrator(
             }
 
         return when (route.kind) {
-            VpnProviderKind.Native -> bringUpNative(route, upstream)
-            VpnProviderKind.Xray -> bringUpXray(route, upstream)
+            VpnProviderKind.Native -> bringUpNative(route, upstream, retainTunnelBarrierOnFailure)
+            VpnProviderKind.Xray -> bringUpXray(route, upstream, retainTunnelBarrierOnFailure)
         }
     }
 
@@ -251,16 +274,17 @@ class XrayProviderOrchestrator(
     private suspend fun bringUpNative(
         route: ProviderRoute,
         upstream: TunnelUpstream,
+        retainTunnelBarrierOnFailure: Boolean,
     ): HandoffOutcome =
         try {
             tunnel.start(upstream)
             activeRoute = route
             HandoffOutcome.Running(upstream)
         } catch (cancellation: CancellationException) {
-            withContext(NonCancellable) { runCatching { tunnel.stop() } }
+            withContext(NonCancellable) { cleanTunnelAfterStartFailure(route, retainTunnelBarrierOnFailure) }
             throw cancellation
         } catch (e: Exception) {
-            withContext(NonCancellable) { runCatching { tunnel.stop() } }
+            withContext(NonCancellable) { cleanTunnelAfterStartFailure(route, retainTunnelBarrierOnFailure) }
             currentCoroutineContext().ensureActive()
             HandoffOutcome.Failed("native tunnel start failed: ${e.message}")
         }
@@ -269,6 +293,7 @@ class XrayProviderOrchestrator(
     private suspend fun bringUpXray(
         route: ProviderRoute,
         upstream: TunnelUpstream,
+        retainTunnelBarrierOnFailure: Boolean,
     ): HandoffOutcome {
         val xray = xrayRuntimeFactory(route.xrayConfig)
         // Own cleanup before the first native side effect, including partial startup.
@@ -283,12 +308,37 @@ class XrayProviderOrchestrator(
             tunnel.start(upstream)
             HandoffOutcome.Running(upstream)
         } catch (cancellation: CancellationException) {
-            withContext(NonCancellable) { tearDown() }
+            withContext(NonCancellable) { cleanProviderAfterStartFailure(route, retainTunnelBarrierOnFailure) }
             throw cancellation
         } catch (_: Exception) {
-            withContext(NonCancellable) { tearDown() }
+            withContext(NonCancellable) { cleanProviderAfterStartFailure(route, retainTunnelBarrierOnFailure) }
             currentCoroutineContext().ensureActive()
             HandoffOutcome.Failed("Xray provider startup failed")
+        }
+    }
+
+    private suspend fun cleanProviderAfterStartFailure(
+        route: ProviderRoute,
+        retainTunnelBarrier: Boolean,
+    ) {
+        if (retainTunnelBarrier) {
+            tearDown(releaseTunnel = false)
+            activeRoute = route
+        } else {
+            tearDown()
+        }
+    }
+
+    private suspend fun cleanTunnelAfterStartFailure(
+        route: ProviderRoute,
+        retainTunnelBarrier: Boolean,
+    ) {
+        if (retainTunnelBarrier) {
+            runCatching { tunnel.quiesce() }
+            activeRoute = route
+        } else {
+            runCatching { tunnel.stop() }
+            activeRoute = null
         }
     }
 

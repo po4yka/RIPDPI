@@ -50,6 +50,24 @@ class DurableXrayProfileStoreTest {
         }
 
     @Test
+    fun `interrupted replacement never joins new secrets with old metadata`() =
+        runTest {
+            store.save("default", realityProfile)
+            val replacement =
+                realityProfile.copy(
+                    outbound = realityProfile.outbound.copy(uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                )
+            metadataStore.failNextSave = true
+
+            assertTrue(runCatching { store.save("default", replacement) }.isFailure)
+            assertNull(store.load("default"))
+            assertFalse(store.listProfileIds().contains("default"))
+
+            store.save("default", replacement)
+            assertEquals(replacement, store.load("default"))
+        }
+
+    @Test
     fun `round-trips a tls xhttp profile`() =
         runTest {
             val tlsProfile =
@@ -91,6 +109,48 @@ class DurableXrayProfileStoreTest {
         }
 
     @Test
+    fun `load rejects matching halves stored under another profile key`() =
+        runTest {
+            val records = realityProfile.toXrayProfileRecordPair(profileId = "other", revision = "revision-a")
+            metadataStore.saveUnder("default", records.metadata)
+            secretStore.saveUnder("default", records.secret)
+            assertNull(store.load("default"))
+        }
+
+    @Test
+    fun `load returns null when stored secret profile id mismatches metadata`() =
+        runTest {
+            val records = realityProfile.toXrayProfileRecordPair(profileId = "default", revision = "revision-a")
+            metadataStore.save(records.metadata)
+            secretStore.saveUnder(
+                key = "default",
+                record = records.secret.copy(profileId = "other"),
+            )
+
+            assertNull(store.load("default"))
+        }
+
+    @Test
+    fun `load returns null for unknown security instead of falling back to reality`() =
+        runTest {
+            val records = realityProfile.toXrayProfileRecordPair(profileId = "default", revision = "revision-a")
+            metadataStore.save(records.metadata.copy(security = "unknown-security"))
+            secretStore.save(records.secret)
+
+            assertNull(store.load("default"))
+        }
+
+    @Test
+    fun `load returns null for unknown network instead of falling back to tcp`() =
+        runTest {
+            val records = realityProfile.toXrayProfileRecordPair(profileId = "default", revision = "revision-a")
+            metadataStore.save(records.metadata.copy(network = "unknown-network"))
+            secretStore.save(records.secret)
+
+            assertNull(store.load("default"))
+        }
+
+    @Test
     fun `load returns null when the secret half is missing`() =
         runTest {
             // Persist only metadata (simulating a kill between the two writes).
@@ -126,6 +186,7 @@ class DurableXrayProfileStoreTest {
 
 private class FakeXrayProfileMetadataStore : XrayProfileMetadataStore {
     private val records = mutableMapOf<String, XrayProfileMetadataRecord>()
+    var failNextSave = false
 
     /** The exact serialized form production would persist (plaintext JSON). */
     fun rawBlob(profileId: String): String =
@@ -133,11 +194,22 @@ private class FakeXrayProfileMetadataStore : XrayProfileMetadataStore {
             RipDpiJson.encodeToString(XrayProfileMetadataRecord.serializer(), it)
         } ?: ""
 
+    fun saveUnder(
+        key: String,
+        record: XrayProfileMetadataRecord,
+    ) {
+        records[key] = record
+    }
+
     override suspend fun load(profileId: String): XrayProfileMetadataRecord? = records[profileId]
 
     override suspend fun list(): List<XrayProfileMetadataRecord> = records.values.sortedBy { it.profileId }
 
     override suspend fun save(record: XrayProfileMetadataRecord) {
+        if (failNextSave) {
+            failNextSave = false
+            throw java.io.IOException("Metadata write interrupted")
+        }
         records[record.profileId] = record
     }
 
@@ -153,6 +225,13 @@ private class FakeXrayProfileSecretStore : XrayProfileSecretStore {
 
     override suspend fun save(record: XrayProfileSecretRecord) {
         records[record.profileId] = record
+    }
+
+    fun saveUnder(
+        key: String,
+        record: XrayProfileSecretRecord,
+    ) {
+        records[key] = record
     }
 
     override suspend fun clear(profileId: String) {

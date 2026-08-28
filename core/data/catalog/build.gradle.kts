@@ -9,6 +9,8 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.data.catalog"
+    buildFeatures.buildConfig = true
+    defaultConfig.buildConfigField("String", "XRAY_CORE_VERSION", "\"${libs.versions.xray.core.asProvider().get()}\"")
 }
 
 dependencies {

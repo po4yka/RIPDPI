@@ -480,7 +480,11 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.ProfileShare().stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.QrScanner.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.AmneziaWgProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
-        Route.XrayImport.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+        Route.XrayImport.stableRoute to
+            setOf(
+                ReachabilityMechanism.InAppNavigate,
+                ReachabilityMechanism.LaunchRequest,
+            ),
         Route.AnyTlsProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
         Route.MieruProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
         Route.SshProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),

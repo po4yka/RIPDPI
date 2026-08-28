@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">Der aktuelle Xray-Anbieterstatus konnte nicht geladen werden. Vor dem Abschließen erneut versuchen.</string>
+    <string name="xray_import_error_typed_unsupported">Dieser Xray-Transport oder diese Sicherheitsoption wird noch nicht unterstützt.</string>
+    <string name="xray_import_error_typed_missing_field">In diesem Xray-Profil fehlt ein Pflichtfeld. Link prüfen und erneut versuchen.</string>
+    <string name="xray_import_error_typed_unsafe">Dieses Xray-Profil hat die Sicherheitsprüfung nicht bestanden und wurde nicht importiert.</string>
+    <string name="xray_import_restore_loading_title">Aktuellen Xray-Modus prüfen</string>
+    <string name="xray_import_restore_loading_body">Gespeicherten Anbieter und Profil lesen, bevor dieser Modus verwendet werden kann.</string>
+    <string name="xray_import_restore_failed_title">Xray-Modus konnte nicht geladen werden</string>
+    <string name="xray_import_restore_retry_action">Erneut versuchen</string>
+    <string name="xray_import_skipped_item_format">Knoten %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">Hilfs-Outbound: nichts zu importieren.</string>
+    <string name="xray_skip_unsupported_protocol_safe">Dieses Protokoll wird nativ nicht unterstützt.</string>
+    <string name="xray_skip_unsupported_transport_safe">Dieser Transport wird nativ nicht unterstützt.</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">Dieser TLS-Fingerabdruck wird nativ nicht unterstützt.</string>
+    <string name="config_xray_import_title">Erweitertes VPN-Profil</string>
+    <string name="config_xray_import_body">Importieren oder prüfen Sie ein Xray-Profil für den eingebetteten Anbieter.</string>
+    <string name="onboarding_setup_mode_xray_title">Erweitertes VPN einrichten</string>
+    <string name="onboarding_setup_mode_xray_body">Importieren Sie vor dem Test des VPN-Modus ein Xray-Profil.</string>
+</resources>

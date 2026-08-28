@@ -158,6 +158,26 @@ class OnboardingScreenTest {
     }
 
     @Test
+    fun `xray import affordance opens provider import flow`() {
+        var opened = false
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    OnboardingModeSelectionContent(
+                        selectedMode = Mode.VPN,
+                        onModeSelected = {},
+                        onOpenXrayImport = { opened = true },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingXrayImport).performScrollTo().performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
     fun `idle connection test exposes start cta and pending checklist`() {
         renderOnboarding(OnboardingUiState(currentPage = OnboardingPages.lastIndex))
 
@@ -410,6 +430,7 @@ class OnboardingScreenTest {
         listOf(
             "Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.",
             "Runs a local proxy for apps or clients that support manual proxy configuration.",
+            "Import an Xray profile before testing the VPN mode.",
         ).forEach(::assertCompleteScrollableText)
     }
 

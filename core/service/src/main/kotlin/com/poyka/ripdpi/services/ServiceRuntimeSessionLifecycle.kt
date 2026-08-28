@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
@@ -99,6 +100,16 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
         stopSelfStartId = stopSelfStartId,
         skipRuntimeShutdown = skipRuntimeShutdown,
         guard = guard,
+    )
+
+    suspend fun failAndStop(
+        failureReason: FailureReason,
+        guard: RuntimeStopGuard? = null,
+        beforeStopFinalization: suspend () -> Unit,
+    ) = startStopOrchestrator.failAndStop(
+        failureReason = failureReason,
+        guard = guard,
+        beforeStopFinalization = beforeStopFinalization,
     )
 
     fun onDestroy() {

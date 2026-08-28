@@ -233,6 +233,34 @@ class XrayProviderOrchestratorTest {
         }
 
     @Test
+    fun `handover start failure retains route ownership and TUN barrier for retry`() =
+        runTest {
+            val bridge = FakeXrayNativeBridge()
+            val tunnel = FakeManagedTunnel()
+            val orch = orchestrator(bridge, tunnel)
+            val firstRoute = ProviderRoute(VpnProviderKind.Xray, XrayProviderConfig(localInboundPort = 10808))
+            val replacementRoute = ProviderRoute(VpnProviderKind.Xray, XrayProviderConfig(localInboundPort = 20808))
+
+            assertTrue(orch.start(firstRoute) is HandoffOutcome.Running)
+            tunnel.failOnStart = true
+
+            val failed = orch.handover(replacementRoute)
+
+            assertTrue(failed is HandoffOutcome.Failed)
+            assertEquals(replacementRoute, orch.currentRoute)
+            assertFalse(tunnel.isRunning)
+            assertEquals(0, tunnel.stopCount)
+
+            tunnel.failOnStart = false
+            val retried = orch.handover(replacementRoute)
+
+            assertTrue(retried is HandoffOutcome.Running)
+            assertEquals(replacementRoute, orch.currentRoute)
+            assertEquals(0, tunnel.stopCount)
+            assertEquals(20808, (tunnel.lastUpstream as TunnelUpstream.Xray).port)
+        }
+
+    @Test
     fun `handover quiesces forwarding before stopping xray without releasing TUN`() =
         runTest {
             val events = mutableListOf<String>()

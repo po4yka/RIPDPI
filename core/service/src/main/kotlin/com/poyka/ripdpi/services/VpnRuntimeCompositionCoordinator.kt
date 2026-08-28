@@ -34,7 +34,7 @@ internal class VpnRuntimeCompositionCoordinator(
      * alternate provider is wired; when present it is consulted at start / stop /
      * handover and only takes over when it reports it handled the call.
      */
-    providerController: XrayProviderSessionController? = null,
+    private val providerController: XrayProviderSessionController? = null,
     private val initialRelayRacePolicy: InitialRelayRacePolicy? = null,
 ) {
     var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
@@ -92,15 +92,30 @@ internal class VpnRuntimeCompositionCoordinator(
      * retries are exhausted. The runtime remains registered so an explicit
      * user stop can close the barrier deliberately.
      */
-    suspend fun retainFailClosedAfterHandoverFailure(): Boolean {
-        if (providerDelegate?.ownsActiveProviderPath == true || !vpnTunnelRuntime.isRunning) {
-            return false
+    suspend fun retainFailClosedAfterHandoverFailure(): Boolean =
+        when {
+            providerDelegate?.ownsActiveProviderPath == true || providerController?.isActive == true -> {
+                val barrierRetained =
+                    if (vpnTunnelRuntime.isRunning) {
+                        runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
+                    } else {
+                        !vpnTunnelRuntime.isForwarding
+                    }
+                currentLocalProxyEndpoint = null
+                barrierRetained && !vpnTunnelRuntime.isForwarding
+            }
+
+            !vpnTunnelRuntime.isRunning -> {
+                false
+            }
+
+            else -> {
+                val barrierRetained = runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
+                runCatching { proxyRuntimeStack.stop(skipRuntimeShutdown = false) }
+                currentLocalProxyEndpoint = null
+                barrierRetained && !vpnTunnelRuntime.isForwarding
+            }
         }
-        val barrierRetained = runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
-        runCatching { proxyRuntimeStack.stop(skipRuntimeShutdown = false) }
-        currentLocalProxyEndpoint = null
-        return barrierRetained && !vpnTunnelRuntime.isForwarding
-    }
 
     suspend fun restartAfterPolicyChange(
         session: VpnRuntimeSession,
@@ -109,6 +124,7 @@ internal class VpnRuntimeCompositionCoordinator(
         restartReason: String,
     ): ProxyRuntimeStartResult? {
         if (providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason) == true) {
+            currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return null
         }
         session.currentDns = null
@@ -179,6 +195,7 @@ internal class VpnRuntimeCompositionCoordinator(
         // handled the start. Everything below this guard is the native
         // composition, unchanged.
         if (providerDelegate?.tryStart(session, resolution) == true) {
+            currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
             return null
         }
 

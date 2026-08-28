@@ -126,7 +126,16 @@ private fun BackupPrivateDataV1.validateBackupPrivateData() {
 
     val xrayIds = xrayMetadata.mapTo(mutableSetOf()) { it.profileId }
     require(xrayIds.size == xrayMetadata.size) { "Duplicate Xray profile id" }
-    require(xraySecrets.all { it.profileId in xrayIds }) { "Xray secret references missing metadata" }
+    val secretsById = xraySecrets.associateBy { it.profileId }
+    require(secretsById.size == xraySecrets.size) { "Duplicate Xray secret id" }
+    require(secretsById.keys == xrayIds) { "Xray profile pair is incomplete" }
+    require(xrayMetadata.all { it.revision.isNotBlank() && it.revision == secretsById[it.profileId]?.revision }) {
+        "Xray profile revisions do not match"
+    }
+    require(
+        xraySelection.providerKind in
+            setOf(XrayProviderSelectionRecord.ProviderKindNative, XrayProviderSelectionRecord.ProviderKindXray),
+    ) { "Unknown selected VPN provider" }
     require(
         xraySelection.providerKind != XrayProviderSelectionRecord.ProviderKindXray ||
             xraySelection.activeProfileId in xrayIds,

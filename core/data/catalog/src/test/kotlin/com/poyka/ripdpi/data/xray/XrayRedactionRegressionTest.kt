@@ -24,7 +24,7 @@ import org.junit.Test
  */
 class XrayRedactionRegressionTest {
     private val secretUuid = "fa11ed00-1111-2222-3333-444455556666"
-    private val secretRealityKey = "REALITY_PUB_ZZZZ9999AAAA8888BBBB7777CCCC6666"
+    private val secretRealityKey = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8"
     private val secretServer = "secret-edge.internal.example"
     private val secretSni = "decoy.internal.example"
     private val secretShortId = "deadbeef99"

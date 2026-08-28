@@ -106,6 +106,7 @@ private const val AccessibilityOnboardingFontScale = 1.5f
 fun OnboardingRoute(
     onComplete: () -> Unit,
     onOpenAdvancedDns: () -> Unit,
+    onOpenXrayImport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
@@ -166,6 +167,7 @@ fun OnboardingRoute(
                 onPersonaSelected = remember(viewModel) { viewModel::selectPersona },
                 onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
                 onOpenAdvancedDns = onOpenAdvancedDns,
+                onOpenXrayImport = onOpenXrayImport,
                 onRunValidation = remember(viewModel) { viewModel::runValidation },
                 onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
                 onFinishKeepRunning = remember(viewModel) { viewModel::finishKeepingRunning },
@@ -209,6 +211,7 @@ internal data class OnboardingScreenActions(
     val onPersonaSelected: (String) -> Unit = {},
     val onDnsSelected: (String) -> Unit = {},
     val onOpenAdvancedDns: () -> Unit = {},
+    val onOpenXrayImport: () -> Unit = {},
     val onRunValidation: () -> Unit = {},
     val onFinishDisconnected: () -> Unit = {},
     val onFinishKeepRunning: () -> Unit = {},
@@ -340,6 +343,7 @@ private fun OnboardingPagerContent(
                         onPersonaSelected = actions.onPersonaSelected,
                         onDnsSelected = actions.onDnsSelected,
                         onOpenAdvancedDns = actions.onOpenAdvancedDns,
+                        onOpenXrayImport = actions.onOpenXrayImport,
                         onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
                         onChangeDns = actions.onChangeDns,
                         onFinishAnyway = actions.onFinishAnyway,
@@ -833,6 +837,7 @@ private fun OnboardingSetupPageScene(
     onPersonaSelected: (String) -> Unit,
     onDnsSelected: (String) -> Unit,
     onOpenAdvancedDns: () -> Unit,
+    onOpenXrayImport: () -> Unit,
     onAcceptSuggestedMode: () -> Unit,
     onChangeDns: () -> Unit,
     onFinishAnyway: () -> Unit,
@@ -888,6 +893,7 @@ private fun OnboardingSetupPageScene(
                     OnboardingModeSelectionContent(
                         selectedMode = uiState.selectedMode,
                         onModeSelected = onModeSelected,
+                        onOpenXrayImport = onOpenXrayImport,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

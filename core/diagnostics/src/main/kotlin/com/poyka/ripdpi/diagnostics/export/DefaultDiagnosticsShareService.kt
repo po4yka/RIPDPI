@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
@@ -23,16 +24,20 @@ class DefaultDiagnosticsShareService
         private val archiveExporter: DiagnosticsArchiveExporter,
         @param:Named("diagnosticsJson")
         private val json: Json,
+        private val serviceStateStore: ServiceStateStore,
     ) : DiagnosticsShareService {
         override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
             withContext(Dispatchers.IO) {
-                DiagnosticsShareSummaryBuilder.build(
-                    sessionId = sessionId,
-                    scanRecordStore = scanRecordStore,
-                    artifactReadStore = artifactReadStore,
-                    artifactQueryStore = artifactQueryStore,
-                    json = json,
-                )
+                val summary =
+                    DiagnosticsShareSummaryBuilder.build(
+                        sessionId = sessionId,
+                        scanRecordStore = scanRecordStore,
+                        artifactReadStore = artifactReadStore,
+                        artifactQueryStore = artifactQueryStore,
+                        json = json,
+                    )
+                val providerContext = serviceStateStore.currentXrayExportContext()
+                if (providerContext == null) summary else summary.copy(body = "${summary.body}\n\n$providerContext")
             }
 
         override suspend fun createArchive(

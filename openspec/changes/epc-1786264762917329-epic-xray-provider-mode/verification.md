@@ -6,10 +6,10 @@ local: required
 local_evidence: null
 remote_ci: required
 remote_ci_evidence: null
-device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
-artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+device: required
+device_evidence: null
+artifact: required
+artifact_evidence: null
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---
