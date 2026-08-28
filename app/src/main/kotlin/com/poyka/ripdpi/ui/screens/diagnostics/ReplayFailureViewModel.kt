@@ -59,9 +59,7 @@ class ReplayFailureViewModel
         val uiState: StateFlow<ReplayFailureUiState> = mutableUiState.asStateFlow()
 
         private var currentJob: Job? = null
-        private var currentRequest: ReplayProbeRequest? = null
-        private var eventBuffer: MutableList<ReplayStepEvent> = mutableListOf()
-        private var recorded: AtomicBoolean = AtomicBoolean(false)
+        private var currentAttempt: ReplayAttempt? = null
 
         fun start(
             domain: String,
@@ -70,9 +68,8 @@ class ReplayFailureViewModel
         ) {
             currentJob?.cancel()
             val request = ReplayProbeRequest(domain, strategyId, timeoutMs)
-            currentRequest = request
-            eventBuffer = mutableListOf()
-            recorded = AtomicBoolean(false)
+            val attempt = ReplayAttempt(request)
+            currentAttempt = attempt
             val timestamp = currentTimestamp()
             val summary = stringResolver.getString(R.string.diagnostics_replay_probe_summary, domain, strategyId)
             mutableUiState.value =
@@ -91,21 +88,39 @@ class ReplayFailureViewModel
                                 if (error is CancellationException) {
                                     throw error
                                 }
-                                mutableUiState.update { state ->
-                                    state.copy(
-                                        isRunning = false,
-                                        errorMessage = error.localizedMessage ?: error.javaClass.simpleName,
-                                    )
+                                if (isCurrent(attempt)) {
+                                    mutableUiState.update { state ->
+                                        state.copy(
+                                            isRunning = false,
+                                            errorMessage = error.localizedMessage ?: error.javaClass.simpleName,
+                                        )
+                                    }
                                 }
-                            }.collect { event -> handleEvent(event) }
+                            }.collect { event -> handleEvent(attempt, event) }
                     } finally {
                         // If the flow terminated without a Finished event
                         // (cancellation, error, scope teardown) persist a
                         // Cancelled-verdict aggregate so the user still has
                         // a record of the attempt in the archive + history.
-                        recordCancelledIfNotYet()
+                        recordCancelledIfNotYet(attempt)
                     }
                 }
+        }
+
+        /**
+         * Auto-starts the probe unless this ViewModel instance already ran
+         * the same (domain, strategyId) target. Configuration changes
+         * recreate the composition but retain the ViewModel, so the retained
+         * [currentAttempt] suppresses duplicate auto-starts; a genuinely new
+         * target restarts the probe.
+         */
+        fun ensureStarted(
+            domain: String,
+            strategyId: String,
+        ) {
+            val request = currentAttempt?.request
+            if (request != null && request.domain == domain && request.strategyId == strategyId) return
+            start(domain = domain, strategyId = strategyId)
         }
 
         fun cancel() {
@@ -119,8 +134,14 @@ class ReplayFailureViewModel
             currentJob?.cancel()
         }
 
-        private fun handleEvent(event: ReplayStepEvent) {
-            eventBuffer.add(event)
+        private fun handleEvent(
+            attempt: ReplayAttempt,
+            event: ReplayStepEvent,
+        ) {
+            attempt.eventBuffer.add(event)
+            if (!isCurrent(attempt)) {
+                return
+            }
             when (event) {
                 is ReplayStepEvent.StepStarted -> {
                     updateStep(event.step) { step ->
@@ -157,18 +178,20 @@ class ReplayFailureViewModel
                             recommendationKey = event.recommendationKey,
                         )
                     }
-                    recordTerminal(event)
+                    recordTerminal(attempt, event)
                 }
             }
         }
 
-        private fun recordTerminal(finished: ReplayStepEvent.Finished) {
-            if (!recorded.compareAndSet(false, true)) return
-            val request = currentRequest ?: return
+        private fun recordTerminal(
+            attempt: ReplayAttempt,
+            finished: ReplayStepEvent.Finished,
+        ) {
+            if (!attempt.recorded.compareAndSet(false, true)) return
             replayResultStore.record(
                 ReplayProbeResult(
-                    request = request,
-                    events = eventBuffer.toPersistentList(),
+                    request = attempt.request,
+                    events = attempt.eventBuffer.toPersistentList(),
                     verdict = finished.verdict,
                     terminalStep = finished.terminalStep,
                     recommendationKey = finished.recommendationKey,
@@ -176,19 +199,26 @@ class ReplayFailureViewModel
             )
         }
 
-        private fun recordCancelledIfNotYet() {
-            if (!recorded.compareAndSet(false, true)) return
-            val request = currentRequest ?: return
+        private fun recordCancelledIfNotYet(attempt: ReplayAttempt) {
+            if (!attempt.recorded.compareAndSet(false, true)) return
             replayResultStore.record(
                 ReplayProbeResult(
-                    request = request,
-                    events = eventBuffer.toPersistentList(),
+                    request = attempt.request,
+                    events = attempt.eventBuffer.toPersistentList(),
                     verdict = ReplayVerdict.Cancelled,
                     terminalStep = null,
                     recommendationKey = "",
                 ),
             )
         }
+
+        private fun isCurrent(attempt: ReplayAttempt): Boolean = currentAttempt === attempt
+
+        private data class ReplayAttempt(
+            val request: ReplayProbeRequest,
+            val eventBuffer: MutableList<ReplayStepEvent> = mutableListOf(),
+            val recorded: AtomicBoolean = AtomicBoolean(false),
+        )
 
         private fun updateStep(
             kind: ReplayStepKind,

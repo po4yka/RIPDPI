@@ -757,8 +757,9 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
             onBack = { navController.navigateUp() },
         )
     }
-    composable<Route.ReplayHistory> {
+    composable<Route.ReplayHistory> { backStackEntry ->
         ReplayHistoryRoute(
+            sessionId = backStackEntry.id,
             onRunScan = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
             onBack = { navController.navigateUp() },
         )

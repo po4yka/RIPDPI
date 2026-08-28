@@ -17,27 +17,22 @@ private const val DefaultReplayStrategyId = "default"
 
 @Composable
 fun ReplayFailureRoute(
+    domain: String = DefaultReplayDomain,
+    strategyId: String = DefaultReplayStrategyId,
     onBack: () -> Unit,
     viewModel: ReplayFailureViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        // Auto-start once per ViewModel instance. The check on
-        // timestampLabel.isEmpty() guards against re-entry on
-        // configuration changes where the VM (and its in-flight state)
-        // is retained but the composition is recreated.
-        // Read directly from the StateFlow value rather than from the
-        // snapshot-delegated `state` delegate: snapshot-state reads
-        // inside a coroutine body are unobserved and may be stale.
-        if (viewModel.uiState.value.timestampLabel
-                .isEmpty()
-        ) {
-            viewModel.start(
-                domain = DefaultReplayDomain,
-                strategyId = DefaultReplayStrategyId,
-            )
-        }
+    LaunchedEffect(domain, strategyId) {
+        // Auto-start the probe for this target session. ensureStarted keys
+        // the dedup on the retained request rather than on UI state, so a
+        // configuration change (new composition, same ViewModel and target)
+        // stays a no-op while a changed (domain, strategyId) key restarts.
+        viewModel.ensureStarted(
+            domain = domain,
+            strategyId = strategyId,
+        )
     }
 
     val recommendation =
@@ -56,8 +51,8 @@ fun ReplayFailureRoute(
         recommendation = recommendation,
         onReplay = {
             viewModel.start(
-                domain = DefaultReplayDomain,
-                strategyId = DefaultReplayStrategyId,
+                domain = domain,
+                strategyId = strategyId,
             )
         },
         onBack = onBack,

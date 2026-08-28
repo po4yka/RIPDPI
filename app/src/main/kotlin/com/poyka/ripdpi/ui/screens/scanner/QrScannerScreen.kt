@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.scanner
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,15 +16,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -75,15 +80,17 @@ fun QrScannerRoute(
             }
         }
 
-    LaunchedEffect(Unit) {
-        val alreadyGranted =
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
-        if (alreadyGranted) {
-            viewModel.onCameraPermissionResult(granted = true)
-        } else {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
+    // The camera permission is the data-determining argument for the
+    // bootstrap effect below: it is re-evaluated whenever the host resumes,
+    // so a grant made from system settings while this destination stays
+    // composed still reaches the scanner state machine.
+    val cameraPermissionGranted = rememberCameraPermissionGranted(context)
+
+    LaunchedEffect(cameraPermissionGranted) {
+        viewModel.bootstrapCameraPermission(
+            cameraPermissionGranted = cameraPermissionGranted,
+            requestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+        )
     }
 
     LaunchedEffect(uiState.importRequest) {
@@ -231,4 +238,46 @@ private fun CameraPreview(
     }
 
     AndroidView(factory = { previewView }, modifier = modifier)
+}
+
+/**
+ * Observes the runtime camera-permission grant state as Compose state.
+ *
+ * The value is read once on composition entry and re-evaluated whenever the
+ * host lifecycle resumes, so a permission granted (or revoked) from system
+ * settings while this destination stays composed is picked up without an
+ * activity recreation. This is the data-determining key for the scanner's
+ * bootstrap [LaunchedEffect] in [QrScannerRoute].
+ */
+@Composable
+internal fun rememberCameraPermissionGranted(context: Context): Boolean {
+    var granted by remember(context) { mutableStateOf(isCameraPermissionGranted(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(context, lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    granted = isCameraPermissionGranted(context)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return granted
+}
+
+private fun isCameraPermissionGranted(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+        PackageManager.PERMISSION_GRANTED
+
+internal fun QrScannerViewModel.bootstrapCameraPermission(
+    cameraPermissionGranted: Boolean,
+    requestCameraPermission: () -> Unit,
+) {
+    if (cameraPermissionGranted) {
+        onCameraPermissionResult(granted = true)
+    } else {
+        onCameraPermissionResult(granted = false)
+        requestCameraPermission()
+    }
 }
