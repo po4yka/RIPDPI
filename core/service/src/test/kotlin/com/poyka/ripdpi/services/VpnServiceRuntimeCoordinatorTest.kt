@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -1101,7 +1102,12 @@ class VpnServiceRuntimeCoordinatorTest {
             repeat(3) { runCurrent() }
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
-            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertEquals(
+                listOf(
+                    ServiceEvent.Failed(Sender.VPN, FailureReason.NativeError("telemetry boom")),
+                ),
+                env.store.eventHistory,
+            )
             assertTrue(env.tunnelProvider.session.closed)
         }
 
@@ -1407,7 +1413,7 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(AppStatus.Halted, env.store.telemetry.value.status)
             assertEquals(
                 FailureReason.NativeError("telemetry boom"),
-                (env.store.eventHistory.last() as ServiceEvent.Failed).reason,
+                (env.store.eventHistory.single() as ServiceEvent.Failed).reason,
             )
             assertNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(1, env.bridgeFactory.bridge.stopCount)

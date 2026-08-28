@@ -659,7 +659,6 @@ internal class VpnServiceRuntimeCoordinator(
         ) {
             beforeFailureStatus()
             retainProviderFailClosedBarrierIfActiveLocked()
-            updateStatus(ServiceStatus.Failed, failureReason)
         }
 
     private suspend fun retainProviderFailClosedBarrierIfActiveLocked() {
