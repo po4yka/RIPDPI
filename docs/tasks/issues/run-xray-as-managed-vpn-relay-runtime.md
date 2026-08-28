@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: out-1786264762917107-run-xray-as-managed-vpn-relay-runtime
 created: 2026-04-24
 updated: 2026-08-28
-status_detail: Implementation ae4926a9f is pushed; committed-tree local gates and real Android smoke pass. Exact-SHA CI is blocked by unchanged native listener hotspot budget 72 > 54; unrelated pre-existing Rust/DNS fixes require separate scope authorization.
+status_detail: Real runtime and committed Android proof pass. CI bootstrap pin-overwrite regression is fixed and locally verified; corrected Linux CI remains pending, with pre-existing Rust hotspot/Clone and DNS blockers outside this task scope.
 ---
 
 ## Summary
