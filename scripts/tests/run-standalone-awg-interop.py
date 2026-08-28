@@ -12,6 +12,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import selectors
 import signal
 import subprocess
@@ -22,6 +23,14 @@ ROOT = Path(__file__).resolve().parents[2]
 PEER = ROOT / "scripts/fixtures/amneziawg-peer"
 RUST = ROOT / "native/rust"
 UPSTREAM = "amneziawg-go v0.2.18 (f4f4c999267437c3eb909e8d0e5278fb4596d9a7)"
+GO_DIRECTIVE = re.compile(r"^go\s+(1\.\d+(?:\.\d+)?)\s*$", re.MULTILINE)
+
+
+def peer_go_toolchain(go_mod: Path = PEER / "go.mod") -> str:
+    match = GO_DIRECTIVE.search(go_mod.read_text(encoding="utf-8"))
+    if match is None:
+        raise ValueError(f"missing supported Go directive in {go_mod}")
+    return f"go{match.group(1)}"
 
 
 def checked(command: list[str], cwd: Path, env: dict[str, str], timeout: int = 600) -> None:
@@ -56,7 +65,7 @@ def terminate_process_group(process: subprocess.Popen) -> None:
 
 
 def run() -> None:
-    env = dict(os.environ, GOMAXPROCS="2", GOTOOLCHAIN="go1.24.4")
+    env = dict(os.environ, GOMAXPROCS="2", GOTOOLCHAIN=peer_go_toolchain())
     test = ["cargo", "test", "--locked", "-p", "ripdpi-warp-core", "--features", "awg-interop",
             "--test", "standalone_awg_interop", "--jobs", "2"]
     # Compile before starting the peer's finite lifetime.
