@@ -28,14 +28,15 @@ annotation class XrayDatDir
  * `@Provides` (not `@Binds`) is required because the implementation constructor
  * takes a non-injected `ffi` default in the linked variant.
  *
- * NOTE: no `:core:service` code injects [XrayNativeBridge] yet (the service layer
- * does not select/run the Xray provider), so this is currently a ready-to-inject
- * binding rather than an actively constructed one — wiring the orchestrator
- * consumer is a separate epic-xray-provider-mode task.
+ * The service-scoped controller acquires leases from this process-owned runtime.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object XrayBridgeModule {
+    @Provides
+    @Singleton
+    fun provideXrayRuntimeOwner(bridge: XrayNativeBridge): XrayRuntimeOwner = XrayRuntimeOwner(bridge)
+
     @Provides
     @Singleton
     @XrayDatDir

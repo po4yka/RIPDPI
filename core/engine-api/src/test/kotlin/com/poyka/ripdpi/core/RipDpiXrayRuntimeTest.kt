@@ -3,16 +3,24 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 class RipDpiXrayRuntimeTest {
     private val secretConfig =
@@ -24,10 +32,84 @@ class RipDpiXrayRuntimeTest {
     private val protect = XrayProtectController { true }
 
     @Test
+    fun `blocked bootstrap lookup is detached bounded and owns the native lane`() =
+        runBlocking {
+            val owner = XrayRuntimeOwner(FakeXrayNativeBridge())
+            val entered = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val operation =
+                owner.resolveEndpoint {
+                    entered.countDown()
+                    release.await()
+                    listOf("192.0.2.1")
+                }
+            try {
+                assertTrue(entered.await(2, TimeUnit.SECONDS))
+                assertNull(withTimeoutOrNull(25) { operation.await() })
+                assertTrue(owner.isOccupied)
+                assertTrue(runCatching { owner.resolveEndpoint { emptyList() } }.isFailure)
+            } finally {
+                release.countDown()
+            }
+            assertEquals(listOf("192.0.2.1"), operation.await())
+            assertFalse(owner.isOccupied)
+        }
+
+    @Test
+    fun `cancelled blocked start retains admission and never publishes late Running`() =
+        runBlocking {
+            val entered = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val bridge =
+                object : FakeXrayNativeBridge() {
+                    override fun start(renderedConfig: String): Int {
+                        entered.countDown()
+                        check(release.await(5, TimeUnit.SECONDS))
+                        return super.start(renderedConfig)
+                    }
+                }
+            val owner = XrayRuntimeOwner(bridge)
+            val runtime = RipDpiXrayRuntime(owner)
+            val call = async(Dispatchers.IO) { runtime.start(secretConfig, protect) }
+            try {
+                assertTrue(entered.await(2, TimeUnit.SECONDS))
+                call.cancelAndJoin()
+                assertFalse(checkNotNull(bridge.registeredProtectController).protect(42))
+                assertEquals(StopCause.Pending, runtime.stop(timeoutMillis = 25))
+                assertTrue(owner.isOccupied)
+                assertTrue(runCatching { RipDpiXrayRuntime(owner).start(secretConfig, protect) }.isFailure)
+                assertEquals(VpnProviderState.Stopping, runtime.providerState)
+            } finally {
+                release.countDown()
+                call.cancelAndJoin()
+            }
+            assertTrue(runtime.stop() in setOf(StopCause.Clean, StopCause.AlreadyStopped))
+            assertEquals(1, bridge.stopCount)
+            assertEquals(VpnProviderState.Stopped, runtime.providerState)
+            assertFalse(owner.isOccupied)
+        }
+
+    @Test
+    fun `post-readiness native exit is retained as failure until cleanup`() =
+        runTest {
+            val bridge = FakeXrayNativeBridge()
+            val owner = XrayRuntimeOwner(bridge, Dispatchers.Unconfined)
+            val runtime = RipDpiXrayRuntime(owner)
+            runtime.start(secretConfig, protect)
+            runtime.awaitReady()
+            bridge.aliveDuringStartup = false
+            assertTrue(runtime.observe().failed)
+            assertEquals("failed", runtime.pollTelemetry().health)
+            assertTrue(owner.isOccupied)
+            assertEquals(StopCause.Clean, runtime.stop())
+            assertFalse(owner.isOccupied)
+        }
+
+    @Test
     fun `start registers protect before invoking native start`() =
         runTest {
             val bridge = FakeXrayNativeBridge()
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             val code = runtime.start(secretConfig, protect)
 
@@ -39,14 +121,14 @@ class RipDpiXrayRuntimeTest {
             assertTrue("registerProtect must be logged", registerIdx >= 0)
             assertTrue("start must be logged", startIdx >= 0)
             assertTrue("registerProtect must precede start", registerIdx < startIdx)
-            assertSame(protect, bridge.registeredProtectController)
+            assertTrue(checkNotNull(bridge.registeredProtectController).protect(42))
         }
 
     @Test
     fun `start rejects blank config without touching native start`() =
         runTest {
             val bridge = FakeXrayNativeBridge()
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             try {
                 runtime.start("   ", protect)
@@ -62,7 +144,7 @@ class RipDpiXrayRuntimeTest {
     fun `startup failure maps to typed StartupFailed and resets to Stopped`() =
         runTest {
             val bridge = FakeXrayNativeBridge(startCode = 7)
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             try {
                 runtime.start(secretConfig, protect)
@@ -78,7 +160,7 @@ class RipDpiXrayRuntimeTest {
     fun `awaitReady transitions to Running once listener is ready`() =
         runTest {
             val bridge = FakeXrayNativeBridge(readyAfterPolls = 3)
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             runtime.start(secretConfig, protect)
             runtime.awaitReady(timeoutMillis = 10_000)
@@ -92,7 +174,11 @@ class RipDpiXrayRuntimeTest {
             // Listener never ready (needs more polls than the timeout allows),
             // but process stays alive so it is a timeout, not a crash.
             val bridge = FakeXrayNativeBridge(readyAfterPolls = Int.MAX_VALUE)
-            val runtime = RipDpiXrayRuntime(bridge, readinessPollIntervalMs = 50)
+            val runtime =
+                RipDpiXrayRuntime(
+                    XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined),
+                    readinessPollIntervalMs = 50,
+                )
 
             runtime.start(secretConfig, protect)
             try {
@@ -114,7 +200,7 @@ class RipDpiXrayRuntimeTest {
                     readyAfterPolls = Int.MAX_VALUE,
                     aliveDuringStartup = false,
                 )
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             runtime.start(secretConfig, protect)
             try {
@@ -130,7 +216,7 @@ class RipDpiXrayRuntimeTest {
     fun `awaitReady from wrong state is rejected`() =
         runTest {
             val bridge = FakeXrayNativeBridge()
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             try {
                 runtime.awaitReady()
@@ -147,7 +233,7 @@ class RipDpiXrayRuntimeTest {
     @Test
     fun `stop returns Clean on normal teardown`() {
         val bridge = FakeXrayNativeBridge(readyAfterPolls = 0)
-        val runtime = RipDpiXrayRuntime(bridge)
+        val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
         runBlocking {
             runtime.start(secretConfig, protect)
@@ -164,7 +250,7 @@ class RipDpiXrayRuntimeTest {
     @Test
     fun `stop is idempotent and reports AlreadyStopped without touching native`() {
         val bridge = FakeXrayNativeBridge()
-        val runtime = RipDpiXrayRuntime(bridge)
+        val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
         runBlocking {
             // Late / never-started stop.
@@ -182,54 +268,100 @@ class RipDpiXrayRuntimeTest {
     }
 
     @Test
-    fun `stop maps a throwing native stop to typed Failed but still reaches Stopped`() {
-        val bridge =
-            FakeXrayNativeBridge(stopBehavior = FakeXrayNativeBridge.StopBehavior.Throw)
-        val runtime = RipDpiXrayRuntime(bridge)
-
-        runBlocking {
-            runtime.start(secretConfig, protect)
-            runtime.awaitReady(timeoutMillis = 10_000)
-
-            val cause = runtime.stop()
-
-            assertTrue(cause is StopCause.Failed)
-            assertEquals(VpnProviderState.Stopped, runtime.providerState)
+    fun `failed stop retains ownership until cleanup allows replacement`() =
+        runTest {
+            withContext(Dispatchers.IO) {
+                val rejectStop = AtomicBoolean(true)
+                val bridge =
+                    object : FakeXrayNativeBridge() {
+                        override fun stop() {
+                            check(!rejectStop.get()) { "native cleanup rejected" }
+                            super.stop()
+                        }
+                    }
+                val owner = XrayRuntimeOwner(bridge)
+                val current = RipDpiXrayRuntime(owner)
+                val replacement = RipDpiXrayRuntime(owner)
+                try {
+                    current.start(secretConfig, protect)
+                    current.awaitReady()
+                    assertTrue(current.stop() is StopCause.Failed)
+                    assertEquals(VpnProviderState.Stopping, current.providerState)
+                    try {
+                        replacement.start(secretConfig, protect)
+                        fail("replacement must not acquire an uncleared native runtime")
+                    } catch (_: XrayRuntimeException.IllegalLifecycle) {
+                        // The current lease still owns native cleanup.
+                    }
+                    assertEquals(1, bridge.startCount)
+                    rejectStop.set(false)
+                    assertEquals(StopCause.Clean, current.stop())
+                    assertEquals(0, replacement.start(secretConfig, protect))
+                    replacement.awaitReady()
+                    assertEquals(2, bridge.startCount)
+                } finally {
+                    rejectStop.set(false)
+                    withContext(NonCancellable) {
+                        replacement.stop()
+                        current.stop()
+                    }
+                }
+            }
         }
-    }
 
     @Test
-    fun `stop bounds a hanging native stop and maps to Failed`() {
-        // Real-time test: a hanging native stop must not block past the bound.
-        // Uses runBlocking (real dispatcher) so the withTimeoutOrNull fires.
-        val bridge =
-            FakeXrayNativeBridge(stopBehavior = FakeXrayNativeBridge.StopBehavior.Hang)
-        val runtime = RipDpiXrayRuntime(bridge)
-
-        runBlocking {
-            runtime.start(secretConfig, protect)
-            runtime.awaitReady(timeoutMillis = 10_000)
-
-            val cause = runtime.stop(timeoutMillis = 150)
-
-            assertTrue("hanging stop must map to Failed", cause is StopCause.Failed)
-            assertEquals(VpnProviderState.Stopped, runtime.providerState)
+    fun `stop returns before blocked native stop completes`() =
+        runTest {
+            withContext(Dispatchers.IO) {
+                val entered = CountDownLatch(1)
+                val release = CountDownLatch(1)
+                val exited = CountDownLatch(1)
+                val bridge =
+                    object : FakeXrayNativeBridge() {
+                        override fun stop() {
+                            entered.countDown()
+                            try {
+                                release.await()
+                                super.stop()
+                            } finally {
+                                exited.countDown()
+                            }
+                        }
+                    }
+                val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge))
+                runtime.start(secretConfig, protect)
+                runtime.awaitReady()
+                val stopCall = async { runtime.stop(timeoutMillis = 100) }
+                try {
+                    assertTrue("native stop must enter", entered.await(5, TimeUnit.SECONDS))
+                    val result = withTimeoutOrNull(1_000) { stopCall.await() }
+                    assertNotNull("caller must return while native stop is still blocked", result)
+                    assertEquals("native call must not have completed", 1L, exited.count)
+                } finally {
+                    release.countDown()
+                    withContext(NonCancellable) { stopCall.join() }
+                    assertTrue("native stop must finish after release", exited.await(5, TimeUnit.SECONDS))
+                }
+            }
         }
-    }
 
     @Test
     fun `pollTelemetry carries version and provider state but no profile secrets`() =
         runTest {
             val bridge =
                 FakeXrayNativeBridge(versionString = "Xray 26.4.7 (fake)")
-            val runtime = RipDpiXrayRuntime(bridge, config = XrayProviderConfig(localInboundPort = 10808))
+            val runtime =
+                RipDpiXrayRuntime(
+                    XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined),
+                    config = XrayProviderConfig(localInboundPort = 10808),
+                )
 
             // Stopped snapshot.
             val stopped = runtime.pollTelemetry()
             assertEquals("xray", stopped.source)
             assertEquals("xray", stopped.ptRuntimeKind)
             assertEquals("stopped", stopped.ptRuntimeState)
-            assertEquals("Xray 26.4.7 (fake)", stopped.ptRuntimeVersion)
+            assertEquals("unknown", stopped.ptRuntimeVersion)
             assertNull("no listener address while stopped", stopped.listenerAddress)
 
             runtime.start(secretConfig, protect)
@@ -237,6 +369,7 @@ class RipDpiXrayRuntimeTest {
             val running = runtime.pollTelemetry()
 
             assertEquals("running", running.ptRuntimeState)
+            assertEquals("Xray 26.4.7 (fake)", running.ptRuntimeVersion)
             assertEquals("healthy", running.health)
             assertEquals("127.0.0.1:10808", running.listenerAddress)
 
@@ -259,7 +392,7 @@ class RipDpiXrayRuntimeTest {
                 object : FakeXrayNativeBridge() {
                     override fun version(): String = error("native gone")
                 }
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             val snapshot = runtime.pollTelemetry()
 
@@ -270,7 +403,7 @@ class RipDpiXrayRuntimeTest {
     fun `protect controller is the exact instance the bridge will invoke`() =
         runTest {
             val bridge = FakeXrayNativeBridge()
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
             var protectedFd = -1
             val recording =
                 XrayProtectController { fd ->

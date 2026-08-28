@@ -83,18 +83,25 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
+        guard: RuntimeStopGuard? = null,
     ) {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
-        dependencies.handoverProcessor.cancel()
-
+        if (guard == null) dependencies.handoverProcessor.cancel()
         var terminalTelemetryCancellation: CancellationException? = null
-        dependencies.lifecycleRunner.stop {
-            terminalTelemetryCancellation =
-                finalizeRuntimeStop(
-                    skipRuntimeShutdown = skipRuntimeShutdown,
-                    stopSelfStartId = stopSelfStartId,
-                    requestServiceStop = true,
-                )
+        try {
+            dependencies.lifecycleRunner.stop(guard) {
+                if (guard != null) dependencies.handoverProcessor.cancel()
+                terminalTelemetryCancellation =
+                    finalizeRuntimeStop(
+                        skipRuntimeShutdown = skipRuntimeShutdown,
+                        stopSelfStartId = stopSelfStartId,
+                        requestServiceStop = true,
+                        terminalFailure = guard?.failureReason,
+                    )
+            }
+        } catch (_: RuntimeCleanupPendingException) {
+            // The process owner and installed TUN remain live. Never publish Disconnected.
+            callbacks.updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Xray cleanup is incomplete"))
         }
         terminalTelemetryCancellation?.let { throw it }
     }
@@ -103,6 +110,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         skipRuntimeShutdown: Boolean,
         stopSelfStartId: Int?,
         requestServiceStop: Boolean,
+        terminalFailure: FailureReason? = null,
     ): CancellationException? {
         dependencies.loopOwner.cancelPermissionWatchdog()
         var terminalTelemetryCancellation: CancellationException? = null
@@ -114,14 +122,19 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         withContext(NonCancellable) {
             runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
                 .onFailure { failure ->
+                    if (failure is RuntimeCleanupPendingException) throw failure
                     Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
                 }
 
             val session = callbacks.currentSession()
-            runCatching { callbacks.updateStatus(ServiceStatus.Disconnected, null) }
-                .onFailure { failure ->
-                    Logger.e(failure) { "Failed to publish stopped ${dependencies.serviceLabel()} status" }
-                }
+            runCatching {
+                callbacks.updateStatus(
+                    if (terminalFailure == null) ServiceStatus.Disconnected else ServiceStatus.Failed,
+                    terminalFailure,
+                )
+            }.onFailure { failure ->
+                Logger.e(failure) { "Failed to publish stopped ${dependencies.serviceLabel()} status" }
+            }
             dependencies.loopOwner.cancelTelemetry()
             runCatching { callbacks.onAfterStopCleanup(session) }
                 .onFailure { failure ->
@@ -243,3 +256,9 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
     val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
     val classifyStartupFailure: (Exception) -> FailureReason,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
+
+/** Evaluated under the lifecycle mutex before any teardown side effect. */
+internal class RuntimeStopGuard(
+    val isCurrent: () -> Boolean,
+    val failureReason: FailureReason? = null,
+)

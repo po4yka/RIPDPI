@@ -1,5 +1,8 @@
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.gradle.internal.tasks.FinalizeBundleTask
+import com.android.build.gradle.internal.tasks.PackageBundleTask
+import com.android.build.gradle.tasks.PackageAndroidArtifact
 import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -501,4 +504,22 @@ plugins.withId("com.android.application") {
             }
         }
     }
+}
+
+// Guard the actual packaging tasks, including calls through aggregate/custom tasks.
+// Unit tests and lint remain native-less; no APK or bundle may contain the throwing stub.
+tasks.withType<PackageAndroidArtifact>().configureEach {
+    dependsOn(
+        if (name.contains("Release", ignoreCase = true)) {
+            ":core:engine:verifyLibXrayReleaseArtifacts"
+        } else {
+            ":core:engine:verifyLibXrayArtifacts"
+        },
+    )
+}
+tasks.withType<PackageBundleTask>().configureEach {
+    dependsOn(":core:engine:verifyLibXrayReleaseArtifacts")
+}
+tasks.withType<FinalizeBundleTask>().configureEach {
+    dependsOn(":core:engine:verifyLibXrayReleaseArtifacts")
 }

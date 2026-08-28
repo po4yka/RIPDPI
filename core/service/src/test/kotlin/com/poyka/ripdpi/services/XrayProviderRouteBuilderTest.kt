@@ -39,9 +39,90 @@ class XrayProviderRouteBuilderTest {
         )
 
     @Test
+    fun `relay endpoint is transiently resolved while profile DNS and SNI remain intact`() =
+        runTest {
+            val profile =
+                validProfile.copy(
+                    dns = XrayProfile.DnsSettings(servers = listOf("https://dns.example/dns-query")),
+                )
+            store.save("default", profile)
+            val requested = mutableListOf<String>()
+            val builder =
+                XrayProviderRouteBuilder(store, resolveEndpoint = {
+                    requested += it
+                    listOf("192.0.2.${requested.size}")
+                })
+            val first = builder.build("default") as XrayProviderRouteBuilder.Result.Resolved
+            val second = builder.build("default") as XrayProviderRouteBuilder.Result.Resolved
+            assertTrue(first.renderedConfig.contains("192.0.2.1"))
+            assertTrue(second.renderedConfig.contains("192.0.2.2"))
+            assertTrue(first.renderedConfig.contains("www.cloudflare.com"))
+            assertTrue(first.renderedConfig.contains("https://dns.example/dns-query"))
+            assertEquals(listOf("edge.example.com", "edge.example.com"), requested)
+            assertEquals(profile, store.load("default"))
+        }
+
+    @Test
+    fun `numeric endpoint needs no DNS and empty bootstrap is rejected`() =
+        runTest {
+            val builder = XrayProviderRouteBuilder(store, resolveEndpoint = { emptyList() })
+            store.save("numeric", validProfile.copy(outbound = validProfile.outbound.copy(serverAddress = "192.0.2.1")))
+            assertTrue(builder.build("numeric") is XrayProviderRouteBuilder.Result.Resolved)
+            store.save("hostname", validProfile)
+            assertTrue(runCatching { builder.build("hostname") }.isFailure)
+        }
+
+    @Test
+    fun `implicit TLS server name survives numeric endpoint replacement`() =
+        runTest {
+            val profile =
+                validProfile.copy(
+                    outbound =
+                        validProfile.outbound.copy(
+                            security = XrayProfile.Security.TLS,
+                            reality = null,
+                            tls = XrayProfile.Tls(serverName = ""),
+                        ),
+                )
+            store.save("tls", profile)
+            val builder = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") })
+            val resolved = builder.build("tls") as XrayProviderRouteBuilder.Result.Resolved
+            assertTrue(resolved.renderedConfig.contains("\"serverName\":\"edge.example.com\""))
+            assertTrue(resolved.renderedConfig.contains("192.0.2.1"))
+        }
+
+    @Test
+    fun `implicit server identity uses active security even with absent TLS settings`() =
+        runTest {
+            val reality = checkNotNull(validProfile.outbound.reality)
+            val outbounds =
+                listOf(
+                    validProfile.outbound.copy(reality = reality.copy(serverName = "")),
+                    validProfile.outbound.copy(security = XrayProfile.Security.TLS, tls = null),
+                    validProfile.outbound.copy(
+                        security = XrayProfile.Security.TLS,
+                        network = XrayProfile.Network.XHTTP,
+                        tls = XrayProfile.Tls(serverName = ""),
+                        xhttp = XrayProfile.Xhttp(),
+                    ),
+                )
+            val builder = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") })
+            for (outbound in outbounds) {
+                val profile = validProfile.copy(outbound = outbound)
+                store.save("implicit", profile)
+                val resolved = builder.build("implicit") as XrayProviderRouteBuilder.Result.Resolved
+                assertTrue(resolved.renderedConfig.contains("\"serverName\":\"edge.example.com\""))
+                if (outbound.network == XrayProfile.Network.XHTTP) {
+                    assertTrue(resolved.renderedConfig.contains("\"host\":\"edge.example.com\""))
+                }
+                assertEquals(profile, store.load("implicit"))
+            }
+        }
+
+    @Test
     fun `NoProfile when no durable profile persisted`() =
         runTest {
-            val result = XrayProviderRouteBuilder(store).build("missing")
+            val result = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") }).build("missing")
             assertEquals(XrayProviderRouteBuilder.Result.NoProfile, result)
         }
 
@@ -49,7 +130,7 @@ class XrayProviderRouteBuilderTest {
     fun `Resolved aligns the route inbound port with the profile`() =
         runTest {
             store.save("default", validProfile)
-            val result = XrayProviderRouteBuilder(store).build("default")
+            val result = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") }).build("default")
             assertTrue(result is XrayProviderRouteBuilder.Result.Resolved)
             val resolved = result as XrayProviderRouteBuilder.Result.Resolved
             assertEquals(VpnProviderKind.Xray, resolved.route.kind)
@@ -63,7 +144,7 @@ class XrayProviderRouteBuilderTest {
             val invalid =
                 validProfile.copy(outbound = validProfile.outbound.copy(flow = ""))
             store.save("bad", invalid)
-            val result = XrayProviderRouteBuilder(store).build("bad")
+            val result = XrayProviderRouteBuilder(store, resolveEndpoint = { listOf("192.0.2.1") }).build("bad")
             assertTrue(result is XrayProviderRouteBuilder.Result.Rejected)
             val rejected = result as XrayProviderRouteBuilder.Result.Rejected
             assertTrue(rejected.findings.isNotEmpty())

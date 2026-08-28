@@ -8,7 +8,10 @@ import com.poyka.ripdpi.data.xray.XrayConfigValidationFinding
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonObject
+import java.net.URI
 
 /**
  * Builds the [ProviderRoute] and the rendered xray-core JSON config for the
@@ -30,6 +33,7 @@ import kotlinx.serialization.json.JsonObject
  */
 internal class XrayProviderRouteBuilder(
     private val profileStore: DurableXrayProfileStore,
+    private val resolveEndpoint: suspend (String) -> List<String>,
     private val renderer: XrayConfigRenderer = XrayConfigRenderer(),
 ) {
     /** Routing tag the renderer validates the proxied path against. */
@@ -64,13 +68,16 @@ internal class XrayProviderRouteBuilder(
 
     /**
      * Load [profileId] from the durable store, render + validate its config, and
-     * return a [Result]. Suspends only for the store read; the render itself is
-     * pure. An invalid config is reported as findings, never as a renderable or
+     * return a [Result]. Suspends for the store read and relay endpoint bootstrap;
+     * rendering is pure. An invalid config is reported as findings, never as a renderable or
      * thrown secret.
      */
     suspend fun build(profileId: String): Result {
         val profile = profileStore.load(profileId) ?: return Result.NoProfile
-        return when (val rendered = renderer.render(profile, upstreamTag = proxyTag)) {
+        // Validate before any DNS I/O; use a transient copy so durable identity never changes.
+        val initial = renderer.render(profile, upstreamTag = proxyTag)
+        val prepared = if (initial is XrayConfigRenderer.Result.Success) resolveProfileEndpoint(profile) else profile
+        return when (val rendered = renderer.render(prepared, upstreamTag = proxyTag)) {
             is XrayConfigRenderer.Result.Success -> {
                 Result.Resolved(
                     route = routeFor(profile),
@@ -87,6 +94,47 @@ internal class XrayProviderRouteBuilder(
         }
     }
 
+    private suspend fun resolveProfileEndpoint(profile: XrayProfile): XrayProfile {
+        val outbound = profile.outbound
+        val original = outbound.serverAddress
+        if (isNumeric(original)) return profile
+        val address =
+            resolveEndpoint(original).firstOrNull { isNumeric(it) }
+                ?: error("Xray relay bootstrap returned no numeric address")
+        currentCoroutineContext().ensureActive()
+        val tls =
+            if (outbound.security == XrayProfile.Security.TLS) {
+                (outbound.tls ?: XrayProfile.Tls(serverName = original)).let {
+                    if (it.serverName.isBlank()) it.copy(serverName = original) else it
+                }
+            } else {
+                outbound.tls
+            }
+        val reality = outbound.reality?.let { if (it.serverName.isBlank()) it.copy(serverName = original) else it }
+        val serverName =
+            when (outbound.security) {
+                XrayProfile.Security.TLS -> tls?.serverName
+                XrayProfile.Security.REALITY -> reality?.serverName
+            } ?: original
+        val xhttp =
+            outbound.xhttp?.let {
+                if (it.host.isBlank()) it.copy(host = serverName) else it
+            }
+        return profile.copy(
+            outbound = outbound.copy(serverAddress = address, tls = tls, reality = reality, xhttp = xhttp),
+        )
+    }
+
+    private fun isNumeric(host: String): Boolean {
+        if (':' in host && host.all { it in "0123456789abcdefABCDEF:." }) {
+            // URI validates bracketed IPv6 syntax without calling a DNS resolver.
+            return runCatching { URI("http://[$host]").host != null }.getOrDefault(false)
+        }
+        val parts = host.split('.')
+        return parts.size == Ipv4OctetCount &&
+            parts.all { it.isNotEmpty() && it.all(Char::isDigit) && it.toIntOrNull() in 0..Ipv4MaxOctet }
+    }
+
     private fun routeFor(profile: XrayProfile): ProviderRoute =
         ProviderRoute(
             kind = VpnProviderKind.Xray,
@@ -94,4 +142,9 @@ internal class XrayProviderRouteBuilder(
         )
 
     private fun serialize(config: JsonObject): String = configJson.encodeToString(JsonObject.serializer(), config)
+
+    private companion object {
+        const val Ipv4OctetCount = 4
+        const val Ipv4MaxOctet = 255
+    }
 }

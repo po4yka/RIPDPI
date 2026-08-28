@@ -2,11 +2,18 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.xray.VpnProviderState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Protect-fd contract coverage for the Xray provider.
@@ -38,6 +45,37 @@ import org.junit.Test
  * `// UNVERIFIED IN CI`; this fake stands in for its contract.
  */
 class XrayProtectFdContractTest {
+    @Test
+    fun `cancelled start revokes protection before delayed native cleanup`() =
+        runTest {
+            withContext(Dispatchers.IO) {
+                val entered = CountDownLatch(1)
+                val release = CountDownLatch(1)
+                val bridge =
+                    object : FakeXrayNativeBridge() {
+                        override fun start(jsonConfig: String): Int {
+                            entered.countDown()
+                            release.await()
+                            return super.start(jsonConfig)
+                        }
+                    }
+                val owner = XrayRuntimeOwner(bridge)
+                val runtime = RipDpiXrayRuntime(owner)
+                val startCall = async { runtime.start("{}", XrayProtectController { true }) }
+                try {
+                    assertTrue(entered.await(5, TimeUnit.SECONDS))
+                    startCall.cancelAndJoin()
+                    assertFalse(checkNotNull(bridge.registeredProtectController).protect(42))
+                } finally {
+                    release.countDown()
+                    withContext(NonCancellable) {
+                        startCall.join()
+                        runtime.stop()
+                    }
+                }
+            }
+        }
+
     /**
      * A fake bridge that, on [start], simulates Xray opening its configured
      * outbound (and a loopback inbound) sockets and exercising the registered
@@ -101,7 +139,7 @@ class XrayProtectFdContractTest {
                     true
                 }
             val bridge = ProtectingXrayBridge(outboundFds = listOf(200, 201, 202))
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             runtime.start(CONFIG, protect)
 
@@ -126,7 +164,7 @@ class XrayProtectFdContractTest {
             // protect-first violation would throw inside start. This test pins
             // that the runtime upholds it (no exception, start accepted).
             val bridge = ProtectingXrayBridge()
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             val code = runtime.start(CONFIG) { true }
 
@@ -143,7 +181,7 @@ class XrayProtectFdContractTest {
             // Deny exactly fd 101; 100 is allowed.
             val protect = XrayProtectController { fd -> fd != 101 }
             val bridge = ProtectingXrayBridge(outboundFds = listOf(100, 101))
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             runtime.start(CONFIG, protect)
 
@@ -166,7 +204,7 @@ class XrayProtectFdContractTest {
                     true
                 }
             val bridge = ProtectingXrayBridge(outboundFds = listOf(300), loopbackInboundFd = 9)
-            val runtime = RipDpiXrayRuntime(bridge)
+            val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
             runtime.start(CONFIG, protect)
 

@@ -25,6 +25,7 @@ internal interface VpnTelemetryRuntimeDependencies {
     val proxyRuntimeSupervisor: ProxyRuntimeSupervisor
     val screenStateObserver: ScreenStateObserver
     val telemetryReporter: VpnRuntimeTelemetryReporter
+    val xrayController: XrayProviderSessionController?
 }
 
 internal interface VpnTelemetryStateAccess {
@@ -47,7 +48,7 @@ internal interface VpnTelemetryFailureCallbacks {
         failureReason: FailureReason?,
     )
 
-    suspend fun stopService()
+    suspend fun stopService(guard: RuntimeStopGuard? = null)
 }
 
 internal class VpnTelemetryCoordinator(

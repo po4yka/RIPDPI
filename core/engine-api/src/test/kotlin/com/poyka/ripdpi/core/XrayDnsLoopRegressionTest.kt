@@ -35,7 +35,9 @@ class XrayDnsLoopRegressionTest {
         tunnel: FakeManagedTunnel,
     ): XrayProviderOrchestrator =
         XrayProviderOrchestrator(
-            xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(bridge, cfg) },
+            xrayRuntimeFactory = { cfg ->
+                RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined), cfg)
+            },
             tunnel = tunnel,
             protectController = XrayProtectController { true },
             renderedConfigProvider = { renderedConfig },

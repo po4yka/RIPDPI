@@ -63,6 +63,8 @@ internal interface XrayTunnelDriver {
         endpoint: LocalProxyEndpoint,
     )
 
+    suspend fun quiesce()
+
     suspend fun stop()
 
     companion object {
@@ -75,14 +77,20 @@ internal interface XrayTunnelDriver {
                     params: XrayTunnelStartParams,
                     endpoint: LocalProxyEndpoint,
                 ) {
-                    runtime.start(
-                        activeDns = params.activeDns,
-                        overrideReason = params.overrideReason,
-                        logContext = params.logContext,
-                        localProxyEndpoint = endpoint,
-                        forceTunnelDns = params.forceTunnelDns,
-                        splitStrictDnsPolicy = params.splitStrictDnsPolicy,
+                    val start = if (runtime.isRunning) runtime::rebuild else runtime::start
+                    start(
+                        params.activeDns,
+                        params.overrideReason,
+                        params.logContext,
+                        endpoint,
+                        params.forceTunnelDns,
+                        params.splitStrictDnsPolicy,
+                        null,
                     )
+                }
+
+                override suspend fun quiesce() {
+                    runtime.retainFailClosedBarrier()
                 }
 
                 override suspend fun stop() {
@@ -143,6 +151,10 @@ internal class XrayManagedTunnel(
                 port = xrayUpstream.port,
             )
         driver.start(startParamsProvider(), endpoint)
+    }
+
+    override suspend fun quiesce() {
+        driver.quiesce()
     }
 
     override suspend fun stop() {

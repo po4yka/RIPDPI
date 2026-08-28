@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProviderProbeKind
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
@@ -14,21 +13,18 @@ import org.junit.Test
  * StatApi hard-gated to not-applicable, skipped when no provider running.
  */
 class XrayProviderDiagnosticsProbeRunnerTest {
-    private val baseSnapshot = XrayProviderSnapshot()
+    private val baseSnapshot = XrayProviderSnapshot(xrayVersion = "Xray 26.3.27")
 
     @Test
     fun `skips all probes when provider is not running`() {
-        val runner = XrayProviderDiagnosticsProbeRunner(FakeXrayNativeBridge())
+        val runner = XrayProviderDiagnosticsProbeRunner()
         val report = runner.run(VpnProviderState.Stopped, baseSnapshot)
         assertTrue(report.probes.isEmpty())
     }
 
     @Test
     fun `runs version listener and wrapper-ping in-process when running`() {
-        val bridge = FakeXrayNativeBridge()
-        // Make the bridge "running" so listenerReady/isAlive report true.
-        bridge.start("{}")
-        val runner = XrayProviderDiagnosticsProbeRunner(bridge)
+        val runner = XrayProviderDiagnosticsProbeRunner()
         val report = runner.run(VpnProviderState.Running, baseSnapshot)
 
         val kinds = report.probes.map { it.kind }.toSet()
@@ -40,9 +36,7 @@ class XrayProviderDiagnosticsProbeRunnerTest {
 
     @Test
     fun `StatApi is always not-applicable and never invoked in-process`() {
-        val bridge = FakeXrayNativeBridge()
-        bridge.start("{}")
-        val runner = XrayProviderDiagnosticsProbeRunner(bridge)
+        val runner = XrayProviderDiagnosticsProbeRunner()
         val report = runner.run(VpnProviderState.Running, baseSnapshot)
 
         val statApi = report.probes.single { it.kind == XrayProviderProbeKind.StatApi }
@@ -52,9 +46,7 @@ class XrayProviderDiagnosticsProbeRunnerTest {
 
     @Test
     fun `listener-not-ready surfaces as a failed readiness probe`() {
-        val bridge = FakeXrayNativeBridge(readyAfterPolls = 10)
-        bridge.start("{}")
-        val runner = XrayProviderDiagnosticsProbeRunner(bridge)
+        val runner = XrayProviderDiagnosticsProbeRunner()
         val report = runner.run(VpnProviderState.Running, baseSnapshot)
         val listener = report.probes.single { it.kind == XrayProviderProbeKind.ListenerReadiness }
         assertFalse(listener.ok)
@@ -62,10 +54,8 @@ class XrayProviderDiagnosticsProbeRunnerTest {
 
     @Test
     fun `report carries the base snapshot unchanged`() {
-        val bridge = FakeXrayNativeBridge()
-        bridge.start("{}")
         val snapshot = XrayProviderSnapshot(profileName = "Tokyo")
-        val report = XrayProviderDiagnosticsProbeRunner(bridge).run(VpnProviderState.Running, snapshot)
+        val report = XrayProviderDiagnosticsProbeRunner().run(VpnProviderState.Running, snapshot)
         assertEquals("Tokyo", report.snapshot.profileName)
     }
 }

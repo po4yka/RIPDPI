@@ -13,25 +13,8 @@ plugins {
     id("ripdpi.android.rust-native")
 }
 
-// libXray Android artifact wiring (Xray provider mode).
-//
-// The gomobile-built AAR + per-ABI .so payloads are produced out-of-band by
-// scripts/native/build-libxray.sh into an ignored directory (default
-// native/xray/artifacts, overridable via -Pripdpi.prebuiltXrayAarDir=...).
-// They are NEVER committed — only their location is wired in as a Gradle
-// input so the verification gate can run as part of the build graph.
-//
-// `verifyLibXrayArtifacts` shells out to the pure-shell verify script, which
-// fails on missing ABIs, version drift vs gradle/libs.versions.toml, or an
-// oversized native payload. When linking is ON (see `linkXray` below) it is
-// attached to `preBuild` so a missing/drifted/oversized artifact FAILS THE
-// BUILD; when linking is OFF (the offline/native-less default) it is detached so
-// builds with no NDK 29 / gomobile keep working and may still run it explicitly.
-//
-// NOTE: these vals are declared BEFORE the `extensions.configure<LibraryExtension>`
-// block below because that block's source-set selection reads `linkXray`
-// (top-level script vals initialize in source order, so an out-of-order read
-// would silently see the uninitialized default and always pick the stub).
+// Real libXray is required for packaging. Native-less validation may compile the explicit stub.
+// Source-patched AARs live in an ignored producer directory and are verified before use.
 val xrayArtifactDir =
     providers
         .gradleProperty("ripdpi.prebuiltXrayAarDir")
@@ -42,12 +25,6 @@ val xrayArtifactDir =
                 .asFile,
         )
 
-// libXray linking detection. Mirrors the rust .so prebuilt-dir idiom: the AAR is
-// produced out-of-band and is gitignored, so linking is OFF by default (offline
-// / native-less CI keeps compiling the stub). Linking turns ON when either:
-//   - the resolved artifact directory contains a real `libxray.aar`, OR
-//   - the explicit opt-in `-Pripdpi.linkXray=true` is passed.
-// When opted in without an artifact, the verify gate fails the build (intended).
 val xrayAarFile = xrayArtifactDir.get().resolve("libxray.aar")
 val hasXrayAar =
     providers
@@ -60,7 +37,9 @@ val linkXrayOptIn =
         .orNull
         ?.toBooleanStrictOrNull()
         ?: false
-val linkXray = hasXrayAar || linkXrayOptIn
+// Only explicitly native-less validation may compile the stub. Shipping builds require the AAR.
+val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").orNull == "true"
+val linkXray = hasXrayAar || linkXrayOptIn || !nativeLessValidation
 
 // Config-cache-correct AAR presence check. A raw File.isFile() at configuration
 // time is NOT tracked by the configuration cache, so a cached linking decision
@@ -104,28 +83,45 @@ extensions.configure<LibraryExtension> {
     }
 }
 
-tasks.register<Exec>("verifyLibXrayArtifacts") {
+val packagedXrayAbis =
+    extensions
+        .getByType<LibraryExtension>()
+        .defaultConfig.ndk.abiFilters
+        .sorted()
+        .joinToString(",")
+
+fun registerXrayVerifier(
+    taskName: String,
+    release: Boolean,
+) = tasks.register<Exec>(taskName) {
     group = "verification"
-    description = "Verifies the gomobile-built libXray artifact against the pinned versions and size budget."
+    description = "Verifies linked Xray API, ELF and content-bound source/build provenance."
     val verifyScript =
         rootProject.layout.projectDirectory
             .file("scripts/native/verify-libxray-artifacts.sh")
             .asFile
-    inputs.file(verifyScript)
-    inputs.file(rootProject.layout.projectDirectory.file("gradle/libs.versions.toml"))
+    inputs.files(
+        verifyScript,
+        rootProject.file("scripts/native/libxray_artifacts.py"),
+        rootProject.file("scripts/native/build-libxray.sh"),
+        rootProject.file("gradle.properties"),
+        rootProject.file("gradle/libs.versions.toml"),
+    )
+    inputs.dir(rootProject.file("native/xray/patches"))
     inputs.dir(xrayArtifactDir).optional(true).withPropertyName("xrayArtifactDir")
+    inputs.property("linkXray", linkXray)
+    inputs.property("selectedAbis", packagedXrayAbis)
+    inputs.property("release", release)
+    doFirst {
+        check(inputs.properties["linkXray"] == true) { "APK/AAB packaging requires the real libXray runtime" }
+    }
     environment("RIPDPI_XRAY_AAR_DIR", xrayArtifactDir.get().absolutePath)
     commandLine("bash", verifyScript.absolutePath)
-    // Reject canary-channel artifacts when a release-like task is in the graph.
-    val releaseLike =
-        gradle.startParameter.taskNames.any {
-            val n = it.lowercase()
-            n.contains("release") || n.contains("bundle") || n.contains("publish")
-        }
-    if (releaseLike) {
-        args("--release")
-    }
+    if (release) args("--release") else args("--abis", packagedXrayAbis)
 }
+
+registerXrayVerifier("verifyLibXrayArtifacts", release = false)
+registerXrayVerifier("verifyLibXrayReleaseArtifacts", release = true)
 
 dependencies {
     api(project(":core:engine-api"))

@@ -23,6 +23,9 @@ open class FakeManagedTunnel(
     var startCount: Int = 0
         private set
 
+    var quiesceCount: Int = 0
+        private set
+
     var stopCount: Int = 0
         private set
 
@@ -43,6 +46,12 @@ open class FakeManagedTunnel(
         }
         startedUpstreams += upstream
         running = true
+    }
+
+    override suspend fun quiesce() {
+        callLog += "quiesce"
+        quiesceCount++
+        running = false
     }
 
     override suspend fun stop() {

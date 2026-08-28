@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -271,9 +272,10 @@ class ServiceSessionModuleTest {
         val profileStore = FakeDurableXrayProfileStore()
         val renderedConfigHolder = XrayRenderedConfigHolder()
         val startParamsHolder = XrayTunnelStartParamsHolder()
+        val owner = XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined)
         val orchestrator =
             XrayProviderOrchestrator(
-                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(bridge, cfg) },
+                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(owner, cfg) },
                 tunnel = XrayManagedTunnel(vpnTunnelRuntime, startParamsHolder::require),
                 protectController = { true },
                 renderedConfigProvider = { renderedConfigHolder.require() },
@@ -281,14 +283,12 @@ class ServiceSessionModuleTest {
         return XrayProviderSessionController(
             selectionStore = selectionStore,
             profileStore = profileStore,
-            routeBuilder = XrayProviderRouteBuilder(profileStore),
+            routeBuilder = XrayProviderRouteBuilder(profileStore, resolveEndpoint = { listOf("192.0.2.1") }),
             orchestrator = orchestrator,
             snapshotDeriver = XrayProviderSnapshotDeriver(),
-            probeRunner = XrayProviderDiagnosticsProbeRunner(bridge),
+            probeRunner = XrayProviderDiagnosticsProbeRunner(),
             startParamsHolder = startParamsHolder,
-            bridgeVersion = { bridge.version() },
-            bridgeListenerReady = { bridge.listenerReady() },
-            bridgeIsAlive = { bridge.isAlive() },
+            runtimeOwner = owner,
             renderedConfigSink = { renderedConfigHolder.current = it },
             lastProtectFailureDetail = { null },
         )

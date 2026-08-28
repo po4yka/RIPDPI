@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.HandoffOutcome
 import com.poyka.ripdpi.core.RipDpiLogContext
-import com.poyka.ripdpi.core.awgConfigOrNull
 
 /**
  * Thin connect-flow collaborator that keeps the embedded-Xray provider logic out
@@ -68,10 +67,16 @@ internal class XrayConnectFlowDelegate(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ): Boolean {
+        controller.ensureStartAvailable()
         if (!controller.isXraySelected()) {
             return false
         }
-        val outcome = controller.start(startParams(session, resolution))
+        val outcome =
+            try {
+                controller.start(startParams(session, resolution))
+            } finally {
+                ownsProviderPath = controller.isActive
+            }
         active = outcome is HandoffOutcome.Running
         if (outcome is HandoffOutcome.Running) {
             ownsProviderPath = true
@@ -95,12 +100,10 @@ internal class XrayConnectFlowDelegate(
         if (!ownsProviderPath) {
             return false
         }
-        try {
-            controller.stop()
-        } finally {
-            active = false
-            ownsProviderPath = false
-        }
+        val outcome = controller.stop()
+        active = false
+        ownsProviderPath = controller.isActive
+        if (outcome is HandoffOutcome.Failed) throw RuntimeCleanupPendingException()
         return true
     }
 
@@ -123,7 +126,7 @@ internal class XrayConnectFlowDelegate(
             return false
         }
         requireTransactionalPolicyRefresh(restartReason)
-        return if (resolution.proxyPreferences.awgConfigOrNull() != null && !controller.isXraySelected()) {
+        return if (!controller.isXraySelected()) {
             controller.releaseForNativeReplacement()
             active = false
             ownsProviderPath = false
@@ -162,6 +165,7 @@ internal class XrayConnectFlowDelegate(
 
     /** Clear the provider-active flag after a full stop. */
     fun reset() {
+        controller.revokeProtection()
         active = false
         ownsProviderPath = false
     }
@@ -229,3 +233,6 @@ internal fun defaultXrayStartParams(
         forceTunnelDns = false,
         splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
     )
+
+/** Native cleanup still owns the installed VPN barrier; a later stop may retry it. */
+internal class RuntimeCleanupPendingException : IllegalStateException("Xray native cleanup is incomplete")

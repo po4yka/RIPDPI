@@ -18,16 +18,21 @@ internal class RuntimeLifecycleRunner(
         startBlock: suspend () -> Unit,
     ): Throwable? =
         mutex.withLock {
-            if (lifecycleState.state == ServiceLifecycleStateMachine.State.RUNNING && shouldRecoverRunning()) {
+            if (lifecycleState.state in
+                setOf(
+                    ServiceLifecycleStateMachine.State.RUNNING,
+                    ServiceLifecycleStateMachine.State.STOPPING,
+                ) && shouldRecoverRunning()
+            ) {
                 Logger.i { "Recovering failed ${serviceLabel()} runtime before start" }
                 lifecycleState.beginStop()
                 setStopping(true)
                 try {
                     recoverRunningBlock()
+                    lifecycleState.markStopped()
                 } catch (failure: Exception) {
                     return@withLock failure
                 } finally {
-                    lifecycleState.markStopped()
                     setStopping(false)
                 }
             }
@@ -49,13 +54,17 @@ internal class RuntimeLifecycleRunner(
             }
         }
 
-    suspend fun stop(stopBlock: suspend () -> Unit): Boolean {
+    suspend fun stop(
+        guard: RuntimeStopGuard? = null,
+        stopBlock: suspend () -> Unit,
+    ): Boolean {
         if (isStopping()) {
             Logger.d { "${serviceLabel()} stop already in progress" }
             return false
         }
 
         return mutex.withLock {
+            if (guard != null && !guard.isCurrent()) return@withLock false
             if (isStopping()) {
                 Logger.d { "${serviceLabel()} stop already in progress" }
                 return@withLock false
@@ -65,11 +74,15 @@ internal class RuntimeLifecycleRunner(
                 lifecycleState.beginStop()
             }
             setStopping(true)
+            var cleanupRetained = false
             try {
                 stopBlock()
                 true
+            } catch (pending: RuntimeCleanupPendingException) {
+                cleanupRetained = true
+                throw pending
             } finally {
-                lifecycleState.markStopped()
+                if (!cleanupRetained) lifecycleState.markStopped()
                 setStopping(false)
             }
         }

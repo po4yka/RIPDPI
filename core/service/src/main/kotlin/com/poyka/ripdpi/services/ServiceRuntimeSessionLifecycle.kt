@@ -94,9 +94,11 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
+        guard: RuntimeStopGuard? = null,
     ) = startStopOrchestrator.stop(
         stopSelfStartId = stopSelfStartId,
         skipRuntimeShutdown = skipRuntimeShutdown,
+        guard = guard,
     )
 
     fun onDestroy() {

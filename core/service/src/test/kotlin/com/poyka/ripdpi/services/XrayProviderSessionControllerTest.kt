@@ -5,10 +5,14 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
 import com.poyka.ripdpi.core.TunnelUpstream
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.core.testing.FakeManagedTunnel
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
+import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
@@ -18,7 +22,10 @@ import com.poyka.ripdpi.data.xray.XrayProviderFailureClass
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +39,7 @@ import org.junit.Test
  */
 class XrayProviderSessionControllerTest {
     private val bridge = FakeXrayNativeBridge()
+    private val owner = XrayRuntimeOwner(bridge, Dispatchers.Unconfined)
     private val tunnel = FakeManagedTunnel()
     private val selectionStore = FakeSelectionStore()
     private val profileStore = FakeDurableXrayProfileStore()
@@ -67,7 +75,7 @@ class XrayProviderSessionControllerTest {
                 // runTest's scheduler and flakily trips UncompletedCoroutinesError on
                 // the teardown path (matches XrayProviderOrchestratorTest).
                 xrayRuntimeFactory = { cfg ->
-                    RipDpiXrayRuntime(bridge, cfg, nativeStopDispatcher = Dispatchers.Unconfined)
+                    RipDpiXrayRuntime(owner, cfg)
                 },
                 tunnel = tunnel,
                 protectController = { true },
@@ -76,14 +84,12 @@ class XrayProviderSessionControllerTest {
         return XrayProviderSessionController(
             selectionStore = selectionStore,
             profileStore = profileStore,
-            routeBuilder = XrayProviderRouteBuilder(profileStore),
+            routeBuilder = XrayProviderRouteBuilder(profileStore, resolveEndpoint = { listOf("192.0.2.1") }),
             orchestrator = orchestrator,
             snapshotDeriver = XrayProviderSnapshotDeriver(clock = { 1L }),
-            probeRunner = XrayProviderDiagnosticsProbeRunner(bridge),
+            probeRunner = XrayProviderDiagnosticsProbeRunner(),
             startParamsHolder = startParamsHolder,
-            bridgeVersion = { bridge.version() },
-            bridgeListenerReady = { bridge.listenerReady() },
-            bridgeIsAlive = { bridge.isAlive() },
+            runtimeOwner = owner,
             renderedConfigSink = { renderedConfig[0] = it },
             lastProtectFailureDetail = { protectDetail },
             recoverPendingProfileMutations = recoverPendingProfileMutations,
@@ -216,6 +222,96 @@ class XrayProviderSessionControllerTest {
             assertEquals(HandoffOutcome.Stopped, outcome)
             assertEquals(0, bridge.startCount)
             assertEquals(0, tunnel.startCount)
+        }
+
+    @Test
+    fun `delegate retains provider ownership after incomplete cleanup`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val ctrl = controller()
+            val delegate =
+                XrayConnectFlowDelegate(
+                    controller = ctrl,
+                    publishActiveDnsState = { _, _ -> },
+                    applyActiveConnectionPolicy = { _, _, _, _ -> },
+                )
+            delegate.tryStart(VpnRuntimeSession(), sampleResolution())
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Throw
+            assertTrue(runCatching { delegate.tryStop() }.isFailure)
+            assertTrue(delegate.ownsActiveProviderPath)
+            assertTrue(startParamsHolder.current != null)
+            assertEquals(0, tunnel.stopCount)
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Clean
+            assertTrue(delegate.tryStop())
+            assertFalse(delegate.ownsActiveProviderPath)
+            assertEquals(null, startParamsHolder.current)
+        }
+
+    @Test
+    fun `new service cannot bypass occupied Xray lease by selecting native`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val original = controller()
+            original.start(params())
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Throw
+            original.stop()
+            original.revokeProtection()
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Native, null))
+            val replacement =
+                XrayConnectFlowDelegate(
+                    controller = controller(),
+                    publishActiveDnsState = { _, _ -> },
+                    applyActiveConnectionPolicy = { _, _, _, _ -> },
+                )
+            assertTrue(runCatching { replacement.tryStart(VpnRuntimeSession(), sampleResolution()) }.isFailure)
+            assertFalse(checkNotNull(bridge.registeredProtectController).protect(42))
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Clean
+            original.stop()
+            assertFalse(replacement.tryStart(VpnRuntimeSession(), sampleResolution()))
+        }
+
+    @Test
+    fun `stale exit keeps telemetry loop alive to observe replacement generation`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val ctrl = controller()
+            ctrl.start(params())
+            val session = VpnRuntimeSession()
+            val dependencies =
+                XrayFailureTestDependencies(
+                    TestVpnServiceHost(backgroundScope),
+                    StandardTestDispatcher(testScheduler),
+                    ctrl,
+                )
+            val state = XrayFailureTestState(session)
+            val guards = mutableListOf<RuntimeStopGuard>()
+            val callbacks =
+                object : VpnTelemetryFailureCallbacks {
+                    override fun updateStatus(
+                        status: com.poyka.ripdpi.data.ServiceStatus,
+                        failureReason: com.poyka.ripdpi.data.FailureReason?,
+                    ) = error("unguarded failure publication")
+
+                    override suspend fun stopService(guard: RuntimeStopGuard?) {
+                        guards += checkNotNull(guard)
+                    }
+                }
+            val handler = VpnTelemetryFailureHandler(dependencies, state, callbacks)
+            bridge.aliveDuringStartup = false
+            assertFalse(handler.handle(emptyXrayFailureTelemetry()))
+            bridge.aliveDuringStartup = true
+            ctrl.restart(params())
+            runCurrent()
+            assertFalse(guards.single().isCurrent())
+            bridge.aliveDuringStartup = false
+            assertFalse(handler.handle(emptyXrayFailureTelemetry()))
+            runCurrent()
+            assertEquals(2, guards.size)
+            assertTrue(guards.last().isCurrent())
+            ctrl.stop()
         }
 
     @Test
@@ -353,7 +449,7 @@ class XrayProviderSessionControllerTest {
                 }.exceptionOrNull()
 
             assertTrue(failure is XrayProviderHandoverException)
-            assertTrue(failure?.message?.contains("fake tunnel start failure") == true)
+            assertEquals("Xray provider startup failed", failure?.message)
             assertFalse(delegate.isActive)
 
             tunnel.failOnStart = false
@@ -443,7 +539,8 @@ class XrayProviderSessionControllerTest {
                 )
 
             assertEquals(previousTunnelStops, tunnel.stopCount)
-            assertTrue(tunnel.isRunning)
+            assertFalse(tunnel.isRunning)
+            assertTrue(tunnel.quiesceCount > 0)
             assertFalse(handled)
             assertFalse(delegate.isActive)
             assertFalse(delegate.ownsActiveProviderPath)
@@ -464,9 +561,12 @@ class XrayProviderSessionControllerTest {
 
             assertTrue(failure is IllegalStateException)
             assertTrue(ctrl.isActive)
-            assertTrue(tunnel.isRunning)
+            assertFalse(tunnel.isRunning)
             assertEquals(0, tunnel.stopCount)
             assertTrue(startParamsHolder.current != null)
+            assertTrue(ctrl.stop() is HandoffOutcome.Failed)
+            assertTrue(ctrl.isActive)
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Clean
             ctrl.stop()
             assertFalse(ctrl.isActive)
             assertFalse(tunnel.isRunning)
@@ -511,3 +611,49 @@ internal class FakeSelectionStore : XrayProviderSelectionStore {
         this.record = record
     }
 }
+
+private class XrayFailureTestDependencies(
+    override val host: VpnCoordinatorHost,
+    override val ioDispatcher: CoroutineDispatcher,
+    override val xrayController: XrayProviderSessionController,
+) : VpnTelemetryRuntimeDependencies {
+    override val mutex get() = error("Unexpected non-Xray telemetry access")
+    override val vpnProtectFailureMonitor get() = error("Unexpected non-Xray telemetry access")
+    override val vpnTunnelRuntime get() = error("Unexpected non-Xray telemetry access")
+    override val upstreamRelaySupervisor get() = error("Unexpected non-Xray telemetry access")
+    override val warpRuntimeSupervisor get() = error("Unexpected non-Xray telemetry access")
+    override val amneziaWgRuntimeSupervisor get() = error("Unexpected non-Xray telemetry access")
+    override val proxyRuntimeSupervisor get() = error("Unexpected non-Xray telemetry access")
+    override val screenStateObserver get() = error("Unexpected non-Xray telemetry access")
+    override val telemetryReporter get() = error("Unexpected non-Xray telemetry access")
+}
+
+private class XrayFailureTestState(
+    private val session: VpnRuntimeSession,
+) : VpnTelemetryStateAccess {
+    override fun status() = ServiceStatus.Connected
+
+    override fun stopping() = false
+
+    override fun runtimeSession() = session
+
+    override fun currentLocalProxyEndpoint(): LocalProxyEndpoint? = null
+
+    override fun currentNetworkHandoverState(): String? = null
+
+    override fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot) = snapshot
+}
+
+private fun emptyXrayFailureTelemetry(): VpnTelemetrySnapshot =
+    VpnTelemetrySnapshot(
+        proxyTelemetry = NativeRuntimeSnapshot.idle("proxy"),
+        proxyTelemetryStatus = RuntimeTelemetryStatus.NoData,
+        relayTelemetry = NativeRuntimeSnapshot.idle("relay"),
+        relayTelemetryStatus = RuntimeTelemetryStatus.NoData,
+        warpTelemetry = NativeRuntimeSnapshot.idle("warp"),
+        warpTelemetryStatus = RuntimeTelemetryStatus.NoData,
+        awgTelemetry = NativeRuntimeSnapshot.idle("amneziawg"),
+        awgTelemetryStatus = RuntimeTelemetryStatus.NoData,
+        tunnelTelemetry = NativeRuntimeSnapshot.idle("tunnel"),
+        tunnelTelemetryStatus = RuntimeTelemetryStatus.NoData,
+    )

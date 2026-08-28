@@ -5,8 +5,6 @@ import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,15 +32,6 @@ class XrayProviderOrchestratorTest {
         }
     }
 
-    /**
-     * Dispatcher the runtime's blocking native stop runs on. Defaults to a
-     * direct ([Dispatchers.Unconfined]) dispatcher so the fake bridge's stop
-     * runs inline on the test thread instead of racing the `runTest` virtual
-     * clock against a real [Dispatchers.IO] worker — the production default is
-     * IO, but under a virtual-time test that race makes `stopCount` flaky.
-     */
-    private val directStopDispatcher: CoroutineDispatcher = Dispatchers.Unconfined
-
     private fun orchestrator(
         bridge: FakeXrayNativeBridge,
         tunnel: FakeManagedTunnel,
@@ -50,12 +39,70 @@ class XrayProviderOrchestratorTest {
     ): XrayProviderOrchestrator =
         XrayProviderOrchestrator(
             xrayRuntimeFactory = { cfg ->
-                RipDpiXrayRuntime(bridge, cfg, nativeStopDispatcher = directStopDispatcher)
+                RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined), cfg)
             },
             tunnel = tunnel,
             protectController = protect,
             renderedConfigProvider = { renderedConfig },
         )
+
+    @Test
+    fun `failed native cleanup retains the route and tunnel barrier`() =
+        runTest {
+            val bridge = FakeXrayNativeBridge(stopBehavior = FakeXrayNativeBridge.StopBehavior.Throw)
+            val tunnel = FakeManagedTunnel()
+            val orch = orchestrator(bridge, tunnel)
+            val route = ProviderRoute(VpnProviderKind.Xray)
+            orch.start(route)
+            assertTrue(orch.stop() is HandoffOutcome.Failed)
+            assertEquals(route, orch.currentRoute)
+            assertEquals(VpnProviderState.Stopping, orch.xrayState)
+            assertEquals(0, tunnel.stopCount)
+            assertTrue(orch.stop() is HandoffOutcome.Failed)
+            bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Clean
+            assertEquals(HandoffOutcome.Stopped, orch.stop())
+            assertNull(orch.currentRoute)
+            assertEquals(1, tunnel.stopCount)
+        }
+
+    @Test
+    fun `destroy before lease publication denies the late callback and tunnel handoff`() =
+        runTest {
+            var lateProtection: Boolean? = null
+            var serviceCalls = 0
+            val bridge =
+                object : FakeXrayNativeBridge() {
+                    override fun start(jsonConfig: String): Int {
+                        lateProtection = registeredProtectController?.protect(42)
+                        return super.start(jsonConfig)
+                    }
+                }
+            val tunnel = FakeManagedTunnel()
+            val owner = XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined)
+            lateinit var orch: XrayProviderOrchestrator
+            orch =
+                XrayProviderOrchestrator(
+                    xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(owner, cfg) },
+                    tunnel = tunnel,
+                    protectController = {
+                        serviceCalls++
+                        true
+                    },
+                    renderedConfigProvider = {
+                        orch.closeServiceOwner()
+                        renderedConfig
+                    },
+                )
+            assertTrue(orch.start(ProviderRoute(VpnProviderKind.Xray)) is HandoffOutcome.Failed)
+            assertEquals(false, lateProtection)
+            assertEquals(0, serviceCalls)
+            assertFalse(checkNotNull(bridge.registeredProtectController).protect(42))
+            assertEquals(0, tunnel.startCount)
+            assertFalse(owner.isOccupied)
+            val starts = bridge.startCount
+            assertTrue(orch.start(ProviderRoute(VpnProviderKind.Xray)) is HandoffOutcome.Failed)
+            assertEquals(starts, bridge.startCount)
+        }
 
     @Test
     fun `native route keeps native upstream and never touches xray`() =
@@ -119,7 +166,10 @@ class XrayProviderOrchestratorTest {
             val orch =
                 XrayProviderOrchestrator(
                     xrayRuntimeFactory = { cfg ->
-                        RipDpiXrayRuntime(recordingBridge, cfg, nativeStopDispatcher = directStopDispatcher)
+                        RipDpiXrayRuntime(
+                            XrayRuntimeOwner(recordingBridge, kotlinx.coroutines.Dispatchers.Unconfined),
+                            cfg,
+                        )
                     },
                     tunnel = tunnel,
                     protectController = RecordingProtect(events),
@@ -175,14 +225,15 @@ class XrayProviderOrchestratorTest {
             // BOTH restarted: xray stopped + restarted, tunnel stopped + restarted.
             assertEquals(1, bridge.stopCount)
             assertEquals(startsBefore + 1, bridge.startCount)
-            assertTrue(tunnel.stopCount >= 1)
+            assertTrue(tunnel.quiesceCount >= 1)
+            assertEquals(0, tunnel.stopCount)
             assertEquals(tunnelStartsBefore + 1, tunnel.startCount)
             // Tunnel now points at the new inbound port.
             assertEquals(20808, (tunnel.lastUpstream as TunnelUpstream.Xray).port)
         }
 
     @Test
-    fun `handover stops tunnel before stopping xray`() =
+    fun `handover quiesces forwarding before stopping xray without releasing TUN`() =
         runTest {
             val events = mutableListOf<String>()
             val bridge =
@@ -194,15 +245,15 @@ class XrayProviderOrchestratorTest {
                 }
             val tunnel =
                 object : FakeManagedTunnel() {
-                    override suspend fun stop() {
-                        events += "tunnel.stop"
-                        super.stop()
+                    override suspend fun quiesce() {
+                        events += "tunnel.quiesce"
+                        super.quiesce()
                     }
                 }
             val orch =
                 XrayProviderOrchestrator(
                     xrayRuntimeFactory = { cfg ->
-                        RipDpiXrayRuntime(bridge, cfg, nativeStopDispatcher = directStopDispatcher)
+                        RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined), cfg)
                     },
                     tunnel = tunnel,
                     protectController = XrayProtectController { true },
@@ -213,9 +264,9 @@ class XrayProviderOrchestratorTest {
             events.clear()
             orch.handover(ProviderRoute(VpnProviderKind.Xray, XrayProviderConfig(localInboundPort = 20808)))
 
-            val tunnelStopIdx = events.indexOf("tunnel.stop")
+            val tunnelStopIdx = events.indexOf("tunnel.quiesce")
             val xrayStopIdx = events.indexOf("xray.stop")
-            assertTrue("tunnel.stop logged", tunnelStopIdx >= 0)
+            assertTrue("tunnel.quiesce logged", tunnelStopIdx >= 0)
             assertTrue("xray.stop logged", xrayStopIdx >= 0)
             assertTrue("tunnel stops before xray", tunnelStopIdx < xrayStopIdx)
         }

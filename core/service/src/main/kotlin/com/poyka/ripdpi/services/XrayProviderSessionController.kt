@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.HandoffOutcome
 import com.poyka.ripdpi.core.ProviderRoute
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
@@ -51,9 +52,7 @@ internal class XrayProviderSessionController(
     private val snapshotDeriver: XrayProviderSnapshotDeriver,
     private val probeRunner: XrayProviderDiagnosticsProbeRunner,
     private val startParamsHolder: XrayTunnelStartParamsHolder,
-    private val bridgeVersion: () -> String?,
-    private val bridgeListenerReady: () -> Boolean,
-    private val bridgeIsAlive: () -> Boolean,
+    private val runtimeOwner: XrayRuntimeOwner,
     private val renderedConfigSink: (String?) -> Unit,
     private val lastProtectFailureDetail: () -> String?,
     private val recoverPendingProfileMutations: suspend () -> Unit = {},
@@ -113,12 +112,9 @@ internal class XrayProviderSessionController(
     suspend fun restart(params: XrayTunnelStartParams): HandoffOutcome {
         recoverPendingProfileMutations()
         val selection = selectionStore.current()
-        try {
-            orchestrator.stop()
-        } finally {
-            clearStoppedSessionState()
-            emitSnapshot()
-        }
+        orchestrator.releaseProviderForNativeReplacement()
+        clearStoppedSessionState()
+        emitSnapshot()
         if (selection.kind != VpnProviderKind.Xray) {
             return HandoffOutcome.Stopped
         }
@@ -127,15 +123,15 @@ internal class XrayProviderSessionController(
 
     /** Stop the Xray session. Idempotent. */
     suspend fun stop(): HandoffOutcome {
-        val outcome =
-            try {
-                orchestrator.stop()
-            } finally {
-                clearStoppedSessionState()
-                emitSnapshot()
-            }
+        val outcome = orchestrator.stop()
+        if (!isActive) clearStoppedSessionState()
+        emitSnapshot()
         return outcome
     }
+
+    fun revokeProtection() = orchestrator.revokeProtection()
+
+    fun closeServiceOwner() = orchestrator.closeServiceOwner()
 
     private fun clearStoppedSessionState() {
         renderedConfigSink(null)
@@ -197,15 +193,15 @@ internal class XrayProviderSessionController(
                     }
                 }
             } catch (cancellation: CancellationException) {
-                clearStoppedSessionState()
+                if (!isActive) clearStoppedSessionState()
                 emitSnapshot()
                 throw cancellation
             } catch (error: Exception) {
-                clearStoppedSessionState()
+                if (!isActive) clearStoppedSessionState()
                 emitSnapshot()
                 throw error
             }
-        if (outcome !is HandoffOutcome.Running) {
+        if (!isActive) {
             clearStoppedSessionState()
         }
         emitSnapshot()
@@ -218,10 +214,10 @@ internal class XrayProviderSessionController(
             orchestrator.start(route)
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (error: Exception) {
+        } catch (_: Exception) {
             // start() throws only on an already-active session; surface as failed.
             currentCoroutineContext().ensureActive()
-            HandoffOutcome.Failed("xray orchestrator start failed: ${error.message}")
+            HandoffOutcome.Failed("Xray orchestrator start failed")
         }
 
     private suspend fun cacheProfileLabels(profileId: String) {
@@ -234,19 +230,30 @@ internal class XrayProviderSessionController(
     }
 
     /** Derive a privacy-safe snapshot for the current provider state. */
-    fun currentSnapshot(): XrayProviderSnapshot =
-        snapshotDeriver.derive(
+    fun currentSnapshot(): XrayProviderSnapshot {
+        val observed = orchestrator.observe()
+        return snapshotDeriver.derive(
             providerState = orchestrator.xrayState,
             config = activeConfig,
-            xrayVersion = bridgeVersion(),
-            listenerReady = bridgeListenerReady(),
-            isAlive = bridgeIsAlive(),
+            xrayVersion = observed.version,
+            listenerReady = observed.listenerReady,
+            isAlive = observed.alive && !observed.failed,
             configFindings = lastFindings,
             protectFailureDetail = lastProtectFailureDetail(),
             profileName = activeProfileName,
             outboundProtocol = activeProfileProtocol,
             outboundSecurity = activeProfileSecurity,
         )
+    }
+
+    fun ensureStartAvailable() {
+        check(!runtimeOwner.isOccupied) { "Xray native cleanup is still owned" }
+    }
+
+    val failedGeneration: Long?
+        get() = orchestrator.generation?.takeIf { orchestrator.observe().failed }
+
+    fun ownsGeneration(generation: Long): Boolean = orchestrator.generation == generation
 
     /** Run the user-triggered provider-path probes against the active provider. */
     fun runProbes(): XrayProviderProbeReport =

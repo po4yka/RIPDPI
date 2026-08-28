@@ -45,10 +45,9 @@ class XrayServiceLifecycleMatrixTest {
                 // inline on the test thread rather than racing the runTest virtual
                 // clock against a real Dispatchers.IO worker (production uses IO).
                 RipDpiXrayRuntime(
-                    bridge,
+                    XrayRuntimeOwner(bridge, Dispatchers.Unconfined),
                     cfg,
                     readinessPollIntervalMs = 1L,
-                    nativeStopDispatcher = Dispatchers.Unconfined,
                 )
             },
             tunnel = tunnel,

@@ -623,47 +623,112 @@ class BaseServiceRuntimeCoordinatorTest {
             assertTrue(env.handoverEvents.published.isEmpty())
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
         }
+}
 
-    @Suppress("UnusedParameter")
-    private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val host = TestProxyServiceHost(backgroundScope)
-        val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy))
-        val runtimeRegistry = DefaultServiceRuntimeRegistry()
-        val handoverMonitor = TestNetworkHandoverMonitor()
-        val handoverEvents = TestPolicyHandoverEventStore()
-        val clock = TestServiceClock(now = 1_000L)
-        val coordinator =
-            TestCoordinator(
-                host = host,
-                resolver = resolver,
-                runtimeRegistry = runtimeRegistry,
-                rememberedStore = TestRememberedNetworkPolicyStore(),
-                handoverMonitor = handoverMonitor,
-                handoverEvents = handoverEvents,
-                permissionWatchdog = TestPermissionWatchdog(),
-                dispatcher = dispatcher,
-                clock = clock,
-            )
-        return Env(
-            coordinator = coordinator,
+@OptIn(ExperimentalCoroutinesApi::class)
+class RetainedRuntimeCleanupTest {
+    @Test
+    fun `pending native cleanup retains service registration and blocks replacement until retry`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.cleanupPending = true
+            env.coordinator.start()
+            runCurrent()
+            val original = env.runtimeRegistry.current(Mode.Proxy)
+            env.coordinator.stop(stopSelfStartId = 7)
+            assertSame(original, env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(env.host.stopRequests.isEmpty())
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            env.coordinator.start()
+            assertEquals(1, env.coordinator.startCalls)
+            env.coordinator.cleanupPending = false
+            env.coordinator.stop(stopSelfStartId = 8)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(listOf(8), env.host.stopRequests)
+        }
+
+    @Test
+    fun `stale native exit cannot stop a replacement session`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val first = env.runtimeRegistry.current(Mode.Proxy)
+            val guard =
+                RuntimeStopGuard(
+                    isCurrent = { env.runtimeRegistry.current(Mode.Proxy) === first },
+                    failureReason = FailureReason.NativeError("Xray exited"),
+                )
+            env.coordinator.stop()
+            env.coordinator.start()
+            runCurrent()
+            val replacement = env.runtimeRegistry.current(Mode.Proxy)
+            env.coordinator.stop(guard = guard)
+            assertSame(replacement, env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(1, env.coordinator.stopCalls)
+            env.coordinator.stop(guard = RuntimeStopGuard({ true }, FailureReason.NativeError("Xray exited")))
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `start retries retained cleanup before creating replacement`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            env.coordinator.cleanupPending = true
+            env.coordinator.stop()
+            assertEquals(1, env.coordinator.startCalls)
+            env.coordinator.cleanupPending = false
+            env.coordinator.start()
+            runCurrent()
+            assertEquals(2, env.coordinator.startCalls)
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(env.host.stopRequests.isEmpty())
+        }
+}
+
+@Suppress("UnusedParameter")
+private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val host = TestProxyServiceHost(backgroundScope)
+    val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy))
+    val runtimeRegistry = DefaultServiceRuntimeRegistry()
+    val handoverMonitor = TestNetworkHandoverMonitor()
+    val handoverEvents = TestPolicyHandoverEventStore()
+    val clock = TestServiceClock(now = 1_000L)
+    val coordinator =
+        TestCoordinator(
             host = host,
+            resolver = resolver,
             runtimeRegistry = runtimeRegistry,
+            rememberedStore = TestRememberedNetworkPolicyStore(),
             handoverMonitor = handoverMonitor,
             handoverEvents = handoverEvents,
+            permissionWatchdog = TestPermissionWatchdog(),
+            dispatcher = dispatcher,
             clock = clock,
         )
-    }
-
-    private data class Env(
-        val coordinator: TestCoordinator,
-        val host: TestProxyServiceHost,
-        val runtimeRegistry: ServiceRuntimeRegistry,
-        val handoverMonitor: TestNetworkHandoverMonitor,
-        val handoverEvents: TestPolicyHandoverEventStore,
-        val clock: TestServiceClock,
+    return Env(
+        coordinator = coordinator,
+        host = host,
+        runtimeRegistry = runtimeRegistry,
+        handoverMonitor = handoverMonitor,
+        handoverEvents = handoverEvents,
+        clock = clock,
     )
 }
+
+private data class Env(
+    val coordinator: TestCoordinator,
+    val host: TestProxyServiceHost,
+    val runtimeRegistry: ServiceRuntimeRegistry,
+    val handoverMonitor: TestNetworkHandoverMonitor,
+    val handoverEvents: TestPolicyHandoverEventStore,
+    val clock: TestServiceClock,
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 private class TestCoordinator(
@@ -690,6 +755,7 @@ private class TestCoordinator(
     ) {
     var failOnStart: Boolean = false
     var failOnStop: Boolean = false
+    var cleanupPending: Boolean = false
     var stopGate: CompletableDeferred<Unit>? = null
     var startCalls: Int = 0
     var stopCalls: Int = 0
@@ -802,6 +868,7 @@ private class TestCoordinator(
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         stopLifecycleEvents += "runtime_stop"
         stopCalls += 1
+        if (cleanupPending) throw RuntimeCleanupPendingException()
         if (failOnStop) error("stop failed")
         stopGate?.await()
     }

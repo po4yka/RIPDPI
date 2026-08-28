@@ -8,6 +8,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Tunnel seam the orchestrator drives, decoupled from the native tun2socks
@@ -25,6 +26,9 @@ import kotlinx.coroutines.withContext
 interface ManagedTunnel {
     /** Start (or restart) the TUN-to-SOCKS worker pointed at [upstream]. */
     suspend fun start(upstream: TunnelUpstream)
+
+    /** Stop forwarding while retaining the installed TUN as a traffic barrier. */
+    suspend fun quiesce()
 
     /** Stop the worker. Idempotent: a stop with no running worker is a no-op. */
     suspend fun stop()
@@ -62,7 +66,7 @@ sealed interface HandoffOutcome {
     /** Everything is stopped (clean teardown). */
     data object Stopped : HandoffOutcome
 
-    /** Start/handover failed; both Xray and tunnel are torn down. */
+    /** Operation failed. The route remains owned if cleanup is incomplete. */
     data class Failed(
         val reason: String,
     ) : HandoffOutcome
@@ -103,10 +107,21 @@ sealed interface HandoffOutcome {
 class XrayProviderOrchestrator(
     private val xrayRuntimeFactory: (XrayProviderConfig) -> RipDpiXrayRuntime,
     private val tunnel: ManagedTunnel,
-    private val protectController: XrayProtectController,
+    protectController: XrayProtectController,
     private val renderedConfigProvider: (ProviderRoute) -> String,
 ) {
+    private val serviceProtection = AtomicReference<XrayProtectController?>(protectController)
+    private val serviceProtect =
+        XrayProtectController { fd ->
+            val controller = serviceProtection.get()
+            controller != null && runCatching { controller.protect(fd) }.getOrDefault(false) &&
+                serviceProtection.get() === controller
+        }
+
+    @Volatile
     private var activeRoute: ProviderRoute? = null
+
+    @Volatile
     private var activeXray: RipDpiXrayRuntime? = null
 
     /** The route currently driving the session, or null when stopped. */
@@ -116,6 +131,11 @@ class XrayProviderOrchestrator(
     /** Provider state of the active Xray runtime, or Stopped when none/native. */
     val xrayState: VpnProviderState
         get() = activeXray?.providerState ?: VpnProviderState.Stopped
+
+    fun observe(): XrayRuntimeStatus = activeXray?.observe() ?: XrayRuntimeStatus()
+
+    val generation: Long?
+        get() = activeXray?.generation
 
     /**
      * Start the session for [route]. Brings up Xray first (protect-first +
@@ -152,7 +172,8 @@ class XrayProviderOrchestrator(
 
             // No material change to the local inbound / provider route: keep the
             // existing session, report the current upstream.
-            !requiresRestart(current, newRoute) -> {
+            !requiresRestart(current, newRoute) &&
+                (current.kind != VpnProviderKind.Xray || xrayState == VpnProviderState.Running) -> {
                 HandoffOutcome.Running(
                     XrayTunnelHandoff.resolveUpstream(current.kind, current.xrayConfig),
                 )
@@ -160,26 +181,30 @@ class XrayProviderOrchestrator(
 
             // DUAL RESTART: tear the whole session down, then bring the new one up.
             else -> {
-                tearDown()
-                bringUp(newRoute)
+                val stopped = tearDown(releaseTunnel = false)
+                if (stopped is HandoffOutcome.Failed) stopped else bringUp(newRoute)
             }
         }
     }
 
-    /** Stop the whole session (tunnel + Xray). Idempotent. */
-    suspend fun stop(): HandoffOutcome {
-        tearDown()
-        return HandoffOutcome.Stopped
+    /** Stop the whole session; incomplete cleanup retains the route and TUN barrier. */
+    suspend fun stop(): HandoffOutcome = tearDown()
+
+    /** Release Xray while retaining the installed TUN for a provider replacement. */
+    suspend fun releaseProviderForNativeReplacement() {
+        check(tearDown(releaseTunnel = false) !is HandoffOutcome.Failed) {
+            "Xray cleanup incomplete during provider replacement"
+        }
     }
 
-    /** Release the provider while the service retains the TUN barrier for a native replacement. */
-    suspend fun releaseProviderForNativeReplacement() {
-        withContext(NonCancellable) {
-            val stopCause = activeXray?.stop()
-            check(stopCause !is StopCause.Failed) { "Xray stop failed during native replacement" }
-            activeXray = null
-            activeRoute = null
-        }
+    fun revokeProtection() {
+        activeXray?.revokeProtection()
+    }
+
+    /** Terminal service destruction also denies callbacks from a lease acquired after this call. */
+    fun closeServiceOwner() {
+        serviceProtection.set(null)
+        revokeProtection()
     }
 
     /**
@@ -245,54 +270,43 @@ class XrayProviderOrchestrator(
         route: ProviderRoute,
         upstream: TunnelUpstream,
     ): HandoffOutcome {
-        // 1) PROTECT-FIRST: start Xray (registers protect before any outbound
-        //    socket) and confirm the inbound is listening BEFORE the tunnel is
-        //    pointed at it. Ordering is load-bearing — see class KDoc.
         val xray = xrayRuntimeFactory(route.xrayConfig)
-        try {
-            xray.start(renderedConfigProvider(route), protectController)
-            xray.awaitReady()
-        } catch (cancellation: CancellationException) {
-            withContext(NonCancellable) { runCatching { xray.stop() } }
-            throw cancellation
-        } catch (e: Exception) {
-            withContext(NonCancellable) { runCatching { xray.stop() } }
-            currentCoroutineContext().ensureActive()
-            return HandoffOutcome.Failed("xray start failed: ${e.message}")
-        }
-
-        // 2) Point the tunnel at the now-ready loopback inbound.
+        // Own cleanup before the first native side effect, including partial startup.
+        activeXray = xray
+        activeRoute = route
         return try {
+            check(serviceProtection.get() != null) { "Xray service owner was destroyed" }
+            xray.start(renderedConfigProvider(route), serviceProtect)
+            xray.awaitReady()
+            currentCoroutineContext().ensureActive()
+            check(serviceProtection.get() != null) { "Xray service owner was destroyed" }
             tunnel.start(upstream)
-            activeXray = xray
-            activeRoute = route
             HandoffOutcome.Running(upstream)
         } catch (cancellation: CancellationException) {
-            withContext(NonCancellable) {
-                runCatching { tunnel.stop() }
-                runCatching { xray.stop() }
-            }
+            withContext(NonCancellable) { tearDown() }
             throw cancellation
-        } catch (e: Exception) {
-            // Tunnel failed: tear Xray back down so we don't leak a half session.
-            withContext(NonCancellable) {
-                runCatching { tunnel.stop() }
-                runCatching { xray.stop() }
-            }
+        } catch (_: Exception) {
+            withContext(NonCancellable) { tearDown() }
             currentCoroutineContext().ensureActive()
-            HandoffOutcome.Failed("tunnel start failed after xray ready: ${e.message}")
+            HandoffOutcome.Failed("Xray provider startup failed")
         }
     }
 
-    private suspend fun tearDown() {
+    private suspend fun tearDown(releaseTunnel: Boolean = true): HandoffOutcome =
         withContext(NonCancellable) {
-            // Stop the tunnel FIRST so no packets are sent to an inbound that is
-            // about to disappear, THEN stop Xray.
-            runCatching { tunnel.stop() }
-            activeXray?.let { runCatching { it.stop() } }
+            val xray = activeXray
+            if (xray != null) {
+                val forwardingStopped = runCatching { tunnel.quiesce() }.isSuccess
+                val stopCause = xray.stop()
+                if (!forwardingStopped || stopCause is StopCause.Failed || stopCause == StopCause.Pending) {
+                    return@withContext HandoffOutcome.Failed("Xray cleanup incomplete; TUN barrier retained")
+                }
+            }
+            if (releaseTunnel && runCatching { tunnel.stop() }.isFailure) {
+                return@withContext HandoffOutcome.Failed("Tunnel cleanup incomplete")
+            }
             activeXray = null
             activeRoute = null
+            HandoffOutcome.Stopped
         }
-        currentCoroutineContext().ensureActive()
-    }
 }

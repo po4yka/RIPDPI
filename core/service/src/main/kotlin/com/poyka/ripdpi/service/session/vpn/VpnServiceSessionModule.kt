@@ -2,8 +2,8 @@ package com.poyka.ripdpi.service.session.vpn
 
 import android.net.VpnService
 import com.poyka.ripdpi.core.RipDpiXrayRuntime
-import com.poyka.ripdpi.core.XrayNativeBridge
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.Mode
@@ -29,6 +29,7 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
+import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
@@ -278,9 +279,10 @@ internal object VpnServiceSessionModule {
     @ServiceSessionScope
     fun provideXrayProviderSessionController(
         profileMutations: ProfileMutationCoordinator,
+        vpnService: VpnService,
         selectionStore: XrayProviderSelectionStore,
         profileStore: DurableXrayProfileStore,
-        xrayNativeBridge: XrayNativeBridge,
+        xrayRuntimeOwner: XrayRuntimeOwner,
         vpnTunnelRuntime: VpnTunnelRuntime,
         protectController: VpnServiceXrayProtectController,
         startParamsHolder: XrayTunnelStartParamsHolder,
@@ -289,7 +291,7 @@ internal object VpnServiceSessionModule {
     ): XrayProviderSessionController {
         val orchestrator =
             XrayProviderOrchestrator(
-                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(xrayNativeBridge, cfg) },
+                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(xrayRuntimeOwner, cfg) },
                 tunnel =
                     XrayManagedTunnel(
                         vpnTunnelRuntime = vpnTunnelRuntime,
@@ -303,14 +305,27 @@ internal object VpnServiceSessionModule {
         return XrayProviderSessionController(
             selectionStore = selectionStore,
             profileStore = profileStore,
-            routeBuilder = XrayProviderRouteBuilder(profileStore, XrayConfigRenderer()),
+            routeBuilder =
+                XrayProviderRouteBuilder(
+                    profileStore,
+                    resolveEndpoint = { hostname ->
+                        kotlinx.coroutines.withTimeoutOrNull(XrayBootstrapTimeoutMillis) {
+                            xrayRuntimeOwner
+                                .resolveEndpoint {
+                                    (vpnService as RipDpiVpnService)
+                                        .resolveHost(
+                                            hostname,
+                                        ).toList()
+                                }.await()
+                        } ?: error("Xray relay bootstrap timed out")
+                    },
+                    renderer = XrayConfigRenderer(),
+                ),
             orchestrator = orchestrator,
             snapshotDeriver = XrayProviderSnapshotDeriver(),
-            probeRunner = XrayProviderDiagnosticsProbeRunner(xrayNativeBridge),
+            probeRunner = XrayProviderDiagnosticsProbeRunner(),
             startParamsHolder = startParamsHolder,
-            bridgeVersion = { runCatching { xrayNativeBridge.version() }.getOrNull() },
-            bridgeListenerReady = { runCatching { xrayNativeBridge.listenerReady() }.getOrDefault(false) },
-            bridgeIsAlive = { runCatching { xrayNativeBridge.isAlive() }.getOrDefault(false) },
+            runtimeOwner = xrayRuntimeOwner,
             renderedConfigSink = { config ->
                 renderedConfigHolder.current = config
                 if (config != null) {
@@ -388,3 +403,5 @@ internal object VpnServiceSessionModule {
             initialRelayRacePolicy = initialRelayRacePolicy.orElse(null),
         )
 }
+
+private const val XrayBootstrapTimeoutMillis = 5_000L

@@ -11,6 +11,27 @@ internal class VpnTelemetryFailureHandler(
     private val callbacks: VpnTelemetryFailureCallbacks,
 ) {
     suspend fun handle(telemetry: VpnTelemetrySnapshot): Boolean {
+        val xray = dependencies.xrayController
+        val generation = xray?.failedGeneration
+        if (generation != null && !state.stopping()) {
+            val session = state.runtimeSession()
+            val reason = FailureReason.NativeError("Xray engine or local listener exited unexpectedly")
+            dependencies.host.serviceScope.launch(dependencies.ioDispatcher) {
+                callbacks.stopService(
+                    RuntimeStopGuard(
+                        isCurrent = { state.runtimeSession() === session && xray.ownsGeneration(generation) },
+                        failureReason = reason,
+                    ),
+                )
+            }
+            // A handover may invalidate the queued generation. Keep monitoring until
+            // an accepted stop cancels this loop through the normal lifecycle path.
+            return false
+        }
+        return handleTunnelFailure(telemetry)
+    }
+
+    private suspend fun handleTunnelFailure(telemetry: VpnTelemetrySnapshot): Boolean {
         val telemetryFailure = telemetry.failureReason()
         val tunnelStoppedUnexpectedly =
             telemetry.tunnelTelemetryStatus.state == RuntimeTelemetryState.Snapshot &&

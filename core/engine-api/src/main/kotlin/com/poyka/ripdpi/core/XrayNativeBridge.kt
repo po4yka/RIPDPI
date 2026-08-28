@@ -7,8 +7,8 @@ package com.poyka.ripdpi.core
  * telemetry logic is fully unit-testable with a fake, without dragging in the
  * gomobile native artifact. The real implementation lives in `:core:engine`
  * (`XrayNativeBridgeLibXrayImpl`, gated source set `xrayLinked`); its logic is
- * verified offline via an FFI seam, while native execution is device-pending
- * (gomobile/libXray are absent from the offline CI toolchain).
+ * verified through an FFI seam and actual Android loopback tests.
+ * Every blocking native operation must run on the process-owned native worker.
  *
  * ### Protect-first contract
  * [registerProtect] MUST be wired BEFORE [start] is invoked. Xray-core opens
@@ -35,7 +35,7 @@ interface XrayNativeBridge {
      */
     fun start(jsonConfig: String): Int
 
-    /** Stop Xray-core. Bounded and idempotent; a second call is a no-op. */
+    /** Stop Xray-core. May block; throws unless native cleanup is confirmed. */
     fun stop()
 
     /** libXray / xray-core version string, e.g. `"Xray 26.1.18"`. */

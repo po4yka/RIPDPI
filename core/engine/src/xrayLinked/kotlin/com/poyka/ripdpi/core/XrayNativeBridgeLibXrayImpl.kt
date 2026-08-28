@@ -4,7 +4,10 @@ import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Internal seam over the gomobile `libXray.LibXray` static facade.
@@ -41,6 +44,13 @@ internal interface LibXrayFfi {
     /** Mirrors `boolean LibXray.getXrayState()` — run-state liveness. */
     fun getXrayState(): Boolean
 
+    fun initDns(
+        controller: libXray.DialerController,
+        server: String,
+    )
+
+    fun resetDns()
+
     /** Mirrors `void LibXray.registerDialerController(DialerController)`. */
     fun registerDialer(controller: libXray.DialerController)
 
@@ -70,6 +80,15 @@ internal class GomobileLibXrayFfi : LibXrayFfi {
 
     override fun getXrayState(): Boolean = libXray.LibXray.getXrayState()
 
+    override fun initDns(
+        controller: libXray.DialerController,
+        server: String,
+    ) {
+        libXray.LibXray.initDns(controller, server)
+    }
+
+    override fun resetDns() = libXray.LibXray.resetDns()
+
     override fun registerDialer(controller: libXray.DialerController) {
         libXray.LibXray.registerDialerController(controller)
     }
@@ -93,10 +112,8 @@ internal class GomobileLibXrayFfi : LibXrayFfi {
  * [RipDpiXrayRuntime] BEFORE [start]. See
  * `.claude/rules/vpnservice-protect-invariant.md`.
  *
- * Note: the adapter forwards the boolean from `protectFd`, but whether libXray
- * actually fails the socket closed on a *denial* is UNVERIFIED from the gomobile
- * binding alone (a device/B-3 smoke item vs the contract-test fake, which does
- * honor denial). Protect-first *ordering* is honored and load-bearing.
+ * The source-patched AAR fails socket creation on protection denial. All native
+ * calls run exclusively on [XrayRuntimeOwner]'s process-owned worker.
  *
  * @param datDir absolute path to the geoip/geosite `.dat` asset directory libXray
  *   reads at start (never contains secrets).
@@ -117,25 +134,47 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
      */
     private val mphCachePath: String = File(datDir, MPH_CACHE_FILE_NAME).absolutePath
 
-    @Volatile
-    private var protectController: XrayProtectController? = null
+    private val protectController = AtomicReference<XrayProtectController?>()
+    private var dialerRegistered = false
+    private var listenerRegistered = false
+    private var inboundPort: Int? = null
+    private val adapter =
+        object : libXray.DialerController {
+            override fun protectFd(fd: Long): Boolean {
+                if (fd !in 0..Int.MAX_VALUE.toLong()) return false
+                val current = protectController.get() ?: return false
+                return runCatching { current.protect(fd.toInt()) }.getOrDefault(false) &&
+                    protectController.get() === current
+            }
+        }
 
     override fun registerProtect(controller: XrayProtectController) {
-        protectController = controller
-        // DialerController is a pure interface (no native static init), so this
-        // adapter is safe to construct on any JVM. We forward protect()'s boolean;
-        // whether libXray honors a denial (fail-closed) is a B-3 device-smoke item.
-        val adapter =
-            object : libXray.DialerController {
-                override fun protectFd(p0: Long): Boolean = controller.protect(p0.toInt())
-            }
-        ffi.registerDialer(adapter)
-        ffi.registerListener(adapter)
+        protectController.set(controller)
+        // Xray-core appends controllers. Install one forwarding adapter for process lifetime.
+        if (!dialerRegistered) {
+            ffi.registerDialer(adapter)
+            dialerRegistered = true
+        }
+        if (!listenerRegistered) {
+            ffi.registerListener(adapter)
+            listenerRegistered = true
+        }
     }
 
     override fun start(jsonConfig: String): Int {
         // Never log jsonConfig — it carries UUIDs / REALITY private keys.
         return try {
+            check(protectController.get() != null) { "Xray protection is not registered" }
+            val config = XrayBridgeConfig.parse(jsonConfig)
+            inboundPort = config.inboundPort
+            // Relay endpoints are resolved by the service's eligible-underlay callback.
+            // Any remaining Go system lookup is denied before socket I/O, without plaintext fallback.
+            ffi.initDns(
+                object : libXray.DialerController {
+                    override fun protectFd(fd: Long): Boolean = false
+                },
+                "127.0.0.1:53",
+            )
             val request = ffi.newRunFromJsonRequest(datDir, mphCachePath, jsonConfig)
             val response = ffi.runXrayFromJson(request)
             if (parseCallResponseSuccess(response)) START_OK else START_REJECTED
@@ -147,8 +186,10 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
     }
 
     override fun stop() {
-        // Idempotent on the libXray side; swallow any decode/native failure.
-        runCatching { ffi.stopXray() }
+        protectController.set(null)
+        check(parseCallResponseSuccess(ffi.stopXray())) { "Xray native cleanup failed" }
+        ffi.resetDns()
+        inboundPort = null
     }
 
     override fun version(): String {
@@ -156,7 +197,17 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
         return "Xray " + (data?.takeIf(String::isNotBlank) ?: "unknown")
     }
 
-    override fun listenerReady(): Boolean = runCatching { ffi.getXrayState() }.getOrDefault(false)
+    override fun listenerReady(): Boolean {
+        val port = inboundPort ?: return false
+        return runCatching {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress("127.0.0.1", port), ReadinessTimeoutMillis)
+                socket.soTimeout = ReadinessTimeoutMillis
+                socket.getOutputStream().write(byteArrayOf(5, 1, 0))
+                socket.getInputStream().read() == 5 && socket.getInputStream().read() == 0
+            }
+        }.getOrDefault(false)
+    }
 
     override fun isAlive(): Boolean = runCatching { ffi.getXrayState() }.getOrDefault(false)
 
@@ -188,6 +239,7 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
         parseCallResponse(base64Text)?.takeIf(CallResponse::success)?.data
 
     private companion object {
+        const val ReadinessTimeoutMillis = 200
         const val START_OK = 0
         const val START_REJECTED = 1
         const val MPH_CACHE_FILE_NAME = "geo.mph"

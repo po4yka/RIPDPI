@@ -96,6 +96,10 @@ internal class RecordingXrayTunnelDriver : XrayTunnelDriver {
         runningFlag = true
     }
 
+    override suspend fun quiesce() {
+        runningFlag = false
+    }
+
     override suspend fun stop() {
         stopCount++
         runningFlag = false

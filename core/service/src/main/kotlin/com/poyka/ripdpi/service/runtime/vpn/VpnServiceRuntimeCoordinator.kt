@@ -36,6 +36,7 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeStartEvidence
 import com.poyka.ripdpi.services.RuntimeStartTransaction
+import com.poyka.ripdpi.services.RuntimeStopGuard
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
@@ -181,6 +182,7 @@ internal class VpnServiceRuntimeCoordinator(
             dependencies =
                 object : VpnTelemetryRuntimeDependencies {
                     override val host: VpnCoordinatorHost = vpnHost
+                    override val xrayController = xrayProviderSessionController
                     override val ioDispatcher: CoroutineDispatcher = ioDispatcher
                     override val mutex = this@VpnServiceRuntimeCoordinator.mutex
                     override val vpnProtectFailureMonitor = this@VpnServiceRuntimeCoordinator.vpnProtectFailureMonitor
@@ -231,8 +233,8 @@ internal class VpnServiceRuntimeCoordinator(
                         this@VpnServiceRuntimeCoordinator.updateStatus(status, failureReason)
                     }
 
-                    override suspend fun stopService() {
-                        stop()
+                    override suspend fun stopService(guard: RuntimeStopGuard?) {
+                        stop(guard = guard)
                     }
                 },
         )
@@ -395,6 +397,11 @@ internal class VpnServiceRuntimeCoordinator(
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             xrayProviderSnapshot = xrayProviderSessionController?.takeIf { it.isActive }?.currentSnapshot(),
         )
+    }
+
+    override fun onDestroy() {
+        xrayProviderSessionController?.closeServiceOwner()
+        super.onDestroy()
     }
 
     private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {

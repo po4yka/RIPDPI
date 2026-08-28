@@ -54,7 +54,7 @@ class XrayProviderSnapshotDeriverTest {
     }
 
     @Test
-    fun `running with listener maps to outbound healthy + reachable`() {
+    fun `local listener does not prove outbound reachability`() {
         val s =
             deriver.derive(
                 providerState = VpnProviderState.Running,
@@ -63,9 +63,9 @@ class XrayProviderSnapshotDeriverTest {
                 listenerReady = true,
                 isAlive = true,
             )
-        assertEquals(XrayProviderReadiness.OutboundHealthy, s.readiness)
+        assertEquals(XrayProviderReadiness.ListenerReady, s.readiness)
         assertEquals(XrayListenerState.Bound, s.listenerState)
-        assertEquals(XrayOutboundHealth.Reachable, s.outboundHealth)
+        assertEquals(XrayOutboundHealth.Unknown, s.outboundHealth)
         assertEquals(XrayProviderFailureClass.None, s.failureClass)
         assertEquals("127.0.0.1", s.localInboundListen)
         assertEquals(10808, s.localInboundPort)

@@ -139,8 +139,8 @@ internal class XrayProviderSnapshotDeriver(
         when {
             failureClass != XrayProviderFailureClass.None -> XrayProviderReadiness.Failed
             providerState == VpnProviderState.Stopped -> XrayProviderReadiness.Unknown
-            providerState == VpnProviderState.Running && listenerReady -> XrayProviderReadiness.OutboundHealthy
-            providerState == VpnProviderState.Running -> XrayProviderReadiness.ListenerReady
+            providerState == VpnProviderState.Running && listenerReady -> XrayProviderReadiness.ListenerReady
+            providerState == VpnProviderState.Running -> XrayProviderReadiness.Degraded
             listenerReady -> XrayProviderReadiness.ListenerReady
             else -> XrayProviderReadiness.Starting
         }
@@ -153,7 +153,7 @@ internal class XrayProviderSnapshotDeriver(
             failureClass == XrayProviderFailureClass.OutboundUnreachable -> XrayOutboundHealth.Unreachable
             failureClass == XrayProviderFailureClass.OutboundDegraded -> XrayOutboundHealth.Unreachable
             readiness == XrayProviderReadiness.OutboundHealthy -> XrayOutboundHealth.Reachable
-            readiness == XrayProviderReadiness.ListenerReady -> XrayOutboundHealth.Probing
+            readiness == XrayProviderReadiness.ListenerReady -> XrayOutboundHealth.Unknown
             else -> XrayOutboundHealth.Unknown
         }
 

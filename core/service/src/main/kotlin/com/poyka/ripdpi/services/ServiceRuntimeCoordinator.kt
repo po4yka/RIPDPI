@@ -127,12 +127,14 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
+        guard: RuntimeStopGuard? = null,
     ) = sessionLifecycle.stop(
         stopSelfStartId = stopSelfStartId,
         skipRuntimeShutdown = skipRuntimeShutdown,
+        guard = guard,
     )
 
-    fun onDestroy() {
+    open fun onDestroy() {
         sessionLifecycle.onDestroy()
     }
 
