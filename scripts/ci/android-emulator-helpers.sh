@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+# Android 17 images use the published major.minor SDK identifier.
+android_image_version() {
+  case "$1" in
+    37) printf '%s\n' '37.0' ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
 is_android_sdk_root() {
   local candidate="$1"
   [[ -n "$candidate" && -d "$candidate" ]] || return 1
@@ -290,6 +298,12 @@ capture_android_emulator_diagnostics() {
 
   # Preserve host-side boot evidence before querying a potentially wedged ADB.
   if [[ -n "$avd_name" ]]; then
+    local metadata
+    for metadata in system-image-source.properties system-image-package.xml system-image-id.txt; do
+      if [[ -f "$HOME/.android/$avd_name/$metadata" ]]; then
+        cp "$HOME/.android/$avd_name/$metadata" "$output_dir/$metadata"
+      fi
+    done
     if [[ -f "$HOME/.android/$avd_name/emulator.log" ]]; then
       cp "$HOME/.android/$avd_name/emulator.log" "$output_dir/emulator.log"
     else

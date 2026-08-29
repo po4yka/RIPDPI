@@ -265,6 +265,7 @@ internal fun createDiagnosticsServices(
             scanRequestFactory = requestFactory,
             serviceStateStore = serviceStateStore,
             runtimeCoordinator = runtimeCoordinator,
+            json = json,
         )
     val scheduler =
         AutomaticProbeScheduler(
@@ -312,6 +313,7 @@ internal fun createDiagnosticsServices(
             executionCoordinator = executionCoordinator,
             hiddenProbeConflictRequestFactory = HiddenProbeConflictRequestFactory(json),
             scope = controllerScope,
+            json = json,
         )
     return DiagnosticsServicesBundle(
         bootstrapper =

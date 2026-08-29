@@ -374,5 +374,6 @@ internal data class RelayRuntimeSlot(
     val exitReported: AtomicBoolean,
     val onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     val udpEnabled: Boolean,
+    val localNetworkDependent: Boolean,
     var endpoint: LocalProxyEndpoint? = null,
 )

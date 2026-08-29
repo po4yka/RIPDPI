@@ -51,7 +51,28 @@ internal fun buildPermissionSummary(
                 buildBackgroundGuidance(stringResolver, deviceManufacturer)
             },
         items =
-            listOf(
+            listOfNotNull(
+                snapshot.localNetwork.takeUnless { it == PermissionStatus.NotApplicable }?.let { status ->
+                    PermissionItemUiState(
+                        kind = PermissionKind.LocalNetwork,
+                        title = stringResolver.getString(R.string.permissions_local_network_title),
+                        subtitle = stringResolver.getString(R.string.permissions_local_network_needed),
+                        statusLabel =
+                            stringResolver.getString(
+                                if (status == PermissionStatus.Granted) {
+                                    R.string.settings_permission_status_granted
+                                } else {
+                                    R.string.settings_permission_status_optional
+                                },
+                            ),
+                        actionLabel =
+                            if (status == PermissionStatus.Granted) {
+                                null
+                            } else {
+                                stringResolver.getString(R.string.settings_permission_action_allow)
+                            },
+                    )
+                },
                 buildNotificationPermissionItem(snapshot.notifications, stringResolver),
                 buildVpnPermissionItem(snapshot.vpnConsent, configuredMode, stringResolver),
                 buildAlwaysOnVpnPermissionItem(snapshot.alwaysOnVpn, configuredMode, stringResolver),
@@ -308,6 +329,10 @@ internal fun createPermissionIssue(
     stringResolver: StringResolver,
 ): PermissionIssueUiState =
     when (kind) {
+        PermissionKind.LocalNetwork -> {
+            createLocalNetworkPermissionIssue(status, blocking, stringResolver)
+        }
+
         PermissionKind.Notifications -> {
             if (status == PermissionStatus.RequiresSettings) {
                 PermissionIssueUiState(

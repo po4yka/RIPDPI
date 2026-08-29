@@ -3,16 +3,25 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcher
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpRequest
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpResult
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultQueue
+import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.net.ConnectException
 import java.net.URI
+import java.security.cert.CertificateException
 import javax.inject.Provider
+import javax.net.ssl.SSLHandshakeException
 
 class OwnedStackBrowserServiceTest {
     @Test
@@ -75,15 +84,19 @@ class OwnedStackBrowserServiceTest {
     fun `secure client retries with H2-only platform stack after QUIC-capable failure`() =
         runTest {
             val platformExecutor =
-                FakeOwnedStackPlatformBrowserExecutor { request ->
-                    if (request.quicEnabled) {
-                        error("quic path failed")
-                    }
+                FakeOwnedStackPlatformBrowserExecutor(failures = listOf(ConnectException("quic path failed"))) {
                     OwnedStackPlatformResponse(
                         finalUrl = "https://example.org/h2",
                         statusCode = 200,
                         body = "h2 ok".toByteArray(),
                         contentType = "text/plain",
+                    )
+                }.apply {
+                    faults.enqueue(
+                        FaultSpec(
+                            target = OwnedStackPlatformFaultTarget.EXECUTE,
+                            outcome = FaultOutcome.EXCEPTION,
+                        ),
                     )
                 }
             val client =
@@ -109,6 +122,174 @@ class OwnedStackBrowserServiceTest {
             assertTrue(response.executionTrace.h2RetryTriggered)
             assertEquals(SecureHttpQuicPolicy.H2_ONLY, response.executionTrace.finalQuicPolicy)
             assertEquals(listOf(true, false), platformExecutor.requests.map(OwnedStackPlatformRequest::quicEnabled))
+        }
+
+    @Test
+    fun `secure client propagates nested platform certificate rejection without retry or fallback`() =
+        runTest {
+            val failure =
+                IOException(
+                    "platform request failed",
+                    SSLHandshakeException("certificate validation failed").apply {
+                        initCause(CertificateException("certificate transparency validation failed"))
+                    },
+                )
+            val platformExecutor =
+                FakeOwnedStackPlatformBrowserExecutor(failures = listOf(failure)).apply {
+                    faults.enqueue(
+                        FaultSpec(
+                            target = OwnedStackPlatformFaultTarget.EXECUTE,
+                            outcome = FaultOutcome.EXCEPTION,
+                        ),
+                    )
+                }
+            val nativeFetcher = FakeNativeOwnedTlsHttpFetcher()
+            val client =
+                DefaultSecureHttpClient(
+                    supportProvider =
+                        FixedOwnedStackBrowserSupportProvider(
+                            OwnedStackBrowserSupport(
+                                platformHttpEngineAvailable = true,
+                                android17EchEligible = true,
+                            ),
+                        ),
+                    platformExecutorProvider = providerOf(platformExecutor),
+                    nativeOwnedTlsHttpFetcher = nativeFetcher,
+                    tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                )
+
+            val result = runCatching { client.execute(SecureHttpRequest(url = "example.org")) }
+
+            assertSame(failure, result.exceptionOrNull())
+            assertEquals(1, platformExecutor.requests.size)
+            assertTrue(nativeFetcher.requests.isEmpty())
+        }
+
+    @Test
+    fun `secure client propagates H2 certificate rejection after QUIC transport failure without native fallback`() =
+        runTest {
+            val failure =
+                IOException(
+                    "H2 platform request failed",
+                    SSLHandshakeException("certificate validation failed").apply {
+                        initCause(CertificateException("certificate transparency validation failed"))
+                    },
+                )
+            val platformExecutor =
+                FakeOwnedStackPlatformBrowserExecutor(
+                    failures = listOf(ConnectException("quic path failed"), failure),
+                ).apply {
+                    repeat(2) {
+                        faults.enqueue(
+                            FaultSpec(
+                                target = OwnedStackPlatformFaultTarget.EXECUTE,
+                                outcome = FaultOutcome.EXCEPTION,
+                            ),
+                        )
+                    }
+                }
+            val nativeFetcher = FakeNativeOwnedTlsHttpFetcher()
+            val client =
+                DefaultSecureHttpClient(
+                    supportProvider =
+                        FixedOwnedStackBrowserSupportProvider(
+                            OwnedStackBrowserSupport(
+                                platformHttpEngineAvailable = true,
+                                android17EchEligible = true,
+                            ),
+                        ),
+                    platformExecutorProvider = providerOf(platformExecutor),
+                    nativeOwnedTlsHttpFetcher = nativeFetcher,
+                    tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                )
+
+            val result = runCatching { client.execute(SecureHttpRequest(url = "example.org")) }
+
+            assertSame(failure, result.exceptionOrNull())
+            assertEquals(listOf(true, false), platformExecutor.requests.map(OwnedStackPlatformRequest::quicEnabled))
+            assertTrue(nativeFetcher.requests.isEmpty())
+        }
+
+    @Test
+    fun `secure client propagates opaque platform failure without retry or native fallback`() =
+        runTest {
+            val failure = IOException("platform request failed without a typed cause")
+            val platformExecutor =
+                FakeOwnedStackPlatformBrowserExecutor(failures = listOf(failure)).apply {
+                    faults.enqueue(
+                        FaultSpec(
+                            target = OwnedStackPlatformFaultTarget.EXECUTE,
+                            outcome = FaultOutcome.EXCEPTION,
+                        ),
+                    )
+                }
+            val nativeFetcher = FakeNativeOwnedTlsHttpFetcher()
+            val client =
+                DefaultSecureHttpClient(
+                    supportProvider =
+                        FixedOwnedStackBrowserSupportProvider(
+                            OwnedStackBrowserSupport(
+                                platformHttpEngineAvailable = true,
+                                android17EchEligible = true,
+                            ),
+                        ),
+                    platformExecutorProvider = providerOf(platformExecutor),
+                    nativeOwnedTlsHttpFetcher = nativeFetcher,
+                    tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                )
+
+            val result = runCatching { client.execute(SecureHttpRequest(url = "example.org")) }
+
+            assertSame(failure, result.exceptionOrNull())
+            assertEquals(1, platformExecutor.requests.size)
+            assertTrue(nativeFetcher.requests.isEmpty())
+        }
+
+    @Test
+    fun `secure client falls back to native after typed transport failures on both platform attempts`() =
+        runTest {
+            val platformExecutor =
+                FakeOwnedStackPlatformBrowserExecutor(
+                    failures = listOf(ConnectException("quic path failed"), ConnectException("H2 path failed")),
+                ).apply {
+                    repeat(2) {
+                        faults.enqueue(
+                            FaultSpec(
+                                target = OwnedStackPlatformFaultTarget.EXECUTE,
+                                outcome = FaultOutcome.EXCEPTION,
+                            ),
+                        )
+                    }
+                }
+            val nativeFetcher = FakeNativeOwnedTlsHttpFetcher()
+            val client =
+                DefaultSecureHttpClient(
+                    supportProvider =
+                        FixedOwnedStackBrowserSupportProvider(
+                            OwnedStackBrowserSupport(
+                                platformHttpEngineAvailable = true,
+                                android17EchEligible = true,
+                            ),
+                        ),
+                    platformExecutorProvider = providerOf(platformExecutor),
+                    nativeOwnedTlsHttpFetcher = nativeFetcher,
+                    tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                )
+
+            val response = client.execute(SecureHttpRequest(url = "example.org"))
+
+            assertEquals(OwnedStackBrowserBackend.NATIVE_OWNED_TLS, response.backend)
+            assertEquals(OwnedStackNativeFallbackReason.PLATFORM_FAILURE, response.executionTrace.nativeFallbackReason)
+            assertEquals(listOf(true, false), platformExecutor.requests.map(OwnedStackPlatformRequest::quicEnabled))
+            assertEquals(1, nativeFetcher.requests.size)
         }
 
     @Test
@@ -217,6 +398,7 @@ private class FixedOwnedStackBrowserSupportProvider(
 }
 
 private class FakeOwnedStackPlatformBrowserExecutor(
+    private val failures: List<Throwable> = emptyList(),
     private val block: suspend (OwnedStackPlatformRequest) -> OwnedStackPlatformResponse =
         {
             OwnedStackPlatformResponse(
@@ -227,12 +409,20 @@ private class FakeOwnedStackPlatformBrowserExecutor(
             )
         },
 ) : OwnedStackPlatformBrowserExecutor {
+    val faults = FaultQueue<OwnedStackPlatformFaultTarget>()
     val requests = mutableListOf<OwnedStackPlatformRequest>()
 
     override suspend fun execute(request: OwnedStackPlatformRequest): OwnedStackPlatformResponse {
         requests += request
+        faults.next(OwnedStackPlatformFaultTarget.EXECUTE)?.let { fault ->
+            throw failures.getOrNull(requests.lastIndex) ?: faultThrowable(fault.outcome, fault.message)
+        }
         return block(request)
     }
+}
+
+private enum class OwnedStackPlatformFaultTarget {
+    EXECUTE,
 }
 
 private class FakeSecureHttpClient(

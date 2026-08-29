@@ -167,6 +167,10 @@ class MainActivityPermissionTest {
     @Test
     fun `host command failure maps pending permission commands to terminal results`() {
         assertEquals(
+            PermissionKind.LocalNetwork to PermissionResult.Denied,
+            hostCommandFailurePermissionResult(MainActivityHostCommand.RequestLocalNetworkPermission),
+        )
+        assertEquals(
             PermissionKind.Notifications to PermissionResult.Denied,
             hostCommandFailurePermissionResult(MainActivityHostCommand.RequestNotificationsPermission),
         )

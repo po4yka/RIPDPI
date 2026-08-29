@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -1457,6 +1458,44 @@ class VpnServiceRuntimeCoordinatorTest {
             val failure = env.store.eventHistory.last() as ServiceEvent.Failed
             assertEquals(FailureReason.PermissionLost("VPN"), failure.reason)
             assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun localNetworkRevocationStopsOnlyDependentVpnRuntime() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, localNetworkDependent = true)),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            env.permissionWatchdog.emit(
+                PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, detectedAt = 2_000L),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            val failure = env.store.eventHistory.last() as ServiceEvent.Failed
+            assertEquals(FailureReason.PermissionLost(LocalNetworkPermission), failure.reason)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun localNetworkRevocationLeavesPublicVpnRuntimeRunning() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+            env.permissionWatchdog.emit(
+                PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, detectedAt = 2_000L),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
         }
 
     @Test

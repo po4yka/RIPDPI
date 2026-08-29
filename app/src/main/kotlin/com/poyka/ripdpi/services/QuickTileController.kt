@@ -4,6 +4,8 @@ import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
@@ -36,8 +38,8 @@ internal class QuickTileController(
     private val appSettingsRepository: AppSettingsRepository,
     private val serviceController: ServiceController,
     private val serviceStateStore: ServiceStateStore,
+    private val serviceStartPreflight: ServiceStartPreflight,
 ) {
-    private var listeningScope: CoroutineScope? = null
     private var statusJob: Job? = null
     private var eventsJob: Job? = null
     private var currentTileState: QuickTileVisualState? = null
@@ -47,7 +49,6 @@ internal class QuickTileController(
         scope: CoroutineScope,
     ) {
         clearSubscriptions()
-        listeningScope = scope
         updateStatus(host)
 
         statusJob =
@@ -62,7 +63,11 @@ internal class QuickTileController(
                 serviceStateStore.events.collect { event ->
                     when (event) {
                         is ServiceEvent.Failed -> {
-                            host.showStartFailure(event.sender.senderName)
+                            if (event.reason == FailureReason.PermissionLost(LocalNetworkPermission)) {
+                                host.launchStartResolution()
+                            } else {
+                                host.showStartFailure(event.sender.senderName)
+                            }
                             updateStatus(host)
                         }
 
@@ -75,10 +80,12 @@ internal class QuickTileController(
 
     fun onStopListening() {
         clearSubscriptions()
-        listeningScope = null
     }
 
-    fun onClick(host: QuickTileHost) {
+    fun onClick(
+        host: QuickTileHost,
+        actionScope: CoroutineScope,
+    ) {
         if (currentTileState == QuickTileVisualState.Unavailable) {
             return
         }
@@ -88,8 +95,7 @@ internal class QuickTileController(
 
         when (serviceStateStore.status.value.first) {
             AppStatus.Halted -> {
-                val scope = listeningScope ?: return
-                scope.launch {
+                actionScope.launch {
                     if (appStartupReadiness.readiness.value != AppStartupReadinessState.Ready) {
                         updateStatus(host)
                         host.launchStartResolution()
@@ -100,6 +106,14 @@ internal class QuickTileController(
                     val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
 
                     if (needsPermissionResolution(mode, host)) {
+                        updateStatus(host)
+                        host.launchStartResolution()
+                        return@launch
+                    }
+
+                    if (serviceStartPreflight.check(mode) ==
+                        ServiceStartPreflightResult.LocalNetworkPermissionRequired
+                    ) {
                         updateStatus(host)
                         host.launchStartResolution()
                         return@launch

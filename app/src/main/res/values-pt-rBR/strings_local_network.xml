@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permissions_local_network_title">Acesso à rede local</string>
+    <string name="permissions_local_network_needed">Esta ação precisa de acesso à rede local. As conexões com a Internet continuam disponíveis sem esta permissão.</string>
+    <string name="permissions_local_network_settings">Permita dispositivos próximos nas configurações do aplicativo e tente esta ação novamente.</string>
+</resources>

@@ -156,7 +156,12 @@ verify-spec-versions:
 [group('test')]
 test-instrumented:
     ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
-    ./gradlew :app:pixel6Api35GoogleGithubSimpleDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel
+    ./gradlew :app:pixel6Api37GoogleGithubSimpleDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel
+
+# Install supplied APKs and mutate LAN grants only on an explicitly disposable API-37 device.
+[group('test')]
+test-target37-lan serial peer apk test_apk:
+    python3 scripts/ci/run_target37_network_smoke.py --serial '{{serial}}' --peer '{{peer}}' --apk '{{apk}}' --test-apk '{{test_apk}}' --evidence-dir build/target37-lan --allow-disposable-device
 
 # ─── Lint ─────────────────────────────────────────────────────────
 

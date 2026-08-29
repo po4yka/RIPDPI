@@ -111,20 +111,21 @@ if [[ -z "$avd_name" || -z "$api_level" || -z "$arch" || -z "$target" ]]; then
   exit 1
 fi
 
-echo "Installing emulator SDK packages for android-${api_level}/${target}/${arch}"
+image_version="$(android_image_version "$api_level")"
+echo "Installing emulator SDK packages for android-${image_version}/${target}/${arch}"
 # Android CLI 1.0 uses slash-notation package IDs (`system-images/android-NN/...`),
 # not the legacy sdkmanager semicolon notation. See `android sdk install --help`.
 bash "$script_dir/android-sdk-install.sh" \
   "cmdline-tools/latest" \
   "emulator" \
-  "system-images/android-${api_level}/${target}/${arch}"
+  "system-images/android-${image_version}/${target}/${arch}"
 
 avdmanager_bin="$(resolve_avdmanager_bin)"
 emulator_bin="$(resolve_emulator_bin)"
 # Legacy semicolon notation is intentional here: this ID is passed to
 # `avdmanager create avd --package`, not the Android CLI. avdmanager keeps the
 # sdkmanager-style ID. Do not migrate this to slash notation.
-sdk_id="system-images;android-${api_level};${target};${arch}"
+sdk_id="system-images;android-${image_version};${target};${arch}"
 android_user_home="${ANDROID_SDK_HOME:-$HOME}"
 android_dot_dir="$android_user_home/.android"
 avd_base_dir="$android_dot_dir/avd"
@@ -138,6 +139,11 @@ ram_mb="$(size_to_mb "$ram")"
 heap_mb="$(size_to_mb "$heap")"
 
 mkdir -p "$avd_base_dir" "$emulator_log_dir"
+sdk_root="$(resolve_android_sdk_root)"
+image_dir="$sdk_root/system-images/android-${image_version}/${target}/${arch}"
+cp "$image_dir/source.properties" "$emulator_log_dir/system-image-source.properties"
+cp "$image_dir/package.xml" "$emulator_log_dir/system-image-package.xml"
+printf '%s\n' "$sdk_id" > "$emulator_log_dir/system-image-id.txt"
 stop_android_emulator "$avd_name"
 rm -rf "$avd_dir" "$avd_ini"
 
@@ -166,7 +172,7 @@ cat >"$avd_ini" <<EOF
 avd.ini.encoding=UTF-8
 path=$avd_dir
 path.rel=avd/${avd_name}.avd
-target=android-${api_level}
+target=android-${image_version}
 EOF
 
 rm -f "$emulator_log_file"

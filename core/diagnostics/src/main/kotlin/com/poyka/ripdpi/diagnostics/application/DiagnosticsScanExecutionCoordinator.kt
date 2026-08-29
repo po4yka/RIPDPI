@@ -19,7 +19,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -34,6 +36,8 @@ internal class DiagnosticsScanExecutionCoordinator
         private val scanRequestFactory: DiagnosticsScanRequestFactory,
         private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
+        @param:Named("diagnosticsJson")
+        private val json: Json,
     ) {
         private companion object {
             const val ServiceResumeWaitAttempts = 50
@@ -447,7 +451,7 @@ internal class DiagnosticsScanExecutionCoordinator
                         Logger.w(finalizeFailure) {
                             "Scan finalization failed; persisted partial session instead"
                         }
-                        persistPartialScanSession(runningSession, outcome.reportJson, scanRecordStore)
+                        persistPartialScanSession(runningSession, outcome.reportJson, prepared, scanRecordStore, json)
                     }
                     true
                 }
@@ -459,7 +463,7 @@ internal class DiagnosticsScanExecutionCoordinator
                         if (runningSession == null) {
                             false
                         } else {
-                            persistPartialScanSession(runningSession, checkpointJson, scanRecordStore)
+                            persistPartialScanSession(runningSession, checkpointJson, prepared, scanRecordStore, json)
                             true
                         }
                     } ?: false
@@ -476,7 +480,7 @@ internal class DiagnosticsScanExecutionCoordinator
                     it.status == "running"
                 }
             if (partialReportJson != null && runningSession != null) {
-                persistPartialScanSession(runningSession, partialReportJson, scanRecordStore)
+                persistPartialScanSession(runningSession, partialReportJson, prepared, scanRecordStore, json)
             } else {
                 DiagnosticsReportPersister.persistScanFailure(
                     prepared.sessionId,

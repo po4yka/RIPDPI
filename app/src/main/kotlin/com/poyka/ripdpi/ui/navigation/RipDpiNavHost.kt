@@ -530,6 +530,7 @@ private fun diagnosticsRouteCallbacks(
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
+        onRequestLocalNetworkPermission = { mainViewModel.onRepairPermissionRequested(PermissionKind.LocalNetwork) },
         onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
         onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
         onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },

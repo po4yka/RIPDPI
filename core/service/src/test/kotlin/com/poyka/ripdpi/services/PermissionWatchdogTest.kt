@@ -25,7 +25,11 @@ class PermissionWatchdogTest {
         runTest {
             val checker =
                 FakePermissionChecker(
-                    RuntimePermissionState(notificationsGranted = true, vpnConsentGranted = true),
+                    RuntimePermissionState(
+                        notificationsGranted = true,
+                        vpnConsentGranted = true,
+                        localNetworkGranted = true,
+                    ),
                 )
             val events = mutableListOf<PermissionChangeEvent>()
             val job =
@@ -45,7 +49,11 @@ class PermissionWatchdogTest {
         runTest {
             val checker =
                 FakePermissionChecker(
-                    RuntimePermissionState(notificationsGranted = true, vpnConsentGranted = true),
+                    RuntimePermissionState(
+                        notificationsGranted = true,
+                        vpnConsentGranted = true,
+                        localNetworkGranted = true,
+                    ),
                 )
             val events = mutableListOf<PermissionChangeEvent>()
             val job =
@@ -70,7 +78,11 @@ class PermissionWatchdogTest {
         runTest {
             val checker =
                 FakePermissionChecker(
-                    RuntimePermissionState(notificationsGranted = true, vpnConsentGranted = true),
+                    RuntimePermissionState(
+                        notificationsGranted = true,
+                        vpnConsentGranted = true,
+                        localNetworkGranted = true,
+                    ),
                 )
             val events = mutableListOf<PermissionChangeEvent>()
             val job =
@@ -90,11 +102,41 @@ class PermissionWatchdogTest {
         }
 
     @Test
+    fun `emits event when local network permission is revoked`() =
+        runTest {
+            val checker =
+                FakePermissionChecker(
+                    RuntimePermissionState(
+                        notificationsGranted = true,
+                        vpnConsentGranted = true,
+                        localNetworkGranted = true,
+                    ),
+                )
+            val events = mutableListOf<PermissionChangeEvent>()
+            val job =
+                launch {
+                    pollPermissionChanges(checker, intervalMs = 100L, clock = { 3_000L }).collect(events::add)
+                }
+
+            advanceTimeBy(50L)
+            checker.state = checker.state.copy(localNetworkGranted = false)
+            advanceTimeBy(100L)
+
+            assertEquals(listOf(PermissionChangeEvent.KIND_LOCAL_NETWORK), events.map { it.kind })
+            assertEquals(3_000L, events.single().detectedAt)
+            job.cancel()
+        }
+
+    @Test
     fun `emits both events when both permissions revoked simultaneously`() =
         runTest {
             val checker =
                 FakePermissionChecker(
-                    RuntimePermissionState(notificationsGranted = true, vpnConsentGranted = true),
+                    RuntimePermissionState(
+                        notificationsGranted = true,
+                        vpnConsentGranted = true,
+                        localNetworkGranted = true,
+                    ),
                 )
             val collected =
                 pollPermissionChanges(checker, intervalMs = 100L, clock = { 0L })
@@ -103,7 +145,12 @@ class PermissionWatchdogTest {
             val job =
                 launch {
                     advanceTimeBy(50L)
-                    checker.state = RuntimePermissionState(notificationsGranted = false, vpnConsentGranted = false)
+                    checker.state =
+                        RuntimePermissionState(
+                            notificationsGranted = false,
+                            vpnConsentGranted = false,
+                            localNetworkGranted = true,
+                        )
                     advanceTimeBy(100L)
                 }
 
@@ -121,7 +168,11 @@ class PermissionWatchdogTest {
         runTest {
             val checker =
                 FakePermissionChecker(
-                    RuntimePermissionState(notificationsGranted = false, vpnConsentGranted = false),
+                    RuntimePermissionState(
+                        notificationsGranted = false,
+                        vpnConsentGranted = false,
+                        localNetworkGranted = false,
+                    ),
                 )
             val events = mutableListOf<PermissionChangeEvent>()
             val job =
@@ -141,7 +192,11 @@ class PermissionWatchdogTest {
         runTest {
             val checker =
                 FakePermissionChecker(
-                    RuntimePermissionState(notificationsGranted = true, vpnConsentGranted = true),
+                    RuntimePermissionState(
+                        notificationsGranted = true,
+                        vpnConsentGranted = true,
+                        localNetworkGranted = true,
+                    ),
                 )
             val events = mutableListOf<PermissionChangeEvent>()
             val job =

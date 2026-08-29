@@ -228,6 +228,7 @@ class ActiveScanRegistry
         internal val ownerExecutions = OwnerExecutionRegistry()
         private val scanSessionFingerprints = ConcurrentHashMap<String, NetworkFingerprint>()
         private val scanSessionPreferredDnsPaths = ConcurrentHashMap<String, EncryptedDnsPathCandidate>()
+        private val preparedScans = ConcurrentHashMap<String, PreparedDiagnosticsScan>()
         private val hiddenAutomaticProbeActiveState = MutableStateFlow(false)
 
         @Volatile
@@ -239,6 +240,7 @@ class ActiveScanRegistry
             prepared: PreparedDiagnosticsScan,
             ownerId: String? = null,
         ) {
+            preparedScans[prepared.sessionId] = prepared
             prepared.networkFingerprint?.let { scanSessionFingerprints[prepared.sessionId] = it }
             prepared.preferredDnsPath?.let { scanSessionPreferredDnsPaths[prepared.sessionId] = it }
             ownerId?.let { sessionOwnership.remember(prepared.sessionId, it) }
@@ -248,6 +250,7 @@ class ActiveScanRegistry
             val cancellationOwnerStillActive = cancelledSessionIds.contains(sessionId)
             scanSessionFingerprints.remove(sessionId)
             scanSessionPreferredDnsPaths.remove(sessionId)
+            preparedScans.remove(sessionId)
             cancelledSessionIds.remove(sessionId)
             cancelledSessionSummaries.remove(sessionId)
             cancelledSessionReports.remove(sessionId)
@@ -256,10 +259,6 @@ class ActiveScanRegistry
             }
             sessionOwnership.remove(sessionId)
         }
-
-        fun fingerprint(sessionId: String): NetworkFingerprint? = scanSessionFingerprints[sessionId]
-
-        fun preferredDnsPath(sessionId: String): EncryptedDnsPathCandidate? = scanSessionPreferredDnsPaths[sessionId]
 
         fun hasVisibleActiveScan(): Boolean =
             timelineSource.activeScanProgress.value != null || hasRegisteredActiveBridge
@@ -281,30 +280,8 @@ class ActiveScanRegistry
         }
 
         internal suspend fun cancelScan(sessionId: String): ActiveScanCancellation? {
-            val execution =
-                bridgeMutex.withLock {
-                    val candidate =
-                        visibleScanExecutions[sessionId]?.let { visible ->
-                            CancellableScanExecution(
-                                bridge = visible.bridge,
-                                executionJob = visible.executionJob,
-                                registerActiveBridge = true,
-                            )
-                        } ?: hiddenScanExecutions[sessionId]?.let { hidden ->
-                            CancellableScanExecution(
-                                bridge = hidden.bridge,
-                                executionJob = hidden.executionJob,
-                                registerActiveBridge = false,
-                            )
-                        }
-                    if (candidate != null && terminalClaims[candidate.bridge] == null) {
-                        terminalClaims[candidate.bridge] = sessionId to ScanTerminalClaim.CANCELLATION
-                        rememberCancellation(sessionId, "Diagnostics scan canceled")
-                        candidate
-                    } else {
-                        null
-                    }
-                } ?: return null
+            val prepared = preparedScans[sessionId]
+            val execution = claimCancellation(sessionId) ?: return null
             val bridge = execution.bridge
             var partialReportJson: String? = null
             var failure: Throwable? =
@@ -356,8 +333,38 @@ class ActiveScanRegistry
                     )
                 }
             }
-            return ActiveScanCancellation(sessionId, partialReportJson, failure)
+            return ActiveScanCancellation(
+                sessionId = sessionId,
+                partialReportJson = partialReportJson,
+                failure = failure,
+                prepared = prepared,
+            )
         }
+
+        private suspend fun claimCancellation(sessionId: String): CancellableScanExecution? =
+            bridgeMutex.withLock {
+                val candidate =
+                    visibleScanExecutions[sessionId]?.let { visible ->
+                        CancellableScanExecution(
+                            bridge = visible.bridge,
+                            executionJob = visible.executionJob,
+                            registerActiveBridge = true,
+                        )
+                    } ?: hiddenScanExecutions[sessionId]?.let { hidden ->
+                        CancellableScanExecution(
+                            bridge = hidden.bridge,
+                            executionJob = hidden.executionJob,
+                            registerActiveBridge = false,
+                        )
+                    }
+                if (candidate != null && terminalClaims[candidate.bridge] == null) {
+                    terminalClaims[candidate.bridge] = sessionId to ScanTerminalClaim.CANCELLATION
+                    rememberCancellation(sessionId, "Diagnostics scan canceled")
+                    candidate
+                } else {
+                    null
+                }
+            }
 
         /**
          * Retrieve and remove the partial report captured during [cancelActiveScan].
@@ -682,9 +689,7 @@ internal class BridgeReportPollingState(
                     terminalReportJson = reportJson
                 }
 
-                null -> {
-                    Unit
-                }
+                null -> {}
             }
         }
 }

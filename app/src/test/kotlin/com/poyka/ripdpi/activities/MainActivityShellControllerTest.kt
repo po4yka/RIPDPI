@@ -59,6 +59,9 @@ class MainActivityShellControllerTest {
             val batteryIntent = Intent("test.battery")
 
             controller.hostCommands.test {
+                controller.onEffect(MainEffect.RequestPermission(kind = PermissionKind.LocalNetwork))
+                assertEquals(MainActivityHostCommand.RequestLocalNetworkPermission, awaitItem())
+
                 controller.onEffect(MainEffect.RequestPermission(kind = PermissionKind.Notifications))
                 assertEquals(MainActivityHostCommand.RequestNotificationsPermission, awaitItem())
 

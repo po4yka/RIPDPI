@@ -50,6 +50,18 @@ internal interface UpstreamRelayRuntimeConfigResolver {
     ): ResolvedRipDpiRelayConfig
 }
 
+internal data class LocalNetworkAwareRelayConfigResolution(
+    val config: ResolvedRipDpiRelayConfig,
+    val localNetworkDependent: Boolean,
+)
+
+internal interface LocalNetworkAwareRelayRuntimeConfigResolver {
+    suspend fun resolveWithLocalNetworkDependency(
+        config: RipDpiRelayConfig,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+    ): LocalNetworkAwareRelayConfigResolution
+}
+
 internal data class RelayResolverRequest(
     val profileId: String,
     val mergedConfig: RipDpiRelayConfig,
@@ -520,7 +532,7 @@ internal abstract class UpstreamRelayRuntimeConfigResolverModule {
     @Binds
     @Singleton
     abstract fun bindUpstreamRelayRuntimeConfigResolver(
-        resolver: DefaultUpstreamRelayRuntimeConfigResolver,
+        resolver: PermissionCheckedRelayConfigResolver,
     ): UpstreamRelayRuntimeConfigResolver
 
     @Binds

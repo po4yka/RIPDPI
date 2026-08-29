@@ -8,6 +8,8 @@ import android.os.Build
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.automation.AutomationController
+import com.poyka.ripdpi.data.LocalNetworkPermission
+import com.poyka.ripdpi.data.LocalNetworkPermissionApi
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
@@ -28,6 +30,7 @@ enum class PermissionKind {
     VpnLockdown,
     Notifications,
     BatteryOptimization,
+    LocalNetwork,
 }
 
 enum class PermissionStatus {
@@ -40,6 +43,7 @@ enum class PermissionStatus {
 }
 
 data class PermissionSnapshot(
+    val localNetwork: PermissionStatus = PermissionStatus.NotApplicable,
     val vpnConsent: PermissionStatus = PermissionStatus.RequiresSystemPrompt,
     val alwaysOnVpn: PermissionStatus = PermissionStatus.Unknown,
     val vpnLockdown: PermissionStatus = PermissionStatus.Unknown,
@@ -48,6 +52,7 @@ data class PermissionSnapshot(
 ) {
     fun statusFor(kind: PermissionKind): PermissionStatus =
         when (kind) {
+            PermissionKind.LocalNetwork -> localNetwork
             PermissionKind.VpnConsent -> vpnConsent
             PermissionKind.AlwaysOnVpn -> alwaysOnVpn
             PermissionKind.VpnLockdown -> vpnLockdown
@@ -60,6 +65,7 @@ data class PermissionSnapshot(
         status: PermissionStatus,
     ): PermissionSnapshot =
         when (kind) {
+            PermissionKind.LocalNetwork -> copy(localNetwork = status)
             PermissionKind.VpnConsent -> copy(vpnConsent = status)
             PermissionKind.AlwaysOnVpn -> copy(alwaysOnVpn = status)
             PermissionKind.VpnLockdown -> copy(vpnLockdown = status)
@@ -145,10 +151,21 @@ class AndroidPermissionStatusProvider
         private val automationController: Optional<AutomationController>,
         private val hardKillSwitchStateStore: AndroidHardKillSwitchStateStore,
     ) : PermissionStatusProvider {
+        private fun currentLocalNetworkStatus(): PermissionStatus =
+            when {
+                Build.VERSION.SDK_INT < LocalNetworkPermissionApi -> PermissionStatus.NotApplicable
+
+                ContextCompat.checkSelfPermission(context, LocalNetworkPermission) ==
+                    PackageManager.PERMISSION_GRANTED -> PermissionStatus.Granted
+
+                else -> PermissionStatus.RequiresSystemPrompt
+            }
+
         override fun currentSnapshot(): PermissionSnapshot {
             val hardKillSwitch = hardKillSwitchStateStore.snapshot.value
             val baseSnapshot =
                 PermissionSnapshot(
+                    localNetwork = currentLocalNetworkStatus(),
                     vpnConsent =
                         if (VpnService.prepare(context) == null) {
                             PermissionStatus.Granted

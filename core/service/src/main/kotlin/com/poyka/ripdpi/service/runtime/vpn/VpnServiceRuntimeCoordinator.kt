@@ -152,6 +152,16 @@ internal class VpnServiceRuntimeCoordinator(
             resolverRefreshPlanner = resolverRefreshPlanner,
             encryptedDnsFailoverController = encryptedDnsFailoverController,
         )
+    private val permissionRevocationHandler =
+        VpnPermissionRevocationHandler(
+            isLocalNetworkDependent = {
+                runtimeSession?.localNetworkDependent == true || upstreamRelaySupervisor.localNetworkDependent
+            },
+            failAndStop = { reason ->
+                updateStatus(ServiceStatus.Failed, reason)
+                vpnHost.serviceScope.launch(ioDispatcher) { stop() }
+            },
+        )
     private val supervisorExitHandler =
         VpnSupervisorExitHandler(
             host = vpnHost,
@@ -352,6 +362,7 @@ internal class VpnServiceRuntimeCoordinator(
         restartReason: String,
         appliedAt: Long,
     ) {
+        session.localNetworkDependent = resolution.localNetworkDependent
         session.updateActiveConnectionPolicy(
             resolution.toVpnActiveConnectionPolicy(
                 restartReason = restartReason,
@@ -698,19 +709,7 @@ internal class VpnServiceRuntimeCoordinator(
     private fun classifyHandoverFailure(error: Exception): FailureReason =
         classifyFailureReason(error, isTunnelContext = true)
 
-    private fun onPermissionRevoked(event: PermissionChangeEvent) {
-        when (event.kind) {
-            PermissionChangeEvent.KIND_VPN_CONSENT -> {
-                Logger.e { "VPN consent revoked while running" }
-                updateStatus(ServiceStatus.Failed, FailureReason.PermissionLost("VPN"))
-                host.serviceScope.launch(ioDispatcher) { stop() }
-            }
-
-            PermissionChangeEvent.KIND_NOTIFICATIONS -> {
-                Logger.i { "Notification permission revoked while VPN running" }
-            }
-        }
-    }
+    private fun onPermissionRevoked(event: PermissionChangeEvent) = permissionRevocationHandler.handle(event)
 
     private fun onAfterStopCleanup(session: VpnRuntimeSession?) {
         telemetryCoordinator.stopProtectFailureMonitoring()

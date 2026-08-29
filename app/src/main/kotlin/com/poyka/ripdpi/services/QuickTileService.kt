@@ -37,13 +37,18 @@ class QuickTileService :
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
 
+    @Inject
+    lateinit var serviceStartPreflight: ServiceStartPreflight
+
     private var scope: CoroutineScope? = null
+    private val actionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val controller by lazy {
         QuickTileController(
             appStartupReadiness = appStartupReadiness,
             appSettingsRepository = appSettingsRepository,
             serviceController = serviceController,
             serviceStateStore = serviceStateStore,
+            serviceStartPreflight = serviceStartPreflight,
         )
     }
 
@@ -62,6 +67,7 @@ class QuickTileService :
     override fun onDestroy() {
         controller.onStopListening()
         clearScope()
+        actionScope.cancel()
         super.onDestroy()
     }
 
@@ -85,7 +91,7 @@ class QuickTileService :
 
     override fun onClick() {
         unlockAndRun {
-            controller.onClick(this)
+            controller.onClick(this, actionScope)
         }
     }
 

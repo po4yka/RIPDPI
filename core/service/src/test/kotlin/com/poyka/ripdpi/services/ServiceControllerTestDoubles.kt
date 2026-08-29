@@ -952,7 +952,9 @@ internal class TestRelayCredentialStore : RelayCredentialStore {
 internal class TestUpstreamRelayRuntimeConfigResolver(
     var resolvedConfig: ResolvedRipDpiRelayConfig = sampleResolvedRelayConfig(),
     var failure: Throwable? = null,
-) : UpstreamRelayRuntimeConfigResolver {
+    var localNetworkDependent: Boolean = false,
+) : UpstreamRelayRuntimeConfigResolver,
+    LocalNetworkAwareRelayRuntimeConfigResolver {
     val requests = mutableListOf<Pair<RipDpiRelayConfig, OwnedRelayQuicMigrationConfig>>()
 
     override suspend fun resolve(
@@ -963,6 +965,15 @@ internal class TestUpstreamRelayRuntimeConfigResolver(
         failure?.let { throw it }
         return resolvedConfig
     }
+
+    override suspend fun resolveWithLocalNetworkDependency(
+        config: RipDpiRelayConfig,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+    ): LocalNetworkAwareRelayConfigResolution =
+        LocalNetworkAwareRelayConfigResolution(
+            config = resolve(config, quicMigrationConfig),
+            localNetworkDependent = localNetworkDependent,
+        )
 }
 
 internal const val TestVlessRealityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
@@ -1420,6 +1431,7 @@ internal fun sampleResolution(
     matchedPolicy: RememberedNetworkPolicyEntity? = null,
     networkScopeKey: String? = sampleFingerprint().scopeKey(),
     resolverFallbackReason: String? = null,
+    localNetworkDependent: Boolean = false,
 ): ConnectionPolicyResolution =
     ConnectionPolicyResolution(
         settings = settings,
@@ -1431,6 +1443,7 @@ internal fun sampleResolution(
         fingerprintHash = networkScopeKey,
         policySignature = policySignature,
         resolverFallbackReason = resolverFallbackReason,
+        localNetworkDependent = localNetworkDependent,
     )
 
 internal class TestPermissionWatchdog : PermissionWatchdog {

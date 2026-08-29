@@ -28,6 +28,21 @@ class ActiveScanRegistryTest {
     private val json = diagnosticsTestJson()
 
     @Test
+    fun `prepared scan metadata remains available until lifecycle cleanup`() =
+        runTest {
+            val registry =
+                ActiveScanRegistry(coordinatorTimelineSource(FakeDiagnosticsHistoryStores(), backgroundScope))
+            val prepared = preparedDiagnosticsScan("prepared-metadata", defaultDiagnosticsAppSettings())
+            val bridge = FakeNetworkDiagnosticsBridge(json)
+
+            registry.rememberPreparedScan(prepared)
+            registry.registerBridge(bridge, prepared.sessionId, registerActiveBridge = false)
+
+            assertEquals(prepared, registry.cancelScan(prepared.sessionId)?.prepared)
+            registry.removePreparedScan(prepared.sessionId)
+        }
+
+    @Test
     fun `registerExecution refuses when cancellation already claimed the bridge`() =
         runTest {
             val registry =

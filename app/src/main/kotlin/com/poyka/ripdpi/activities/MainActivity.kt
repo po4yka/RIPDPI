@@ -274,6 +274,10 @@ internal fun hostCommandFailurePermissionResult(
     command: MainActivityHostCommand,
 ): Pair<PermissionKind, PermissionResult>? =
     when (command) {
+        MainActivityHostCommand.RequestLocalNetworkPermission -> {
+            PermissionKind.LocalNetwork to PermissionResult.Denied
+        }
+
         MainActivityHostCommand.RequestNotificationsPermission -> {
             PermissionKind.Notifications to PermissionResult.Denied
         }

@@ -46,6 +46,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -444,6 +445,31 @@ class UpstreamRelaySupervisorTest {
 
             assertEquals(RelaySocketProtection.VpnRequired, relayFactory.lastRuntime.lastConfig?.socketProtection)
             supervisor.stop()
+        }
+
+    @Test
+    fun `active relay exposes its local network dependency until stopped`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val resolver = TestUpstreamRelayRuntimeConfigResolver(localNetworkDependent = true)
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = resolver,
+                )
+
+            supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = {},
+            )
+            assertTrue(supervisor.localNetworkDependent)
+
+            supervisor.stop()
+            assertFalse(supervisor.localNetworkDependent)
         }
 
     @Test

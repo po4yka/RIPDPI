@@ -263,7 +263,14 @@ private suspend fun handleDiagnosticsEffect(
 
         is DiagnosticsEffect.ScanStartFailed -> {
             performHaptic(RipDpiHapticFeedback.Error)
-            showDiagnosticsSnackbar(snackbarHostState, effect.message, RipDpiSnackbarTone.Error)
+            val result =
+                snackbarHostState.showRipDpiSnackbar(
+                    message = effect.message,
+                    actionLabel = effect.actionLabel,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
+                )
+            if (result == SnackbarResult.ActionPerformed) handleSnackbarAction(effect.action, callbacks)
         }
     }
 }
@@ -286,6 +293,7 @@ private fun handleSnackbarAction(
 ) {
     when (action) {
         DiagnosticsEffect.SnackbarAction.OpenDnsSettings -> callbacks.onOpenDnsSettings()
+        DiagnosticsEffect.SnackbarAction.RequestLocalNetwork -> callbacks.onRequestLocalNetworkPermission()
         null -> Unit
     }
 }
@@ -433,6 +441,7 @@ data class DiagnosticsRouteCallbacks(
     val onOpenDnsSettings: () -> Unit = {},
     val onOpenDetectionCheck: () -> Unit = {},
     val onRequestVpnPermission: () -> Unit = {},
+    val onRequestLocalNetworkPermission: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onOpenModeEditor: () -> Unit = {},
     val onOpenOwnedStackBrowser: (String) -> Unit = {},

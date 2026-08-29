@@ -20,6 +20,9 @@ class AndroidRuntimePermissionChecker
             return RuntimePermissionState(
                 notificationsGranted = snapshot.notifications == PermissionStatus.Granted,
                 vpnConsentGranted = snapshot.vpnConsent == PermissionStatus.Granted,
+                localNetworkGranted =
+                    snapshot.localNetwork == PermissionStatus.Granted ||
+                        snapshot.localNetwork == PermissionStatus.NotApplicable,
             )
         }
     }

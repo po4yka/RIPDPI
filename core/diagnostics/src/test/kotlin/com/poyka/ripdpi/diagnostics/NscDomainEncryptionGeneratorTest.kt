@@ -36,12 +36,12 @@ class NscDomainEncryptionGeneratorTest {
     }
 
     @Test
-    fun `opportunistic mode emits domainEncryption mode opportunistic`() {
+    fun `opportunistic policy uses the documented enabled XML mode`() {
         val xml =
             NscDomainEncryptionGenerator.generate(
                 mapOf("other.example.com" to EchMode.Opportunistic),
             )
-        assertTrue(xml.contains("<domainEncryption mode=\"opportunistic\""))
+        assertTrue(xml.contains("<domainEncryption mode=\"enabled\""))
         assertTrue(xml.contains("other.example.com"))
     }
 

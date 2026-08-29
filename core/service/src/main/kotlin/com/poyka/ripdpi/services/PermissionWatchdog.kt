@@ -22,6 +22,7 @@ data class PermissionChangeEvent(
     companion object {
         const val KIND_NOTIFICATIONS = "notifications"
         const val KIND_VPN_CONSENT = "vpn_consent"
+        const val KIND_LOCAL_NETWORK = "local_network"
     }
 }
 
@@ -68,6 +69,9 @@ internal fun pollPermissionChanges(
             }
             if (previous.vpnConsentGranted && !current.vpnConsentGranted) {
                 emit(PermissionChangeEvent(PermissionChangeEvent.KIND_VPN_CONSENT, clock()))
+            }
+            if (previous.localNetworkGranted && !current.localNetworkGranted) {
+                emit(PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, clock()))
             }
             previous = current
         }

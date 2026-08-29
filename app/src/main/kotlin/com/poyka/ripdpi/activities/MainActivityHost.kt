@@ -35,6 +35,8 @@ import javax.inject.Inject
 private const val PostNotificationsPermission = "android.permission.POST_NOTIFICATIONS"
 
 internal sealed interface MainActivityHostCommand {
+    data object RequestLocalNetworkPermission : MainActivityHostCommand
+
     data object RequestNotificationsPermission : MainActivityHostCommand
 
     data class RequestVpnConsent(
@@ -94,6 +96,7 @@ internal class DefaultMainActivityHost
         private lateinit var activity: AppCompatActivity
         private lateinit var viewModel: MainViewModel
         private lateinit var vpnPermissionLauncher: ActivityResultLauncher<Intent>
+        private lateinit var localNetworkPermissionLauncher: ActivityResultLauncher<String>
         private lateinit var notificationPermissionLauncher: ActivityResultLauncher<String>
         private lateinit var batteryOptimizationLauncher: ActivityResultLauncher<Intent>
         private lateinit var logsLauncher: ActivityResultLauncher<Intent>
@@ -132,6 +135,16 @@ internal class DefaultMainActivityHost
                         result = mapNotificationPermissionResult(granted, shouldShowRationale),
                     )
                 }
+            localNetworkPermissionLauncher =
+                activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                    viewModel.onPermissionResult(
+                        com.poyka.ripdpi.permissions.PermissionKind.LocalNetwork,
+                        mapNotificationPermissionResult(
+                            granted,
+                            activity.shouldShowRequestPermissionRationale(com.poyka.ripdpi.data.LocalNetworkPermission),
+                        ),
+                    )
+                }
             batteryOptimizationLauncher =
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                     viewModel.onPermissionResult(
@@ -156,6 +169,12 @@ internal class DefaultMainActivityHost
                 return
             }
             when (command) {
+                MainActivityHostCommand.RequestLocalNetworkPermission -> {
+                    if (Build.VERSION.SDK_INT >= com.poyka.ripdpi.data.LocalNetworkPermissionApi) {
+                        localNetworkPermissionLauncher.launch(com.poyka.ripdpi.data.LocalNetworkPermission)
+                    }
+                }
+
                 MainActivityHostCommand.RequestNotificationsPermission -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(PostNotificationsPermission)

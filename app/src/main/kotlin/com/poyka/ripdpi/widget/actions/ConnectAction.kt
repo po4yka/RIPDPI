@@ -5,7 +5,6 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.services.ServiceStartResult
 import dagger.hilt.android.EntryPointAccessors
 
 class ConnectAction : ActionCallback {
@@ -20,9 +19,11 @@ class ConnectAction : ActionCallback {
                 WidgetEntryPoint::class.java,
             )
         val lastMode = ep.widgetStateRepository().snapshot().mode ?: Mode.VPN
-        when (ep.serviceController().start(lastMode)) {
-            is ServiceStartResult.Accepted -> Unit
-            is ServiceStartResult.Rejected -> Unit
-        }
+        startServiceFromWidget(
+            context = context,
+            mode = lastMode,
+            serviceStartPreflight = ep.serviceStartPreflight(),
+            serviceController = ep.serviceController(),
+        )
     }
 }

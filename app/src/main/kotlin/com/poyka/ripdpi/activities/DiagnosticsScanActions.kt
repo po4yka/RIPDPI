@@ -536,6 +536,16 @@ private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(
             queuedManualScanRequest = null,
         )
     }
+    if (error is com.poyka.ripdpi.data.LocalNetworkAccessRequiredException) {
+        emit(
+            DiagnosticsEffect.ScanStartFailed(
+                message = stringResolver.getString(R.string.permissions_local_network_needed),
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_allow),
+                action = DiagnosticsEffect.SnackbarAction.RequestLocalNetwork,
+            ),
+        )
+        return
+    }
     emit(
         DiagnosticsEffect.ScanStartFailed(
             message =

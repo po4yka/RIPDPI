@@ -54,6 +54,7 @@ data class ConnectionPolicyResolution(
     val handoverClassification: String? = null,
     val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     val destinationRoutingDigest: String = "",
+    val localNetworkDependent: Boolean,
 )
 
 /**
@@ -123,8 +124,12 @@ class DefaultConnectionPolicyResolver
                 } else {
                     buildRememberedResolution(mode, baseline, handoverClassification)
                 }
-            return rememberedResolution
-                ?: buildBaselineResolution(baseline, handoverClassification)
+            val resolution = rememberedResolution ?: buildBaselineResolution(baseline, handoverClassification)
+            val localNetworkDependent =
+                com.poyka.ripdpi.data
+                    .AndroidLocalNetworkAccess(context)
+                    .requireConnection(resolution)
+            return resolution.copy(localNetworkDependent = localNetworkDependent)
         }
 
         private suspend fun buildBaselineCandidate(
@@ -334,6 +339,7 @@ class DefaultConnectionPolicyResolver
                     handoverClassification = handoverClassification,
                     splitStrictDnsPolicy = splitStrictDnsPolicy,
                     destinationRoutingDigest = baseline.destinationRoutingSnapshot.policyOrThrow().canonicalDigest,
+                    localNetworkDependent = false,
                 )
             } catch (error: CancellationException) {
                 throw error
@@ -441,6 +447,7 @@ class DefaultConnectionPolicyResolver
                 handoverClassification = handoverClassification,
                 splitStrictDnsPolicy = baseline.splitStrictDnsPolicy,
                 destinationRoutingDigest = baseline.destinationRoutingSnapshot.policyOrThrow().canonicalDigest,
+                localNetworkDependent = false,
             )
 
         private data class BaselineConnectionPolicy(

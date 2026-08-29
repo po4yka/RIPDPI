@@ -25,6 +25,7 @@ import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.EngineRequestEncoder
 import com.poyka.ripdpi.diagnostics.NetworkMetadataProvider
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ScanContextCollector
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -36,6 +37,7 @@ import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogPathValidator
+import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -73,6 +75,7 @@ internal data class PreparedDiagnosticsScan(
     val preScanContext: DiagnosticContextEntity,
     val reprobeForSessionId: String? = null,
     val inPathRouteLease: DiagnosticsInPathRouteLease? = null,
+    val localNetworkDeferrals: List<ProbeResult> = emptyList(),
 )
 
 @Singleton
@@ -90,6 +93,21 @@ internal class DiagnosticsScanRequestFactory
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
+        suspend fun admitLocalNetworkAccess(prepared: PreparedDiagnosticsScan): PreparedDiagnosticsScan {
+            val access =
+                com.poyka.ripdpi.data
+                    .AndroidLocalNetworkAccess(context)
+            if (access.hasAccess()) return prepared
+            val admission =
+                access.prepareScanEndpoints(
+                    json.decodeFromString(EngineScanRequestWire.serializer(), prepared.requestJson),
+                )
+            return prepared.copy(
+                requestJson = json.encodeToString(EngineScanRequestWire.serializer(), admission.request),
+                localNetworkDeferrals = admission.deferred,
+            )
+        }
+
         fun bindInPathRoute(
             prepared: PreparedDiagnosticsScan,
             lease: DiagnosticsInPathRouteLease,

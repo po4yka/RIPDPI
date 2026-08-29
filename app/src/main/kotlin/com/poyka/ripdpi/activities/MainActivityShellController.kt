@@ -94,6 +94,10 @@ internal class MainActivityShellController(
         when (effect) {
             is MainEffect.RequestPermission -> {
                 when (effect.kind) {
+                    com.poyka.ripdpi.permissions.PermissionKind.LocalNetwork -> {
+                        _hostCommands.trySend(MainActivityHostCommand.RequestLocalNetworkPermission)
+                    }
+
                     com.poyka.ripdpi.permissions.PermissionKind.Notifications -> {
                         _hostCommands.trySend(MainActivityHostCommand.RequestNotificationsPermission)
                     }

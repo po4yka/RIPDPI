@@ -71,7 +71,7 @@ class ScanFinalizationService
                 requireReportMatchesPreparedScan(prepared, rawReport)
                 val finalizedWire =
                     DiagnosticsDiagnosisAuthority
-                        .finalizeReport(rawReport)
+                        .finalizeReport(rawReport.withLocalNetworkDeferrals(prepared))
                         .withOwnedInPathRouteAuthority(prepared, ownedInPathRouteAtCompletion)
                 val enrichedReport =
                     DiagnosticsScanWorkflow.enrichScanReport(
@@ -186,7 +186,7 @@ class ScanFinalizationService
             check(prepared.pathMode == ScanPathMode.RAW_PATH) {
                 "Recovery report staging belongs only to raw-path diagnostics: ${prepared.sessionId}"
             }
-            val report = json.decodeEngineScanReportWire(reportJson)
+            val report = json.decodeEngineScanReportWire(reportJson).withLocalNetworkDeferrals(prepared)
             requireReportMatchesPreparedScan(prepared, report)
             check(
                 report.reportDisposition in

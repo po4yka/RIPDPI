@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permissions_local_network_title">本地网络访问</string>
+    <string name="permissions_local_network_needed">此操作需要访问本地网络。未授予此权限时，互联网连接仍然可用。</string>
+    <string name="permissions_local_network_settings">请在应用设置中允许访问附近的设备，然后重试此操作。</string>
+</resources>

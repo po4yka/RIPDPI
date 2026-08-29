@@ -11,12 +11,15 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.FailureClass
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
+import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
@@ -921,6 +924,142 @@ class MainViewModelTest {
 
             assertEquals(listOf(Mode.VPN), serviceController.startedModes)
             assertNull(viewModel.uiState.value.permissionSummary.issue)
+            collector.cancel()
+        }
+
+    @Test
+    fun `local network recovery prompts only on explicit repair and resumes the rejected mode`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore()
+            val settingsRepository = onboardedVpnSettingsRepository()
+            val provider =
+                grantedPermissionStatusProvider().apply {
+                    snapshot = snapshot.copy(localNetwork = PermissionStatus.Denied)
+                }
+            val viewModel =
+                createViewModel(
+                    appSettingsRepository = settingsRepository,
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = provider,
+                )
+            val effects = mutableListOf<MainEffect>()
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            val effectCollector = backgroundScope.launch { viewModel.effects.collect { effects += it } }
+            runCurrent()
+
+            viewModel.onPrimaryConnectionAction()
+            runCurrent()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+            assertTrue(effects.filterIsInstance<MainEffect.RequestPermission>().isEmpty())
+            assertNull(viewModel.uiState.value.permissionSummary.issue)
+
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
+            runCurrent()
+
+            val issue = viewModel.uiState.value.permissionSummary.issue
+            assertEquals(PermissionKind.LocalNetwork, issue?.kind)
+            assertEquals(PermissionRecovery.RetryPrompt, issue?.recovery)
+            assertTrue(effects.filterIsInstance<MainEffect.RequestPermission>().isEmpty())
+
+            settingsRepository.update { setRipdpiMode("proxy") }
+            runCurrent()
+            assertEquals(Mode.Proxy, viewModel.uiState.value.configuredMode)
+
+            viewModel.onRepairPermissionRequested(PermissionKind.LocalNetwork)
+            runCurrent()
+
+            assertEquals(
+                listOf(PermissionKind.LocalNetwork),
+                effects.filterIsInstance<MainEffect.RequestPermission>().map { it.kind },
+            )
+
+            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.Granted)
+            viewModel.onPermissionResult(PermissionKind.LocalNetwork, PermissionResult.Granted)
+            runCurrent()
+
+            assertEquals(listOf(Mode.VPN, Mode.VPN), serviceController.startedModes)
+            assertNull(viewModel.uiState.value.permissionSummary.issue)
+            effectCollector.cancel()
+            collector.cancel()
+        }
+
+    @Test
+    fun `explicit stop cancels deferred LAN recovery before returning from settings`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore()
+            val provider =
+                grantedPermissionStatusProvider().apply {
+                    snapshot = snapshot.copy(localNetwork = PermissionStatus.Denied)
+                }
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = provider,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
+            runCurrent()
+            val issue = viewModel.uiState.value.permissionSummary.issue
+            assertEquals(PermissionKind.LocalNetwork, issue?.kind)
+
+            viewModel.onStopRequested()
+            runCurrent()
+
+            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.Granted)
+            viewModel.onForeground()
+            runCurrent()
+
+            assertEquals(emptyList<Mode>(), serviceController.startedModes)
+            collector.cancel()
+        }
+
+    @Test
+    fun `new explicit proxy start supersedes deferred VPN LAN recovery`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore()
+            val provider =
+                grantedPermissionStatusProvider().apply {
+                    snapshot = snapshot.copy(localNetwork = PermissionStatus.Denied)
+                }
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = provider,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
+            runCurrent()
+            val issue = viewModel.uiState.value.permissionSummary.issue
+            assertEquals(PermissionKind.LocalNetwork, issue?.kind)
+
+            viewModel.onToggleLocalBypass(enabled = true)
+            runCurrent()
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.Proxy)
+            runCurrent()
+            val connectedState = viewModel.uiState.value
+            assertEquals(ConnectionState.Connected, connectedState.connectionState)
+            assertEquals(Mode.Proxy, connectedState.activeMode)
+
+            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.Granted)
+            viewModel.onForeground()
+            runCurrent()
+
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
+            runCurrent()
             collector.cancel()
         }
 

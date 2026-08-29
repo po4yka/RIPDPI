@@ -117,6 +117,9 @@ internal class UpstreamRelaySupervisor(
 
     private var activeSlot: RelayRuntimeSlot? = null
 
+    val localNetworkDependent: Boolean
+        get() = activeSlot?.localNetworkDependent == true
+
     suspend fun start(
         requirements: EgressRequirements,
         config: RipDpiRelayConfig,
@@ -168,9 +171,17 @@ internal class UpstreamRelaySupervisor(
         requirements: EgressRequirements,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): RelayRuntimeSlot {
+        val configResolution =
+            if (runtimeConfigResolver is LocalNetworkAwareRelayRuntimeConfigResolver) {
+                runtimeConfigResolver.resolveWithLocalNetworkDependency(config, quicMigrationConfig)
+            } else {
+                LocalNetworkAwareRelayConfigResolution(
+                    config = runtimeConfigResolver.resolve(config, quicMigrationConfig),
+                    localNetworkDependent = false,
+                )
+            }
         val resolvedConfig =
-            runtimeConfigResolver
-                .resolve(config, quicMigrationConfig)
+            configResolution.config
                 .let { resolved ->
                     if (localPortOverride == null) resolved else resolved.copy(localSocksPort = localPortOverride)
                 }.withNetworkMode(networkMode)
@@ -205,6 +216,7 @@ internal class UpstreamRelaySupervisor(
                 exitReported = AtomicBoolean(false),
                 onUnexpectedExit = onUnexpectedExit,
                 udpEnabled = resolvedConfig.udpEnabled,
+                localNetworkDependent = configResolution.localNetworkDependent,
             )
 
         job.invokeOnCompletion {

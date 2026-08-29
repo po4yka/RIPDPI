@@ -6,6 +6,7 @@ internal data class ActiveScanCancellation(
     val sessionId: String,
     val partialReportJson: String?,
     val failure: Throwable? = null,
+    val prepared: PreparedDiagnosticsScan? = null,
 )
 
 internal enum class ScanTerminalClaim {

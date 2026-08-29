@@ -33,6 +33,7 @@ abstract class ServiceRuntimeSession
     ) : ServiceRuntimeHandle {
         private var autolearnActivationGeneration: Long = 0L
         private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
+        var localNetworkDependent: Boolean = false
 
         final override val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?> =
             activeConnectionPolicyState

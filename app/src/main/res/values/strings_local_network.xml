@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permissions_local_network_title">Local network access</string>
+    <string name="permissions_local_network_needed">This action needs access to your local network. Internet connections remain available without this permission.</string>
+    <string name="permissions_local_network_settings">Allow Nearby devices in app settings, then retry this action.</string>
+</resources>

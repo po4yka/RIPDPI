@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permissions_local_network_title">स्थानीय नेटवर्क का ऐक्सेस</string>
+    <string name="permissions_local_network_needed">इस कार्रवाई के लिए स्थानीय नेटवर्क का ऐक्सेस चाहिए। इस अनुमति के बिना भी इंटरनेट कनेक्शन उपलब्ध रहते हैं।</string>
+    <string name="permissions_local_network_settings">ऐप की सेटिंग में आस-पास के डिवाइस की अनुमति दें, फिर यह कार्रवाई दोबारा करें।</string>
+</resources>

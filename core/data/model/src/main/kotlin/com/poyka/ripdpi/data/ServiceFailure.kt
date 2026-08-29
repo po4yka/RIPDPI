@@ -44,6 +44,9 @@ open class ServiceStartupRejectedException(
     val reason: FailureReason,
 ) : IllegalStateException(reason.displayMessage)
 
+class LocalNetworkAccessRequiredException :
+    ServiceStartupRejectedException(FailureReason.PermissionLost(LocalNetworkPermission))
+
 val FailureReason.displayMessage: String
     get() =
         when (this) {

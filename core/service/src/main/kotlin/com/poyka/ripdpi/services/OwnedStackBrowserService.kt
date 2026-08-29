@@ -13,7 +13,6 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -138,7 +137,7 @@ class DefaultSecureHttpClient
                     result.getOrThrow()
                 }
 
-                error is CancellationException -> {
+                error != null && !error.permitsOwnedStackTransportFallback() -> {
                     throw error
                 }
 
@@ -202,7 +201,7 @@ class DefaultSecureHttpClient
                     )
                 }
             val retryError = retryResult.exceptionOrNull()
-            if (retryError is CancellationException) throw retryError
+            if (retryError != null && !retryError.permitsOwnedStackTransportFallback()) throw retryError
             return retryResult.getOrElse { error ->
                 ownedStackLog.w(error) {
                     "Owned-stack H2-only retry failed for ${authority.orEmpty()}; falling back to native owned TLS"

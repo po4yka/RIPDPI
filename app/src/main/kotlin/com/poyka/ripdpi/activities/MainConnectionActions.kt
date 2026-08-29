@@ -37,6 +37,7 @@ internal class MainConnectionActions(
     private val stringResolver: StringResolver,
     private val runtimeState: ConnectionRuntimeStateReducer,
     private val refreshPermissionSnapshot: () -> Unit,
+    private val onLocalNetworkRequired: (Mode) -> Unit = {},
 ) {
     private companion object {
         private const val PercentScale = 100
@@ -246,6 +247,11 @@ internal class MainConnectionActions(
         sender: Sender,
         reason: FailureReason,
     ) {
+        if (reason == FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission)) {
+            showError(stringResolver.getString(R.string.permissions_local_network_needed))
+            onLocalNetworkRequired(if (sender == Sender.VPN) Mode.VPN else Mode.Proxy)
+            return
+        }
         val detail = reason.displayMessage
         val message = stringResolver.getString(R.string.failed_to_start, sender.senderName) + ": $detail"
         showError(message)

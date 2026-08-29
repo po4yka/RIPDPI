@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permissions_local_network_title">Доступ к локальной сети</string>
+    <string name="permissions_local_network_needed">Для этого действия нужен доступ к локальной сети. Без разрешения подключения к интернету остаются доступны.</string>
+    <string name="permissions_local_network_settings">Разрешите доступ к устройствам поблизости в настройках приложения, затем повторите действие.</string>
+</resources>

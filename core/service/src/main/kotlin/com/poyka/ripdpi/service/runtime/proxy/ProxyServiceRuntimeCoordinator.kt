@@ -47,6 +47,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
@@ -186,6 +187,7 @@ internal class ProxyServiceRuntimeCoordinator(
         restartReason: String,
         appliedAt: Long,
     ) {
+        session.localNetworkDependent = resolution.localNetworkDependent
         session.currentDestinationRoutingDigest = resolution.destinationRoutingDigest
         val policy =
             resolution.appliedPolicy ?: run {
@@ -385,8 +387,21 @@ internal class ProxyServiceRuntimeCoordinator(
     }
 
     private fun onPermissionRevoked(event: PermissionChangeEvent) {
-        if (event.kind == PermissionChangeEvent.KIND_NOTIFICATIONS) {
-            Logger.i { "Notification permission revoked while proxy running" }
+        when (event.kind) {
+            PermissionChangeEvent.KIND_NOTIFICATIONS -> {
+                Logger.i { "Notification permission revoked while proxy running" }
+            }
+
+            PermissionChangeEvent.KIND_LOCAL_NETWORK -> {
+                if (runtimeSession?.localNetworkDependent == true || upstreamRelaySupervisor.localNetworkDependent) {
+                    Logger.e { "Local network permission revoked while LAN-dependent proxy runtime is active" }
+                    updateStatus(
+                        ServiceStatus.Failed,
+                        FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission),
+                    )
+                    host.serviceScope.launch(ioDispatcher) { stop() }
+                }
+            }
         }
     }
 

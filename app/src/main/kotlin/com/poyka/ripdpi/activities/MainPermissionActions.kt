@@ -29,6 +29,16 @@ internal class MainPermissionActions(
 ) {
     private val permissionOverrides = mutableMapOf<PermissionKind, PermissionStatus>()
     private var pendingPermissionAction: PermissionAction? = null
+    val localNetwork =
+        MainLocalNetworkPermissionActions(
+            mutations = mutations,
+            permissionPlatformBridge = permissionPlatformBridge,
+            stringResolver = stringResolver,
+            permissionState = permissionState,
+            refreshSnapshot = ::refreshPermissionSnapshot,
+            onShowIssue = onShowPermissionIssue,
+            resumeAction = ::resolvePermissionAction,
+        )
 
     fun onVpnPermissionContinueRequested() {
         resolvePermissionAction(PermissionAction.StartVpnMode)
@@ -40,7 +50,16 @@ internal class MainPermissionActions(
     }
 
     fun onRepairPermissionRequested(kind: PermissionKind) {
-        resolvePermissionAction(PermissionAction.RepairPermission(kind))
+        if (kind == PermissionKind.LocalNetwork) {
+            val snapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
+            requestPermissionFor(
+                action = PermissionAction.RepairPermission(kind),
+                blockedBy = kind,
+                snapshot = snapshot,
+            )
+        } else {
+            resolvePermissionAction(PermissionAction.RepairPermission(kind))
+        }
     }
 
     fun onPermissionResult(
@@ -48,6 +67,8 @@ internal class MainPermissionActions(
         result: PermissionResult,
     ) {
         when (kind) {
+            PermissionKind.LocalNetwork -> localNetwork.onResult(result)
+
             PermissionKind.Notifications -> handleNotificationPermissionResult(result)
 
             PermissionKind.VpnConsent -> handleVpnPermissionResult(result)
@@ -58,6 +79,11 @@ internal class MainPermissionActions(
 
             PermissionKind.BatteryOptimization -> handleBatteryOptimizationResult()
         }
+    }
+
+    fun onForeground() {
+        refreshPermissionSnapshot()
+        localNetwork.onForeground()
     }
 
     fun refreshPermissionSnapshot() {
@@ -81,6 +107,7 @@ internal class MainPermissionActions(
             return
         }
 
+        if (action.isStartModeAction()) localNetwork.cancelDeferredAction()
         onDismissError()
         val mergedSnapshot = mergeSnapshotWithOverrides(permissionStatusProvider.currentSnapshot())
         permissionState.update { it.copy(snapshot = mergedSnapshot) }
@@ -107,6 +134,10 @@ internal class MainPermissionActions(
         snapshot: PermissionSnapshot,
     ) {
         when (blockedBy) {
+            PermissionKind.LocalNetwork -> {
+                localNetwork.request(snapshot.localNetwork)
+            }
+
             PermissionKind.Notifications -> {
                 when (snapshot.notifications) {
                     PermissionStatus.RequiresSettings -> {
@@ -138,30 +169,7 @@ internal class MainPermissionActions(
             }
 
             PermissionKind.VpnConsent -> {
-                when (action) {
-                    PermissionAction.StartConfiguredMode -> {
-                        mutations.trySend(MainEffect.ShowVpnPermissionDialog)
-                    }
-
-                    PermissionAction.StartProxyMode,
-                    PermissionAction.StartVpnMode,
-                    PermissionAction.RunHomeAnalysis,
-                    is PermissionAction.RepairPermission,
-                    -> {
-                        val prepareIntent = permissionPlatformBridge.prepareVpnPermissionIntent()
-                        if (prepareIntent == null) {
-                            onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
-                        } else {
-                            permissionState.update { it.copy(issue = null, snapshot = snapshot) }
-                            mutations.trySend(
-                                MainEffect.RequestPermission(
-                                    kind = PermissionKind.VpnConsent,
-                                    payload = prepareIntent,
-                                ),
-                            )
-                        }
-                    }
-                }
+                requestVpnConsent(action, snapshot)
             }
 
             PermissionKind.AlwaysOnVpn,
@@ -186,6 +194,36 @@ internal class MainPermissionActions(
                         payload = createBatteryOptimizationIntent(),
                     ),
                 )
+            }
+        }
+    }
+
+    private fun requestVpnConsent(
+        action: PermissionAction,
+        snapshot: PermissionSnapshot,
+    ) {
+        when (action) {
+            PermissionAction.StartConfiguredMode -> {
+                mutations.trySend(MainEffect.ShowVpnPermissionDialog)
+            }
+
+            PermissionAction.StartProxyMode,
+            PermissionAction.StartVpnMode,
+            PermissionAction.RunHomeAnalysis,
+            is PermissionAction.RepairPermission,
+            -> {
+                val prepareIntent = permissionPlatformBridge.prepareVpnPermissionIntent()
+                if (prepareIntent == null) {
+                    onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
+                } else {
+                    permissionState.update { it.copy(issue = null, snapshot = snapshot) }
+                    mutations.trySend(
+                        MainEffect.RequestPermission(
+                            kind = PermissionKind.VpnConsent,
+                            payload = prepareIntent,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -362,6 +400,7 @@ internal class MainPermissionActions(
             }
 
         return providerSnapshot.copy(
+            localNetwork = localNetwork.mergeStatus(providerSnapshot.localNetwork),
             notifications = notificationsStatus,
             vpnConsent = vpnStatus,
         )

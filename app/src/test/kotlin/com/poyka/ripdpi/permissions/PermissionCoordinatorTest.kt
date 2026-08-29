@@ -9,6 +9,24 @@ class PermissionCoordinatorTest {
     private val coordinator = PermissionCoordinator()
 
     @Test
+    fun `LAN denial does not block public VPN but explicit repair requests LAN only`() {
+        val snapshot =
+            PermissionSnapshot(
+                vpnConsent = PermissionStatus.Granted,
+                localNetwork = PermissionStatus.Denied,
+            )
+        val start = coordinator.resolve(PermissionAction.StartVpnMode, Mode.VPN, snapshot)
+        assertTrue(start.required.isEmpty())
+        val repair =
+            coordinator.resolve(
+                PermissionAction.RepairPermission(PermissionKind.LocalNetwork),
+                Mode.VPN,
+                snapshot,
+            )
+        assertEquals(listOf(PermissionKind.LocalNetwork), repair.required)
+    }
+
+    @Test
     fun `vpn start requires vpn consent and recommends notifications`() {
         val resolution =
             coordinator.resolve(

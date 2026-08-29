@@ -9,9 +9,11 @@ import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -34,6 +36,7 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = FakeServiceController(),
                     serviceStateStore = serviceStateStore,
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
@@ -59,6 +62,7 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = FakeServiceController(),
                     serviceStateStore = serviceStateStore,
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
@@ -73,6 +77,31 @@ class QuickTileControllerTest {
         }
 
     @Test
+    fun `LAN permission failure opens foreground recovery instead of a generic toast`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore()
+            val controller =
+                QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    serviceController = FakeServiceController(),
+                    serviceStateStore = serviceStateStore,
+                    serviceStartPreflight = AllowedServiceStartPreflight,
+                )
+            val host = FakeQuickTileHost()
+            val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
+
+            controller.onStartListening(host = host, scope = listeningScope)
+            listeningScope.advanceUntilIdle()
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
+            listeningScope.advanceUntilIdle()
+
+            assertEquals(1, host.launchResolutionCount)
+            assertTrue(host.failures.isEmpty())
+            assertEquals(QuickTileVisualState.Inactive, host.renderedStates.last())
+        }
+
+    @Test
     fun `click launches resolution instead of starting when permission is missing`() =
         runTest {
             val controller =
@@ -81,6 +110,7 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = FakeServiceController(),
                     serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host =
                 FakeQuickTileHost(
@@ -90,7 +120,7 @@ class QuickTileControllerTest {
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertEquals(1, host.launchResolutionCount)
@@ -120,17 +150,49 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
             assertEquals(0, host.launchResolutionCount)
+        }
+
+    @Test
+    fun `click opens recovery before dispatch when configured mode needs local network permission`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val controller =
+                QuickTileController(
+                    appStartupReadiness = ReadyAppStartupReadiness,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    serviceController = serviceController,
+                    serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight =
+                        ServiceStartPreflight {
+                            ServiceStartPreflightResult.LocalNetworkPermissionRequired
+                        },
+                )
+            val host = FakeQuickTileHost()
+            val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
+            val actionScope = TestScope(StandardTestDispatcher(testScheduler))
+
+            controller.onStartListening(host = host, scope = listeningScope)
+            listeningScope.advanceUntilIdle()
+            controller.onClick(host, actionScope)
+            controller.onStopListening()
+            listeningScope.cancel()
+            actionScope.advanceUntilIdle()
+
+            assertTrue(serviceController.startedModes.isEmpty())
+            assertEquals(1, host.launchResolutionCount)
+            assertEquals(QuickTileVisualState.Inactive, host.renderedStates.last())
         }
 
     @Test
@@ -150,13 +212,14 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertEquals(listOf(Mode.VPN), serviceController.startedModes)
@@ -186,13 +249,14 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertEquals(listOf("Proxy"), host.failures)
@@ -209,13 +273,14 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertEquals(1, serviceController.stopCount)
@@ -232,13 +297,14 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertTrue(serviceController.startedModes.isEmpty())
@@ -256,13 +322,14 @@ class QuickTileControllerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = FakeServiceStateStore(),
+                    serviceStartPreflight = AllowedServiceStartPreflight,
                 )
             val host = FakeQuickTileHost()
             val listeningScope = TestScope(StandardTestDispatcher(testScheduler))
 
             controller.onStartListening(host = host, scope = listeningScope)
             listeningScope.advanceUntilIdle()
-            controller.onClick(host)
+            controller.onClick(host, listeningScope)
             listeningScope.advanceUntilIdle()
 
             assertTrue(serviceController.startedModes.isEmpty())
@@ -276,6 +343,10 @@ class QuickTileControllerTest {
         override val readiness: StateFlow<AppStartupReadinessState> = MutableStateFlow(initial)
 
         override fun retryRecovery() = Unit
+    }
+
+    private data object AllowedServiceStartPreflight : ServiceStartPreflight {
+        override suspend fun check(mode: Mode): ServiceStartPreflightResult = ServiceStartPreflightResult.Allowed
     }
 
     private class FakeQuickTileHost(

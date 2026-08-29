@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.CommonExtension
+import com.android.build.api.dsl.ManagedVirtualDevice
 
 internal data class RipDpiManagedDeviceSpec(
     val name: String,
@@ -6,6 +7,7 @@ internal data class RipDpiManagedDeviceSpec(
     val systemImageSource: String,
     val testedAbi: String = "x86_64",
     val includeInCiGroup: Boolean,
+    val force16KbPages: Boolean = false,
 )
 
 internal val ripDpiManagedDeviceSpecs =
@@ -34,6 +36,19 @@ internal val ripDpiManagedDeviceSpecs =
             systemImageSource = "google",
             includeInCiGroup = true,
         ),
+        RipDpiManagedDeviceSpec(
+            name = "pixel6Api36Google",
+            apiLevel = 36,
+            systemImageSource = "google",
+            includeInCiGroup = true,
+        ),
+        RipDpiManagedDeviceSpec(
+            name = "pixel6Api37Google",
+            apiLevel = 37,
+            systemImageSource = "google",
+            includeInCiGroup = true,
+            force16KbPages = true,
+        ),
     )
 
 /**
@@ -46,8 +61,10 @@ internal val ripDpiManagedDeviceSpecs =
  *  - pixel6Api27Aosp    Pixel 6, API 27, AOSP          minSdk compatibility smoke
  *  - pixel6Api33Atd     Pixel 6, API 33, aosp-atd      modern runtime behavior smoke
  *  - pixel6Api34Atd     Pixel 6, API 34, aosp-atd      pinned macrobenchmark device
- *  - pixel6Api35Google  Pixel 6, API 35, Google APIs   targetSdk compatibility smoke
- *  - ciDevices          API 27/33/35 smoke matrix      local "run on all" convenience
+ *  - pixel6Api35Google  Pixel 6, API 35, Google APIs   previous-target compatibility smoke
+ *  - pixel6Api36Google  Pixel 6, API 36, Google APIs   Android 16 runtime smoke
+ *  - pixel6Api37Google  Pixel 6, API 37, Google APIs   targetSdk compatibility smoke
+ *  - ciDevices          API 27/33/35/36/37 smoke matrix
  *
  * GMD generates one task per device, e.g. `:app:pixel6Api27AospGithubFullDebugAndroidTest`,
  * plus `:app:ciDevicesGroup<Variant>AndroidTest` for the group.
@@ -62,6 +79,7 @@ internal fun CommonExtension.configureRipDpiManagedDevices(includeCiDevices: Boo
             apiLevel = spec.apiLevel
             systemImageSource = spec.systemImageSource
             testedAbi = spec.testedAbi
+            if (spec.force16KbPages) pageAlignment = ManagedVirtualDevice.PageAlignment.FORCE_16KB_PAGES
         }
     }
     if (includeCiDevices) {

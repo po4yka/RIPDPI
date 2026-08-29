@@ -1271,6 +1271,7 @@ internal fun executionCoordinatorFixtures(
             scanRequestFactory = scanRequestFactory,
             serviceStateStore = serviceStateStore,
             runtimeCoordinator = runtimeCoordinator,
+            json = json,
         )
     val scanController =
         DefaultDiagnosticsScanController(
@@ -1286,6 +1287,7 @@ internal fun executionCoordinatorFixtures(
             executionCoordinator = coordinator,
             hiddenProbeConflictRequestFactory = HiddenProbeConflictRequestFactory(json),
             scope = controllerScope,
+            json = json,
         )
     return ExecutionCoordinatorFixtures(
         coordinator = coordinator,

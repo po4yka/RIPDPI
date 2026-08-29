@@ -52,6 +52,6 @@ object NscDomainEncryptionGenerator {
         when (this) {
             EchMode.Enabled -> "enabled"
             EchMode.Disabled -> "disabled"
-            EchMode.Opportunistic -> "opportunistic"
+            EchMode.Opportunistic -> "enabled"
         }
 }

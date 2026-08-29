@@ -120,6 +120,11 @@ class MainViewModel
                 stringResolver = stringResolver,
                 runtimeState = ConnectionRuntimeStateReducer(runtimeState),
                 refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
+                onLocalNetworkRequired = { mode ->
+                    permissionActions.localNetwork.onRequired(
+                        if (mode == Mode.VPN) PermissionAction.StartVpnMode else PermissionAction.StartProxyMode,
+                    )
+                },
             )
         }
 
@@ -238,6 +243,7 @@ class MainViewModel
         }
 
         fun onStopRequested() {
+            permissionActions.localNetwork.cancelDeferredAction()
             // A freshly accepted start can still report Halted while its startup coroutine is
             // suspended. Forward Stop for that optimistic Connecting state as well. The service
             // owns the authoritative Android-lockdown check because its cached UI snapshot can be stale.
@@ -278,7 +284,7 @@ class MainViewModel
         fun onForeground() {
             if (startupState.value.readiness != AppStartupReadinessState.Ready) return
             mainServiceDependencies.serviceController.refreshHardKillSwitchState()
-            permissionActions.refreshPermissionSnapshot()
+            permissionActions.onForeground()
         }
 
         fun dismissError() = connectionActions.dismissError()

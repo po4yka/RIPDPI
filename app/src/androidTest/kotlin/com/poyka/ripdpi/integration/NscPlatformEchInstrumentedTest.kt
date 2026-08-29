@@ -16,7 +16,7 @@ import javax.net.ssl.HttpsURLConnection
 /**
  * Android 17 (API 37) platform-ECH-from-Network-Security-Config check.
  *
- * The open acceptance criterion for the opportunistic `domainEncryption`
+ * The open acceptance criterion for the documented `domainEncryption mode="enabled"`
  * Network Security Config is: "the platform stack attempts ECH from NSC when
  * DNS supplies an ECH config." Android exposes **no API** that reports whether
  * the platform actually attempted ECH on a given connection, so this test
@@ -28,11 +28,10 @@ import javax.net.ssl.HttpsURLConnection
  *     network) — the same signal the existing [EchReadinessProbeInstrumentedTest]
  *     uses, here gated to Android 17+.
  *  2. The **platform** TLS stack (`HttpsURLConnection`, which honours the
- *     `@xml-v37/network_security_config` opportunistic `domainEncryption` on
- *     API 37) completes a request to the same ECH host. Under opportunistic
- *     mode the platform attempts ECH and falls back transparently, so a
- *     successful connection is circumstantial evidence the platform honoured
- *     the NSC without breaking connectivity.
+ *     `@xml-v37/network_security_config` enabled `domainEncryption` on API 37)
+ *     completes a request to the same ECH host. A successful connection proves
+ *     only that the configured platform path preserves connectivity; it does
+ *     not prove that this connection used ECH.
  *
  * This is honest about its limits: step 2 is necessary-but-not-sufficient proof
  * of an ECH *attempt*. Direct verification would require platform telemetry
@@ -41,7 +40,7 @@ import javax.net.ssl.HttpsURLConnection
  */
 class NscPlatformEchInstrumentedTest {
     @Test
-    fun platformReachesEchHostUnderOpportunisticNscOnApi37() =
+    fun platformReachesEchHostWithEnabledDomainEncryptionOnApi37() =
         runBlocking {
             assumeTrue(
                 "Platform ECH-from-NSC is an Android 17 (API 37+) behaviour",
@@ -68,11 +67,11 @@ class NscPlatformEchInstrumentedTest {
             )
 
             // (2) Platform stack: a request to the same ECH host completes. On
-            // API 37 this connection is governed by the opportunistic
-            // domainEncryption base-config in @xml-v37/network_security_config.
+            // API 37 this connection is governed by the enabled domainEncryption
+            // base-config in @xml-v37/network_security_config.
             val status = platformHttpsStatus("https://$ECH_TEST_HOST/cdn-cgi/trace")
             assertTrue(
-                "Expected the platform TLS stack to reach $ECH_TEST_HOST under opportunistic NSC; got HTTP $status",
+                "Expected the platform TLS stack to reach $ECH_TEST_HOST with enabled domainEncryption; got HTTP $status",
                 status in 200..399,
             )
         }

@@ -53,6 +53,8 @@ internal class DefaultDiagnosticsScanController
         private val hiddenProbeConflictRequestFactory: HiddenProbeConflictRequestFactory,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
+        @param:Named("diagnosticsJson")
+        private val json: Json,
     ) : DiagnosticsScanController,
         AutomaticProbeLauncher {
         private companion object {
@@ -313,7 +315,13 @@ internal class DefaultDiagnosticsScanController
                 cancellation.partialReportJson
                     ?: activeScanRegistry.consumeCancelledSessionReport(cancellation.sessionId)
             if (partialReportJson != null) {
-                persistPartialScanSession(session, partialReportJson, scanRecordStore)
+                persistPartialScanSession(
+                    session = session,
+                    partialReportJson = partialReportJson,
+                    prepared = cancellation.prepared,
+                    scanRecordStore = scanRecordStore,
+                    json = json,
+                )
             } else {
                 DiagnosticsReportPersister.persistScanFailure(
                     cancellation.sessionId,
@@ -386,11 +394,12 @@ internal class DefaultDiagnosticsScanController
             val startup = StartupTransactionResources()
             val startupFailure =
                 runCatching {
-                    persistPreparedScan(routedPrepared, ownerId)
+                    val admitted = scanRequestFactory.admitLocalNetworkAccess(routedPrepared)
+                    persistPreparedScan(admitted, ownerId)
                     ensureStartupActive(scope)
-                    val bridgeSession = createStartedBridge(routedPrepared, startup)
+                    val bridgeSession = createStartedBridge(admitted, startup)
                     ensureStartupActive(scope)
-                    launchPreparedScan(routedPrepared, bridgeSession, rawPathRunner, startup)
+                    launchPreparedScan(admitted, bridgeSession, rawPathRunner, startup)
                 }.exceptionOrNull()
             if (startupFailure != null) {
                 val summary =
@@ -611,13 +620,16 @@ internal class HiddenProbeConflictRequestFactory
 internal suspend fun persistPartialScanSession(
     session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
     partialReportJson: String,
+    prepared: PreparedDiagnosticsScan?,
     scanRecordStore: DiagnosticsScanRecordStore,
+    json: Json,
 ) {
+    val reportJson = prepared?.let { partialReportJson.withLocalNetworkDeferrals(it, json) } ?: partialReportJson
     scanRecordStore.upsertScanSession(
         session.copy(
             status = "completed",
             summary = "Scan completed with partial results",
-            reportJson = partialReportJson,
+            reportJson = reportJson,
             finishedAt = System.currentTimeMillis(),
         ),
     )

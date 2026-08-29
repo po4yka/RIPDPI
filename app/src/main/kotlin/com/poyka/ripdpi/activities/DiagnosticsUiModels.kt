@@ -930,6 +930,7 @@ data class DiagnosticsUiState(
 sealed interface DiagnosticsEffect {
     enum class SnackbarAction {
         OpenDnsSettings,
+        RequestLocalNetwork,
     }
 
     data class ShareSummaryRequested(
@@ -964,6 +965,8 @@ sealed interface DiagnosticsEffect {
 
     data class ScanStartFailed(
         val message: String,
+        val actionLabel: String? = null,
+        val action: SnackbarAction? = null,
     ) : DiagnosticsEffect
 }
 

@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.RawPathExecutionOutcome
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -96,7 +97,12 @@ class DiagnosticsCheckpointRecoveryTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val fixtures = checkpointFixtures(stores, backgroundScope)
-            val prepared = preparedDiagnosticsScan("session-checkpoint-fallback", defaultDiagnosticsAppSettings())
+            val deferredTarget = "192.168.50.2"
+            val prepared =
+                preparedDiagnosticsScan("session-checkpoint-fallback", defaultDiagnosticsAppSettings()).copy(
+                    localNetworkDeferrals =
+                        listOf(ProbeResult("tcp_connect", deferredTarget, "capability_skipped")),
+                )
             seedPreparedScan(stores, prepared)
             fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
@@ -119,7 +125,10 @@ class DiagnosticsCheckpointRecoveryTest {
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             assertEquals("failed", session.status)
             assertEquals("Diagnostics scan completed without a report", session.summary)
-            assertEquals("Checkpoint only", session.reportJson?.let(json::decodeEngineScanReportWire)?.summary)
+            val report = requireNotNull(session.reportJson).let(json::decodeEngineScanReportWire)
+            assertEquals("Checkpoint only", report.summary)
+            assertEquals(ScanCompletionKind.PARTIAL_RESULTS, report.completionKind)
+            assertEquals("capability_skipped", report.results.single { it.target == deferredTarget }.outcome)
             assertTrue(
                 stores.getContextsForSession(prepared.sessionId, 10).any {
                     it.contextKind == "post_runtime_restore"

@@ -671,6 +671,10 @@ class DebugAutomationController
                 current.copy(
                     permissionSnapshot =
                         when (kind) {
+                            PermissionKind.LocalNetwork -> {
+                                current.permissionSnapshot.copy(localNetwork = PermissionStatus.Granted)
+                            }
+
                             PermissionKind.Notifications -> {
                                 current.permissionSnapshot.copy(
                                     notifications = PermissionStatus.Granted,

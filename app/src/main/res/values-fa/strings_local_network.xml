@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="permissions_local_network_title">دسترسی به شبکهٔ محلی</string>
+    <string name="permissions_local_network_needed">این کار به دسترسی به شبکهٔ محلی نیاز دارد. اتصال‌های اینترنت بدون این مجوز همچنان در دسترس هستند.</string>
+    <string name="permissions_local_network_settings">در تنظیمات برنامه اجازهٔ دسترسی به دستگاه‌های اطراف را بدهید و دوباره تلاش کنید.</string>
+</resources>
