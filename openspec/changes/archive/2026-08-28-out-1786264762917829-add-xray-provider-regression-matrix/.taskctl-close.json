@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917829-add-xray-provider-regression-matrix",
+  "evidence_summary": "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained.",
+  "execution_sha256": "227d3d66081a06d9e8a6ff16a53cad94ba211494ddf4a6b2cbf075df8cd0d15e",
+  "issue_sha256": "02f65fa607562e0ff48aa2fa6b217bf9ccead783f369b094cf1e6be4110a79fd",
+  "outcome": "done",
+  "prepared_at": "2026-08-28T19:44:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917829"
+}
