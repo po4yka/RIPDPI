@@ -1,0 +1,11 @@
+{
+  "change": "mirror-probe-matrix-report-schema3",
+  "evidence_summary": "Protected PR 460 merged as ec7f670cdd97277d468496338dafbe3eb69ddefb; exact-main CI 33247910603 passed 44 jobs with 17 expected skips; CodeQL 33247910600, Secret Scan 33247910597, and fleet-fixtures 33247910592 passed; schema SHA-256 remains 1504d756decd4de5f13dc468d9a56ffa6bfbef9fd89051a2a0f76a15acee029a.",
+  "execution_sha256": "41b893e306a655847dd28e0a5ed31fff6d471b27f1d40acc5e27f142fd27ff7a",
+  "issue_sha256": "b7fb3e739fe27d58e7e3a48c927433cb43ba6971492612c8c04700b303bace70",
+  "outcome": "done",
+  "prepared_at": "2026-08-29T12:45:55Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1787994690722107"
+}
