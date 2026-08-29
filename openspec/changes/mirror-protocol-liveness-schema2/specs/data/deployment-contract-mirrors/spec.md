@@ -22,7 +22,7 @@ declared frozen producer revision.
 #### Scenario: Exact protocol-liveness schema 2 mirror
 
 - **WHEN** the deployment contract at producer revision
-  `08cd71efd309f893d3fa210bd4560d96bf799742` is compared with RIPDPI's vendored
+  `8396ec8c954eda64ae4b78dc1c8f2d18de207c3b` is compared with RIPDPI's vendored
   protocol-liveness schema
 - **THEN** the files have identical bytes and the vendored document is valid
   JSON Schema describing schema version 2

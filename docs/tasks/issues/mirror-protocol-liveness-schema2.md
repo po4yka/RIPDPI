@@ -17,7 +17,7 @@ updated: 2026-08-29
 ## Goal
 
 Keep RIPDPI's vendored protocol-liveness policy contract byte-identical to
-`po4yka/ripdpi-vpn-deploy@08cd71efd309f893d3fa210bd4560d96bf799742`
+`po4yka/ripdpi-vpn-deploy@8396ec8c954eda64ae4b78dc1c8f2d18de207c3b`
 without adding client runtime behavior or changing network-exposure contracts.
 
 ## Acceptance criteria
