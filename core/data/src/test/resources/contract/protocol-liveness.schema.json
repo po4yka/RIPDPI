@@ -12,7 +12,7 @@
     "sentinels"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "probe_url": { "type": "string", "pattern": "^https://" },
     "expected_status": { "type": "integer", "minimum": 100, "maximum": 599 },
     "probe_timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 60, "default": 15 },
@@ -56,13 +56,14 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "ssh_target", "policy", "vantage"],
+        "required": ["id", "ssh_target", "policy", "vantage", "target"],
         "properties": {
           "id": { "$ref": "#/$defs/technical_id" },
           "ssh_target": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.@-]*$" },
           "ssh_transport_host": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
           "ssh_host_key_alias": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.@-]*$" },
           "vantage": { "enum": ["external", "filtered"] },
+          "target": { "$ref": "#/$defs/target" },
           "awg_target": {
             "type": "object",
             "required": ["provider", "environment", "instance"],
@@ -86,6 +87,18 @@
   "additionalProperties": false,
   "$defs": {
     "technical_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "target": {
+      "type": "object",
+      "required": ["inventory_alias", "public_service_address_sha256", "deployable_digest", "applied_at"],
+      "properties": {
+        "inventory_alias": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$" },
+        "public_service_address_sha256": { "$ref": "#/$defs/sha256" },
+        "deployable_digest": { "$ref": "#/$defs/sha256" },
+        "applied_at": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
     "profile": {
       "enum": ["p0-reality", "p1-xhttp", "p2-hysteria2", "p2-amneziawg"]
     }
