@@ -2,7 +2,7 @@
 id: RST-1786264762917942
 title: Replace unmaintained daemonize CLI dependency
 kind: feature
-status: review
+status: done
 area: rust-native
 priority: low
 owner: Dependency hygiene lane
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917942-replace-unmaintained-daemonize-cli-dependency
 created: 2026-07-13
-updated: 2026-08-26
+updated: 2026-08-29
+closed_at: "2026-08-29T13:49:14Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: daemonize and its advisory waiver are absent; real daemon/PID-file lifecycle, cargo-deny, advisory and workspace Clippy gates passed; exact-SHA CI 33251657196 passed.
 ---
 
 ## Goal

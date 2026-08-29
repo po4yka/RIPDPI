@@ -2,7 +2,7 @@
 id: OUT-1786264762917551
 title: Finish AnyTLS profile editor and compatibility gaps
 kind: feature
-status: doing
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: out-1786264762917551-add-anytls-outbound-client-crate-and-profile-editor
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-08-29
+closed_at: "2026-08-29T13:49:10Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Pinned anytls-go interop, Mode Editor persistence/validation and redaction are implemented; targeted local gates and exact-SHA CI 33251657196 passed.
 ---
 
 ## Summary
@@ -28,10 +31,10 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 - [x] Relay-core builds an AnyTLS backend, validates it as UDP-capable, and covers TCP plus UDP-over-TCP fixtures.
 - [x] `anytls://`, Clash `anytls`, and Sing-box `anytls` imports map to first-class profiles.
 - [x] Relay native config carries AnyTLS password and root-certificate fields.
-- [ ] Cross-interop against upstream `anytls-go` is verified and recorded. **(deferred: live-server only; offline-infeasible nightly oracle.)**
+- [x] Cross-interop against upstream `anytls-go` is verified and recorded.
 - [x] Fallback-SNI and fallback-server behavior matches upstream spec, or unsupported behavior is rejected explicitly. (RIPDPI's client has no server-side TLS fallback; `ProxyUriCodec.parseAnyTls` now explicitly rejects `anytls://` nodes advertising a `fallback`/`fallback_sni` target rather than silently importing them.)
 - [x] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
-- [ ] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records. **(deferred: AnyTLS is fully configurable via the dedicated `AnyTlsProfileScreen` + import; exposing it inline is a separate end-to-end "make AnyTLS a selectable+serializable relay kind" feature — kind-chip selector + ConfigDraft fields + draft→native serialization + validation — out of scope for this pass.)**
+- [x] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records.
 - [x] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods. (`StrategyPackProtocolHint` + bundled `catalog.json` `anytls` entry with `quicHeavyNeighborhood: true`, surfaced via `StrategyPackSnapshot.protocolHints` / `hintForProtocol`.)
 - [x] Password is redacted in all diagnostic surfaces. (Rust: hand-written `Debug` for `AnyTlsClientConfig` masks password + root cert. Kotlin: `ProxyProfile.AnyTls.toString` masks the password.)
 

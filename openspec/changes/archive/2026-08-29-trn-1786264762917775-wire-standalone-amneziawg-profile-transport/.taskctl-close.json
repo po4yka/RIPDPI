@@ -1,0 +1,11 @@
+{
+  "change": "trn-1786264762917775-wire-standalone-amneziawg-profile-transport",
+  "evidence_summary": "Standalone AWG runtime/editor/service integration and pinned amneziawg-go interop passed; architecture-health is clean and exact-SHA CI 33251657196 passed all 45 jobs.",
+  "execution_sha256": "81bcf1ab9f77f2a13d0ecb9189ffb668b726f6019a193bc2a812066a3e3b40c3",
+  "issue_sha256": "11daf59d2ae9ea07a929c2b8be76d5f457681ebbff3f20760fae802778e3946c",
+  "outcome": "done",
+  "prepared_at": "2026-08-29T13:49:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1786264762917775"
+}

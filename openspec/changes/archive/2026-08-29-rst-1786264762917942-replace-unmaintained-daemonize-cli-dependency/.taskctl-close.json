@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917942-replace-unmaintained-daemonize-cli-dependency",
+  "evidence_summary": "daemonize and its advisory waiver are absent; real daemon/PID-file lifecycle, cargo-deny, advisory and workspace Clippy gates passed; exact-SHA CI 33251657196 passed.",
+  "execution_sha256": "27be0c763f73d0033f383b37a8cd4c57ac4446f1950c5ba5a0ff10ee380ed926",
+  "issue_sha256": "5992b5a3fbbdf5df4fee8214f3706fead5dbb84b73309c3e10f84fa8e712f538",
+  "outcome": "done",
+  "prepared_at": "2026-08-29T13:49:14Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1786264762917942"
+}

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-29T13:49:00Z",
+  "change": "rst-1786264762917942-replace-unmaintained-daemonize-cli-dependency",
+  "commit_sha": "bacc106a665f311b4e0f0708f4bf91a7ae40b6ca",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1786264762917942"
+}

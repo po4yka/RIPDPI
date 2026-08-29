@@ -1,11 +1,11 @@
 ---
 task_id: TRN-1786264762917775
 change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
-commit_sha: c0e0ec7a1efbe182b982bb010daf1806bdb869ec
-local: blocked
-local_evidence: "3059 Kotlin tests, 93 native tests, 62 network E2E tests and full staticAnalysis passed. Hilt and lifecycle test-fixture regressions were reproduced and fixed. API34 integration: 50 passed, 6 assumption skips, 1 ignored via direct runner; Orchestrator also passed 50 with 6 assumption skips. All 24 lifecycle tests passed in both runs, no FGS crash. JNI instrumentation: 5 passed; Simple navigation: 1 passed. AndroidTest APK assembly, app detekt and ktlint passed. Unchanged native hotspot and unsafe-boundary baseline failures remain acceptance blockers."
-remote_ci: blocked
-remote_ci_evidence: "CI33120994370 on c0e0ec7a1 completed: API27/33/35 instrumentation, all four native ABIs, all three debug APK and release verification jobs passed. Preserved JUnit XML confirms 50 Full passes plus 6 skips and 24/24 lifecycle passes per API, Simple 1/1 per API, JNI 5/5 on API35. Overall CI remains failed on the unchanged hotspot guard and two DNS planner tests. Independent Linux AWG interop passed in prior CI33115299094 on unchanged runtime sources. No green overall acceptance is claimed."
+commit_sha: bacc106a665f311b4e0f0708f4bf91a7ae40b6ca
+local: passed
+local_evidence: "The original 3059 Kotlin, 93 native and 62 network-E2E test gates remain recorded below. Current architecture health passes with 23 current and 23 baseline indicators and zero new, worsened or stale entries, resolving the former closure blocker."
+remote_ci: passed
+remote_ci_evidence: "Exact-SHA CI run 33251657196 passed all 45 jobs on bacc106a665f311b4e0f0708f4bf91a7ae40b6ca, including network E2E, all Android native ABIs, instrumentation, static analysis, security and release verification."
 device: not_applicable
 device_evidence: "Acceptance permits independent loopback-peer evidence. No physical-device installation or execution was performed."
 artifact: not_applicable
@@ -28,6 +28,12 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-TRN-1786264762917775-006 | TRN-1786264762919408 | 1884 service tests including cold activation, Xray handoff, profile route/DNS/MTU and receipt tests | passed |
 | REQ-TRN-1786264762917775-007 | TRN-1786264762919506 | 59 editor tests including permission denial, matching consent and duplicate callback handling | passed |
 | REQ-TRN-1786264762917775-008 | TRN-1786264762919526 | Pinned amneziawg-go v0.2.18 peer; real IPv4/IPv6 TCP/UDP, source metadata and stalled-client shutdown passed | passed |
+
+## Closure verification refresh
+
+- `python3 scripts/ci/check_architecture_health.py` passes on the recorded SHA: 23 current indicators, 23 baseline indicators, zero new, worsened or stale entries across 114 crates.
+- [CI 33251657196](https://github.com/po4yka/RIPDPI/actions/runs/33251657196) passed all 45 jobs on the exact recorded SHA. This supersedes the historical blocker sections retained below as investigation history.
+- The independent pinned `amneziawg-go` loopback evidence remains protocol interoperability proof only; no physical-device or external-VPS connectivity is claimed.
 
 ## Reproduction and verification commands
 

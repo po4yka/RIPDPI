@@ -2,7 +2,7 @@
 id: TRN-1786264762917775
 title: Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)
 kind: feature
-status: review
+status: done
 area: transport
 priority: high
 owner: unassigned
@@ -11,11 +11,14 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917775-wire-standalone-amneziawg-profile-transport
 created: 2026-06-13
-updated: 2026-08-27
+updated: 2026-08-29
 source_wiki_pages:
   - wireguard-rtk-south-amneziawg-bypass
 linked_task: TRN-1786264762917677
-status_detail: Implementation and independent loopback interop passed; final static analysis and exact-SHA hosted CI tracked in verification. Existing baseline guard failures prevent closure.
+status_detail: Implementation, independent loopback interop, current architecture health and exact-SHA hosted CI passed; ready for archival.
+closed_at: "2026-08-29T13:49:18Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Standalone AWG runtime/editor/service integration and pinned amneziawg-go interop passed; architecture-health is clean and exact-SHA CI 33251657196 passed all 45 jobs.
 ---
 
 ## Motivation
@@ -116,10 +119,10 @@ Surface:
   APK and release-verification jobs passed on the fixture-correction commit.
 - The final combined Kotlin run passed 3059 tests, including the complete service
   suite (1884); native unit tests (93) and network E2E tests (62) also passed.
-  Full static analysis passed. Hosted CI for the published implementation failed
-  the native hotspot guard; the exact run is linked in the OpenSpec verification
-  record. Existing failures on baseline main are not
-  treated as successful acceptance; the item must remain open until resolved.
+  Full static analysis passed. The former native hotspot baseline blocker is now
+  resolved: current architecture health reports 23 current and 23 baseline
+  indicators with zero new, worsened or stale entries. Exact-SHA hosted CI is
+  linked in the OpenSpec verification record.
 
 ## Runtime-composition decision (D2 — resolved)
 
