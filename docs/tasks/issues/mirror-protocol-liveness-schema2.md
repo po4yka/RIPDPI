@@ -22,9 +22,9 @@ without adding client runtime behavior or changing network-exposure contracts.
 
 ## Acceptance criteria
 
-- [ ] The vendored `protocol-liveness.schema.json` is byte-for-byte equal to
+- [x] The vendored `protocol-liveness.schema.json` is byte-for-byte equal to
   the deployment producer at the frozen revision.
-- [ ] JSON Schema draft validation and the complete 22-file contract mirror
+- [x] JSON Schema draft validation and the complete 22-file contract mirror
   comparison pass.
 - [ ] Client data, task/OpenSpec, architecture, configured hook, and exact-head
   hosted CI gates pass without Kotlin, Rust, device, or emulator changes.

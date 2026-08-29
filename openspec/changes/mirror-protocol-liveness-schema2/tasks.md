@@ -14,7 +14,7 @@ network-exposure contracts, shared `main`, devices, and emulators are excluded.
 
 ## Execution
 
-- [ ] DAT-1788011957968789 Mirror schema 2 and run local contract gates #chore !high @item:DAT-1788011816707517
+- [x] DAT-1788011957968789 Mirror schema 2 and run local contract gates #chore !high @item:DAT-1788011816707517
 - [ ] DAT-1788011958473813 Publish exact client commit and verify hosted checks #chore !high @item:DAT-1788011816707517
 
 ## Verification
