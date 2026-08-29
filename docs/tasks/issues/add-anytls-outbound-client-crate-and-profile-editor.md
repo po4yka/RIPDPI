@@ -2,7 +2,7 @@
 id: OUT-1786264762917551
 title: Finish AnyTLS profile editor and compatibility gaps
 kind: feature
-status: review
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: out-1786264762917551-add-anytls-outbound-client-crate-and-profile-editor
 created: 2026-04-24
 updated: 2026-08-29
+closed_at: "2026-08-29T13:55:08Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Pinned anytls-go interop, Mode Editor persistence/validation and redaction are implemented; targeted local gates and exact-SHA CI 33251657196 passed.
 ---
 
 ## Summary

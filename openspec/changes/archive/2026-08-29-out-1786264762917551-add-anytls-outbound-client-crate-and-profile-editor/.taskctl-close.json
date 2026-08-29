@@ -2,9 +2,9 @@
   "change": "out-1786264762917551-add-anytls-outbound-client-crate-and-profile-editor",
   "evidence_summary": "Pinned anytls-go interop, Mode Editor persistence/validation and redaction are implemented; targeted local gates and exact-SHA CI 33251657196 passed.",
   "execution_sha256": "22f52b2cda3b126b095f93b24a011d32fd77c7f170c6525489ca92d5de2d1c29",
-  "issue_sha256": "2954b30135c4f92bcdd8da57dfea6a5ea8a27342f1b28bd5cd705d9aef6e525c",
+  "issue_sha256": "53b1ba9e6716b5ddc3d6d55af91f9be9820840ec697b317a4a221c2e8e9202ab",
   "outcome": "done",
-  "prepared_at": "2026-08-29T13:49:10Z",
+  "prepared_at": "2026-08-29T13:55:08Z",
   "reason": "All acceptance criteria and required evidence passed.",
   "schema": 1,
   "task_id": "OUT-1786264762917551"
