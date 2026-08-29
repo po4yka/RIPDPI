@@ -15,7 +15,7 @@ semantics, or network-exposure contracts.
 ## Execution
 
 - [x] DAT-1787995524017674 Mirror schema 3 and run local contract gates #chore !high @item:DAT-1787994690722107
-- [ ] DAT-1787995524551814 Publish exact client commit and verify hosted checks #chore !high @item:DAT-1787994690722107
+- [x] DAT-1787995524551814 Publish exact client commit and verify hosted checks #chore !high @item:DAT-1787994690722107
 
 ## Verification
 
