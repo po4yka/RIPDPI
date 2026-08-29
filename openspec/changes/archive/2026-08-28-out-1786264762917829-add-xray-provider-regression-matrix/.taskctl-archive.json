@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-28T19:44:18Z",
+  "change": "out-1786264762917829-add-xray-provider-regression-matrix",
+  "commit_sha": "9b18e5122d3a9d99d1946ec2701f147aa67ad80d",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "OUT-1786264762917829"
+}

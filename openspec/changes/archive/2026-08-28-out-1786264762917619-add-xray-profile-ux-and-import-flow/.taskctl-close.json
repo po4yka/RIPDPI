@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917619-add-xray-profile-ux-and-import-flow",
+  "evidence_summary": "Exact source9b18e5122: CI33199013272 passed44 jobs+17 intentional skips; API27/33/35, release/debug, linked Xray and real API35 Xray TUN acceptance passed. Protected PR455 merged as baeaf98ca; merge tree equals tested source. Local API35 ARM64 lifecycle24/24 and real Xray2/2 passed; verified APK/AAR/ELF evidence retained.",
+  "execution_sha256": "79c98706f8d3d3d9d27ecc3c5772b2ed6e542e2c025b17d98e21082750b181f9",
+  "issue_sha256": "8ef67fc033f8116d076def3f2554d226f7d6d9d9f9188643607891dd3edcbaae",
+  "outcome": "done",
+  "prepared_at": "2026-08-28T19:44:13Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917619"
+}
