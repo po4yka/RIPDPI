@@ -25,9 +25,26 @@ internal data class MasqueImportRequest(
     val sessionId: Long,
 )
 
+private enum class ModeEditorExitTarget {
+    Back,
+    XrayImport,
+    ;
+
+    fun navigate(
+        onBack: () -> Unit,
+        onOpenXrayImport: () -> Unit,
+    ) {
+        when (this) {
+            Back -> onBack()
+            XrayImport -> onOpenXrayImport()
+        }
+    }
+}
+
 @Composable
 fun ModeEditorRoute(
     onBack: () -> Unit,
+    onOpenXrayImport: () -> Unit,
     viewModel: ConfigViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -37,23 +54,31 @@ fun ModeEditorRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
+    var pendingExitTarget by remember { mutableStateOf<ModeEditorExitTarget?>(null) }
     var hydrationFailurePending by rememberSaveable { mutableStateOf(false) }
     val discardAndNavigate: () -> Unit = {
+        val target = pendingExitTarget ?: ModeEditorExitTarget.Back
         scope.launch {
             if (viewModel.cancelEditing()) {
-                onBack()
+                pendingExitTarget = null
+                target.navigate(onBack, onOpenXrayImport)
             }
         }
     }
-    val requestBack =
-        modeEditorBackAction(viewModel, onBack) {
-            showUnsavedChangesDialog = true
+    val requestExit: (ModeEditorExitTarget) -> Unit = { target ->
+        scope.launch {
+            handleModeEditorExitDecision(
+                decision = viewModel.requestEditorExit(),
+                onBack = { target.navigate(onBack, onOpenXrayImport) },
+                onConfirmDiscard = {
+                    pendingExitTarget = target
+                    showUnsavedChangesDialog = true
+                },
+            )
         }
+    }
+    val requestBack = modeEditorBackAction { requestExit(ModeEditorExitTarget.Back) }
 
-    val documentLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            viewModel.masqueImports.onDocumentPicked(uri)
-        }
     ModeEditorStartEffect(
         viewModel = viewModel,
         isLoading = uiState.isLoading,
@@ -66,13 +91,15 @@ fun ModeEditorRoute(
         onHydrationFailure = { hydrationFailurePending = true },
         onBack = onBack,
     )
-    val requestCoarseLocationPermission = rememberModeEditorCoarseLocationPermissionAction(viewModel)
 
     ModeEditorExitDialogs(
         hydrationFailureVisible = hydrationFailurePending,
         onHydrationFailureDismiss = onBack,
         unsavedChangesVisible = showUnsavedChangesDialog,
-        onKeepEditing = { showUnsavedChangesDialog = false },
+        onKeepEditing = {
+            pendingExitTarget = null
+            showUnsavedChangesDialog = false
+        },
         onDiscard = {
             showUnsavedChangesDialog = false
             discardAndNavigate()
@@ -90,22 +117,28 @@ fun ModeEditorRoute(
                 viewModel = viewModel,
                 onBack = requestBack,
                 onCancel = discardAndNavigate,
-                externalActions =
-                    createModeEditorExternalActions(
-                        viewModel = viewModel,
-                        context = LocalContext.current,
-                        requestCoarseLocationPermission = requestCoarseLocationPermission,
-                        requestDocument = { request ->
-                            viewModel.masqueImports.begin(
-                                request.action,
-                                request.sessionId,
-                                viewModel.currentEditorRecoveryOwnerId,
-                            )
-                            documentLauncher.launch(arrayOf("*/*"))
-                        },
-                    ),
+                onOpenXrayImport = { requestExit(ModeEditorExitTarget.XrayImport) },
+                externalActions = rememberModeEditorExternalActions(viewModel),
             ),
         modifier = modifier,
+    )
+}
+
+@Composable
+private fun rememberModeEditorExternalActions(viewModel: ConfigViewModel): ModeEditorExternalActions {
+    val documentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            viewModel.masqueImports.onDocumentPicked(uri)
+        }
+    val requestCoarseLocationPermission = rememberModeEditorCoarseLocationPermissionAction(viewModel)
+    return createModeEditorExternalActions(
+        viewModel = viewModel,
+        context = LocalContext.current,
+        requestCoarseLocationPermission = requestCoarseLocationPermission,
+        requestDocument = { request ->
+            viewModel.masqueImports.begin(request.action, request.sessionId, viewModel.currentEditorRecoveryOwnerId)
+            documentLauncher.launch(arrayOf("*/*"))
+        },
     )
 }
 
@@ -157,21 +190,7 @@ internal fun ModeEditorPendingDraftUpdateEffect(
 }
 
 @Composable
-private fun modeEditorBackAction(
-    viewModel: ConfigViewModel,
-    onBack: () -> Unit,
-    onConfirmDiscard: () -> Unit,
-): () -> Unit {
-    val scope = rememberCoroutineScope()
-    val requestBack: () -> Unit = {
-        scope.launch {
-            handleModeEditorExitDecision(
-                decision = viewModel.requestEditorExit(),
-                onBack = onBack,
-                onConfirmDiscard = onConfirmDiscard,
-            )
-        }
-    }
+private fun modeEditorBackAction(requestBack: () -> Unit): () -> Unit {
     BackHandler(onBack = requestBack)
     return requestBack
 }

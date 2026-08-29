@@ -2,11 +2,13 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal class ServiceRuntimeHandoverCoordinator<TSession>(
     private val dependencies: ServiceRuntimeHandoverDependencies<TSession>,
@@ -77,14 +79,31 @@ internal class ServiceRuntimeHandoverCoordinator<TSession>(
         return snapshot.copy(networkHandoverClass = classification)
     }
 
-    private suspend fun handleExhaustedHandoverFailure(error: Exception) {
-        val reason = hooks.handoverHooks.classifyFailure(error)
-        val retainedFailClosed = hooks.handoverHooks.retainFailClosedAfterExhaustion()
-        hooks.statusHooks.updateStatus(ServiceStatus.Failed, reason)
-        if (!retainedFailClosed) {
+    private suspend fun handleExhaustedHandoverFailure(failure: HandoverExhaustedFailure) {
+        val reason = hooks.handoverHooks.classifyFailure(failure.error)
+        val retainedFailClosed =
+            dependencies.mutex.withLock {
+                val session = state.currentSession()
+                if (isStaleExhaustedFailure(failure, session)) return@withLock null
+                val retained = hooks.handoverHooks.retainFailClosedAfterExhaustion()
+                if (isStaleExhaustedFailure(failure, session)) return@withLock null
+                session?.networkHandoverState = NetworkHandoverStates.Failed
+                hooks.statusHooks.updateStatus(ServiceStatus.Failed, reason)
+                retained
+            }
+        if (retainedFailClosed == false) {
             stopService()
         }
     }
+
+    private fun isStaleExhaustedFailure(
+        failure: HandoverExhaustedFailure,
+        session: TSession?,
+    ): Boolean =
+        !failure.isCurrentAttempt() ||
+            session?.runtimeId != failure.runtimeId ||
+            state.currentStatus() != ServiceStatus.Connected ||
+            state.isStopping()
 }
 
 @Suppress("LongParameterList")

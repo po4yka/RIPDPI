@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
+import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
@@ -17,6 +18,7 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -106,7 +108,7 @@ class ProfileMutationRecoveryCoordinatorTest {
             assertTrue(failure is IllegalStateException)
             assertEquals(profile, fixture.relayProfiles.load(profile.id))
             assertNull(fixture.relayCredentials.load(profile.id))
-            assertTrue(fixture.journal.pending() != null)
+            assertEquals(ProfileMutationFamily.Relay, fixture.journal.pending()?.family)
 
             fixture.coordinator().recover()
 
@@ -119,6 +121,91 @@ class ProfileMutationRecoveryCoordinatorTest {
             fixture.coordinator().recover()
 
             assertEquals(savesAfterReplay, fixture.relayProfiles.saveCount)
+        }
+
+    @Test
+    fun `native relay after-image recovers xray provider selection and mode after interrupted switch`() =
+        runTest {
+            val fixture = Fixture()
+            val profile = RelayProfileRecord(id = "relay-native", kind = RelayKindTrojan, server = "relay.example")
+            val credentials = RelayCredentialRecord(profileId = profile.id, trojanPassword = "secret")
+            val nativeSelection =
+                XrayProviderSelectionRecord(providerKind = XrayProviderSelectionRecord.ProviderKindNative)
+            fixture.xraySelection.update(
+                XrayProviderSelectionRecord(
+                    providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                    activeProfileId = "xray-default",
+                ),
+            )
+            fixture.xraySelection.failNextUpdate = true
+
+            val failure =
+                runCatching {
+                    fixture.coordinator().upsertRelay(
+                        profile = profile,
+                        credentials = credentials,
+                        enabled = true,
+                        select = true,
+                        modeAfterImage = Mode.Proxy.preferenceValue,
+                        xraySelectionAfterImage = nativeSelection,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertTrue(fixture.journal.pending() != null)
+            assertEquals(XrayProviderSelectionRecord.ProviderKindXray, fixture.xraySelection.current().providerKind)
+            assertFalse(fixture.settings.snapshot().relayEnabled)
+
+            fixture.coordinator().recover()
+
+            assertEquals(nativeSelection, fixture.xraySelection.current())
+            assertEquals(Mode.Proxy.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            assertTrue(fixture.settings.snapshot().relayEnabled)
+            assertEquals(profile, fixture.relayProfiles.load(profile.id))
+            assertEquals(credentials, fixture.relayCredentials.load(profile.id))
+            assertNull(fixture.journal.pending())
+        }
+
+    @Test
+    fun `xray provider after-image recovers profile selection and app settings after interrupted save`() =
+        runTest {
+            val fixture = Fixture()
+            val profile = testXrayProfile()
+            fixture.xrayMetadata.failNextSave = true
+
+            val failure =
+                runCatching {
+                    fixture.coordinator().upsertXrayProvider(
+                        profileId = "xray-default",
+                        profile = profile,
+                        selection =
+                            XrayProviderSelectionRecord(
+                                providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                                activeProfileId = "xray-default",
+                            ),
+                        modeAfterImage = Mode.VPN.preferenceValue,
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertNull(fixture.xrayMetadata.load("xray-default"))
+            assertTrue(fixture.xraySecrets.load("xray-default") != null)
+            assertEquals(XrayProviderSelectionRecord(), fixture.xraySelection.current())
+            assertEquals(ProfileMutationFamily.Xray, fixture.journal.pending()?.family)
+
+            fixture.coordinator().recover()
+
+            assertEquals("xray-default", fixture.xrayMetadata.load("xray-default")?.profileId)
+            assertEquals("uuid", fixture.xraySecrets.load("xray-default")?.uuid)
+            assertEquals(
+                XrayProviderSelectionRecord(
+                    providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                    activeProfileId = "xray-default",
+                ),
+                fixture.xraySelection.current(),
+            )
+            assertEquals(Mode.VPN.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            assertNull(fixture.journal.pending())
         }
 
     @Test
@@ -189,35 +276,45 @@ class ProfileMutationRecoveryCoordinatorTest {
         }
 
     @Test
-    fun `corrupt pending intent fails once then allows startup recovery retry`() =
+    fun `corrupt pending intent blocks every recovered read until explicit reset`() =
         runTest {
             val fixture = Fixture()
             val coordinator = fixture.coordinator()
-            fixture.journal.prepare(PendingProfileMutation(family = ProfileMutationFamily.Relay, payload = "not-json"))
+            fixture.journal.prepare(PendingProfileMutation(family = ProfileMutationFamily.Xray, payload = "not-json"))
+            repeat(2) {
+                val failure =
+                    runCatching {
+                        coordinator.readRecovered {
+                            error(
+                                "partial state was exposed",
+                            )
+                        }
+                    }.exceptionOrNull()
+                assertTrue(failure is ProfileMutationJournalCorruptionException)
+                assertTrue(fixture.journal.pending() != null)
+            }
+            val restarted = fixture.coordinator()
+            assertTrue(
+                runCatching { restarted.recover() }.exceptionOrNull() is ProfileMutationJournalCorruptionException,
+            )
 
-            val failure = runCatching { coordinator.recover() }.exceptionOrNull()
-
-            assertTrue(failure is ProfileMutationJournalCorruptionException)
-            assertTrue(fixture.journal.pending() != null)
-            coordinator.recover()
-            assertNull(fixture.journal.pending())
+            restarted.runReset { }
+            assertEquals("reset complete", restarted.readRecovered { "reset complete" })
         }
 
     @Test
-    fun `unreadable journal marker is discarded only by startup recovery retry`() =
+    fun `unreadable journal marker remains pending across recovery retries`() =
         runTest {
             val fixture = Fixture()
             val coordinator = fixture.coordinator()
+            fixture.journal.prepare(PendingProfileMutation(family = ProfileMutationFamily.Xray, payload = "not-json"))
             fixture.journal.pendingCorruptionFailuresRemaining = 2
 
-            val failure = runCatching { coordinator.recover() }.exceptionOrNull()
-
-            assertTrue(failure is ProfileMutationJournalCorruptionException)
-            assertEquals(0, fixture.journal.discardCount)
-
-            coordinator.recover()
-
-            assertEquals(1, fixture.journal.discardCount)
+            repeat(2) {
+                val failure = runCatching { coordinator.recover() }.exceptionOrNull()
+                assertTrue(failure is ProfileMutationJournalCorruptionException)
+            }
+            assertTrue(fixture.journal.pending() != null)
         }
 
     @Test
@@ -239,7 +336,6 @@ class ProfileMutationRecoveryCoordinatorTest {
 
             assertTrue(failure is ProfileMutationJournalCorruptionException)
             coordinator.recover()
-            assertEquals(0, fixture.journal.discardCount)
             assertEquals(credentials, fixture.relayCredentials.load(profile.id))
             assertNull(fixture.journal.pending())
         }
@@ -327,6 +423,76 @@ class ProfileMutationRecoveryCoordinatorTest {
             assertNull(fixture.journal.pending())
         }
 
+    @Test
+    fun `recovered read finishes pending selection and excludes concurrent mutation`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val selection =
+                XrayProviderSelectionRecord(
+                    providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                    activeProfileId = "xray-default",
+                )
+            fixture.xrayMetadata.failNextSave = true
+            assertTrue(
+                runCatching {
+                    coordinator.upsertXrayProvider(
+                        "xray-default",
+                        testXrayProfile(),
+                        selection,
+                        Mode.VPN.preferenceValue,
+                    )
+                }.isFailure,
+            )
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val reader =
+                launch {
+                    coordinator.readRecovered {
+                        assertEquals(selection, fixture.xraySelection.current())
+                        assertEquals("xray-default", fixture.xrayMetadata.load("xray-default")?.profileId)
+                        assertNull(fixture.journal.pending())
+                        entered.complete(Unit)
+                        release.await()
+                        assertEquals(selection, fixture.xraySelection.current())
+                    }
+                }
+            entered.await()
+            val writer =
+                launch {
+                    coordinator.selectNativeProvider(XrayProviderSelectionRecord(), Mode.Proxy.preferenceValue)
+                }
+            runCurrent()
+            assertFalse(writer.isCompleted)
+            release.complete(Unit)
+            reader.join()
+            writer.join()
+            assertEquals(XrayProviderSelectionRecord(), fixture.xraySelection.current())
+            assertEquals(Mode.Proxy.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+        }
+
+    @Test
+    fun `cancelled recovered read releases the mutation lock`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val entered = CompletableDeferred<Unit>()
+            val reader =
+                launch {
+                    coordinator.readRecovered {
+                        entered.complete(Unit)
+                        CompletableDeferred<Unit>().await()
+                    }
+                }
+            entered.await()
+            reader.cancelAndJoin()
+
+            coordinator.selectNativeProvider(XrayProviderSelectionRecord(), Mode.Proxy.preferenceValue)
+
+            assertEquals(Mode.Proxy.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            assertNull(fixture.journal.pending())
+        }
+
     private class Fixture {
         val settings = InMemorySettingsRepository()
         val relayProfiles = InMemoryRelayProfileStore()
@@ -364,6 +530,20 @@ class ProfileMutationRecoveryCoordinatorTest {
     }
 }
 
+private fun testXrayProfile(): XrayProfile =
+    XrayProfile(
+        name = "Xray",
+        outbound =
+            XrayProfile.Outbound(
+                serverAddress = "xray.example",
+                serverPort = 443,
+                uuid = "uuid",
+                security = XrayProfile.Security.TLS,
+                network = XrayProfile.Network.TCP,
+                tls = XrayProfile.Tls(serverName = "xray.example"),
+            ),
+    )
+
 private class InMemoryBootSessionStateStore : BootSessionStateStore {
     private var activeAwgProfileId: String? = null
 
@@ -390,7 +570,6 @@ private class InMemoryBootSessionStateStore : BootSessionStateStore {
 private class InMemoryProfileMutationJournal : ProfileMutationJournal {
     private var value: PendingProfileMutation? = null
     var pendingCorruptionFailuresRemaining = 0
-    var discardCount = 0
 
     override suspend fun prepare(mutation: PendingProfileMutation) {
         check(value == null)
@@ -415,12 +594,6 @@ private class InMemoryProfileMutationJournal : ProfileMutationJournal {
 
     override suspend fun complete(mutationId: String) {
         check(value?.mutationId == mutationId)
-        value = null
-    }
-
-    override suspend fun discardCorruptPending() {
-        discardCount += 1
-        pendingCorruptionFailuresRemaining = 0
         value = null
     }
 
@@ -625,12 +798,17 @@ private class InMemoryAwgCredentialStore : AwgCredentialStore {
 
 private class InMemoryXrayMetadataStore : XrayProfileMetadataStore {
     private val values = mutableMapOf<String, XrayProfileMetadataRecord>()
+    var failNextSave = false
 
     override suspend fun load(profileId: String) = values[profileId]
 
     override suspend fun list() = values.values.toList()
 
     override suspend fun save(record: XrayProfileMetadataRecord) {
+        if (failNextSave) {
+            failNextSave = false
+            error("simulated metadata failure")
+        }
         values[record.profileId] = record
     }
 
@@ -659,10 +837,15 @@ private class InMemoryXraySecretStore : XrayProfileSecretStore {
 
 private class InMemoryXraySelectionStore : XrayProviderSelectionStore {
     private var value = XrayProviderSelectionRecord()
+    var failNextUpdate = false
 
     override fun current() = value
 
     override fun update(record: XrayProviderSelectionRecord) {
+        if (failNextUpdate) {
+            failNextUpdate = false
+            error("simulated xray selection failure")
+        }
         value = record
     }
 }

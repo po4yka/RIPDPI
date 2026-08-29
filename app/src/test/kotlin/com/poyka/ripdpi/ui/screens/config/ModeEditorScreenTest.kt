@@ -110,6 +110,21 @@ class ModeEditorScreenTest {
     }
 
     @Test
+    fun xrayImportRowOpensProviderImportFlow() {
+        var opened = 0
+        setScreen(
+            actions =
+                NoOpModeEditorActions.copy(
+                    onOpenXrayImport = { opened += 1 },
+                ),
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorXrayImport).performScrollTo().performClick()
+
+        assertEquals(1, opened)
+    }
+
+    @Test
     fun advancedFieldsAreCollapsedByDefault() {
         setScreen()
 

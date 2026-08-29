@@ -3,7 +3,9 @@ package com.poyka.ripdpi.ui.screens.xray
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.XrayProviderMutationCoordinator
 import com.poyka.ripdpi.data.xray.DefaultXrayProfileId
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
@@ -44,19 +46,28 @@ class XrayProviderSelectionStore
         fun record(
             option: XrayServiceModeOption,
             profile: XrayProfile?,
+            storedXrayProfile: XrayProfile? = profile,
         ) {
-            _selection.value = XrayProviderSelection(option = option, acceptedProfile = profile)
+            _selection.value =
+                XrayProviderSelection(
+                    option = option,
+                    acceptedProfile = profile,
+                    storedXrayProfile = storedXrayProfile,
+                )
         }
     }
 
 /**
  * @property option the chosen service-mode option (provider axis).
  * @property acceptedProfile the validated Xray profile, when [option] is the
- *   Xray provider; null for native options.
+ *   active Xray provider; null for native options.
+ * @property storedXrayProfile the last durable/imported Xray profile available
+ *   for switching back to the Xray provider without re-importing.
  */
 data class XrayProviderSelection(
     val option: XrayServiceModeOption = XrayServiceModeOption.default,
     val acceptedProfile: XrayProfile? = null,
+    val storedXrayProfile: XrayProfile? = acceptedProfile,
 ) {
     /** The provider kind the selection resolves to. */
     val providerKind: VpnProviderKind get() = option.providerKind
@@ -76,11 +87,14 @@ data class XrayProviderSelection(
  * Keystore-split [DurableXrayProfileStore] and the durable
  * [com.poyka.ripdpi.data.xray.XrayProviderSelectionStore] is flipped to Xray.
  * The native relay is then NOT activated — the libXray runner owns that
- * connection. The native options flip the durable selection to native AND clear
- * the durable Xray profile (so no deselected secret lingers encrypted-at-rest),
- * then activate the relay exactly as before.
+ * connection. The native options flip the durable selection to native while
+ * preserving the durable Xray profile for an explicit future switch back, then
+ * activate the relay exactly as before.
  */
-@Singleton
+interface XrayNativeProviderSelection {
+    suspend fun selectNativeMode(mode: Mode)
+}
+
 class DefaultXrayProfilePersistence
     @Inject
     constructor(
@@ -90,7 +104,10 @@ class DefaultXrayProfilePersistence
         private val relayActivator: NativeRelayProfileActivator,
         private val durableProfileStore: DurableXrayProfileStore,
         private val durableSelectionStore: com.poyka.ripdpi.data.xray.XrayProviderSelectionStore,
-    ) : XrayProfilePersistence {
+        private val profileMutations: ProfileMutationCoordinator,
+        private val xrayProviderMutations: XrayProviderMutationCoordinator,
+    ) : XrayProfilePersistence,
+        XrayNativeProviderSelection {
         override val emptyInputMessage: String
             get() = stringResolver.getString(R.string.xray_import_empty_input_error)
 
@@ -102,6 +119,51 @@ class DefaultXrayProfilePersistence
 
         override val persistFailedMessage: String
             get() = stringResolver.getString(R.string.xray_import_error_activation_failed)
+
+        override val restoreFailedMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_restore_failed)
+
+        override val unsupportedTypedProfileMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_typed_unsupported)
+
+        override val missingTypedProfileFieldMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_typed_missing_field)
+
+        override val unsafeTypedProfileMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_typed_unsafe)
+
+        override suspend fun restoreSelection(): XrayProviderSelection =
+            profileMutations
+                .readRecovered {
+                    val durableSelection = durableSelectionStore.current()
+                    val storedProfile = durableProfileStore.load(DefaultXrayProfileId)
+                    val option =
+                        when (durableSelection.kind) {
+                            VpnProviderKind.Xray -> XrayServiceModeOption.XrayVpn
+                            VpnProviderKind.Native -> nativeOptionFromSettings()
+                        }
+                    val activeProfile =
+                        if (option.requiresXrayProfile) {
+                            durableSelection.activeProfileId
+                                .takeIf { it.isNotBlank() }
+                                ?.let { profileId ->
+                                    if (profileId == DefaultXrayProfileId) {
+                                        storedProfile
+                                    } else {
+                                        durableProfileStore.load(profileId)
+                                    }
+                                }
+                        } else {
+                            null
+                        }
+                    XrayProviderSelection(
+                        option = option,
+                        acceptedProfile = activeProfile,
+                        storedXrayProfile = storedProfile ?: activeProfile,
+                    )
+                }.also { restored ->
+                    selectionStore.record(restored.option, restored.acceptedProfile, restored.storedXrayProfile)
+                }
 
         override suspend fun persist(
             option: XrayServiceModeOption,
@@ -117,35 +179,69 @@ class DefaultXrayProfilePersistence
                     requireNotNull(acceptedProfile) {
                         "Xray provider selected without a validated profile"
                     }
-                durableProfileStore.save(DefaultXrayProfileId, profile)
-                durableSelectionStore.update(
-                    XrayProviderSelectionRecord(
-                        providerKind = XrayProviderSelectionRecord.ProviderKindXray,
-                        activeProfileId = DefaultXrayProfileId,
-                    ),
+                xrayProviderMutations.upsertXrayProvider(
+                    profileId = DefaultXrayProfileId,
+                    profile = profile,
+                    selection =
+                        XrayProviderSelectionRecord(
+                            providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                            activeProfileId = DefaultXrayProfileId,
+                        ),
+                    modeAfterImage = Mode.VPN.preferenceValue,
                 )
                 selectionStore.record(option, profile)
                 // libXray owns the connection: no native relay activation.
-                appSettingsRepository.update { setRipdpiMode(Mode.VPN.preferenceValue) }
                 return
             }
-            // Native options: clear any stale Xray selection so the service layer does
-            // not branch onto the libXray runner, then activate the first supported
-            // translated outbound on the native relay engine (pre-existing behaviour).
-            durableSelectionStore.update(
+            persistNativeOption(option, profiles)
+        }
+
+        override suspend fun selectNativeMode(mode: Mode) {
+            val option =
+                if (mode == Mode.Proxy) {
+                    XrayServiceModeOption.NativeProxy
+                } else {
+                    XrayServiceModeOption.NativeDirect
+                }
+            persistNativeOption(option, emptyList())
+        }
+
+        private suspend fun persistNativeOption(
+            option: XrayServiceModeOption,
+            profiles: List<ProxyProfile>,
+        ) {
+            // Native options: clear only the active provider selection so the service
+            // layer does not branch onto the libXray runner. Keep the durable Xray
+            // profile available for an explicit switch back/recreated ViewModel.
+            val storedProfile = profileMutations.readRecovered { durableProfileStore.load(DefaultXrayProfileId) }
+            val mode = if (option == XrayServiceModeOption.NativeProxy) Mode.Proxy else Mode.VPN
+            val nativeSelection =
                 XrayProviderSelectionRecord(
                     providerKind = XrayProviderSelectionRecord.ProviderKindNative,
                     activeProfileId = "",
-                ),
-            )
-            // Drop the deselected Xray profile so its Keystore-encrypted secret does
-            // not linger orphaned at-rest after the user moves to a native option.
-            durableProfileStore.clear(DefaultXrayProfileId)
-            selectionStore.record(option, null)
-            val mode = if (option == XrayServiceModeOption.NativeProxy) Mode.Proxy else Mode.VPN
-            profiles.firstOrNull { relayActivator.supports(it) }?.let { relayActivator.activate(it) }
-            appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
+                )
+            val nativeProfile = profiles.firstOrNull { relayActivator.supports(it) }
+            if (nativeProfile == null) {
+                xrayProviderMutations.selectNativeProvider(
+                    selection = nativeSelection,
+                    modeAfterImage = mode.preferenceValue,
+                )
+            } else {
+                relayActivator.activate(
+                    profile = nativeProfile,
+                    modeAfterImage = mode.preferenceValue,
+                    xraySelectionAfterImage = nativeSelection,
+                )
+            }
+            selectionStore.record(option, null, storedProfile)
         }
+
+        private suspend fun nativeOptionFromSettings(): XrayServiceModeOption =
+            if (appSettingsRepository.snapshot().ripdpiMode == Mode.Proxy.preferenceValue) {
+                XrayServiceModeOption.NativeProxy
+            } else {
+                XrayServiceModeOption.NativeDirect
+            }
     }
 
 @Module
@@ -154,4 +250,8 @@ abstract class XrayProfilePersistenceModule {
     @Binds
     @Singleton
     abstract fun bindXrayProfilePersistence(impl: DefaultXrayProfilePersistence): XrayProfilePersistence
+
+    @Binds
+    @Singleton
+    abstract fun bindXrayNativeProviderSelection(impl: DefaultXrayProfilePersistence): XrayNativeProviderSelection
 }

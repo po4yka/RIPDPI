@@ -7,9 +7,11 @@ import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.subscription.XraySkippedNode
+import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayImportParser
 import com.poyka.ripdpi.data.xray.XrayProfile
+import com.poyka.ripdpi.data.xray.XrayProviderBuildInfo
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
@@ -40,10 +42,19 @@ import javax.inject.Inject
  * @property skipped outbounds that could not be translated, each with a reason.
  * @property errorMessage a redacted, user-safe validation error (null when none).
  */
+enum class XrayImportRestoreStatus {
+    Loading,
+    Ready,
+    Failed,
+}
+
 data class XrayImportUiState(
     val selectedOption: XrayServiceModeOption = XrayServiceModeOption.default,
     val rawInput: String = "",
+    val restoreStatus: XrayImportRestoreStatus = XrayImportRestoreStatus.Loading,
+    val restoreErrorMessage: String? = null,
     val validating: Boolean = false,
+    val persisting: Boolean = false,
     val acceptedConfigReady: Boolean = false,
     val importableCount: Int = 0,
     val capabilities: ImmutableList<XrayCapability> = persistentListOf(),
@@ -53,9 +64,15 @@ data class XrayImportUiState(
     /** True when the chosen option needs a validated Xray profile to proceed. */
     val requiresXrayProfile: Boolean get() = selectedOption.requiresXrayProfile
 
-    /** True when the user can finish: native option, or Xray option with an importable config. */
+    /** User edits are blocked only while a confirmed persist is in flight. */
+    val canEdit: Boolean get() = !persisting
+
+    /** True when the user can finish after durable state has been read successfully. */
     val canFinish: Boolean
-        get() = !requiresXrayProfile || acceptedConfigReady
+        get() =
+            restoreStatus == XrayImportRestoreStatus.Ready &&
+                !persisting &&
+                (!requiresXrayProfile || acceptedConfigReady)
 }
 
 /**
@@ -86,6 +103,12 @@ class XrayProfileImportViewModel
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
 
+        /** True after the user edits selection/input; prevents late restore from overwriting fresh UI intent. */
+        private var userEdited = false
+
+        /** Monotonic edit token used to keep stale async restore results out of private caches. */
+        private var interactionGeneration = 0L
+
         /** Profiles translated by the last successful [validate]; not exposed to the UI. */
         private var translatedProfiles: List<ProxyProfile> = emptyList()
 
@@ -93,12 +116,14 @@ class XrayProfileImportViewModel
          * The typed Xray profile the libXray provider runs, produced by the
          * validated [XrayImportParser] (render + [com.poyka.ripdpi.data.XrayConfigValidator]
          * gate) — NOT hand-converted from the translated relay profile. Null when
-         * the chosen option is native, or when the validated parse produced no
-         * typed profile (raw-JSON path) / was rejected, in which case the Xray
-         * option fails closed at validate-time. Never exposed to the UI and never
-         * logged.
+         * the chosen option is native, when the parser rejects input, or when the
+         * temporary nullable Accepted API violates the expected typed-profile
+         * contract. Never exposed to the UI and never logged.
          */
         private var acceptedXrayProfile: XrayProfile? = null
+
+        /** Last durable/imported Xray profile kept available across native-provider toggles. */
+        private var storedXrayProfile: XrayProfile? = null
 
         /**
          * Validated import parser: the same render + validator gate the libXray
@@ -112,17 +137,92 @@ class XrayProfileImportViewModel
         /** Guards [confirm] against re-entry while the async persist is in flight. */
         private var importInFlight: Boolean = false
 
+        init {
+            restoreSelection()
+        }
+
+        private fun restoreSelection() {
+            val restoreInteractionGeneration = interactionGeneration
+            _uiState.update {
+                it.copy(
+                    restoreStatus = XrayImportRestoreStatus.Loading,
+                    restoreErrorMessage = null,
+                    errorMessage = null,
+                )
+            }
+            viewModelScope.launch {
+                val selection =
+                    runCatching { persistence.restoreSelection() }
+                        .getOrElse { error ->
+                            if (error is CancellationException) throw error
+                            _uiState.update { current ->
+                                current.copy(
+                                    restoreStatus = XrayImportRestoreStatus.Failed,
+                                    restoreErrorMessage = persistence.restoreFailedMessage,
+                                    validating = false,
+                                    persisting = false,
+                                    errorMessage = null,
+                                )
+                            }
+                            return@launch
+                        }
+                if (restoreInteractionGeneration != interactionGeneration || userEdited) {
+                    _uiState.update {
+                        it.copy(
+                            restoreStatus = XrayImportRestoreStatus.Ready,
+                            restoreErrorMessage = null,
+                            validating = false,
+                            errorMessage = null,
+                        )
+                    }
+                    return@launch
+                }
+
+                storedXrayProfile = selection.storedXrayProfile
+                translatedProfiles = emptyList()
+                val restoredProfile =
+                    selection.acceptedProfile.takeIf {
+                        selection.providerKind == VpnProviderKind.Xray
+                    }
+                acceptedXrayProfile = restoredProfile
+                _uiState.update {
+                    it.copy(
+                        selectedOption = selection.option,
+                        restoreStatus = XrayImportRestoreStatus.Ready,
+                        restoreErrorMessage = null,
+                        validating = false,
+                        acceptedConfigReady = restoredProfile != null,
+                        importableCount = if (restoredProfile == null) 0 else 1,
+                        capabilities = restoredProfile?.let(::capabilitiesFor)?.toImmutableList() ?: persistentListOf(),
+                        skipped = persistentListOf(),
+                        errorMessage = null,
+                    )
+                }
+            }
+        }
+
+        fun retryRestore() {
+            if (_uiState.value.persisting) return
+            completed = false
+            restoreSelection()
+        }
+
         /** Selects a service-mode option, clearing any stale validation outcome. */
         fun selectOption(option: XrayServiceModeOption) {
+            if (!_uiState.value.canEdit) return
+            userEdited = true
+            interactionGeneration += 1
             completed = false
             translatedProfiles = emptyList()
-            acceptedXrayProfile = null
+            val restoredProfile = storedXrayProfile.takeIf { option.requiresXrayProfile }
+            acceptedXrayProfile = restoredProfile
             _uiState.update {
                 it.copy(
                     selectedOption = option,
-                    acceptedConfigReady = false,
-                    importableCount = 0,
-                    capabilities = persistentListOf(),
+                    rawInput = if (restoredProfile == null) it.rawInput else "",
+                    acceptedConfigReady = restoredProfile != null,
+                    importableCount = if (restoredProfile == null) 0 else 1,
+                    capabilities = restoredProfile?.let(::capabilitiesFor)?.toImmutableList() ?: persistentListOf(),
                     skipped = persistentListOf(),
                     errorMessage = null,
                 )
@@ -131,6 +231,9 @@ class XrayProfileImportViewModel
 
         /** Updates the editable import text, clearing the previous outcome. */
         fun onRawInputChange(value: String) {
+            if (!_uiState.value.canEdit) return
+            userEdited = true
+            interactionGeneration += 1
             completed = false
             translatedProfiles = emptyList()
             acceptedXrayProfile = null
@@ -154,12 +257,22 @@ class XrayProfileImportViewModel
          * retained (fail-closed).
          */
         fun validate() {
-            val input = _uiState.value.rawInput.trim()
+            val state = _uiState.value
+            if (!state.canEdit || state.validating) return
+            val input = state.rawInput.trim()
             if (input.isEmpty()) {
                 _uiState.update { it.copy(errorMessage = persistence.emptyInputMessage) }
                 return
             }
             _uiState.update { it.copy(validating = true, errorMessage = null) }
+            if (state.requiresXrayProfile) {
+                validateXrayProfile(input)
+            } else {
+                validateNativeRelayProfile(input)
+            }
+        }
+
+        private fun validateNativeRelayProfile(input: String) {
             val groupId = UUID.randomUUID().toString()
             when (val result = XrayConfigImportParser.parse(input, groupId)) {
                 is XrayConfigImportResult.Translated -> {
@@ -167,19 +280,54 @@ class XrayProfileImportViewModel
                 }
 
                 is XrayConfigImportResult.Unparseable -> {
-                    translatedProfiles = emptyList()
-                    acceptedXrayProfile = null
+                    failUnparseable()
+                }
+            }
+        }
+
+        private fun validateXrayProfile(input: String) {
+            translatedProfiles = emptyList()
+            val parsed =
+                xrayImportParser.parse(
+                    input,
+                    upstreamTag = XrayProviderBuildInfo.upstreamTag,
+                    profileName = IMPORTED_PROFILE_NAME,
+                )
+            when (parsed) {
+                is XrayImportParser.Result.Accepted -> {
+                    val typed = parsed.profile
+                    acceptedXrayProfile = typed
+                    storedXrayProfile = typed
                     _uiState.update {
                         it.copy(
                             validating = false,
-                            acceptedConfigReady = false,
-                            importableCount = 0,
-                            capabilities = persistentListOf(),
+                            acceptedConfigReady = true,
+                            importableCount = 1,
+                            capabilities = parsed.capabilities.toImmutableList(),
                             skipped = persistentListOf(),
-                            errorMessage = persistence.unparseableMessage,
+                            errorMessage = null,
                         )
                     }
                 }
+
+                is XrayImportParser.Result.Rejected -> {
+                    failXrayValidation(emptyList(), messageFor(parsed.reason))
+                }
+            }
+        }
+
+        private fun failUnparseable() {
+            translatedProfiles = emptyList()
+            acceptedXrayProfile = null
+            _uiState.update {
+                it.copy(
+                    validating = false,
+                    acceptedConfigReady = false,
+                    importableCount = 0,
+                    capabilities = persistentListOf(),
+                    skipped = persistentListOf(),
+                    errorMessage = persistence.unparseableMessage,
+                )
             }
         }
 
@@ -212,16 +360,6 @@ class XrayProfileImportViewModel
                         reason = XraySkipReason.SINGLE_RELAY_ONLY,
                     )
                 }
-            if (_uiState.value.requiresXrayProfile) {
-                // The Xray (libXray) option must run through the SAME validated
-                // render + validator gate the runner reads, so derive the typed
-                // profile from XrayImportParser — never from the translated relay
-                // profile (lossy and validation-bypassing). Fail closed at
-                // validate-time when no validated typed profile is available, so a
-                // non-REALITY / invalid config never enables Finish.
-                applyXrayValidation(result.skipped + deferred)
-                return
-            }
             // Native options need no typed Xray profile.
             acceptedXrayProfile = null
             _uiState.update {
@@ -236,48 +374,13 @@ class XrayProfileImportViewModel
             }
         }
 
-        /**
-         * Runs the validated [XrayImportParser] over the current raw input and,
-         * only on an [XrayImportParser.Result.Accepted] carrying a typed profile,
-         * marks the Xray option ready to finish. A rejection or a typed-less accept
-         * (the raw-JSON path the libXray runner cannot source) fails closed: no
-         * typed profile is retained and Finish stays disabled, with the parser's
-         * already-redacted rejection reason surfaced when present.
-         */
-        private fun applyXrayValidation(skipped: List<XraySkippedNode>) {
-            val input = _uiState.value.rawInput.trim()
-            val parsed =
-                xrayImportParser.parse(
-                    input,
-                    upstreamTag = XRAY_UPSTREAM_TAG,
-                    profileName = IMPORTED_PROFILE_NAME,
-                )
-            when (parsed) {
-                is XrayImportParser.Result.Accepted -> {
-                    val typed = parsed.profile
-                    if (typed == null) {
-                        failXrayValidation(skipped, persistence.noSupportedNodesMessage)
-                    } else {
-                        acceptedXrayProfile = typed
-                        _uiState.update {
-                            it.copy(
-                                validating = false,
-                                acceptedConfigReady = true,
-                                importableCount = 1,
-                                capabilities = parsed.capabilities.toImmutableList(),
-                                skipped = skipped.toImmutableList(),
-                                errorMessage = null,
-                            )
-                        }
-                    }
-                }
-
-                is XrayImportParser.Result.Rejected -> {
-                    // parsed.message is already redacted by XrayProfileRedactor.
-                    failXrayValidation(skipped, parsed.message)
-                }
+        private fun messageFor(reason: XrayImportParser.Reason): String =
+            when (reason) {
+                XrayImportParser.Reason.UNRECOGNISED_INPUT -> persistence.unparseableMessage
+                XrayImportParser.Reason.UNSUPPORTED_TRANSPORT -> persistence.unsupportedTypedProfileMessage
+                XrayImportParser.Reason.MISSING_REQUIRED_FIELD -> persistence.missingTypedProfileFieldMessage
+                XrayImportParser.Reason.FAILED_SAFETY_CHECK -> persistence.unsafeTypedProfileMessage
             }
-        }
 
         /** Fail-closed Xray validate outcome: no typed profile, Finish disabled. */
         private fun failXrayValidation(
@@ -306,11 +409,18 @@ class XrayProfileImportViewModel
         fun confirm() {
             val state = _uiState.value
             if (!state.canFinish || importInFlight || completed) return
+            val payload =
+                XrayPersistPayload(
+                    option = state.selectedOption,
+                    profiles = translatedProfiles.toList(),
+                    acceptedProfile = acceptedXrayProfile,
+                )
             importInFlight = true
+            _uiState.update { it.copy(persisting = true, errorMessage = null) }
             viewModelScope.launch {
                 val result =
                     runCatching {
-                        persistence.persist(state.selectedOption, translatedProfiles, acceptedXrayProfile)
+                        persistence.persist(payload.option, payload.profiles, payload.acceptedProfile)
                     }
                 importInFlight = false
                 result.fold(
@@ -323,17 +433,37 @@ class XrayProfileImportViewModel
                         if (error is CancellationException) throw error
                         // Activation failed (store/settings I/O): surface a retryable error
                         // instead of crashing the scope or wedging on a dead Finish button.
-                        _uiState.update { it.copy(errorMessage = persistence.persistFailedMessage) }
+                        _uiState.update {
+                            it.copy(
+                                persisting = false,
+                                errorMessage = persistence.persistFailedMessage,
+                            )
+                        }
                     },
                 )
             }
         }
+
+        private data class XrayPersistPayload(
+            val option: XrayServiceModeOption,
+            val profiles: List<ProxyProfile>,
+            val acceptedProfile: XrayProfile?,
+        )
 
         private fun capabilitiesFor(profiles: List<ProxyProfile>): List<XrayCapability> =
             buildList {
                 add(XrayCapability.VPN_PRIVACY)
                 add(XrayCapability.RELAY)
                 if (profiles.any { it is ProxyProfile.VlessReality }) add(XrayCapability.ANTI_DPI)
+                add(XrayCapability.DNS_PROTECTION)
+                add(XrayCapability.REALTIME_MEDIA)
+            }
+
+        private fun capabilitiesFor(profile: XrayProfile): List<XrayCapability> =
+            buildList {
+                add(XrayCapability.VPN_PRIVACY)
+                add(XrayCapability.RELAY)
+                if (profile.outbound.security == XrayProfile.Security.REALITY) add(XrayCapability.ANTI_DPI)
                 add(XrayCapability.DNS_PROTECTION)
                 add(XrayCapability.REALTIME_MEDIA)
             }
@@ -346,14 +476,6 @@ class XrayProfileImportViewModel
              * data-model name field, never rendered into the xray-core config.
              */
             const val IMPORTED_PROFILE_NAME = "Imported Xray profile"
-
-            /**
-             * xray-core release tag the validator gates version-dependent rules
-             * against. Mirrors the production render call in
-             * `core/service` `XrayProviderRouteBuilder` (`upstreamTag = "proxy"`),
-             * which carries no version tuple, so REALITY+XHTTP is not version-gated.
-             */
-            const val XRAY_UPSTREAM_TAG = "proxy"
         }
     }
 
@@ -377,6 +499,27 @@ interface XrayProfilePersistence {
     /** Localized message shown when activating the translated relay profile fails. */
     val persistFailedMessage: String
 
+    /** Localized message shown when durable provider/profile restore fails. */
+    val restoreFailedMessage: String
+
+    /** Localized message shown when the typed Xray parser rejects unsupported transport/security. */
+    val unsupportedTypedProfileMessage: String
+
+    /** Localized message shown when the typed Xray parser rejects a missing required field. */
+    val missingTypedProfileFieldMessage: String
+
+    /** Localized message shown when the typed Xray parser rejects an unsafe profile. */
+    val unsafeTypedProfileMessage: String
+
+    /**
+     * Reads the current durable provider selection for cold-start/process-reentry
+     * hydration. Native durable state returns the current native option from app
+     * settings. Xray durable state returns the Xray option even when its active
+     * profile is missing, with [XrayProviderSelection.acceptedProfile] null so the
+     * UI stays fail-closed and asks the user to re-import.
+     */
+    suspend fun restoreSelection(): XrayProviderSelection
+
     /**
      * Persists the chosen provider [option].
      *
@@ -386,9 +529,10 @@ interface XrayProfilePersistence {
      * the connection, so no native relay is activated. A null [acceptedProfile]
      * for an Xray option is fail-closed (the import cannot run via libXray).
      *
-     * For the native options the durable Xray selection is cleared and the first
-     * supported profile from [profiles] (empty for native-direct) is activated on
-     * the native relay — pre-existing behaviour, unchanged.
+     * For the native options the durable provider selection is set to native and
+     * the first supported profile from [profiles] (empty for native-direct) is
+     * activated on the native relay. The stored Xray profile is preserved for an
+     * explicit future switch back to the Xray provider.
      *
      * Suspends until the stores + settings are written so callers can sequence a
      * navigate-away only after a real, runnable connection is configured.

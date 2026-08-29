@@ -2,13 +2,17 @@ package com.poyka.ripdpi.data.xray
 
 import android.content.Context
 import com.poyka.ripdpi.data.KeystoreEncryptedPreferences
+import com.poyka.ripdpi.data.commitOrThrow
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +42,8 @@ import javax.inject.Singleton
 @Serializable
 data class XrayProfileMetadataRecord(
     val profileId: String = DefaultXrayProfileId,
+    /** Matches the encrypted half; an empty revision is not a committed profile. */
+    val revision: String = "",
     val name: String = "",
     /** Server endpoint host. Endpoint — never logged; redact in telemetry. */
     val serverAddress: String = "",
@@ -87,6 +93,7 @@ data class XrayProfileMetadataRecord(
 @Serializable
 data class XrayProfileSecretRecord(
     val profileId: String,
+    val revision: String = "",
     /** VLESS user UUID. Secret. */
     val uuid: String = "",
     /** REALITY x25519 public key (client side). Secret. */
@@ -94,6 +101,69 @@ data class XrayProfileSecretRecord(
     /** REALITY x25519 private key (server side only). Secret. */
     val realityPrivateKey: String? = null,
 )
+
+@Serializable
+data class XrayProfileRecordPair(
+    val metadata: XrayProfileMetadataRecord,
+    val secret: XrayProfileSecretRecord,
+)
+
+fun XrayProfile.toXrayProfileRecordPair(
+    profileId: String,
+    revision: String = UUID.randomUUID().toString(),
+): XrayProfileRecordPair {
+    val outbound = outbound
+    return XrayProfileRecordPair(
+        metadata =
+            XrayProfileMetadataRecord(
+                profileId = profileId,
+                revision = revision,
+                name = name,
+                serverAddress = outbound.serverAddress,
+                serverPort = outbound.serverPort,
+                flow = outbound.flow,
+                security = outbound.security.wire(),
+                network = outbound.network.wire(),
+                realityServerName = outbound.reality?.serverName.orEmpty(),
+                realityShortId = outbound.reality?.shortId.orEmpty(),
+                realityFingerprint = outbound.reality?.fingerprint ?: "chrome",
+                hasReality = outbound.reality != null,
+                tlsServerName = outbound.tls?.serverName.orEmpty(),
+                tlsFingerprint = outbound.tls?.fingerprint ?: "chrome",
+                tlsAllowInsecure = outbound.tls?.allowInsecure ?: false,
+                hasTls = outbound.tls != null,
+                xhttpPath = outbound.xhttp?.path ?: "/",
+                xhttpMode = outbound.xhttp?.mode ?: "auto",
+                xhttpHost = outbound.xhttp?.host.orEmpty(),
+                hasXhttp = outbound.xhttp != null,
+                inboundListen = inbound.listen,
+                inboundPort = inbound.port,
+                inboundUdpEnabled = inbound.udpEnabled,
+                dnsServers = dns.servers,
+                dnsQueryStrategy = dns.queryStrategy,
+            ),
+        secret =
+            XrayProfileSecretRecord(
+                profileId = profileId,
+                revision = revision,
+                uuid = outbound.uuid,
+                realityPublicKey = outbound.reality?.publicKey,
+                realityPrivateKey = outbound.reality?.privateKey,
+            ),
+    )
+}
+
+private fun XrayProfile.Security.wire(): String =
+    when (this) {
+        XrayProfile.Security.REALITY -> XrayProfileMetadataRecord.SecurityReality
+        XrayProfile.Security.TLS -> XrayProfileMetadataRecord.SecurityTls
+    }
+
+private fun XrayProfile.Network.wire(): String =
+    when (this) {
+        XrayProfile.Network.TCP -> XrayProfileMetadataRecord.NetworkTcp
+        XrayProfile.Network.XHTTP -> XrayProfileMetadataRecord.NetworkXhttp
+    }
 
 /** Plaintext metadata persistence for an Xray profile. NO secrets. */
 interface XrayProfileMetadataStore {
@@ -134,7 +204,9 @@ class SharedPreferencesXrayProfileMetadataStore
 
         override suspend fun load(profileId: String): XrayProfileMetadataRecord? =
             preferences.getString(prefKey(profileId), null)?.let {
-                json.decodeFromString(XrayProfileMetadataRecord.serializer(), it)
+                runCatching { json.decodeFromString(XrayProfileMetadataRecord.serializer(), it) }
+                    .getOrNull()
+                    ?.takeIf { record -> record.profileId == profileId }
             }
 
         override suspend fun list(): List<XrayProfileMetadataRecord> =
@@ -145,7 +217,7 @@ class SharedPreferencesXrayProfileMetadataStore
                     preferences.getString(key, null)?.let { encoded ->
                         runCatching {
                             json.decodeFromString(XrayProfileMetadataRecord.serializer(), encoded)
-                        }.getOrNull()
+                        }.getOrNull()?.takeIf { record -> prefKey(record.profileId) == key }
                     }
                 }.sortedBy { it.profileId }
                 .toList()
@@ -156,15 +228,15 @@ class SharedPreferencesXrayProfileMetadataStore
                 .putString(
                     prefKey(record.profileId),
                     json.encodeToString(XrayProfileMetadataRecord.serializer(), record),
-                ).apply()
+                ).commitOrThrow()
         }
 
         override suspend fun clear(profileId: String) {
-            preferences.edit().remove(prefKey(profileId)).apply()
+            preferences.edit().remove(prefKey(profileId)).commitOrThrow()
         }
 
         override suspend fun clearAll() {
-            preferences.edit().clear().commit()
+            preferences.edit().clear().commitOrThrow()
         }
 
         private fun prefKey(profileId: String): String = "$MetadataKeyPrefix$profileId"
@@ -191,7 +263,7 @@ class KeystoreXrayProfileSecretStore
         override suspend fun load(profileId: String): XrayProfileSecretRecord? =
             blobStore
                 .getString(prefKey(profileId))
-                ?.let { json.decodeFromString(XrayProfileSecretRecord.serializer(), it).copy(profileId = profileId) }
+                ?.let { json.decodeFromString(XrayProfileSecretRecord.serializer(), it) }
 
         override suspend fun save(record: XrayProfileSecretRecord) {
             blobStore.putString(
@@ -223,12 +295,11 @@ class KeystoreXrayProfileSecretStore
  * load. This is the production input to [XrayConfigRenderer]; before this store
  * existed the import surface kept the validated profile in memory only.
  *
- * [save] tolerates the LMK model by construction: [load] returns null unless
- * BOTH halves are present, so any partial state from a kill mid-save reads as
- * absent (the profile is simply unusable until re-imported), in either write
- * order and regardless of SharedPreferences' asynchronous disk-flush ordering.
- * The secret is written before the metadata only as best-effort ordering;
- * correctness rests on the both-halves check in [load], not on write order.
+ * Each save writes a fresh revision to both halves. A process death between
+ * writes leaves mismatched revisions, which [load] and [listProfileIds] reject.
+ * This also covers replacement of an existing profile. Writes are durably
+ * committed; a mutex prevents concurrent readers from observing an in-flight save.
+ * Records predating revision binding must be re-imported before use.
  */
 interface DurableXrayProfileStore {
     suspend fun load(profileId: String): XrayProfile?
@@ -251,162 +322,126 @@ class DefaultDurableXrayProfileStore
         private val metadataStore: XrayProfileMetadataStore,
         private val secretStore: XrayProfileSecretStore,
     ) : DurableXrayProfileStore {
-        override suspend fun load(profileId: String): XrayProfile? {
-            val metadata = metadataStore.load(profileId)
-            val secret = if (metadata != null) secretStore.load(profileId) else null
-            return if (metadata != null && secret != null) reconstitute(metadata, secret) else null
-        }
+        private val mutex = Mutex()
+
+        override suspend fun load(profileId: String): XrayProfile? =
+            mutex.withLock {
+                val metadata = metadataStore.load(profileId)
+                val secret = if (metadata != null) secretStore.load(profileId) else null
+                if (metadata?.profileId == profileId &&
+                    matches(metadata, secret)
+                ) {
+                    reconstitute(requireNotNull(metadata), requireNotNull(secret))
+                } else {
+                    null
+                }
+            }
 
         override suspend fun save(
             profileId: String,
             profile: XrayProfile,
-        ) {
-            // Secret half first as best-effort ordering only; correctness does
-            // not depend on it — load() requires BOTH halves, so a partial save
-            // (in either order) reads as absent. SharedPreferences.apply()
-            // flushes to disk asynchronously and does not guarantee write order.
-            secretStore.save(extractSecret(profileId, profile))
-            metadataStore.save(extractMetadata(profileId, profile))
+        ) = mutex.withLock {
+            val records = profile.toXrayProfileRecordPair(profileId)
+            secretStore.save(records.secret)
+            metadataStore.save(records.metadata)
         }
 
-        override suspend fun clear(profileId: String) {
-            metadataStore.clear(profileId)
-            secretStore.clear(profileId)
-        }
-
-        override suspend fun listProfileIds(): List<String> =
-            metadataStore.list().mapNotNull { metadata ->
-                metadata.profileId.takeIf { secretStore.load(it) != null }
+        override suspend fun clear(profileId: String) =
+            mutex.withLock {
+                metadataStore.clear(profileId)
+                secretStore.clear(profileId)
             }
 
-        private fun extractSecret(
-            profileId: String,
-            profile: XrayProfile,
-        ): XrayProfileSecretRecord =
-            XrayProfileSecretRecord(
-                profileId = profileId,
-                uuid = profile.outbound.uuid,
-                realityPublicKey = profile.outbound.reality?.publicKey,
-                realityPrivateKey = profile.outbound.reality?.privateKey,
-            )
+        override suspend fun listProfileIds(): List<String> =
+            mutex.withLock {
+                metadataStore.list().mapNotNull { metadata ->
+                    metadata.profileId.takeIf { matches(metadata, secretStore.load(it)) }
+                }
+            }
 
-        private fun extractMetadata(
-            profileId: String,
-            profile: XrayProfile,
-        ): XrayProfileMetadataRecord {
-            val o = profile.outbound
-            return XrayProfileMetadataRecord(
-                profileId = profileId,
-                name = profile.name,
-                serverAddress = o.serverAddress,
-                serverPort = o.serverPort,
-                flow = o.flow,
-                security = o.security.wire(),
-                network = o.network.wire(),
-                realityServerName = o.reality?.serverName.orEmpty(),
-                realityShortId = o.reality?.shortId.orEmpty(),
-                realityFingerprint = o.reality?.fingerprint ?: "chrome",
-                hasReality = o.reality != null,
-                tlsServerName = o.tls?.serverName.orEmpty(),
-                tlsFingerprint = o.tls?.fingerprint ?: "chrome",
-                tlsAllowInsecure = o.tls?.allowInsecure ?: false,
-                hasTls = o.tls != null,
-                xhttpPath = o.xhttp?.path ?: "/",
-                xhttpMode = o.xhttp?.mode ?: "auto",
-                xhttpHost = o.xhttp?.host.orEmpty(),
-                hasXhttp = o.xhttp != null,
-                inboundListen = profile.inbound.listen,
-                inboundPort = profile.inbound.port,
-                inboundUdpEnabled = profile.inbound.udpEnabled,
-                dnsServers = profile.dns.servers,
-                dnsQueryStrategy = profile.dns.queryStrategy,
-            )
-        }
+        private fun matches(
+            metadata: XrayProfileMetadataRecord?,
+            secret: XrayProfileSecretRecord?,
+        ): Boolean =
+            metadata != null && secret != null && metadata.profileId == secret.profileId &&
+                metadata.revision.isNotBlank() && metadata.revision == secret.revision
 
         private fun reconstitute(
             metadata: XrayProfileMetadataRecord,
             secret: XrayProfileSecretRecord,
-        ): XrayProfile {
+        ): XrayProfile? {
             val security =
-                if (metadata.security == XrayProfileMetadataRecord.SecurityTls) {
-                    XrayProfile.Security.TLS
-                } else {
-                    XrayProfile.Security.REALITY
+                when (metadata.security) {
+                    XrayProfileMetadataRecord.SecurityReality -> XrayProfile.Security.REALITY
+                    XrayProfileMetadataRecord.SecurityTls -> XrayProfile.Security.TLS
+                    else -> null
                 }
             val network =
-                if (metadata.network == XrayProfileMetadataRecord.NetworkXhttp) {
-                    XrayProfile.Network.XHTTP
-                } else {
-                    XrayProfile.Network.TCP
+                when (metadata.network) {
+                    XrayProfileMetadataRecord.NetworkTcp -> XrayProfile.Network.TCP
+                    XrayProfileMetadataRecord.NetworkXhttp -> XrayProfile.Network.XHTTP
+                    else -> null
                 }
-            return XrayProfile(
-                name = metadata.name,
-                outbound =
-                    XrayProfile.Outbound(
-                        serverAddress = metadata.serverAddress,
-                        serverPort = metadata.serverPort,
-                        uuid = secret.uuid,
-                        flow = metadata.flow,
-                        security = security,
-                        network = network,
-                        reality =
-                            if (metadata.hasReality) {
-                                XrayProfile.Reality(
-                                    publicKey = secret.realityPublicKey.orEmpty(),
-                                    serverName = metadata.realityServerName,
-                                    shortId = metadata.realityShortId,
-                                    fingerprint = metadata.realityFingerprint,
-                                    privateKey = secret.realityPrivateKey,
-                                )
-                            } else {
-                                null
-                            },
-                        tls =
-                            if (metadata.hasTls) {
-                                XrayProfile.Tls(
-                                    serverName = metadata.tlsServerName,
-                                    fingerprint = metadata.tlsFingerprint,
-                                    allowInsecure = metadata.tlsAllowInsecure,
-                                )
-                            } else {
-                                null
-                            },
-                        xhttp =
-                            if (metadata.hasXhttp) {
-                                XrayProfile.Xhttp(
-                                    path = metadata.xhttpPath,
-                                    mode = metadata.xhttpMode,
-                                    host = metadata.xhttpHost,
-                                )
-                            } else {
-                                null
-                            },
-                    ),
-                inbound =
-                    XrayProfile.LocalInbound(
-                        listen = metadata.inboundListen,
-                        port = metadata.inboundPort,
-                        udpEnabled = metadata.inboundUdpEnabled,
-                    ),
-                dns =
-                    XrayProfile.DnsSettings(
-                        servers = metadata.dnsServers,
-                        queryStrategy = metadata.dnsQueryStrategy,
-                    ),
-            )
+            return if (security == null || network == null) {
+                null
+            } else {
+                XrayProfile(
+                    name = metadata.name,
+                    outbound =
+                        XrayProfile.Outbound(
+                            serverAddress = metadata.serverAddress,
+                            serverPort = metadata.serverPort,
+                            uuid = secret.uuid,
+                            flow = metadata.flow,
+                            security = security,
+                            network = network,
+                            reality =
+                                if (metadata.hasReality) {
+                                    XrayProfile.Reality(
+                                        publicKey = secret.realityPublicKey.orEmpty(),
+                                        serverName = metadata.realityServerName,
+                                        shortId = metadata.realityShortId,
+                                        fingerprint = metadata.realityFingerprint,
+                                        privateKey = secret.realityPrivateKey,
+                                    )
+                                } else {
+                                    null
+                                },
+                            tls =
+                                if (metadata.hasTls) {
+                                    XrayProfile.Tls(
+                                        serverName = metadata.tlsServerName,
+                                        fingerprint = metadata.tlsFingerprint,
+                                        allowInsecure = metadata.tlsAllowInsecure,
+                                    )
+                                } else {
+                                    null
+                                },
+                            xhttp =
+                                if (metadata.hasXhttp) {
+                                    XrayProfile.Xhttp(
+                                        path = metadata.xhttpPath,
+                                        mode = metadata.xhttpMode,
+                                        host = metadata.xhttpHost,
+                                    )
+                                } else {
+                                    null
+                                },
+                        ),
+                    inbound =
+                        XrayProfile.LocalInbound(
+                            listen = metadata.inboundListen,
+                            port = metadata.inboundPort,
+                            udpEnabled = metadata.inboundUdpEnabled,
+                        ),
+                    dns =
+                        XrayProfile.DnsSettings(
+                            servers = metadata.dnsServers,
+                            queryStrategy = metadata.dnsQueryStrategy,
+                        ),
+                )
+            }
         }
-
-        private fun XrayProfile.Security.wire(): String =
-            when (this) {
-                XrayProfile.Security.REALITY -> XrayProfileMetadataRecord.SecurityReality
-                XrayProfile.Security.TLS -> XrayProfileMetadataRecord.SecurityTls
-            }
-
-        private fun XrayProfile.Network.wire(): String =
-            when (this) {
-                XrayProfile.Network.TCP -> XrayProfileMetadataRecord.NetworkTcp
-                XrayProfile.Network.XHTTP -> XrayProfileMetadataRecord.NetworkXhttp
-            }
     }
 
 /**
@@ -423,7 +458,12 @@ data class XrayProviderSelectionRecord(
     val activeProfileId: String = "",
 ) {
     val kind: VpnProviderKind
-        get() = if (providerKind == ProviderKindXray) VpnProviderKind.Xray else VpnProviderKind.Native
+        get() =
+            when (providerKind) {
+                ProviderKindNative -> VpnProviderKind.Native
+                ProviderKindXray -> VpnProviderKind.Xray
+                else -> error("Unknown stored VPN provider")
+            }
 
     companion object {
         const val ProviderKindNative = "native"
@@ -468,18 +508,19 @@ class SharedPreferencesXrayProviderSelectionStore
 
         override fun current(): XrayProviderSelectionRecord =
             preferences.getString(SelectionKey, null)?.let {
-                runCatching { json.decodeFromString(XrayProviderSelectionRecord.serializer(), it) }.getOrNull()
+                json.decodeFromString(XrayProviderSelectionRecord.serializer(), it).also { record -> record.kind }
             } ?: XrayProviderSelectionRecord()
 
         override fun update(record: XrayProviderSelectionRecord) {
+            record.kind
             preferences
                 .edit()
                 .putString(SelectionKey, json.encodeToString(XrayProviderSelectionRecord.serializer(), record))
-                .apply()
+                .commitOrThrow()
         }
 
         suspend fun clear() {
-            preferences.edit().clear().commit()
+            preferences.edit().clear().commitOrThrow()
         }
 
         private companion object {

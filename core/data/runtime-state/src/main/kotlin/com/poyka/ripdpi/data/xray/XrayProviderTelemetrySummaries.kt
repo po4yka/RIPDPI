@@ -5,11 +5,8 @@ package com.poyka.ripdpi.data.xray
  *
  * Every summary is safe to drop into a bug report, a diagnostics export, or a
  * log line: it carries states, versions, latency numbers, and error *classes*
- * only. Any free-form detail is funnelled through
- * [XrayProfileRedactor.redactText] so a server address, UUID, REALITY key, or
- * live `host:port` that leaked into an error string is scrubbed before it
- * reaches the summary. This reuses the task-2 redaction surface rather than
- * re-implementing a scrubber.
+ * only. Profile labels, arbitrary version strings, and free-form details are
+ * excluded because they can contain secrets even without a recognizable pattern.
  */
 object XrayProviderTelemetrySummaries {
     /**
@@ -22,7 +19,7 @@ object XrayProviderTelemetrySummaries {
     fun summarize(snapshot: XrayProviderSnapshot): String =
         buildString {
             append("Xray[")
-            append("v=").append(snapshot.xrayVersion ?: "unknown")
+            append("v=").append(safeVersion(snapshot.xrayVersion))
             append(" readiness=").append(snapshot.readiness.name)
             append(" listener=").append(snapshot.listenerState.name)
             append(" outbound=").append(snapshot.outboundHealth.name)
@@ -36,26 +33,31 @@ object XrayProviderTelemetrySummaries {
 
     /**
      * Multi-line provider diagnostics block for an export / share sheet. The
-     * active profile is named (label only) and the local inbound is shown
-     * (always loopback). The server endpoint, UUID, and keys are never present;
-     * any failure detail is redacted via [XrayProfileRedactor.redactText].
+     * local inbound is shown only when verified loopback. Profile labels and
+     * arbitrary failure details are omitted; typed failure classes remain.
      */
     fun export(report: XrayProviderProbeReport): String {
         val s = report.snapshot
         return buildString {
             appendLine("=== Xray provider ===")
             appendLine("schema: ${s.schemaVersion}")
-            appendLine("version: ${s.xrayVersion ?: "unknown"}")
+            appendLine("version: ${safeVersion(s.xrayVersion)}")
             appendLine("readiness: ${s.readiness.name}")
             appendLine("listener: ${s.listenerState.name}")
             appendLine("outbound: ${s.outboundHealth.name}")
             appendLine("failureClass: ${s.failureClass.name}")
-            s.tunnelTopology?.let { appendLine("topology: $it") }
-            s.profileName?.let { appendLine("profile: $it") }
-            s.outboundProtocol?.let { appendLine("protocol: $it") }
-            s.outboundSecurity?.let { appendLine("security: $it") }
+            s.tunnelTopology
+                ?.takeIf {
+                    it in
+                        setOf(
+                            "TunToLocalInbound",
+                            "LibXraySetTunFd",
+                        )
+                }?.let { appendLine("topology: $it") }
+            s.outboundProtocol?.takeIf { it == "vless" }?.let { appendLine("protocol: $it") }
+            s.outboundSecurity?.takeIf { it in setOf("reality", "tls") }?.let { appendLine("security: $it") }
             // Local inbound is loopback by construction — safe to render verbatim.
-            if (s.localInboundListen != null && s.localInboundPort != null) {
+            if (s.localInboundListen == "127.0.0.1" && s.localInboundPort in 1..MaxLocalPort) {
                 appendLine("localInbound: ${s.localInboundListen}:${s.localInboundPort}")
             }
             s.lastPingRttMs?.let { appendLine("lastPingMs: $it") }
@@ -63,11 +65,11 @@ object XrayProviderTelemetrySummaries {
                 appendLine("configFindings:")
                 s.configFindings.forEach { finding ->
                     // message comes from the validator (no secrets) but scrub anyway.
-                    appendLine("  - ${finding.code} @ ${finding.path}: ${redact(finding.message)}")
+                    appendLine("  - ${finding.code}")
                 }
             }
             s.lastFailureDetailRedacted?.let {
-                appendLine("lastFailure: ${redact(it)}")
+                appendLine("lastFailure: ${XrayProfileRedactor.REDACTED}")
             }
             if (report.probes.isNotEmpty()) {
                 appendLine("probes:")
@@ -75,13 +77,21 @@ object XrayProviderTelemetrySummaries {
                     append("  - ").append(probe.kind.name)
                     append(": ").append(if (probe.ok) "ok" else "fail")
                     probe.latencyMs?.let { append(" (").append(it).append("ms)") }
-                    probe.detailRedacted?.let { append(" ").append(redact(it)) }
+                    probe.detailRedacted?.let { append(" ").append(XrayProfileRedactor.REDACTED) }
                     appendLine()
                 }
                 appendLine("verdict: ${if (report.allHealthy) "healthy" else "unhealthy"}")
             }
         }.trimEnd()
     }
+
+    private const val MaxLocalPort = 65_535
+
+    private fun safeVersion(value: String?): String =
+        value
+            ?.removePrefix("Xray ")
+            ?.removePrefix("v")
+            ?.takeIf { Regex("[0-9]{1,6}\\.[0-9]{1,6}\\.[0-9]{1,6}").matches(it) } ?: "unknown"
 
     /**
      * Defensively scrub a string that is expected to already be safe. Idempotent

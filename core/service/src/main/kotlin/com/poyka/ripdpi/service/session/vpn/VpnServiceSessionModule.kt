@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
+import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
 import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
@@ -55,6 +56,7 @@ import com.poyka.ripdpi.services.XrayProviderRouteBuilder
 import com.poyka.ripdpi.services.XrayProviderSessionController
 import com.poyka.ripdpi.services.XrayProviderSnapshotDeriver
 import com.poyka.ripdpi.services.XrayRenderedConfigHolder
+import com.poyka.ripdpi.services.XraySelectedProfile
 import com.poyka.ripdpi.services.XrayTunnelStartParamsHolder
 import dagger.Module
 import dagger.Provides
@@ -302,40 +304,54 @@ internal object VpnServiceSessionModule {
                 // controller staged just before start; cleared right after.
                 renderedConfigProvider = { renderedConfigHolder.require() },
             )
-        return XrayProviderSessionController(
-            selectionStore = selectionStore,
-            profileStore = profileStore,
-            routeBuilder =
-                XrayProviderRouteBuilder(
-                    profileStore,
-                    resolveEndpoint = { hostname ->
-                        kotlinx.coroutines.withTimeoutOrNull(XrayBootstrapTimeoutMillis) {
-                            xrayRuntimeOwner
-                                .resolveEndpoint {
-                                    (vpnService as RipDpiVpnService)
-                                        .resolveHost(
-                                            hostname,
-                                        ).toList()
-                                }.await()
-                        } ?: error("Xray relay bootstrap timed out")
-                    },
-                    renderer = XrayConfigRenderer(),
-                ),
-            orchestrator = orchestrator,
-            snapshotDeriver = XrayProviderSnapshotDeriver(),
-            probeRunner = XrayProviderDiagnosticsProbeRunner(),
-            startParamsHolder = startParamsHolder,
-            runtimeOwner = xrayRuntimeOwner,
-            renderedConfigSink = { config ->
-                renderedConfigHolder.current = config
-                if (config != null) {
-                    protectController.clearLastFailure()
-                }
-            },
-            lastProtectFailureDetail = { protectController.lastFailureDetail },
-            recoverPendingProfileMutations = profileMutations::recover,
-            probeCoordinator = probeCoordinator,
-        )
+        val controller =
+            XrayProviderSessionController(
+                readSelectedProfile = {
+                    profileMutations.readRecovered {
+                        val selection = selectionStore.current()
+                        XraySelectedProfile(
+                            selection,
+                            if (selection.kind ==
+                                VpnProviderKind.Xray
+                            ) {
+                                profileStore.load(selection.activeProfileId)
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                },
+                routeBuilder =
+                    XrayProviderRouteBuilder(
+                        resolveEndpoint = { hostname ->
+                            kotlinx.coroutines.withTimeoutOrNull(XrayBootstrapTimeoutMillis) {
+                                xrayRuntimeOwner
+                                    .resolveEndpoint {
+                                        (vpnService as RipDpiVpnService)
+                                            .resolveHost(
+                                                hostname,
+                                            ).toList()
+                                    }.await()
+                            } ?: error("Xray relay bootstrap timed out")
+                        },
+                        renderer = XrayConfigRenderer(),
+                    ),
+                orchestrator = orchestrator,
+                snapshotDeriver = XrayProviderSnapshotDeriver(),
+                probeRunner = XrayProviderDiagnosticsProbeRunner(),
+                startParamsHolder = startParamsHolder,
+                runtimeOwner = xrayRuntimeOwner,
+                renderedConfigSink = { config ->
+                    renderedConfigHolder.current = config
+                    if (config != null) {
+                        protectController.clearLastFailure()
+                    }
+                },
+                lastProtectFailureDetail = { protectController.lastFailureDetail },
+                probeCoordinator = probeCoordinator,
+            )
+        protectController.providerGenerationProvider = controller::currentGenerationIfActive
+        return controller
     }
 
     @Provides

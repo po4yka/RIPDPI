@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ProviderRoute
-import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
 import com.poyka.ripdpi.data.xray.XrayConfigValidationFinding
 import com.poyka.ripdpi.data.xray.XrayProfile
+import com.poyka.ripdpi.data.xray.XrayProviderBuildInfo
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.currentCoroutineContext
@@ -15,7 +15,7 @@ import java.net.URI
 
 /**
  * Builds the [ProviderRoute] and the rendered xray-core JSON config for the
- * active Xray provider session, from the DURABLE profile store (decision 3).
+ * active Xray provider session, from one recovered durable profile snapshot.
  *
  * ### Secret discipline
  * The rendered config is secret-bearing (it embeds the VLESS UUID and REALITY
@@ -32,13 +32,10 @@ import java.net.URI
  * inbound always agree.
  */
 internal class XrayProviderRouteBuilder(
-    private val profileStore: DurableXrayProfileStore,
     private val resolveEndpoint: suspend (String) -> List<String>,
     private val renderer: XrayConfigRenderer = XrayConfigRenderer(),
+    private val upstreamTag: String = XrayProviderBuildInfo.upstreamTag,
 ) {
-    /** Routing tag the renderer validates the proxied path against. */
-    private val proxyTag = "proxy"
-
     // Deterministic, default-preserving JSON so the rendered config matches what
     // the validator consumed; no pretty-print to keep the wire payload compact.
     // Reuse the centralized instance per the serialization-source rule.
@@ -62,22 +59,22 @@ internal class XrayProviderRouteBuilder(
             val testError: String? = null,
         ) : Result
 
-        /** No durable profile is persisted for [profileId]. */
+        /** No durable profile was present in the selected snapshot. */
         data object NoProfile : Result
     }
 
     /**
-     * Load [profileId] from the durable store, render + validate its config, and
-     * return a [Result]. Suspends for the store read and relay endpoint bootstrap;
+     * Render and validate [profile] after releasing the journal read lock.
+     * Return a [Result]. Suspends only for relay endpoint bootstrap;
      * rendering is pure. An invalid config is reported as findings, never as a renderable or
      * thrown secret.
      */
-    suspend fun build(profileId: String): Result {
-        val profile = profileStore.load(profileId) ?: return Result.NoProfile
+    suspend fun build(profile: XrayProfile?): Result {
+        if (profile == null) return Result.NoProfile
         // Validate before any DNS I/O; use a transient copy so durable identity never changes.
-        val initial = renderer.render(profile, upstreamTag = proxyTag)
+        val initial = renderer.render(profile, upstreamTag = upstreamTag)
         val prepared = if (initial is XrayConfigRenderer.Result.Success) resolveProfileEndpoint(profile) else profile
-        return when (val rendered = renderer.render(prepared, upstreamTag = proxyTag)) {
+        return when (val rendered = renderer.render(prepared, upstreamTag = upstreamTag)) {
             is XrayConfigRenderer.Result.Success -> {
                 Result.Resolved(
                     route = routeFor(profile),

@@ -41,7 +41,7 @@ internal class VpnRuntimeTelemetryReporter(
                 ),
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             failureReason = failureReason,
-            xrayProviderSnapshot = xrayController?.takeIf { it.isActive }?.currentSnapshot(),
+            xrayProviderSnapshot = xrayController?.currentSnapshotOrNull(),
         )
         if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
             host.updateNotification(

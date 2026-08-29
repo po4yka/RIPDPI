@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">Не удалось загрузить текущее состояние провайдера Xray. Повторите попытку перед завершением.</string>
+    <string name="xray_import_error_typed_unsupported">Этот транспорт или параметр безопасности Xray пока не поддерживается.</string>
+    <string name="xray_import_error_typed_missing_field">В профиле Xray не хватает обязательного поля. Проверьте ссылку и повторите попытку.</string>
+    <string name="xray_import_error_typed_unsafe">Профиль Xray не прошёл проверку безопасности и не был импортирован.</string>
+    <string name="xray_import_restore_loading_title">Проверяем текущий режим Xray</string>
+    <string name="xray_import_restore_loading_body">Считываем сохранённого провайдера и профиль, прежде чем разрешить этот режим.</string>
+    <string name="xray_import_restore_failed_title">Не удалось загрузить режим Xray</string>
+    <string name="xray_import_restore_retry_action">Повторить</string>
+    <string name="xray_import_skipped_item_format">Узел %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">Служебный исходящий маршрут: импортировать нечего.</string>
+    <string name="xray_skip_unsupported_protocol_safe">Этот протокол не поддерживается нативно.</string>
+    <string name="xray_skip_unsupported_transport_safe">Этот транспорт не поддерживается нативно.</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">Этот TLS-отпечаток не поддерживается нативно.</string>
+    <string name="config_xray_import_title">Профиль расширенного VPN</string>
+    <string name="config_xray_import_body">Импортируйте или проверьте профиль Xray для встроенного провайдера.</string>
+    <string name="onboarding_setup_mode_xray_title">Настроить расширенный VPN</string>
+    <string name="onboarding_setup_mode_xray_body">Импортируйте профиль Xray перед проверкой режима VPN.</string>
+</resources>

@@ -18,9 +18,9 @@ pub(crate) fn start_socks5_server(
     faults: FaultController,
 ) -> io::Result<(JoinHandle<()>, u16)> {
     let listener = TcpListener::bind((config.bind_host.as_str(), config.socks5_port))?;
+    let (listener, udp_socket) = bind_udp_relay_socket(&config, listener)?;
     listener.set_nonblocking(true)?;
     let local_port = listener.local_addr()?.port();
-    let udp_socket = UdpSocket::bind((config.bind_host.as_str(), local_port))?;
     udp_socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let udp_local = udp_socket.local_addr()?;
     let advertised_udp_relay = advertised_udp_relay_addr(udp_local, &config.android_host)?;
@@ -221,6 +221,13 @@ pub(crate) fn start_socks5_server(
     ))
 }
 
+fn bind_udp_relay_socket(config: &FixtureConfig, listener: TcpListener) -> io::Result<(TcpListener, UdpSocket)> {
+    // A dynamic TCP port does not reserve the same number for UDP.
+    // Keep explicit ports strict; advertise the separately bound UDP endpoint.
+    let udp_socket = UdpSocket::bind((config.bind_host.as_str(), config.socks5_port))?;
+    Ok((listener, udp_socket))
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum SocksTarget {
     Socket(SocketAddr),
@@ -415,5 +422,49 @@ pub(crate) fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u
             Ok((SocketAddr::new(IpAddr::from(raw), u16::from_be_bytes([frame[20], frame[21]])), frame[22..].to_vec()))
         }
         atyp => Err(io::Error::new(ErrorKind::InvalidData, format!("SOCKS5 UDP atyp unsupported: {atyp}"))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reserve_tcp_and_udp_port() -> (TcpListener, UdpSocket) {
+        for _ in 0..32 {
+            let tcp = TcpListener::bind((crate::types::DEFAULT_BIND_HOST, 0)).expect("bind TCP candidate");
+            let address = tcp.local_addr().expect("TCP candidate address");
+            match UdpSocket::bind(address) {
+                Ok(udp) => return (tcp, udp),
+                Err(error) if error.kind() == ErrorKind::AddrInUse => continue,
+                Err(error) => panic!("reserve UDP candidate: {error}"),
+            }
+        }
+        panic!("could not reserve a TCP/UDP port pair after 32 candidates");
+    }
+
+    #[test]
+    fn dynamic_udp_relay_does_not_reuse_occupied_tcp_listener_port() {
+        let (listener, occupied_udp) = reserve_tcp_and_udp_port();
+        let tcp_address = listener.local_addr().expect("TCP listener address");
+        let config = FixtureConfig { socks5_port: 0, ..FixtureConfig::default() };
+
+        let (listener, relay) = bind_udp_relay_socket(&config, listener).expect("independent ephemeral UDP relay");
+
+        assert_eq!(listener.local_addr().unwrap(), tcp_address);
+        assert_ne!(relay.local_addr().unwrap().port(), occupied_udp.local_addr().unwrap().port());
+        assert_ne!(relay.local_addr().unwrap().port(), 0);
+    }
+
+    #[test]
+    fn fixed_udp_relay_port_remains_strict_when_occupied() {
+        let (listener, _occupied_udp) = reserve_tcp_and_udp_port();
+        let config = FixtureConfig {
+            socks5_port: listener.local_addr().expect("TCP listener address").port(),
+            ..FixtureConfig::default()
+        };
+
+        let result = bind_udp_relay_socket(&config, listener);
+
+        assert!(matches!(result, Err(error) if error.kind() == ErrorKind::AddrInUse));
     }
 }

@@ -55,6 +55,7 @@ import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
+import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -521,114 +522,6 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `saveDraft leaves halted runtime for next start`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
-            val viewModel =
-                createConfigViewModel(
-                    serviceController = serviceController,
-                    serviceStateStore = serviceStateStore,
-                )
-
-            viewModel.updateDraft { copy(proxyPort = "1081") }
-            viewModel.saveDraft()
-            advanceUntilIdle()
-
-            assertEquals(0, serviceController.stopCount)
-            assertTrue(serviceController.startedModes.isEmpty())
-        }
-
-    @Test
-    fun `saveDraft restarts running runtime with saved mode`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
-            val viewModel =
-                createConfigViewModel(
-                    serviceController = serviceController,
-                    serviceStateStore = serviceStateStore,
-                )
-
-            viewModel.updateDraft { copy(mode = Mode.Proxy, proxyPort = "1081") }
-            viewModel.saveDraft()
-            runCurrent()
-
-            assertEquals(1, serviceController.stopCount)
-            assertTrue(serviceController.startedModes.isEmpty())
-
-            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
-            advanceUntilIdle()
-
-            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
-        }
-
-    @Test
-    fun `saveDraft applies edited vpn mode after active proxy service halts`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
-            val viewModel =
-                createConfigViewModel(
-                    serviceController = serviceController,
-                    serviceStateStore = serviceStateStore,
-                )
-
-            viewModel.updateDraft { copy(mode = Mode.VPN, proxyPort = "1081") }
-            viewModel.saveDraft()
-            runCurrent()
-
-            assertEquals(1, serviceController.stopCount)
-            assertTrue(serviceController.startedModes.isEmpty())
-
-            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
-            advanceUntilIdle()
-
-            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
-        }
-
-    private fun createConfigViewModel(
-        appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
-        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
-        serviceController: FakeServiceController = FakeServiceController(),
-    ): ConfigViewModel {
-        val relayProfileStore = InMemoryRelayProfileStore()
-        val relayCredentialStore = InMemoryRelayCredentialStore()
-        return ConfigViewModel(
-            savedStateHandle = SavedStateHandle(),
-            dependencies =
-                ConfigViewModelDependencies(
-                    appSettingsRepository = appSettingsRepository,
-                    relayArtifacts =
-                        ConfigRelayArtifactRepository(
-                            appSettingsRepository = appSettingsRepository,
-                            relayProfileStore = relayProfileStore,
-                            relayCredentialStore = relayCredentialStore,
-                        ),
-                    relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
-                    networkSnapshotProvider = FakeNativeNetworkSnapshotProvider(),
-                    serviceStateStore = serviceStateStore,
-                    serviceController = serviceController,
-                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
-                    capabilityObserver =
-                        ConfigCapabilityObserver(
-                            networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                            serverCapabilityStore = NoOpServerCapabilityStore(),
-                            dispatchers = testDispatchers(),
-                        ),
-                    dispatchers = testDispatchers(),
-                    editorDraftStore = InMemoryConfigEditorDraftStore(),
-                ),
-            importDependencies =
-                ConfigImportDependencies(
-                    masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
-                    masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
-                ),
-            stringResolver = ResourceStringResolver(),
-        )
-    }
-
-    @Test
     fun `relay validation accepts naiveproxy blank or absolute path`() {
         val blankPathErrors =
             validateConfigDraft(
@@ -783,6 +676,167 @@ class ConfigViewModelTest {
             )
 
         assertTrue(suggestion?.reason?.contains("whitelist-style routing pressure") == true)
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class ConfigViewModelProviderModeTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `selecting vpn mode preserves existing xray provider selection`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository(
+                    initialSettings =
+                        com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setRipdpiMode(Mode.Proxy.preferenceValue)
+                            .build(),
+                )
+            val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository)
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = repository,
+                    xrayNativeProviderSelection = xrayNativeProviderSelection,
+                )
+
+            viewModel.selectMode(Mode.VPN)
+            advanceUntilIdle()
+
+            assertTrue(xrayNativeProviderSelection.selectedModes.isEmpty())
+            assertEquals(Mode.VPN.preferenceValue, repository.snapshot().ripdpiMode)
+        }
+
+    @Test
+    fun `saving vpn draft preserves existing xray provider selection`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(repository)
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = repository,
+                    xrayNativeProviderSelection = xrayNativeProviderSelection,
+                )
+
+            viewModel.updateDraft { copy(mode = Mode.VPN, proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertTrue(xrayNativeProviderSelection.selectedModes.isEmpty())
+        }
+
+    @Test
+    fun `saveDraft leaves halted runtime for next start`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
+            val viewModel =
+                createConfigViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(0, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+        }
+
+    @Test
+    fun `saveDraft restarts running runtime with saved mode`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val viewModel =
+                createConfigViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            viewModel.updateDraft { copy(mode = Mode.Proxy, proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+        }
+
+    @Test
+    fun `saveDraft applies edited vpn mode after active proxy service halts`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
+            val viewModel =
+                createConfigViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            viewModel.updateDraft { copy(mode = Mode.VPN, proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+        }
+
+    private fun createConfigViewModel(
+        appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+        serviceController: FakeServiceController = FakeServiceController(),
+        xrayNativeProviderSelection: XrayNativeProviderSelection =
+            RecordingXrayNativeProviderSelection(appSettingsRepository),
+    ): ConfigViewModel {
+        val relayProfileStore = InMemoryRelayProfileStore()
+        val relayCredentialStore = InMemoryRelayCredentialStore()
+        return ConfigViewModel(
+            savedStateHandle = SavedStateHandle(),
+            dependencies =
+                ConfigViewModelDependencies(
+                    appSettingsRepository = appSettingsRepository,
+                    relayArtifacts =
+                        ConfigRelayArtifactRepository(
+                            appSettingsRepository = appSettingsRepository,
+                            relayProfileStore = relayProfileStore,
+                            relayCredentialStore = relayCredentialStore,
+                        ),
+                    relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
+                    networkSnapshotProvider = FakeNativeNetworkSnapshotProvider(),
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+                    capabilityObserver =
+                        ConfigCapabilityObserver(
+                            networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                            serverCapabilityStore = NoOpServerCapabilityStore(),
+                            dispatchers = testDispatchers(),
+                        ),
+                    dispatchers = testDispatchers(),
+                    editorDraftStore = InMemoryConfigEditorDraftStore(),
+                    xrayNativeProviderSelection = xrayNativeProviderSelection,
+                ),
+            importDependencies =
+                ConfigImportDependencies(
+                    masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
+                    masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
+                ),
+            stringResolver = ResourceStringResolver(),
+        )
     }
 }
 
@@ -1617,6 +1671,8 @@ private fun createConfigViewModel(
     relayCredentialStore: RelayCredentialStore = InMemoryRelayCredentialStore(),
     masqueClientCredentialImporter: MasqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
     editorDraftStore: ConfigEditorDraftStore = InMemoryConfigEditorDraftStore(),
+    xrayNativeProviderSelection: XrayNativeProviderSelection =
+        RecordingXrayNativeProviderSelection(appSettingsRepository),
 ): ConfigViewModel =
     ConfigViewModel(
         savedStateHandle = savedStateHandle,
@@ -1642,6 +1698,7 @@ private fun createConfigViewModel(
                     ),
                 dispatchers = testDispatchers(),
                 editorDraftStore = editorDraftStore,
+                xrayNativeProviderSelection = xrayNativeProviderSelection,
             ),
         importDependencies =
             ConfigImportDependencies(
@@ -2055,6 +2112,19 @@ internal class InMemoryRelayCredentialStore : RelayCredentialStore {
 
     override suspend fun clear(profileId: String) {
         records.remove(profileId)
+    }
+}
+
+internal class RecordingXrayNativeProviderSelection(
+    private val repository: AppSettingsRepository,
+    private val failure: Throwable? = null,
+) : XrayNativeProviderSelection {
+    val selectedModes = mutableListOf<Mode>()
+
+    override suspend fun selectNativeMode(mode: Mode) {
+        failure?.let { throw it }
+        selectedModes += mode
+        repository.update { setRipdpiMode(mode.preferenceValue) }
     }
 }
 

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -26,14 +27,28 @@ class XrayProfileImportViewModelTest {
 
     private val uuid = "550e8400-e29b-41d4-a716-446655440000"
     private val uuid2 = "660e8400-e29b-41d4-a716-446655440111"
-    private val pbk = "AbCdEf0123456789AbCdEf0123456789AbCdEf01234"
+    private val pbk = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
 
     private class RecordingPersistence : XrayProfilePersistence {
         override val emptyInputMessage: String = "empty"
         override val noSupportedNodesMessage: String = "no-supported"
         override val unparseableMessage: String = "unparseable"
         override val persistFailedMessage: String = "activation-failed"
+        override val restoreFailedMessage: String = "restore-failed"
+        override val unsupportedTypedProfileMessage: String = "typed-unsupported"
+        override val missingTypedProfileFieldMessage: String = "typed-missing"
+        override val unsafeTypedProfileMessage: String = "typed-unsafe"
+        var failNextRestore = false
+        var restored: XrayProviderSelection = XrayProviderSelection()
         var persisted: Triple<XrayServiceModeOption, List<ProxyProfile>, XrayProfile?>? = null
+
+        override suspend fun restoreSelection(): XrayProviderSelection {
+            if (failNextRestore) {
+                failNextRestore = false
+                error("durable read failed")
+            }
+            return restored
+        }
 
         override suspend fun persist(
             option: XrayServiceModeOption,
@@ -50,7 +65,13 @@ class XrayProfileImportViewModelTest {
         override val noSupportedNodesMessage: String = "no-supported"
         override val unparseableMessage: String = "unparseable"
         override val persistFailedMessage: String = "activation-failed"
+        override val restoreFailedMessage: String = "restore-failed"
+        override val unsupportedTypedProfileMessage: String = "typed-unsupported"
+        override val missingTypedProfileFieldMessage: String = "typed-missing"
+        override val unsafeTypedProfileMessage: String = "typed-unsafe"
         var attempts: Int = 0
+
+        override suspend fun restoreSelection(): XrayProviderSelection = XrayProviderSelection()
 
         override suspend fun persist(
             option: XrayServiceModeOption,
@@ -62,8 +83,93 @@ class XrayProfileImportViewModelTest {
         }
     }
 
-    private fun viewModel(persistence: RecordingPersistence = RecordingPersistence()) =
+    private class FailingRestorePersistence : XrayProfilePersistence {
+        override val emptyInputMessage: String = "empty"
+        override val noSupportedNodesMessage: String = "no-supported"
+        override val unparseableMessage: String = "unparseable"
+        override val persistFailedMessage: String = "activation-failed"
+        override val restoreFailedMessage: String = "restore-failed"
+        override val unsupportedTypedProfileMessage: String = "typed-unsupported"
+        override val missingTypedProfileFieldMessage: String = "typed-missing"
+        override val unsafeTypedProfileMessage: String = "typed-unsafe"
+
+        override suspend fun restoreSelection(): XrayProviderSelection = error("durable read failed")
+
+        override suspend fun persist(
+            option: XrayServiceModeOption,
+            profiles: List<ProxyProfile>,
+            acceptedProfile: XrayProfile?,
+        ) = Unit
+    }
+
+    private class DeferredRestorePersistence : XrayProfilePersistence {
+        override val emptyInputMessage: String = "empty"
+        override val noSupportedNodesMessage: String = "no-supported"
+        override val unparseableMessage: String = "unparseable"
+        override val persistFailedMessage: String = "activation-failed"
+        override val restoreFailedMessage: String = "restore-failed"
+        override val unsupportedTypedProfileMessage: String = "typed-unsupported"
+        override val missingTypedProfileFieldMessage: String = "typed-missing"
+        override val unsafeTypedProfileMessage: String = "typed-unsafe"
+        val restored = CompletableDeferred<XrayProviderSelection>()
+
+        override suspend fun restoreSelection(): XrayProviderSelection = restored.await()
+
+        override suspend fun persist(
+            option: XrayServiceModeOption,
+            profiles: List<ProxyProfile>,
+            acceptedProfile: XrayProfile?,
+        ) = Unit
+    }
+
+    private class SuspendedPersistPersistence : XrayProfilePersistence {
+        override val emptyInputMessage: String = "empty"
+        override val noSupportedNodesMessage: String = "no-supported"
+        override val unparseableMessage: String = "unparseable"
+        override val persistFailedMessage: String = "activation-failed"
+        override val restoreFailedMessage: String = "restore-failed"
+        override val unsupportedTypedProfileMessage: String = "typed-unsupported"
+        override val missingTypedProfileFieldMessage: String = "typed-missing"
+        override val unsafeTypedProfileMessage: String = "typed-unsafe"
+        val persistGate = CompletableDeferred<Unit>()
+        var persisted: Triple<XrayServiceModeOption, List<ProxyProfile>, XrayProfile?>? = null
+
+        override suspend fun restoreSelection(): XrayProviderSelection = XrayProviderSelection()
+
+        override suspend fun persist(
+            option: XrayServiceModeOption,
+            profiles: List<ProxyProfile>,
+            acceptedProfile: XrayProfile?,
+        ) {
+            persisted = Triple(option, profiles, acceptedProfile)
+            persistGate.await()
+        }
+    }
+
+    private fun viewModel(persistence: XrayProfilePersistence = RecordingPersistence()) =
         XrayProfileImportViewModel(persistence)
+
+    private fun xrayProfile(): XrayProfile =
+        XrayProfile(
+            name = "restored",
+            outbound =
+                XrayProfile.Outbound(
+                    serverAddress = "edge.example.com",
+                    serverPort = 443,
+                    uuid = uuid,
+                    flow = "xtls-rprx-vision",
+                    security = XrayProfile.Security.REALITY,
+                    network = XrayProfile.Network.TCP,
+                    reality =
+                        XrayProfile.Reality(
+                            publicKey = pbk,
+                            serverName = "www.cloudflare.com",
+                            shortId = "ab12",
+                            fingerprint = "chrome",
+                        ),
+                ),
+            inbound = XrayProfile.LocalInbound(port = 10808),
+        )
 
     @Test
     fun selectingXrayOptionRequiresProfileAndBlocksFinish() {
@@ -74,17 +180,250 @@ class XrayProfileImportViewModelTest {
     }
 
     @Test
+    fun `recreated view model restores durable xray selection as ready`() =
+        runTest {
+            val persistence =
+                RecordingPersistence().apply {
+                    restored =
+                        XrayProviderSelection(
+                            option = XrayServiceModeOption.XrayVpn,
+                            acceptedProfile = xrayProfile(),
+                        )
+                }
+
+            val vm = viewModel(persistence)
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertEquals(XrayServiceModeOption.XrayVpn, state.selectedOption)
+            assertEquals("", state.rawInput)
+            assertTrue(state.acceptedConfigReady)
+            assertTrue(state.canFinish)
+            assertTrue(state.capabilities.isNotEmpty())
+        }
+
+    @Test
+    fun `recreated view model keeps xray selection blocked when durable profile is missing`() =
+        runTest {
+            val persistence =
+                RecordingPersistence().apply {
+                    restored =
+                        XrayProviderSelection(
+                            option = XrayServiceModeOption.XrayVpn,
+                            acceptedProfile = null,
+                        )
+                }
+
+            val vm = viewModel(persistence)
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertEquals(XrayServiceModeOption.XrayVpn, state.selectedOption)
+            assertTrue(state.requiresXrayProfile)
+            assertFalse(state.acceptedConfigReady)
+            assertFalse(state.canFinish)
+            assertTrue(state.capabilities.isEmpty())
+        }
+
+    @Test
+    fun `restore failure blocks finish until retry succeeds`() =
+        runTest {
+            val vm = XrayProfileImportViewModel(FailingRestorePersistence())
+            advanceUntilIdle()
+
+            val failed = vm.uiState.value
+            assertEquals(XrayImportRestoreStatus.Failed, failed.restoreStatus)
+            assertEquals("restore-failed", failed.restoreErrorMessage)
+            assertFalse(failed.acceptedConfigReady)
+            assertFalse(failed.canFinish)
+
+            vm.confirm()
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.canFinish)
+        }
+
+    @Test
+    fun `retry restore preserves validated input after initial restore failure`() =
+        runTest {
+            val persistence =
+                RecordingPersistence().apply {
+                    failNextRestore = true
+                    restored = XrayProviderSelection(XrayServiceModeOption.XrayVpn, xrayProfile())
+                }
+            val vm = XrayProfileImportViewModel(persistence)
+            advanceUntilIdle()
+            assertEquals(XrayImportRestoreStatus.Failed, vm.uiState.value.restoreStatus)
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            val input =
+                "vless://$uuid2@edge.example.com:443" +
+                    "?security=tls&sni=fixture.test&flow=xtls-rprx-vision&type=tcp#edited"
+            vm.onRawInputChange(input)
+            vm.validate()
+            assertTrue(vm.uiState.value.acceptedConfigReady)
+
+            vm.retryRestore()
+            advanceUntilIdle()
+            assertEquals(input, vm.uiState.value.rawInput)
+            assertTrue(vm.uiState.value.canFinish)
+            vm.confirm()
+            advanceUntilIdle()
+
+            assertEquals(
+                uuid2,
+                persistence.persisted
+                    ?.third
+                    ?.outbound
+                    ?.uuid,
+            )
+        }
+
+    @Test
+    fun `initial restore loading blocks native finish`() =
+        runTest {
+            val persistence = DeferredRestorePersistence()
+            val vm = XrayProfileImportViewModel(persistence)
+
+            val loading = vm.uiState.value
+            assertEquals(XrayImportRestoreStatus.Loading, loading.restoreStatus)
+            assertFalse(loading.canFinish)
+
+            persistence.restored.complete(XrayProviderSelection(option = XrayServiceModeOption.NativeDirect))
+            advanceUntilIdle()
+            assertEquals(XrayImportRestoreStatus.Ready, vm.uiState.value.restoreStatus)
+            assertTrue(vm.uiState.value.canFinish)
+        }
+
+    @Test
+    fun `late durable restore does not overwrite user selection`() =
+        runTest {
+            val persistence = DeferredRestorePersistence()
+            val vm = XrayProfileImportViewModel(persistence)
+
+            vm.selectOption(XrayServiceModeOption.NativeProxy)
+            persistence.restored.complete(
+                XrayProviderSelection(
+                    option = XrayServiceModeOption.XrayVpn,
+                    acceptedProfile = xrayProfile(),
+                ),
+            )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertEquals(XrayServiceModeOption.NativeProxy, state.selectedOption)
+            assertFalse(state.acceptedConfigReady)
+            assertTrue(state.canFinish)
+
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            val xrayState = vm.uiState.value
+            assertEquals(XrayServiceModeOption.XrayVpn, xrayState.selectedOption)
+            assertFalse(xrayState.acceptedConfigReady)
+            assertFalse(xrayState.canFinish)
+        }
+
+    @Test
+    fun `native restore keeps stored xray profile available when switching back`() =
+        runTest {
+            val persistence =
+                RecordingPersistence().apply {
+                    restored =
+                        XrayProviderSelection(
+                            option = XrayServiceModeOption.NativeProxy,
+                            acceptedProfile = null,
+                            storedXrayProfile = xrayProfile(),
+                        )
+                }
+            val vm = viewModel(persistence)
+            advanceUntilIdle()
+
+            assertEquals(XrayServiceModeOption.NativeProxy, vm.uiState.value.selectedOption)
+            assertTrue(vm.uiState.value.canFinish)
+
+            vm.onRawInputChange("user pasted newer text")
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+
+            val state = vm.uiState.value
+            assertEquals(XrayServiceModeOption.XrayVpn, state.selectedOption)
+            assertEquals("", state.rawInput)
+            assertTrue(state.acceptedConfigReady)
+            assertTrue(state.canFinish)
+            assertTrue(state.capabilities.isNotEmpty())
+        }
+
+    @Test
+    fun `xray validation uses typed parser before native translator`() =
+        runTest {
+            val persistence = RecordingPersistence()
+            val vm = viewModel(persistence)
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            // Typed libXray accepts concrete TLS/TCP/Vision; native relay translator
+            // rejects the same input because native Vision is restricted to REALITY.
+            vm.onRawInputChange(
+                "vless://$uuid@edge.example.com:443" +
+                    "?security=tls&sni=www.cloudflare.com&flow=xtls-rprx-vision&type=tcp#tls",
+            )
+            vm.validate()
+
+            val state = vm.uiState.value
+            assertTrue(state.acceptedConfigReady)
+            assertTrue(state.canFinish)
+            assertEquals(1, state.importableCount)
+
+            vm.importedEvents.test {
+                vm.confirm()
+                advanceUntilIdle()
+                awaitItem()
+            }
+            assertEquals(XrayServiceModeOption.XrayVpn, persistence.persisted?.first)
+            assertNull(persistence.persisted?.second?.firstOrNull())
+            assertEquals(
+                XrayProfile.Security.TLS,
+                persistence.persisted
+                    ?.third
+                    ?.outbound
+                    ?.security,
+            )
+        }
+
+    @Test
+    fun `editing during suspended persist does not replace confirmed payload`() =
+        runTest {
+            val persistence = SuspendedPersistPersistence()
+            val vm = XrayProfileImportViewModel(persistence)
+            advanceUntilIdle()
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            vm.onRawInputChange(
+                "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h#n",
+            )
+            vm.validate()
+
+            vm.confirm()
+            vm.selectOption(XrayServiceModeOption.NativeProxy)
+            advanceUntilIdle()
+
+            assertEquals(XrayServiceModeOption.XrayVpn, persistence.persisted?.first)
+            assertNotNull(persistence.persisted?.third)
+            assertEquals(XrayServiceModeOption.XrayVpn, vm.uiState.value.selectedOption)
+            assertFalse(vm.uiState.value.canFinish)
+
+            persistence.persistGate.complete(Unit)
+            vm.importedEvents.test {
+                advanceUntilIdle()
+                awaitItem()
+            }
+        }
+
+    @Test
     fun unsupportedOnlyInputSurfacesSkipReasonAndBlocksFinish() {
         val vm = viewModel()
         vm.selectOption(XrayServiceModeOption.XrayVpn)
-        // Plain VLESS (no REALITY) is unsupported natively → translated to a skip.
+        // Plain VLESS is rejected by the typed Xray parser before native translation.
         vm.onRawInputChange("vless://$uuid@host.example:443#node")
         vm.validate()
         val state = vm.uiState.value
         assertFalse(state.acceptedConfigReady)
         assertEquals(0, state.importableCount)
-        assertTrue(state.skipped.isNotEmpty())
-        assertNotNull(state.errorMessage)
+        assertTrue(state.skipped.isEmpty())
+        assertEquals("typed-unsupported", state.errorMessage)
     }
 
     @Test
@@ -124,8 +463,7 @@ class XrayProfileImportViewModelTest {
                 expectNoEvents()
             }
             assertEquals(XrayServiceModeOption.XrayVpn, persistence.persisted?.first)
-            assertEquals(1, persistence.persisted?.second?.size)
-            assertTrue(persistence.persisted?.second?.first() is ProxyProfile.VlessReality)
+            assertTrue(persistence.persisted?.second?.isEmpty() == true)
             // The typed Xray profile is threaded through for the REALITY outbound so the
             // libXray runner has a production source.
             val acceptedProfile = persistence.persisted?.third
@@ -210,7 +548,7 @@ class XrayProfileImportViewModelTest {
     @Test
     fun multipleSupportedActivatesFirstAndDefersRest() {
         val vm = viewModel()
-        vm.selectOption(XrayServiceModeOption.XrayVpn)
+        vm.selectOption(XrayServiceModeOption.NativeProxy)
         val links =
             "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h#first\n" +
                 "trojan://pw@tj.example:443#second\n" +

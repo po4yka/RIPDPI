@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">Couldn\'t load the current Xray provider state. Retry before finishing.</string>
+    <string name="xray_import_error_typed_unsupported">This Xray transport or security option is not supported yet.</string>
+    <string name="xray_import_error_typed_missing_field">This Xray profile is missing a required field. Check the link and try again.</string>
+    <string name="xray_import_error_typed_unsafe">This Xray profile failed the safety check and was not imported.</string>
+    <string name="xray_import_restore_loading_title">Checking current Xray mode</string>
+    <string name="xray_import_restore_loading_body">Reading the saved provider and profile before this mode can be used.</string>
+    <string name="xray_import_restore_failed_title">Could not load Xray mode</string>
+    <string name="xray_import_restore_retry_action">Retry</string>
+    <string name="xray_import_skipped_item_format">Node %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">Utility outbound: nothing to import.</string>
+    <string name="xray_skip_unsupported_protocol_safe">This protocol is not supported natively.</string>
+    <string name="xray_skip_unsupported_transport_safe">This transport is not supported natively.</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">This TLS fingerprint is not supported natively.</string>
+    <string name="config_xray_import_title">Advanced VPN profile</string>
+    <string name="config_xray_import_body">Import or review an Xray profile for the embedded provider.</string>
+    <string name="onboarding_setup_mode_xray_title">Set up advanced VPN</string>
+    <string name="onboarding_setup_mode_xray_body">Import an Xray profile before testing the VPN mode.</string>
+</resources>

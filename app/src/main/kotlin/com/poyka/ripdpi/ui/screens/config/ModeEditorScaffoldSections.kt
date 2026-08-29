@@ -35,6 +35,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -197,6 +198,13 @@ private fun ModeEditorModeSection(
             ConfigModeChips(
                 selectedMode = draft.mode,
                 onModeSelected = actions.onModeSelected,
+            )
+            SettingsRow(
+                title = stringResource(R.string.config_xray_import_title),
+                subtitle = stringResource(R.string.config_xray_import_body),
+                onClick = actions.onOpenXrayImport,
+                showChevron = true,
+                testTag = RipDpiTestTags.ModeEditorXrayImport,
             )
         }
     }

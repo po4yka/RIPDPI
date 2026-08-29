@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">无法加载当前 Xray 提供程序状态。请重试后再完成。</string>
+    <string name="xray_import_error_typed_unsupported">暂不支持此 Xray 传输或安全选项。</string>
+    <string name="xray_import_error_typed_missing_field">此 Xray 配置缺少必填字段。请检查链接后重试。</string>
+    <string name="xray_import_error_typed_unsafe">此 Xray 配置未通过安全检查，未导入。</string>
+    <string name="xray_import_restore_loading_title">正在检查当前 Xray 模式</string>
+    <string name="xray_import_restore_loading_body">正在读取已保存的提供程序和配置，然后才能使用此模式。</string>
+    <string name="xray_import_restore_failed_title">无法加载 Xray 模式</string>
+    <string name="xray_import_restore_retry_action">重试</string>
+    <string name="xray_import_skipped_item_format">节点 %1$d：%2$s</string>
+    <string name="xray_skip_non_proxy_safe">工具出站：没有可导入内容。</string>
+    <string name="xray_skip_unsupported_protocol_safe">此协议不受原生支持。</string>
+    <string name="xray_skip_unsupported_transport_safe">此传输不受原生支持。</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">此 TLS 指纹不受原生支持。</string>
+    <string name="config_xray_import_title">高级 VPN 配置</string>
+    <string name="config_xray_import_body">导入或查看嵌入式提供方的 Xray 配置。</string>
+    <string name="onboarding_setup_mode_xray_title">设置高级 VPN</string>
+    <string name="onboarding_setup_mode_xray_body">测试 VPN 模式前导入 Xray 配置。</string>
+</resources>

@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.XrayProviderMutationCoordinator
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.data.xray.DefaultXrayProfileId
@@ -31,6 +33,7 @@ import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +43,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,11 +60,11 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore as DurableXrayProvi
  * `build_backend` tests) — so a translated profile yields a runnable backend
  * rather than a config that fails at connect.
  */
+private const val uuid = "550e8400-e29b-41d4-a716-446655440000"
+private const val pbk = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class XrayImportNativeActivationTest {
-    private val uuid = "550e8400-e29b-41d4-a716-446655440000"
-    private val pbk = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
-
     @Test
     fun `Mieru import reaches the native relay with carrier settings and credentials`() =
         runTest {
@@ -91,12 +95,6 @@ class XrayImportNativeActivationTest {
             assertEquals(1280, profiles.load(DefaultRelayProfileId)?.mieruMtu)
             assertEquals(profile.password, credentials.load(DefaultRelayProfileId)?.mieruPassword)
         }
-
-    private fun firstProfile(input: String): ProxyProfile {
-        val result = XrayConfigImportParser.parse(input, groupId = "xray-import")
-        assertTrue(result is XrayConfigImportResult.Translated)
-        return (result as XrayConfigImportResult.Translated).profiles.first()
-    }
 
     @Test
     fun `translated vless reality config activates a runnable native relay`() =
@@ -376,11 +374,10 @@ class XrayImportNativeActivationTest {
             assertEquals("tj.example", settings.relayServer)
             assertEquals("tj-secret", relayCredentialStore.load(DefaultRelayProfileId)?.trojanPassword)
         }
+}
 
-    // -----------------------------------------------------------------------
-    // DefaultXrayProfilePersistence — import -> durable-store WRITE wiring.
-    // -----------------------------------------------------------------------
-
+@OptIn(ExperimentalCoroutinesApi::class)
+class XrayProviderPersistenceTest {
     private fun xrayProfile(): XrayProfile =
         XrayProfile(
             name = "tokyo",
@@ -406,6 +403,13 @@ class XrayImportNativeActivationTest {
         durableSelectionStore: FakeDurableXrayProviderSelectionStore,
         appSelectionStore: XrayProviderSelectionStore,
         activator: NativeRelayProfileActivator,
+        profileMutations: FakeXrayProfileMutationCoordinator =
+            FakeXrayProfileMutationCoordinator(
+                settingsRepository = settingsRepository,
+                durableProfileStore = durableProfileStore,
+                durableSelectionStore = durableSelectionStore,
+            ),
+        xrayProviderMutations: XrayProviderMutationCoordinator = profileMutations,
     ): DefaultXrayProfilePersistence =
         DefaultXrayProfilePersistence(
             appSettingsRepository = settingsRepository,
@@ -414,6 +418,8 @@ class XrayImportNativeActivationTest {
             relayActivator = activator,
             durableProfileStore = durableProfileStore,
             durableSelectionStore = durableSelectionStore,
+            profileMutations = profileMutations,
+            xrayProviderMutations = xrayProviderMutations,
         )
 
     @Test
@@ -426,11 +432,15 @@ class XrayImportNativeActivationTest {
             val durableProfileStore = FakeDurableXrayProfileStore()
             val durableSelectionStore = FakeDurableXrayProviderSelectionStore()
             val appSelectionStore = XrayProviderSelectionStore()
-            val activator =
-                NativeRelayProfileActivator(
-                    repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+            val profileMutations =
+                FakeXrayProfileMutationCoordinator(
+                    settingsRepository = settingsRepository,
+                    durableProfileStore = durableProfileStore,
+                    durableSelectionStore = durableSelectionStore,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
                 )
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(profileMutations))
             val persistence =
                 persistence(
                     settingsRepository,
@@ -438,6 +448,7 @@ class XrayImportNativeActivationTest {
                     durableSelectionStore,
                     appSelectionStore,
                     activator,
+                    profileMutations,
                 )
 
             val profile = xrayProfile()
@@ -516,14 +527,59 @@ class XrayImportNativeActivationTest {
         }
 
     @Test
-    fun `native option clears xray selection and activates relay without durable save`() =
+    fun `failed xray provider mutation does not publish process selection`() =
         runTest {
             val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
-            // Seed a stale Xray profile + selection to prove the native path clears
-            // BOTH (so the deselected secret does not linger encrypted-at-rest).
+            val durableProfileStore = FakeDurableXrayProfileStore()
+            val durableSelectionStore = FakeDurableXrayProviderSelectionStore()
+            val appSelectionStore = XrayProviderSelectionStore()
+            val failure = IllegalStateException("journal failed")
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val persistence =
+                persistence(
+                    settingsRepository = settingsRepository,
+                    durableProfileStore = durableProfileStore,
+                    durableSelectionStore = durableSelectionStore,
+                    appSelectionStore = appSelectionStore,
+                    activator = activator,
+                    profileMutations =
+                        FakeXrayProfileMutationCoordinator(
+                            settingsRepository = settingsRepository,
+                            durableProfileStore = durableProfileStore,
+                            durableSelectionStore = durableSelectionStore,
+                            failure = failure,
+                        ),
+                )
+
+            val result =
+                runCatching {
+                    persistence.persist(
+                        XrayServiceModeOption.XrayVpn,
+                        profiles = emptyList(),
+                        acceptedProfile = xrayProfile(),
+                    )
+                }
+
+            assertEquals(failure, result.exceptionOrNull())
+            assertEquals(XrayProviderSelection(), appSelectionStore.selection.value)
+            assertEquals(XrayProviderSelectionRecord(), durableSelectionStore.current())
+            assertTrue(durableProfileStore.saves.isEmpty())
+        }
+
+    @Test
+    fun `failed native relay switch does not publish provider selection`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
             val durableProfileStore =
                 FakeDurableXrayProfileStore(seed = DefaultXrayProfileId to xrayProfile())
             val durableSelectionStore =
@@ -534,11 +590,73 @@ class XrayImportNativeActivationTest {
                     ),
                 )
             val appSelectionStore = XrayProviderSelectionStore()
-            val activator =
-                NativeRelayProfileActivator(
-                    repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+            appSelectionStore.record(XrayServiceModeOption.XrayVpn, xrayProfile())
+            val failure = IllegalStateException("relay journal failed")
+            val profileMutations =
+                FakeXrayProfileMutationCoordinator(
+                    settingsRepository = settingsRepository,
+                    durableProfileStore = durableProfileStore,
+                    durableSelectionStore = durableSelectionStore,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                    failure = failure,
                 )
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(profileMutations))
+            val persistence =
+                persistence(
+                    settingsRepository = settingsRepository,
+                    durableProfileStore = durableProfileStore,
+                    durableSelectionStore = durableSelectionStore,
+                    appSelectionStore = appSelectionStore,
+                    activator = activator,
+                    profileMutations = profileMutations,
+                )
+
+            val result =
+                runCatching {
+                    persistence.persist(
+                        XrayServiceModeOption.NativeProxy,
+                        listOf(firstProfile("trojan://pw@tj.example:443#n")),
+                        acceptedProfile = null,
+                    )
+                }
+
+            assertEquals(failure, result.exceptionOrNull())
+            assertEquals(VpnProviderKind.Xray, durableSelectionStore.current().kind)
+            assertEquals(XrayServiceModeOption.XrayVpn, appSelectionStore.selection.first().option)
+            assertNull(relayProfileStore.load(DefaultRelayProfileId))
+            assertNull(relayCredentialStore.load(DefaultRelayProfileId))
+            assertFalse(settingsRepository.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `native option preserves stored xray profile while activating native relay`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            // Seed an Xray profile + selection to prove the native path clears only
+            // active provider selection and preserves the profile for explicit switch-back.
+            val durableProfileStore =
+                FakeDurableXrayProfileStore(seed = DefaultXrayProfileId to xrayProfile())
+            val durableSelectionStore =
+                FakeDurableXrayProviderSelectionStore(
+                    XrayProviderSelectionRecord(
+                        providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                        activeProfileId = DefaultXrayProfileId,
+                    ),
+                )
+            val appSelectionStore = XrayProviderSelectionStore()
+            val profileMutations =
+                FakeXrayProfileMutationCoordinator(
+                    settingsRepository = settingsRepository,
+                    durableProfileStore = durableProfileStore,
+                    durableSelectionStore = durableSelectionStore,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                )
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(profileMutations))
             val persistence =
                 persistence(
                     settingsRepository,
@@ -546,6 +664,7 @@ class XrayImportNativeActivationTest {
                     durableSelectionStore,
                     appSelectionStore,
                     activator,
+                    profileMutations,
                 )
 
             persistence.persist(
@@ -554,13 +673,14 @@ class XrayImportNativeActivationTest {
                 acceptedProfile = null,
             )
 
-            // Stale Xray selection cleared to native; no durable profile save.
+            // Active Xray selection cleared to native; no durable profile rewrite/delete.
             assertEquals(VpnProviderKind.Native, durableSelectionStore.current().kind)
             assertEquals(0, durableProfileStore.saves.size)
             assertNull(durableProfileStore.saves.firstOrNull())
-            // The orphaned Xray secret is cleared from the durable store at-rest.
-            assertTrue(durableProfileStore.clears.contains(DefaultXrayProfileId))
-            assertNull(durableProfileStore.load(DefaultXrayProfileId))
+            assertFalse(durableProfileStore.clears.contains(DefaultXrayProfileId))
+            assertNotNull(durableProfileStore.load(DefaultXrayProfileId))
+            assertNull(appSelectionStore.selection.first().acceptedProfile)
+            assertNotNull(appSelectionStore.selection.first().storedXrayProfile)
             // Native relay activated (existing behaviour) and mode is proxy.
             assertTrue(settingsRepository.snapshot().relayEnabled)
             assertEquals(Mode.Proxy.preferenceValue, settingsRepository.snapshot().ripdpiMode)
@@ -576,11 +696,15 @@ class XrayImportNativeActivationTest {
             val settingsRepository = FakeAppSettingsRepository()
             val durableProfileStore = FakeDurableXrayProfileStore()
             val durableSelectionStore = FakeDurableXrayProviderSelectionStore()
-            val activator =
-                NativeRelayProfileActivator(
-                    repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+            val profileMutations =
+                FakeXrayProfileMutationCoordinator(
+                    settingsRepository = settingsRepository,
+                    durableProfileStore = durableProfileStore,
+                    durableSelectionStore = durableSelectionStore,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
                 )
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(profileMutations))
             val persistence =
                 persistence(
                     settingsRepository,
@@ -588,6 +712,7 @@ class XrayImportNativeActivationTest {
                     durableSelectionStore,
                     XrayProviderSelectionStore(),
                     activator,
+                    profileMutations,
                 )
             val config =
                 """
@@ -719,6 +844,82 @@ private class FakeDurableXrayProfileStore(
     override suspend fun listProfileIds(): List<String> = profiles.keys.toList()
 }
 
+private class FakeXrayProfileMutationCoordinator(
+    private val settingsRepository: FakeAppSettingsRepository,
+    private val durableProfileStore: FakeDurableXrayProfileStore,
+    private val durableSelectionStore: FakeDurableXrayProviderSelectionStore,
+    private val relayProfileStore: FakeRelayProfileStore? = null,
+    private val relayCredentialStore: FakeRelayCredentialStore? = null,
+    private val failure: Throwable? = null,
+) : ProfileMutationCoordinator by NoOpProfileMutationCoordinator,
+    XrayProviderMutationCoordinator {
+    override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
+
+    override suspend fun upsertXrayProvider(
+        profileId: String,
+        profile: XrayProfile,
+        selection: XrayProviderSelectionRecord,
+        modeAfterImage: String,
+    ) {
+        failure?.let { throw it }
+        durableProfileStore.save(profileId, profile)
+        settingsRepository.update { setRipdpiMode(modeAfterImage) }
+        durableSelectionStore.update(selection)
+    }
+
+    override suspend fun selectNativeProvider(
+        selection: XrayProviderSelectionRecord,
+        modeAfterImage: String,
+    ) {
+        failure?.let { throw it }
+        settingsRepository.update { setRipdpiMode(modeAfterImage) }
+        durableSelectionStore.update(selection)
+    }
+
+    override suspend fun upsertRelay(
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        select: Boolean,
+        settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: XrayProviderSelectionRecord?,
+    ) {
+        failure?.let { throw it }
+        relayProfileStore?.save(profile)
+        relayCredentialStore?.save(credentials)
+        if (settingsAfterImage != null) {
+            settingsRepository.replace(settingsAfterImage)
+        } else if (select || modeAfterImage != null) {
+            settingsRepository.update {
+                if (select) {
+                    setRelayEnabled(enabled)
+                    setRelayKind(profile.kind)
+                    setRelayProfileId(profile.id)
+                    setRelayServer(profile.server)
+                    setRelayServerPort(profile.serverPort)
+                    setRelayServerName(profile.serverName)
+                    setRelayRealityPublicKey(profile.realityPublicKey)
+                    setRelayRealityShortId(profile.realityShortId)
+                    setRelayVlessTransport(profile.vlessTransport)
+                    setRelayXhttpPath(profile.xhttpPath)
+                    setRelayXhttpHost(profile.xhttpHost)
+                    setRelayXhttpMode(profile.xhttpMode)
+                    setRelayUdpEnabled(profile.udpEnabled)
+                    setRelayMieruProtocol(profile.mieruProtocol)
+                    setRelayMieruMultiplexing(profile.mieruMultiplexing)
+                    setRelayMieruMtu(profile.mieruMtu)
+                    setRelaySshAuthType(profile.sshAuthType)
+                    setRelaySshHostKeyFingerprint(profile.sshHostKeyFingerprint)
+                    setRelaySshStrictHostKey(profile.sshStrictHostKey)
+                }
+                modeAfterImage?.let(::setRipdpiMode)
+            }
+        }
+        xraySelectionAfterImage?.let(durableSelectionStore::update)
+    }
+}
+
 /** In-memory durable selection store; SharedPreferences-free for host-JVM tests. */
 private class FakeDurableXrayProviderSelectionStore(
     initial: XrayProviderSelectionRecord = XrayProviderSelectionRecord(),
@@ -738,4 +939,10 @@ private class FakeStringResolver : StringResolver {
         resId: Int,
         vararg formatArgs: Any,
     ): String = "string:$resId"
+}
+
+private fun firstProfile(input: String): ProxyProfile {
+    val result = XrayConfigImportParser.parse(input, groupId = "xray-import")
+    assertTrue(result is XrayConfigImportResult.Translated)
+    return (result as XrayConfigImportResult.Translated).profiles.first()
 }

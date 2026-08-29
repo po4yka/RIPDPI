@@ -7,9 +7,14 @@ import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.core.RipDpiXrayRuntime
+import com.poyka.ripdpi.core.XrayProtectController
+import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
+import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -22,11 +27,15 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.xray.VpnProviderKind
+import com.poyka.ripdpi.data.xray.XrayProfile
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompileResult
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicyCompiler
@@ -81,7 +90,11 @@ class VpnServiceRuntimeCoordinatorTest {
             env.coordinator.start()
             runCurrent()
 
-            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(
+                "statusHistory=${env.store.statusHistory}; events=${env.events}; failures=${env.store.eventHistory}",
+                AppStatus.Running to Mode.VPN,
+                env.store.status.value,
+            )
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
             assertEquals(1, env.host.underlyingNetworkSyncs)
@@ -787,6 +800,70 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun dnsRefreshForXrayReusesActiveProviderEndpoint() =
+        runTest {
+            val selectionStore = FakeSelectionStore()
+            val profileStore = FakeDurableXrayProfileStore()
+            val inboundPort = 20810
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", xrayProfile().copy(inbound = XrayProfile.LocalInbound(port = inboundPort)))
+            val xrayBridge = FakeXrayNativeBridge()
+            val refreshBridge = TestTun2SocksBridge()
+            val env =
+                newEnv(
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, policySignature = "xray-initial")),
+                    additionalTunnelBridges = listOf(refreshBridge),
+                    xrayProviderSessionControllerFactory = { tunnelRuntime, dispatcher ->
+                        buildXrayProviderSessionController(
+                            vpnTunnelRuntime = tunnelRuntime,
+                            xrayBridge = xrayBridge,
+                            selectionStore = selectionStore,
+                            profileStore = profileStore,
+                            dispatcher = dispatcher,
+                        )
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(0, env.factory.runtimes.size)
+            assertEquals(1, xrayBridge.startCount)
+            val initialTunnelConfig = requireNotNull(env.bridgeFactory.bridge.startedConfig)
+            assertEquals("127.0.0.1", initialTunnelConfig.socks5Address)
+            assertEquals(inboundPort, initialTunnelConfig.socks5Port)
+            assertNull(initialTunnelConfig.password)
+
+            val updatedSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            env.resolver.enqueue(
+                sampleResolution(
+                    mode = Mode.VPN,
+                    settings = updatedSettings,
+                    activeDns = updatedSettings.activeDnsSettings(),
+                ),
+            )
+            env.tunnelProvider.session = TestVpnTunnelSession(tunFd = 8, events = env.events)
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            val refreshedTunnelConfig = requireNotNull(refreshBridge.startedConfig)
+            assertEquals(0, env.factory.runtimes.size)
+            assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
+            assertEquals("127.0.0.1", refreshedTunnelConfig.socks5Address)
+            assertEquals(inboundPort, refreshedTunnelConfig.socks5Port)
+            assertNull(refreshedTunnelConfig.password)
+            assertNull(env.runtimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertFalse(env.tunnelProvider.session.closed)
+        }
+
+    @Test
     fun routingPolicyRefreshReconfiguresProxyBehindExistingTunForEncryptedAndPlainDns() =
         runTest {
             listOf(DnsModeEncrypted, DnsModePlainUdp).forEach { dnsMode ->
@@ -1025,7 +1102,12 @@ class VpnServiceRuntimeCoordinatorTest {
             repeat(3) { runCurrent() }
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
-            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertEquals(
+                listOf(
+                    ServiceEvent.Failed(Sender.VPN, FailureReason.NativeError("telemetry boom")),
+                ),
+                env.store.eventHistory,
+            )
             assertTrue(env.tunnelProvider.session.closed)
         }
 
@@ -1331,7 +1413,7 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(AppStatus.Halted, env.store.telemetry.value.status)
             assertEquals(
                 FailureReason.NativeError("telemetry boom"),
-                (env.store.eventHistory.last() as ServiceEvent.Failed).reason,
+                (env.store.eventHistory.single() as ServiceEvent.Failed).reason,
             )
             assertNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
@@ -1437,11 +1519,8 @@ class VpnServiceRuntimeCoordinatorTest {
                 ),
             )
             // Exhaust exponential backoff retries: 2s + 4s + 8s + 16s = 30s
-            listOf(2_000L, 4_000L, 8_000L, 16_000L).forEach { delay ->
-                advanceTimeBy(delay)
-                runCurrent()
-            }
-            runCurrent()
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
@@ -1491,6 +1570,187 @@ class VpnServiceRuntimeCoordinatorTest {
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
             assertFalse(env.tunnelProvider.session.closed)
             assertNull(env.runtimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease)
+        }
+
+    @Test
+    fun xrayFailureStatusWaitsForPausedFailClosedBarrier() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val selectionStore = FakeSelectionStore()
+            val profileStore = FakeDurableXrayProfileStore()
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", xrayProfile())
+            val xrayBridge = FakeXrayNativeBridge()
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, policySignature = "initial")),
+                    xrayProviderSessionControllerFactory = { tunnelRuntime, dispatcher ->
+                        buildXrayProviderSessionController(
+                            vpnTunnelRuntime = tunnelRuntime,
+                            xrayBridge = xrayBridge,
+                            selectionStore = selectionStore,
+                            profileStore = profileStore,
+                            dispatcher = dispatcher,
+                        )
+                    },
+                )
+            val stopEntered = CompletableDeferred<Unit>()
+            val allowStop = CompletableDeferred<Unit>()
+
+            env.coordinator.start()
+            runCurrent()
+            env.bridgeFactory.bridge.beforeStop = {
+                stopEntered.complete(Unit)
+                allowStop.await()
+            }
+            repeat(5) {
+                env.resolver.enqueueFailure(IllegalStateException("handover policy unavailable"))
+            }
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+
+            assertTrue(stopEntered.isCompleted)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertFalse(env.tunnelProvider.session.closed)
+
+            allowStop.complete(Unit)
+            repeat(6) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertFalse(env.tunnelProvider.session.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+        }
+
+    @Test
+    fun stopDuringPausedXrayFailureRetentionWaitsForCleanupGeneration() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val selectionStore = FakeSelectionStore()
+            val profileStore = FakeDurableXrayProfileStore()
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", xrayProfile())
+            val xrayBridge = FakeXrayNativeBridge()
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, policySignature = "initial")),
+                    xrayProviderSessionControllerFactory = { tunnelRuntime, dispatcher ->
+                        buildXrayProviderSessionController(
+                            vpnTunnelRuntime = tunnelRuntime,
+                            xrayBridge = xrayBridge,
+                            selectionStore = selectionStore,
+                            profileStore = profileStore,
+                            dispatcher = dispatcher,
+                        )
+                    },
+                )
+            val stopEntered = CompletableDeferred<Unit>()
+            val allowStop = CompletableDeferred<Unit>()
+
+            env.coordinator.start()
+            runCurrent()
+            env.bridgeFactory.bridge.beforeStop = {
+                stopEntered.complete(Unit)
+                allowStop.await()
+            }
+            repeat(5) {
+                env.resolver.enqueueFailure(IllegalStateException("handover policy unavailable"))
+            }
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+            assertTrue(stopEntered.isCompleted)
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+
+            val stopJob = launch { env.coordinator.stop() }
+            runCurrent()
+
+            assertFalse(stopJob.isCompleted)
+            assertFalse(env.tunnelProvider.session.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+
+            allowStop.complete(Unit)
+            repeat(8) { runCurrent() }
+            stopJob.join()
+
+            assertTrue(env.tunnelProvider.session.closed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+        }
+
+    @Test
+    fun exhaustedHandoverResolutionFailureQuiescesActiveXrayForwarding() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val selectionStore = FakeSelectionStore()
+            val profileStore = FakeDurableXrayProfileStore()
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", xrayProfile())
+            val xrayBridge = FakeXrayNativeBridge()
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, policySignature = "initial")),
+                    xrayProviderSessionControllerFactory = { tunnelRuntime, dispatcher ->
+                        buildXrayProviderSessionController(
+                            vpnTunnelRuntime = tunnelRuntime,
+                            xrayBridge = xrayBridge,
+                            selectionStore = selectionStore,
+                            profileStore = profileStore,
+                            dispatcher = dispatcher,
+                        )
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(1, xrayBridge.startCount)
+            assertTrue(
+                env.bridgeFactory.bridge.startedConfigs
+                    .isNotEmpty(),
+            )
+            assertEquals(0, env.bridgeFactory.bridge.stopCount)
+            repeat(5) {
+                env.resolver.enqueueFailure(IllegalStateException("handover policy unavailable"))
+            }
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertFalse(env.tunnelProvider.session.closed)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
         }
 
     @Test
@@ -1708,6 +1968,71 @@ class VpnServiceRuntimeCoordinatorTest {
                 TestVpnTunnelSessionProvider(
                     events = events,
                     session = TestVpnTunnelSession(events = events),
+                ),
+        )
+
+    private fun buildXrayProviderSessionController(
+        vpnTunnelRuntime: VpnTunnelRuntime,
+        xrayBridge: FakeXrayNativeBridge,
+        selectionStore: FakeSelectionStore,
+        profileStore: FakeDurableXrayProfileStore,
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    ): XrayProviderSessionController {
+        val renderedConfig = arrayOfNulls<String>(1)
+        val startParamsHolder = XrayTunnelStartParamsHolder()
+        val owner = XrayRuntimeOwner(xrayBridge, dispatcher)
+        val orchestrator =
+            XrayProviderOrchestrator(
+                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(owner, cfg) },
+                tunnel =
+                    XrayManagedTunnel(
+                        vpnTunnelRuntime = vpnTunnelRuntime,
+                        startParamsProvider = startParamsHolder::require,
+                    ),
+                protectController = XrayProtectController { true },
+                renderedConfigProvider = { checkNotNull(renderedConfig[0]) },
+            )
+        return XrayProviderSessionController(
+            readSelectedProfile = {
+                val selection = selectionStore.current()
+                XraySelectedProfile(
+                    selection,
+                    if (selection.kind ==
+                        com.poyka.ripdpi.data.xray.VpnProviderKind.Xray
+                    ) {
+                        profileStore.load(selection.activeProfileId)
+                    } else {
+                        null
+                    },
+                )
+            },
+            routeBuilder = XrayProviderRouteBuilder(resolveEndpoint = { listOf("192.0.2.1") }),
+            orchestrator = orchestrator,
+            snapshotDeriver = XrayProviderSnapshotDeriver(),
+            probeRunner = XrayProviderDiagnosticsProbeRunner(),
+            startParamsHolder = startParamsHolder,
+            runtimeOwner = owner,
+            renderedConfigSink = { renderedConfig[0] = it },
+            lastProtectFailureDetail = { null },
+        )
+    }
+
+    private fun xrayProfile(): XrayProfile =
+        XrayProfile(
+            name = "Tokyo",
+            outbound =
+                XrayProfile.Outbound(
+                    serverAddress = "198.51.100.1",
+                    serverPort = 8443,
+                    uuid = "11111111-2222-3333-4444-555555555555",
+                    security = XrayProfile.Security.REALITY,
+                    network = XrayProfile.Network.TCP,
+                    reality =
+                        XrayProfile.Reality(
+                            publicKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+                            serverName = "www.cloudflare.com",
+                            shortId = "ab12",
+                        ),
                 ),
         )
 
@@ -1996,6 +2321,9 @@ class VpnServiceRuntimeCoordinatorTest {
         runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
         relayRuntimeConfig: ResolvedRipDpiRelayConfig = sampleResolvedRelayConfig(),
         transportFailoverRuntimeTimeoutMillis: Long = 60_000L,
+        xrayProviderSessionControllerFactory:
+            ((VpnTunnelRuntime, kotlinx.coroutines.CoroutineDispatcher) -> XrayProviderSessionController)? = null,
+        additionalTunnelBridges: List<TestTun2SocksBridge> = emptyList(),
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val events = mutableListOf<String>()
@@ -2007,7 +2335,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
         val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
         val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
-        val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
+        val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events), additionalTunnelBridges)
         val tunnelProvider =
             TestVpnTunnelSessionProvider(
                 events = events,
@@ -2031,6 +2359,8 @@ class VpnServiceRuntimeCoordinatorTest {
                 tun2SocksBridgeFactory = bridgeFactory,
                 vpnTunnelSessionProvider = tunnelProvider,
             )
+        val xrayProviderSessionController =
+            xrayProviderSessionControllerFactory?.invoke(tunnelRuntime, dispatcher)
         val coordinator =
             VpnServiceRuntimeCoordinator(
                 vpnHost = host,
@@ -2104,6 +2434,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 ioDispatcher = dispatcher,
                 clock = clock,
                 transportFailoverRuntimeTimeoutMillis = transportFailoverRuntimeTimeoutMillis,
+                xrayProviderSessionController = xrayProviderSessionController,
             )
         return Env(
             coordinator = coordinator,

@@ -247,6 +247,10 @@ jobs:
             scripts.tests.test_run_android_e2e_emulator \
             scripts.tests.test_start_local_network_fixture
 
+      - name: Test bounded Android emulator diagnostics and teardown
+        timeout-minutes: 2
+        run: timeout --kill-after=2 30 bash scripts/ci/test-android-emulator-helpers.sh
+
   design-md-lint:
     needs: change-routing
     if: github.event_name != 'schedule' && (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
@@ -2318,7 +2322,60 @@ jobs:
           mkdir -p "$evidence_dir"
           cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
 
+      - name: Build independent Xray provider peer
+        if: matrix.api == 35
+        working-directory: scripts/fixtures/xray-provider-peer
+        env:
+          GOTOOLCHAIN: go1.27.0
+          GOSUMDB: sum.golang.org
+          GOPROXY: https://proxy.golang.org,direct
+          GOMAXPROCS: "2"
+        run: |
+          go test -mod=readonly -p=2 ./...
+          go build -mod=readonly -p=2 -o "$RUNNER_TEMP/xray-provider-peer" .
+
+      - name: Run real Xray provider TUN acceptance
+        if: matrix.api == 35
+        run: |
+          set -euo pipefail
+          evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/xray-provider"
+          mkdir -p "$evidence_dir"
+          "$RUNNER_TEMP/xray-provider-peer" --ready-file "$evidence_dir/peer-ready.json" > "$evidence_dir/peer.log" 2>&1 &
+          peer_pid=$!
+          trap 'kill "$peer_pid" 2>/dev/null || true; wait "$peer_pid" || true' EXIT
+          for _ in $(seq 1 30); do
+            if test -s "$evidence_dir/peer-ready.json"; then break; fi
+            kill -0 "$peer_pid"
+            sleep 1
+          done
+          fixture_port="$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1]))["controlPort"]; assert isinstance(p,int) and 0<p<65536; print(p)' "$evidence_dir/peer-ready.json")"
+          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
+          ./gradlew :app:connectedGithubFullDebugAndroidTest \
+            --rerun-tasks \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.e2e.XrayProviderE2ETest \
+            -Pandroid.testInstrumentationRunnerArguments.ripdpi.xrayFixturePort="$fixture_port" \
+            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
+            --profile
+          for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect; do
+            python3 scripts/ci/validate_android_junit_results.py \
+              app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+              --require-test "com.poyka.ripdpi.e2e.XrayProviderE2ETest#$method" \
+              --expected-count 1 --expected-total-count 2 --forbid-skips
+          done
+          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/receipts" > "$evidence_dir/receipts.json"
+          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/direct-receipts" > "$evidence_dir/direct-receipts.json"
+          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/dns-receipts" > "$evidence_dir/dns-receipts.json"
+          cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
+
       - name: Capture Android instrumented-test emulator diagnostics
+        timeout-minutes: 3
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
@@ -2331,6 +2388,7 @@ jobs:
           artifact-name: build-observability-android-instrumented-${{ matrix.device }}
 
       - name: Stop ${{ matrix.device }} emulator
+        timeout-minutes: 1
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd "${{ matrix.device }}"
 
@@ -2755,6 +2813,7 @@ jobs:
         run: bash scripts/ci/run-android-journeys-emulator.sh
 
       - name: Capture journeys emulator diagnostics
+        timeout-minutes: 3
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
@@ -2768,6 +2827,7 @@ jobs:
           artifact-name: build-observability-android-journeys
 
       - name: Stop emulator
+        timeout-minutes: 1
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd journeys
 
@@ -2840,6 +2900,7 @@ jobs:
         run: bash scripts/ci/run-android-relay-emulator-smoke.sh
 
       - name: Capture relay smoke emulator diagnostics
+        timeout-minutes: 3
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
@@ -2853,6 +2914,7 @@ jobs:
           artifact-name: build-observability-android-relay-smoke
 
       - name: Stop emulator
+        timeout-minutes: 1
         if: always()
         run: bash scripts/ci/stop-android-emulator.sh --avd relay-smoke
 

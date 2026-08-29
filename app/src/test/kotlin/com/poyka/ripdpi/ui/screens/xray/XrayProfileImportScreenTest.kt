@@ -14,6 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.subscription.XraySkipReason
+import com.poyka.ripdpi.data.subscription.XraySkippedNode
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -43,11 +45,16 @@ class XrayProfileImportScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 XrayProfileImportScreen(
-                    uiState = XrayImportUiState(selectedOption = XrayServiceModeOption.XrayVpn),
+                    uiState =
+                        XrayImportUiState(
+                            selectedOption = XrayServiceModeOption.XrayVpn,
+                            restoreStatus = XrayImportRestoreStatus.Ready,
+                        ),
                     onBack = {},
                     onSelectOption = { selected = it },
                     onRawInputChange = {},
                     onValidate = {},
+                    onRetryRestore = {},
                     onConfirm = {},
                 )
             }
@@ -74,6 +81,7 @@ class XrayProfileImportScreenTest {
                     uiState =
                         XrayImportUiState(
                             selectedOption = XrayServiceModeOption.XrayVpn,
+                            restoreStatus = XrayImportRestoreStatus.Ready,
                             rawInput = "vless://…",
                             errorMessage = redacted,
                             acceptedConfigReady = false,
@@ -82,6 +90,7 @@ class XrayProfileImportScreenTest {
                     onSelectOption = {},
                     onRawInputChange = {},
                     onValidate = {},
+                    onRetryRestore = {},
                     onConfirm = {},
                 )
             }
@@ -99,6 +108,50 @@ class XrayProfileImportScreenTest {
     }
 
     @Test
+    fun skippedNodesHideParserLabelAndDetail() {
+        composeRule.setContent {
+            RipDpiTheme {
+                XrayProfileImportScreen(
+                    uiState =
+                        XrayImportUiState(
+                            selectedOption = XrayServiceModeOption.XrayVpn,
+                            restoreStatus = XrayImportRestoreStatus.Ready,
+                            errorMessage = string(R.string.xray_import_error_no_supported),
+                            skipped =
+                                listOf(
+                                    XraySkippedNode(
+                                        index = 0,
+                                        label = "secret-host.example",
+                                        reason = XraySkipReason.UNSUPPORTED_PROTOCOL,
+                                        detail = "vmess://secret-token",
+                                    ),
+                                ).toImmutableList(),
+                        ),
+                    onBack = {},
+                    onSelectOption = {},
+                    onRawInputChange = {},
+                    onValidate = {},
+                    onRetryRestore = {},
+                    onConfirm = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("xray_import_skipped").performScrollTo().assertIsDisplayed()
+        composeRule
+            .onNodeWithText("Node 1: ${string(R.string.xray_skip_unsupported_protocol_safe)}")
+            .assertIsDisplayed()
+        assertEquals(
+            0,
+            composeRule.onAllNodesWithText("secret-host.example", substring = true).fetchSemanticsNodes().size,
+        )
+        assertEquals(
+            0,
+            composeRule.onAllNodesWithText("vmess://secret-token", substring = true).fetchSemanticsNodes().size,
+        )
+    }
+
+    @Test
     fun acceptedProfileShowsCapabilitiesAndEnablesFinish() {
         var confirmed = false
         composeRule.setContent {
@@ -107,6 +160,7 @@ class XrayProfileImportScreenTest {
                     uiState =
                         XrayImportUiState(
                             selectedOption = XrayServiceModeOption.XrayVpn,
+                            restoreStatus = XrayImportRestoreStatus.Ready,
                             rawInput = "vless://…",
                             acceptedConfigReady = true,
                             capabilities =
@@ -120,6 +174,7 @@ class XrayProfileImportScreenTest {
                     onSelectOption = {},
                     onRawInputChange = {},
                     onValidate = {},
+                    onRetryRestore = {},
                     onConfirm = { confirmed = true },
                 )
             }
@@ -136,7 +191,7 @@ class XrayProfileImportScreenTest {
     }
 
     @Test
-    fun nativeOptionCanFinishWithoutProfile() {
+    fun loadingRestoreDisablesFinish() {
         composeRule.setContent {
             RipDpiTheme {
                 XrayProfileImportScreen(
@@ -145,6 +200,68 @@ class XrayProfileImportScreenTest {
                     onSelectOption = {},
                     onRawInputChange = {},
                     onValidate = {},
+                    onRetryRestore = {},
+                    onConfirm = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("xray_import_restore_loading").performScrollTo().assertIsDisplayed()
+        composeRule
+            .onNodeWithText(string(R.string.xray_import_finish_action))
+            .performScrollTo()
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun restoreFailureShowsRetryAndBlocksFinish() {
+        var retried = false
+        composeRule.setContent {
+            RipDpiTheme {
+                XrayProfileImportScreen(
+                    uiState =
+                        XrayImportUiState(
+                            selectedOption = XrayServiceModeOption.NativeDirect,
+                            restoreStatus = XrayImportRestoreStatus.Failed,
+                            restoreErrorMessage = string(R.string.xray_import_error_restore_failed),
+                        ),
+                    onBack = {},
+                    onSelectOption = {},
+                    onRawInputChange = {},
+                    onValidate = {},
+                    onRetryRestore = { retried = true },
+                    onConfirm = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("xray_import_restore_failed").performScrollTo().assertIsDisplayed()
+        composeRule
+            .onNodeWithText(string(R.string.xray_import_restore_retry_action))
+            .performScrollTo()
+            .performClick()
+        assertTrue(retried)
+        composeRule
+            .onNodeWithText(string(R.string.xray_import_finish_action))
+            .performScrollTo()
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun nativeOptionCanFinishWithoutProfile() {
+        composeRule.setContent {
+            RipDpiTheme {
+                XrayProfileImportScreen(
+                    uiState =
+                        XrayImportUiState(
+                            selectedOption = XrayServiceModeOption.NativeDirect,
+                            restoreStatus = XrayImportRestoreStatus.Ready,
+                        ),
+                    onBack = {},
+                    onSelectOption = {},
+                    onRawInputChange = {},
+                    onValidate = {},
+                    onRetryRestore = {},
                     onConfirm = {},
                 )
             }

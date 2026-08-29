@@ -67,14 +67,13 @@ data class XrayProfile(
         val serverPort: Int,
         /** VLESS user UUID. Secret — redacted in diagnostics. */
         val uuid: String,
-        /**
-         * VLESS flow. Required by xray-core since the 2026-06-01 deprecation of
-         * flow-less VLESS; the renderer always emits it and the validator
-         * rejects an empty value ([XrayConfigValidator.ErrorCode.VLESS_FLOW_MISSING]).
-         */
-        val flow: String = "xtls-rprx-vision",
         val security: Security,
         val network: Network,
+        /**
+         * Vision requires a direct TLS/REALITY connection. XHTTP carries VLESS
+         * without Vision; its HTTP stream cannot be used as a Vision connection.
+         */
+        val flow: String = if (network == Network.XHTTP) "" else "xtls-rprx-vision",
         /** REALITY parameters; required when [security] is [Security.REALITY]. */
         val reality: Reality? = null,
         /** TLS parameters; required when [security] is [Security.TLS]. */

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xray_import_error_restore_failed">No se pudo cargar el estado actual del proveedor Xray. Reinténtalo antes de terminar.</string>
+    <string name="xray_import_error_typed_unsupported">Este transporte u opción de seguridad de Xray aún no es compatible.</string>
+    <string name="xray_import_error_typed_missing_field">A este perfil de Xray le falta un campo obligatorio. Revisa el enlace e inténtalo de nuevo.</string>
+    <string name="xray_import_error_typed_unsafe">Este perfil de Xray no superó la comprobación de seguridad y no se importó.</string>
+    <string name="xray_import_restore_loading_title">Comprobando el modo Xray actual</string>
+    <string name="xray_import_restore_loading_body">Leyendo el proveedor y el perfil guardados antes de usar este modo.</string>
+    <string name="xray_import_restore_failed_title">No se pudo cargar el modo Xray</string>
+    <string name="xray_import_restore_retry_action">Reintentar</string>
+    <string name="xray_import_skipped_item_format">Nodo %1$d: %2$s</string>
+    <string name="xray_skip_non_proxy_safe">Salida de utilidad: no hay nada que importar.</string>
+    <string name="xray_skip_unsupported_protocol_safe">Este protocolo no es compatible de forma nativa.</string>
+    <string name="xray_skip_unsupported_transport_safe">Este transporte no es compatible de forma nativa.</string>
+    <string name="xray_skip_unsupported_fingerprint_safe">Esta huella TLS no es compatible de forma nativa.</string>
+    <string name="config_xray_import_title">Perfil de VPN avanzada</string>
+    <string name="config_xray_import_body">Importa o revisa un perfil Xray para el proveedor integrado.</string>
+    <string name="onboarding_setup_mode_xray_title">Configurar VPN avanzada</string>
+    <string name="onboarding_setup_mode_xray_body">Importa un perfil Xray antes de probar el modo VPN.</string>
+</resources>

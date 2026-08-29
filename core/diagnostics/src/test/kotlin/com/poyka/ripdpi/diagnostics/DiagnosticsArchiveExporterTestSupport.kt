@@ -159,6 +159,7 @@ internal fun createArchiveExporterForTest(
                     json,
                 ),
                 json,
+                serviceStateStore = FakeServiceStateStore(),
             ),
         fileStore =
             DiagnosticsArchiveFileStore(

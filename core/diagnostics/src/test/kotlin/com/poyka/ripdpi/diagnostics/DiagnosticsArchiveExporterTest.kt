@@ -113,6 +113,7 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
                         json,
                     ),
                     json,
+                    serviceStateStore = FakeServiceStateStore(),
                 ),
             fileStore =
                 DiagnosticsArchiveFileStore(

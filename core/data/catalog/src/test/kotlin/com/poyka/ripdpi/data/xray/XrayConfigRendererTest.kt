@@ -63,7 +63,7 @@ class XrayConfigRendererTest {
                     network = XrayProfile.Network.TCP,
                     reality =
                         XrayProfile.Reality(
-                            publicKey = "PUB_KEY_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                            publicKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
                             serverName = "www.cloudflare.com",
                             shortId = "0123abcd",
                             fingerprint = "chrome",
@@ -79,12 +79,12 @@ class XrayConfigRendererTest {
                     serverAddress = "edge.example.com",
                     serverPort = 443,
                     uuid = "550e8400-e29b-41d4-a716-446655440000",
-                    flow = "xtls-rprx-vision",
+                    flow = "",
                     security = XrayProfile.Security.REALITY,
                     network = XrayProfile.Network.XHTTP,
                     reality =
                         XrayProfile.Reality(
-                            publicKey = "PUB_KEY_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                            publicKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
                             serverName = "www.cloudflare.com",
                             shortId = "0123abcd",
                             fingerprint = "chrome",
@@ -142,7 +142,7 @@ class XrayConfigRendererTest {
                     "security": "reality",
                     "realitySettings": {
                       "serverName": "www.cloudflare.com",
-                      "publicKey": "PUB_KEY_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                      "publicKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
                       "shortId": "0123abcd",
                       "fingerprint": "chrome"
                     }
@@ -206,7 +206,7 @@ class XrayConfigRendererTest {
                           {
                             "id": "550e8400-e29b-41d4-a716-446655440000",
                             "encryption": "none",
-                            "flow": "xtls-rprx-vision"
+                            "flow": ""
                           }
                         ]
                       }
@@ -217,7 +217,7 @@ class XrayConfigRendererTest {
                     "security": "reality",
                     "realitySettings": {
                       "serverName": "www.cloudflare.com",
-                      "publicKey": "PUB_KEY_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                      "publicKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
                       "shortId": "0123abcd",
                       "fingerprint": "chrome"
                     },
@@ -246,6 +246,12 @@ class XrayConfigRendererTest {
             }
             """.trimIndent()
         assertEquals(expected, canonical.encodeToString(JsonObject.serializer(), config))
+    }
+
+    @Test
+    fun `provider rejects a SOCKS listener exposed outside loopback`() {
+        val profile = realityProfile().copy(inbound = XrayProfile.LocalInbound(listen = "0.0.0.0"))
+        assertTrue(render(profile) is XrayConfigRenderer.Result.Rejected)
     }
 
     @Test

@@ -9,10 +9,13 @@ import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 
 object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
     override suspend fun recover() = Unit
+
+    override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
 
     override suspend fun runReset(block: suspend () -> Unit) = block()
 
@@ -29,6 +32,8 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
         enabled: Boolean,
         select: Boolean,
         settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: XrayProviderSelectionRecord?,
     ) = Unit
 
     override suspend fun upsertWarp(

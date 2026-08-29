@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.xray.XrayProviderDiagnosticsFixtures
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
@@ -129,7 +131,23 @@ class DiagnosticsDetailAndShareServicesTest {
                     privacyMode = "split_output",
                 )
             val archiveExporter = RecordingDiagnosticsArchiveExporter(expectedArchive)
-            val shareService = DefaultDiagnosticsShareService(stores, stores, stores, archiveExporter, json)
+            val providerState =
+                FakeServiceStateStore().apply {
+                    updateTelemetry(
+                        ServiceTelemetrySnapshot(
+                            xrayProviderSnapshot = XrayProviderDiagnosticsFixtures.healthy.snapshot,
+                        ),
+                    )
+                }
+            val shareService =
+                DefaultDiagnosticsShareService(
+                    stores,
+                    stores,
+                    stores,
+                    archiveExporter,
+                    json,
+                    serviceStateStore = providerState,
+                )
 
             val summary = shareService.buildShareSummary(session.id)
             val archive =
@@ -141,6 +159,9 @@ class DiagnosticsDetailAndShareServicesTest {
                     ),
                 )
 
+            assertTrue(summary.body.contains("Current provider at export time"))
+            assertTrue(summary.body.contains("readiness: OutboundHealthy"))
+            assertFalse(summary.body.contains("profile: "))
             assertTrue(summary.title.startsWith("RIPDPI diagnostics"))
             assertTrue(summary.body.contains("summary=Blocked DNS"))
             assertTrue(summary.body.contains("dns:blocked.example=dns_blocked"))
@@ -188,6 +209,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     artifactQueryStore = stores,
                     archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(session.id)),
                     json = json,
+                    serviceStateStore = FakeServiceStateStore(),
                 )
 
             val summary = shareService.buildShareSummary(session.id)
@@ -242,6 +264,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     artifactQueryStore = stores,
                     archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(session.id)),
                     json = json,
+                    serviceStateStore = FakeServiceStateStore(),
                 )
 
             val summary = shareService.buildShareSummary(session.id)
@@ -398,6 +421,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     artifactQueryStore = stores,
                     archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(selectedSession.id)),
                     json = json,
+                    serviceStateStore = FakeServiceStateStore(),
                 )
 
             val summary = shareService.buildShareSummary(selectedSession.id)
@@ -550,6 +574,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     artifactQueryStore = stores,
                     archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive("session-2")),
                     json = json,
+                    serviceStateStore = FakeServiceStateStore(),
                 )
 
             val summary = shareService.buildShareSummary("missing-session")

@@ -138,6 +138,45 @@ class XrayProviderDiagnosticsTest {
     }
 
     @Test
+    fun `exports never emit arbitrary profile labels or diagnostic detail`() {
+        val fixtureSecret = "private-owner-token"
+        val report =
+            XrayProviderDiagnosticsFixtures.healthy.copy(
+                snapshot =
+                    XrayProviderDiagnosticsFixtures.healthy.snapshot.copy(
+                        profileName = fixtureSecret,
+                        xrayVersion = fixtureSecret,
+                        outboundProtocol = fixtureSecret,
+                        outboundSecurity = fixtureSecret,
+                        tunnelTopology = fixtureSecret,
+                        localInboundListen = fixtureSecret,
+                        lastFailureDetailRedacted = fixtureSecret,
+                        configFindings =
+                            listOf(
+                                XrayConfigValidationFinding(
+                                    XrayConfigValidator.ErrorCode.ALLOW_INSECURE_DISABLED,
+                                    fixtureSecret,
+                                    fixtureSecret,
+                                ),
+                            ),
+                    ),
+                probes = XrayProviderDiagnosticsFixtures.healthy.probes.map { it.copy(detailRedacted = fixtureSecret) },
+            )
+        assertFalse(XrayProviderTelemetrySummaries.export(report).contains(fixtureSecret))
+        assertFalse(XrayProviderTelemetrySummaries.summarize(report.snapshot).contains(fixtureSecret))
+    }
+
+    @Test
+    fun `share export retains the canonical version from the real bridge`() {
+        val report =
+            XrayProviderDiagnosticsFixtures.healthy.copy(
+                snapshot = XrayProviderDiagnosticsFixtures.healthy.snapshot.copy(xrayVersion = "Xray 26.3.27"),
+            )
+        assertTrue(XrayProviderTelemetrySummaries.export(report).contains("version: 26.3.27"))
+        assertTrue(XrayProviderTelemetrySummaries.summarize(report.snapshot).contains("v=26.3.27"))
+    }
+
+    @Test
     fun `config finding maps from validator error`() {
         val error =
             XrayConfigValidator.ValidationError(

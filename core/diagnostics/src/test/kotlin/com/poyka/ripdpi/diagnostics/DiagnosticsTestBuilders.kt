@@ -174,6 +174,7 @@ internal fun createDiagnosticsServices(
                             json,
                         ),
                     json = json,
+                    serviceStateStore = FakeServiceStateStore(),
                 ),
             fileStore =
                 DiagnosticsArchiveFileStore(
@@ -343,7 +344,15 @@ internal fun createDiagnosticsServices(
                 mapper = mapper,
                 json = json,
             ),
-        shareService = DefaultDiagnosticsShareService(stores, stores, stores, archiveExporter, json),
+        shareService =
+            DefaultDiagnosticsShareService(
+                stores,
+                stores,
+                stores,
+                archiveExporter,
+                json,
+                serviceStateStore = FakeServiceStateStore(),
+            ),
         resolverActions =
             DefaultDiagnosticsResolverActions(
                 appSettingsRepository = appSettingsRepository,

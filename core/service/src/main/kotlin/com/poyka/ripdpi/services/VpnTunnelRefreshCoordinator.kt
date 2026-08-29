@@ -86,7 +86,7 @@ internal class VpnTunnelRefreshCoordinator(
             null
         }
 
-    private fun failCurrentGeneration(
+    private suspend fun failCurrentGeneration(
         session: VpnRuntimeSession,
         error: Exception,
     ) {
@@ -124,7 +124,7 @@ internal interface VpnTunnelRefreshCallbacks {
         resolution: ConnectionPolicyResolution,
     )
 
-    fun failTunnelRefresh(
+    suspend fun failTunnelRefresh(
         session: VpnRuntimeSession,
         error: Exception,
     )
