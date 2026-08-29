@@ -33,6 +33,6 @@ is stale and the deployment contract-sync gate cannot accept the producer.
 - Affected contract:
   `core/data/src/test/resources/contract/protocol-liveness.schema.json`.
 - Producer source:
-  `po4yka/ripdpi-vpn-deploy@08cd71efd309f893d3fa210bd4560d96bf799742`.
+  `po4yka/ripdpi-vpn-deploy@8396ec8c954eda64ae4b78dc1c8f2d18de207c3b`.
 - Existing schema 1 policy documents are intentionally invalid under schema 2;
   the Android application has no runtime consumer of this test resource.
