@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -471,6 +472,7 @@ def validate_requirement_evidence(
     *,
     archived: bool,
     dropped_step_ids: set[str] | None = None,
+    allow_incomplete: bool = False,
 ) -> None:
     requirement_ids: list[str] = []
     for spec in sorted((change_dir / "specs").glob("**/*.md")):
@@ -488,9 +490,13 @@ def validate_requirement_evidence(
             r"^\|\s*(REQ-[A-Z0-9-]+)\s*\|\s*([A-Z][A-Z0-9]*-\d{16})\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|$",
             line,
         )
+        if allow_incomplete and re.match(r"^\s*\|\s*REQ-", line) and match is None:
+            fail(f"{verification.path}: malformed requirement evidence row")
         if match:
+            if allow_incomplete and match.group(1) in rows:
+                fail(f"{verification.path}: duplicate requirement evidence row")
             rows[match.group(1)] = (match.group(2), match.group(3).strip(), match.group(4).strip())
-    if set(rows) != set(requirement_ids):
+    if set(rows) - set(requirement_ids) or (not allow_incomplete and set(rows) != set(requirement_ids)):
         missing = sorted(set(requirement_ids) - set(rows))
         extra = sorted(set(rows) - set(requirement_ids))
         fail(f"{verification.path}: requirement evidence mismatch missing={missing}, extra={extra}")
@@ -523,6 +529,12 @@ def expected_execution_path(root: Path, document: Document) -> Path:
 
 
 def load_state(root: Path) -> tuple[list[Document], list[Step]]:
+    return _load_state(root)
+
+
+def _load_state(
+    root: Path, *, authoring_task_id: str | None = None
+) -> tuple[list[Document], list[Step]]:
     documents = [read_document(path) for path in issue_paths(root)]
     if not documents:
         fail("portfolio is empty")
@@ -573,10 +585,11 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
     all_dropped_step_ids: dict[str, str] = {}
     for document in documents:
         path = expected_execution_path(root, document)
+        authoring = document.task_id == authoring_task_id
         expected_paths.add(path)
-        if not path.is_file():
+        if not path.is_file() and not authoring:
             fail(f"{document.path}: missing execution file {path.relative_to(root)}")
-        steps = read_steps(path)
+        steps = read_steps(path) if path.is_file() else []
         drop_receipt: dict[str, Any] | None = None
         dropped_step_ids: set[str] = set()
         if document.values["status"] in {"done", "dropped"}:
@@ -596,7 +609,7 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
                 if dropped_step_id in all_dropped_step_ids:
                     fail(f"duplicate dropped execution step ID {dropped_step_id}")
                 all_dropped_step_ids[dropped_step_id] = document.task_id
-        if not steps and document.values["status"] != "dropped":
+        if not steps and document.values["status"] != "dropped" and not authoring:
             fail(f"{path}: no mdtask execution steps")
         for step in steps:
             if step.item_id != document.task_id:
@@ -610,10 +623,14 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
             verification = change_dir / "verification.md"
             metadata = change_dir / ".openspec.yaml"
             for required_path in (proposal, verification, metadata):
+                if authoring and required_path == verification and not verification.exists():
+                    continue
                 if not required_path.is_file():
                     fail(f"{document.path}: missing {required_path.relative_to(root)}")
             if f"Task ID: `{document.task_id}`" not in proposal.read_text(encoding="utf-8"):
                 fail(f"{proposal}: missing exact portfolio backlink")
+            if authoring and not verification.exists():
+                continue
             evidence = evidence_values(verification)
             if evidence["task_id"] != document.task_id or evidence["change"] != document.values["openspec_change"]:
                 fail(f"{verification}: backlink does not match portfolio task")
@@ -623,6 +640,7 @@ def load_state(root: Path) -> tuple[list[Document], list[Step]]:
                 steps,
                 archived=archived,
                 dropped_step_ids=dropped_step_ids,
+                allow_incomplete=authoring,
             )
             if document.values["status"] == "done" and not archived:
                 fail(f"{document.path}: done task requires an archived OpenSpec change")
@@ -1267,16 +1285,151 @@ def command_transition(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_steps(args: argparse.Namespace) -> int:
-    documents, _ = load_state(args.root)
-    document = find_document(documents, args.query)
+@contextmanager
+def steps_write_lock(root: Path):
+    # Linked worktrees share this inode. Never unlink it: another writer may
+    # already be blocked on the same lock.
+    lock = (git_common_dir(root) or root) / "taskctl-steps.lock"
+    descriptor = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "a") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        yield
+
+
+def require_owned_execution_path(root: Path, path: Path) -> None:
+    for candidate in (path, *path.parents):
+        if candidate == root:
+            break
+        if candidate.is_symlink():
+            fail(f"execution authoring refuses symlink: {candidate}")
+    if path.exists() and not path.is_file():
+        fail(f"execution authoring requires a regular file: {path}")
+
+
+def validate_step_planning(root: Path, document: Document) -> None:
+    change = root / "openspec/changes" / document.values["openspec_change"]
+    for path in (change / "proposal.md", change / "design.md", change / ".openspec.yaml"):
+        require_owned_execution_path(root, path)
+        if not path.is_file() or not path.read_text(encoding="utf-8").strip():
+            fail(f"step authoring requires nonempty {path.relative_to(root)}")
+    require_owned_execution_path(root, change / "verification.md")
+    proposal = (change / "proposal.md").read_text(encoding="utf-8")
+    if f"Task ID: `{document.task_id}`" not in proposal:
+        fail("step authoring proposal lacks exact portfolio backlink")
+    specs = sorted((change / "specs").glob("**/*.md"))
+    if not specs:
+        fail("step authoring requires delta specs")
+    for path in specs:
+        require_owned_execution_path(root, path)
+    requirements = [
+        requirement
+        for path in specs
+        for requirement in re.findall(
+            r"(?m)^### Requirement: (REQ-[A-Z0-9-]+)(?:\s|$)",
+            path.read_text(encoding="utf-8"),
+        )
+    ]
+    if not requirements or len(requirements) != len(set(requirements)):
+        fail("step authoring requires unique stable REQ-* requirements")
+    openspec = str(tool_binary(root, "openspec"))
+    status = run_command((openspec, "status", "--change", change.name, "--json"), root=root)
+    if status.returncode != 0:
+        fail(f"OpenSpec planning status failed:\n{status.stdout}")
+    planning = json.loads(status.stdout)
+    if planning.get("schemaName") != "ripdpi-change":
+        fail("step authoring requires the repository OpenSpec schema")
+    completed = {
+        item["id"] for item in planning["artifacts"] if item["status"] == "done"
+    }
+    if not {"proposal", "specs", "design"} <= completed:
+        fail("step authoring requires complete proposal, specs and design")
+    result = run_command((openspec, "validate", change.name, "--strict", "--json"), root=root)
+    if result.returncode != 0:
+        fail(f"OpenSpec planning validation failed:\n{result.stdout}")
+
+
+def command_steps_add(args: argparse.Namespace) -> int:
+    parser = argparse.ArgumentParser(prog="taskctl steps <TASK-ID> add")
+    parser.add_argument("title")
+    parser.add_argument("--kind", choices=sorted(KINDS))
+    parser.add_argument("--priority", choices=PRIORITIES)
+    addition = parser.parse_args(args.mdtask_args[1:])
+    title = addition.title
+    if (
+        not title.strip()
+        or title != title.strip()
+        or len(title.splitlines()) != 1
+        or any(ord(char) < 32 or char == "\x7f" for char in title)
+        or re.search(r"(?:^|\s)[@#!]|\b[A-Z][A-Z0-9]*-\d{16}\b", title)
+    ):
+        fail("step title must be plain single-line text without IDs or mdtask metadata")
+    document = find_document(
+        [read_document(path) for path in issue_paths(args.root)], args.query
+    )
+    validate_issue_shape(document)
     path = expected_execution_path(args.root, document)
-    mdtask = tool_binary(args.root, "mdtask")
-    allowed = {"list", "view", "done", "set", "validate"}
+    require_owned_execution_path(args.root, path)
+    if document.values["status"] in {"done", "dropped"} or path.parent.parent.name == "archive":
+        fail("cannot add steps to terminal or archived work")
+    authoring = document.values["spec_mode"] == "required"
+    if authoring:
+        validate_step_planning(args.root, document)
+    documents, steps = _load_state(
+        args.root, authoring_task_id=document.task_id if authoring else None
+    )
+    used = {item.task_id.split("-", 1)[1] for item in (*documents, *steps)}
+    for item in documents:
+        if item.values["status"] == "dropped":
+            receipt = read_lifecycle_receipt(
+                args.root, item, expected_execution_path(args.root, item), "drop"
+            )
+            used.update(
+                step_id.split("-", 1)[1]
+                for step_id in receipt["dropped_step_ids"]
+            )
+    step_id = allocate_id(args.root, document.values["area"], used)
+    kind = addition.kind or document.values["kind"]
+    priority = addition.priority or document.values["priority"]
+    record = (
+        f"- [ ] {step_id} {title} #{kind}"
+        f"{MDTASK_PRIORITY_TOKENS[priority]} @item:{document.task_id}\n"
+    )
+    if path.exists():
+        previous = path.read_bytes()
+        content = ("" if not previous or previous.endswith(b"\n") else "\n") + record
+        flags = os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW
+    else:
+        content = f"# {document.task_id}\n\n## Execution\n\n{record}"
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    with os.fdopen(os.open(path, flags, 0o644), "a", encoding="utf-8") as handle:
+        handle.write(content)
+        handle.flush()
+        os.fsync(handle.fileno())
+    print(f"Added {step_id} to {path.relative_to(args.root)}")
+    if authoring:
+        print("Planning validation remains pending: complete verification mappings.")
+    print("Run taskctl generate-board, then taskctl validate.")
+    return 0
+
+
+def command_steps(args: argparse.Namespace) -> int:
+    allowed = {"add", "list", "view", "done", "set", "validate"}
     if not args.mdtask_args or args.mdtask_args[0] not in allowed:
         fail(f"steps exposes only: {', '.join(sorted(allowed))}")
-    result = run_command((str(mdtask), *args.mdtask_args, "--path", str(path)), root=args.root, capture=False)
-    return result.returncode
+    action = args.mdtask_args[0]
+    with steps_write_lock(args.root) if action in {"add", "done", "set"} else nullcontext():
+        if action == "add":
+            return command_steps_add(args)
+        documents, _ = load_state(args.root)
+        document = find_document(documents, args.query)
+        path = expected_execution_path(args.root, document)
+        mdtask = tool_binary(args.root, "mdtask")
+        result = run_command(
+            (str(mdtask), *args.mdtask_args, "--path", str(path)),
+            root=args.root,
+            capture=False,
+        )
+        return result.returncode
 
 
 def verify_task(root: Path, document: Document, steps: list[Step], *, archive_ready: bool) -> None:

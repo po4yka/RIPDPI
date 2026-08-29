@@ -4,8 +4,10 @@ import argparse
 import hashlib
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -215,6 +217,137 @@ class TaskctlFixture(unittest.TestCase):
 
 
 class TaskctlContractTest(TaskctlFixture):
+    def steps_add(self, task_id: str, *arguments: str) -> int:
+        return taskctl.main(
+            ["--root", str(self.root), "steps", task_id, "add", *arguments]
+        )
+
+    def prepare_required_step_authoring(self) -> tuple[taskctl.Document, Path]:
+        issue = self.add_active_spec_task(status="backlog")
+        document = taskctl.read_document(issue)
+        change = self.root / "openspec/changes" / document.values["openspec_change"]
+        (change / "design.md").write_text(
+            "## Decisions\n\nPreserve the existing contract.\n", encoding="utf-8"
+        )
+        return document, change
+
+    def test_steps_add_allocates_backlink_and_preserves_existing_execution(self) -> None:
+        subprocess.run(("git", "init", "-q", str(self.root)), check=True)
+        issue = self.add_simple_task()
+        document = taskctl.read_document(issue)
+        path = taskctl.expected_execution_path(self.root, document)
+        previous = path.read_bytes()
+
+        self.assertEqual(0, self.steps_add(document.task_id, "Verify the failure path"))
+
+        steps = taskctl.read_steps(path)
+        self.assertTrue(path.read_bytes().startswith(previous))
+        self.assertEqual(2, len(steps))
+        self.assertEqual(document.task_id, steps[-1].item_id)
+        self.assertEqual(
+            f"Verify the failure path #chore !high @item:{document.task_id}",
+            steps[-1].text,
+        )
+        reservations = self.root / ".git/taskctl-id-reservations"
+        self.assertIn(steps[-1].task_id.split("-", 1)[1], reservations.read_text().splitlines())
+        taskctl.load_state(self.root)
+
+    def test_steps_add_bootstraps_only_selected_validated_openspec(self) -> None:
+        subprocess.run(("git", "init", "-q", str(self.root)), check=True)
+        document, change = self.prepare_required_step_authoring()
+        (change / "tasks.md").unlink()
+        (change / "verification.md").unlink()
+        status = {
+            "schemaName": "ripdpi-change",
+            "artifacts": [
+                {"id": name, "status": "done"}
+                for name in ("proposal", "specs", "design")
+            ],
+        }
+        with mock.patch.object(taskctl, "tool_binary", return_value=Path("openspec")), mock.patch.object(
+            taskctl,
+            "run_command",
+            return_value=subprocess.CompletedProcess(("openspec",), 0, json.dumps(status)),
+        ):
+            self.assertEqual(0, self.steps_add(document.task_id, "Implement mirror"))
+            first = (change / "tasks.md").read_bytes()
+            self.assertEqual(
+                0,
+                self.steps_add(
+                    document.task_id,
+                    "Verify mismatch rejection",
+                    "--kind",
+                    "bug",
+                    "--priority",
+                    "critical",
+                ),
+            )
+
+        self.assertTrue((change / "tasks.md").read_bytes().startswith(first))
+        steps = taskctl.read_steps(change / "tasks.md")
+        self.assertEqual(2, len(steps))
+        self.assertTrue(steps[-1].text.endswith(f"#bug !crit @item:{document.task_id}"))
+        self.assertFalse((change / "verification.md").exists())
+        with self.assertRaisesRegex(taskctl.ContractError, "verification.md"):
+            taskctl.load_state(self.root)
+
+    def test_steps_add_rejects_unrelated_invalid_state_before_writing(self) -> None:
+        subprocess.run(("git", "init", "-q", str(self.root)), check=True)
+        document, change = self.prepare_required_step_authoring()
+        (change / "tasks.md").unlink()
+        (change / "verification.md").unlink()
+        other = self.add_simple_task()
+        other_execution = taskctl.expected_execution_path(
+            self.root, taskctl.read_document(other)
+        )
+        other_execution.unlink()
+        status = {
+            "schemaName": "ripdpi-change",
+            "artifacts": [
+                {"id": name, "status": "done"}
+                for name in ("proposal", "specs", "design")
+            ],
+        }
+        with mock.patch.object(taskctl, "tool_binary", return_value=Path("openspec")), mock.patch.object(
+            taskctl,
+            "run_command",
+            return_value=subprocess.CompletedProcess(("openspec",), 0, json.dumps(status)),
+        ):
+            self.assertEqual(2, self.steps_add(document.task_id, "Implement mirror"))
+        self.assertFalse((change / "tasks.md").exists())
+        self.assertFalse((self.root / ".git/taskctl-id-reservations").exists())
+
+    def test_steps_add_rejects_metadata_and_manual_ids(self) -> None:
+        issue = self.add_simple_task()
+        document = taskctl.read_document(issue)
+        path = taskctl.expected_execution_path(self.root, document)
+        previous = path.read_bytes()
+        for arguments in (
+            (),
+            ("",),
+            ("line\nbreak",),
+            ("Injected @item:CIC-1786234567890001",),
+            ("CIC-1786234567890999 Manual ID",),
+            ("Title", "--path", "/tmp/elsewhere"),
+        ):
+            with self.subTest(arguments=arguments):
+                try:
+                    result = self.steps_add(document.task_id, *arguments)
+                except SystemExit as error:
+                    result = error.code
+                self.assertEqual(2, result)
+                self.assertEqual(previous, path.read_bytes())
+
+    def test_steps_add_rejects_symlink_execution_path(self) -> None:
+        issue = self.add_simple_task()
+        document = taskctl.read_document(issue)
+        path = taskctl.expected_execution_path(self.root, document)
+        destination = path.with_suffix(".original")
+        path.rename(destination)
+        path.symlink_to(destination)
+        self.assertEqual(2, self.steps_add(document.task_id, "New step"))
+        self.assertIn(b"Execute fixture", destination.read_bytes())
+
     def test_partial_legacy_criteria_migrate_as_open_steps(self) -> None:
         checks = migrate_legacy_tasks.criteria(
             "- [x] Verified evidence\n- [~] Partially complete\n- [ ] Not started\n",
@@ -780,6 +913,38 @@ class TaskctlConcurrencyTest(TaskctlFixture):
         self.assertEqual(3, len(documents))
         self.assertEqual(3, len(steps))
         self.assertEqual(len(suffixes), len(set(suffixes)))
+
+    def test_steps_add_concurrent_processes_preserve_all_records(self) -> None:
+        issue = self.add_simple_task()
+        document = taskctl.read_document(issue)
+        self.git(self.root, "init", "-q")
+        command = (
+            sys.executable,
+            str(Path(taskctl.__file__)),
+            "--root",
+            str(self.root),
+            "steps",
+            document.task_id,
+            "add",
+        )
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(
+                pool.map(
+                    lambda number: subprocess.run(
+                        (*command, f"Concurrent step {number}"),
+                        text=True,
+                        capture_output=True,
+                    ),
+                    range(4),
+                )
+            )
+        self.assertTrue(
+            all(result.returncode == 0 for result in results),
+            [result.stderr for result in results],
+        )
+        _, steps = taskctl.load_state(self.root)
+        self.assertEqual(5, len(steps))
+        self.assertEqual(5, len({step.task_id for step in steps}))
 
 
 if __name__ == "__main__":
