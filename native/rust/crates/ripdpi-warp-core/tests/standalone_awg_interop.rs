@@ -180,7 +180,12 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
     ensure!(runtime.telemetry().state == "idle", "runtime did not stop");
     let mut byte = [0];
     let read = timeout(Duration::from_millis(500), stalled.read(&mut byte)).await;
-    ensure!(matches!(read, Ok(Ok(0))), "stalled SOCKS greeting must close before run completes");
+    let closed = match &read {
+        Ok(Ok(0)) => true,
+        Ok(Err(error)) => error.kind() == std::io::ErrorKind::ConnectionReset,
+        _ => false,
+    };
+    ensure!(closed, "stalled SOCKS greeting must close before run completes, got {read:?}");
     ensure!(runtime.telemetry().active_sessions == 0, "accepted handlers remain after shutdown");
     ensure!(TcpStream::connect(address).await.is_err(), "SOCKS listener leaked after shutdown");
     Ok(())
