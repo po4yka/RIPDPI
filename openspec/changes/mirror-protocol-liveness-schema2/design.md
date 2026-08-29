@@ -3,7 +3,7 @@
 RIPDPI vendors every non-documentation file from the deployment repository's
 `contract/` directory under `core/data/src/test/resources/contract/`. The
 deployment producer at exact revision
-`fde031a4ba771dbc96f80a839ee63cf125ddd71f` changed only
+`08cd71efd309f893d3fa210bd4560d96bf799742` changed only
 `protocol-liveness.schema.json`: schema 2 binds each sentinel policy to a
 deployment target. The current client copy is schema 1. Repository search finds
 no Kotlin, Rust, Gradle, or test callsite that parses this specific resource;
@@ -35,7 +35,7 @@ its consumer boundary is cross-repository byte-identity validation.
   `core/data/src/test/resources/contract/protocol-liveness.schema.json`.
 - Producer contract:
   `ripdpi-vpn-deploy/contract/protocol-liveness.schema.json` at
-  `fde031a4ba771dbc96f80a839ee63cf125ddd71f`.
+  `08cd71efd309f893d3fa210bd4560d96bf799742`.
 - Kotlin modules and Rust crates: unchanged.
 - Network-exposure and probe-matrix schemas: unchanged.
 - This dedicated worktree owns the mirror file and this task/OpenSpec record;
