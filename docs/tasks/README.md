@@ -68,6 +68,8 @@ Required changes use the repository schema `ripdpi-change`: `proposal.md → del
   --spec-mode not-required --spec-reason tooling-only
 ./taskctl start <TASK-ID> --owner "Role name"
 ./taskctl steps <TASK-ID> list
+./taskctl steps <TASK-ID> add "Implement the guard"
+./taskctl steps <TASK-ID> add "Verify rejection paths" --kind bug --priority high
 ./taskctl transition <TASK-ID> review
 ./taskctl verify <TASK-ID>
 ./taskctl generate-board
@@ -75,6 +77,15 @@ Required changes use the repository schema `ripdpi-change`: `proposal.md → del
 ```
 
 Completing every mdtask checkbox advances portfolio work at most to `review`; it never proves acceptance by itself.
+
+`steps ... add` allocates the execution ID through the shared Git allocator,
+adds the owning `@item` backlink, and defaults kind and priority to the
+portfolio task. Titles must be plain single-line text without manual IDs or
+mdtask metadata. For the selected required task only, validated
+proposal/specs/design may bootstrap a missing `tasks.md` before verification
+mappings are complete. Other invalid records remain fatal, and ordinary
+validation stays strict. `add`, `done`, and `set` share a cross-worktree write
+lock. Regenerate the board and run `taskctl validate` after authoring steps.
 
 OpenSpec completion uses:
 
