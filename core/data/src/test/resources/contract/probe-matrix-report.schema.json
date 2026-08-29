@@ -3,10 +3,19 @@
   "$id": "https://example.invalid/ripdpi-vpn-deploy/probe-matrix-report.schema.json",
   "title": "Probe matrix report",
   "type": "object",
-  "required": ["schema_version", "vantage", "started_at_unix_ms", "finished_at_unix_ms", "poll_interval_seconds", "controls", "cells", "windows", "observations"],
+  "required": ["schema_version", "completed", "interrupted", "vantage", "started_at_unix_ms", "finished_at_unix_ms", "poll_interval_seconds", "controls", "cells", "windows", "observations"],
   "additionalProperties": false,
+  "not": {
+    "properties": {
+      "completed": { "const": true },
+      "interrupted": { "const": true }
+    },
+    "required": ["completed", "interrupted"]
+  },
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "const": 3 },
+    "completed": { "type": "boolean" },
+    "interrupted": { "type": "boolean" },
     "vantage": { "$ref": "#/$defs/technical_id" },
     "started_at_unix_ms": { "type": "integer", "minimum": 0 },
     "finished_at_unix_ms": { "type": "integer", "minimum": 0 },
