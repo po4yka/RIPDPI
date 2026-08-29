@@ -621,7 +621,31 @@ fn so_bindtodevice_client_helper() {
     socket.bind(&source.into()).expect("bind fixed source port");
     socket.set_read_timeout(Some(Duration::from_secs(2))).expect("read timeout");
     socket.set_write_timeout(Some(Duration::from_secs(2))).expect("write timeout");
-    socket.connect(&target.into()).expect("connect client socket");
+    let connect_result = socket.connect(&target.into());
+
+    if protocol == "tcp" && expected == "reset" {
+        match connect_result {
+            Ok(()) => {
+                let mut stream = TcpStream::from(socket);
+                let result = stream.write_all(payload).and_then(|()| {
+                    let mut byte = [0_u8; 1];
+                    stream.read_exact(&mut byte)
+                });
+                let error = result.expect_err("denied TCP must be reset");
+                assert_eq!(error.raw_os_error(), Some(libc::ECONNRESET), "denied TCP must fail with ECONNRESET");
+            }
+            Err(error) => {
+                assert_eq!(
+                    error.raw_os_error(),
+                    Some(libc::ECONNREFUSED),
+                    "denied TCP SYN reset must fail connect with ECONNREFUSED"
+                );
+            }
+        }
+        return;
+    }
+
+    connect_result.expect("connect client socket");
 
     match (protocol.as_str(), expected.as_str()) {
         ("tcp", "echo") => {
@@ -630,15 +654,6 @@ fn so_bindtodevice_client_helper() {
             let mut echoed = vec![0_u8; payload.len()];
             stream.read_exact(&mut echoed).expect("receive TCP echo");
             assert_eq!(echoed, payload);
-        }
-        ("tcp", "reset") => {
-            let mut stream = TcpStream::from(socket);
-            let result = stream.write_all(payload).and_then(|()| {
-                let mut byte = [0_u8; 1];
-                stream.read_exact(&mut byte)
-            });
-            let error = result.expect_err("denied TCP must be reset");
-            assert_eq!(error.raw_os_error(), Some(libc::ECONNRESET), "denied TCP must fail with ECONNRESET");
         }
         ("udp", "echo") => {
             let udp = UdpSocket::from(socket);
