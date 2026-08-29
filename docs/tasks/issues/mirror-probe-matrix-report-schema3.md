@@ -2,7 +2,7 @@
 id: DAT-1787994690722107
 title: Mirror probe matrix report schema 3
 kind: chore
-status: doing
+status: review
 area: data
 priority: high
 owner: codex
@@ -30,7 +30,7 @@ checks reject stale or incompatible evidence shapes.
 - [x] Task/OpenSpec and architecture-health checks pass without changing
   client runtime behavior, schema 2 window semantics, or network-exposure
   contracts.
-- [ ] The exact client commit passes required hosted CI before protected-main
+- [x] The exact client commit passes required hosted CI before protected-main
   integration.
 
 ## Scope
