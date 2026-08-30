@@ -2,7 +2,7 @@
 id: AND-1786264762917810
 title: Introduce a VPN-session Hilt scope to reset per-session service state
 kind: feature
-status: review
+status: done
 area: android
 priority: medium
 owner: codex
@@ -15,6 +15,9 @@ updated: 2026-08-30
 source_wiki_pages: []
 linked_task: null
 status_detail: Implementation and local verification complete; final review found no CRITICAL/WARNING findings.
+closed_at: "2026-08-30T15:36:00Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 721a9aa5d5e7cd6a86f3c319add0817b62303afc; local unit, AAR, staticAnalysis, architecture-health, task-contract, and sub-agent review evidence recorded in archived verification.
 ---
 
 ## Motivation
