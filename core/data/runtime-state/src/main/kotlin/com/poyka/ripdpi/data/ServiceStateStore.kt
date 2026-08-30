@@ -6,21 +6,26 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
@@ -138,9 +143,30 @@ interface ServiceStateStore {
     )
 
     fun updateTelemetry(snapshot: ServiceTelemetrySnapshot)
+
+    /**
+     * Opens a writer for one service-session generation.
+     *
+     * The default keeps lightweight test doubles source-compatible. The production store returns a
+     * generation-bound facade so callbacks retained by a stopped service cannot mutate a newer session.
+     */
+    fun beginSession(mode: Mode): ServiceStateStore {
+        setStatus(AppStatus.Halted, mode)
+        updateTelemetry(ServiceTelemetrySnapshot(mode = mode, status = AppStatus.Halted))
+        return this
+    }
+
+    /** Revokes this writer and optionally publishes its terminal failure atomically. */
+    fun endSession(
+        sender: Sender? = null,
+        reason: FailureReason? = null,
+    ) {
+        require((sender == null) == (reason == null)) { "Terminal failure requires both sender and reason" }
+        if (sender != null && reason != null) emitFailed(sender, reason)
+    }
 }
 
-@OptIn(FlowPreview::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @Singleton
 class DefaultServiceStateStore
     @Inject
@@ -157,25 +183,36 @@ class DefaultServiceStateStore
 
         private val lock = Any()
 
-        private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
-        override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
+        private val projection =
+            MutableStateFlow(
+                ServiceStateProjection(
+                    status = AppStatus.Halted to Mode.VPN,
+                    telemetry = ServiceTelemetrySnapshot(),
+                ),
+            )
+        override val status: StateFlow<Pair<AppStatus, Mode>> =
+            MappedStateFlow(projection, ServiceStateProjection::status)
 
-        private val eventIngress = Channel<ServiceEvent>(capacity = Channel.UNLIMITED)
-        private val _events = MutableSharedFlow<ServiceEvent>()
-        override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
+        private val eventStream = MutableStateFlow(SessionEventStream(generation = 0L))
+        override val events: SharedFlow<ServiceEvent> =
+            eventStream
+                .flatMapLatest { stream ->
+                    stream.events
+                        .receiveAsFlow()
+                        .filter { stream === eventStream.value }
+                }.buffer(capacity = 0)
+                .shareIn(
+                    scope = applicationScope,
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0L),
+                    replay = 0,
+                )
 
-        private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
-        override val telemetry: StateFlow<ServiceTelemetrySnapshot> = _telemetry.asStateFlow()
+        override val telemetry: StateFlow<ServiceTelemetrySnapshot> =
+            MappedStateFlow(projection, ServiceStateProjection::telemetry)
 
         init {
             applicationScope.launch {
-                for (event in eventIngress) {
-                    _events.subscriptionCount.first { subscriberCount -> subscriberCount > 0 }
-                    _events.emit(event)
-                }
-            }
-            applicationScope.launch {
-                val snapshots = combine(_status, _telemetry, ::toWidgetSnapshot)
+                val snapshots = projection.map { state -> toWidgetSnapshot(state.status, state.telemetry) }
                 merge(
                     snapshots
                         .distinctUntilChangedBy(WidgetSnapshot::controlState)
@@ -196,40 +233,44 @@ class DefaultServiceStateStore
             mode: Mode,
         ) {
             synchronized(lock) {
-                val previousStatus = _status.value.first
+                val currentProjection = projection.value
+                val previousStatus = currentProjection.status.first
                 val now = System.currentTimeMillis()
-                _status.value = status to mode
-                val currentTelemetry = _telemetry.value
-                _telemetry.value =
-                    currentTelemetry.copy(
-                        mode = mode,
-                        status = status,
-                        serviceStartedAt =
-                            when {
-                                status == AppStatus.Running && previousStatus != AppStatus.Running -> {
-                                    now
-                                }
+                val currentTelemetry = currentProjection.telemetry
+                projection.value =
+                    ServiceStateProjection(
+                        status = status to mode,
+                        telemetry =
+                            currentTelemetry.copy(
+                                mode = mode,
+                                status = status,
+                                serviceStartedAt =
+                                    when {
+                                        status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                                            now
+                                        }
 
-                                status == AppStatus.Running -> {
-                                    currentTelemetry.serviceStartedAt
-                                }
+                                        status == AppStatus.Running -> {
+                                            currentTelemetry.serviceStartedAt
+                                        }
 
-                                else -> {
-                                    null
-                                }
-                            },
-                        restartCount =
-                            when {
-                                status == AppStatus.Running && previousStatus != AppStatus.Running -> {
-                                    currentTelemetry.restartCount +
-                                        1
-                                }
+                                        else -> {
+                                            null
+                                        }
+                                    },
+                                restartCount =
+                                    when {
+                                        status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                                            currentTelemetry.restartCount +
+                                                1
+                                        }
 
-                                else -> {
-                                    currentTelemetry.restartCount
-                                }
-                            },
-                        updatedAt = now,
+                                        else -> {
+                                            currentTelemetry.restartCount
+                                        }
+                                    },
+                                updatedAt = now,
+                            ),
                     )
             }
         }
@@ -238,12 +279,152 @@ class DefaultServiceStateStore
             sender: Sender,
             reason: FailureReason,
         ) {
-            val event =
+            synchronized(lock) {
+                publishFailedEvent(eventStream.value, sender, reason)
+            }
+        }
+
+        override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
+            synchronized(lock) {
+                val currentProjection = projection.value
+                val currentTelemetry = currentProjection.telemetry
+                projection.value =
+                    currentProjection.copy(
+                        telemetry =
+                            snapshot.copy(
+                                serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
+                                restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
+                                lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
+                                lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
+                            ),
+                    )
+            }
+        }
+
+        override fun beginSession(mode: Mode): ServiceStateStore {
+            val generation =
                 synchronized(lock) {
-                    val now = System.currentTimeMillis()
-                    val (statusAtFailure, modeAtFailure) = _status.value
-                    val currentTelemetry = _telemetry.value
-                    _telemetry.value =
+                    val previousEventStream = eventStream.value
+                    val generation = previousEventStream.generation + 1L
+                    val restartCount = projection.value.telemetry.restartCount
+                    eventStream.value = SessionEventStream(generation)
+                    previousEventStream.events.close()
+                    projection.value =
+                        ServiceStateProjection(
+                            status = AppStatus.Halted to mode,
+                            telemetry =
+                                ServiceTelemetrySnapshot(
+                                    mode = mode,
+                                    status = AppStatus.Halted,
+                                    restartCount = restartCount,
+                                ),
+                        )
+                    generation
+                }
+            return SessionBoundServiceStateStore(this, generation)
+        }
+
+        private fun setStatusForSession(
+            generation: Long,
+            status: AppStatus,
+            mode: Mode,
+        ) {
+            synchronized(lock) {
+                if (generation != eventStream.value.generation) return
+                setStatus(status, mode)
+            }
+        }
+
+        private fun emitFailedForSession(
+            generation: Long,
+            sender: Sender,
+            reason: FailureReason,
+        ) {
+            synchronized(lock) {
+                val stream = eventStream.value
+                if (generation != stream.generation) return
+                publishFailedEvent(stream, sender, reason)
+            }
+        }
+
+        private fun updateTelemetryForSession(
+            generation: Long,
+            snapshot: ServiceTelemetrySnapshot,
+        ) {
+            synchronized(lock) {
+                if (generation != eventStream.value.generation) return
+                updateTelemetry(snapshot)
+            }
+        }
+
+        private fun endSessionForSession(
+            generation: Long,
+            sender: Sender?,
+            reason: FailureReason?,
+        ) {
+            synchronized(lock) {
+                require((sender == null) == (reason == null)) { "Terminal failure requires both sender and reason" }
+                val currentStream = eventStream.value
+                if (generation != currentStream.generation) return
+                val terminalStream = SessionEventStream(generation + 1L)
+                eventStream.value = terminalStream
+                currentStream.events.close()
+                if (sender != null && reason != null) {
+                    publishFailedEvent(terminalStream, sender, reason)
+                }
+                val terminalProjection = projection.value
+                val mode = terminalProjection.status.second
+                val terminalTelemetry = terminalProjection.telemetry
+                val resetTelemetry =
+                    ServiceTelemetrySnapshot(
+                        mode = mode,
+                        status = AppStatus.Halted,
+                        restartCount = terminalTelemetry.restartCount,
+                        lastFailureSender = terminalTelemetry.lastFailureSender,
+                        lastFailureAt = terminalTelemetry.lastFailureAt,
+                        updatedAt = System.currentTimeMillis(),
+                    )
+                projection.value =
+                    ServiceStateProjection(
+                        status = AppStatus.Halted to mode,
+                        telemetry =
+                            resetTelemetry.copy(
+                                runtimeFieldTelemetry =
+                                    if (reason != null) {
+                                        deriveRuntimeFieldTelemetry(
+                                            telemetryNetworkFingerprintHash = null,
+                                            winningTcpStrategyFamily = null,
+                                            winningQuicStrategyFamily = null,
+                                            winningDnsStrategyFamily = null,
+                                            proxyTelemetry = resetTelemetry.proxyTelemetry,
+                                            relayTelemetry = resetTelemetry.relayTelemetry,
+                                            warpTelemetry = resetTelemetry.warpTelemetry,
+                                            tunnelTelemetry = resetTelemetry.tunnelTelemetry,
+                                            tunnelRecoveryRetryCount = 0,
+                                            failureReason = reason,
+                                        )
+                                    } else {
+                                        RuntimeFieldTelemetry(
+                                            failureClass = terminalTelemetry.runtimeFieldTelemetry.failureClass,
+                                        )
+                                    },
+                            ),
+                    )
+            }
+        }
+
+        private fun publishFailedEvent(
+            stream: SessionEventStream,
+            sender: Sender,
+            reason: FailureReason,
+        ) {
+            val now = System.currentTimeMillis()
+            val currentProjection = projection.value
+            val (statusAtFailure, modeAtFailure) = currentProjection.status
+            val currentTelemetry = currentProjection.telemetry
+            projection.value =
+                currentProjection.copy(
+                    telemetry =
                         currentTelemetry.copy(
                             runtimeFieldTelemetry =
                                 deriveRuntimeFieldTelemetry(
@@ -266,32 +447,85 @@ class DefaultServiceStateStore
                             lastFailureSender = sender,
                             lastFailureAt = now,
                             updatedAt = now,
-                        )
-                    ServiceEvent.Failed(
-                        sender = sender,
-                        reason = reason,
-                        statusAtFailure = statusAtFailure,
-                        modeAtFailure = modeAtFailure,
-                    )
-                }
-            check(eventIngress.trySend(event).isSuccess) {
-                "Service event ingress is unavailable"
+                        ),
+                )
+            val event =
+                ServiceEvent.Failed(
+                    sender = sender,
+                    reason = reason,
+                    statusAtFailure = statusAtFailure,
+                    modeAtFailure = modeAtFailure,
+                )
+            check(stream.events.trySend(event).isSuccess) {
+                "Service event stream is unavailable"
             }
         }
 
-        override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-            synchronized(lock) {
-                val currentTelemetry = _telemetry.value
-                _telemetry.value =
-                    snapshot.copy(
-                        serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
-                        restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
-                        lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
-                        lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
-                    )
+        private class SessionBoundServiceStateStore(
+            private val delegate: DefaultServiceStateStore,
+            private val generation: Long,
+        ) : ServiceStateStore {
+            override val status: StateFlow<Pair<AppStatus, Mode>> = delegate.status
+            override val events: SharedFlow<ServiceEvent> = delegate.events
+            override val telemetry: StateFlow<ServiceTelemetrySnapshot> = delegate.telemetry
+
+            override fun setStatus(
+                status: AppStatus,
+                mode: Mode,
+            ) = delegate.setStatusForSession(generation, status, mode)
+
+            override fun emitFailed(
+                sender: Sender,
+                reason: FailureReason,
+            ) = delegate.emitFailedForSession(generation, sender, reason)
+
+            override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) =
+                delegate.updateTelemetryForSession(generation, snapshot)
+
+            override fun beginSession(mode: Mode): ServiceStateStore =
+                error("A session-bound state writer cannot open another session")
+
+            override fun endSession(
+                sender: Sender?,
+                reason: FailureReason?,
+            ) = delegate.endSessionForSession(generation, sender, reason)
+        }
+    }
+
+private data class ServiceStateProjection(
+    val status: Pair<AppStatus, Mode>,
+    val telemetry: ServiceTelemetrySnapshot,
+)
+
+@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+private class MappedStateFlow<T, R>(
+    private val upstream: StateFlow<T>,
+    private val transform: (T) -> R,
+) : StateFlow<R> {
+    override val value: R
+        get() = transform(upstream.value)
+
+    override val replayCache: List<R>
+        get() = listOf(value)
+
+    override suspend fun collect(collector: FlowCollector<R>): Nothing {
+        var initialized = false
+        var previous: R? = null
+        upstream.collect { upstreamValue ->
+            val mapped = transform(upstreamValue)
+            if (!initialized || mapped != previous) {
+                initialized = true
+                previous = mapped
+                collector.emit(mapped)
             }
         }
     }
+}
+
+private data class SessionEventStream(
+    val generation: Long,
+    val events: Channel<ServiceEvent> = Channel(capacity = Channel.UNLIMITED),
+)
 
 private data class WidgetPublication(
     val snapshot: WidgetSnapshot,

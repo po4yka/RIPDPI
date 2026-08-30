@@ -133,7 +133,6 @@ class RipDpiVpnService :
         sessionLifecycle =
             VpnServiceSessionLifecycle(
                 service = this,
-                serviceStateStore = serviceStateStore,
                 sessionComponentBuilderProvider = sessionComponentBuilderProvider,
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
                 runtimeResumeIntentTracker = runtimeResumeIntentTracker,
@@ -217,8 +216,11 @@ class RipDpiVpnService :
         // is then rejected as already-running and would never restore Running —
         // leaving the status stuck. Reconnecting is overwritten by Running on connect
         // or Halted if the resume fails.
-        if (isServiceRecoveryStartAction(intent?.action) && serviceStateStore.status.value.first == AppStatus.Halted) {
-            serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+        val sessionStateStore = sessionLifecycle.stateStore
+        if (isServiceRecoveryStartAction(intent?.action) &&
+            sessionStateStore.status.value.first == AppStatus.Halted
+        ) {
+            sessionStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
         }
         val transportFailoverCommand = intent.decodeTransportFailoverCommand()
         return shellDelegate.onStartCommand(

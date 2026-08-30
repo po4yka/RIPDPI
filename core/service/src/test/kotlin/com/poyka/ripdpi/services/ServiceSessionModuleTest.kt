@@ -51,7 +51,10 @@ class ServiceSessionModuleTest {
                 )
             val statusReporter =
                 ProxyServiceSessionModule.provideProxyStatusReporter(
-                    serviceStateStore = TestServiceStateStore(),
+                    stateInitializer =
+                        ServiceSessionStateInitializer(TestServiceStateStore()).also {
+                            it.initialize(Mode.Proxy)
+                        },
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                     factory = statusFactory,
@@ -194,7 +197,14 @@ class ServiceSessionModuleTest {
                     dependencies = runtimeDependencies,
                     dispatchers = dispatchers,
                 )
-            val statusReporter = VpnServiceSessionModule.provideVpnStatusReporter(statusDependencies)
+            val statusReporter =
+                VpnServiceSessionModule.provideVpnStatusReporter(
+                    dependencies = statusDependencies,
+                    stateInitializer =
+                        ServiceSessionStateInitializer(statusDependencies.serviceStateStore).also {
+                            it.initialize(Mode.VPN)
+                        },
+                )
             val vpnProtectFailureMonitor = VpnServiceSessionModule.provideVpnProtectFailureMonitor()
             val coordinator =
                 VpnServiceSessionModule.provideVpnCoordinator(

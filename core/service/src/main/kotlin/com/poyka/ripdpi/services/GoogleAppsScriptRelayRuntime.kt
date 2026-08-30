@@ -10,6 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CompletableDeferred
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 internal const val RelayKindGoogleAppsScript = "google_apps_script"
@@ -26,7 +27,6 @@ internal const val RelayKindGoogleAppsScript = "google_apps_script"
  * is an advanced/expert feature with a hard dependency on the user's own GCP project setup.
  * Configuration is managed through the relay profile editor's credential fields.
  */
-@Singleton
 internal class GoogleAppsScriptRelayRuntime
     @Inject
     constructor(
@@ -78,9 +78,9 @@ internal interface GoogleAppsScriptRelayRuntimeFactory {
 internal class DefaultGoogleAppsScriptRelayRuntimeFactory
     @Inject
     constructor(
-        private val runtime: GoogleAppsScriptRelayRuntime,
+        private val runtimeProvider: Provider<GoogleAppsScriptRelayRuntime>,
     ) : GoogleAppsScriptRelayRuntimeFactory {
-        override fun create(): RipDpiRelayRuntime = runtime
+        override fun create(): RipDpiRelayRuntime = runtimeProvider.get()
     }
 
 @Module

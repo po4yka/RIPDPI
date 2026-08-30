@@ -17,7 +17,6 @@ import javax.inject.Provider
 
 internal class VpnServiceSessionLifecycle(
     private val service: RipDpiVpnService,
-    private val serviceStateStore: ServiceStateStore,
     private val sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>,
     private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
@@ -37,6 +36,8 @@ internal class VpnServiceSessionLifecycle(
         ),
 ) {
     private var sessionComponent: VpnServiceSessionComponent? = null
+    private var stateInitializer: ServiceSessionStateInitializer? = null
+    private var sessionStateStore: ServiceStateStore? = null
     private var coordinator: VpnServiceRuntimeCoordinator? = null
     private var protectSocketServer: VpnProtectSocketServer? = null
     private val cleanup = VpnServiceSessionCleanup()
@@ -50,6 +51,10 @@ internal class VpnServiceSessionLifecycle(
         hardKillSwitchRefreshBroadcastLifecycle.start()
         return runCatching {
             val entryPoint = createSessionEntryPoint()
+            val initializer = entryPoint.stateInitializer()
+            stateInitializer = initializer
+            val stateStore = initializer.initialize(Mode.VPN)
+            sessionStateStore = stateStore
             val runtimeCoordinator = entryPoint.coordinator()
             val socketServer = entryPoint.protectSocketServer()
             coordinator = runtimeCoordinator
@@ -102,24 +107,16 @@ internal class VpnServiceSessionLifecycle(
                     ),
                 beforeUserStart = beforeUserStart,
                 shouldPrepareUserStart = {
-                    serviceStateStore.status.value.first != AppStatus.Running
+                    stateStore.status.value.first != AppStatus.Running
                 },
                 isStopAllowed = service::isUserStopAllowed,
                 intentCallbacks = intentCallbacks,
                 isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
-                onRevoke = {
-                    serviceStateStore.emitFailed(
-                        sender = Sender.VPN,
-                        reason = FailureReason.PermissionLost("VPN"),
-                    )
-                    cleanup.revokeSession(
-                        stopRuntime = runtimeCoordinator::stop,
-                        destroyCoordinator = runtimeCoordinator::onDestroy,
-                        cleanupSocketProtection = ::cleanupNativeProtect,
-                    )
-                },
+                onRevoke = { revokeSession(initializer, runtimeCoordinator) },
             )
         }.onFailure {
+            stateInitializer?.close()
+            clearSessionReferences()
             hardKillSwitchRefreshBroadcastLifecycle.close()
         }.getOrThrow()
     }
@@ -139,16 +136,38 @@ internal class VpnServiceSessionLifecycle(
         // Cleared regardless of the teardown outcome: this service instance is
         // going away, and after a timed-out stop the coordinator destroy and
         // protection cleanup have already run inside destroyRunningSession.
-        clearSessionReferences()
         if (failure != null) {
-            serviceStateStore.emitFailed(Sender.VPN, FailureReason.Unexpected(failure))
+            stateInitializer?.close(Sender.VPN, FailureReason.Unexpected(failure))
+        } else {
+            stateInitializer?.close()
         }
+        clearSessionReferences()
     }
+
+    val stateStore: ServiceStateStore
+        get() = checkNotNull(sessionStateStore) { "VPN service session has not been created" }
 
     private fun clearSessionReferences() {
         protectSocketServer = null
         coordinator = null
+        sessionStateStore = null
+        stateInitializer = null
         sessionComponent = null
+    }
+
+    private suspend fun revokeSession(
+        initializer: ServiceSessionStateInitializer,
+        runtimeCoordinator: VpnServiceRuntimeCoordinator,
+    ) {
+        initializer.close(
+            sender = Sender.VPN,
+            reason = FailureReason.PermissionLost("VPN"),
+        )
+        cleanup.revokeSession(
+            stopRuntime = runtimeCoordinator::stop,
+            destroyCoordinator = runtimeCoordinator::onDestroy,
+            cleanupSocketProtection = ::cleanupNativeProtect,
+        )
     }
 
     private companion object {

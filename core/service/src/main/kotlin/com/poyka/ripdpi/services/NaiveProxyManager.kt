@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import java.io.File
 import java.util.Base64
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 private const val NaiveProxyBinaryName = "ripdpi-naiveproxy"
@@ -299,9 +300,9 @@ interface NaiveProxyRuntimeFactory {
 class DefaultNaiveProxyRuntimeFactory
     @Inject
     constructor(
-        private val runtime: NaiveProxyRuntime,
+        private val runtimeProvider: Provider<NaiveProxyRuntime>,
     ) : NaiveProxyRuntimeFactory {
-        override fun create(): RipDpiRelayRuntime = runtime
+        override fun create(): RipDpiRelayRuntime = runtimeProvider.get()
     }
 
 @Module

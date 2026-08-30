@@ -21,6 +21,7 @@ import kotlinx.coroutines.CompletableDeferred
 import java.io.File
 import java.net.URI
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 private const val SnowflakeBinaryName = "ripdpi-snowflake"
@@ -299,9 +300,9 @@ interface PluggableTransportRuntimeFactory {
 class DefaultPluggableTransportRuntimeFactory
     @Inject
     constructor(
-        private val runtime: PluggableTransportRuntime,
+        private val runtimeProvider: Provider<PluggableTransportRuntime>,
     ) : PluggableTransportRuntimeFactory {
-        override fun create(): RipDpiRelayRuntime = runtime
+        override fun create(): RipDpiRelayRuntime = runtimeProvider.get()
     }
 
 @Module

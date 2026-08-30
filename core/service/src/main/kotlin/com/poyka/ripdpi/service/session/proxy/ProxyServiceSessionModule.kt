@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
@@ -26,6 +25,7 @@ import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceSessionScope
+import com.poyka.ripdpi.services.ServiceSessionStateInitializer
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.ServiceStatusReporterFactory
 import com.poyka.ripdpi.services.TelemetryFingerprintHasher
@@ -86,7 +86,7 @@ internal object ProxyServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideProxyStatusReporter(
-        serviceStateStore: ServiceStateStore,
+        stateInitializer: ServiceSessionStateInitializer,
         networkFingerprintProvider: NetworkFingerprintProvider,
         telemetryFingerprintHasher: TelemetryFingerprintHasher,
         factory: ServiceStatusReporterFactory,
@@ -94,7 +94,7 @@ internal object ProxyServiceSessionModule {
         factory.create(
             mode = Mode.Proxy,
             sender = Sender.Proxy,
-            serviceStateStore = serviceStateStore,
+            serviceStateStore = stateInitializer.requireInitialized(),
             networkFingerprintProvider = networkFingerprintProvider,
             telemetryFingerprintHasher = telemetryFingerprintHasher,
         )

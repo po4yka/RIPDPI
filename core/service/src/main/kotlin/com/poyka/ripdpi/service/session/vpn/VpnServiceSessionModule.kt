@@ -33,6 +33,7 @@ import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ServiceSessionScope
+import com.poyka.ripdpi.services.ServiceSessionStateInitializer
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.TransportFailoverApplyTracker
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
@@ -245,11 +246,14 @@ internal object VpnServiceSessionModule {
 
     @Provides
     @ServiceSessionScope
-    fun provideVpnStatusReporter(dependencies: VpnServiceRuntimeStatusDependencies): ServiceStatusReporter =
+    fun provideVpnStatusReporter(
+        dependencies: VpnServiceRuntimeStatusDependencies,
+        stateInitializer: ServiceSessionStateInitializer,
+    ): ServiceStatusReporter =
         dependencies.serviceStatusReporterFactory.create(
             mode = Mode.VPN,
             sender = Sender.VPN,
-            serviceStateStore = dependencies.serviceStateStore,
+            serviceStateStore = stateInitializer.requireInitialized(),
             networkFingerprintProvider = dependencies.networkFingerprintProvider,
             telemetryFingerprintHasher = dependencies.telemetryFingerprintHasher,
         )

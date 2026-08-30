@@ -78,8 +78,10 @@ class RipDpiProxyService :
     internal lateinit var serviceStopProvenanceRecorder: RoomServiceStopProvenanceRecorder
 
     private var sessionComponent: ProxyServiceSessionComponent? = null
-    private lateinit var coordinator: ProxyServiceRuntimeCoordinator
-    private lateinit var shellDelegate: ServiceShellDelegate
+    private var stateInitializer: ServiceSessionStateInitializer? = null
+    private var sessionStateStore: ServiceStateStore? = null
+    private var coordinator: ProxyServiceRuntimeCoordinator? = null
+    private var shellDelegate: ServiceShellDelegate? = null
 
     override val serviceScope = lifecycleScope
 
@@ -92,38 +94,52 @@ class RipDpiProxyService :
             R.string.proxy_channel_name,
         )
         sessionComponent = sessionComponentBuilderProvider.get().host(this).build()
-        coordinator =
-            EntryPoints
-                .get(
-                    checkNotNull(sessionComponent),
-                    ProxyServiceSessionEntryPoint::class.java,
-                ).coordinator()
-        shellDelegate =
-            ServiceShellDelegate(
-                serviceScope = lifecycleScope,
-                serviceIntentArbiter = serviceIntentArbiter,
-                serviceLabel = "proxy",
-                onStart = coordinator::start,
-                onStartWithId = { _, startId -> coordinator.start(stopSelfStartId = startId) },
-                onStop = { startId, provenance ->
-                    serviceStopProvenanceRecorder.record(Mode.Proxy, provenance)
-                    coordinator.stop(startId)
-                },
-                intentCallbacks =
-                    ServiceShellIntentCallbacks(
-                        acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
-                        acceptedStop = acceptedUserStopRecorder::record,
-                    ),
-                isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
+        val sessionEntryPoint =
+            EntryPoints.get(
+                checkNotNull(sessionComponent),
+                ProxyServiceSessionEntryPoint::class.java,
             )
+        runCatching {
+            val initializer = sessionEntryPoint.stateInitializer()
+            stateInitializer = initializer
+            val stateStore = initializer.initialize(Mode.Proxy)
+            val runtimeCoordinator = sessionEntryPoint.coordinator()
+            sessionStateStore = stateStore
+            coordinator = runtimeCoordinator
+            shellDelegate =
+                ServiceShellDelegate(
+                    serviceScope = lifecycleScope,
+                    serviceIntentArbiter = serviceIntentArbiter,
+                    serviceLabel = "proxy",
+                    onStart = runtimeCoordinator::start,
+                    onStartWithId = { _, startId -> runtimeCoordinator.start(stopSelfStartId = startId) },
+                    onStop = { startId, provenance ->
+                        serviceStopProvenanceRecorder.record(Mode.Proxy, provenance)
+                        runtimeCoordinator.stop(startId)
+                    },
+                    intentCallbacks =
+                        ServiceShellIntentCallbacks(
+                            acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+                            acceptedStop = acceptedUserStopRecorder::record,
+                        ),
+                    isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
+                )
+        }.onFailure {
+            stateInitializer?.close()
+            clearSessionReferences()
+        }.getOrThrow()
     }
 
     override fun onDestroy() {
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
-        coordinator.onDestroy()
-        rootHelperManager.stop()
-        sessionComponent = null
-        super.onDestroy()
+        try {
+            coordinator?.onDestroy()
+            rootHelperManager.stop()
+        } finally {
+            stateInitializer?.close()
+            clearSessionReferences()
+            super.onDestroy()
+        }
     }
 
     override fun onStartCommand(
@@ -160,10 +176,11 @@ class RipDpiProxyService :
         // demoted to Reconnecting, since the follow-up start is rejected as
         // already-running and would never restore Running, leaving it stuck.
         // Running/Halted resolves it once the runtime settles.
-        if (intent?.action == null && serviceStateStore.status.value.first == AppStatus.Halted) {
-            serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.Proxy)
+        val stateStore = checkNotNull(sessionStateStore) { "Proxy service session has not been created" }
+        if (intent?.action == null && stateStore.status.value.first == AppStatus.Halted) {
+            stateStore.setStatus(AppStatus.Reconnecting, Mode.Proxy)
         }
-        return shellDelegate.onStartCommand(
+        return checkNotNull(shellDelegate) { "Proxy service shell has not been created" }.onStartCommand(
             intent?.action,
             startId,
             explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
@@ -174,7 +191,7 @@ class RipDpiProxyService :
         tunnelStats: TunnelStats,
         proxyTelemetry: NativeRuntimeSnapshot,
     ) {
-        val startedAt = serviceStateStore.telemetry.value.serviceStartedAt ?: return
+        val startedAt = sessionStateStore?.telemetry?.value?.serviceStartedAt ?: return
         val elapsedMs = System.currentTimeMillis() - startedAt
         val content =
             NotificationContentBuilder.buildContentText(
@@ -235,6 +252,14 @@ class RipDpiProxyService :
             R.string.proxy_notification_content,
             RipDpiProxyService::class.java,
         )
+
+    private fun clearSessionReferences() {
+        shellDelegate = null
+        coordinator = null
+        sessionStateStore = null
+        stateInitializer = null
+        sessionComponent = null
+    }
 
     companion object {
         private const val FOREGROUND_SERVICE_ID: Int = 2

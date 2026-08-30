@@ -36,6 +36,8 @@ internal interface ProxyServiceSessionComponentBuilder {
 @EntryPoint
 @InstallIn(ProxyServiceSessionComponent::class)
 internal interface ProxyServiceSessionEntryPoint {
+    fun stateInitializer(): ServiceSessionStateInitializer
+
     fun coordinator(): ProxyServiceRuntimeCoordinator
 }
 
@@ -59,6 +61,8 @@ internal interface VpnServiceSessionComponentBuilder {
 @EntryPoint
 @InstallIn(VpnServiceSessionComponent::class)
 internal interface VpnServiceSessionEntryPoint {
+    fun stateInitializer(): ServiceSessionStateInitializer
+
     fun coordinator(): VpnServiceRuntimeCoordinator
 
     fun protectSocketServer(): VpnProtectSocketServer

@@ -65,7 +65,6 @@ class VpnServiceSessionHardKillSwitchLifecycleTest {
         return VpnServiceSessionLifecycle(
             serviceIntentArbiter = ServiceIntentArbiter(),
             service = service,
-            serviceStateStore = TestServiceStateStore(),
             sessionComponentBuilderProvider = sessionComponentBuilderProvider,
             activeProtectSocketPathProvider = ActiveProtectSocketPathProvider(),
             runtimeResumeIntentTracker = runtimeResumeIntentTracker,
