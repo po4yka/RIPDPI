@@ -29,10 +29,13 @@ use std::future::Future;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::AsRawFd;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
+use ripdpi_session_limit::{ExitIpSessionGuard, ExitIpSessionLimiter};
 use socket2::{SockRef, TcpKeepalive};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::{TcpSocket, TcpStream};
 
 use crate::config::VlessRealityConfig;
@@ -42,10 +45,12 @@ use crate::wire::ResponseHeaderStream;
 
 type VlessRealityStream = VisionStream<ResponseHeaderStream<RealityTlsStream<TcpStream>>>;
 pub type VlessXudpSession = xudp::VlessXudpSession;
+pub use ripdpi_session_limit::ExitIpSessionCaps as VlessRealityCarrierCaps;
 
 const TCP_KEEPALIVE_IDLE: Duration = Duration::from_secs(30);
 const TCP_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
 const TCP_KEEPALIVE_RETRIES: u32 = 3;
+const VLESS_REALITY_TRANSPORT: &str = "vless_reality";
 #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux", target_os = "cygwin"))]
 const TCP_USER_TIMEOUT: Duration = Duration::from_secs(90);
 
@@ -60,6 +65,128 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 /// - `connect_over()`: performs VLESS+Reality over an existing transport (for chain relay)
 pub struct VlessRealityClient;
 
+/// Relay-owned admission policy for physical VLESS+Reality carriers.
+///
+/// Clones share one per-exit-IP budget. Logical streams inside a mux carrier
+/// never interact with this limiter.
+#[derive(Debug, Clone)]
+pub struct VlessRealityCarrierLimiter {
+    inner: ExitIpSessionLimiter,
+}
+
+impl Default for VlessRealityCarrierLimiter {
+    fn default() -> Self {
+        Self::new(VlessRealityCarrierCaps::default())
+    }
+}
+
+impl VlessRealityCarrierLimiter {
+    /// Create an independent limiter with explicit default and per-transport caps.
+    #[must_use]
+    pub fn new(caps: VlessRealityCarrierCaps) -> Self {
+        Self { inner: ExitIpSessionLimiter::new(caps) }
+    }
+
+    fn acquire(&self, endpoint: SocketAddr) -> io::Result<Option<ExitIpSessionGuard>> {
+        if endpoint.port() != 443 {
+            return Ok(None);
+        }
+        self.inner
+            .try_acquire(endpoint.ip(), VLESS_REALITY_TRANSPORT)
+            .map(Some)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "VLESS Reality physical-carrier limit reached"))
+    }
+
+    /// Establish one admitted mux carrier to an already-resolved endpoint.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: cancellation drops both the admission guard
+    /// and the exclusively owned incomplete carrier. After establishment, the
+    /// guard is owned by the carrier driver's stream and outlives task abort.
+    pub async fn connect_mux_to(
+        &self,
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        endpoint: SocketAddr,
+    ) -> io::Result<VlessYamuxSession> {
+        let guard = self.acquire(endpoint)?;
+        VlessRealityClient::connect_mux_to_guarded(config, bind_ip, endpoint, guard).await
+    }
+
+    /// Establish one admitted direct carrier to an already-resolved endpoint.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: cancellation drops the admission guard and
+    /// the exclusively owned incomplete carrier; a completed stream owns both.
+    pub async fn connect_to_addr(
+        &self,
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        target: &str,
+        endpoint: SocketAddr,
+    ) -> io::Result<impl AsyncIo + use<>> {
+        let guard = self.acquire(endpoint)?;
+        let inner = VlessRealityClient::connect_to_addr(config, bind_ip, target, endpoint).await?;
+        Ok(CarrierGuardedIo { inner, _guard: guard })
+    }
+
+    /// Establish one admitted XUDP carrier to an already-resolved endpoint.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: cancellation before establishment drops the
+    /// guard and incomplete carrier. Once tasks start, their stream halves own
+    /// the guard until the physical carrier is actually destroyed.
+    pub async fn connect_xudp_to_addr(
+        &self,
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        endpoint: SocketAddr,
+    ) -> io::Result<VlessXudpSession> {
+        let guard = self.acquire(endpoint)?;
+        VlessRealityClient::connect_xudp_to_addr_guarded(config, bind_ip, endpoint, guard).await
+    }
+}
+
+struct CarrierGuardedIo<T, G> {
+    inner: T,
+    _guard: G,
+}
+
+impl<T, G> AsyncRead for CarrierGuardedIo<T, G>
+where
+    T: AsyncRead + Unpin,
+    G: Unpin,
+{
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_read(context, buffer)
+    }
+}
+
+impl<T, G> AsyncWrite for CarrierGuardedIo<T, G>
+where
+    T: AsyncWrite + Unpin,
+    G: Unpin,
+{
+    fn poll_write(mut self: Pin<&mut Self>, context: &mut Context<'_>, buffer: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.inner).poll_write(context, buffer)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_flush(context)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_shutdown(context)
+    }
+}
+
 impl VlessRealityClient {
     /// Establish one VLESS+Reality carrier for the configured SagerNet
     /// sing-mux/yamux session. The carrier's VLESS destination is fixed by the
@@ -72,13 +199,53 @@ impl VlessRealityClient {
     /// owned incomplete carrier; partial remote handshake/request bytes cannot
     /// be resumed or returned to the pool.
     pub async fn connect_mux(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessYamuxSession> {
+        if config.mux.is_none() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "VLESS mux session requested without mux config"));
+        }
+        let address = Self::resolve_server_endpoint(config, bind_ip).await?;
+        Self::connect_mux_to(config, bind_ip, address).await
+    }
+
+    /// Establish one VLESS+Reality mux carrier to an already-resolved relay endpoint.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: dropping this future discards its exclusively
+    /// owned incomplete carrier; partial remote handshake/request bytes cannot
+    /// be resumed or returned to the pool.
+    async fn connect_mux_to(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        address: SocketAddr,
+    ) -> io::Result<VlessYamuxSession> {
+        Self::connect_mux_to_guarded(config, bind_ip, address, ()).await
+    }
+
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: the guard remains paired with the exclusively
+    /// owned carrier through handshake cancellation and is moved into the
+    /// carrier driver only after establishment succeeds.
+    async fn connect_mux_to_guarded<G>(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        address: SocketAddr,
+        guard: G,
+    ) -> io::Result<VlessYamuxSession>
+    where
+        G: Send + Unpin + 'static,
+    {
         let mux = config.mux.ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "VLESS mux session requested without mux config")
         })?;
-        let tcp = trace_io_stage("tcp_connect", connect_tcp(config, bind_ip)).await?;
+        let tcp = trace_io_stage("tcp_connect", connect_tcp_to(config, bind_ip, address)).await?;
         let tls = trace_io_stage("reality_tls", reality::connect_reality_tls(tcp, config)).await?;
         let carrier = Self::vless_handshake_and_wrap(tls, config, mux::SING_MUX_DESTINATION).await?;
-        VlessYamuxSession::establish(Box::new(carrier), mux.max_concurrent_streams).await
+        VlessYamuxSession::establish(
+            Box::new(CarrierGuardedIo { inner: carrier, _guard: guard }),
+            mux.max_concurrent_streams,
+        )
+        .await
     }
 
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.
@@ -108,6 +275,26 @@ impl VlessRealityClient {
         Self::connect_with_optional_bind(config, Some(bind_ip), target).await
     }
 
+    /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream` to an
+    /// already-resolved relay endpoint.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: dropping at the `connect_tcp_to`, Reality
+    /// TLS, or VLESS-request `.await` may leave the peer with a partial
+    /// handshake/request, but the in-progress carrier is exclusively owned and
+    /// dropped and is never resumed or returned to a pool.
+    async fn connect_to_addr(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        target: &str,
+        address: SocketAddr,
+    ) -> io::Result<VlessRealityStream> {
+        let tcp = trace_io_stage("tcp_connect", connect_tcp_to(config, bind_ip, address)).await?;
+        let tls = trace_io_stage("reality_tls", reality::connect_reality_tls(tcp, config)).await?;
+        Self::vless_handshake_and_wrap(tls, config, target).await
+    }
+
     /// # Cancel safety
     ///
     /// conditionally cancel-safe: dropping at the `connect_tcp`, Reality TLS,
@@ -120,9 +307,8 @@ impl VlessRealityClient {
         bind_ip: Option<IpAddr>,
         target: &str,
     ) -> io::Result<VlessRealityStream> {
-        let tcp = trace_io_stage("tcp_connect", connect_tcp(config, bind_ip)).await?;
-        let tls = trace_io_stage("reality_tls", reality::connect_reality_tls(tcp, config)).await?;
-        Self::vless_handshake_and_wrap(tls, config, target).await
+        let address = Self::resolve_server_endpoint(config, bind_ip).await?;
+        Self::connect_to_addr(config, bind_ip, target, address).await
     }
 
     /// Open one Xray-compatible XUDP association over a dedicated protected
@@ -138,10 +324,74 @@ impl VlessRealityClient {
             return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS XUDP requires an XTLS Vision flow"));
         }
         tracing::debug!("VLESS+Reality: connecting XUDP carrier");
-        let tcp = connect_tcp(config, bind_ip).await?;
+        let address = Self::resolve_server_endpoint(config, bind_ip).await?;
+        Self::connect_xudp_to_addr(config, bind_ip, address).await
+    }
+
+    /// Open one XUDP association to an already-resolved relay endpoint.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: dropping at the TCP connect, Reality TLS, or
+    /// VLESS request awaits may leave only a partial peer-side handshake; the
+    /// exclusively owned local carrier is dropped and never resumed or pooled.
+    async fn connect_xudp_to_addr(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        address: SocketAddr,
+    ) -> io::Result<VlessXudpSession> {
+        Self::connect_xudp_to_addr_guarded(config, bind_ip, address, ()).await
+    }
+
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: the guard remains paired with the exclusively
+    /// owned carrier during all awaits and moves into the task-owned transport
+    /// before the XUDP tasks are spawned.
+    async fn connect_xudp_to_addr_guarded<G>(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+        address: SocketAddr,
+        guard: G,
+    ) -> io::Result<VlessXudpSession>
+    where
+        G: Send + Unpin + 'static,
+    {
+        if config.flow == crate::addons::VlessFlow::None {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS XUDP requires an XTLS Vision flow"));
+        }
+        tracing::debug!("VLESS+Reality: connecting XUDP carrier");
+        let tcp = connect_tcp_to(config, bind_ip, address).await?;
         let tls = reality::connect_reality_tls(tcp, config).await?;
         let carrier = Self::vless_handshake_and_wrap_command(tls, config, wire::VlessCommand::Mux, None).await?;
-        xudp::VlessXudpSession::new(carrier, config.flow == crate::addons::VlessFlow::VisionUdp443)
+        xudp::VlessXudpSession::new(
+            CarrierGuardedIo { inner: carrier, _guard: guard },
+            config.flow == crate::addons::VlessFlow::VisionUdp443,
+        )
+    }
+
+    /// Resolve the configured relay endpoint exactly once for a physical carrier.
+    ///
+    /// Callers that apply per-exit-IP admission should reserve against the
+    /// returned `SocketAddr::ip()` and then dial the same address with one of
+    /// the `*_to_addr` methods.
+    ///
+    /// # Cancel safety
+    ///
+    /// conditionally cancel-safe: resolver progress is abandoned by dropping
+    /// the future; retry starts a fresh resolution.
+    pub async fn resolve_server_endpoint(
+        config: &VlessRealityConfig,
+        bind_ip: Option<IpAddr>,
+    ) -> io::Result<SocketAddr> {
+        let socket_protection = config.socket_protection;
+        endpoint_resolver::resolve_server_addr(
+            &config.server,
+            config.port,
+            bind_ip,
+            Some(Box::new(move |fd| socket_protection.protect(fd))),
+        )
+        .await
     }
 
     /// Perform `Reality TLS -> VLESS handshake` over an existing transport.
@@ -354,15 +604,22 @@ fn io_error_kind_name(kind: io::ErrorKind) -> &'static str {
 /// conditionally cancel-safe: resolver and socket-connect progress is
 /// abandoned by dropping the exclusively owned socket; retry starts with a
 /// fresh protected socket and never resumes the partial connect.
+#[cfg(test)]
 async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
-    let socket_protection = config.socket_protection;
-    let address = endpoint_resolver::resolve_server_addr(
-        &config.server,
-        config.port,
-        bind_ip,
-        Some(Box::new(move |fd| socket_protection.protect(fd))),
-    )
-    .await?;
+    let address = VlessRealityClient::resolve_server_endpoint(config, bind_ip).await?;
+    connect_tcp_to(config, bind_ip, address).await
+}
+
+/// # Cancel safety
+///
+/// conditionally cancel-safe: socket-connect progress is abandoned by dropping
+/// the exclusively owned socket; retry starts with a fresh protected socket and
+/// never resumes the partial connect.
+async fn connect_tcp_to(
+    config: &VlessRealityConfig,
+    bind_ip: Option<IpAddr>,
+    address: SocketAddr,
+) -> io::Result<TcpStream> {
     let socket = match address {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
@@ -396,6 +653,114 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
     // Half-open detection for every carrier, not only XUDP.
     configure_tcp_liveness(&stream)?;
     Ok(stream)
+}
+
+#[cfg(test)]
+mod carrier_limit_tests {
+    use super::*;
+
+    fn capped_limiter() -> VlessRealityCarrierLimiter {
+        VlessRealityCarrierLimiter::new(VlessRealityCarrierCaps::new(1))
+    }
+
+    async fn wait_for_released_slot(
+        limiter: &VlessRealityCarrierLimiter,
+        endpoint: SocketAddr,
+    ) -> Option<ExitIpSessionGuard> {
+        for _ in 0..100 {
+            match limiter.acquire(endpoint) {
+                Ok(slot) => return slot,
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => tokio::task::yield_now().await,
+                Err(error) => panic!("unexpected admission error: {error}"),
+            }
+        }
+        panic!("carrier task did not release its slot");
+    }
+
+    #[test]
+    fn port_443_carrier_slots_enforce_cap_and_release() {
+        let limiter = capped_limiter();
+        let endpoint = SocketAddr::from(([192, 0, 2, 10], 443));
+
+        let first = limiter.acquire(endpoint).expect("first admission");
+        assert!(first.is_some(), "port 443 must reserve a physical-carrier slot");
+
+        let error = limiter.acquire(endpoint).expect_err("second carrier must be capped");
+        assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+
+        drop(first);
+        assert!(limiter.acquire(endpoint).expect("admission after release").is_some());
+        assert!(
+            limiter.acquire(SocketAddr::from(([192, 0, 2, 10], 8443))).expect("non-443 bypass").is_none(),
+            "the default policy applies only to port 443",
+        );
+    }
+
+    #[tokio::test]
+    async fn yamux_task_owns_guard_until_carrier_drop() {
+        let limiter = capped_limiter();
+        let endpoint = SocketAddr::from(([192, 0, 2, 11], 443));
+        let guard = limiter.acquire(endpoint).expect("first admission");
+        let (client, _server) = tokio::io::duplex(1024);
+        let session = VlessYamuxSession::establish(Box::new(CarrierGuardedIo { inner: client, _guard: guard }), 1)
+            .await
+            .expect("establish local yamux carrier");
+
+        assert_eq!(
+            limiter.acquire(endpoint).expect_err("live carrier must hold slot").kind(),
+            io::ErrorKind::WouldBlock
+        );
+        drop(session);
+        assert_eq!(
+            limiter.acquire(endpoint).expect_err("abort must not release before task teardown").kind(),
+            io::ErrorKind::WouldBlock,
+        );
+
+        drop(wait_for_released_slot(&limiter, endpoint).await);
+    }
+
+    #[tokio::test]
+    async fn xudp_tasks_own_guard_until_carrier_drop() {
+        let limiter = capped_limiter();
+        let endpoint = SocketAddr::from(([192, 0, 2, 12], 443));
+        let guard = limiter.acquire(endpoint).expect("first admission");
+        let (client, _server) = tokio::io::duplex(1024);
+        let session = xudp::VlessXudpSession::new(CarrierGuardedIo { inner: client, _guard: guard }, false)
+            .expect("establish local XUDP carrier");
+
+        assert_eq!(
+            limiter.acquire(endpoint).expect_err("live carrier must hold slot").kind(),
+            io::ErrorKind::WouldBlock
+        );
+        drop(session);
+        assert_eq!(
+            limiter.acquire(endpoint).expect_err("abort must not release before task teardown").kind(),
+            io::ErrorKind::WouldBlock,
+        );
+
+        drop(wait_for_released_slot(&limiter, endpoint).await);
+    }
+
+    #[tokio::test]
+    async fn missing_mux_config_fails_before_endpoint_resolution() {
+        let config = VlessRealityConfig {
+            server: "192.0.2.20".to_string(),
+            port: 9,
+            uuid: [0; 16],
+            server_name: "invalid.example".to_string(),
+            tls_fingerprint_profile: "chrome_stable".to_string(),
+            reality_public_key: [0; 32],
+            reality_short_id: Vec::new(),
+            mux: None,
+            flow: crate::addons::VlessFlow::None,
+            kem_groups: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+
+        let error = VlessRealityClient::connect_mux(&config, None).await.err().expect("missing mux must fail locally");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
 }
 
 fn configure_tcp_liveness(stream: &TcpStream) -> io::Result<()> {

@@ -93,6 +93,7 @@ fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) ->
         VlessRealitySessionFactory {
             config: vless_config,
             outbound_bind_ip: context.outbound_bind_ip,
+            session_limiter: ripdpi_vless::VlessRealityCarrierLimiter::default(),
             udp_enabled: config.common.udp_enabled,
         },
         context.pool_config,

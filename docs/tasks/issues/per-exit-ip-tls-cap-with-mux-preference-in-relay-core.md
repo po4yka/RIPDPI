@@ -2,16 +2,16 @@
 id: TRN-1786264762917184
 title: Per-exit-IP TLS cap with true mux-preference in relay-core backend
 kind: feature
-status: todo
+status: doing
 area: transport
 priority: medium
-owner: unassigned
+owner: codex
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917184-per-exit-ip-tls-cap-with-mux-preference-in-relay-core
 created: 2026-06-11
-updated: 2026-06-11
+updated: 2026-08-30
 source_wiki_pages:
   - tls-policing-home-isps
 linked_task: null
@@ -28,15 +28,15 @@ So a per-exit-IP TLS cap with *true* mux-preference (the 9th stream reuses an ex
 ## Proposed change
 
 1. Add (or reuse) a per-`(exit_ip, transport)` concurrent-session cap in `ripdpi-relay-core/src/backend/pool.rs` (or a shared primitive both crates use) keyed by the real foreign exit IP of the VLESS+Reality+Vision backend.
-2. On cap, prefer `RelayMux::open_stream` onto an existing session for that exit (true mux-preference — the machinery already exists) rather than opening a new outbound TLS session.
+2. For mux-enabled profiles, prefer `RelayMux::open_stream` onto the existing compatible session for that exit (true mux-preference — the machinery already exists) rather than opening a new outbound TLS session. For non-mux profiles, reject a ninth physical carrier until a slot is released.
 3. Default cap 8 for `vless_reality` on port 443; per-transport overrides (mirror `ExitIpSessionCaps`).
 4. Decide whether `ExitIpSessionLimiter` should be promoted to a shared crate consumed by both `proxy-runtime` (direct-path gate) and `relay-core` (relay-path mux-preference), or duplicated. Avoid two diverging caps.
-5. Surface near-cap state in diagnostics (the original task's optional UI item, still open).
+5. Keep the original optional near-cap diagnostics/UI item outside this task's acceptance scope; it requires a separate telemetry and UI contract.
 
 ## Acceptance criteria
 
 - [ ] Per-exit-IP concurrent-session cap enforced on the `relay-core` foreign-exit path (the path that actually opens VLESS+Reality+Vision TLS sessions).
-- [ ] At cap, the next stream reuses an existing muxed session via `RelayMux::open_stream` (true mux-preference), verified by a test.
+- [ ] Nine concurrent logical streams on a mux-enabled backend reuse one physical carrier via `RelayMux::open_stream`; a ninth non-mux carrier is rejected at cap.
 - [ ] No double-counting between the `proxy-runtime` direct-path gate and the `relay-core` cap.
 - [ ] `cargo nextest run -p ripdpi-relay-core -p ripdpi-relay-mux --locked` green; clippy clean; `pr-reviewer` pass (hot path).
 

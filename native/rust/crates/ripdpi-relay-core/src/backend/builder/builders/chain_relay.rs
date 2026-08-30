@@ -42,7 +42,12 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
 
     let telemetry = ChainHopTelemetryState::default();
     let backend = PooledRelayBackend::new(
-        ChainRelaySessionFactory { hops, outbound_bind_ip: context.outbound_bind_ip, telemetry: telemetry.clone() },
+        ChainRelaySessionFactory {
+            hops,
+            outbound_bind_ip: context.outbound_bind_ip,
+            telemetry: telemetry.clone(),
+            vless_session_limiter: ripdpi_vless::VlessRealityCarrierLimiter::default(),
+        },
         context.pool_config,
         None,
     );

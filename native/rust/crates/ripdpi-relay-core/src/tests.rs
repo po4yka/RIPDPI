@@ -379,7 +379,7 @@ fn vless_mux_round_trips_through_flat_native_config_without_xhttp_fallback() {
 }
 
 #[tokio::test]
-async fn vless_reality_mux_interleaves_three_streams_over_one_carrier() {
+async fn vless_reality_mux_keeps_nine_streams_on_one_carrier() {
     let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality mux fixture");
     let mut config = sample_config("vless_reality");
     config.common.server = "127.0.0.1".to_string();
@@ -389,51 +389,36 @@ async fn vless_reality_mux_interleaves_three_streams_over_one_carrier() {
     vless.reality_public_key = valid_reality_public_key();
     vless.vless_flow = "none".to_string();
     vless.vless_mux_protocol = "yamux".to_string();
-    vless.vless_mux_max_concurrent_streams = 3;
+    vless.vless_mux_max_concurrent_streams = 9;
 
     let backend = build_backend(&config).await.expect("build VLESS Reality mux backend");
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
     let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
     // Cancel safety: a timeout fails this test and drops all streams, backend
     // and fixture; partially exchanged protocol state is never reused.
-    let (first, second, third) = tokio::time::timeout_at(deadline, async {
-        tokio::join!(backend.connect_tcp(&target), backend.connect_tcp(&target), backend.connect_tcp(&target))
-    })
-    .await
-    .expect("three VLESS mux streams did not open before the deadline");
-    let (mut first, mut second, mut third) = (
-        first.expect("open first mux stream"),
-        second.expect("open second mux stream"),
-        third.expect("open third mux stream"),
-    );
+    let mut streams = Vec::with_capacity(9);
+    for _ in 0..9 {
+        let stream = tokio::time::timeout_at(deadline, backend.connect_tcp(&target))
+            .await
+            .expect("VLESS mux stream did not open before the deadline")
+            .expect("open mux stream");
+        streams.push(stream);
+    }
+    assert_eq!(fixture.accepted_carrier_count(), 1, "nine live logical streams must share one TLS carrier");
 
-    let (first_write, second_write, third_write) = tokio::time::timeout_at(deadline, async {
-        tokio::join!(first.write_all(b"one"), second.write_all(b"two"), third.write_all(b"tri"))
-    })
-    .await
-    .expect("VLESS mux payload writes stalled");
-    first_write.expect("write first");
-    second_write.expect("write second");
-    third_write.expect("write third");
-
-    let mut first_reply = [0u8; 3];
-    let mut second_reply = [0u8; 3];
-    let mut third_reply = [0u8; 3];
-    let (first_read, second_read, third_read) = tokio::time::timeout_at(deadline, async {
-        tokio::join!(
-            first.read_exact(&mut first_reply),
-            second.read_exact(&mut second_reply),
-            third.read_exact(&mut third_reply),
-        )
-    })
-    .await
-    .expect("VLESS mux replies stalled");
-    first_read.expect("read first");
-    second_read.expect("read second");
-    third_read.expect("read third");
-    assert_eq!(first_reply, *b"one");
-    assert_eq!(second_reply, *b"two");
-    assert_eq!(third_reply, *b"tri");
+    for (index, stream) in streams.iter_mut().enumerate() {
+        let payload = [u8::try_from(index).expect("bounded stream index")];
+        tokio::time::timeout_at(deadline, stream.write_all(&payload))
+            .await
+            .expect("VLESS mux payload write stalled")
+            .expect("write mux payload");
+        let mut reply = [0_u8; 1];
+        tokio::time::timeout_at(deadline, stream.read_exact(&mut reply))
+            .await
+            .expect("VLESS mux reply stalled")
+            .expect("read mux reply");
+        assert_eq!(reply, payload);
+    }
     assert_eq!(fixture.observed_target(), Some(ripdpi_vless::mux::SING_MUX_DESTINATION.to_string()));
 }
 

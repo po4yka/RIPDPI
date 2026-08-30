@@ -1,35 +1,38 @@
 ## Purpose
 
-Define the observable completion contract for Per-exit-IP TLS cap with true mux-preference in relay-core backend. The per-exit-IP concurrent-TLS cap (ExitIpSessionLimiter, ripdpi-proxy-runtime/src/exitipcap.rs) was wired into ripdpi-proxy-runtime's outbound connect path as an admission gate with route-preference on cap (skip an at-cap exit-IP candidate for an alternate; advisory fall-through when all are capped). That closed the originally-filed task
+Define the observable completion contract for a per-exit-IP TLS cap with true mux preference in the relay-core backend. The shared `ripdpi-session-limit` primitive provides independent counters for proxy-runtime's direct path and relay-core's physical VLESS+Reality carriers.
 
 ## ADDED Requirements
 
-### Requirement: REQ-TRN-1786264762917184-001 — Per-exit-IP concurrent-session cap enforced on the relay-core foreign-exit path…
+### Requirement: REQ-TRN-1786264762917184-001 — Cap physical Reality TLS carriers per exit IP
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Per-exit-IP concurrent-session cap enforced on the relay-core foreign-exit path (the path that actually opens VLESS+Reality+Vision TLS sessions).
+The relay-core VLESS+Reality path MUST cap concurrent physical TLS carriers by the resolved foreign-exit IP and transport. Logical streams opened inside an existing mux carrier MUST NOT consume additional slots. The default cap for `vless_reality` on port 443 MUST be 8, and the shared policy MUST support per-transport overrides.
 
-#### Scenario: Verify criterion 1
+#### Scenario: Non-mux carrier admission reaches the cap
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Per-exit-IP concurrent-session cap enforced on the relay-core foreign-exit path (the path that actually opens VLESS+Reality+Vision TLS sessions)
+- **WHEN** eight non-mux VLESS+Reality port-443 carriers to one resolved exit IP are concurrently alive
+- **THEN** a ninth physical TCP/TLS carrier MUST NOT be opened
+- **AND** releasing one carrier MUST allow the next carrier to be admitted
 
-### Requirement: REQ-TRN-1786264762917184-002 — At cap, the next stream reuses an existing muxed session via RelayMux::openstre…
+### Requirement: REQ-TRN-1786264762917184-002 — Prefer an existing compatible mux carrier
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: At cap, the next stream reuses an existing muxed session via RelayMux::openstream (true mux-preference), verified by a test.
+For a mux-enabled VLESS+Reality backend, relay-core MUST open logical streams through `RelayMux::open_stream` and reuse the cached compatible carrier before attempting to create another physical carrier.
 
-#### Scenario: Verify criterion 2
+#### Scenario: Ninth logical stream reuses the mux carrier
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that At cap, the next stream reuses an existing muxed session via RelayMux::openstream (true mux-preference), verified by a test
+- **WHEN** nine logical streams are concurrently opened through a mux-enabled VLESS+Reality backend
+- **THEN** all nine streams MUST use the same physical TCP/TLS carrier
+- **AND** the carrier slot count MUST remain one
 
-### Requirement: REQ-TRN-1786264762917184-003 — No double-counting between the proxy-runtime direct-path gate and the relay-cor…
+### Requirement: REQ-TRN-1786264762917184-003 — Share policy without cross-path double-counting
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: No double-counting between the proxy-runtime direct-path gate and the relay-core cap.
+The proxy-runtime direct-path gate and relay-core foreign-exit path MUST consume one shared limiter implementation but MUST own separate counter instances. A physical carrier MUST hold exactly one slot for its lifetime, and logical mux streams MUST NOT be counted as carriers.
 
-#### Scenario: Verify criterion 3
+#### Scenario: Independent direct and relay accounting
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that No double-counting between the proxy-runtime direct-path gate and the relay-core cap
+- **WHEN** direct-path and relay-path limiters observe the same IP and transport token
+- **THEN** acquiring a direct-path slot MUST NOT change the relay-path count
+- **AND** one relay carrier MUST increment the relay-path count exactly once until that carrier is dropped
 
 ### Requirement: REQ-TRN-1786264762917184-004 — cargo nextest run -p ripdpi-relay-core -p ripdpi-relay-mux --locked green; clip…
 

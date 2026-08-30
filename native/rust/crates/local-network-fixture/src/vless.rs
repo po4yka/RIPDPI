@@ -26,6 +26,7 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::thread::{self, JoinHandle};
@@ -63,6 +64,7 @@ pub struct VlessRealityLoopback {
     target_address: SocketAddr,
     udp_target_address: SocketAddr,
     certificate_pem: String,
+    accepted_carriers: Arc<AtomicUsize>,
     observed_target: Arc<Mutex<Option<String>>>,
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<JoinHandle<()>>,
@@ -74,10 +76,12 @@ impl VlessRealityLoopback {
     pub async fn start() -> io::Result<Self> {
         let tls = tls_acceptor()?;
         let acceptor = Arc::new(tls.acceptor);
+        let accepted_carriers = Arc::new(AtomicUsize::new(0));
         let observed_target = Arc::new(Mutex::new(None));
         let (addr_tx, addr_rx) = std::sync::mpsc::channel();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let observed_for_thread = Arc::clone(&observed_target);
+        let carriers_for_thread = Arc::clone(&accepted_carriers);
 
         let thread = thread::spawn(move || {
             let runtime =
@@ -94,7 +98,7 @@ impl VlessRealityLoopback {
                 let udp_echo_task = tokio::spawn(serve_udp_echo(udp_echo));
                 tokio::select! {
                     _ = shutdown_rx => {}
-                    _ = serve_vless(vless_listener, acceptor, observed_for_thread) => {}
+                    _ = serve_vless(vless_listener, acceptor, observed_for_thread, carriers_for_thread) => {}
                 }
                 echo_task.abort();
                 udp_echo_task.abort();
@@ -108,6 +112,7 @@ impl VlessRealityLoopback {
             target_address,
             udp_target_address,
             certificate_pem: tls.certificate_pem,
+            accepted_carriers,
             observed_target,
             shutdown: Some(shutdown_tx),
             thread: Some(thread),
@@ -143,6 +148,11 @@ impl VlessRealityLoopback {
     /// The last VLESS request target the fixture parsed, for assertions.
     pub fn observed_target(&self) -> Option<String> {
         self.observed_target.lock().expect("fixture observation").clone()
+    }
+
+    /// Number of physical TCP carriers accepted by the VLESS listener.
+    pub fn accepted_carrier_count(&self) -> usize {
+        self.accepted_carriers.load(Ordering::Acquire)
     }
 }
 
@@ -200,11 +210,17 @@ async fn serve_udp_echo(socket: UdpSocket) {
     }
 }
 
-async fn serve_vless(listener: TcpListener, acceptor: Arc<SslAcceptor>, observed_target: Arc<Mutex<Option<String>>>) {
+async fn serve_vless(
+    listener: TcpListener,
+    acceptor: Arc<SslAcceptor>,
+    observed_target: Arc<Mutex<Option<String>>>,
+    accepted_carriers: Arc<AtomicUsize>,
+) {
     loop {
         let Ok((socket, _)) = listener.accept().await else {
             break;
         };
+        accepted_carriers.fetch_add(1, Ordering::AcqRel);
         let _ = socket.set_nodelay(true);
         let acceptor = Arc::clone(&acceptor);
         let observed_target = Arc::clone(&observed_target);

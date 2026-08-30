@@ -10,6 +10,7 @@ tokio-boring = { workspace = true }
 foreign-types-shared = "0.3.1"
 futures = { workspace = true }
 ripdpi-relay-mux = { workspace = true }
+ripdpi-session-limit = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-ech-dns = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }

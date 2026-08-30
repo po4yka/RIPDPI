@@ -6756,6 +6756,7 @@ dependencies = [
  "ripdpi-ech-dns",
  "ripdpi-native-protect",
  "ripdpi-relay-mux",
+ "ripdpi-session-limit",
  "ripdpi-tls-profiles",
  "socket2",
  "thiserror 2.0.20",

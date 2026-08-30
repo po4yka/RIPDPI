@@ -83,18 +83,21 @@ impl ChainHopConnector {
     /// the builder also forbids `outbound_bind_ip` on any non-entry hop, so a
     /// later hop can never silently open an unbound, TUN-routed socket.
     ///
+    /// # Cancel safety
+    ///
     /// cancel-safe: drops the partially-built stream on cancellation; no shared
-    /// state is published before the returned `Box<dyn ChainAsyncIo>` is handed
-    /// back, so a dropped future leaves only a closed fd.
-    async fn connect(&self, outbound_bind_ip: Option<IpAddr>, target: &str) -> io::Result<Box<dyn ChainAsyncIo>> {
+    /// connection state is published before the returned stream is handed back.
+    async fn connect(
+        &self,
+        outbound_bind_ip: Option<IpAddr>,
+        target: &str,
+        vless_session_limiter: &ripdpi_vless::VlessRealityCarrierLimiter,
+    ) -> io::Result<Box<dyn ChainAsyncIo>> {
         match self {
             Self::VlessReality(config) => {
-                let stream = match outbound_bind_ip {
-                    Some(bind_ip) => {
-                        ripdpi_vless::VlessRealityClient::connect_with_bind(config, bind_ip, target).await?
-                    }
-                    None => ripdpi_vless::VlessRealityClient::connect(config, target).await?,
-                };
+                let endpoint =
+                    ripdpi_vless::VlessRealityClient::resolve_server_endpoint(config, outbound_bind_ip).await?;
+                let stream = vless_session_limiter.connect_to_addr(config, outbound_bind_ip, target, endpoint).await?;
                 Ok(Box::new(stream))
             }
             Self::Masque(config) => {
@@ -138,9 +141,10 @@ impl ChainHopConnector {
     /// outbound-bind / socket-protect step applies here. QUIC kinds are not
     /// chainable and are rejected by the builder before reaching this path.
     ///
+    /// # Cancel safety
+    ///
     /// cancel-safe: on cancellation the half-built handshake is dropped and the
-    /// underlying `transport` (already protected at the entry hop) is closed; no
-    /// state is published to the caller.
+    /// underlying `transport` (already protected at the entry hop) is closed.
     async fn connect_over(&self, transport: Box<dyn ChainAsyncIo>, target: &str) -> io::Result<Box<dyn ChainAsyncIo>> {
         match self {
             Self::VlessReality(config) => {
@@ -207,12 +211,14 @@ pub(crate) struct ChainRelaySessionFactory {
     pub(crate) hops: Vec<ChainHopConnector>,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) telemetry: ChainHopTelemetryState,
+    pub(crate) vless_session_limiter: ripdpi_vless::VlessRealityCarrierLimiter,
 }
 
 pub(crate) struct ChainRelaySession {
     hops: Vec<ChainHopConnector>,
     outbound_bind_ip: Option<IpAddr>,
     telemetry: ChainHopTelemetryState,
+    vless_session_limiter: ripdpi_vless::VlessRealityCarrierLimiter,
 }
 
 impl ChainRelaySession {
@@ -233,6 +239,34 @@ impl ChainRelaySession {
             error.kind(),
             HopTaggedError { label: format!("hop {index} ({})", self.hops[index].kind_label()), source: error },
         )
+    }
+
+    fn begin_attempt(&self, index: usize) -> ChainHopAttemptGuard<'_> {
+        self.record(index, "connecting", None);
+        ChainHopAttemptGuard { session: self, index, started: Instant::now(), finished: false }
+    }
+}
+
+struct ChainHopAttemptGuard<'a> {
+    session: &'a ChainRelaySession,
+    index: usize,
+    started: Instant,
+    finished: bool,
+}
+
+impl ChainHopAttemptGuard<'_> {
+    fn finish(&mut self, state: &str) {
+        let latency_ms = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        self.session.record(self.index, state, Some(latency_ms));
+        self.finished = true;
+    }
+}
+
+impl Drop for ChainHopAttemptGuard<'_> {
+    fn drop(&mut self) {
+        if !self.finished {
+            self.finish("cancelled");
+        }
     }
 }
 
@@ -260,12 +294,11 @@ impl RelaySession for ChainRelaySession {
     type Datagram = ();
     type Error = io::Error;
 
+    /// # Cancel safety
+    ///
+    /// cancel-safe: each hop drops its partial transport on cancellation, while
+    /// `ChainHopAttemptGuard` records a terminal `cancelled` telemetry state.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
-        // cancel-safe: each hop's connect/connect_over is itself cancel-safe and
-        // the fold publishes nothing until the final stream is returned. A drop
-        // mid-fold closes the partially-built tunnel (every prior hop's stream is
-        // owned by `stream` and dropped with it) and leaves no orphaned task —
-        // there is no detached `tokio::spawn` in this path.
         let last_index = self.hops.len() - 1;
 
         // Entry hop (index 0): the only hop that opens a real outbound
@@ -282,18 +315,18 @@ impl RelaySession for ChainRelaySession {
                 }
             }
         };
-        self.record(0, "connecting", None);
-        let started = Instant::now();
-        let mut stream = match self.hops[0].connect(self.outbound_bind_ip, &entry_destination).await {
-            Ok(stream) => {
-                self.record(0, "connected", Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)));
-                stream
-            }
-            Err(error) => {
-                self.record(0, "failed", Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)));
-                return Err(self.tag_hop_error(0, error));
-            }
-        };
+        let mut attempt = self.begin_attempt(0);
+        let mut stream =
+            match self.hops[0].connect(self.outbound_bind_ip, &entry_destination, &self.vless_session_limiter).await {
+                Ok(stream) => {
+                    attempt.finish("connected");
+                    stream
+                }
+                Err(error) => {
+                    attempt.finish("failed");
+                    return Err(self.tag_hop_error(0, error));
+                }
+            };
 
         // Intermediate + exit hops: each tunnels through the prior hop's
         // stream. Hop `i` dials hop `i+1`'s proxy authority, except the last
@@ -310,23 +343,14 @@ impl RelaySession for ChainRelaySession {
                     }
                 }
             };
-            self.record(index, "connecting", None);
-            let started = Instant::now();
+            let mut attempt = self.begin_attempt(index);
             stream = match self.hops[index].connect_over(stream, &destination).await {
                 Ok(stream) => {
-                    self.record(
-                        index,
-                        "connected",
-                        Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
-                    );
+                    attempt.finish("connected");
                     stream
                 }
                 Err(error) => {
-                    self.record(
-                        index,
-                        "failed",
-                        Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
-                    );
+                    attempt.finish("failed");
                     return Err(self.tag_hop_error(index, error));
                 }
             };
@@ -335,13 +359,18 @@ impl RelaySession for ChainRelaySession {
         Ok(stream)
     }
 
+    /// # Cancel safety
+    ///
+    /// cancel-safe: returns immediately with an error; no awaits or state mutation.
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
-        // cancel-safe: returns immediately with an error; no awaits, no state.
         Err(io::Error::new(io::ErrorKind::Unsupported, "chain relay does not support UDP ASSOCIATE"))
     }
 }
 
 impl RelaySessionFactory for ChainRelaySessionFactory {
+    /// # Cancel safety
+    ///
+    /// cancel-safe: completes without an await or observable state mutation.
     async fn shutdown(&self) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -353,18 +382,40 @@ impl RelaySessionFactory for ChainRelaySessionFactory {
         RelayCapabilities { tcp: true, udp: false, reusable: false }
     }
 
+    /// # Cancel safety
+    ///
+    /// cancel-safe: pure construction publishes only the fully-created session.
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let hops = self.hops.clone();
         let outbound_bind_ip = self.outbound_bind_ip;
         let telemetry = self.telemetry.clone();
-        // cancel-safe: pure construction, no awaits with side effects.
-        Ok(Arc::new(ChainRelaySession { hops, outbound_bind_ip, telemetry }))
+        let vless_session_limiter = self.vless_session_limiter.clone();
+        Ok(Arc::new(ChainRelaySession { hops, outbound_bind_ip, telemetry, vless_session_limiter }))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dropped_hop_attempt_records_cancelled_terminal_state() {
+        let telemetry = ChainHopTelemetryState::default();
+        let session = ChainRelaySession {
+            hops: Vec::new(),
+            outbound_bind_ip: None,
+            telemetry: telemetry.clone(),
+            vless_session_limiter: ripdpi_vless::VlessRealityCarrierLimiter::default(),
+        };
+
+        {
+            let _attempt = session.begin_attempt(0);
+            assert_eq!(telemetry.snapshot().entry_state(), Some("connecting".to_string()));
+        }
+
+        assert_eq!(telemetry.snapshot().entry_state(), Some("cancelled".to_string()));
+        assert!(telemetry.snapshot().entry_latency_ms().is_some());
+    }
 
     /// VpnService.protect() invariant (`.claude/rules/vpnservice-protect-invariant.md`):
     /// the chain entry kinds that cannot bind to the protected interface must
