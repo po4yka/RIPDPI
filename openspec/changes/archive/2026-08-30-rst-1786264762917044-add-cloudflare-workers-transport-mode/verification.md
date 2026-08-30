@@ -1,7 +1,7 @@
 ---
 task_id: RST-1786264762917044
 change: rst-1786264762917044-add-cloudflare-workers-transport-mode
-commit_sha: e7045f7bedbe1605f8d33c15080c62910ccf34bf
+commit_sha: 13ee2e5d41535ea72842aca9099f2f5c8528b24f
 local: passed
 local_evidence: "Observed local gates on 2026-08-30: targeted RED/GREEN Kotlin unit for session-only Worker config; node --check docs/native/cloudflare-workers/relay.js; node --test docs/native/cloudflare-workers/relay.test.mjs; Gradle :core:engine:testDebugUnitTest :core:service:testDebugUnitTest :core:data:runtime-state:testDebugUnitTest :core:data:model:testDebugUnitTest :app:testGithubFullDebugUnitTest with -Pripdpi.skipNativeBuild=true; Gradle app/core ktlint+detekt; Gradle :app:compileGithubFullDebugKotlin :app:testGithubFullDebugUnitTest :app:lintGithubFullDebug :core:service:lintDebug; cargo test --locked for ripdpi-ws-tunnel, ripdpi-ws-bootstrap, ripdpi-proxy-config, ripdpi-proxy-runtime-adapter, ripdpi-proxy-runtime; cargo clippy --locked for the same crates with -D warnings; cargo fmt --check; cargo metadata --locked --no-deps; python3 scripts/ci/check_cross_language_runtime_contracts.py; python3 scripts/ci/check_native_architecture_contracts.py; python3 scripts/ci/check_architecture_health.py; git diff --check; taskctl validate; strict OpenSpec validate."
 remote_ci: not_applicable
