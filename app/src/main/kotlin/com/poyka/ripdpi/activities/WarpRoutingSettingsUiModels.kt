@@ -28,6 +28,8 @@ data class HostAutolearnUiState(
     val networkStrategyMemoryEnabled: Boolean = false,
     val wsTunnelMode: String = "off",
     val wsTunnelAllowInsecureSni: Boolean = false,
+    val wsTunnelWorkerUrl: String = "",
+    val wsTunnelWorkerCredentialRef: String = "",
     val rememberedNetworkCount: Int = 0,
     val hostAutolearnRuntimeEnabled: Boolean = false,
     val hostAutolearnStorePresent: Boolean = false,
@@ -39,7 +41,10 @@ data class HostAutolearnUiState(
     val hostAutolearnLastHost: String? = null,
     val hostAutolearnLastGroup: Int? = null,
     val hostAutolearnLastAction: String? = null,
-)
+) {
+    val wsTunnelWorkerConfigured: Boolean
+        get() = wsTunnelWorkerUrl.isNotBlank() && wsTunnelWorkerCredentialRef.isNotBlank()
+}
 
 @Stable
 data class WarpUiState(

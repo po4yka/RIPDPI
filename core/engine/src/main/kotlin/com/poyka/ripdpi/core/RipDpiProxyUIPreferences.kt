@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.CloudflareWorkerTransportConfig
 import com.poyka.ripdpi.data.EnvironmentKind
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
@@ -119,6 +120,7 @@ class RipDpiProxyUIPreferences(
             environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
             destinationRouting: DestinationRoutingPolicy = DestinationRoutingPolicy(canonicalDigest = ""),
             awg: AwgActivationRequest? = null,
+            workerBearer: String? = null,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = buildListenConfig(settings.toSettingsSections().proxy),
@@ -132,7 +134,7 @@ class RipDpiProxyUIPreferences(
                 relay = buildRelayConfig(settings),
                 warp = buildWarpConfig(settings),
                 hostAutolearn = buildHostAutolearnConfig(settings, hostAutolearnStorePath, networkScopeKey),
-                wsTunnel = buildWsTunnelConfig(settings),
+                wsTunnel = buildWsTunnelConfig(settings, workerBearer = workerBearer),
                 runtimeContext = runtimeContext,
                 logContext = logContext,
                 rootMode = rootMode,
@@ -164,6 +166,39 @@ fun RipDpiProxyUIPreferences.withConnectionConcurrencyPolicy(
         wsTunnel = wsTunnel,
         nativeLogLevel = nativeLogLevel,
         runtimeContext = (runtimeContext ?: RipDpiRuntimeContext()).copy(connectionConcurrency = policy),
+        logContext = logContext,
+        rootMode = rootMode,
+        rootHelperSocketPath = rootHelperSocketPath,
+        geoipDbPath = geoipDbPath,
+        geositeDbPath = geositeDbPath,
+        environmentKind = environmentKind,
+        destinationRouting = destinationRouting,
+        awg = awg,
+    )
+
+fun RipDpiProxyUIPreferences.withCloudflareWorkerTransport(
+    config: CloudflareWorkerTransportConfig?,
+): RipDpiProxyUIPreferences =
+    RipDpiProxyUIPreferences(
+        listen = listen,
+        protocols = protocols,
+        chains = chains,
+        fakePackets = fakePackets,
+        parserEvasions = parserEvasions,
+        adaptiveFallback = adaptiveFallback,
+        quic = quic,
+        hosts = hosts,
+        relay = relay,
+        warp = warp,
+        hostAutolearn = hostAutolearn,
+        wsTunnel =
+            wsTunnel.copy(
+                cloudflareWorkerUrl = config?.workerUrl,
+                cloudflareWorkerCredentialRef = config?.credentialRef,
+                cloudflareWorkerBearer = config?.authBearer,
+            ),
+        nativeLogLevel = nativeLogLevel,
+        runtimeContext = runtimeContext,
         logContext = logContext,
         rootMode = rootMode,
         rootHelperSocketPath = rootHelperSocketPath,

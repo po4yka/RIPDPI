@@ -31,6 +31,8 @@ internal fun AppSettings.buildAutolearnUiState(
         networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
         wsTunnelMode = wsTunnelMode.ifEmpty { if (wsTunnelEnabled) "always" else "off" },
         wsTunnelAllowInsecureSni = wsTunnelAllowInsecureSni,
+        wsTunnelWorkerUrl = wsTunnelWorkerUrl,
+        wsTunnelWorkerCredentialRef = wsTunnelWorkerCredentialRef,
         rememberedNetworkCount = rememberedNetworkCount,
         hostAutolearnRuntimeEnabled = proxyTelemetry.autolearnEnabled,
         hostAutolearnStorePresent = hostAutolearnStorePresent,

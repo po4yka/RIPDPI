@@ -21,7 +21,21 @@ internal class WarpBootstrapProxyRuntimePolicy
         private val appSettingsRepository: AppSettingsRepository,
     ) {
         suspend fun preferencesFor(bootstrapPort: Int): RipDpiProxyUIPreferences {
-            val basePreferences = RipDpiProxyUIPreferences.fromSettings(appSettingsRepository.snapshot())
+            val settings = appSettingsRepository.snapshot()
+            val bootstrapSettings =
+                settings
+                    .toBuilder()
+                    .setWsTunnelEnabled(false)
+                    .setWsTunnelMode("off")
+                    .setWsTunnelFakeSni("")
+                    .setWsTunnelAllowInsecureSni(false)
+                    .setWsTunnelWorkerUrl("")
+                    .setWsTunnelWorkerCredentialRef("")
+                    .build()
+            val basePreferences =
+                RipDpiProxyUIPreferences.fromSettings(
+                    bootstrapSettings,
+                )
             return RipDpiProxyUIPreferences(
                 protocols = basePreferences.protocols,
                 parserEvasions = basePreferences.parserEvasions,

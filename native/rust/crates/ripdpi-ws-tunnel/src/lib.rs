@@ -23,6 +23,199 @@ pub use mtproto::{
 };
 pub use transport::{EarlyData, WsTransport, WsTransportConfig, WsTransportError, build_ws_request};
 
+#[derive(Clone, PartialEq, Eq)]
+pub struct WorkerBearer(String);
+
+impl WorkerBearer {
+    pub fn parse(value: impl Into<String>) -> io::Result<Self> {
+        let value = value.into();
+        if value.is_empty() || value.len() > 4096 || !is_rfc6750_bearer_token(value.as_bytes()) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cloudflare Worker bearer must be a bounded RFC 6750 bearer token",
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    pub fn expose_secret(&self) -> &str {
+        &self.0
+    }
+}
+
+fn is_rfc6750_bearer_token(bearer: &[u8]) -> bool {
+    let padding_start = bearer.iter().position(|byte| *byte == b'=').unwrap_or(bearer.len());
+    padding_start > 0
+        && bearer[..padding_start].iter().all(|byte| byte.is_ascii_alphanumeric() || b"-._~+/".contains(byte))
+        && bearer[padding_start..].iter().all(|byte| *byte == b'=')
+}
+
+impl std::fmt::Debug for WorkerBearer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("WorkerBearer(<redacted>)")
+    }
+}
+
+/// Validated optional Cloudflare Worker route for the Telegram WS tunnel.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CloudflareWorkerRoute {
+    host: String,
+    request_authority: String,
+    port: u16,
+    request_path: String,
+    bearer: WorkerBearer,
+}
+
+impl CloudflareWorkerRoute {
+    pub fn parse(url: impl AsRef<str>, bearer: impl Into<String>) -> io::Result<Self> {
+        let url = url.as_ref();
+        validate_worker_url_characters(url)?;
+        let without_scheme = if let Some(rest) = url.strip_prefix("https://") {
+            rest
+        } else if let Some(rest) = url.strip_prefix("wss://") {
+            rest
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cloudflare Worker URL scheme must be https or wss",
+            ));
+        };
+        if without_scheme.contains('#') {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cloudflare Worker URL must not contain a fragment",
+            ));
+        }
+        let authority_end = without_scheme.find(['/', '?']).unwrap_or(without_scheme.len());
+        let (authority, suffix) = without_scheme.split_at(authority_end);
+        if authority.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker URL must contain a hostname"));
+        }
+        if authority.contains('@') {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker URL must not contain userinfo"));
+        }
+        let (host, port) = parse_worker_authority(authority)?;
+        if host.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker URL must contain a hostname"));
+        }
+        let request_path = if suffix.is_empty() {
+            "/".to_string()
+        } else if suffix.starts_with('?') {
+            format!("/{suffix}")
+        } else {
+            suffix.to_string()
+        };
+        Ok(Self {
+            host,
+            request_authority: authority.to_string(),
+            port,
+            request_path,
+            bearer: WorkerBearer::parse(bearer)?,
+        })
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn request_authority(&self) -> &str {
+        &self.request_authority
+    }
+
+    pub fn request_path(&self) -> &str {
+        &self.request_path
+    }
+
+    pub fn bearer(&self) -> &WorkerBearer {
+        &self.bearer
+    }
+}
+
+fn parse_worker_authority(authority: &str) -> io::Result<(String, u16)> {
+    if let Some(stripped) = authority.strip_prefix('[') {
+        let (host, rest) = stripped.split_once(']').ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host is missing closing bracket")
+        })?;
+        host.parse::<std::net::Ipv6Addr>()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid Cloudflare Worker IPv6 hostname"))?;
+        let port = if rest.is_empty() {
+            443
+        } else {
+            parse_worker_port(rest.strip_prefix(':').ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host has invalid port delimiter")
+            })?)?
+        };
+        return Ok((host.to_string(), port));
+    }
+    if let Some((host, port)) = authority.rsplit_once(':') {
+        if host.contains(':') {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host must use brackets"));
+        }
+        validate_worker_hostname(host)?;
+        return Ok((host.to_string(), parse_worker_port(port)?));
+    }
+    if authority.contains(':') {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host must use brackets"));
+    }
+    validate_worker_hostname(authority)?;
+    Ok((authority.to_string(), 443))
+}
+
+fn validate_worker_url_characters(url: &str) -> io::Result<()> {
+    if !url.is_ascii() || url.bytes().any(|byte| byte <= b' ' || byte == 0x7f) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Cloudflare Worker URL must contain only visible ASCII characters",
+        ));
+    }
+    let bytes = url.as_bytes();
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        let allowed = byte.is_ascii_alphanumeric() || b"-._~:/?[]@!$&'()*+,;=%".contains(&byte);
+        if !allowed {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cloudflare Worker URL contains an invalid URI character",
+            ));
+        }
+        if byte == b'%'
+            && (index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cloudflare Worker URL contains invalid percent encoding",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_worker_hostname(host: &str) -> io::Result<()> {
+    if host.is_empty()
+        || host.split('.').any(|label| {
+            label.is_empty()
+                || label.starts_with('-')
+                || label.ends_with('-')
+                || !label.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        })
+    {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid Cloudflare Worker hostname"));
+    }
+    Ok(())
+}
+
+fn parse_worker_port(port: &str) -> io::Result<u16> {
+    port.parse::<u16>()
+        .ok()
+        .filter(|port| *port != 0)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid Cloudflare Worker port"))
+}
+
 /// Configuration for a WebSocket tunnel connection.
 pub struct WsTunnelConfig {
     /// Unix socket path for Android VPN socket protection. `None` when not
@@ -50,6 +243,11 @@ pub struct WsTunnelConfig {
     /// See
     /// completed task `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` (see git history).
     pub allow_insecure_sni: bool,
+    /// Optional operator-owned Cloudflare Worker route. When set, the WS
+    /// tunnel still carries only Telegram MTProto, but the outer TLS/WebSocket
+    /// endpoint is the Worker host and the canonical Telegram gateway is sent
+    /// in `X-Ripdpi-Upstream`.
+    pub worker_route: Option<CloudflareWorkerRoute>,
 }
 
 /// Result of classifying a target IP for WS tunnel eligibility.
@@ -101,7 +299,14 @@ fn relay_ws_tunnel_with<OpenWs, RelayWs, Ws>(
     relay_ws: RelayWs,
 ) -> io::Result<()>
 where
-    OpenWs: FnOnce(TelegramDc, Option<SocketAddr>, Option<&str>, Option<Duration>, Option<&str>) -> io::Result<Ws>,
+    OpenWs: FnOnce(
+        TelegramDc,
+        Option<SocketAddr>,
+        Option<&str>,
+        Option<Duration>,
+        Option<&str>,
+        Option<&CloudflareWorkerRoute>,
+    ) -> io::Result<Ws>,
     RelayWs: FnOnce(TcpStream, Ws, &[u8]) -> io::Result<()>,
 {
     if seed_request.len() < 64 {
@@ -122,9 +327,21 @@ where
             "WS tunnel fake_sni requires allow_insecure_sni=true (TLS cert verification would be disabled)",
         ));
     }
+    if config.worker_route.is_some() && config.fake_sni.is_some() {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "Cloudflare Worker WS tunnel route requires verified Worker TLS and cannot be combined with fake_sni",
+        ));
+    }
 
-    let ws =
-        open_ws(dc, config.resolved_addr, config.protect_path.as_deref(), config.connect_timeout, effective_fake_sni)?;
+    let ws = open_ws(
+        dc,
+        config.resolved_addr,
+        config.protect_path.as_deref(),
+        config.connect_timeout,
+        effective_fake_sni,
+        config.worker_route.as_ref(),
+    )?;
     relay_ws(client, ws, &seed_request)
 }
 
@@ -233,8 +450,9 @@ mod tests {
                 connect_timeout: None,
                 fake_sni: None,
                 allow_insecure_sni: false,
+                worker_route: None,
             },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni, _worker_route| Ok(()),
             |_client, _ws: (), _seed_request| Ok(()),
         )
         .expect_err("short seed should fail");
@@ -258,12 +476,14 @@ mod tests {
                 connect_timeout: Some(Duration::from_millis(321)),
                 fake_sni: None,
                 allow_insecure_sni: false,
+                worker_route: None,
             },
-            |dc, resolved_addr, protect_path, connect_timeout, _fake_sni| {
+            |dc, resolved_addr, protect_path, connect_timeout, _fake_sni, worker_route| {
                 assert_eq!(dc, TelegramDc::production(2));
                 assert_eq!(resolved_addr, Some(injected_addr));
                 assert_eq!(protect_path, Some("/tmp/protect.sock"));
                 assert_eq!(connect_timeout, Some(Duration::from_millis(321)));
+                assert_eq!(worker_route, None);
                 Ok(())
             },
             |_client, _ws, forwarded_seed| {
@@ -289,8 +509,9 @@ mod tests {
                 connect_timeout: None,
                 fake_sni: None,
                 allow_insecure_sni: false,
+                worker_route: None,
             },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| {
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni, _worker_route| {
                 Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom"))
             },
             |_client, _ws: (), _seed_request| Ok(()),
@@ -315,8 +536,9 @@ mod tests {
                 connect_timeout: None,
                 fake_sni: None,
                 allow_insecure_sni: false,
+                worker_route: None,
             },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni, _worker_route| Ok(()),
             |_client, _ws: (), forwarded_seed| {
                 assert_eq!(forwarded_seed, seed_request.as_slice());
                 Err(io::Error::new(io::ErrorKind::BrokenPipe, "relay boom"))
@@ -346,8 +568,9 @@ mod tests {
                 connect_timeout: None,
                 fake_sni: Some("yandex.ru".to_string()),
                 allow_insecure_sni: false,
+                worker_route: None,
             },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni| Ok(()),
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni, _worker_route| Ok(()),
             |_client, _ws: (), _seed_request| Ok(()),
         )
         .expect_err("fake_sni without allow_insecure_sni must refuse");
@@ -374,14 +597,49 @@ mod tests {
                 connect_timeout: None,
                 fake_sni: Some("yandex.ru".to_string()),
                 allow_insecure_sni: true,
+                worker_route: None,
             },
-            |_dc, _resolved_addr, _protect_path, _connect_timeout, fake_sni| {
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, fake_sni, worker_route| {
                 assert_eq!(fake_sni, Some("yandex.ru"));
+                assert_eq!(worker_route, None);
                 Ok(())
             },
             |_client, _ws: (), _seed_request| Ok(()),
         );
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn relay_ws_tunnel_refuses_worker_route_with_fake_sni() {
+        let (_app, relay_client) = tcp_pair();
+        let seed_request = vec![0x77; 64];
+        let worker_route = CloudflareWorkerRoute::parse("https://edge.example.workers.dev/relay", "secret-token")
+            .expect("valid worker route");
+
+        let error = relay_ws_tunnel_with(
+            relay_client,
+            TelegramDc::production(2),
+            seed_request,
+            &WsTunnelConfig {
+                protect_path: None,
+                resolved_addr: None,
+                connect_timeout: None,
+                fake_sni: Some("cover.example".to_string()),
+                allow_insecure_sni: true,
+                worker_route: Some(worker_route),
+            },
+            |_dc, _resolved_addr, _protect_path, _connect_timeout, _fake_sni, _worker_route| {
+                panic!("unsafe Worker/fake-SNI config must fail before opening WS")
+            },
+            |_client, _ws: (), _seed_request| Ok(()),
+        )
+        .expect_err("Worker route plus fake-SNI must fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert!(
+            error.to_string().contains("cannot be combined with fake_sni"),
+            "error should name the conflicting option: {error}",
+        );
     }
 }

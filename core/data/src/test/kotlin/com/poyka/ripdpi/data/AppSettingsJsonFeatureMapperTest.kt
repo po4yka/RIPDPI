@@ -56,6 +56,8 @@ class AppSettingsJsonFeatureMapperTest {
                 .setAdaptiveFallbackAutoSort(true)
                 .setWsTunnelEnabled(true)
                 .setWsTunnelMode("always")
+                .setWsTunnelWorkerUrl("https://worker.example/ws")
+                .setWsTunnelWorkerCredentialRef("worker-production")
                 .setOnboardingComplete(true)
                 .setAppIconVariant("raven")
                 .build()
@@ -69,6 +71,8 @@ class AppSettingsJsonFeatureMapperTest {
         assertTrue(decoded.adaptiveFallbackEnabled)
         assertTrue(decoded.adaptiveFallbackAutoSort)
         assertEquals("always", decoded.wsTunnelMode)
+        assertEquals("https://worker.example/ws", decoded.wsTunnelWorkerUrl)
+        assertEquals("worker-production", decoded.wsTunnelWorkerCredentialRef)
         assertTrue(decoded.onboardingComplete)
         assertEquals("raven", decoded.appIconVariant)
     }

@@ -16,6 +16,7 @@ import com.poyka.ripdpi.proto.AppSettings
 fun AppSettings.toSettingsSections(): SettingsSections =
     SettingsSections(
         proxy = proxySection(),
+        wsTunnel = wsTunnelSection(),
         dns = dnsSection(),
         diagnostics = diagnosticsSection(),
         relay = relaySection(),
@@ -45,6 +46,12 @@ private fun AppSettings.proxySection(): ProxySettingsSection =
         proxyAllowLan = proxyAllowLan,
         lanAuthToken = proxyLanAuthToken,
         appendHttpProxy = appendHttpProxy,
+    )
+
+private fun AppSettings.wsTunnelSection(): WsTunnelSettingsSection =
+    WsTunnelSettingsSection(
+        workerUrl = wsTunnelWorkerUrl,
+        workerCredentialRef = wsTunnelWorkerCredentialRef,
     )
 
 private fun AppSettings.dnsSection(): DnsSettingsSection =

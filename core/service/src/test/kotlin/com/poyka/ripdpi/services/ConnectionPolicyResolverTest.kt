@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -36,6 +37,7 @@ import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
@@ -76,6 +78,7 @@ class ConnectionPolicyResolverTest {
                         DestinationRoutingPolicySource {
                             DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
                         },
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val failure = runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull()
@@ -169,6 +172,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -249,6 +253,7 @@ class ConnectionPolicyResolverTest {
                         serverCapabilityStore = TestServerCapabilityStore(),
                         awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                         destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                        proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                     )
 
                 val resolution = resolver.resolve(mode = Mode.VPN)
@@ -257,6 +262,81 @@ class ConnectionPolicyResolverTest {
                 assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
                 assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
             }
+        }
+
+    @Test
+    fun `remembered Worker route uses the current configured endpoint and credential`() =
+        runTest {
+            val oldUrl = "https://old-worker.example/ws"
+            val oldRef = "old-worker"
+            val oldBearer = "old-secret"
+            val newRef = "new-worker"
+            val store =
+                object : WsTunnelWorkerCredentialStore {
+                    private val credentials = mapOf(oldRef to oldBearer, newRef to "new-secret")
+
+                    override suspend fun load(credentialRef: String): String? = credentials[credentialRef]
+
+                    override suspend fun save(
+                        credentialRef: String,
+                        bearer: String,
+                    ) = Unit
+
+                    override suspend fun clear(credentialRef: String) = Unit
+
+                    override suspend fun clearAll() = Unit
+                }
+            val rememberedStore =
+                TestRememberedNetworkPolicyStore().apply {
+                    validatedMatch =
+                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                            proxyConfigJson =
+                                RipDpiProxyUIPreferences(
+                                    wsTunnel =
+                                        RipDpiWsTunnelConfig(
+                                            enabled = true,
+                                            mode = "always",
+                                            cloudflareWorkerUrl = oldUrl,
+                                            cloudflareWorkerCredentialRef = oldRef,
+                                        ),
+                                ).toNativeConfigJson(),
+                        )
+                }
+            val newUrl = "https://new-worker.example/ws"
+            val currentSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setWsTunnelEnabled(true)
+                    .setWsTunnelMode("always")
+                    .setWsTunnelWorkerUrl(newUrl)
+                    .setWsTunnelWorkerCredentialRef(newRef)
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(currentSettings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(store),
+                )
+
+            val uiPreferences =
+                decodeRipDpiProxyUiPreferences(
+                    resolver.resolve(mode = Mode.VPN).proxyPreferences.toNativeConfigJson(),
+                )
+
+            assertEquals(newUrl, uiPreferences?.wsTunnel?.cloudflareWorkerUrl)
+            assertEquals(newRef, uiPreferences?.wsTunnel?.cloudflareWorkerCredentialRef)
+            assertEquals("new-secret", uiPreferences?.wsTunnel?.cloudflareWorkerBearer?.value)
         }
 
     @Test
@@ -311,6 +391,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -351,6 +432,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -395,6 +477,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -449,6 +532,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -497,6 +581,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -539,6 +624,7 @@ class ConnectionPolicyResolverTest {
                     serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -672,6 +758,7 @@ class ConnectionPolicyAwgResolverTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -738,6 +825,7 @@ class ConnectionPolicyAwgResolverTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)

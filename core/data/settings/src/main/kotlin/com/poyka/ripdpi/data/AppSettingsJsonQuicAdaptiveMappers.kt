@@ -75,6 +75,8 @@ internal fun AppSettingsSnapshot.withQuicAdaptiveSnapshot(settings: AppSettings)
                 wsTunnelMode = settings.effectiveWsTunnelMode(),
                 wsTunnelFakeSni = settings.wsTunnelFakeSni,
                 wsTunnelAllowInsecureSni = settings.wsTunnelAllowInsecureSni,
+                wsTunnelWorkerUrl = settings.wsTunnelWorkerUrl,
+                wsTunnelWorkerCredentialRef = settings.wsTunnelWorkerCredentialRef,
             ),
     )
 
@@ -122,6 +124,8 @@ internal fun AppSettings.Builder.applyQuicAdaptiveSnapshot(snapshot: AppSettings
         .setWsTunnelFakeSni(
             sanitizeRestoredWsTunnelFakeSni(adaptive.wsTunnelFakeSni, adaptive.wsTunnelAllowInsecureSni),
         ).setWsTunnelAllowInsecureSni(adaptive.wsTunnelAllowInsecureSni)
+        .setWsTunnelWorkerUrl(adaptive.wsTunnelWorkerUrl)
+        .setWsTunnelWorkerCredentialRef(adaptive.wsTunnelWorkerCredentialRef)
 }
 
 private fun AppSettings.effectiveWsTunnelMode(): String =

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">انتقال Cloudflare Worker</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\nاعتبارنامه: %2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">پیکربندی نشده؛ از دروازه مستقیم Telegram استفاده می‌شود</string>
+    <string name="ws_tunnel_worker_transport_configure">پیکربندی</string>
+    <string name="ws_tunnel_worker_transport_edit">جایگزینی</string>
+    <string name="ws_tunnel_worker_transport_clear">غیرفعال‌سازی</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">انتقال Worker</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">Bearer در Android Keystore ذخیره می‌شود و هرگز به تنظیمات یا پشتیبان اضافه نمی‌شود.</string>
+    <string name="ws_tunnel_worker_transport_url_label">نشانی Worker</string>
+    <string name="ws_tunnel_worker_transport_ref_label">مرجع اعتبارنامه</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">توکن bearer</string>
+    <string name="ws_tunnel_worker_save_failed_title">انتقال Worker ذخیره نشد</string>
+    <string name="ws_tunnel_worker_save_failed_message">نشانی، مرجع اعتبارنامه و bearer را بررسی و دوباره تلاش کنید.</string>
+    <string name="ws_tunnel_worker_clear_failed_title">انتقال Worker غیرفعال نشد</string>
+    <string name="ws_tunnel_worker_clear_failed_message">پیکربندی ذخیره‌شده Worker حذف نشد. دوباره تلاش کنید.</string>
+</resources>

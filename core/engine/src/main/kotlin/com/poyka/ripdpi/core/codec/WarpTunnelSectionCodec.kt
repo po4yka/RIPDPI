@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpManualEndpointConfig
 import com.poyka.ripdpi.core.RipDpiWsTunnelConfig
+import com.poyka.ripdpi.data.SecretString
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -65,6 +66,9 @@ internal data class NativeWsTunnelConfig(
     val mode: String? = null,
     val fakeSni: String? = null,
     val allowInsecureSni: Boolean = false,
+    val cloudflareWorkerUrl: String? = null,
+    val cloudflareWorkerCredentialRef: String? = null,
+    val cloudflareWorkerBearer: SecretString? = null,
 )
 
 internal object WarpSectionCodec {
@@ -164,6 +168,9 @@ internal object WsTunnelSectionCodec {
             mode = value.mode,
             fakeSni = value.fakeSni,
             allowInsecureSni = value.allowInsecureSni,
+            cloudflareWorkerUrl = value.cloudflareWorkerUrl,
+            cloudflareWorkerCredentialRef = value.cloudflareWorkerCredentialRef,
+            cloudflareWorkerBearer = value.cloudflareWorkerBearer,
         )
 
     fun toNative(value: RipDpiWsTunnelConfig): NativeWsTunnelConfig =
@@ -172,5 +179,8 @@ internal object WsTunnelSectionCodec {
             mode = value.mode,
             fakeSni = value.fakeSni,
             allowInsecureSni = value.allowInsecureSni,
+            cloudflareWorkerUrl = value.cloudflareWorkerUrl,
+            cloudflareWorkerCredentialRef = value.cloudflareWorkerCredentialRef,
+            cloudflareWorkerBearer = value.cloudflareWorkerBearer,
         )
 }

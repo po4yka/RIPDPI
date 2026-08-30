@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">Транспорт Cloudflare Worker</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\nУчётные данные: %2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">Не настроен; используется прямой шлюз Telegram</string>
+    <string name="ws_tunnel_worker_transport_configure">Настроить</string>
+    <string name="ws_tunnel_worker_transport_edit">Заменить</string>
+    <string name="ws_tunnel_worker_transport_clear">Отключить</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">Транспорт Worker</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">Bearer хранится в Android Keystore и не добавляется в настройки или резервные копии.</string>
+    <string name="ws_tunnel_worker_transport_url_label">URL Worker</string>
+    <string name="ws_tunnel_worker_transport_ref_label">Ссылка на учётные данные</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">Bearer-токен</string>
+    <string name="ws_tunnel_worker_save_failed_title">Транспорт Worker не сохранён</string>
+    <string name="ws_tunnel_worker_save_failed_message">Проверьте URL, ссылку на учётные данные и bearer, затем повторите попытку.</string>
+    <string name="ws_tunnel_worker_clear_failed_title">Не удалось отключить транспорт Worker</string>
+    <string name="ws_tunnel_worker_clear_failed_message">Не удалось удалить сохранённую конфигурацию Worker. Повторите попытку.</string>
+</resources>

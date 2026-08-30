@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore
+import com.poyka.ripdpi.data.resolveTransport
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -24,6 +26,7 @@ class DefaultProxyPreferencesResolver
         @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val strategyPackStateStore: StrategyPackStateStore,
+        private val wsTunnelWorkerCredentialStore: WsTunnelWorkerCredentialStore,
     ) : ProxyPreferencesResolver {
         override suspend fun resolve(): RipDpiProxyPreferences {
             val settings = appSettingsRepository.snapshot()
@@ -41,12 +44,14 @@ class DefaultProxyPreferencesResolver
                     geositeDbPath = geoDatabasePaths.geositeDbPath,
                 )
             } else {
+                val workerTransport = wsTunnelWorkerCredentialStore.resolveTransport(settings)
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     hostAutolearnStorePath,
                     runtimeContext = RipDpiRuntimeContext(morphPolicy = morphPolicy),
                     geoipDbPath = geoDatabasePaths.geoipDbPath,
                     geositeDbPath = geoDatabasePaths.geositeDbPath,
+                    workerBearer = workerTransport?.authBearer?.value,
                 )
             }
         }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">Cloudflare Worker 传输</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\n凭据：%2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">未配置；使用 Telegram 直连网关</string>
+    <string name="ws_tunnel_worker_transport_configure">配置</string>
+    <string name="ws_tunnel_worker_transport_edit">替换</string>
+    <string name="ws_tunnel_worker_transport_clear">停用</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">Worker 传输</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">Bearer 存储在 Android Keystore 中，不会写入设置或备份。</string>
+    <string name="ws_tunnel_worker_transport_url_label">Worker URL</string>
+    <string name="ws_tunnel_worker_transport_ref_label">凭据引用</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">Bearer 令牌</string>
+    <string name="ws_tunnel_worker_save_failed_title">未保存 Worker 传输</string>
+    <string name="ws_tunnel_worker_save_failed_message">请检查 URL、凭据引用和 bearer 后重试。</string>
+    <string name="ws_tunnel_worker_clear_failed_title">未停用 Worker 传输</string>
+    <string name="ws_tunnel_worker_clear_failed_message">无法移除已保存的 Worker 配置。请重试。</string>
+</resources>

@@ -143,7 +143,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     listen::apply_listen_section(&mut config, &listen)?;
     protocol::apply_protocol_section(&mut config, &protocols, &quic)?;
     relay::validate_egress_requirements(&upstream_relay, config.network.udp)?;
-    adaptive_runtime_context::apply_runtime_section(&mut config, &adaptive_fallback, &host_autolearn, &ws_tunnel);
+    adaptive_runtime_context::apply_runtime_section(&mut config, &adaptive_fallback, &host_autolearn, &ws_tunnel)?;
 
     let mut groups = Vec::new();
     warp::append_control_plane_group(&mut groups, &warp)?;

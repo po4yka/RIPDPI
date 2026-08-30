@@ -2,6 +2,7 @@ package com.poyka.ripdpi.backup
 
 import com.poyka.ripdpi.data.KeystoreRelayCredentialStore
 import com.poyka.ripdpi.data.KeystoreWarpCredentialStore
+import com.poyka.ripdpi.data.KeystoreWsTunnelWorkerCredentialStore
 import com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore
 import com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore
 import com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore
@@ -127,9 +128,11 @@ internal object UserProfileResetActionsModule {
     fun provideSessionUserDataResetter(
         selections: SharedPreferencesSelectorSelectionStore,
         bootSession: BootSessionStateStore,
+        workerTransport: KeystoreWsTunnelWorkerCredentialStore,
     ): SessionUserDataResetter =
         SessionUserDataResetter {
             selections.clearAll()
             bootSession.clearAll()
+            workerTransport.clearAll()
         }
 }

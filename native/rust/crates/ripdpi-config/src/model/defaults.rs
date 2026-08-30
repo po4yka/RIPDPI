@@ -111,6 +111,7 @@ impl Default for RuntimeAdaptiveSettings {
             ws_tunnel_mode: WsTunnelMode::Off,
             ws_tunnel_fake_sni: None,
             ws_tunnel_allow_insecure_sni: false,
+            ws_tunnel_worker_route: None,
             strategy_evolution: false,
             evolution_experiment_ttl_ms: 30_000,
             evolution_decay_half_life_ms: 3_600_000,

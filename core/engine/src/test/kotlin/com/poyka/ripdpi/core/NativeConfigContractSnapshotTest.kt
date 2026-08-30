@@ -1162,12 +1162,18 @@ class NativeConfigContractSnapshotTest {
         mode: String? = null,
         fakeSni: String? = null,
         allowInsecureSni: Boolean = false,
+        cloudflareWorkerUrl: String? = null,
+        cloudflareWorkerCredentialRef: String? = null,
+        cloudflareWorkerBearer: String? = null,
     ): JsonObject =
         buildJsonObject {
             put("enabled", JsonPrimitive(enabled))
             put("mode", mode?.let(::JsonPrimitive) ?: JsonNull)
             put("fakeSni", fakeSni?.let(::JsonPrimitive) ?: JsonNull)
             put("allowInsecureSni", JsonPrimitive(allowInsecureSni))
+            put("cloudflareWorkerUrl", cloudflareWorkerUrl?.let(::JsonPrimitive) ?: JsonNull)
+            put("cloudflareWorkerCredentialRef", cloudflareWorkerCredentialRef?.let(::JsonPrimitive) ?: JsonNull)
+            put("cloudflareWorkerBearer", cloudflareWorkerBearer?.let(::JsonPrimitive) ?: JsonNull)
         }
 
     private fun finalmaskExpected(

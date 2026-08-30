@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">نقل Cloudflare Worker</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\nبيانات الاعتماد: %2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">غير مُعد؛ يستخدم بوابة Telegram المباشرة</string>
+    <string name="ws_tunnel_worker_transport_configure">إعداد</string>
+    <string name="ws_tunnel_worker_transport_edit">استبدال</string>
+    <string name="ws_tunnel_worker_transport_clear">تعطيل</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">نقل Worker</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">يُحفظ bearer في Android Keystore ولا يُضاف إلى الإعدادات أو النسخ الاحتياطية.</string>
+    <string name="ws_tunnel_worker_transport_url_label">عنوان Worker</string>
+    <string name="ws_tunnel_worker_transport_ref_label">مرجع بيانات الاعتماد</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">رمز bearer</string>
+    <string name="ws_tunnel_worker_save_failed_title">لم يُحفظ نقل Worker</string>
+    <string name="ws_tunnel_worker_save_failed_message">تحقق من العنوان والمرجع وbearer ثم حاول مجددًا.</string>
+    <string name="ws_tunnel_worker_clear_failed_title">لم يُعطَّل نقل Worker</string>
+    <string name="ws_tunnel_worker_clear_failed_message">تعذرت إزالة إعداد Worker المحفوظ. حاول مرة أخرى.</string>
+</resources>

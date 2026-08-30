@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">Transport Cloudflare Worker</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\nIdentifiant : %2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">Non configuré ; utilise la passerelle Telegram directe</string>
+    <string name="ws_tunnel_worker_transport_configure">Configurer</string>
+    <string name="ws_tunnel_worker_transport_edit">Remplacer</string>
+    <string name="ws_tunnel_worker_transport_clear">Désactiver</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">Transport Worker</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">Le bearer est stocké dans Android Keystore et n’est jamais ajouté aux réglages ni aux sauvegardes.</string>
+    <string name="ws_tunnel_worker_transport_url_label">URL du Worker</string>
+    <string name="ws_tunnel_worker_transport_ref_label">Référence d’identifiant</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">Jeton bearer</string>
+    <string name="ws_tunnel_worker_save_failed_title">Transport Worker non enregistré</string>
+    <string name="ws_tunnel_worker_save_failed_message">Vérifiez l’URL, la référence et le bearer, puis réessayez.</string>
+    <string name="ws_tunnel_worker_clear_failed_title">Transport Worker non désactivé</string>
+    <string name="ws_tunnel_worker_clear_failed_message">La configuration Worker enregistrée n’a pas pu être supprimée. Réessayez.</string>
+</resources>

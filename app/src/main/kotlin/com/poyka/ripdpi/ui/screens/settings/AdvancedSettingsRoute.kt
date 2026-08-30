@@ -27,6 +27,7 @@ fun AdvancedSettingsRoute(
     onOpenRememberedNetworks: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    workerViewModel: WsTunnelWorkerSettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hostPackCatalog by viewModel.hostPackCatalog.collectAsStateWithLifecycle()
@@ -34,7 +35,11 @@ fun AdvancedSettingsRoute(
     val binder = remember(viewModel) { AdvancedSettingsBinder(viewModel::updateSetting) }
     var notice by rememberAdvancedNoticeState()
     ObserveSettingsEffects(
-        viewModel = viewModel,
+        effects = viewModel.effects,
+        onNotice = { notice = it },
+    )
+    ObserveSettingsEffects(
+        effects = workerViewModel.effects,
         onNotice = { notice = it },
     )
 
@@ -51,6 +56,7 @@ fun AdvancedSettingsRoute(
                 onOpenAssetProvider = onOpenAssetProvider,
                 onOpenRememberedNetworks = onOpenRememberedNetworks,
                 viewModel = viewModel,
+                workerViewModel = workerViewModel,
                 binder = binder,
                 uiState = uiState,
             ),
@@ -86,12 +92,12 @@ private fun rememberAdvancedNoticeState() =
 
 @Composable
 private fun ObserveSettingsEffects(
-    viewModel: SettingsViewModel,
+    effects: kotlinx.coroutines.flow.Flow<SettingsEffect>,
     onNotice: (AdvancedNotice) -> Unit,
 ) {
     val performHaptic = rememberRipDpiHapticPerformer()
 
-    LifecycleEventEffect(viewModel.effects) { effect ->
+    LifecycleEventEffect(effects) { effect ->
         if (effect is SettingsEffect.Notice) {
             performHaptic(settingsNoticeHaptic(effect))
             onNotice(mapNoticeEffect(effect))
@@ -113,6 +119,7 @@ private fun rememberAdvancedSettingsActions(
     onOpenAssetProvider: () -> Unit,
     onOpenRememberedNetworks: () -> Unit,
     viewModel: SettingsViewModel,
+    workerViewModel: WsTunnelWorkerSettingsViewModel,
     binder: AdvancedSettingsBinder,
     uiState: com.poyka.ripdpi.ui.state.SettingsUiState,
 ): AdvancedSettingsActions =
@@ -131,6 +138,8 @@ private fun rememberAdvancedSettingsActions(
         onForgetLearnedHosts = remember(viewModel) { viewModel::forgetLearnedHosts },
         onClearRememberedNetworks = remember(viewModel) { viewModel::clearRememberedNetworks },
         onWsTunnelModeChanged = binder::onWsTunnelModeChanged,
+        onSaveWsTunnelWorkerTransport = remember(workerViewModel) { workerViewModel::save },
+        onClearWsTunnelWorkerTransport = remember(workerViewModel) { workerViewModel::clear },
         onRotateSalt = remember(viewModel) { viewModel::rotateTelemetrySalt },
         onSaveActivationRange = { dimension, start, end ->
             binder.onSaveActivationRange(dimension, start, end, uiState)

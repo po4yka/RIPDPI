@@ -41,6 +41,12 @@ data class ProxySettingsSection(
     val appendHttpProxy: Boolean = false,
 )
 
+/** Optional Telegram WebSocket tunnel route settings. Bearer material is not persisted here. */
+data class WsTunnelSettingsSection(
+    val workerUrl: String = "",
+    val workerCredentialRef: String = "",
+)
+
 /** Plain and encrypted DNS resolution settings. */
 data class DnsSettingsSection(
     val dnsIp: String = "",
@@ -238,6 +244,7 @@ data class TelemetrySettingsSection(
  */
 data class SettingsSections(
     val proxy: ProxySettingsSection,
+    val wsTunnel: WsTunnelSettingsSection,
     val dns: DnsSettingsSection,
     val diagnostics: DiagnosticsSettingsSection,
     val relay: RelaySettingsSection,

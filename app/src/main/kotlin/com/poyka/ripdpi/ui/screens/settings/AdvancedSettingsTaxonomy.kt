@@ -44,6 +44,8 @@ internal data class AdvancedSettingsActions(
     val onForgetLearnedHosts: () -> Unit,
     val onClearRememberedNetworks: () -> Unit,
     val onWsTunnelModeChanged: (String) -> Unit,
+    val onSaveWsTunnelWorkerTransport: (String, String, String) -> Unit,
+    val onClearWsTunnelWorkerTransport: () -> Unit,
     val onRotateSalt: () -> Unit,
     val onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
     val onResetAdaptiveSplit: () -> Unit,

@@ -61,7 +61,7 @@ pub struct ProxyUiConfig {
     pub environment_kind: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyUiWsTunnelConfig {
     #[serde(default)]
@@ -75,4 +75,24 @@ pub struct ProxyUiWsTunnelConfig {
     /// `RuntimeAdaptiveSettings::ws_tunnel_allow_insecure_sni`.
     #[serde(default)]
     pub allow_insecure_sni: bool,
+    #[serde(default)]
+    pub cloudflare_worker_url: Option<String>,
+    #[serde(default)]
+    pub cloudflare_worker_credential_ref: Option<String>,
+    #[serde(default)]
+    pub cloudflare_worker_bearer: Option<String>,
+}
+
+impl std::fmt::Debug for ProxyUiWsTunnelConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProxyUiWsTunnelConfig")
+            .field("enabled", &self.enabled)
+            .field("mode", &self.mode)
+            .field("fake_sni", &self.fake_sni)
+            .field("allow_insecure_sni", &self.allow_insecure_sni)
+            .field("cloudflare_worker_url", &self.cloudflare_worker_url)
+            .field("cloudflare_worker_credential_ref", &self.cloudflare_worker_credential_ref)
+            .field("cloudflare_worker_bearer", &self.cloudflare_worker_bearer.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
 }

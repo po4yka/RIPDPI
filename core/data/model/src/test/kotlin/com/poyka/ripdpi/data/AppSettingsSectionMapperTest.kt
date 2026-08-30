@@ -20,6 +20,7 @@ class AppSettingsSectionMapperTest {
         assertEquals(
             SettingsSections(
                 proxy = ProxySettingsSection(),
+                wsTunnel = WsTunnelSettingsSection(),
                 dns = DnsSettingsSection(),
                 diagnostics = DiagnosticsSettingsSection(),
                 relay = RelaySettingsSection(),
@@ -59,6 +60,13 @@ class AppSettingsSectionMapperTest {
                 encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
             ),
             sections.dns,
+        )
+        assertEquals(
+            WsTunnelSettingsSection(
+                workerUrl = "https://edge.example.workers.dev/relay",
+                workerCredentialRef = "workers-default",
+            ),
+            sections.wsTunnel,
         )
     }
 
@@ -145,6 +153,8 @@ class AppSettingsSectionMapperTest {
             .setFreezeDetectionEnabled(true)
             .setProxyAllowLan(true)
             .setProxyLanAuthToken("lan-tok")
+            .setWsTunnelWorkerUrl("https://edge.example.workers.dev/relay")
+            .setWsTunnelWorkerCredentialRef("workers-default")
             .setDnsMode("encrypted")
             .setEncryptedDnsPort(853)
             .addAllEncryptedDnsBootstrapIps(listOf("1.1.1.1", "1.0.0.1"))

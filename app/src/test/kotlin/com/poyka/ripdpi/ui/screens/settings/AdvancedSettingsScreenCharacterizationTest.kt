@@ -307,6 +307,8 @@ class AdvancedSettingsScreenCharacterizationTest {
                             onForgetLearnedHosts = {},
                             onClearRememberedNetworks = {},
                             onWsTunnelModeChanged = {},
+                            onSaveWsTunnelWorkerTransport = { _, _, _ -> },
+                            onClearWsTunnelWorkerTransport = {},
                             onRotateSalt = {},
                             onSaveActivationRange = { _, _, _ -> },
                             onResetAdaptiveSplit = {},

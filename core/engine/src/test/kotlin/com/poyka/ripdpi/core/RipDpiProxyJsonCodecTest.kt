@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.CloudflareWorkerTransportConfig
 import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
@@ -9,6 +10,7 @@ import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
+import com.poyka.ripdpi.data.SecretString
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TcpFamily
@@ -16,6 +18,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,6 +26,56 @@ import org.junit.Test
 private const val TestLocalProxyAuth = "alpha-123"
 
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `worker transport is session only and stripped before policy persistence`() {
+        val bearer = "worker-secret"
+        val preferences =
+            RipDpiProxyUIPreferences()
+                .withCloudflareWorkerTransport(
+                    CloudflareWorkerTransportConfig(
+                        workerUrl = "https://edge.example.workers.dev/relay",
+                        credentialRef = "worker-main",
+                        authBearer = SecretString(bearer),
+                    ),
+                )
+
+        val runtimeJson = preferences.toNativeConfigJson()
+        val wsTunnel =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(runtimeJson)
+                .jsonObject["wsTunnel"]
+                ?.jsonObject
+
+        assertEquals(
+            "https://edge.example.workers.dev/relay",
+            wsTunnel?.get("cloudflareWorkerUrl")?.jsonPrimitive?.content,
+        )
+        assertEquals("worker-main", wsTunnel?.get("cloudflareWorkerCredentialRef")?.jsonPrimitive?.content)
+        assertEquals(bearer, wsTunnel?.get("cloudflareWorkerBearer")?.jsonPrimitive?.content)
+
+        val persistedJson = stripRipDpiRuntimeContext(runtimeJson)
+        assertNull(
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(persistedJson)
+                .jsonObject["wsTunnel"]
+                ?.jsonObject
+                ?.get("cloudflareWorkerBearer")
+                ?.jsonPrimitive
+                ?.contentOrNull,
+        )
+        val persistedWsTunnel =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(persistedJson)
+                .jsonObject["wsTunnel"]
+                ?.jsonObject
+        assertEquals(
+            "https://edge.example.workers.dev/relay",
+            persistedWsTunnel?.get("cloudflareWorkerUrl")?.jsonPrimitive?.content,
+        )
+        assertEquals("worker-main", persistedWsTunnel?.get("cloudflareWorkerCredentialRef")?.jsonPrimitive?.content)
+        assertFalse(persistedJson.contains(bearer))
+    }
+
     @Test
     fun `ui preferences encode session local proxy overrides without mutating persisted listen config`() {
         val preferences =

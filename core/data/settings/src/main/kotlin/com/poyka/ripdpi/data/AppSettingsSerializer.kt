@@ -128,6 +128,8 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setAppIconVariant("default")
             .setAppIconStyle("themed")
             .setSimpleFailoverAwgProfileId("")
+            .setWsTunnelWorkerUrl("")
+            .setWsTunnelWorkerCredentialRef("")
             .setDiagnosticsMonitorEnabled(true)
             .setDiagnosticsSampleIntervalSeconds(15)
             .setDiagnosticsDefaultScanPathMode("raw_path")

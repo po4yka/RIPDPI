@@ -240,6 +240,47 @@ fn ws_tunnel_allow_insecure_sni_maps_from_ui() {
 }
 
 #[test]
+fn ws_tunnel_cloudflare_worker_route_maps_from_ui_without_debug_secret() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.cloudflare_worker_url = Some("https://edge.example.workers.dev/relay".to_string());
+    ui.ws_tunnel.cloudflare_worker_bearer = Some("secret-token".to_string());
+
+    let debug = format!("{:?}", ui.ws_tunnel);
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    let route = config.adaptive.ws_tunnel_worker_route.expect("worker route");
+
+    assert_eq!(route.url(), "https://edge.example.workers.dev/relay");
+    assert_eq!(route.bearer().expose_secret(), "secret-token");
+    assert!(!debug.contains("secret-token"));
+    assert!(debug.contains("<redacted>"));
+    assert!(!format!("{route:?}").contains("secret-token"));
+}
+
+#[test]
+fn ws_tunnel_cloudflare_worker_route_rejects_partial_config() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.cloudflare_worker_url = Some("https://edge.example.workers.dev/relay".to_string());
+
+    let err = runtime_config_from_ui(ui).expect_err("partial worker route should fail");
+
+    assert!(err.to_string().contains("cloudflareWorkerUrl"));
+    assert!(err.to_string().contains("cloudflareWorkerBearer"));
+}
+
+#[test]
+fn ws_tunnel_cloudflare_worker_route_rejects_unsafe_url_and_bearer() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.cloudflare_worker_url = Some("http://edge.example.workers.dev/relay".to_string());
+    ui.ws_tunnel.cloudflare_worker_bearer = Some("secret-token".to_string());
+    assert!(runtime_config_from_ui(ui).expect_err("http route should fail").to_string().contains("https or wss"));
+
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.cloudflare_worker_url = Some("https://edge.example.workers.dev/relay".to_string());
+    ui.ws_tunnel.cloudflare_worker_bearer = Some("bad\r\nsecret".to_string());
+    assert!(runtime_config_from_ui(ui).expect_err("non-RFC 6750 bearer should fail").to_string().contains("RFC 6750"),);
+}
+
+#[test]
 fn ws_tunnel_mode_none_enabled_true_maps_to_always() {
     let mut ui = minimal_ui();
     ui.ws_tunnel.mode = None;

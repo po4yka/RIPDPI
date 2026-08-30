@@ -730,6 +730,8 @@ internal fun LazyListScope.wsTunnelSection(
     visualEditorEnabled: Boolean,
     onWsTunnelModeChanged: (String) -> Unit,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    onSaveWorkerTransport: (String, String, String) -> Unit,
+    onClearWorkerTransport: () -> Unit,
 ) {
     item(key = "advanced_ws_tunnel") {
         AdvancedSettingsSection(
@@ -772,6 +774,13 @@ internal fun LazyListScope.wsTunnelSection(
                     },
                     enabled = visualEditorEnabled,
                     testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.WsTunnelAllowInsecureSni),
+                )
+                WsTunnelWorkerSettingsUi(
+                    workerUrl = uiState.autolearn.wsTunnelWorkerUrl,
+                    credentialRef = uiState.autolearn.wsTunnelWorkerCredentialRef,
+                    enabled = visualEditorEnabled,
+                    onSave = onSaveWorkerTransport,
+                    onClear = onClearWorkerTransport,
                 )
             }
         }

@@ -150,6 +150,11 @@ internal object RipDpiProxyJsonCodec {
                     original["hostAutolearn"]?.jsonObject ?: JsonObject(emptyMap()),
                     mapOf("storePath" to JsonNull, "networkScopeKey" to JsonNull),
                 )
+            updates["wsTunnel"] =
+                patchObject(
+                    original["wsTunnel"]?.jsonObject ?: JsonObject(emptyMap()),
+                    mapOf("cloudflareWorkerBearer" to JsonNull),
+                )
         }
         return patchObject(original, updates).toString()
     }

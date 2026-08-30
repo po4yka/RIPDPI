@@ -62,6 +62,7 @@ class ConnectionPolicyAutolearnTest {
                     serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 )
 
             val hostAutolearn =

@@ -229,6 +229,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 serverCapabilityStore = TestServerCapabilityStore(),
                 awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 destinationRoutingPolicySource = destinationRoutingPolicySource,
+                proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(

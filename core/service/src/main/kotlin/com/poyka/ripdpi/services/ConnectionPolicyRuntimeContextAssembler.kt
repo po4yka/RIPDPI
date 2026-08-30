@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
+import com.poyka.ripdpi.core.RipDpiHostAutolearnConfig
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -37,6 +38,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         private val antiCorrelationRoutingPolicy: AntiCorrelationRoutingPolicy,
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
+        private val proxySessionSecretResolver: ProxySessionSecretResolver,
     ) {
         fun hostAutolearnStorePath(): String = resolveHostAutolearnStorePath(context)
 
@@ -137,7 +139,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             }
         }
 
-        fun baselinePreferences(
+        suspend fun baselinePreferences(
             settings: AppSettings,
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
@@ -147,16 +149,14 @@ internal class ConnectionPolicyRuntimeContextAssembler
         ): RipDpiProxyPreferences {
             val geoPaths = resolveGeoDatabasePaths(context)
             return if (settings.enableCmdSettings) {
-                val commandLine =
-                    RipDpiProxyCmdPreferences(
-                        settings.cmdArgs,
-                        hostAutolearnStorePath = hostAutolearnStorePath,
-                        destinationRouting = destinationRouting,
-                        geoipDbPath = geoPaths.geoipDbPath,
-                        geositeDbPath = geoPaths.geositeDbPath,
-                        runtimeContext = runtimeContext,
-                    )
-                commandLine
+                RipDpiProxyCmdPreferences(
+                    settings.cmdArgs,
+                    hostAutolearnStorePath = hostAutolearnStorePath,
+                    destinationRouting = destinationRouting,
+                    geoipDbPath = geoPaths.geoipDbPath,
+                    geositeDbPath = geoPaths.geositeDbPath,
+                    runtimeContext = runtimeContext,
+                )
             } else {
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
@@ -170,11 +170,12 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     geoipDbPath = geoPaths.geoipDbPath,
                     geositeDbPath = geoPaths.geositeDbPath,
                     awg = awg,
+                    workerBearer = proxySessionSecretResolver.currentBearer(settings),
                 )
             }
         }
 
-        fun rememberedPreferences(
+        suspend fun rememberedPreferences(
             configJson: String,
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
@@ -202,14 +203,16 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     "Remembered proxy policy cannot be overlaid with canonical destination routing"
                 }
             val currentHostAutolearn =
-                RipDpiProxyUIPreferences
-                    .fromSettings(
-                        settings = settings,
-                        hostAutolearnStorePath = hostAutolearnStorePath,
-                        networkScopeKey = networkScopeKey,
-                    ).hostAutolearn
+                RipDpiHostAutolearnConfig(
+                    enabled = settings.hostAutolearnEnabled,
+                    penaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
+                    maxHosts = settings.hostAutolearnMaxHosts,
+                    storePath = hostAutolearnStorePath,
+                    networkScopeKey = networkScopeKey,
+                )
             return rememberedPreferences
                 .withSessionOverrides(hostAutolearn = currentHostAutolearn)
                 .withDestinationRoutingPolicy(destinationRouting, awgOverride = awg)
+                .let { proxySessionSecretResolver.applyRemembered(it, settings) }
         }
     }

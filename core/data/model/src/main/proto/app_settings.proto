@@ -467,4 +467,9 @@ message AppSettings {
 
   // Simple-flavor failover-selected AWG profile id. Empty means no AWG failover egress is selected.
   string simple_failover_awg_profile_id = 410;
+
+  // Optional Cloudflare Worker route for the Telegram WS tunnel. The bearer is
+  // stored only in the Android-Keystore-backed credential store.
+  string ws_tunnel_worker_url = 411;
+  string ws_tunnel_worker_credential_ref = 412;
 }

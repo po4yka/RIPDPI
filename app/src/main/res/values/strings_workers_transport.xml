@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">Cloudflare Worker transport</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\nCredential: %2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">Not configured; uses the direct Telegram gateway</string>
+    <string name="ws_tunnel_worker_transport_configure">Configure</string>
+    <string name="ws_tunnel_worker_transport_edit">Replace</string>
+    <string name="ws_tunnel_worker_transport_clear">Disable</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">Worker transport</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">The bearer is stored in Android Keystore and is never added to settings or backups.</string>
+    <string name="ws_tunnel_worker_transport_url_label">Worker URL</string>
+    <string name="ws_tunnel_worker_transport_ref_label">Credential reference</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">Bearer token</string>
+    <string name="ws_tunnel_worker_save_failed_title">Worker transport not saved</string>
+    <string name="ws_tunnel_worker_save_failed_message">Check the URL, credential reference, and bearer, then try again.</string>
+    <string name="ws_tunnel_worker_clear_failed_title">Worker transport not disabled</string>
+    <string name="ws_tunnel_worker_clear_failed_message">The saved Worker configuration could not be removed. Try again.</string>
+</resources>

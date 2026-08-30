@@ -2,6 +2,30 @@
 
 This guide covers the operational model for RIPDPI's `cloudflare_tunnel` relay kind.
 
+## Optional Workers WebSocket Edge
+
+The separate optional Worker edge for the Telegram WebSocket tunnel is
+configured through `wsTunnel`, not through the `cloudflare_tunnel` relay kind.
+Deploy the repository-owned
+[`cloudflare-workers/relay.js`](cloudflare-workers/relay.js), configure its
+`RIPDPI_WORKER_BEARER` secret, then provision the public Worker URL, opaque
+credential reference, and matching Keystore-backed bearer in RIPDPI. The
+complete deployment and rotation procedure is in
+[`cloudflare-workers-ws-edge.md`](cloudflare-workers-ws-edge.md).
+
+Cloudflare counts the initial WebSocket upgrade as a Worker request and meters
+CPU plus plan-specific request and resource limits. Operators must review the
+current [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/)
+and [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+before rollout; RIPDPI does not assume that the free tier is sufficient.
+
+The reference Worker is already closed to the exact Telegram WebSocket
+allowlist and rejects unauthenticated, non-WebSocket, text-frame, and oversized
+traffic. For abuse control, configure a
+[Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+and enforce it before the upstream `fetch()`. Rate-limit keys must not contain
+the bearer or other credentials.
+
 ## Modes
 
 RIPDPI supports two Cloudflare Tunnel modes:

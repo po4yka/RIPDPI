@@ -89,6 +89,7 @@ class DefaultConnectionPolicyResolver
         private val environmentDetector: EnvironmentDetector,
         private val awgEgressSelectionProvider: AwgEgressSelectionProvider,
         private val destinationRoutingPolicySource: DestinationRoutingPolicySource,
+        private val proxySessionSecretResolver: ProxySessionSecretResolver,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
@@ -104,6 +105,7 @@ class DefaultConnectionPolicyResolver
                 antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy,
                 rootHelperManager = rootHelperManager,
                 environmentDetector = environmentDetector,
+                proxySessionSecretResolver = proxySessionSecretResolver,
             )
         private val rememberedPolicyMatcher = RememberedConnectionPolicyMatcher(rememberedNetworkPolicyStore)
         private val signatureBuilder = ConnectionPolicySignatureBuilder()
@@ -250,7 +252,7 @@ class DefaultConnectionPolicyResolver
                 directPathCapabilities = directPathCapabilities,
             )
 
-        private fun baselinePreferences(
+        private suspend fun baselinePreferences(
             settings: AppSettings,
             networkScopeKey: String?,
             directPathCapabilities: List<RipDpiDirectPathCapability>,

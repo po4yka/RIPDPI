@@ -29,6 +29,12 @@ class SensitiveSavedStateContractTest {
         assertFalse(viewModel.contains("savedStateHandle[ConfigEditorRecoverySessionIdSavedStateKey] = uiState"))
         assertTrue(recoveryStore.contains("AndroidKeyStore"))
         assertTrue(recoveryStore.contains("AES/GCM/NoPadding"))
+
+        val workerTransport = source("ui/screens/settings/WsTunnelWorkerSettingsUi.kt").readText()
+        assertTrue(workerTransport.contains("var bearer by remember {"))
+        assertFalse(workerTransport.contains("bearer by rememberSaveable"))
+        assertTrue(workerTransport.contains("SecureWindowEffect()"))
+        assertTrue(workerTransport.contains("PasswordVisualTransformation()"))
     }
 
     private fun source(relativePath: String): File =

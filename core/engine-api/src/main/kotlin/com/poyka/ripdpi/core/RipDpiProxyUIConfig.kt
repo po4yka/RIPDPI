@@ -36,6 +36,7 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.SecretString
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -216,6 +217,9 @@ data class RipDpiWsTunnelConfig(
      * The native runtime refuses a fake-SNI cover unless this is true.
      */
     val allowInsecureSni: Boolean = false,
+    val cloudflareWorkerUrl: String? = null,
+    val cloudflareWorkerCredentialRef: String? = null,
+    val cloudflareWorkerBearer: SecretString? = null,
 )
 
 @Serializable

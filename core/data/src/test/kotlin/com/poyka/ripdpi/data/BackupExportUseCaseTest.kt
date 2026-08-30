@@ -234,16 +234,22 @@ class BackupExportUseCaseTest {
     @Test
     fun `export settings survive the round-trip via the converter`() =
         runTest {
+            val workerBearer = "worker-bearer-must-not-enter-backup"
             val settings =
                 AppSettings
                     .getDefaultInstance()
                     .toBuilder()
                     .setProxyPort(1234)
+                    .setWsTunnelWorkerUrl("https://worker.example/ws")
+                    .setWsTunnelWorkerCredentialRef("worker-production")
                     .build()
             val doc = useCase(settings = settings).gather(BackupVariant.FULL, "1.0.0", 0L)
 
             val restored = BackupSettingsConverter.fromMap(doc.settings)
             assertEquals(1234, requireNotNull(restored).proxyPort)
+            assertEquals("https://worker.example/ws", restored.wsTunnelWorkerUrl)
+            assertEquals("worker-production", restored.wsTunnelWorkerCredentialRef)
+            assertFalse(doc.settings.values.any { workerBearer in it })
         }
 
     @Test

@@ -44,6 +44,8 @@ internal data class AppSettingsQuicAdaptiveSnapshot(
     val wsTunnelMode: String = defaultSettings.wsTunnelMode,
     val wsTunnelFakeSni: String = defaultSettings.wsTunnelFakeSni,
     val wsTunnelAllowInsecureSni: Boolean = defaultSettings.wsTunnelAllowInsecureSni,
+    val wsTunnelWorkerUrl: String = defaultSettings.wsTunnelWorkerUrl,
+    val wsTunnelWorkerCredentialRef: String = defaultSettings.wsTunnelWorkerCredentialRef,
 )
 
 internal fun JsonObjectBuilder.writeQuicAdaptiveSnapshot(snapshot: AppSettingsQuicAdaptiveSnapshot) {
@@ -86,6 +88,8 @@ internal fun JsonObjectBuilder.writeQuicAdaptiveSnapshot(snapshot: AppSettingsQu
     put("wsTunnelMode", snapshot.wsTunnelMode)
     put("wsTunnelFakeSni", snapshot.wsTunnelFakeSni)
     put("wsTunnelAllowInsecureSni", snapshot.wsTunnelAllowInsecureSni)
+    put("wsTunnelWorkerUrl", snapshot.wsTunnelWorkerUrl)
+    put("wsTunnelWorkerCredentialRef", snapshot.wsTunnelWorkerCredentialRef)
 }
 
 internal fun JsonObject.readQuicAdaptiveSnapshot(
@@ -141,4 +145,7 @@ internal fun JsonObject.readQuicAdaptiveSnapshot(
         wsTunnelMode = stringValue("wsTunnelMode", defaults.wsTunnelMode),
         wsTunnelFakeSni = stringValue("wsTunnelFakeSni", defaults.wsTunnelFakeSni),
         wsTunnelAllowInsecureSni = booleanValue("wsTunnelAllowInsecureSni", defaults.wsTunnelAllowInsecureSni),
+        wsTunnelWorkerUrl = stringValue("wsTunnelWorkerUrl", defaults.wsTunnelWorkerUrl),
+        wsTunnelWorkerCredentialRef =
+            stringValue("wsTunnelWorkerCredentialRef", defaults.wsTunnelWorkerCredentialRef),
     )

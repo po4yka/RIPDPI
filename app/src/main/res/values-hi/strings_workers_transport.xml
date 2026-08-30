@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ws_tunnel_worker_transport_label">Cloudflare Worker ट्रांसपोर्ट</string>
+    <string name="ws_tunnel_worker_transport_configured">%1$s\nक्रेडेंशियल: %2$s</string>
+    <string name="ws_tunnel_worker_transport_not_configured">कॉन्फ़िगर नहीं; सीधे Telegram गेटवे का उपयोग होता है</string>
+    <string name="ws_tunnel_worker_transport_configure">कॉन्फ़िगर करें</string>
+    <string name="ws_tunnel_worker_transport_edit">बदलें</string>
+    <string name="ws_tunnel_worker_transport_clear">अक्षम करें</string>
+    <string name="ws_tunnel_worker_transport_dialog_title">Worker ट्रांसपोर्ट</string>
+    <string name="ws_tunnel_worker_transport_dialog_message">Bearer Android Keystore में रहता है और सेटिंग या बैकअप में नहीं जोड़ा जाता।</string>
+    <string name="ws_tunnel_worker_transport_url_label">Worker URL</string>
+    <string name="ws_tunnel_worker_transport_ref_label">क्रेडेंशियल संदर्भ</string>
+    <string name="ws_tunnel_worker_transport_bearer_label">Bearer टोकन</string>
+    <string name="ws_tunnel_worker_save_failed_title">Worker ट्रांसपोर्ट सहेजा नहीं गया</string>
+    <string name="ws_tunnel_worker_save_failed_message">URL, क्रेडेंशियल संदर्भ और bearer जाँचकर फिर प्रयास करें।</string>
+    <string name="ws_tunnel_worker_clear_failed_title">Worker ट्रांसपोर्ट बंद नहीं हुआ</string>
+    <string name="ws_tunnel_worker_clear_failed_message">सहेजा गया Worker कॉन्फ़िगरेशन हटाया नहीं जा सका। फिर प्रयास करें।</string>
+</resources>

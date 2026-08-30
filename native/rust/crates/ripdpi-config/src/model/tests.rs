@@ -405,6 +405,7 @@ fn runtime_config_adapter_views_round_trip() {
         ws_tunnel_mode: WsTunnelMode::Fallback,
         ws_tunnel_fake_sni: None,
         ws_tunnel_allow_insecure_sni: false,
+        ws_tunnel_worker_route: None,
         strategy_evolution: false,
         evolution_epsilon_permil: 100,
         evolution_experiment_ttl_ms: 30_000,
@@ -671,6 +672,21 @@ fn default_host_autolearn_settings() {
     assert_eq!(hl.penalty_ttl_secs, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS);
     assert_eq!(hl.max_hosts, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS);
     assert_eq!(hl.store_path, None);
+}
+
+#[test]
+fn runtime_worker_route_rejects_invalid_authorities() {
+    for url in [
+        "https://edge.example:0/relay",
+        "https://edge.example:not-a-port/relay",
+        "https://2001:db8::1/relay",
+        "https://[2001:db8::1/relay",
+    ] {
+        assert!(
+            RuntimeWsTunnelWorkerRoute::parse(url.to_string(), "secret-token".to_string()).is_err(),
+            "route should reject {url}",
+        );
+    }
 }
 
 #[test]

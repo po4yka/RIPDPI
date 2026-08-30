@@ -31,6 +31,7 @@ class UserCredentialResetTest {
                     "xray_profile_metadata" to "xray-profile:orphan",
                     "xray_profile_secrets_secure" to "xray-secrets:orphan",
                     "xray_provider_selection" to "selection",
+                    KeystoreWsTunnelWorkerCredentialStore.CredentialsPrefsName to "worker:orphan",
                 )
             stores.forEach { (name, key) ->
                 context
@@ -49,6 +50,7 @@ class UserCredentialResetTest {
             SharedPreferencesXrayProfileMetadataStore(context).clearAll()
             KeystoreXrayProfileSecretStore(context).clearAll()
             SharedPreferencesXrayProviderSelectionStore(context).clear()
+            KeystoreWsTunnelWorkerCredentialStore(context).clearAll()
 
             stores.forEach { (name, _) ->
                 assertTrue(context.getSharedPreferences(name, Context.MODE_PRIVATE).all.isEmpty())

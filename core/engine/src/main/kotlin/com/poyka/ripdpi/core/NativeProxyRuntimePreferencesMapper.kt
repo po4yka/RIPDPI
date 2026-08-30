@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ProxySettingsSection
+import com.poyka.ripdpi.data.SecretString
 import com.poyka.ripdpi.proto.AppSettings
 
 internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig {
@@ -63,15 +64,34 @@ internal fun buildHostAutolearnConfig(
         networkScopeKey = networkScopeKey,
     )
 
-internal fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
+internal fun buildWsTunnelConfig(
+    settings: AppSettings,
+    workerBearer: String? = null,
+): RipDpiWsTunnelConfig {
     val mode =
         settings.wsTunnelMode.ifEmpty {
             if (settings.wsTunnelEnabled) "always" else "off"
         }
+    val workerUrl = settings.wsTunnelWorkerUrl.trim().takeIf { it.isNotEmpty() }
+    val workerCredentialRef = settings.wsTunnelWorkerCredentialRef.trim().takeIf { it.isNotEmpty() }
+    require((workerUrl == null) == (workerCredentialRef == null)) {
+        "Cloudflare Worker URL and credential reference must be configured together"
+    }
+    if (workerUrl != null) {
+        require(!workerBearer.isNullOrBlank()) {
+            "Cloudflare Worker bearer is unavailable for the configured credential reference"
+        }
+        require(settings.wsTunnelFakeSni.isBlank()) {
+            "Cloudflare Worker transport cannot be combined with WS tunnel fake SNI"
+        }
+    }
     return RipDpiWsTunnelConfig(
         enabled = mode != "off",
         mode = mode,
         fakeSni = settings.wsTunnelFakeSni.ifEmpty { null },
         allowInsecureSni = settings.wsTunnelAllowInsecureSni,
+        cloudflareWorkerUrl = workerUrl,
+        cloudflareWorkerCredentialRef = workerCredentialRef,
+        cloudflareWorkerBearer = workerBearer?.let(::SecretString),
     )
 }

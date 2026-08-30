@@ -120,5 +120,6 @@ class ConnectionPolicyDestinationRoutingTest {
         serverCapabilityStore = TestServerCapabilityStore(),
         awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
         destinationRoutingPolicySource = source,
+        proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
     )
 }
