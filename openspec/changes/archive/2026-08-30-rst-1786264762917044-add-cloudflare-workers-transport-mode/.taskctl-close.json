@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917044-add-cloudflare-workers-transport-mode",
+  "evidence_summary": "Implementation commit e7045f7bedbe1605f8d33c15080c62910ccf34bf passed local Kotlin, Rust, Worker, taskctl, OpenSpec, and architecture contract checks; GitHub CI/CD was intentionally not run or monitored per user instruction.",
+  "execution_sha256": "d5f947d3de2768d9ca1d91e5785c74441fcd8174b2552510fb2cf64532d8e6b2",
+  "issue_sha256": "66c34b7b9f6750d66ee508fd083d700f94498be7ebee9d1ae14f3543279dcacd",
+  "outcome": "done",
+  "prepared_at": "2026-08-30T13:23:44Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1786264762917044"
+}

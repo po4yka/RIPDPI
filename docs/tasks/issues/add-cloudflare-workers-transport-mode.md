@@ -2,7 +2,7 @@
 id: RST-1786264762917044
 title: Add optional Cloudflare Workers transport mode
 kind: feature
-status: doing
+status: done
 area: rust-native
 priority: medium
 owner: codex
@@ -12,6 +12,10 @@ spec_mode: required
 openspec_change: rst-1786264762917044-add-cloudflare-workers-transport-mode
 created: 2026-05-16
 updated: 2026-08-30
+status_detail: Implementation commit e7045f7bedbe1605f8d33c15080c62910ccf34bf passed local verification; remote CI intentionally not run/monitored per user instruction.
+closed_at: "2026-08-30T13:23:44Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation commit e7045f7bedbe1605f8d33c15080c62910ccf34bf passed local Kotlin, Rust, Worker, taskctl, OpenSpec, and architecture contract checks; GitHub CI/CD was intentionally not run or monitored per user instruction.
 ---
 
 ## Summary

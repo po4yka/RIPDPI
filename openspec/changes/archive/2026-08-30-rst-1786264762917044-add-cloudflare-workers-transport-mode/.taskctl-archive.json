@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-30T13:23:44Z",
+  "change": "rst-1786264762917044-add-cloudflare-workers-transport-mode",
+  "commit_sha": "e7045f7bedbe1605f8d33c15080c62910ccf34bf",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1786264762917044"
+}
