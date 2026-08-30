@@ -2,7 +2,7 @@
 id: RST-1786264762917193
 title: Add constant-rate traffic shaping with VoIP camouflage profile
 kind: feature
-status: doing
+status: review
 area: rust-native
 priority: medium
 owner: codex
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage
 created: 2026-05-16
 updated: 2026-08-30
+status_detail: Implementation and local verification complete; owner, async cancel-safety, and legal reviews passed.
 ---
 
 ## Summary
@@ -26,11 +27,11 @@ A cooperative shaper pads outgoing payloads to a fixed frame size and emits them
 
 ## Acceptance criteria
 
-- [ ] New crate `ripdpi-traffic-shape` with a `Shaper` trait that wraps any `AsyncRead + AsyncWrite` stream.
-- [ ] At least two preset profiles: `opus_voip` (200-byte / 20 ms) and `webrtc_video` (variable but bounded).
-- [ ] Configurable via `core:data:model` typed schema.
-- [ ] Unit tests verify: outgoing rate stays within ±5% of target over 1000 ticks; size distribution is constant; reverse-path padding round-trips cleanly.
-- [ ] Telemetry counters for bytes-padded vs bytes-real (so operators can see the overhead).
+- [x] New crate `ripdpi-traffic-shape` with a `Shaper` trait that wraps any `AsyncRead + AsyncWrite` stream.
+- [x] At least two preset profiles: `opus_voip` (200-byte / 20 ms) and `webrtc_video` (variable but bounded).
+- [x] Configurable via `core:data:model` typed schema.
+- [x] Unit tests verify: outgoing rate stays within ±5% of target over 1000 ticks; size distribution is constant; reverse-path padding round-trips cleanly.
+- [x] Telemetry counters for bytes-padded vs bytes-real (so operators can see the overhead).
 
 ## Implementation contract (2026-08-30)
 
@@ -110,3 +111,4 @@ The most decisive finding. A 20 ms fixed clock means **50 wakeups/second that ne
 
 - 2026-06-05: No implementation found — `ripdpi-traffic-shape` crate does not exist under native/rust/crates/, no Shaper trait, no opus_voip/webrtc_video profiles, no schema config, no tests. All acceptance criteria remain open.
 - 2026-06-11 (design spike, conditional-go): Delivered the design note above (insertion-point analysis, `opus_voip` profile spec, mobile-cost finding, verdict). Key findings: the shaper belongs on the QUIC-datagram surface (`ripdpi-hysteria2/src/quic_transport/datagram.rs`), not the `AsyncRead+AsyncWrite` stream surface the criteria assumed; there is no native low-power hook to gate the 20ms timer (must be built first); bidirectional shaping needs server cooperation that does not exist. No code merged. Spike resolved (conditional-go); status stays `backlog` — the file persists to hold this note and the implementation is parked behind its low-power-hook prerequisite, re-filing as a forward-only datagram-pacer graduation task when that lands. Adjacent-surface check: no existing shaping layer; fixed the stale `[[Epic - Control-plane hardening]]` link to the real parent.
+- 2026-08-30: Implemented the superseding cooperative framed-stream scope in `35ee6c5f2a31b869781bf2277d2c442f74bae18d`: default-off Kotlin schema, fixed/bounded profiles, lossless bounded backpressure, malformed-frame rejection, flush and half-close acknowledgement, and aggregate overhead counters. Local Rust/Kotlin, architecture, dependency-policy, task/OpenSpec, owner-review, cancel-safety, and legal-safety gates passed; GitHub CI was intentionally not launched or monitored per user instruction.
