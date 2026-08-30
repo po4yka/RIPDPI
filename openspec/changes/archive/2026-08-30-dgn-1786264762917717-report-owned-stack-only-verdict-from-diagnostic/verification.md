@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1786264762917717
 change: dgn-1786264762917717-report-owned-stack-only-verdict-from-diagnostic
-commit_sha: bd93aefeca0d10b7f65125028132e367bd6df1c0
-local: required
+commit_sha: 56be494895271d5c4575a4205ea8290791923680
+local: passed
 local_evidence: "2026-08-30: cargo fmt --manifest-path native/rust/Cargo.toml --all -- --check; build-gate -- cargo test --manifest-path native/rust/Cargo.toml --locked -p ripdpi-runtime-adaptive -p ripdpi-runtime-policy -p ripdpi-runtime-decision-ports -p ripdpi-runtime-services -p ripdpi-proxy-runtime -p ripdpi-proxy-runtime-adapter; build-gate -- cargo clippy --manifest-path native/rust/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings; build-gate -- ./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.NativeRuntimeSnapshotTest'. Full build-gate -- env -u CARGO_BUILD_JOBS ./gradlew staticAnalysis is locally blocked because native/xray/artifacts/libxray.aar is absent and scripts/native/build-libxray.sh --check-toolchain reports missing gomobile."
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "Exact SHA 56be494895271d5c4575a4205ea8290791923680: CI run 33294831638 passed with 46 successful jobs and zero failures; CodeQL 33294831613, Secret Scan 33294831629, and fleet-fixtures 33294831628 also passed."
 device: not_applicable
 device_evidence: No Android device behavior is owned by this portfolio area.
 artifact: not_applicable

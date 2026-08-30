@@ -2,7 +2,7 @@
 id: DGN-1786264762917717
 title: Report OWNED_STACK_ONLY verdict from diagnostic
 kind: feature
-status: review
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -13,6 +13,9 @@ openspec_change: dgn-1786264762917717-report-owned-stack-only-verdict-from-diagn
 created: 2026-04-20
 updated: 2026-08-30
 status_detail: Structured transparent-mode rejection implemented and locally verified; awaiting exact-SHA remote CI before archival.
+closed_at: "2026-08-30T06:26:59Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implemented structured OWNED_STACK_REQUIRED transparent-mode admission; local Rust/Kotlin gates passed; exact SHA 56be494895271d5c4575a4205ea8290791923680 CI 33294831638, CodeQL 33294831613, Secret Scan 33294831629, and fleet-fixtures 33294831628 passed.
 ---
 
 ## Summary

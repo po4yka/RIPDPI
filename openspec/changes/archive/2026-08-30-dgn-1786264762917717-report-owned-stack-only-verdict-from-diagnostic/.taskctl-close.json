@@ -1,0 +1,11 @@
+{
+  "change": "dgn-1786264762917717-report-owned-stack-only-verdict-from-diagnostic",
+  "evidence_summary": "Implemented structured OWNED_STACK_REQUIRED transparent-mode admission; local Rust/Kotlin gates passed; exact SHA 56be494895271d5c4575a4205ea8290791923680 CI 33294831638, CodeQL 33294831613, Secret Scan 33294831629, and fleet-fixtures 33294831628 passed.",
+  "execution_sha256": "64780d66eb22e45db2f6a3e090d028d8a56aebea9db86f95449a954b29a2b9cf",
+  "issue_sha256": "81d4ddb0a7061f45d92633d935d8d53b5d2cee055564f398d062ae3c09e4ab61",
+  "outcome": "done",
+  "prepared_at": "2026-08-30T06:26:59Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1786264762917717"
+}
