@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1786264762917717
 change: dgn-1786264762917717-report-owned-stack-only-verdict-from-diagnostic
-commit_sha: null
+commit_sha: ee26db0a0e5f8e062b104bdcaaebcfb7c75efefb
 local: required
 local_evidence: "2026-08-30: cargo fmt --manifest-path native/rust/Cargo.toml --all -- --check; build-gate -- cargo test --manifest-path native/rust/Cargo.toml --locked -p ripdpi-runtime-adaptive -p ripdpi-runtime-policy -p ripdpi-runtime-decision-ports -p ripdpi-runtime-services -p ripdpi-proxy-runtime -p ripdpi-proxy-runtime-adapter; build-gate -- cargo clippy --manifest-path native/rust/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings; build-gate -- ./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.NativeRuntimeSnapshotTest'. Full build-gate -- env -u CARGO_BUILD_JOBS ./gradlew staticAnalysis is locally blocked because native/xray/artifacts/libxray.aar is absent and scripts/native/build-libxray.sh --check-toolchain reports missing gomobile."
 remote_ci: required
