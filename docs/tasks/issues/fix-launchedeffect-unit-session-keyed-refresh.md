@@ -2,16 +2,16 @@
 id: UIX-1786264762917972
 title: Key session-scoped LaunchedEffect refreshes on the session id, not Unit
 kind: feature
-status: backlog
+status: review
 area: ui
 priority: medium
-owner: unassigned
+owner: codex
 parent: EPC-1786264762917503
 blocked_by: []
 spec_mode: required
 openspec_change: uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-30
 source_wiki_pages: []
 linked_task: null
 ---
