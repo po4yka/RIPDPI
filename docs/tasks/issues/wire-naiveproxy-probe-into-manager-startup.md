@@ -2,7 +2,7 @@
 id: SVC-1786264762917506
 title: Wire NaiveProxy helper probe into manager startup
 kind: feature
-status: doing
+status: review
 area: service
 priority: medium
 owner: unassigned
@@ -11,25 +11,26 @@ blocked_by: []
 spec_mode: required
 openspec_change: svc-1786264762917506-wire-naiveproxy-probe-into-manager-startup
 created: 2026-05-15
-updated: 2026-06-10
+updated: 2026-08-30
+status_detail: Implementation and local verification complete; remote CI intentionally not monitored and device evidence remains unavailable.
 ---
 
 ## Summary
 
-The helper-side `--probe` line and Kotlin parser now exist. Finish the Android startup integration by invoking `--probe` before launch, rejecting unsupported schema versions, and documenting the enforced policy.
+The Android service now requires the helper's `--probe` result before every NaiveProxy launch, rejects incompatible schemas, and reports compatibility failures separately from subprocess crashes.
 
 ## Context
 
-`native/rust/crates/ripdpi-naiveproxy/src/main.rs` emits `RIPDPI-PROBE { ... }` on `--probe`, and `core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveProxyProbeParser.kt` parses it. `NaiveProxyManager` still starts the helper without running that probe, so schema drift can still reach runtime launch.
+`native/rust/crates/ripdpi-naiveproxy/src/main.rs` emits `RIPDPI-PROBE { ... }` on `--probe`, and `NaiveProxyManager` validates the parsed schema before handing the exact probed binary to the existing launch path.
 
 ## Acceptance criteria
 
 - [x] (2026-05-15) Helper emits a single `RIPDPI-PROBE { ... }` JSON line on `--probe` exit with fields `{ "schema_version": u32, "helper_version": semver, "features": [string, ...] }`. Hand-formatted JSON (no serde dep for the fast-path) in `ripdpi-naiveproxy/src/main.rs`. Two unit tests assert format and capability-tag stability.
 - [x] (2026-05-28) Kotlin parser exists in `NaiveProxyProbeParser.kt`, with unit tests covering marker, malformed JSON, missing required fields, and schema-range checks.
-- [ ] `NaiveProxyManager` invokes `--probe` before `start`, parses the JSON, and refuses to start when `schema_version` is outside the range it supports, surfacing a recognizable failure class.
-- [ ] Existing `RIPDPI-READY` / `RIPDPI-ERROR` paths remain unchanged for now; this task only adds the pre-launch probe.
-- [ ] Unit tests cover manager preflight behavior: (a) probe round-trip, (b) refusal on schema mismatch, (c) backward compatibility when the helper does not support `--probe` if the current release still allows schema 0.
-- [ ] `docs/native/relay-naiveproxy-runtime.md` documents the probe line and the schema-version policy.
+- [x] (2026-08-30) `NaiveProxyManager` invokes `--probe` before `start`, parses the JSON, and refuses to start when `schema_version` is outside the supported schema-1 range, surfacing `relay_compatibility` telemetry.
+- [x] (2026-08-30) Existing `RIPDPI-READY` / `RIPDPI-ERROR` paths remain unchanged; successful preflight delegates to the prior launch and readiness pipeline.
+- [x] (2026-08-30) Unit tests cover probe round-trip, schema mismatch, missing probe support, exact-binary launch, repeated starts, timeout, cancellation, forced termination, and compatibility telemetry. Schema 0 is intentionally unsupported because each start extracts the bundled helper from the current APK.
+- [x] (2026-08-30) `docs/native/relay-naiveproxy-runtime.md` documents the probe line and schema-version policy.
 
 ## Definition of done
 
@@ -38,7 +39,7 @@ The helper-side `--probe` line and Kotlin parser now exist. Finish the Android s
 
 ## Risks / open questions
 
-- Schema-0 fallback gives the helper one release of grace; after that the manager should hard-require the probe. Decide if a build flag controls the cutoff.
+- Schema-0 fallback is intentionally absent: extraction refreshes the helper from the current APK before each start, so missing probe support is packaging drift rather than a valid older installed runtime.
 
 ## Links
 
@@ -47,3 +48,4 @@ The helper-side `--probe` line and Kotlin parser now exist. Finish the Android s
 ## Work log
 
 - 2026-06-05: First two criteria verified done (Rust probe emission in ripdpi-naiveproxy/src/main.rs with 2 tests; NaiveProxyProbeParser.kt with full parser tests); NaiveProxyManager.start() has no --probe call, no manager-preflight tests, and docs/native/relay-naiveproxy-runtime.md explicitly notes probe is not yet enforced — 4 criteria remain open.
+- 2026-08-30: Mandatory schema-1 preflight, exact-artifact launch, compatibility telemetry, cancellation-safe process cleanup, tests, and runtime documentation completed in `304d8a3b8`.
