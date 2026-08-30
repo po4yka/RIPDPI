@@ -22,4 +22,4 @@ The crate is RIPDPI's repo-owned helper. It is intentionally not a Chromium-deri
 
 ## Drift policy
 
-The helper schema version is the `RIPDPI-PROBE` JSON line emitted by `--probe`. The remaining drift risk is Android launch enforcement: `NaiveProxyManager` has not yet made that probe mandatory before start. RFC drift is lower risk than helper/manager contract drift.
+The helper schema version is the `RIPDPI-PROBE` JSON line emitted by `--probe`. Android requires schema `1` before every helper launch and rejects missing, malformed, timed-out, or unsupported probes. Schema `0` fallback is intentionally absent because the APK-bundled helper is freshly extracted for each start. RFC drift is lower risk than helper/manager contract drift.

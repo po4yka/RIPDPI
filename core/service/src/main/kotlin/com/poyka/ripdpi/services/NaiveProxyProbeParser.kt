@@ -6,8 +6,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * Parsed `RIPDPI-PROBE` line emitted by the native NaiveProxy helper
- * on `--probe` exit. This parser is the service-side contract piece;
- * `NaiveProxyManager` does not yet invoke it as a mandatory pre-launch gate.
+ * on `--probe` exit. `NaiveProxyManager` consumes this contract before every
+ * helper launch.
  *
  * Pairs with the Rust side in
  * `native/rust/crates/ripdpi-naiveproxy/src/main.rs::render_probe_line`.
@@ -20,8 +20,7 @@ data class NaiveProxyProbe(
 ) {
     /**
      * Whether the helper's schema version falls within the
-     * manager-supported range. The startup integration task will use this to
-     * refuse launch on mismatch.
+     * manager-supported range.
      */
     fun isSchemaSupported(supportedRange: IntRange): Boolean = schemaVersion in supportedRange
 }

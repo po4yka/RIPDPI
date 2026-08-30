@@ -93,6 +93,7 @@ class SubprocessSocksRelayManager
         suspend fun start(
             config: ResolvedRipDpiRelayConfig,
             spec: SubprocessSocksRelayLaunchSpec,
+            preparedBinary: File? = null,
         ) {
             val protectPath =
                 resolveSubprocessProtectPath(
@@ -104,7 +105,7 @@ class SubprocessSocksRelayManager
                 withContext(Dispatchers.IO) {
                     stopInternal()
                     runtimeStateOverride = "starting"
-                    val binary = binaryExtractor.extract(spec.binaryName)
+                    val binary = preparedBinary ?: binaryExtractor.extract(spec.binaryName)
                     this@SubprocessSocksRelayManager.config = config
                     this@SubprocessSocksRelayManager.launchSpec = spec
                     lastError = null
@@ -189,6 +190,19 @@ class SubprocessSocksRelayManager
         fun noteRestarting(reason: String) {
             runtimeStateOverride = "restarting"
             lastError = reason
+        }
+
+        fun notePrelaunchFailure(
+            config: ResolvedRipDpiRelayConfig,
+            spec: SubprocessSocksRelayLaunchSpec,
+            failureClass: String,
+            message: String,
+        ) {
+            this.config = config
+            launchSpec = spec
+            lastError = message
+            lastFailureClass = failureClass
+            runtimeStateOverride = "failed"
         }
 
         private fun handleProcessOutputEvent(event: SubprocessRelayOutputEvent) {

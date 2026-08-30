@@ -28,7 +28,7 @@ Helper stdout markers:
 - `RIPDPI-ERROR <code>` — structured failure with classification text
 - `RIPDPI-PROBE <json>` — `--probe` capability report including `socks5-listener`, `http-front-listener`, `h2-connect-upstream`, `naive-padding`, `structured-error`, and `ready-signal`
 
-The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) classifies runtime failures into DNS / TLS / HTTP CONNECT / auth categories. Android has a `NaiveProxyProbeParser`, but `NaiveProxyManager` does not yet invoke `--probe` as a pre-launch gate.
+The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) requires a valid schema-1 `--probe` result before every launch and classifies compatibility refusal separately from DNS / TLS / HTTP CONNECT / auth runtime failures. Existing readiness and structured-error processing begins only after that preflight succeeds.
 
 ## Known divergences from upstream
 

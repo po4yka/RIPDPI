@@ -40,7 +40,8 @@ The in-repo helper remains much smaller and easier to reason about than a Chromi
 
 The current implementation includes:
 
-- helper-side `--probe` support plus a Kotlin parser for the `RIPDPI-PROBE` capability line
+- a mandatory `--probe` preflight before every helper launch and watchdog restart
+- schema validation of the `RIPDPI-PROBE` capability line before the main process starts
 - readiness handshake through explicit `RIPDPI-READY` signaling
 - structured failure signaling through `RIPDPI-ERROR`
 - Android-side classification for DNS, TLS, HTTP `CONNECT`, and auth failures
@@ -50,7 +51,9 @@ The current implementation includes:
 
 This means NaiveProxy is no longer a provisional transport. It is a supported runtime with explicit operational boundaries.
 
-The manager does not yet enforce the structured probe before every launch; it still starts with the `--version` check. Treat mandatory probe/schema enforcement as an open service-integration gap until code and tests prove otherwise.
+The manager accepts probe schema `1` only. Missing probe support, malformed output, a non-zero probe exit, timeout, or any other schema version rejects startup before the main helper process is launched. A successful probe hands the exact extracted file to the main launch path, so the checked artifact cannot be replaced by a second extraction. The bundled helper is extracted afresh from the APK on every start, so schema `0` fallback is intentionally not supported: accepting a helper without `--probe` would hide packaging drift rather than preserve a legitimate installed runtime.
+
+Probe rejection is a typed relay-configuration startup failure. Relay telemetry records `lastFailureClass = relay_compatibility` with a fixed, credential-free explanation, keeping helper incompatibility distinct from a subprocess crash. The existing `--version`, `RIPDPI-READY`, and `RIPDPI-ERROR` paths remain unchanged after a successful preflight.
 
 ## Boundaries
 
@@ -74,6 +77,7 @@ The current repo-owned validation and classification matrix is:
 
 | Surface | Current handling |
 | --- | --- |
+| Helper capability schema | `--probe` is required before each launch; only schema `1` is accepted |
 | Basic auth over HTTPS `CONNECT` | supported; credentials are redacted from surfaced logs |
 | Custom `X-Naive-Path` header | supported when configured |
 | Invalid upstream server name / TLS certificate failure | classified as `tls`; watchdog does not restart |

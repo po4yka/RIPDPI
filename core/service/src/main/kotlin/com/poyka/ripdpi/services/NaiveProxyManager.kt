@@ -2,7 +2,9 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -10,6 +12,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import java.io.File
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,6 +23,8 @@ private const val NaiveProxyRestartDelayMs = 750L
 private const val NaiveProxyDnsRestartDelayMs = 1_500L
 private const val NaiveProxyRestartBudgetWindowMs = 60_000L
 private const val NaiveProxyRestartBudgetMaxAttempts = 3
+private const val NaiveProxyProbeFailureClass = "relay_compatibility"
+private val NaiveProxySupportedProbeSchemas = 1..1
 
 internal data class NaiveProxyRestartDecision(
     val shouldRestart: Boolean,
@@ -81,34 +86,129 @@ internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): Byte
 
 @Singleton
 open class NaiveProxyManager
-    @Inject
-    constructor(
-        private val subprocessManager: SubprocessSocksRelayManager,
+    internal constructor(
+        private val launchDelegate: NaiveProxyLaunchDelegate,
+        private val preflightProbe: NaiveProxyPreflightProbe,
     ) {
+        @Inject
+        internal constructor(
+            subprocessManager: SubprocessSocksRelayManager,
+            preflightProbe: DefaultNaiveProxyPreflightProbe,
+        ) : this(DefaultNaiveProxyLaunchDelegate(subprocessManager), preflightProbe)
+
         open suspend fun start(config: ResolvedRipDpiRelayConfig) {
-            subprocessManager.start(
+            val spec =
+                SubprocessSocksRelayLaunchSpec(
+                    binaryName = NaiveProxyBinaryName,
+                    versionArguments = listOf("--version"),
+                    runtimeKind = config.kind,
+                    upstreamAddress = "${config.server}:${config.serverPort}",
+                    redactedValues = listOfNotNull(config.naiveUsername, config.naivePassword),
+                    commandArguments = naiveProxyCommandArguments(config),
+                    standardInput = naiveProxyCredentialsStdin(config),
+                )
+            val binary = launchDelegate.extractBinary(NaiveProxyBinaryName)
+            when (val result = preflightProbe.run(binary)) {
+                is NaiveProxyPreflightResult.Probed -> {
+                    if (!result.probe.isSchemaSupported(NaiveProxySupportedProbeSchemas)) {
+                        rejectPrelaunch(
+                            config = config,
+                            spec = spec,
+                            message = "unsupported NaiveProxy probe schema_version ${result.probe.schemaVersion}",
+                        )
+                    }
+                }
+
+                is NaiveProxyPreflightResult.Rejected -> {
+                    rejectPrelaunch(config = config, spec = spec, message = result.message)
+                }
+            }
+            launchDelegate.start(
+                binary = binary,
                 config = config,
-                spec =
-                    SubprocessSocksRelayLaunchSpec(
-                        binaryName = NaiveProxyBinaryName,
-                        versionArguments = listOf("--version"),
-                        runtimeKind = config.kind,
-                        upstreamAddress = "${config.server}:${config.serverPort}",
-                        redactedValues = listOfNotNull(config.naiveUsername, config.naivePassword),
-                        commandArguments = naiveProxyCommandArguments(config),
-                        standardInput = naiveProxyCredentialsStdin(config),
-                    ),
+                spec = spec,
             )
         }
 
-        open suspend fun waitForExit(): Int = subprocessManager.waitForExit()
+        private fun rejectPrelaunch(
+            config: ResolvedRipDpiRelayConfig,
+            spec: SubprocessSocksRelayLaunchSpec,
+            message: String,
+        ): Nothing {
+            launchDelegate.notePrelaunchFailure(
+                config = config,
+                spec = spec,
+                failureClass = NaiveProxyProbeFailureClass,
+                message = message,
+            )
+            throw NaiveProxyCompatibilityException(message)
+        }
 
-        open suspend fun pollTelemetry(): NativeRuntimeSnapshot = subprocessManager.pollTelemetry()
+        open suspend fun waitForExit(): Int = launchDelegate.waitForExit()
 
-        open fun noteRestarting(reason: String) = subprocessManager.noteRestarting(reason)
+        open suspend fun pollTelemetry(): NativeRuntimeSnapshot = launchDelegate.pollTelemetry()
 
-        open suspend fun stop() = subprocessManager.stop()
+        open fun noteRestarting(reason: String) = launchDelegate.noteRestarting(reason)
+
+        open suspend fun stop() = launchDelegate.stop()
     }
+
+internal class NaiveProxyCompatibilityException(
+    message: String,
+) : ServiceStartupRejectedException(FailureReason.RelayConfigRejected(message))
+
+internal interface NaiveProxyLaunchDelegate {
+    fun extractBinary(binaryName: String): NaiveProxyBinaryRef
+
+    suspend fun start(
+        binary: NaiveProxyBinaryRef,
+        config: ResolvedRipDpiRelayConfig,
+        spec: SubprocessSocksRelayLaunchSpec,
+    )
+
+    suspend fun waitForExit(): Int
+
+    suspend fun pollTelemetry(): NativeRuntimeSnapshot
+
+    fun noteRestarting(reason: String)
+
+    fun notePrelaunchFailure(
+        config: ResolvedRipDpiRelayConfig,
+        spec: SubprocessSocksRelayLaunchSpec,
+        failureClass: String,
+        message: String,
+    )
+
+    suspend fun stop()
+}
+
+internal class DefaultNaiveProxyLaunchDelegate(
+    private val subprocessManager: SubprocessSocksRelayManager,
+) : NaiveProxyLaunchDelegate {
+    override fun extractBinary(binaryName: String): NaiveProxyBinaryRef =
+        subprocessManager.extractBinary(binaryName).asNaiveProxyBinaryRef()
+
+    override suspend fun start(
+        binary: NaiveProxyBinaryRef,
+        config: ResolvedRipDpiRelayConfig,
+        spec: SubprocessSocksRelayLaunchSpec,
+    ) = subprocessManager.start(config, spec, preparedBinary = File(binary.absolutePath))
+
+    override suspend fun waitForExit(): Int = subprocessManager.waitForExit()
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot = subprocessManager.pollTelemetry()
+
+    override fun noteRestarting(reason: String) = subprocessManager.noteRestarting(reason)
+
+    override fun notePrelaunchFailure(
+        config: ResolvedRipDpiRelayConfig,
+        spec: SubprocessSocksRelayLaunchSpec,
+        failureClass: String,
+        message: String,
+    ) = subprocessManager.notePrelaunchFailure(config, spec, failureClass, message)
+
+    override suspend fun stop() = subprocessManager.stop()
+}
 
 class NaiveProxyRuntime
     @Inject

@@ -113,6 +113,7 @@ class FieldTelemetryTest {
                 "operation timed out" to FailureClass.Timeout,
                 "connection reset by peer" to FailureClass.ResetAbort,
                 "network handover detected" to FailureClass.NetworkHandover,
+                "unsupported NaiveProxy probe schema_version 2" to FailureClass.Compatibility,
                 "socket write failed" to FailureClass.NativeIo,
             )
 

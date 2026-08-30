@@ -45,9 +45,9 @@ Current focused Rust and Kotlin coverage is:
 - HTTP/2 CONNECT framing and padding negotiation: `h2_connect_request_sends_naive_headers`, `h2_connect_rejects_request_padding_outside_spec_range`, `h2_connect_response_without_padding_disables_payload_padding`, `h2_connect_response_with_padding_reply_enables_variant1`, and `h2_connect_rejects_response_padding_outside_spec_range`.
 - End-to-end helper behavior against `local-network-fixture::NaiveH2PaddingFixture`: `socks5_tunnel_round_trip_reaches_target_via_https_proxy`, `socks5_client_round_trip_over_h2_naive_padding_fixture`, `http_front_connect_round_trip_over_h2_naive_padding_fixture`, and `helper_reconnects_after_upstream_h2_stream_failure`.
 - CLI/config contract: `config_parses_final_cli_contract`, `config_rejects_partial_auth`, Kotlin `NaiveProxyRuntimePolicyTest.manager command arguments do not expose credentials in argv`, Kotlin `NaiveProxyRuntimePolicyTest.manager writes naive credentials to stdin payload`, and the native `probe_line_*` tests in `main.rs`.
-- Android service-side parser and runtime policy: `NaiveProxyProbeParserTest` covers the `RIPDPI-PROBE` JSON parser and schema-range helper; `NaiveProxyRuntimePolicyTest` covers restart decisions for clean exits, terminal auth/config failures, DNS backoff, and retryable connect/runtime/helper failures.
+- Android service-side parser and runtime policy: `NaiveProxyProbeParserTest` covers the `RIPDPI-PROBE` JSON parser and schema-range helper; `NaiveProxyManagerPreflightTest` covers mandatory schema-1 preflight, incompatible-helper refusal, launch ordering, repeat starts, and `relay_compatibility` telemetry; `NaiveProxyRuntimePolicyTest` covers restart decisions for clean exits, terminal auth/config failures, DNS backoff, and retryable connect/runtime/helper failures.
 
-The remaining service integration gap is explicit: `NaiveProxyManager` still launches with `--version` and does not yet run `--probe` as a mandatory schema gate before start.
+`NaiveProxyManager` runs `--probe` before every main helper launch. Only schema `1` is accepted; a helper without probe support is rejected because the APK-bundled binary is freshly extracted on every start and has no legitimate schema-0 compatibility state.
 
 ## Verification Gates
 

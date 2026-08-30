@@ -43,7 +43,10 @@ class SubprocessRelayReadinessSignalTest {
         subprocessManager: SubprocessSocksRelayManager,
         private val startGate: CompletableDeferred<Unit>,
         private val startFailure: Throwable? = null,
-    ) : NaiveProxyManager(subprocessManager) {
+    ) : NaiveProxyManager(
+            DefaultNaiveProxyLaunchDelegate(subprocessManager),
+            NaiveProxyPreflightProbe { error("unused by overridden start") },
+        ) {
         val exit = CompletableDeferred<Int>()
         var startCount = 0
             private set

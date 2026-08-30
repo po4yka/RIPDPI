@@ -18,6 +18,7 @@ enum class FailureClass(
     Timeout("timeout"),
     ResetAbort("reset_abort"),
     NetworkHandover("network_handover"),
+    Compatibility("relay_compatibility"),
     NativeIo("native_io"),
     Unexpected("unexpected"),
 }
@@ -353,6 +354,13 @@ private fun isDhtCorrelationFailureClass(failureClass: FailureClass): Boolean =
 private fun classifyFailureText(text: String): FailureClass? {
     val normalized = text.trim().lowercase()
     return when {
+        normalized.contains("relay_compatibility") ||
+            normalized.contains("naiveproxy pre-launch probe") ||
+            normalized.contains("naiveproxy probe schema_version") ||
+            normalized.contains("naiveproxy helper does not support the required probe") -> {
+            FailureClass.Compatibility
+        }
+
         normalized.contains("tunnel establishment") ||
             normalized.contains("vpn field not null") ||
             normalized.contains("tun fd") -> {

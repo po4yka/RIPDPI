@@ -574,6 +574,7 @@ private fun telemetryFailureStage(telemetry: ServiceTelemetrySnapshot): HomeConn
 
         FailureClass.Timeout,
         FailureClass.ResetAbort,
+        FailureClass.Compatibility,
         FailureClass.NativeIo,
         FailureClass.Unexpected,
         null,

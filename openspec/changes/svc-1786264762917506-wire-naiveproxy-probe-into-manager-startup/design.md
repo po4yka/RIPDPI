@@ -13,6 +13,9 @@ Portfolio task `SVC-1786264762917506` owns this change. The helper-side --probe 
 - Treat the portfolio task as the source of priority, ownership, and lifecycle state.
 - Treat this OpenSpec change as the normative behavior delta for the `service` area.
 - Keep implementation details in the affected modules and record exact verification evidence separately.
+- Run a bounded `--probe` subprocess after extracting the bundled helper and before delegating that exact extracted file to the existing main-process launch path. Repeat the preflight for every watchdog restart.
+- Support probe schema `1` only. Do not provide schema-0 fallback or a cutoff flag because extraction overwrites the helper from the current APK on every start; missing probe support therefore indicates packaging incompatibility, not a valid older installed runtime.
+- Surface refusal as a typed relay-configuration startup rejection and record `relay_compatibility` in relay telemetry. Keep the existing `--version`, `RIPDPI-READY`, and `RIPDPI-ERROR` processing unchanged after successful preflight.
 
 ## Risks / Trade-offs
 
