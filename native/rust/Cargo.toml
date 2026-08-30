@@ -68,6 +68,7 @@ members = [
     "crates/ripdpi-pcap",
     "crates/ripdpi-ipfrag",
     "crates/ripdpi-session",
+    "crates/ripdpi-session-limit",
     "crates/ripdpi-socks5-core",
     "crates/ripdpi-ws-tunnel",
     "crates/ripdpi-subprocess-protect",
@@ -187,6 +188,7 @@ ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-pcap = { path = "crates/ripdpi-pcap" }
 ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
 ripdpi-session = { path = "crates/ripdpi-session" }
+ripdpi-session-limit = { path = "crates/ripdpi-session-limit" }
 ripdpi-socks5-core = { path = "crates/ripdpi-socks5-core" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-subprocess-protect = { path = "crates/ripdpi-subprocess-protect" }

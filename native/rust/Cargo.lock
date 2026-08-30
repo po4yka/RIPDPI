@@ -6069,6 +6069,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
+ "ripdpi-session-limit",
  "ripdpi-tunnel-core",
  "rustls",
  "serde_json",
@@ -6368,6 +6369,10 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-packets",
 ]
+
+[[package]]
+name = "ripdpi-session-limit"
+version = "0.1.0"
 
 [[package]]
 name = "ripdpi-shadowsocks"

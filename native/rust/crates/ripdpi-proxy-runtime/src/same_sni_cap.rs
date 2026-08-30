@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::DEFAULT_EXIT_IP_SESSION_CAP;
+use ripdpi_session_limit::DEFAULT_EXIT_IP_SESSION_CAP;
 
 type SessionKey = (String, String);
 

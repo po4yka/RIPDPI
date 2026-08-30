@@ -9,12 +9,10 @@
 
 mod sync;
 
-mod exit_ip_cap;
 mod process;
 mod runtime;
 mod same_sni_cap;
 
-pub use exit_ip_cap::{DEFAULT_EXIT_IP_SESSION_CAP, ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 pub use process::{ProcessGuard, ProcessSettings, prepare_embedded, process_settings};
 pub use runtime::{
     ProxyRuntimeCleanupReceipt, RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, create_listener,

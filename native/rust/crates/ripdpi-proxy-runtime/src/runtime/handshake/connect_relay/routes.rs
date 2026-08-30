@@ -3,8 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;
 use crate::SameSniProfileGuard;
-use crate::exit_ip_cap::ExitIpSessionGuard;
 use crate::runtime::types::RuntimeConnectionRoute;
+use ripdpi_session_limit::ExitIpSessionGuard;
 
 pub(super) struct UpstreamRoute {
     pub(super) upstream: TcpStream,

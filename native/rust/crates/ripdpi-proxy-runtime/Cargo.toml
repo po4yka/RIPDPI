@@ -11,6 +11,7 @@ workspace = true
 ripdpi-proxy-runtime-adapter = { workspace = true }
 ripdpi-geo = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
+ripdpi-session-limit = { workspace = true }
 tracing = { workspace = true }
 libc = { workspace = true }
 loom = { workspace = true, optional = true }

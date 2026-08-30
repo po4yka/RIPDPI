@@ -1,7 +1,7 @@
-use crate::exit_ip_cap::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use crate::{SameSniProfileCaps, SameSniProfileGuard, SameSniProfileLimiter};
 use ripdpi_proxy_runtime_adapter::model::session::TargetAddr;
+use ripdpi_session_limit::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 use std::collections::{BTreeMap, HashSet};
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::io::{self, Read};

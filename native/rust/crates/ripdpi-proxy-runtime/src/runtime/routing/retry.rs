@@ -6,9 +6,9 @@ use super::super::state::RuntimeState;
 use super::connect::connect_target_candidates_via_group;
 use super::failure::{advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure};
 use super::policy::{preferred_targets_for_transport, select_route};
-use crate::exit_ip_cap::ExitIpSessionGuard;
 use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
+use ripdpi_session_limit::ExitIpSessionGuard;
 
 pub(in crate::runtime) fn connect_target(
     target: SocketAddr,

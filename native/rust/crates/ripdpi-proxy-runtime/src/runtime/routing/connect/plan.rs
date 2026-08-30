@@ -17,7 +17,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     allow_tfo: bool,
     acquire_cap_slot: bool,
     egress: DestinationEgress,
-) -> Result<(TcpStream, Option<crate::exit_ip_cap::ExitIpSessionGuard>), ConnectAttemptError> {
+) -> Result<(TcpStream, Option<ripdpi_session_limit::ExitIpSessionGuard>), ConnectAttemptError> {
     let policy =
         state.route_connect_policy(group_index, payload, allow_tfo, egress).ok_or_else(|| ConnectAttemptError {
             source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
@@ -155,9 +155,9 @@ mod tests {
 #[cfg(all(test, not(feature = "loom")))]
 mod exit_ip_cap_wiring_tests {
     use super::*;
-    use crate::exit_ip_cap::DEFAULT_EXIT_IP_SESSION_CAP;
     use crate::runtime::config::RuntimeConfig;
     use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use ripdpi_session_limit::DEFAULT_EXIT_IP_SESSION_CAP;
     use std::net::TcpListener;
     use std::sync::mpsc;
     use std::thread;
