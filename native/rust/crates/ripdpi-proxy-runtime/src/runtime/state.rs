@@ -49,7 +49,7 @@ use super::payload::{
 };
 use super::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
-    RetryPacingPort,
+    PreferredTargetSuppressionReason, RetryPacingPort,
 };
 use super::response::{
     RuntimeFirstResponseExchangePolicy, RuntimeResponseProjection, runtime_failure_penalizes_strategy,

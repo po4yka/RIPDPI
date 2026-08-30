@@ -1,10 +1,12 @@
 use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_runtime_decision_ports::adaptive_ports::PreferredTargetSuppressionReason;
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 
 use super::direct_path_capability::{
-    capability_blocks_transport, capability_preserves_udp_transport, direct_path_capability_for_targets,
+    capability_preserves_udp_transport, capability_suppression_reason, direct_path_capability_for_hostname_targets,
+    direct_path_capability_for_targets,
 };
 
 const MAX_PREFERRED_EDGE_TARGETS: usize = 2;
@@ -14,6 +16,7 @@ pub struct PreferredTargetsDecision {
     pub targets: Vec<SocketAddr>,
     pub suppressed_targets: Vec<SocketAddr>,
     pub suppressed_udp: bool,
+    pub suppression_reason: Option<PreferredTargetSuppressionReason>,
 }
 
 pub fn preferred_targets_for_transport(
@@ -28,15 +31,44 @@ pub fn preferred_targets_for_transport(
         targets.push(original_target);
     }
 
-    let Some(capability) = direct_path_capability_for_targets(runtime_context, host, &targets) else {
-        return PreferredTargetsDecision { targets, suppressed_targets: Vec::new(), suppressed_udp: false };
+    let hostname_capability = direct_path_capability_for_hostname_targets(runtime_context, host, &targets);
+    let Some(capability) =
+        hostname_capability.or_else(|| direct_path_capability_for_targets(runtime_context, host, &targets))
+    else {
+        return PreferredTargetsDecision {
+            targets,
+            suppressed_targets: Vec::new(),
+            suppressed_udp: false,
+            suppression_reason: None,
+        };
     };
-    if !capability_blocks_transport(capability, transport, now_millis) {
-        return PreferredTargetsDecision { targets, suppressed_targets: Vec::new(), suppressed_udp: false };
+    let Some(suppression_reason) = capability_suppression_reason(capability, transport, now_millis) else {
+        return PreferredTargetsDecision {
+            targets,
+            suppressed_targets: Vec::new(),
+            suppressed_udp: false,
+            suppression_reason: None,
+        };
+    };
+    if suppression_reason == PreferredTargetSuppressionReason::OwnedStackRequired
+        && host.is_some()
+        && hostname_capability.is_none()
+    {
+        return PreferredTargetsDecision {
+            targets,
+            suppressed_targets: Vec::new(),
+            suppressed_udp: false,
+            suppression_reason: None,
+        };
     }
 
     let suppressed_udp = transport == TransportProtocol::Udp && !capability_preserves_udp_transport(capability);
-    PreferredTargetsDecision { targets: Vec::new(), suppressed_targets: targets, suppressed_udp }
+    PreferredTargetsDecision {
+        targets: Vec::new(),
+        suppressed_targets: targets,
+        suppressed_udp,
+        suppression_reason: Some(suppression_reason),
+    }
 }
 
 fn preferred_edge_targets(

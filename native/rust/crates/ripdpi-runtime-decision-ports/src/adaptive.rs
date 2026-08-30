@@ -15,6 +15,15 @@ pub struct PreferredTargets {
     pub targets: Vec<SocketAddr>,
     pub suppressed_targets: Vec<SocketAddr>,
     pub suppressed_udp: bool,
+    pub suppression_reason: Option<PreferredTargetSuppressionReason>,
+}
+
+/// Stable reason why direct-path targets were suppressed before transport I/O.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreferredTargetSuppressionReason {
+    OwnedStackRequired,
+    NoDirectSolutionCooldown,
+    UdpPolicy,
 }
 
 /// Context and morph-policy port for resolved hints and route context.

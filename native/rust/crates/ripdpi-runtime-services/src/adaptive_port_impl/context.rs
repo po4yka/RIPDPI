@@ -32,6 +32,7 @@ impl AdaptiveContextPort for ServicesStateHandle {
             targets: decision.targets,
             suppressed_targets: decision.suppressed_targets,
             suppressed_udp: decision.suppressed_udp,
+            suppression_reason: decision.suppression_reason,
         }
     }
 

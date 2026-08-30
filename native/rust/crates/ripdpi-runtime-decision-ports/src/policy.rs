@@ -111,6 +111,13 @@ pub trait DirectPathLearningPort: Send + Sync {
 
     fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
 
+    fn note_direct_path_owned_stack_required(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        observer: Option<&dyn DirectPathLearningObserver>,
+    );
+
     fn note_direct_path_quic_success(
         &self,
         host: Option<&str>,

@@ -8,7 +8,9 @@ When transparent arms (A3–A8) all fail but an owned-stack arm (A9/A10) works, 
 
 ## What Changes
 
-- Deliver the observable outcome and acceptance criteria recorded in the linked portfolio task.
+- Preserve `OWNED_STACK_REQUIRED` from the learned direct-path capability through transparent runtime admission.
+- Return protocol-specific structured rejections before any outbound connection or success reply.
+- Expose the rejection through the existing wire-preserving runtime telemetry snapshot.
 - Preserve unrelated behavior and enforce the repository validation and evidence requirements.
 
 ## Capabilities
@@ -24,4 +26,4 @@ When transparent arms (A3–A8) all fail but an owned-stack arm (A9/A10) works, 
 ## Impact
 
 - Portfolio area: `diagnostics`.
-- Exact code, contracts, migrations, and validation gates are constrained by the linked task and design.
+- Affected boundaries: runtime adaptive decision ports, proxy admission/handshake, runtime telemetry, and the Kotlin snapshot model.

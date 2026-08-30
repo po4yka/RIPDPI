@@ -37,5 +37,23 @@ The RIPDPI implementation MUST satisfy this portfolio criterion: Third-party app
 
 #### Scenario: Verify criterion 4
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Third-party apps hitting this host in transparent mode get a structured "not supported in transparent mode" result, not a silent failure
+- **WHEN** a hostname-attributed transparent TCP request matches a direct-path capability whose outcome is `OWNED_STACK_ONLY`
+- **THEN** runtime admission MUST reject it with the stable internal reason `OWNED_STACK_REQUIRED` before WebSocket fallback, delayed-connect success, relay selection, or upstream socket creation
+- **AND** a SOCKS5 client MUST receive `REP=0x02` and an HTTP CONNECT client MUST receive `403 Forbidden` with `X-RIPDPI-Reason: OWNED_STACK_REQUIRED`
+- **AND** the existing runtime telemetry snapshot MUST expose an `OWNED_STACK_REQUIRED` direct-path event without disclosing the destination in the response body
+
+#### Scenario: Preserve hostless transparent traffic
+
+- **WHEN** transparent ingress has only an original destination IP and no hostname attribution
+- **THEN** the runtime MUST NOT apply an authority-specific `OWNED_STACK_ONLY` policy based on that IP alone
+
+#### Scenario: Preserve IP-literal transparent traffic
+
+- **WHEN** a SOCKS domain field or HTTP host field carries an IPv4 or IPv6 literal instead of a DNS hostname
+- **THEN** the runtime MUST NOT treat the literal as hostname attribution or apply an IP-scoped `OWNED_STACK_ONLY` policy
+
+#### Scenario: Preserve capability scope
+
+- **WHEN** the hostname matches but the capability's non-empty IP-set digest does not match the resolved targets
+- **THEN** the runtime MUST NOT apply the `OWNED_STACK_ONLY` rejection
+- **AND** an exact matching digest MUST take priority over an empty wildcard digest regardless of capability record order

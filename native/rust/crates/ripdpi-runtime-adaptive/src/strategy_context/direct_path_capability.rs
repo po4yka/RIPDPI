@@ -2,10 +2,14 @@ use std::collections::HashSet;
 use std::net::SocketAddr;
 
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
+use ripdpi_runtime_decision_ports::adaptive_ports::PreferredTargetSuppressionReason;
 use ripdpi_runtime_policy::direct_path_learning::direct_path_ip_set_digest;
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 
-use super::authority::{direct_path_authority_candidates, direct_path_authority_candidates_for_targets};
+use super::authority::{
+    direct_path_authority_candidates, direct_path_authority_candidates_for_targets,
+    direct_path_hostname_authority_candidates,
+};
 
 pub fn direct_path_capability_for_route<'a>(
     runtime_context: Option<&'a ProxyRuntimeContext>,
@@ -28,6 +32,28 @@ pub fn direct_path_capability_for_targets<'a>(
     capabilities.iter().find(|capability| {
         candidates.contains(capability.authority.as_str())
             && (capability.ip_set_digest.trim().is_empty() || capability.ip_set_digest == ip_set_digest)
+    })
+}
+
+pub(crate) fn direct_path_capability_for_hostname_targets<'a>(
+    runtime_context: Option<&'a ProxyRuntimeContext>,
+    host: Option<&str>,
+    targets: &[SocketAddr],
+) -> Option<&'a ProxyDirectPathCapability> {
+    let capabilities = runtime_context?.direct_path_capabilities.as_slice();
+    let candidates = direct_path_hostname_authority_candidates(host, targets);
+    let ip_set_digest = direct_path_ip_set_digest(targets);
+    candidates.iter().find_map(|candidate| {
+        capabilities
+            .iter()
+            .find(|capability| {
+                capability.authority.eq_ignore_ascii_case(candidate) && capability.ip_set_digest == ip_set_digest
+            })
+            .or_else(|| {
+                capabilities.iter().find(|capability| {
+                    capability.authority.eq_ignore_ascii_case(candidate) && capability.ip_set_digest.trim().is_empty()
+                })
+            })
     })
 }
 
@@ -57,21 +83,30 @@ pub fn capability_blocks_transport(
     transport: TransportProtocol,
     now_millis: i64,
 ) -> bool {
+    capability_suppression_reason(capability, transport, now_millis).is_some()
+}
+
+pub fn capability_suppression_reason(
+    capability: &ProxyDirectPathCapability,
+    transport: TransportProtocol,
+    now_millis: i64,
+) -> Option<PreferredTargetSuppressionReason> {
     let cooldown_active = capability.cooldown_until.is_some_and(|value| value > now_millis);
     let outcome = capability.outcome.trim().to_ascii_uppercase();
     if outcome == "OWNED_STACK_ONLY" {
-        return true;
+        return Some(PreferredTargetSuppressionReason::OwnedStackRequired);
     }
     if outcome == "NO_DIRECT_SOLUTION" && cooldown_active {
-        return true;
+        return Some(PreferredTargetSuppressionReason::NoDirectSolutionCooldown);
     }
     match transport {
         TransportProtocol::Udp => {
             if capability_preserves_udp_transport(capability) {
-                return false;
+                return None;
             }
             matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
+                .then_some(PreferredTargetSuppressionReason::UdpPolicy)
         }
-        TransportProtocol::Tcp => false,
+        TransportProtocol::Tcp => None,
     }
 }

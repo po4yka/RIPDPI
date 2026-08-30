@@ -20,7 +20,7 @@ impl RuntimeState {
         Self::test_with_telemetry_and_context(config, telemetry, None)
     }
     #[cfg(test)]
-    fn test_with_telemetry_and_context(
+    pub(in crate::runtime) fn test_with_telemetry_and_context(
         config: RuntimeConfig,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
         runtime_context: Option<ProxyRuntimeContext>,

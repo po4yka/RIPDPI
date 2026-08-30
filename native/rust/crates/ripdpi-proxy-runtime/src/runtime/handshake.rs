@@ -11,16 +11,20 @@ use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
+use ripdpi_proxy_runtime_adapter::model::session::S_ER_DENY;
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
-use connect_relay::{ConnectRelayError, SuccessReply, connect_and_relay};
+use connect_relay::{ConnectPolicyRejection, ConnectRelayError, SuccessReply, connect_and_relay};
 use protocol_io::{
     negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
 };
 
 use super::state::{HANDSHAKE_TIMEOUT, RuntimeState};
 use super::types::{RuntimeClientRequest, RuntimeProxyProtocolMode, RuntimeSessionError};
+
+const OWNED_STACK_REQUIRED_HTTP_REPLY: &[u8] =
+    b"HTTP/1.1 403 Forbidden\r\nX-RIPDPI-Reason: OWNED_STACK_REQUIRED\r\nContent-Length: 0\r\n\r\n";
 
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
@@ -274,7 +278,11 @@ fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
         let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-        let code = RuntimeState::socks5_reply_code_for_kind(err.kind());
+        let code = if err.policy_rejection() == Some(ConnectPolicyRejection::OwnedStackRequired) {
+            S_ER_DENY
+        } else {
+            RuntimeState::socks5_reply_code_for_kind(err.kind())
+        };
         client.write_all(RuntimeState::encode_socks5_reply(code, fail).as_bytes())?;
     }
     Err(err.into_io_error())
@@ -282,7 +290,11 @@ fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 
 fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
-        client.write_all(RuntimeState::encode_http_connect_reply(false).as_bytes())?;
+        if err.policy_rejection() == Some(ConnectPolicyRejection::OwnedStackRequired) {
+            client.write_all(OWNED_STACK_REQUIRED_HTTP_REPLY)?;
+        } else {
+            client.write_all(RuntimeState::encode_http_connect_reply(false).as_bytes())?;
+        }
     }
     Err(err.into_io_error())
 }

@@ -171,6 +171,18 @@ impl DirectPathLearningPort for ServicesStateHandle {
         dpl.note_udp_failure(host, targets);
     }
 
+    fn note_direct_path_owned_stack_required(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        observer: Option<&dyn DirectPathLearningObserver>,
+    ) {
+        let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
+            return;
+        };
+        dpl.note_owned_stack_required(observer, host, targets);
+    }
+
     fn note_direct_path_quic_success(
         &self,
         host: Option<&str>,

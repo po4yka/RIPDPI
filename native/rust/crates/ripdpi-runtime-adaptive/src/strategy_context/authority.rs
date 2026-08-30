@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 pub(crate) fn direct_path_authority_candidates(host: Option<&str>, target: SocketAddr) -> Vec<String> {
     let mut candidates = Vec::new();
@@ -39,6 +39,25 @@ pub(crate) fn direct_path_authority_candidates_for_targets(host: Option<&str>, t
     }
     candidates.sort();
     candidates.dedup();
+    candidates
+}
+
+pub(crate) fn direct_path_hostname_authority_candidates(host: Option<&str>, targets: &[SocketAddr]) -> Vec<String> {
+    let Some(host) = normalize_authority(host) else {
+        return Vec::new();
+    };
+    let unbracketed = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host.as_str());
+    if unbracketed.parse::<IpAddr>().is_ok() {
+        return Vec::new();
+    }
+    let mut candidates = Vec::new();
+    for target in targets {
+        let candidate = format!("{host}:{}", target.port());
+        if !candidates.contains(&candidate) {
+            candidates.push(candidate);
+        }
+    }
+    candidates.push(host);
     candidates
 }
 

@@ -132,6 +132,7 @@ value class DirectPathLearningEvent(
             DirectPathLearningEvent("TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK")
         val ALL_IPS_FAILED: DirectPathLearningEvent = DirectPathLearningEvent("ALL_IPS_FAILED")
         val NO_TCP_FALLBACK_DETECTED: DirectPathLearningEvent = DirectPathLearningEvent("NO_TCP_FALLBACK_DETECTED")
+        val OWNED_STACK_REQUIRED: DirectPathLearningEvent = DirectPathLearningEvent("OWNED_STACK_REQUIRED")
 
         private val KNOWN_WIRE_VALUES: Set<String> =
             setOf(
@@ -140,6 +141,7 @@ value class DirectPathLearningEvent(
                 TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK.wire,
                 ALL_IPS_FAILED.wire,
                 NO_TCP_FALLBACK_DETECTED.wire,
+                OWNED_STACK_REQUIRED.wire,
             )
     }
 }

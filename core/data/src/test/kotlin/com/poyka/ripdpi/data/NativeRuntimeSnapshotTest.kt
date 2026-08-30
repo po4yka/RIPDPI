@@ -10,6 +10,11 @@ import org.junit.Test
 
 class NativeRuntimeSnapshotTest {
     @Test
+    fun `owned stack required runtime event is recognized`() {
+        assertTrue(DirectPathLearningEvent("OWNED_STACK_REQUIRED").isKnown)
+    }
+
+    @Test
     fun `idle snapshot has default values`() {
         val snapshot = NativeRuntimeSnapshot.idle("proxy")
         assertEquals("proxy", snapshot.source)
@@ -187,6 +192,7 @@ class NativeRuntimeSnapshotTest {
                 "TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK" to DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
                 "ALL_IPS_FAILED" to DirectPathLearningEvent.ALL_IPS_FAILED,
                 "NO_TCP_FALLBACK_DETECTED" to DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
+                "OWNED_STACK_REQUIRED" to DirectPathLearningEvent.OWNED_STACK_REQUIRED,
             )
         knownByWire.forEach { (wire, event) ->
             assertEquals(wire, event.wire)

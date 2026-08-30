@@ -4,6 +4,7 @@ use crate::runtime::config::{RuntimeConfig, WsTunnelMode};
 use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::ws::RuntimeTelegramDc;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
@@ -19,6 +20,31 @@ fn connected_pair() -> (TcpStream, TcpStream) {
 
 fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTelemetrySink>>) -> RuntimeState {
     RuntimeState::test_with_telemetry(config, telemetry)
+}
+
+fn owned_stack_context() -> ProxyRuntimeContext {
+    ProxyRuntimeContext {
+        direct_path_capabilities: vec![ProxyDirectPathCapability {
+            authority: "example.org:443".to_string(),
+            quic_usable: None,
+            udp_usable: None,
+            fallback_required: None,
+            repeated_handshake_failure_class: None,
+            transport_policy_version: 1,
+            ip_set_digest: String::new(),
+            dns_classification: None,
+            quic_mode: "ALLOW".to_string(),
+            preferred_stack: "H3".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: "NONE".to_string(),
+            outcome: "OWNED_STACK_ONLY".to_string(),
+            transport_class: None,
+            reason_code: Some("OWNED_STACK_REQUIRED".to_string()),
+            cooldown_until: None,
+            updated_at: 0,
+        }],
+        ..ProxyRuntimeContext::default()
+    }
 }
 
 #[test]
@@ -57,10 +83,65 @@ fn pre_sent_success_reply_is_propagated_to_immediate_relay() {
     assert_eq!(immediate_calls.load(StdOrdering::Relaxed), 1);
 }
 
+#[test]
+fn owned_stack_only_capability_rejects_transparent_connection_before_relay() {
+    let (_peer, mut client) = connected_pair();
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(owned_stack_context()));
+    let delay_calls = StdArc::new(AtomicUsize::new(0));
+    let ws_calls = StdArc::new(AtomicUsize::new(0));
+    let relay_calls = StdArc::new(AtomicUsize::new(0));
+
+    let err = connect_and_relay_with(
+        &mut client,
+        target,
+        &state,
+        Some("example.org".to_string()),
+        SuccessReply::None,
+        None,
+        |_client, _reply, _upstream| unreachable!("transparent mode must not send a success reply"),
+        {
+            let ws_calls = ws_calls.clone();
+            move |_client, _state| {
+                ws_calls.fetch_add(1, StdOrdering::Relaxed);
+                unreachable!("owned-stack-only connection must not start WS")
+            }
+        },
+        |_client, _seed, _state| unreachable!("owned-stack-only connection must not start WS"),
+        {
+            let delay_calls = delay_calls.clone();
+            move |_client, _state, _target, _host_hint, _handshake| {
+                delay_calls.fetch_add(1, StdOrdering::Relaxed);
+                Ok(DelayConnect::Closed)
+            }
+        },
+        {
+            let relay_calls = relay_calls.clone();
+            move |_client, _target, _state, _host, _reply, _success_reply_sent, _attempt_token| {
+                relay_calls.fetch_add(1, StdOrdering::Relaxed);
+                unreachable!("owned-stack-only connection must not start a relay")
+            }
+        },
+        |_client, _target, _state, _host, _route, _payload, _attempt_token| {
+            unreachable!("owned-stack-only connection must not start a delayed relay")
+        },
+        |_client, _target, _state, _host, _seed| unreachable!("owned-stack-only connection must not fall back"),
+    )
+    .expect_err("owned-stack-only transparent connection must be rejected");
+
+    assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+    assert_eq!(err.policy_rejection(), Some(ConnectPolicyRejection::OwnedStackRequired));
+    assert_eq!(err.into_io_error().to_string(), "OWNED_STACK_REQUIRED");
+    assert_eq!(delay_calls.load(StdOrdering::Relaxed), 0);
+    assert_eq!(ws_calls.load(StdOrdering::Relaxed), 0);
+    assert_eq!(relay_calls.load(StdOrdering::Relaxed), 0);
+}
+
 #[derive(Default)]
 struct TestTelemetry {
     ws_escalations: StdMutex<Vec<(SocketAddr, u8, bool)>>,
     ws_fake_sni_active: StdMutex<Vec<(SocketAddr, u8)>>,
+    direct_path_signals: StdMutex<Vec<(String, String, String)>>,
 }
 
 impl RuntimeTelemetrySink for TestTelemetry {
@@ -108,6 +189,92 @@ impl RuntimeTelemetrySink for TestTelemetry {
     fn on_ws_tunnel_fake_sni_active(&self, target: SocketAddr, dc: u8) {
         self.ws_fake_sni_active.lock().expect("ws fake sni lock").push((target, dc));
     }
+
+    fn on_direct_path_learning_signal(
+        &self,
+        authority: &str,
+        ip_set_digest: &str,
+        event: &'static str,
+        _strategy_family: Option<&str>,
+    ) {
+        self.direct_path_signals.lock().expect("direct path signals lock").push((
+            authority.to_string(),
+            ip_set_digest.to_string(),
+            event.to_string(),
+        ));
+    }
+}
+
+#[test]
+fn owned_stack_rejection_emits_structured_runtime_signal() {
+    let telemetry = StdArc::new(TestTelemetry::default());
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let state = RuntimeState::test_with_telemetry_and_context(
+        RuntimeConfig::default(),
+        Some(telemetry.clone()),
+        Some(owned_stack_context()),
+    );
+
+    assert!(state.owned_stack_required_for_transparent_target(target, Some("example.org"), 0));
+    let signals = telemetry.direct_path_signals.lock().expect("direct path signals lock");
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].0, "example.org:443");
+    assert!(!signals[0].1.is_empty());
+    assert_eq!(signals[0].2, "OWNED_STACK_REQUIRED");
+}
+
+#[test]
+fn hostless_transparent_target_does_not_apply_owned_stack_domain_policy() {
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let mut context = owned_stack_context();
+    context.direct_path_capabilities[0].authority = target.to_string();
+    let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(context));
+
+    assert!(!state.owned_stack_required_for_transparent_target(target, None, 0));
+}
+
+#[test]
+fn mismatched_ip_set_does_not_apply_owned_stack_policy() {
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let mut context = owned_stack_context();
+    context.direct_path_capabilities[0].ip_set_digest = "different-ip-set".to_string();
+    let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(context));
+
+    assert!(!state.owned_stack_required_for_transparent_target(target, Some("example.org"), 0));
+}
+
+#[test]
+fn hostname_target_does_not_apply_ip_scoped_owned_stack_policy() {
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let mut context = owned_stack_context();
+    context.direct_path_capabilities[0].authority = target.to_string();
+    let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(context));
+
+    assert!(!state.owned_stack_required_for_transparent_target(target, Some("unrelated.example"), 0));
+}
+
+#[test]
+fn hostname_owned_stack_policy_outranks_earlier_ip_capability() {
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let mut context = owned_stack_context();
+    let mut ip_capability = context.direct_path_capabilities[0].clone();
+    ip_capability.authority = target.to_string();
+    ip_capability.outcome = "TRANSPARENT_OK".to_string();
+    ip_capability.reason_code = None;
+    context.direct_path_capabilities.insert(0, ip_capability);
+    let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(context));
+
+    assert!(state.owned_stack_required_for_transparent_target(target, Some("example.org"), 0));
+}
+
+#[test]
+fn ip_literal_hostname_does_not_apply_ip_scoped_owned_stack_policy() {
+    let target = SocketAddr::from(([198, 51, 100, 42], 443));
+    let mut context = owned_stack_context();
+    context.direct_path_capabilities[0].authority = target.ip().to_string();
+    let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(context));
+
+    assert!(!state.owned_stack_required_for_transparent_target(target, Some("198.51.100.42"), 0));
 }
 
 fn fallback_validated_mtproto_with_fake_sni(fake_sni: Option<&str>, allow_insecure_sni: bool) -> StdArc<TestTelemetry> {

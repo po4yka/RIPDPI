@@ -9,6 +9,7 @@ use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 
 use crate::retry_stealth::RetryLane;
 
+use super::direct_path_capability::direct_path_capability_for_hostname_targets;
 use super::*;
 
 fn capability(authority: &str) -> ProxyDirectPathCapability {
@@ -156,6 +157,28 @@ fn direct_path_capability_matches_targets_with_ip_set_digest() {
         direct_path_capability_for_targets(Some(&runtime_context), Some("example.org"), &targets).expect("capability");
 
     assert_eq!(matched.authority, "example.org:443");
+}
+
+#[test]
+fn hostname_capability_prefers_exact_digest_over_wildcard_in_any_order() {
+    let targets = vec!["203.0.113.10:443".parse().expect("target")];
+    let digest = direct_path_ip_set_digest(&targets);
+    let wildcard = capability("example.org:443");
+    let mut exact = capability("example.org:443");
+    exact.ip_set_digest = digest;
+    exact.outcome = "OWNED_STACK_ONLY".to_string();
+
+    for capabilities in [vec![wildcard.clone(), exact.clone()], vec![exact.clone(), wildcard.clone()]] {
+        let runtime_context =
+            ProxyRuntimeContext { direct_path_capabilities: capabilities, ..ProxyRuntimeContext::default() };
+
+        let matched =
+            direct_path_capability_for_hostname_targets(Some(&runtime_context), Some("example.org"), &targets)
+                .expect("hostname capability");
+
+        assert_eq!(matched.ip_set_digest, exact.ip_set_digest);
+        assert_eq!(matched.outcome, "OWNED_STACK_ONLY");
+    }
 }
 
 #[test]

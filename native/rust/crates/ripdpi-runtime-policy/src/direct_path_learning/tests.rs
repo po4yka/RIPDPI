@@ -68,6 +68,20 @@ fn learner_emits_all_ips_failed_once_per_transition() {
 }
 
 #[test]
+fn owned_stack_required_signal_emits_once_per_tuple() {
+    let telemetry = RecordingTelemetry::default();
+    let targets = vec!["203.0.113.10:443".parse().expect("target")];
+    let mut learner = DirectPathLearningState::default();
+
+    learner.note_owned_stack_required(Some(&telemetry), Some("example.org"), &targets);
+    learner.note_owned_stack_required(Some(&telemetry), Some("example.org"), &targets);
+
+    let signals = telemetry.signals.lock().expect("signals");
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].2, "OWNED_STACK_REQUIRED");
+}
+
+#[test]
 fn no_tcp_fallback_timeout_emits_signal_and_tcp_attempt_clears_pending_state() {
     let telemetry = RecordingTelemetry::default();
     let targets = vec!["203.0.113.10:443".parse().expect("target")];

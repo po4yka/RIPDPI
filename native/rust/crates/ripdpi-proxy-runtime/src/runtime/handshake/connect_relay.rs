@@ -24,7 +24,7 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 use ws_fallback::run_ws_fallback_after_desync;
 use ws_first::{AlwaysWsOutcome, run_ws_always_first};
 
-pub(super) use error::ConnectRelayError;
+pub(super) use error::{ConnectPolicyRejection, ConnectRelayError};
 pub(super) use reply::SuccessReply;
 
 /// Common connect-relay-WS fallback flow used by all protocol handlers except shadowsocks.
@@ -123,6 +123,13 @@ where
             io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"),
             false,
         ));
+    }
+    if state.owned_stack_required_for_transparent_target(
+        target,
+        host_hint.as_deref(),
+        super::super::adaptive::now_millis(),
+    ) {
+        return Err(ConnectRelayError::owned_stack_required());
     }
     let defer_ws_for_destination = destination_egress == DestinationEgress::Direct
         || (host_hint.is_none() && state.destination_policy_may_need_host());

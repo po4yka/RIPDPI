@@ -15,6 +15,7 @@ pub(super) struct TupleState {
     pub(super) tls_post_client_hello_failed: bool,
     pub(super) pending_udp_suppressed_at_ms: Option<u64>,
     pub(super) terminal_state: Option<TerminalState>,
+    pub(super) owned_stack_required_emitted: bool,
     /// Per-arm attempt counters. Keys are static arm labels matching
     /// `RankedArm::label`; values are the number of attempts recorded for the
     /// current block-class window. Cleared alongside the rest of the negative

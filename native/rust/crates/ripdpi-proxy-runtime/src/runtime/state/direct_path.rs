@@ -43,6 +43,36 @@ impl RuntimeState {
         }
         decision.targets
     }
+    pub(in crate::runtime) fn owned_stack_required_for_transparent_target(
+        &self,
+        original_target: SocketAddr,
+        host: Option<&str>,
+        now_ms: i64,
+    ) -> bool {
+        let Some(host) = host.map(str::trim).filter(|host| !host.is_empty()) else {
+            return false;
+        };
+        let decision = AdaptiveContextPort::preferred_targets(
+            &self.services,
+            self.runtime_context.as_ref(),
+            original_target,
+            Some(host),
+            RuntimeTransportProtocol::Tcp,
+            now_ms,
+        );
+        if decision.suppression_reason != Some(PreferredTargetSuppressionReason::OwnedStackRequired) {
+            return false;
+        }
+
+        let observer = self.direct_path_observer();
+        DirectPathLearningPort::note_direct_path_owned_stack_required(
+            &self.services,
+            Some(host),
+            &decision.suppressed_targets,
+            observer.as_ref().map(|observer| observer as &dyn DirectPathLearningObserver),
+        );
+        true
+    }
     pub(in crate::runtime) fn note_direct_path_udp_suppressed(
         &self,
         host: Option<&str>,

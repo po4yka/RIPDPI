@@ -59,6 +59,23 @@ impl DirectPathLearningState {
         entry.terminal_state = None;
     }
 
+    pub fn note_owned_stack_required(
+        &mut self,
+        observer: Option<&dyn DirectPathLearningObserver>,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+    ) {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+            return;
+        };
+        let entry = self.tuples.entry(tuple_key.clone()).or_default();
+        if entry.owned_stack_required_emitted {
+            return;
+        }
+        entry.owned_stack_required_emitted = true;
+        emit_learning_signal(observer, &tuple_key, "OWNED_STACK_REQUIRED", None);
+    }
+
     pub fn note_tls_post_client_hello_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
