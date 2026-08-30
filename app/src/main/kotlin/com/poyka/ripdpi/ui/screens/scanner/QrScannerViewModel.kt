@@ -47,6 +47,20 @@ class QrScannerViewModel
     constructor() : ViewModel() {
         private val _uiState = MutableStateFlow(QrScannerUiState())
         val uiState: StateFlow<QrScannerUiState> = _uiState.asStateFlow()
+        private var cameraPermissionRequestSessionId: String? = null
+
+        /** Requests camera permission at most once for each navigation session. */
+        internal fun requestCameraPermissionOnce(
+            sessionId: String,
+            cameraPermissionGranted: Boolean,
+            requestCameraPermission: () -> Unit,
+        ) {
+            if (cameraPermissionRequestSessionId == sessionId) return
+            cameraPermissionRequestSessionId = sessionId
+            if (!cameraPermissionGranted) {
+                requestCameraPermission()
+            }
+        }
 
         /** Advances the camera state machine from the runtime-permission result. */
         fun onCameraPermissionResult(granted: Boolean) {

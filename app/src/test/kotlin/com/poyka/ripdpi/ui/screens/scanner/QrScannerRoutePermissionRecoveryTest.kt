@@ -19,7 +19,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * Regression coverage for UIX-1786264762917972: the scanner route's camera
- * permission bootstrap must re-run when the runtime grant state changes while
+ * permission synchronization must re-run when the runtime grant state changes while
  * the composition stays alive (e.g. the user grants the permission from
  * system settings and returns without the activity being recreated).
  */
@@ -39,7 +39,7 @@ class QrScannerRoutePermissionRecoveryTest {
             hostLifecycle = LocalLifecycleOwner.current.lifecycle
             val granted = rememberCameraPermissionGranted(context)
             LaunchedEffect(granted) {
-                effects += if (granted) "granted" else "request"
+                effects += if (granted) "granted" else "denied"
             }
         }
         composeRule.waitForIdle()
@@ -47,14 +47,14 @@ class QrScannerRoutePermissionRecoveryTest {
     }
 
     @Test
-    fun `grant while composed rekeys bootstrap effect`() {
+    fun `grant while composed rekeys permission state effect`() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         Shadows.shadowOf(context).denyPermissions(Manifest.permission.CAMERA)
         val effects = mutableListOf<String>()
 
         val registry = setContentRecording(context, effects) as LifecycleRegistry
 
-        assertEquals(listOf("request"), effects)
+        assertEquals(listOf("denied"), effects)
 
         Shadows.shadowOf(context).grantPermissions(Manifest.permission.CAMERA)
         composeRule.runOnUiThread {
@@ -63,11 +63,11 @@ class QrScannerRoutePermissionRecoveryTest {
         }
         composeRule.waitForIdle()
 
-        assertEquals(listOf("request", "granted"), effects)
+        assertEquals(listOf("denied", "granted"), effects)
     }
 
     @Test
-    fun `revoke while composed rekeys bootstrap effect`() {
+    fun `revoke while composed rekeys permission state effect`() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         Shadows.shadowOf(context).grantPermissions(Manifest.permission.CAMERA)
         val effects = mutableListOf<String>()
@@ -83,26 +83,49 @@ class QrScannerRoutePermissionRecoveryTest {
         }
         composeRule.waitForIdle()
 
-        assertEquals(listOf("granted", "request"), effects)
+        assertEquals(listOf("granted", "denied"), effects)
     }
 
     @Test
-    fun `revoked permission clears scanner state before requesting again`() {
+    fun `revoked permission clears scanner state without requesting again`() {
+        val viewModel = QrScannerViewModel()
+
+        viewModel.syncCameraPermission(cameraPermissionGranted = true)
+        assertEquals(ScannerCameraState.SCANNING, viewModel.uiState.value.cameraState)
+
+        viewModel.syncCameraPermission(cameraPermissionGranted = false)
+
+        assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
+    }
+
+    @Test
+    fun `camera permission is requested once per scanner session`() {
         val viewModel = QrScannerViewModel()
         var permissionRequests = 0
 
-        viewModel.bootstrapCameraPermission(
+        viewModel.requestCameraPermissionOnce(
+            sessionId = "session-1",
             cameraPermissionGranted = true,
             requestCameraPermission = { permissionRequests += 1 },
         )
-        assertEquals(ScannerCameraState.SCANNING, viewModel.uiState.value.cameraState)
-
-        viewModel.bootstrapCameraPermission(
+        viewModel.requestCameraPermissionOnce(
+            sessionId = "session-1",
+            cameraPermissionGranted = false,
+            requestCameraPermission = { permissionRequests += 1 },
+        )
+        repeat(2) {
+            viewModel.requestCameraPermissionOnce(
+                sessionId = "session-2",
+                cameraPermissionGranted = false,
+                requestCameraPermission = { permissionRequests += 1 },
+            )
+        }
+        viewModel.requestCameraPermissionOnce(
+            sessionId = "session-3",
             cameraPermissionGranted = false,
             requestCameraPermission = { permissionRequests += 1 },
         )
 
-        assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
-        assertEquals(1, permissionRequests)
+        assertEquals(2, permissionRequests)
     }
 }

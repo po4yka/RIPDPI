@@ -55,9 +55,12 @@ import kotlinx.coroutines.launch
  * flow degrades gracefully: a denied permission keeps the image-file-pick fallback
  * ([QrImageScanner]) available rather than bricking the screen. Invalid QR content shows
  * a redacted error (first 16 chars only); the full payload is never logged.
+ * Camera permission is requested once per [sessionId]; later grant-state changes only
+ * synchronize the scanner state, so an explicit revocation is not immediately re-prompted.
  */
 @Composable
 fun QrScannerRoute(
+    sessionId: String,
     onBack: () -> Unit,
     onProfileScanned: (ProxyImportRequest.Profile) -> Unit,
     modifier: Modifier = Modifier,
@@ -81,13 +84,18 @@ fun QrScannerRoute(
         }
 
     // The camera permission is the data-determining argument for the
-    // bootstrap effect below: it is re-evaluated whenever the host resumes,
+    // state synchronization effect below: it is re-evaluated whenever the host resumes,
     // so a grant made from system settings while this destination stays
     // composed still reaches the scanner state machine.
     val cameraPermissionGranted = rememberCameraPermissionGranted(context)
 
     LaunchedEffect(cameraPermissionGranted) {
-        viewModel.bootstrapCameraPermission(
+        viewModel.syncCameraPermission(cameraPermissionGranted)
+    }
+
+    LaunchedEffect(sessionId) {
+        viewModel.requestCameraPermissionOnce(
+            sessionId = sessionId,
             cameraPermissionGranted = cameraPermissionGranted,
             requestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
         )
@@ -247,7 +255,7 @@ private fun CameraPreview(
  * host lifecycle resumes, so a permission granted (or revoked) from system
  * settings while this destination stays composed is picked up without an
  * activity recreation. This is the data-determining key for the scanner's
- * bootstrap [LaunchedEffect] in [QrScannerRoute].
+ * state synchronization [LaunchedEffect] in [QrScannerRoute].
  */
 @Composable
 internal fun rememberCameraPermissionGranted(context: Context): Boolean {
@@ -270,14 +278,6 @@ private fun isCameraPermissionGranted(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
 
-internal fun QrScannerViewModel.bootstrapCameraPermission(
-    cameraPermissionGranted: Boolean,
-    requestCameraPermission: () -> Unit,
-) {
-    if (cameraPermissionGranted) {
-        onCameraPermissionResult(granted = true)
-    } else {
-        onCameraPermissionResult(granted = false)
-        requestCameraPermission()
-    }
+internal fun QrScannerViewModel.syncCameraPermission(cameraPermissionGranted: Boolean) {
+    onCameraPermissionResult(granted = cameraPermissionGranted)
 }

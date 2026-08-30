@@ -815,8 +815,9 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
             onBack = { navController.popBackStack() },
         )
     }
-    composable<Route.QrScanner> {
+    composable<Route.QrScanner> { backStackEntry ->
         QrScannerRoute(
+            sessionId = backStackEntry.id,
             onBack = { navController.popBackStack() },
             onProfileScanned = { request ->
                 navController.navigateProfileImport(request)
