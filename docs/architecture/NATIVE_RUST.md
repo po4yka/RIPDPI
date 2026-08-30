@@ -12,8 +12,8 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **115 crates**, all under `native/rust/crates/`. Every directory is a declared
-  `[workspace] members` entry — **no orphan directories, no missing members.**
+- **All crates** under `native/rust/crates/` are declared as
+  `[workspace]` members — **no orphan directories, no missing members.**
 - `edition = "2024"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
   `android-jni` (inherits `release`, **fat LTO**, `opt-level = "z"`,
@@ -29,7 +29,7 @@ and the `native/rust/crates/` tree.
 
 ## 1. Production artifacts
 
-Ten crates are artifact roots: nine Android-packaged artifacts plus the desktop-only `ripdpi` CLI. Everything else is a library crate compiled **into** one of them. Android artifacts are produced by the `ripdpi.android.rust-native`
+Ten crates are artifact roots: nine Android-packaged artifacts plus the desktop-only `ripdpi` CLI. Other crates are reusable libraries; most are compiled **into** one or more artifact roots, while opt-in libraries such as `ripdpi-traffic-shape` remain available until an owning runtime selects them. Android artifacts are produced by the `ripdpi.android.rust-native`
 convention plugin
 ([`build-logic/.../ripdpi.android.rust-native.gradle.kts`](../../build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts)).
 
@@ -85,7 +85,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L0 | **support / test / dev** | 8 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli`, `soundness-canaries` |
 | L1 | **protocol / core** | 14 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-network-time`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
-| L3 | **domain logic** | 18 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
+| L3 | **domain logic** | 19 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry`, `ripdpi-traffic-shape` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 9 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 14 | 10 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
@@ -220,6 +220,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-session-limit` | Per-exit-IP physical-session admission | Limiter + RAII guard | — (leaf) | Shared by independent runtime owners | Keep |
 | `ripdpi-shared-priors` | Offline-learner signed shared-priors bundles | Parser + verifier API | — (leaf) | Fail-secure parser (see architecture/README) | Keep |
 | `ripdpi-quality` | Rolling-window connection-quality telemetry | Quality-window API | — (leaf) | Consumed by tunnel/relay/warp Android adapters | Keep |
+| `ripdpi-traffic-shape` | Cooperative fixed-clock framed-stream shaping | `Shaper`, profiles, overhead counters | — (leaf) | Both peers must implement the codec; no lower-layer packet-boundary guarantee | Keep opt-in and default-off |
 | `ripdpi-runtime-decision-engine` | Delegating runtime-decision facade over decision ports and services | Decision API | `ripdpi-runtime-decision-ports`, `ripdpi-runtime-services` | Thin facade; keep policy logic centralized here | Keep |
 | `ripdpi-runtime-policy` | Runtime policy logic | Policy types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
 | `ripdpi-runtime-adaptive` | Adaptive runtime (UCB1 / bandit scoring) | Scorer API | `ripdpi-runtime-policy`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |

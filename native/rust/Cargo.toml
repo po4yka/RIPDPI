@@ -45,6 +45,7 @@ members = [
     "crates/ripdpi-shared-priors",
     "crates/ripdpi-ws-bootstrap",
     "crates/ripdpi-telemetry",
+    "crates/ripdpi-traffic-shape",
     "crates/ripdpi-native-protect",
     "crates/ripdpi-flow-app-attribution",
     "crates/ripdpi-android-bridge-support",
@@ -168,6 +169,7 @@ ripdpi-runtime-strategy = { path = "crates/ripdpi-runtime-strategy" }
 ripdpi-shared-priors = { path = "crates/ripdpi-shared-priors" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
+ripdpi-traffic-shape = { path = "crates/ripdpi-traffic-shape" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
 ripdpi-flow-app-attribution = { path = "crates/ripdpi-flow-app-attribution" }
 ripdpi-android-bridge-support = { path = "crates/ripdpi-android-bridge-support" }

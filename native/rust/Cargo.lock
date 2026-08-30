@@ -6596,6 +6596,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-traffic-shape"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "tokio",
+]
+
+[[package]]
 name = "ripdpi-trojan"
 version = "0.1.0"
 dependencies = [

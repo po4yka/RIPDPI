@@ -1,0 +1,15 @@
+[package]
+name = "ripdpi-traffic-shape"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+futures = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "macros", "rt", "rt-multi-thread", "test-util", "time"] }
+
+[lints]
+workspace = true

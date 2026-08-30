@@ -2,27 +2,27 @@
 id: RST-1786264762917193
 title: Add constant-rate traffic shaping with VoIP camouflage profile
 kind: feature
-status: backlog
+status: doing
 area: rust-native
 priority: medium
-owner: unassigned
+owner: codex
 parent: EPC-1786264762917282
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage
 created: 2026-05-16
-updated: 2026-06-11
+updated: 2026-08-30
 ---
 
 ## Summary
 
-Add an outbound traffic-shaping layer that emits packets at a fixed rate and size (e.g. 200-byte UDP every 20 ms — Opus-over-RTP shape) regardless of payload arrival rate. This defeats both inter-packet-arrival-time (IPAT) and packet-size-distribution fingerprinting that DPI uses to distinguish "bulk file transfer masquerading as VoIP" from real VoIP.
+Add an outbound traffic-shaping layer that emits framed records at a fixed rate and size (for example, a 200-byte application record every 20 ms) regardless of payload arrival rate. The layer is a cooperative, default-off research component for normalizing application-level timing and size patterns between two endpoints that both implement the same codec.
 
 ## Context
 
-Even when the wire protocol is indistinguishable (e.g. MASQUE+H3), the *traffic shape* leaks the underlying application. Bulk transfers burst then idle; VoIP holds a constant rate. ML-based DPI classifiers in Russia, Iran, and the GFW exploit this for high- precision blocking.
+Even when a transport uses a modern encrypted tunnel, the *application-level traffic shape* can still reveal coarse behavior. Bulk transfers burst then idle; real-time media tends to keep a steadier cadence. Some middleboxes and QoS systems classify flows from inter-packet-arrival-time (IPAT) and size-distribution signals, so the research value here is a bounded, measurable normalizer rather than a lower-layer packet guarantee.
 
-A shaper pads outgoing payloads to a fixed size and emits them on a fixed clock; incoming reverse direction is also padded so the peer sees the same shape. Cost: ~50% bandwidth overhead at low real-payload rates, mostly invisible at higher rates because the shaper's natural rate accommodates the real payload.
+A cooperative shaper pads outgoing payloads to a fixed frame size and emits them on a fixed application clock; incoming reverse direction is decoded through the same framed contract. Cost: approximately 50% bandwidth overhead at low real-payload rates, lower at higher rates when the shaper's natural rate accommodates the real payload.
 
 ## Acceptance criteria
 
@@ -31,6 +31,12 @@ A shaper pads outgoing payloads to a fixed size and emits them on a fixed clock;
 - [ ] Configurable via `core:data:model` typed schema.
 - [ ] Unit tests verify: outgoing rate stays within ±5% of target over 1000 ticks; size distribution is constant; reverse-path padding round-trips cleanly.
 - [ ] Telemetry counters for bytes-padded vs bytes-real (so operators can see the overhead).
+
+## Implementation contract (2026-08-30)
+
+The 2026-08-30 owner decision supersedes the June spike's proposed graduation target for this portfolio item. This item now owns a reusable cooperative framed-stream library and default-off typed schema, not automatic activation in an existing relay. Both endpoints must run the same codec; VLESS, MASQUE, Hysteria2, TUIC, and other deployed relay servers do not understand its framing.
+
+The tests observe application-level shaped frames. TLS, TCP, and QUIC may coalesce or split writes below this layer, so completion does not claim a fixed lower-layer wire-packet distribution. The June spike remains the historical rationale against automatic relay activation; datagram activation and Android low-power gating require separately scoped product work.
 
 ## Risks / open questions
 

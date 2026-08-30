@@ -1,50 +1,56 @@
 ## Purpose
 
-Define the observable completion contract for Add constant-rate traffic shaping with VoIP camouflage profile. Add an outbound traffic-shaping layer that emits packets at a fixed rate and size (e.g. 200-byte UDP every 20 ms — Opus-over-RTP shape) regardless of payload arrival rate. This defeats both inter-packet-arrival-time (IPAT) and packet-size-distribution fingerprinting that DPI uses to distinguish "bulk file transfer masquerading as VoIP" from real VoIP
+Define the observable completion contract for Add constant-rate traffic shaping with VoIP camouflage profile. The change adds an outbound traffic-shaping layer that emits cooperative application records at a fixed rate and size (for example, a 200-byte record every 20 ms) regardless of payload arrival rate. Both endpoints must implement the same codec; the contract is application-level framing, not a claim about TLS, TCP, QUIC, or UDP packet boundaries.
 
 ## ADDED Requirements
 
-### Requirement: REQ-RST-1786264762917193-001 — New crate ripdpi-traffic-shape with a Shaper trait that wraps any AsyncRead + A…
+### Requirement: REQ-RST-1786264762917193-001 — Cooperative stream wrapper
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: New crate ripdpi-traffic-shape with a Shaper trait that wraps any AsyncRead + AsyncWrite stream.
+The implementation MUST provide a `ripdpi-traffic-shape` crate whose `Shaper` trait wraps any owned `AsyncRead + AsyncWrite + Unpin + Send + 'static` stream on a Tokio runtime. Both endpoints MUST use the same framed codec, and the API MUST remain opt-in.
 
 #### Scenario: Verify criterion 1
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that New crate ripdpi-traffic-shape with a Shaper trait that wraps any AsyncRead + AsyncWrite stream
+- **WHEN** two wrappers are connected through an in-memory stream
+- **THEN** real bytes written at one endpoint MUST be recovered unchanged at the other endpoint
+- **AND** malformed or truncated framing MUST fail instead of being treated as clean EOF
 
-### Requirement: REQ-RST-1786264762917193-002 — At least two preset profiles: opusvoip (200-byte / 20 ms) and webrtcvideo (vari…
+### Requirement: REQ-RST-1786264762917193-002 — Closed bounded profiles
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: At least two preset profiles: opusvoip (200-byte / 20 ms) and webrtcvideo (variable but bounded).
+The implementation MUST expose `opus_voip` at 200 bytes / 20 ms and `webrtc_video` as a deterministic variable-size profile bounded to 600..=1200 bytes / 10 ms.
 
 #### Scenario: Verify criterion 2
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that At least two preset profiles: opusvoip (200-byte / 20 ms) and webrtcvideo (variable but bounded)
+- **WHEN** four `webrtc_video` ticks are observed
+- **THEN** their framed sizes MUST be 600, 900, 1200, and 900 bytes
+- **AND** `opus_voip` frames MUST remain exactly 200 bytes
 
-### Requirement: REQ-RST-1786264762917193-003 — Configurable via core:data:model typed schema
+### Requirement: REQ-RST-1786264762917193-003 — Default-off typed schema
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Configurable via core:data:model typed schema.
+`core:data:model` MUST provide a serializable closed `TrafficShapeProfile` with stable `off`, `opus_voip`, and `webrtc_video` identifiers plus their declared size and interval bounds. The default configuration MUST be `off`.
 
 #### Scenario: Verify criterion 3
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Configurable via core:data:model typed schema
+- **WHEN** a default `TrafficShapeConfig` is constructed
+- **THEN** shaping MUST be disabled
+- **AND** serialization MUST preserve the three stable identifiers
 
-### Requirement: REQ-RST-1786264762917193-004 — Unit tests verify: outgoing rate stays within ±5% of target over 1000 ticks; si…
+### Requirement: REQ-RST-1786264762917193-004 — Deterministic pacing and bounded backpressure
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Unit tests verify: outgoing rate stays within ±5% of target over 1000 ticks; size distribution is constant; reverse-path padding round-trips cleanly.
+Tests MUST verify the 1,000-tick Opus interval within ±5%, fixed 200-byte framed size, reverse-path round-trip, and lossless backpressure for a payload larger than the internal queue.
 
 #### Scenario: Verify criterion 4
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Unit tests verify: outgoing rate stays within ±5% of target over 1000 ticks; size distribution is constant; reverse-path padding round-trips cleanly
+- **WHEN** Tokio virtual time drives 1,000 `opus_voip` ticks
+- **THEN** elapsed monotonic time MUST remain within ±5% of 20 seconds
+- **AND** every framed record MUST be 200 bytes
+- **AND** payloads larger than 64 KiB MUST round-trip without truncation
 
-### Requirement: REQ-RST-1786264762917193-005 — Telemetry counters for bytes-padded vs bytes-real (so operators can see the ove…
+### Requirement: REQ-RST-1786264762917193-005 — Aggregate overhead telemetry
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: Telemetry counters for bytes-padded vs bytes-real (so operators can see the overhead).
+Each shaped endpoint MUST expose lock-free aggregate counters for transmitted/received real bytes, transmitted/received framing-plus-padding bytes, and transmitted dummy frames. No payload bytes or peer identifiers may enter telemetry.
 
 #### Scenario: Verify criterion 5
 
-- **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that Telemetry counters for bytes-padded vs bytes-real (so operators can see the overhead)
+- **WHEN** a profile cycle carries real data and dummy frames
+- **THEN** the snapshot MUST report exact real, padded, and dummy totals
+- **AND** reading telemetry MUST NOT change emitted bytes
