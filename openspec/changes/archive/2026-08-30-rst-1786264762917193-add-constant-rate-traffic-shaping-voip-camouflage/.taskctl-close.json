@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage",
+  "evidence_summary": "Implemented in 35ee6c5f2a31b869781bf2277d2c442f74bae18d; 8 Rust contract tests, clippy -D warnings, Kotlin model tests/ktlint/detekt, cargo-deny, locked metadata, architecture contracts/health, strict OpenSpec, owner review, async cancel-safety audit, and legal review passed locally. GitHub CI was not launched or monitored per user instruction.",
+  "execution_sha256": "45002066220f7f6086a0c81d6c171428c35dcdb1f9c503345872a7c45c64bbf5",
+  "issue_sha256": "b059d7a59e75cc3725bd26a72043c54419bc1279d55ec0c8482ebe336ac13b6e",
+  "outcome": "done",
+  "prepared_at": "2026-08-30T14:14:26Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1786264762917193"
+}

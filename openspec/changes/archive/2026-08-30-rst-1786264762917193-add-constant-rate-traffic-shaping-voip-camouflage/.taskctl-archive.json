@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-30T14:14:26Z",
+  "change": "rst-1786264762917193-add-constant-rate-traffic-shaping-voip-camouflage",
+  "commit_sha": "35ee6c5f2a31b869781bf2277d2c442f74bae18d",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1786264762917193"
+}

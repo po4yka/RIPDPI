@@ -2,7 +2,7 @@
 id: RST-1786264762917193
 title: Add constant-rate traffic shaping with VoIP camouflage profile
 kind: feature
-status: review
+status: done
 area: rust-native
 priority: medium
 owner: codex
@@ -13,6 +13,9 @@ openspec_change: rst-1786264762917193-add-constant-rate-traffic-shaping-voip-cam
 created: 2026-05-16
 updated: 2026-08-30
 status_detail: Implementation and local verification complete; owner, async cancel-safety, and legal reviews passed.
+closed_at: "2026-08-30T14:14:26Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implemented in 35ee6c5f2a31b869781bf2277d2c442f74bae18d; 8 Rust contract tests, clippy -D warnings, Kotlin model tests/ktlint/detekt, cargo-deny, locked metadata, architecture contracts/health, strict OpenSpec, owner review, async cancel-safety audit, and legal review passed locally. GitHub CI was not launched or monitored per user instruction.
 ---
 
 ## Summary
