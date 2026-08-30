@@ -2,16 +2,16 @@
 id: RST-1786264762917044
 title: Add optional Cloudflare Workers transport mode
 kind: feature
-status: backlog
+status: doing
 area: rust-native
 priority: medium
-owner: unassigned
+owner: codex
 parent: null
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917044-add-cloudflare-workers-transport-mode
 created: 2026-05-16
-updated: 2026-06-10
+updated: 2026-08-30
 ---
 
 ## Summary
@@ -26,10 +26,10 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 
 ## Acceptance criteria
 
-- [ ] Operator-supplied Worker URL + auth bearer is consumable via `core:data:model` typed schema.
-- [ ] WS-tunnel transport variant routes through the Worker, using the Worker hostname for SNI and TLS, the real target in a `X-Ripdpi-Upstream` header.
+- [ ] Operator-supplied Worker URL and credential reference are consumable through a `core:data:model` typed schema; the auth bearer is loaded from Android-Keystore-backed storage and never persisted in AppSettings, backup, or remembered-policy JSON.
+- [ ] The optional Telegram WS-tunnel route connects to the Worker hostname with verified TLS/SNI and sends the canonical Telegram gateway URL in `X-Ripdpi-Upstream` plus the bearer in `Authorization`; direct WS-tunnel behavior remains unchanged when the route is absent.
 - [ ] At least one reference Worker script under `docs/native/cloudflare-workers/relay.js` that operators can deploy.
-- [ ] Loopback test (against a mock HTTP/2 server) exercises the Worker-routed path.
+- [ ] A loopback test against a mock TLS WebSocket edge exercises the same RFC 6455 upgrade and framed relay path used in production.
 - [ ] `docs/native/cloudflare-tunnel-operations.md` documents deployment, cost model, and rate-limit considerations.
 
 ## Risks / open questions
@@ -46,3 +46,4 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 ## Work log
 
 - 2026-06-05: No implementation exists — no Workers URL/auth schema fields, no WS-tunnel Workers variant, no `docs/native/cloudflare-workers/` dir or `relay.js`, no loopback test, and `docs/native/cloudflare-tunnel-operations.md` covers cloudflare_tunnel mode only (not the optional Workers transport). All 5 acceptance criteria remain unstarted.
+- 2026-08-30: Implementation audit confirmed this is an opt-in route for the existing Telegram RFC 6455 WS tunnel, not the `cloudflare_tunnel` relay kind. The old HTTP/2 mock criterion could not exercise that production path, so it was corrected to a TLS WebSocket edge loopback. The bearer is explicitly separated from AppSettings persistence.
