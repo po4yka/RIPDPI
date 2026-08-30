@@ -58,6 +58,12 @@ class QrScannerViewModel
             if (cameraPermissionRequestSessionId == sessionId) return
             cameraPermissionRequestSessionId = sessionId
             if (!cameraPermissionGranted) {
+                _uiState.update {
+                    it.copy(
+                        cameraState = ScannerCameraState.REQUESTING_PERMISSION,
+                        imageFallbackAvailable = true,
+                    )
+                }
                 requestCameraPermission()
             }
         }

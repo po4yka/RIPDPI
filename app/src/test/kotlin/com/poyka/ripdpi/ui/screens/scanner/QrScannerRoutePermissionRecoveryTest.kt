@@ -3,6 +3,9 @@ package com.poyka.ripdpi.ui.screens.scanner
 import android.Manifest
 import android.app.Application
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleRegistry
@@ -127,5 +130,38 @@ class QrScannerRoutePermissionRecoveryTest {
         )
 
         assertEquals(2, permissionRequests)
+    }
+
+    @Test
+    fun `grant state change in same session cancels stale permission prompt`() {
+        val viewModel = QrScannerViewModel()
+        lateinit var permissionGranted: MutableState<Boolean>
+        var permissionRequests = 0
+
+        composeRule.setContent {
+            permissionGranted = remember { mutableStateOf(false) }
+            QrScannerPermissionEffects(
+                sessionId = "session-1",
+                cameraPermissionGranted = permissionGranted.value,
+                viewModel = viewModel,
+                requestCameraPermission = { permissionRequests += 1 },
+            )
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, permissionRequests)
+        assertEquals(ScannerCameraState.REQUESTING_PERMISSION, viewModel.uiState.value.cameraState)
+
+        composeRule.runOnUiThread { permissionGranted.value = true }
+        composeRule.waitForIdle()
+
+        assertEquals(1, permissionRequests)
+        assertEquals(ScannerCameraState.SCANNING, viewModel.uiState.value.cameraState)
+
+        composeRule.runOnUiThread { permissionGranted.value = false }
+        composeRule.waitForIdle()
+
+        assertEquals(1, permissionRequests)
+        assertEquals(ScannerCameraState.PERMISSION_DENIED, viewModel.uiState.value.cameraState)
     }
 }

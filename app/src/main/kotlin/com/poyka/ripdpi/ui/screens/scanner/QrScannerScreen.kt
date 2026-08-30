@@ -89,17 +89,12 @@ fun QrScannerRoute(
     // composed still reaches the scanner state machine.
     val cameraPermissionGranted = rememberCameraPermissionGranted(context)
 
-    LaunchedEffect(cameraPermissionGranted) {
-        viewModel.syncCameraPermission(cameraPermissionGranted)
-    }
-
-    LaunchedEffect(sessionId) {
-        viewModel.requestCameraPermissionOnce(
-            sessionId = sessionId,
-            cameraPermissionGranted = cameraPermissionGranted,
-            requestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-        )
-    }
+    QrScannerPermissionEffects(
+        sessionId = sessionId,
+        cameraPermissionGranted = cameraPermissionGranted,
+        viewModel = viewModel,
+        requestCameraPermission = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+    )
 
     LaunchedEffect(uiState.importRequest) {
         val request = uiState.importRequest
@@ -280,4 +275,26 @@ private fun isCameraPermissionGranted(context: Context): Boolean =
 
 internal fun QrScannerViewModel.syncCameraPermission(cameraPermissionGranted: Boolean) {
     onCameraPermissionResult(granted = cameraPermissionGranted)
+}
+
+@Composable
+internal fun QrScannerPermissionEffects(
+    sessionId: String,
+    cameraPermissionGranted: Boolean,
+    viewModel: QrScannerViewModel,
+    requestCameraPermission: () -> Unit,
+) {
+    val currentRequestCameraPermission by rememberUpdatedState(requestCameraPermission)
+
+    LaunchedEffect(cameraPermissionGranted) {
+        viewModel.syncCameraPermission(cameraPermissionGranted)
+    }
+
+    LaunchedEffect(sessionId, cameraPermissionGranted) {
+        viewModel.requestCameraPermissionOnce(
+            sessionId = sessionId,
+            cameraPermissionGranted = cameraPermissionGranted,
+            requestCameraPermission = currentRequestCameraPermission,
+        )
+    }
 }
