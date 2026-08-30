@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.example/contract/observability-evidence.schema.json",
+  "title": "RIPDPI observability evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generation",
+    "manifest_generation",
+    "manifest_source_id",
+    "inventory_generation",
+    "inventory_source_id",
+    "targets"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generation": {"$ref": "#/$defs/alias"},
+    "manifest_generation": {"$ref": "#/$defs/alias"},
+    "manifest_source_id": {"$ref": "#/$defs/alias"},
+    "inventory_generation": {"$ref": "#/$defs/alias"},
+    "inventory_source_id": {"$ref": "#/$defs/alias"},
+    "targets": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/target"}
+    }
+  },
+  "$defs": {
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "metricName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z_:][a-zA-Z0-9_:]*$"
+    },
+    "labelValue": {"type": "string", "minLength": 1, "maxLength": 64},
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "labels", "value"],
+      "properties": {
+        "family": {"$ref": "#/$defs/metricName"},
+        "labels": {
+          "type": "object",
+          "maxProperties": 8,
+          "propertyNames": {"$ref": "#/$defs/alias"},
+          "additionalProperties": {"$ref": "#/$defs/labelValue"}
+        },
+        "value": {"type": "number"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "status", "observed_at", "samples"],
+      "properties": {
+        "target": {"$ref": "#/$defs/alias"},
+        "status": {"enum": ["valid", "malformed"]},
+        "observed_at": {"type": "integer", "minimum": 0},
+        "samples": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {"$ref": "#/$defs/sample"}
+        }
+      }
+    }
+  }
+}

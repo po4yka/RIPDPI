@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "generation": "manifest-v1",
+  "source_id": "manifest-source-v1",
+  "families": [
+    {
+      "name": "vpn_watchdog_collection_success",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": ["node", "role"],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    }
+  ]
+}

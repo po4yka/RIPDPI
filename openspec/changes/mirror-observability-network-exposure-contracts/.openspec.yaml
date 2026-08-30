@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-08-30"
+goal: DAT-1788100001077419 Mirror observability and network exposure contracts
+affected_areas: ["data"]
+skip_specs: false
+retire_capabilities: false
