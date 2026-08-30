@@ -2,7 +2,7 @@
 id: DGN-1786264762917717
 title: Report OWNED_STACK_ONLY verdict from diagnostic
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1786264762917717-report-owned-stack-only-verdict-from-diagnostic
 created: 2026-04-20
-updated: 2026-06-05
+updated: 2026-08-30
+status_detail: Structured transparent-mode rejection implemented and locally verified; awaiting exact-SHA remote CI before archival.
 ---
 
 ## Summary
