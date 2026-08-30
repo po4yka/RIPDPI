@@ -2,16 +2,16 @@
 id: RLY-1786264762917178
 title: Guard RelayBackend manual match arms against silently-omitted QUIC variants
 kind: feature
-status: backlog
+status: review
 area: relay
 priority: low
-owner: unassigned
+owner: codex
 parent: EPC-1786264762917503
 blocked_by: []
 spec_mode: required
 openspec_change: rly-1786264762917178-guard-relaybackend-quic-snapshot-exhaustiveness
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-30
 source_wiki_pages: []
 linked_task: null
 ---
