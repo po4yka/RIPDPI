@@ -102,6 +102,7 @@ impl RelayBackend {
         self.capabilities().udp
     }
 
+    #[deny(clippy::wildcard_enum_match_arm)]
     pub(crate) fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
         match self {
             Self::Hysteria2(backend) => backend.quic_migration_snapshot(),
@@ -121,10 +122,23 @@ impl RelayBackend {
         }
     }
 
+    #[deny(clippy::wildcard_enum_match_arm)]
     pub(crate) fn chain_hop_snapshot(&self) -> Option<ChainHopTelemetrySnapshot> {
         match self {
             Self::ChainRelay { telemetry, .. } => Some(telemetry.snapshot()),
-            _ => None,
+            Self::Hysteria2(_)
+            | Self::Tuic(_)
+            | Self::VlessReality(_)
+            | Self::Mieru(_)
+            | Self::Ssh(_)
+            | Self::Xhttp(_)
+            | Self::Masque(_)
+            | Self::ShadowTls(_)
+            | Self::Trojan(_)
+            | Self::AnyTls(_)
+            | Self::Shadowsocks(_)
+            | Self::Tor(_)
+            | Self::Unsupported { .. } => None,
         }
     }
 
@@ -154,6 +168,7 @@ impl RelayBackend {
         }
     }
 
+    #[deny(clippy::wildcard_enum_match_arm)]
     pub(crate) async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
         match self {
             Self::Hysteria2(backend) => open_quic_udp_session!(backend, Hysteria2),
@@ -173,5 +188,25 @@ impl RelayBackend {
             }
             Self::Unsupported { kind, .. } => Err(Self::unsupported_error(kind)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn chain_hop_snapshot_rejects_wildcard_arm() {
+        let source = include_str!("backend.rs");
+        let method = source
+            .split_once("pub(crate) fn chain_hop_snapshot")
+            .expect("chain_hop_snapshot must remain in backend.rs")
+            .1
+            .split_once("pub(crate) async fn connect_tcp")
+            .expect("connect_tcp must follow chain_hop_snapshot")
+            .0;
+
+        assert!(
+            !method.lines().any(|line| line.trim_start().starts_with("_ =>")),
+            "chain_hop_snapshot must not use a wildcard arm"
+        );
     }
 }
