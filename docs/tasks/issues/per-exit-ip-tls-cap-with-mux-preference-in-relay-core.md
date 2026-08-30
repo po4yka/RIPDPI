@@ -2,7 +2,7 @@
 id: TRN-1786264762917184
 title: Per-exit-IP TLS cap with true mux-preference in relay-core backend
 kind: feature
-status: doing
+status: review
 area: transport
 priority: medium
 owner: codex
@@ -15,6 +15,7 @@ updated: 2026-08-30
 source_wiki_pages:
   - tls-policing-home-isps
 linked_task: null
+status_detail: Implementation and local verification complete; GitHub CI/CD was not monitored per owner instruction.
 ---
 
 ## Motivation
@@ -35,10 +36,10 @@ So a per-exit-IP TLS cap with *true* mux-preference (the 9th stream reuses an ex
 
 ## Acceptance criteria
 
-- [ ] Per-exit-IP concurrent-session cap enforced on the `relay-core` foreign-exit path (the path that actually opens VLESS+Reality+Vision TLS sessions).
-- [ ] Nine concurrent logical streams on a mux-enabled backend reuse one physical carrier via `RelayMux::open_stream`; a ninth non-mux carrier is rejected at cap.
-- [ ] No double-counting between the `proxy-runtime` direct-path gate and the `relay-core` cap.
-- [ ] `cargo nextest run -p ripdpi-relay-core -p ripdpi-relay-mux --locked` green; clippy clean; `pr-reviewer` pass (hot path).
+- [x] Per-exit-IP concurrent-session cap enforced on the `relay-core` foreign-exit path (the path that actually opens VLESS+Reality+Vision TLS sessions).
+- [x] Nine concurrent logical streams on a mux-enabled backend reuse one physical carrier via `RelayMux::open_stream`; a ninth non-mux carrier is rejected at cap.
+- [x] No double-counting between the `proxy-runtime` direct-path gate and the `relay-core` cap.
+- [x] `cargo nextest run -p ripdpi-relay-core -p ripdpi-relay-mux --locked` green; clippy clean; `pr-reviewer` pass (hot path).
 
 ## References
 
