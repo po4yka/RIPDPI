@@ -40,7 +40,7 @@ private fun validateWorkerUrl(workerUrl: String) {
 }
 
 private fun validateBearer(bearer: String) {
-    require(bearer.length in 1..4096 && bearer.isRfc6750BearerToken()) {
+    require(bearer.length in 1..MaximumBearerLength && bearer.isRfc6750BearerToken()) {
         "Cloudflare Worker bearer must be a bounded RFC 6750 bearer token"
     }
 }
@@ -57,3 +57,4 @@ private fun Char.isAsciiLetterOrDigit(): Boolean = this in 'a'..'z' || this in '
 private const val UnspecifiedPort = -1
 private const val MinimumTcpPort = 1
 private const val MaximumTcpPort = 65535
+private const val MaximumBearerLength = 4096
