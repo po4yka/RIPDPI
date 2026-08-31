@@ -2,7 +2,7 @@
 id: UIX-1786264762917972
 title: Key session-scoped LaunchedEffect refreshes on the session id, not Unit
 kind: feature
-status: review
+status: done
 area: ui
 priority: medium
 owner: codex
@@ -14,6 +14,9 @@ created: 2026-06-10
 updated: 2026-08-31
 source_wiki_pages: []
 linked_task: null
+closed_at: "2026-08-31T05:03:54Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Session-scoped LaunchedEffect keys are implemented in 9ffbc86d08ccced99a12d58be4021a18c66d96f7, f87455fb8de51f5f033bb1ee5c9a522a20239377, and 841860c55739b839ae1056707a2bd113034eda25. Current main revalidation passed the three targeted Compose/Robolectric regression classes, the complete app GithubFull unit suite, staticAnalysis, architecture contracts/health, taskctl validation, and golden-diff checks. Remote CI and device lanes were not run per the local-only acceptance and owner instruction.
 ---
 
 ## Motivation
