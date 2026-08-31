@@ -115,7 +115,9 @@ class RuntimeArtifactPersister
                     serviceTelemetry.relayTelemetry.nativeEvents +
                     serviceTelemetry.tunnelTelemetry.nativeEvents
             ).mapNotNull(NativeRuntimeEvent::toPrivacySafePersistedRuntimeEvent)
-                .forEach { event ->
+                .filterNot { event ->
+                    connectionSessionId == null && event.kind == "data_plane_final"
+                }.forEach { event ->
                     persistRuntimeEvent(
                         event.toSessionEvent(
                             id =

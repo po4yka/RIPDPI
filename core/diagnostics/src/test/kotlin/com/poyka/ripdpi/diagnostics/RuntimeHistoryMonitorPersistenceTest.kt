@@ -181,6 +181,17 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
         }
 
     @Test
+    fun `runtime persistence ignores terminal data plane event without an active session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val persister = createArtifactPersister(stores)
+
+            persister.persistRuntimeEvents(finalDataPlaneTelemetry(createdAt = 1L), connectionSessionId = null)
+
+            assertTrue(stores.nativeEventsState.value.isEmpty())
+        }
+
+    @Test
     fun `status before telemetry persists final data plane event on active session`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
