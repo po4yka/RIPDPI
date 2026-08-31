@@ -48,8 +48,8 @@ use super::payload::{
     runtime_first_response_boundary_tracker, runtime_outbound_tls_client_hello_assembler,
 };
 use super::ports::{
-    AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
-    PreferredTargetSuppressionReason, RetryPacingPort,
+    AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyLearningPort,
+    PolicySelectionPort, PreferredTargetSuppressionReason, RetryPacingPort,
 };
 use super::response::{
     RuntimeFirstResponseExchangePolicy, RuntimeResponseProjection, runtime_failure_penalizes_strategy,

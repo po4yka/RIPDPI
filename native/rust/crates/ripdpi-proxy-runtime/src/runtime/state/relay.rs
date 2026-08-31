@@ -65,7 +65,7 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn first_response_exchange_required(&self) -> io::Result<bool> {
         runtime_first_response_exchange_required(self.first_response_exchange_policy, |trigger| {
-            Ok(PolicyPort::supports_trigger(&self.services, trigger))
+            Ok(PolicySelectionPort::supports_trigger(&self.services, trigger))
         })
     }
     pub(in crate::runtime) fn primary_tcp_strategy_family(&self, group_index: usize) -> Option<&'static str> {

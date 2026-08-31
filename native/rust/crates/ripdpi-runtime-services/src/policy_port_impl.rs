@@ -9,12 +9,12 @@ use ripdpi_runtime_policy::runtime_policy::{
     ConnectionRoute, HostAutolearnEvent, HostAutolearnState, RetrySelectionPenalty, RouteAdvance, RuntimePolicy,
     TransportProtocol,
 };
-use ripdpi_runtime_policy::{DirectPathLearningPort, PolicyPort};
+use ripdpi_runtime_policy::{DirectPathLearningPort, PolicyLearningPort, PolicyPort, PolicySelectionPort};
 
 use crate::ServicesStateHandle;
 use crate::services_state::ServicesState;
 
-impl PolicyPort for ServicesStateHandle {
+impl PolicySelectionPort for ServicesStateHandle {
     fn select_initial(
         &self,
         target: SocketAddr,
@@ -31,32 +31,11 @@ impl PolicyPort for ServicesStateHandle {
         result
     }
 
-    fn note_success(
-        &self,
-        target: SocketAddr,
-        route: &ConnectionRoute,
-        host: Option<&str>,
-        transport: TransportProtocol,
-    ) -> io::Result<()> {
-        let mut cache = self.0.policy.cache.write().map_err(|_| io::Error::other("policy cache lock poisoned"))?;
-        cache.note_route_success_for_transport(&self.0.config, target, route, host, transport)?;
-        self.0.flush_autolearn(&mut cache);
-        Ok(())
-    }
-
     fn advance_route(&self, route: &ConnectionRoute, advance: RouteAdvance<'_>) -> io::Result<Option<ConnectionRoute>> {
         let mut cache = self.0.policy.cache.write().map_err(|_| io::Error::other("policy cache lock poisoned"))?;
         let result = cache.advance_route(&self.0.config, route, advance)?;
         self.0.flush_autolearn(&mut cache);
         Ok(result)
-    }
-
-    fn note_block_signal(&self, host: &str, signal: BlockSignal, provider: Option<&str>, confirmation_allowed: bool) {
-        let Ok(mut cache) = self.0.policy.cache.write() else {
-            return;
-        };
-        cache.note_block_signal(&self.0.config, host, signal, provider, confirmation_allowed);
-        self.0.flush_autolearn(&mut cache);
     }
 
     fn supports_trigger(&self, trigger: u32) -> bool {
@@ -120,6 +99,29 @@ impl PolicyPort for ServicesStateHandle {
         // target/host/payload context to build full RetrySignature objects.
         BTreeMap::new()
     }
+}
+
+impl PolicyLearningPort for ServicesStateHandle {
+    fn note_success(
+        &self,
+        target: SocketAddr,
+        route: &ConnectionRoute,
+        host: Option<&str>,
+        transport: TransportProtocol,
+    ) -> io::Result<()> {
+        let mut cache = self.0.policy.cache.write().map_err(|_| io::Error::other("policy cache lock poisoned"))?;
+        cache.note_route_success_for_transport(&self.0.config, target, route, host, transport)?;
+        self.0.flush_autolearn(&mut cache);
+        Ok(())
+    }
+
+    fn note_block_signal(&self, host: &str, signal: BlockSignal, provider: Option<&str>, confirmation_allowed: bool) {
+        let Ok(mut cache) = self.0.policy.cache.write() else {
+            return;
+        };
+        cache.note_block_signal(&self.0.config, host, signal, provider, confirmation_allowed);
+        self.0.flush_autolearn(&mut cache);
+    }
 
     fn autolearn_state(&self) -> HostAutolearnState {
         let Ok(mut cache) = self.0.policy.cache.write() else {
@@ -143,6 +145,8 @@ impl PolicyPort for ServicesStateHandle {
         let _ = cache.dump_stdout_groups(&self.0.config, std::io::stdout());
     }
 }
+
+impl PolicyPort for ServicesStateHandle {}
 
 impl DirectPathLearningPort for ServicesStateHandle {
     fn note_direct_path_transport_attempt(

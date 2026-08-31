@@ -2,16 +2,16 @@
 id: RST-1786264762917192
 title: Split the 12-method PolicyPort trait into selection and learning sub-traits
 kind: feature
-status: backlog
+status: doing
 area: rust-native
 priority: medium
-owner: unassigned
+owner: codex
 parent: EPC-1786264762917503
 blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917192-split-policyport-trait-selection-learning
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-08-31
 source_wiki_pages: []
 linked_task: null
 ---
@@ -28,9 +28,20 @@ Split per the audit's recommendation:
 
 Keep a blanket/aggregate `PolicyPort: PolicySelectionPort + PolicyLearningPort` for existing impls, or have the concrete type implement both. Update call sites to depend on the narrower trait they need.
 
+## Work ownership (2026-08-31)
+
+- `codex` owns the trait hierarchy and rustdoc contract in
+  `ripdpi-runtime-decision-ports/src/policy.rs`, task/OpenSpec lifecycle, API
+  snapshot decisions, integration, commits, and push.
+- `map_policy_port` and `audit_policy_port_baseline` are read-only and own the
+  current caller/API inventory plus independent baseline findings.
+- `codex` also owns the focused RED/GREEN compile-contract test plus the
+  mechanical implementor and caller migration after the independent audits
+  establish the exact boundaries.
+
 ## Acceptance criteria
 
-- [ ] PR confirms current 12-method shape at `policy.rs:138`.
+- [ ] Baseline audit confirms the current 12-method `PolicyPort` shape.
 - [ ] Two sub-traits exist; selection-only and learning-only callers depend on the narrower one.
 - [ ] No behavior change; existing impls satisfy both.
 - [ ] Test mocks simplify (selection tests no longer stub learning methods).

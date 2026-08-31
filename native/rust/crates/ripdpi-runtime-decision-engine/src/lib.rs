@@ -1,7 +1,7 @@
 //! `RuntimeDecisionEngine` — the single boundary policy/adaptive/direct-path
 //! decisions flow through.
 //!
-//! The workspace already had the **port traits** ([`PolicyPort`],
+//! The workspace already had the **port traits** ([`PolicySelectionPort`],
 //! [`DirectPathLearningPort`], [`AdaptiveContextPort`], [`RetryPacingPort`],
 //! …) and the **snapshot shape** ([`RuntimeDecisionSnapshot`]) in
 //! `ripdpi-runtime-decision-ports`. Concrete port impls live in
@@ -22,7 +22,7 @@
 //!   producing a [`RuntimeDecisionSnapshot`] from the current config /
 //!   wire context / network snapshot;
 //! - exposes one **per-flow** entry point — [`decide_flow_route`] —
-//!   delegating to `PolicyPort::select_initial`;
+//!   delegating to `PolicySelectionPort::select_initial`;
 //! - exposes [`direct_path`] hooks delegating to `DirectPathLearningPort`.
 //!
 //! Behaviour today is byte-identical to invoking the underlying helpers
@@ -55,7 +55,8 @@ use std::sync::Arc;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_runtime_decision_ports::policy_ports::{
-    ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, GeoMatcher, PolicyPort, TransportProtocol,
+    ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, GeoMatcher, PolicySelectionPort,
+    TransportProtocol,
 };
 use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 
@@ -74,7 +75,7 @@ use ripdpi_runtime_services::ServicesStateHandle;
 ///
 /// Everything the engine needs to project a [`RuntimeDecisionSnapshot`] is
 /// reachable through these references. Policy memory state and adaptive
-/// hints are reached **through the engine's ports** (`PolicyPort`,
+/// hints are reached **through the engine's ports** (`PolicySelectionPort`,
 /// adaptive ports) rather than as struct fields, because those engines are
 /// stateful — passing a snapshot would lose the per-target memory and
 /// duplicate it across call sites.
@@ -108,7 +109,8 @@ pub struct RuntimeDecisionOutputs {
 
 /// Inputs the engine needs to select an outbound flow's initial route.
 ///
-/// All fields mirror the existing [`PolicyPort::select_initial`] signature
+/// All fields mirror the existing [`PolicySelectionPort::select_initial`]
+/// signature
 /// — the engine is a delegating facade today; future commits can enrich
 /// this with adaptive-derived hints without changing the call site.
 ///
@@ -162,14 +164,14 @@ impl RuntimeDecisionEngine {
 
     /// Select the initial route for one outbound flow.
     ///
-    /// Delegates to [`PolicyPort::select_initial`] verbatim. Lives on the
-    /// engine so future enrichment (consulting adaptive hints, applying
+    /// Delegates to [`PolicySelectionPort::select_initial`] verbatim. This lives
+    /// on the engine so future enrichment (consulting adaptive hints, applying
     /// retry penalties) becomes additive in this method, not by editing
     /// every call site.
     pub fn decide_flow_route(&self, inputs: &FlowRouteInputs<'_>) -> Option<ConnectionRoute> {
         // The port traits are implemented on `ServicesStateHandle`, not on
         // the inner `ServicesState`; bind through the handle directly.
-        PolicyPort::select_initial(
+        PolicySelectionPort::select_initial(
             &self.services,
             inputs.target,
             inputs.payload,
