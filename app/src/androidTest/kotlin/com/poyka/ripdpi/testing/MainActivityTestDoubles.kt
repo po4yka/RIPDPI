@@ -19,9 +19,10 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceHistoryEvent
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -79,6 +80,7 @@ import com.poyka.ripdpi.services.VpnTunnelBuilderHost
 import com.poyka.ripdpi.services.VpnTunnelNetworkParameters
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,6 +88,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -376,31 +379,49 @@ class StubInstrumentedDiagnosticsActiveConnectionPolicySource : DiagnosticsActiv
 
 class FakeInstrumentedServiceStateStore(
     initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
-) : ServiceStateStore {
+) : OrderedServiceStateStore {
     private val statusState = MutableStateFlow(initialStatus)
     private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+    private val historyEventStream = Channel<ServiceHistoryEvent>(capacity = Channel.UNLIMITED)
     private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
 
     override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
     override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
+    override val historyEvents: Flow<ServiceHistoryEvent> = historyEventStream.receiveAsFlow()
     override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
+
+    init {
+        publishHistory(ServiceHistoryEvent.StatusChanged(initialStatus.first, initialStatus.second))
+    }
 
     override fun setStatus(
         status: AppStatus,
         mode: Mode,
     ) {
-        statusState.value = status to mode
+        val previousStatus = statusState.value
+        val nextStatus = status to mode
+        statusState.value = nextStatus
+        if (previousStatus != nextStatus) {
+            publishHistory(ServiceHistoryEvent.StatusChanged(status, mode))
+        }
     }
 
     override fun emitFailed(
         sender: Sender,
         reason: FailureReason,
     ) {
-        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
+        val (status, mode) = statusState.value
+        val event = ServiceEvent.Failed(sender, reason, status, mode)
+        eventFlow.tryEmit(event)
+        publishHistory(ServiceHistoryEvent.Failed(event))
     }
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
         telemetryState.value = snapshot
+    }
+
+    private fun publishHistory(event: ServiceHistoryEvent) {
+        check(historyEventStream.trySend(event).isSuccess) { "Service history event stream is unavailable" }
     }
 }
 
