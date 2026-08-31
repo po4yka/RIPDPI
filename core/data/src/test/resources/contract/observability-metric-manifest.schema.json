@@ -60,7 +60,7 @@
             "enum": ["node", "role", "profile", "policy", "severity", "vantage", "state"]
           }
         },
-        "max_series": {"type": "integer", "minimum": 1, "maximum": 1024},
+        "max_series": {"type": "integer", "minimum": 1, "maximum": 2048},
         "cadence_seconds": {"type": "integer", "minimum": 1, "maximum": 86400},
         "stale_after_seconds": {"type": "integer", "minimum": 1, "maximum": 604800},
         "alert_use": {"type": "boolean"}
