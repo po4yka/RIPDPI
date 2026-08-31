@@ -13,7 +13,8 @@ pub use ripdpi_runtime_policy::GeoMatcher;
 pub use services_state::ServicesState;
 
 /// A cheaply-cloneable handle to [`ServicesState`] that implements the
-/// `PolicyPort`, focused adaptive port traits, and `BackgroundProbes` port traits.
+/// split policy selection/learning ports, focused adaptive port traits, and
+/// `BackgroundProbes` port traits.
 ///
 /// The newtype wrapper is required because Rust's orphan rules forbid
 /// implementing foreign traits for `Arc<T>` where `T` is defined in this

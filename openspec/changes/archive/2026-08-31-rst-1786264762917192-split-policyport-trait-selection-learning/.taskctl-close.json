@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917192-split-policyport-trait-selection-learning",
+  "evidence_summary": "Implementation commit a8fdb98a31f314a5e20e7d7401be405826963ecd; targeted nextest passed 442 tests with 7 skipped; targeted clippy, fmt, architecture health, metadata, and taskctl validation passed locally; remote CI not monitored per owner instruction.",
+  "execution_sha256": "ce41f2af3d18923aa964744c865ab9128fe12a1c6b17962ebec49591fe524876",
+  "issue_sha256": "a6dfddcea415d23088447838b8c7a0c498a0b8705c671da78e7d1ea6c957fb3a",
+  "outcome": "done",
+  "prepared_at": "2026-08-31T04:25:59Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1786264762917192"
+}

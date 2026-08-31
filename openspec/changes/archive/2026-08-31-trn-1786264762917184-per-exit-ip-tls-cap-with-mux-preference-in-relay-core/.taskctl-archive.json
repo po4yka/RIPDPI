@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-31T04:40:43Z",
+  "change": "trn-1786264762917184-per-exit-ip-tls-cap-with-mux-preference-in-relay-core",
+  "commit_sha": "5d628726be70d32b699cc60657d67a9575fd9974",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1786264762917184"
+}

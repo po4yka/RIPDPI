@@ -1,0 +1,11 @@
+{
+  "change": "uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh",
+  "evidence_summary": "Session-scoped LaunchedEffect keys are implemented in 9ffbc86d08ccced99a12d58be4021a18c66d96f7, f87455fb8de51f5f033bb1ee5c9a522a20239377, and 841860c55739b839ae1056707a2bd113034eda25. Current main revalidation passed the three targeted Compose/Robolectric regression classes, the complete app GithubFull unit suite, staticAnalysis, architecture contracts/health, taskctl validation, and golden-diff checks. Remote CI and device lanes were not run per the local-only acceptance and owner instruction.",
+  "execution_sha256": "c1b3df269996a79a4e9f941855986dcd73a0b0e4da5de9394271b46eaad11673",
+  "issue_sha256": "cca463fbd8c66c73446958093e72a06b11c3dd6ddda3c0af60f10406fc47ffa4",
+  "outcome": "done",
+  "prepared_at": "2026-08-31T05:03:54Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1786264762917972"
+}

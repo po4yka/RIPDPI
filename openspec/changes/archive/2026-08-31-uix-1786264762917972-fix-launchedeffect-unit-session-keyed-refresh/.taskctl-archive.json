@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-31T05:03:54Z",
+  "change": "uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh",
+  "commit_sha": "841860c55739b839ae1056707a2bd113034eda25",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "UIX-1786264762917972"
+}

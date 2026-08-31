@@ -28,7 +28,7 @@ pub mod adaptive_ports {
 pub mod policy_ports {
     pub use crate::policy::{
         ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, DnsTamperingEvidence, ExtractedHost,
-        GeoMatcher, HostAutolearnEvent, HostAutolearnState, HostSource, PolicyPort, RetrySelectionPenalty,
-        RouteAdvance, TransportProtocol,
+        GeoMatcher, HostAutolearnEvent, HostAutolearnState, HostSource, PolicyLearningPort, PolicyPort,
+        PolicySelectionPort, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
     };
 }

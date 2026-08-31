@@ -97,8 +97,9 @@ pub trait DirectPathLearningObserver {
 /// Port trait that abstracts direct-path learning feedback.
 ///
 /// Implementations hold the concrete direct-path learning state. The port is
-/// separate from [`PolicyPort`] so callers that only record direct-path
-/// observations do not depend on route selection and persistence methods.
+/// separate from [`PolicySelectionPort`] and [`PolicyLearningPort`] so callers
+/// that only record direct-path observations do not depend on route selection
+/// and host-policy persistence methods.
 pub trait DirectPathLearningPort: Send + Sync {
     fn note_direct_path_transport_attempt(
         &self,
@@ -145,12 +146,11 @@ pub trait DirectPathLearningPort: Send + Sync {
     fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64, observer: Option<&dyn DirectPathLearningObserver>);
 }
 
-/// Coarse port trait that abstracts route selection and host policy state.
+/// Port for choosing routes and maintaining route-selection state.
 ///
-/// Implementations hold the concrete policy and direct-path learning state.
-/// The port is passed by trait object so proxy-runtime never takes a direct
-/// dependency on the concrete policy engine.
-pub trait PolicyPort: Send + Sync {
+/// Consumers that only make routing decisions depend on this surface without
+/// also acquiring host-learning, telemetry-drain, or persistence operations.
+pub trait PolicySelectionPort: Send + Sync {
     fn select_initial(
         &self,
         target: SocketAddr,
@@ -161,21 +161,11 @@ pub trait PolicyPort: Send + Sync {
         geo: Option<&dyn GeoMatcher>,
     ) -> Option<ConnectionRoute>;
 
-    fn note_success(
-        &self,
-        target: SocketAddr,
-        route: &ConnectionRoute,
-        host: Option<&str>,
-        transport: TransportProtocol,
-    ) -> std::io::Result<()>;
-
     fn advance_route(
         &self,
         route: &ConnectionRoute,
         advance: RouteAdvance<'_>,
     ) -> std::io::Result<Option<ConnectionRoute>>;
-
-    fn note_block_signal(&self, host: &str, signal: BlockSignal, provider: Option<&str>, confirmation_allowed: bool);
 
     fn supports_trigger(&self, trigger: u32) -> bool;
 
@@ -203,9 +193,32 @@ pub trait PolicyPort: Send + Sync {
         signatures: &[(usize, u64)],
         now_ms: u64,
     ) -> BTreeMap<usize, RetrySelectionPenalty>;
+}
+
+/// Port for recording policy outcomes and exposing learned host state.
+///
+/// The persistence and telemetry-drain operations live beside the outcome
+/// signals that produce that state, while route-selection-only consumers can
+/// remain independent of them.
+pub trait PolicyLearningPort: Send + Sync {
+    fn note_success(
+        &self,
+        target: SocketAddr,
+        route: &ConnectionRoute,
+        host: Option<&str>,
+        transport: TransportProtocol,
+    ) -> std::io::Result<()>;
+
+    fn note_block_signal(&self, host: &str, signal: BlockSignal, provider: Option<&str>, confirmation_allowed: bool);
 
     fn autolearn_state(&self) -> HostAutolearnState;
     fn drain_autolearn_events(&self) -> Vec<HostAutolearnEvent>;
 
     fn flush_host_store(&self);
 }
+
+/// Aggregate policy capability for consumers that genuinely need both ports.
+///
+/// Implementors opt in explicitly; no blanket implementation is provided, so
+/// downstream types retain control over their own trait implementations.
+pub trait PolicyPort: PolicySelectionPort + PolicyLearningPort {}

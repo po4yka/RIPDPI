@@ -78,7 +78,7 @@ impl RuntimeState {
         allow_unknown_payload: bool,
         transport: RuntimeTransportProtocol,
     ) -> Option<RuntimeConnectionRoute> {
-        PolicyPort::select_initial(
+        PolicySelectionPort::select_initial(
             &self.services,
             target,
             payload,
@@ -100,7 +100,7 @@ impl RuntimeState {
         can_reconnect: bool,
         retry_penalties: Option<&BTreeMap<usize, RuntimeRetrySelectionPenalty>>,
     ) -> Option<RuntimeConnectionRoute> {
-        PolicyPort::select_next(
+        PolicySelectionPort::select_next(
             &self.services,
             route,
             target,
@@ -120,10 +120,10 @@ impl RuntimeState {
         host: Option<&str>,
         transport: RuntimeTransportProtocol,
     ) -> io::Result<()> {
-        PolicyPort::note_success(&self.services, target, route, host, transport)
+        PolicyLearningPort::note_success(&self.services, target, route, host, transport)
     }
     pub(in crate::runtime) fn runtime_supports_trigger(&self, trigger: u32) -> bool {
-        PolicyPort::supports_trigger(&self.services, trigger)
+        PolicySelectionPort::supports_trigger(&self.services, trigger)
     }
     pub(in crate::runtime) fn retry_trigger_for_failure(&self, failure: &RuntimeClassifiedFailure) -> Option<u32> {
         let trigger = runtime_failure_trigger_mask(failure);
@@ -164,14 +164,14 @@ impl RuntimeState {
         provider: Option<&str>,
         confirmation_allowed: bool,
     ) {
-        PolicyPort::note_block_signal(&self.services, host, signal, provider, confirmation_allowed);
+        PolicyLearningPort::note_block_signal(&self.services, host, signal, provider, confirmation_allowed);
     }
     pub(in crate::runtime) fn advance_route(
         &self,
         route: &RuntimeConnectionRoute,
         advance: RuntimeRouteAdvance<'_>,
     ) -> io::Result<Option<RuntimeConnectionRoute>> {
-        PolicyPort::advance_route(&self.services, route, advance)
+        PolicySelectionPort::advance_route(&self.services, route, advance)
     }
     pub(in crate::runtime) fn store_udp_route_hint(
         &self,
@@ -180,6 +180,6 @@ impl RuntimeState {
         attempted_mask: u64,
         host: Option<String>,
     ) {
-        PolicyPort::store_route(&self.services, dest, group_index, attempted_mask, host);
+        PolicySelectionPort::store_route(&self.services, dest, group_index, attempted_mask, host);
     }
 }
