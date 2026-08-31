@@ -1,8 +1,8 @@
 ---
 task_id: RST-1786264762917192
 change: rst-1786264762917192-split-policyport-trait-selection-learning
-commit_sha: null
-local: required
+commit_sha: a8fdb98a31f314a5e20e7d7401be405826963ecd
+local: passed
 local_evidence: "2026-08-31: cargo fmt --manifest-path native/rust/Cargo.toml --all -- --check; git diff --check; build-gate -- cargo nextest run --manifest-path native/rust/Cargo.toml --locked -p ripdpi-runtime-decision-ports -p ripdpi-runtime-policy -p ripdpi-runtime-services -p ripdpi-runtime-decision-engine -p ripdpi-proxy-runtime-adapter -p ripdpi-proxy-runtime (442 passed, 7 skipped); build-gate -- cargo clippy --manifest-path native/rust/Cargo.toml --locked for the same packages --all-targets -- -D warnings; cargo metadata --manifest-path native/rust/Cargo.toml --locked --no-deps; python3 scripts/ci/check_architecture_health.py; ./taskctl validate."
 remote_ci: not_applicable
 remote_ci_evidence: "User explicitly requested local verification and push without launching, waiting for, or monitoring GitHub CI/CD for each change."
