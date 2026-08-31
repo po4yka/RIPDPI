@@ -57,7 +57,7 @@
           "maxItems": 8,
           "uniqueItems": true,
           "items": {
-            "enum": ["node", "role", "profile", "policy", "severity", "vantage"]
+            "enum": ["node", "role", "profile", "policy", "severity", "vantage", "state"]
           }
         },
         "max_series": {"type": "integer", "minimum": 1, "maximum": 1024},

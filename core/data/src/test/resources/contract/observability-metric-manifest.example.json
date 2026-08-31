@@ -13,6 +13,28 @@
       "cadence_seconds": 60,
       "stale_after_seconds": 180,
       "alert_use": true
+    },
+    {
+      "name": "vpn_observability_expected_target",
+      "owner": "observability_contract",
+      "type": "gauge",
+      "unit": null,
+      "labels": ["node", "role"],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_observability_evidence_state",
+      "owner": "observability_contract",
+      "type": "gauge",
+      "unit": null,
+      "labels": ["node", "role", "state"],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
     }
   ]
 }
