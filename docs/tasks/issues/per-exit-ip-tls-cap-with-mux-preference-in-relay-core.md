@@ -2,7 +2,7 @@
 id: TRN-1786264762917184
 title: Per-exit-IP TLS cap with true mux-preference in relay-core backend
 kind: feature
-status: review
+status: done
 area: transport
 priority: medium
 owner: codex
@@ -11,11 +11,14 @@ blocked_by: []
 spec_mode: required
 openspec_change: trn-1786264762917184-per-exit-ip-tls-cap-with-mux-preference-in-relay-core
 created: 2026-06-11
-updated: 2026-08-30
+updated: 2026-08-31
 source_wiki_pages:
   - tls-policing-home-isps
 linked_task: null
 status_detail: Implementation and local verification complete; GitHub CI/CD was not monitored per owner instruction.
+closed_at: "2026-08-31T04:40:43Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Per-exit-IP VLESS+Reality TLS carrier cap and mux-preference are implemented at 5d628726be70d32b699cc60657d67a9575fd9974; current main revalidation passed 368/368 task-owned tests, affected clippy with -D warnings, fmt, locked metadata, cargo deny, architecture contracts/health, and taskctl validation. An unrelated QUIC fixture timeout passed on isolated retry. Remote CI was intentionally not launched or monitored per owner instruction.
 ---
 
 ## Motivation
