@@ -13,6 +13,7 @@ use ripdpi_monitor_engine::{
     CandidateRuntimeLauncher, CandidateRuntimeTerminalReceipt, PreparedCandidateRuntime,
 };
 use ripdpi_runtime_api::EmbeddedProxyControl;
+use ripdpi_ws_transport_port::WsTransport;
 
 mod evidence_projection;
 
@@ -20,7 +21,15 @@ use evidence_projection::{CandidateExecutionEvidenceProjection, project_runtime_
 
 const FORCED_ABORT_JOIN_GRACE: Duration = Duration::from_millis(100);
 
-pub struct ProductionCandidateRuntimeLauncher;
+pub struct ProductionCandidateRuntimeLauncher {
+    ws_transport: Arc<dyn WsTransport>,
+}
+
+impl ProductionCandidateRuntimeLauncher {
+    pub fn new(ws_transport: Arc<dyn WsTransport>) -> Self {
+        Self { ws_transport }
+    }
+}
 
 struct TemporaryProxyRuntime {
     addr: SocketAddr,
@@ -35,12 +44,15 @@ impl CandidateRuntimeLauncher for ProductionCandidateRuntimeLauncher {
         &self,
         prepared: PreparedCandidateRuntime,
     ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
-        start_candidate_runtime_with_readiness(prepared, |addr| wait_for_listener(addr).map_err(|err| err.to_string()))
+        start_candidate_runtime_with_readiness(prepared, self.ws_transport.clone(), |addr| {
+            wait_for_listener(addr).map_err(|err| err.to_string())
+        })
     }
 }
 
 fn start_candidate_runtime_with_readiness(
     mut prepared: PreparedCandidateRuntime,
+    ws_transport: Arc<dyn WsTransport>,
     readiness: impl FnOnce(SocketAddr) -> Result<(), String>,
 ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
     let generation = prepared.generation;
@@ -53,8 +65,13 @@ fn start_candidate_runtime_with_readiness(
         Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, prepared.runtime_context, generation));
     let worker_control = control.clone();
     let handle = thread::spawn(move || {
-        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(prepared.config, listener, worker_control)
-            .map_err(|err| err.to_string())
+        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(
+            prepared.config,
+            listener,
+            worker_control,
+            ws_transport,
+        )
+        .map_err(|err| err.to_string())
     });
     finish_runtime_readiness(
         TemporaryProxyRuntime { addr, control, generation, auth_secret, handle: Some(handle) },

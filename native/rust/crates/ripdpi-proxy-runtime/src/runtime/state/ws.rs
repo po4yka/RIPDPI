@@ -10,16 +10,17 @@ impl RuntimeState {
     pub(in crate::runtime) fn ws_tunnel_config(&self, resolved_addr: Option<SocketAddr>) -> RuntimeWsTunnelConfig {
         runtime_ws_tunnel_config(&self.ws_tunnel_settings, resolved_addr)
     }
-    pub(in crate::runtime) fn classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
-        runtime_classify_mtproto_seed(seed)
+    pub(in crate::runtime) fn classify_mtproto_seed(&self, seed: &[u8]) -> WsSeedClassification {
+        runtime_classify_mtproto_seed(self.ws_transport.as_ref(), seed)
     }
     pub(in crate::runtime) fn relay_ws_tunnel(
+        &self,
         client: TcpStream,
         dc: RuntimeTelegramDc,
         seed_request: Vec<u8>,
         config: &RuntimeWsTunnelConfig,
     ) -> io::Result<()> {
-        runtime_relay_ws_tunnel(client, dc, seed_request, config)
+        runtime_relay_ws_tunnel(self.ws_transport.as_ref(), client, dc, seed_request, config)
     }
     pub(in crate::runtime) fn note_telegram_dc_detected(&self, target: SocketAddr, dc: u8) {
         if let Some(telemetry) = &self.telemetry {

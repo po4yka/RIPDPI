@@ -1,0 +1,8 @@
+[package]
+name = "ripdpi-ws-transport-port"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true

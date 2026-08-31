@@ -15,7 +15,7 @@ pub(crate) static DIAGNOSTIC_SESSIONS: std::sync::LazyLock<HandleRegistry<Monito
 pub(crate) fn create_diagnostics_session() -> jlong {
     DIAGNOSTIC_SESSIONS.insert(MonitorSession::with_platform_bridge_and_candidate_runtime_launcher(
         Arc::new(AndroidMonitorPlatformBridge),
-        Arc::new(ProductionCandidateRuntimeLauncher),
+        Arc::new(ProductionCandidateRuntimeLauncher::new(Arc::new(ripdpi_ws_tunnel::TelegramWsTransport))),
     )) as jlong
 }
 

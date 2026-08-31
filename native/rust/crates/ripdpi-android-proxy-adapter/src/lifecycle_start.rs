@@ -67,7 +67,12 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     }
 
     let guard = IdleGuard { state: &session.state };
-    let result = ripdpi_proxy_runtime::run_proxy_with_embedded_control(config, listener, control);
+    let result = ripdpi_proxy_runtime::run_proxy_with_embedded_control(
+        config,
+        listener,
+        control,
+        Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+    );
     let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     *state = ProxySessionState::Idle;
     drop(state);

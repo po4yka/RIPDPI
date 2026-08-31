@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn forced_shutdown_closes_tracked_upstream_socket() {
-        let state = RuntimeState::new(RuntimeConfig::default(), None);
+        let state = RuntimeState::test(RuntimeConfig::default());
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream pair");
         let mut peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
         let (upstream, _) = listener.accept().expect("accept upstream");

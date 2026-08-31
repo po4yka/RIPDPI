@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn closing_pool_drops_queued_jobs_before_workers_can_start_them() {
         let pool = ClientWorkerPool::new(0).expect("zero-worker pool");
-        let state = RuntimeState::new(RuntimeConfig::default(), None);
+        let state = RuntimeState::test(RuntimeConfig::default());
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client pair");
         let mut peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
         let (queued, _) = listener.accept().expect("accept queued client");
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn drain_joins_every_owned_worker_without_a_detached_reaper() {
         let pool = ClientWorkerPool::new(1).expect("worker pool");
-        let state = RuntimeState::new(RuntimeConfig::default(), None);
+        let state = RuntimeState::test(RuntimeConfig::default());
 
         let outcome = pool.drain_gracefully(&state);
 

@@ -71,7 +71,14 @@ fn spawn_proxy_cycle() -> (Arc<EmbeddedProxyControl>, thread::JoinHandle<io::Res
     let listener = create_listener(&config).expect("bind ephemeral listener");
 
     let control_for_thread = control.clone();
-    let handle = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    let handle = thread::spawn(move || {
+        run_proxy_with_embedded_control(
+            config,
+            listener,
+            control_for_thread,
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
+    });
 
     startup.wait(START_TIMEOUT);
     (control, handle)
@@ -108,7 +115,14 @@ fn shutdown_closes_incomplete_handshake_before_runtime_returns() {
     let listener = create_listener(&config).expect("bind ephemeral listener");
     let addr = listener.local_addr().expect("listener address");
     let control_for_thread = control.clone();
-    let handle = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    let handle = thread::spawn(move || {
+        run_proxy_with_embedded_control(
+            config,
+            listener,
+            control_for_thread,
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
+    });
     startup.wait(START_TIMEOUT);
 
     let mut client = TcpStream::connect(addr).expect("connect incomplete handshake");
@@ -147,7 +161,14 @@ fn shutdown_closes_active_relay_before_runtime_returns() {
     let listener = create_listener(&config).expect("bind ephemeral listener");
     let proxy_port = listener.local_addr().expect("proxy address").port();
     let control_for_thread = control.clone();
-    let handle = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    let handle = thread::spawn(move || {
+        run_proxy_with_embedded_control(
+            config,
+            listener,
+            control_for_thread,
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
+    });
     startup.wait(START_TIMEOUT);
 
     let mut client = support::socks5::socks_connect(proxy_port, echo_port);
@@ -239,8 +260,14 @@ fn expected_stop_vs_crash_exit_paths_are_distinguishable() {
             let control = Arc::new(EmbeddedProxyControl::new(None));
             control.request_shutdown();
             let control_for_thread = control.clone();
-            let handle =
-                thread::spawn(move || run_proxy_with_embedded_control(config, second_listener, control_for_thread));
+            let handle = thread::spawn(move || {
+                run_proxy_with_embedded_control(
+                    config,
+                    second_listener,
+                    control_for_thread,
+                    Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+                )
+            });
             let result = handle.join().expect("proxy thread must not panic");
             // Both Ok and Err are acceptable here — we just need no panic/abort.
             drop(result);

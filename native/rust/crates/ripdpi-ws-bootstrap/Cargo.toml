@@ -13,7 +13,7 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-dns-cache = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
-ripdpi-ws-tunnel = { workspace = true }
+ripdpi-ws-transport-port = { workspace = true }
 socket2 = { workspace = true }
 tracing = { workspace = true }
 

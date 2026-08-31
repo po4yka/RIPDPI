@@ -12,7 +12,7 @@ ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-http = { workspace = true }
 ripdpi-diagnostics-tls = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
-ripdpi-ws-tunnel = { workspace = true }
+ripdpi-ws-transport-port = { workspace = true }
 rustls = { workspace = true }
 tracing = { workspace = true }
 

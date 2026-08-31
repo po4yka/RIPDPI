@@ -101,6 +101,7 @@ use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationContro
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
     raw_packet_requirements, validate_ip_fragmentation_support,
 };
+use ripdpi_ws_transport_port::WsTransport;
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -167,6 +168,7 @@ pub(super) struct RuntimeState {
     )]
     selected_tls_profile: String,
     pcap_hook: Option<super::desync::PcapHook>,
+    ws_transport: std::sync::Arc<dyn WsTransport>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
     io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
@@ -221,7 +223,11 @@ impl RuntimeState {
     ) -> io::Result<()> {
         ensure_default_ttl(config, detect_default_ttl)
     }
-    pub(super) fn new(config: RuntimeConfig, control: Option<std::sync::Arc<EmbeddedProxyControl>>) -> Self {
+    pub(super) fn new(
+        config: RuntimeConfig,
+        control: Option<std::sync::Arc<EmbeddedProxyControl>>,
+        ws_transport: std::sync::Arc<dyn WsTransport>,
+    ) -> Self {
         let telemetry = control.as_ref().and_then(|c| c.telemetry_sink()).or_else(current_runtime_telemetry);
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
 
@@ -311,6 +317,7 @@ impl RuntimeState {
             same_sni_profile_limiter: SameSniProfileLimiter::new(same_sni_caps),
             selected_tls_profile,
             pcap_hook: None,
+            ws_transport,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
         }
@@ -833,7 +840,7 @@ mod state_coverage_tests {
         assert_eq!(state.should_ws_tunnel_fallback(target), None);
         let ws_config = state.ws_tunnel_config(Some(target));
         assert_eq!(ws_config.resolved_addr, Some(target));
-        assert!(matches!(RuntimeState::classify_mtproto_seed(b"GET / HTTP/1.1\r\n"), WsSeedClassification::NotMtproto));
+        assert!(matches!(state.classify_mtproto_seed(b"GET / HTTP/1.1\r\n"), WsSeedClassification::NotMtproto));
         assert!(RuntimeState::detect_telegram_dc(target).is_some());
         assert_eq!(RuntimeState::detect_telegram_dc(ipv6_target), Some(3));
         assert!(RuntimeState::telegram_dc_host(2).contains("2"));

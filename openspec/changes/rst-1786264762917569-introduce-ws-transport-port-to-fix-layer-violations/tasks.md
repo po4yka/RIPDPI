@@ -10,11 +10,11 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] RST-1786264762918873 PR confirms the two edges still exist in cargo metadata #feature @item:RST-1786264762917569
-- [ ] RST-1786264762918882 New port crate defines the trait; ripdpi-ws-tunnel implements it #feature @item:RST-1786264762917569
-- [ ] RST-1786264762918481 Neither ripdpi-ws-bootstrap nor ripdpi-diagnostics-telegram lists ripdpi-ws-tunnel as a direct dep afterward #feature @item:RST-1786264762917569
-- [ ] RST-1786264762918579 arch-layer-auditor re-run reports R-1 and R-2 resolved, no new cycle #feature @item:RST-1786264762917569
-- [ ] RST-1786264762918928 cargo nextest run --locked green for affected crates; cargo deny check clean #feature @item:RST-1786264762917569
+- [x] RST-1786264762918873 PR confirms the two edges still exist in cargo metadata #feature @item:RST-1786264762917569
+- [x] RST-1786264762918882 New port crate defines the trait; ripdpi-ws-tunnel implements it #feature @item:RST-1786264762917569
+- [x] RST-1786264762918481 Neither ripdpi-ws-bootstrap nor ripdpi-diagnostics-telegram lists ripdpi-ws-tunnel as a direct dep afterward #feature @item:RST-1786264762917569
+- [x] RST-1786264762918579 arch-layer-auditor re-run reports R-1 and R-2 resolved, no new cycle #feature @item:RST-1786264762917569
+- [x] RST-1786264762918928 cargo nextest run --locked green for affected crates; cargo deny check clean #feature @item:RST-1786264762917569
 
 ## Verification
 

@@ -86,6 +86,10 @@ class RustApiSnapshotTests(unittest.TestCase):
             crates_root = root / "crates"
             shared = package("ripdpi-shared", crates_root / "ripdpi-shared" / "Cargo.toml")
             runtime_api = package("ripdpi-runtime-api", crates_root / "ripdpi-runtime-api" / "Cargo.toml")
+            ws_transport_port = package(
+                "ripdpi-ws-transport-port",
+                crates_root / "ripdpi-ws-transport-port" / "Cargo.toml",
+            )
             consumers = [
                 package(
                     f"ripdpi-consumer-{index}",
@@ -95,21 +99,30 @@ class RustApiSnapshotTests(unittest.TestCase):
                 for index in range(3)
             ]
             metadata = {
-                "workspace_members": [shared["id"], runtime_api["id"], *[consumer["id"] for consumer in consumers]],
-                "packages": [shared, runtime_api, *consumers],
+                "workspace_members": [
+                    shared["id"],
+                    runtime_api["id"],
+                    ws_transport_port["id"],
+                    *[consumer["id"] for consumer in consumers],
+                ],
+                "packages": [shared, runtime_api, ws_transport_port, *consumers],
             }
 
             targets = sut.snapshot_targets(
                 metadata,
                 threshold=3,
-                explicit_snapshot_crates=frozenset({"ripdpi-runtime-api"}),
+                explicit_snapshot_crates=frozenset({"ripdpi-runtime-api", "ripdpi-ws-transport-port"}),
                 crates_root=crates_root,
             )
 
             reasons = {target.crate.name: target.reason for target in targets}
-            self.assertEqual(set(reasons), {"ripdpi-shared", "ripdpi-runtime-api"})
+            self.assertEqual(
+                set(reasons),
+                {"ripdpi-shared", "ripdpi-runtime-api", "ripdpi-ws-transport-port"},
+            )
             self.assertIn("indegree 3 >= 3", reasons["ripdpi-shared"])
             self.assertEqual(reasons["ripdpi-runtime-api"], "explicit API boundary")
+            self.assertEqual(reasons["ripdpi-ws-transport-port"], "explicit API boundary")
 
     def test_cargo_public_api_omits_generated_impl_noise(self) -> None:
         crate = sut.WorkspaceCrate(

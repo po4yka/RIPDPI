@@ -6,10 +6,9 @@ use boring::ssl::{SslConnector, SslStream, SslVerifyMode};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::WebSocket;
 
-use crate::CloudflareWorkerRoute;
-use crate::dc::{TelegramDc, ws_host, ws_url};
 use crate::protect;
 use crate::transport::WsTransportConfig;
+use ripdpi_ws_transport_port::{CloudflareWorkerRoute, TelegramDc, ws_host, ws_url};
 
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 

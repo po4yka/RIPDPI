@@ -18,6 +18,7 @@ ripdpi-config = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true, features = ["daemonize"] }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-telemetry = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }

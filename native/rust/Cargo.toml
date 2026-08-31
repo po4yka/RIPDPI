@@ -44,6 +44,7 @@ members = [
     "crates/ripdpi-runtime-strategy",
     "crates/ripdpi-shared-priors",
     "crates/ripdpi-ws-bootstrap",
+    "crates/ripdpi-ws-transport-port",
     "crates/ripdpi-telemetry",
     "crates/ripdpi-traffic-shape",
     "crates/ripdpi-native-protect",
@@ -168,6 +169,7 @@ ripdpi-runtime-platform = { path = "crates/ripdpi-runtime-platform" }
 ripdpi-runtime-strategy = { path = "crates/ripdpi-runtime-strategy" }
 ripdpi-shared-priors = { path = "crates/ripdpi-shared-priors" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
+ripdpi-ws-transport-port = { path = "crates/ripdpi-ws-transport-port" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-traffic-shape = { path = "crates/ripdpi-traffic-shape" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }

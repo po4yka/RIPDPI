@@ -64,7 +64,7 @@ fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
 where
     ReadSeed: FnOnce(&mut TcpStream) -> Result<Vec<u8>, SeedReadError>,
     ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
+    RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
 {
     let seed_request = match read_seed(&mut client) {
         Ok(seed_request) => seed_request,
@@ -85,7 +85,7 @@ fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
 ) -> WsTunnelResult
 where
     ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
+    RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
 {
     if seed_request.len() < 64 {
         return WsTunnelResult::ShortInit {
@@ -94,7 +94,7 @@ where
         };
     }
 
-    match RuntimeState::classify_mtproto_seed(&seed_request[..64]) {
+    match state.classify_mtproto_seed(&seed_request[..64]) {
         WsSeedClassification::NotMtproto => {
             tracing::debug!("WS tunnel skipped: first request is not valid MTProto obfuscated2");
             WsTunnelResult::NotMtproto { seed_request }
@@ -116,7 +116,7 @@ where
                 }
             };
             let config = state.ws_tunnel_config(Some(resolved_addr));
-            match relay_ws(client, dc, seed_request.clone(), &config) {
+            match relay_ws(state, client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
                 Err(error) => {
                     tracing::warn!(
@@ -266,7 +266,7 @@ mod tests {
             seed_request,
             &state,
             |_state, _dc| unreachable!("should not resolve"),
-            |_client, _dc, _seed_request, _config| unreachable!("should not relay"),
+            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
         );
 
         assert!(matches!(result, WsTunnelResult::NotMtproto { .. }));
@@ -282,7 +282,7 @@ mod tests {
             build_test_init_packet(-3),
             &state,
             |_state, _dc| unreachable!("should not resolve"),
-            |_client, _dc, _seed_request, _config| unreachable!("should not relay"),
+            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
         );
 
         assert!(matches!(
@@ -312,7 +312,7 @@ mod tests {
                 assert_eq!(dc, RuntimeTelegramDc::from_raw(10_002).expect("test dc"));
                 Ok(resolved_addr)
             },
-            |_client, dc, forwarded_seed, config| {
+            |_state, _client, dc, forwarded_seed, config| {
                 assert_eq!(dc, RuntimeTelegramDc::from_raw(10_002).expect("test dc"));
                 assert_eq!(forwarded_seed, seed_request);
                 assert_eq!(config.resolved_addr, Some(resolved_addr));
@@ -339,7 +339,9 @@ mod tests {
             seed_request.clone(),
             &state,
             |_state, _dc| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
-            |_client, _dc, _seed_request, _config| unreachable!("relay must not run without a resolved address"),
+            |_state, _client, _dc, _seed_request, _config| {
+                unreachable!("relay must not run without a resolved address")
+            },
         );
 
         assert!(matches!(
@@ -362,7 +364,9 @@ mod tests {
             seed_request.clone(),
             &state,
             |_state, _dc| Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443))),
-            |_client, _dc, _forwarded_seed, _config| Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom")),
+            |_state, _client, _dc, _forwarded_seed, _config| {
+                Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom"))
+            },
         );
 
         assert!(matches!(
@@ -388,7 +392,7 @@ mod tests {
             &state,
             read_mtproto_seed,
             |_state, _dc| unreachable!("should not resolve"),
-            |_client, _dc, _seed_request, _config| unreachable!("should not relay"),
+            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
         );
 
         writer.join().expect("join writer");

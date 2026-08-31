@@ -42,7 +42,14 @@ pub fn start_proxy(
     let listener = create_listener(&config).expect("create listener");
     let port = listener.local_addr().expect("listener addr").port();
     let control_for_thread = control.clone();
-    let thread = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    let thread = thread::spawn(move || {
+        run_proxy_with_embedded_control(
+            config,
+            listener,
+            control_for_thread,
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
+    });
     startup.wait(START_TIMEOUT);
     RunningProxy { port, control, thread: Some(thread) }
 }

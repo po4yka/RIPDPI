@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_dns_resolver::{EncryptedDnsResolver, EncryptedDnsTransport, extract_ip_answers};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
-use ripdpi_ws_tunnel::TelegramDc;
+use ripdpi_ws_transport_port::{TelegramDc, ws_host};
 
 use crate::catalog::{WS_TUNNEL_PORT, default_encrypted_dns_context};
 use crate::endpoint::encrypted_dns_endpoint;
@@ -111,7 +111,7 @@ pub(crate) fn resolve_host_via_encrypted_dns_with_default(
 }
 
 pub(crate) fn ws_tunnel_host(dc: TelegramDc) -> String {
-    ripdpi_ws_tunnel::ws_host(dc).expect("WS bootstrap only resolves tunnelable Telegram DCs")
+    ws_host(dc).expect("WS bootstrap only resolves tunnelable Telegram DCs")
 }
 
 fn resolve_first_ip(

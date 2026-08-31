@@ -5,6 +5,7 @@ use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
 
 use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed};
 use crate::types::TelegramTarget;
+use ripdpi_ws_transport_port::{WsTunnelDecision, classify_target};
 
 const FALLBACK_MTPROTO_PORT: u16 = 80;
 const PRIMARY_MTPROTO_PORT: u16 = 443;
@@ -42,9 +43,9 @@ pub(crate) fn telegram_dc_probe_with_abort(
                 continue;
             }
         };
-        let dc_label = match ripdpi_ws_tunnel::classify_target(ip) {
-            ripdpi_ws_tunnel::WsTunnelDecision::Tunnel(dc) => format!("dc{}", dc.number()),
-            ripdpi_ws_tunnel::WsTunnelDecision::Passthrough => {
+        let dc_label = match classify_target(ip) {
+            WsTunnelDecision::Tunnel(dc) => format!("dc{}", dc.number()),
+            WsTunnelDecision::Passthrough => {
                 results.push(format!("{}:fail:not_telegram_dc", dc.label));
                 continue;
             }

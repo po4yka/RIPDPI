@@ -21,6 +21,7 @@ ripdpi-proxy-runtime = { workspace = true }
 ripdpi-quality = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-decision-ports = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

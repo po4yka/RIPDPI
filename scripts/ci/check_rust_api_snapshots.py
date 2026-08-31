@@ -18,7 +18,7 @@ RUST_ROOT = REPO_ROOT / "native" / "rust"
 CRATES_ROOT = RUST_ROOT / "crates"
 WORKSPACE_MANIFEST = RUST_ROOT / "Cargo.toml"
 HIGH_INDEGREE_THRESHOLD = 10
-EXPLICIT_SNAPSHOT_CRATES = frozenset({"ripdpi-runtime-api"})
+EXPLICIT_SNAPSHOT_CRATES = frozenset({"ripdpi-runtime-api", "ripdpi-ws-transport-port"})
 PUBLIC_API_ARGS = ("-sss",)
 PUBLIC_API_NORMALIZATIONS = {
     "core::io::error::ErrorKind": "std::io::error::ErrorKind",

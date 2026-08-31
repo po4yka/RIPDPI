@@ -58,7 +58,7 @@ fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
         "starting proxy"
     );
 
-    if let Err(err) = ripdpi_proxy_runtime::run_proxy(config) {
+    if let Err(err) = ripdpi_proxy_runtime::run_proxy(config, Arc::new(ripdpi_ws_tunnel::TelegramWsTransport)) {
         tracing::error!(%err, "proxy error");
         return ExitCode::FAILURE;
     }

@@ -47,6 +47,7 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-adaptive = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-strategy = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
 # Per-transport throughput benches drive each protocol client against its
 # loopback server fixture.
 ripdpi-hysteria2 = { workspace = true }

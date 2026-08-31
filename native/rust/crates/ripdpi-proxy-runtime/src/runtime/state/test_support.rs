@@ -20,11 +20,28 @@ impl RuntimeState {
         Self::test_with_telemetry_and_context(config, telemetry, None)
     }
     #[cfg(test)]
+    pub(in crate::runtime) fn test_with_control(
+        config: RuntimeConfig,
+        control: std::sync::Arc<EmbeddedProxyControl>,
+    ) -> Self {
+        Self::new(config, Some(control), std::sync::Arc::new(ripdpi_ws_tunnel::TelegramWsTransport))
+    }
+    #[cfg(test)]
     pub(in crate::runtime) fn test_with_telemetry_and_context(
         config: RuntimeConfig,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
+        Self::test_full(config, telemetry, runtime_context)
+    }
+
+    #[cfg(test)]
+    fn test_full(
+        config: RuntimeConfig,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+        runtime_context: Option<ProxyRuntimeContext>,
+    ) -> Self {
+        let ws_transport = std::sync::Arc::new(ripdpi_ws_tunnel::TelegramWsTransport);
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         let decision_engine = new_decision_engine(&handle);
         let geo_matcher = super::super::geo::load_runtime_geo_matcher(&config);
@@ -96,6 +113,7 @@ impl RuntimeState {
             same_sni_profile_limiter: SameSniProfileLimiter::new(same_sni_caps),
             selected_tls_profile,
             pcap_hook: None,
+            ws_transport,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
         }

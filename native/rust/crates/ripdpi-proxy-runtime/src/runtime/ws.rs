@@ -4,9 +4,9 @@ use std::net::{SocketAddr, TcpStream};
 use ripdpi_proxy_runtime_adapter::model::config::{WsTunnelSettings, ws_tunnel_config_with};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, classify_mtproto_seed,
-    detect_telegram_dc, encrypted_dns_ip_answers_for_host, relay_ws_tunnel, resolve_host_via_encrypted_dns,
-    resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
+    EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTransport, WsTunnelConfig, detect_telegram_dc,
+    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
+    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
 };
 
 pub(super) type RuntimeEncryptedDnsIpAnswers = EncryptedDnsIpAnswers;
@@ -130,8 +130,8 @@ pub(super) enum WsSeedClassification {
     ValidatedMtproto { dc: RuntimeTelegramDc },
 }
 
-pub(super) fn runtime_classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
-    match classify_mtproto_seed(seed) {
+pub(super) fn runtime_classify_mtproto_seed(transport: &dyn WsTransport, seed: &[u8]) -> WsSeedClassification {
+    match transport.classify_mtproto_seed(seed) {
         MtprotoSeedClassification::NotMtproto => WsSeedClassification::NotMtproto,
         MtprotoSeedClassification::UnmappableDc { raw_dc, dc } => {
             WsSeedClassification::UnmappableDc { raw_dc, dc: dc.map(RuntimeTelegramDc::from_adapter) }
@@ -143,12 +143,13 @@ pub(super) fn runtime_classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification
 }
 
 pub(super) fn runtime_relay_ws_tunnel(
+    transport: &dyn WsTransport,
     client: TcpStream,
     dc: RuntimeTelegramDc,
     seed_request: Vec<u8>,
     config: &RuntimeWsTunnelConfig,
 ) -> io::Result<()> {
-    relay_ws_tunnel(client, dc.into_adapter(), seed_request, config.as_adapter())
+    transport.relay(client, dc.into_adapter(), seed_request, config.as_adapter())
 }
 
 #[cfg(test)]

@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn udp_decoy_only_outcome_records_non_applied_receipt() {
         let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 7));
-        let state = RuntimeState::new(RuntimeConfig::default(), Some(control.clone()));
+        let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
         let attempt_token = AttemptCorrelationId::new("udp-decoy-only").expect("valid attempt token");
 
         assert!(state.record_udp_desync_execution_evidence(
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn udp_plain_fallback_is_distinct_from_activation_skip() {
         let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 8));
-        let state = RuntimeState::new(RuntimeConfig::default(), Some(control.clone()));
+        let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
         let attempt_token = AttemptCorrelationId::new("udp-plain-fallback").expect("valid attempt token");
 
         assert!(state.record_udp_desync_execution_evidence(
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn udp_applied_ip_fragmentation_preserves_exact_ipv6_extension_profile() {
         let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 10));
-        let state = RuntimeState::new(RuntimeConfig::default(), Some(control.clone()));
+        let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
         let attempt_token = AttemptCorrelationId::new("udp-ipv6-extension").expect("valid attempt token");
 
         assert!(state.record_udp_desync_execution_evidence(
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn udp_partial_execution_failure_records_terminal_receipt() {
         let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 9));
-        let state = RuntimeState::new(RuntimeConfig::default(), Some(control.clone()));
+        let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
         let attempt_token = AttemptCorrelationId::new("udp-partial-failure").expect("valid attempt token");
 
         assert!(state.record_udp_desync_failure_evidence(

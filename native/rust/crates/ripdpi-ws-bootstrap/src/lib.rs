@@ -13,9 +13,9 @@ pub use resolver::{
     EncryptedDnsIpAnswers, build_encrypted_dns_resolver_for_host, encrypted_dns_ip_answers_for_host,
     resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
 };
-pub use ripdpi_ws_tunnel::{
-    CloudflareWorkerRoute, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, WsTunnelDecision,
-    classify_mtproto_seed, classify_target, dc_from_ip, relay_ws_tunnel,
+pub use ripdpi_ws_transport_port::{
+    CloudflareWorkerRoute, MtprotoSeedClassification, TelegramDc, WorkerBearer, WsTransport, WsTunnelConfig,
+    WsTunnelDecision, classify_target, dc_from_ip,
 };
 
 #[cfg(test)]

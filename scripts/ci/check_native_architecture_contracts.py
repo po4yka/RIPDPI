@@ -188,6 +188,14 @@ DIAGNOSTICS_UPWARD_DEPENDENCIES = frozenset(
         "ripdpi-monitor-proxy-runtime",
     }
 )
+WS_TRANSPORT_PORT_CRATE = "ripdpi-ws-transport-port"
+WS_TRANSPORT_PORT_CONSUMERS = frozenset(
+    {
+        "ripdpi-diagnostics-telegram",
+        "ripdpi-ws-bootstrap",
+        "ripdpi-ws-tunnel",
+    }
+)
 RUNTIME_UPWARD_DEPENDENCY_PREFIXES = (
     "ripdpi-android",
     "ripdpi-monitor",
@@ -414,6 +422,48 @@ def dependency_direction_violations(
     return violations
 
 
+def ws_transport_layer_violations(
+    graph: dict[str, set[str]],
+    manifest_paths: dict[str, Path],
+) -> list[Violation]:
+    """Keep the Telegram WS contract below its L4/L6/L7 consumers."""
+    violations: list[Violation] = []
+    port_dependencies = graph.get(WS_TRANSPORT_PORT_CRATE, set())
+    for dependency in sorted(port_dependencies):
+        violations.append(
+            dependency_violation(
+                manifest_paths,
+                WS_TRANSPORT_PORT_CRATE,
+                dependency,
+                "the L2 WS transport port must remain a dependency-free contract boundary",
+            )
+        )
+
+    for consumer in sorted(WS_TRANSPORT_PORT_CONSUMERS):
+        if consumer not in graph:
+            continue
+        dependencies = graph.get(consumer, set())
+        if WS_TRANSPORT_PORT_CRATE not in dependencies:
+            violations.append(
+                dependency_violation(
+                    manifest_paths,
+                    consumer,
+                    WS_TRANSPORT_PORT_CRATE,
+                    "WS bootstrap, diagnostics, and the concrete tunnel must share the L2 port contract",
+                )
+            )
+        if consumer != "ripdpi-ws-tunnel" and "ripdpi-ws-tunnel" in dependencies:
+            violations.append(
+                dependency_violation(
+                    manifest_paths,
+                    consumer,
+                    "ripdpi-ws-tunnel",
+                    "L4/L6 consumers must depend on the L2 WS transport port, not its L7 implementation",
+                )
+            )
+    return violations
+
+
 def jni_containment_violations(
     repo_root: Path,
     manifest_paths: dict[str, Path],
@@ -566,6 +616,7 @@ def collect_violations(repo_root: Path) -> list[Violation]:
 
     graph, manifest_paths = production_dependency_graph(repo_root)
     violations.extend(dependency_direction_violations(graph, manifest_paths))
+    violations.extend(ws_transport_layer_violations(graph, manifest_paths))
     violations.extend(jni_containment_violations(repo_root, manifest_paths))
 
     for relative_path in ADAPTER_FILES:

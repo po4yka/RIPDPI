@@ -1,0 +1,57 @@
+pub mod ripdpi_ws_transport_port
+pub enum ripdpi_ws_transport_port::MtprotoSeedClassification
+pub ripdpi_ws_transport_port::MtprotoSeedClassification::NotMtproto
+pub ripdpi_ws_transport_port::MtprotoSeedClassification::UnmappableDc
+pub ripdpi_ws_transport_port::MtprotoSeedClassification::UnmappableDc::dc: core::option::Option<ripdpi_ws_transport_port::TelegramDc>
+pub ripdpi_ws_transport_port::MtprotoSeedClassification::UnmappableDc::raw_dc: i32
+pub ripdpi_ws_transport_port::MtprotoSeedClassification::ValidatedMtproto
+pub ripdpi_ws_transport_port::MtprotoSeedClassification::ValidatedMtproto::dc: ripdpi_ws_transport_port::TelegramDc
+pub enum ripdpi_ws_transport_port::TelegramDcClass
+pub ripdpi_ws_transport_port::TelegramDcClass::MediaOrCdn
+pub ripdpi_ws_transport_port::TelegramDcClass::Production
+pub ripdpi_ws_transport_port::TelegramDcClass::Test
+pub enum ripdpi_ws_transport_port::WsTunnelDecision
+pub ripdpi_ws_transport_port::WsTunnelDecision::Passthrough
+pub ripdpi_ws_transport_port::WsTunnelDecision::Tunnel(ripdpi_ws_transport_port::TelegramDc)
+pub struct ripdpi_ws_transport_port::CloudflareWorkerRoute
+impl ripdpi_ws_transport_port::CloudflareWorkerRoute
+pub fn ripdpi_ws_transport_port::CloudflareWorkerRoute::bearer(&self) -> &ripdpi_ws_transport_port::WorkerBearer
+pub fn ripdpi_ws_transport_port::CloudflareWorkerRoute::host(&self) -> &str
+pub fn ripdpi_ws_transport_port::CloudflareWorkerRoute::parse(impl core::convert::AsRef<str>, impl core::convert::Into<alloc::string::String>) -> std::io::error::Result<Self>
+pub fn ripdpi_ws_transport_port::CloudflareWorkerRoute::port(&self) -> u16
+pub fn ripdpi_ws_transport_port::CloudflareWorkerRoute::request_authority(&self) -> &str
+pub fn ripdpi_ws_transport_port::CloudflareWorkerRoute::request_path(&self) -> &str
+pub struct ripdpi_ws_transport_port::TelegramDc
+impl ripdpi_ws_transport_port::TelegramDc
+pub const fn ripdpi_ws_transport_port::TelegramDc::class(self) -> ripdpi_ws_transport_port::TelegramDcClass
+pub fn ripdpi_ws_transport_port::TelegramDc::from_raw(i32) -> core::option::Option<Self>
+pub const fn ripdpi_ws_transport_port::TelegramDc::is_tunnelable(self) -> bool
+pub const fn ripdpi_ws_transport_port::TelegramDc::number(self) -> u8
+pub const fn ripdpi_ws_transport_port::TelegramDc::production(u8) -> Self
+pub const fn ripdpi_ws_transport_port::TelegramDc::raw(self) -> i32
+pub fn ripdpi_ws_transport_port::TelegramDc::ws_host(self) -> core::option::Option<alloc::string::String>
+pub fn ripdpi_ws_transport_port::TelegramDc::ws_url(self) -> core::option::Option<alloc::string::String>
+pub struct ripdpi_ws_transport_port::WorkerBearer(_)
+impl ripdpi_ws_transport_port::WorkerBearer
+pub fn ripdpi_ws_transport_port::WorkerBearer::expose_secret(&self) -> &str
+pub fn ripdpi_ws_transport_port::WorkerBearer::parse(impl core::convert::Into<alloc::string::String>) -> std::io::error::Result<Self>
+impl core::fmt::Debug for ripdpi_ws_transport_port::WorkerBearer
+pub fn ripdpi_ws_transport_port::WorkerBearer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct ripdpi_ws_transport_port::WsTunnelConfig
+pub ripdpi_ws_transport_port::WsTunnelConfig::allow_insecure_sni: bool
+pub ripdpi_ws_transport_port::WsTunnelConfig::connect_timeout: core::option::Option<core::time::Duration>
+pub ripdpi_ws_transport_port::WsTunnelConfig::fake_sni: core::option::Option<alloc::string::String>
+pub ripdpi_ws_transport_port::WsTunnelConfig::protect_path: core::option::Option<alloc::string::String>
+pub ripdpi_ws_transport_port::WsTunnelConfig::resolved_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+pub ripdpi_ws_transport_port::WsTunnelConfig::worker_route: core::option::Option<ripdpi_ws_transport_port::CloudflareWorkerRoute>
+pub const ripdpi_ws_transport_port::TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED: &str
+pub const ripdpi_ws_transport_port::TELEGRAM_DC_IPV4_TABLE_SOURCE: &str
+pub trait ripdpi_ws_transport_port::WsTransport: core::marker::Send + core::marker::Sync
+pub fn ripdpi_ws_transport_port::WsTransport::classify_mtproto_seed(&self, &[u8]) -> ripdpi_ws_transport_port::MtprotoSeedClassification
+pub fn ripdpi_ws_transport_port::WsTransport::relay(&self, std::net::tcp::TcpStream, ripdpi_ws_transport_port::TelegramDc, alloc::vec::Vec<u8>, &ripdpi_ws_transport_port::WsTunnelConfig) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::classify_target(core::net::ip_addr::IpAddr) -> ripdpi_ws_transport_port::WsTunnelDecision
+pub fn ripdpi_ws_transport_port::dc_from_ip(core::net::ip_addr::Ipv4Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>
+pub fn ripdpi_ws_transport_port::dc_from_ipv6(core::net::ip_addr::Ipv6Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>
+pub fn ripdpi_ws_transport_port::is_telegram_ip(core::net::ip_addr::IpAddr) -> bool
+pub fn ripdpi_ws_transport_port::ws_host(ripdpi_ws_transport_port::TelegramDc) -> core::option::Option<alloc::string::String>
+pub fn ripdpi_ws_transport_port::ws_url(ripdpi_ws_transport_port::TelegramDc) -> core::option::Option<alloc::string::String>

@@ -1,7 +1,7 @@
 use aes::Aes256;
 use cipher::{KeyIvInit, StreamCipher};
 
-use crate::dc::TelegramDc;
+use ripdpi_ws_transport_port::{MtprotoSeedClassification, TelegramDc};
 
 type Aes256Ctr = ctr::Ctr128BE<Aes256>;
 
@@ -58,13 +58,6 @@ const ALLOWED_PROTOCOL_TAGS: [[u8; 4]; 3] = [
     MtprotoTransportFamily::Intermediate.tag_bytes(),
     MtprotoTransportFamily::Abridged.tag_bytes(),
 ];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MtprotoSeedClassification {
-    ValidatedMtproto { dc: TelegramDc },
-    NotMtproto,
-    UnmappableDc { raw_dc: i32, dc: Option<TelegramDc> },
-}
 
 /// Format a redacted summary of an MTProto seed / init buffer for
 /// tracing.
@@ -162,7 +155,7 @@ fn has_allowed_protocol_tag(decrypted: &[u8; 64]) -> bool {
 mod tests {
     use super::*;
 
-    use crate::dc::TelegramDc;
+    use ripdpi_ws_transport_port::TelegramDc;
 
     fn build_test_init_packet(raw_dc: i32) -> [u8; 64] {
         build_test_init_packet_with_tag(raw_dc, [0xee; 4])

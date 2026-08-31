@@ -22,8 +22,10 @@ mod ws;
 
 use std::io;
 use std::net::TcpListener;
+use std::sync::Arc;
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_ws_transport_port::WsTransport;
 
 pub use self::listeners::ProxyRuntimeCleanupReceipt;
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
@@ -31,9 +33,9 @@ use self::state::RuntimeState;
 pub use geo::{RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, load_geo_database_versions, load_geoip_metadata};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 
-pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
+pub fn run_proxy(config: RuntimeConfig, ws_transport: Arc<dyn WsTransport>) -> io::Result<()> {
     let listener = create_listener(&config)?;
-    run_proxy_with_listener(config, listener)
+    run_proxy_with_listener(config, listener, ws_transport)
 }
 
 pub fn create_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
@@ -47,16 +49,21 @@ pub fn validate_proxy_config(config: &RuntimeConfig) -> io::Result<()> {
     Ok(())
 }
 
-pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, None).and_then(ordinary_proxy_result)
+pub fn run_proxy_with_listener(
+    config: RuntimeConfig,
+    listener: TcpListener,
+    ws_transport: Arc<dyn WsTransport>,
+) -> io::Result<()> {
+    run_proxy_with_listener_internal(config, listener, None, ws_transport).and_then(ordinary_proxy_result)
 }
 
 pub fn run_proxy_with_embedded_control(
     config: RuntimeConfig,
     listener: TcpListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
+    ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<()> {
-    run_proxy_with_listener_internal(config, listener, Some(control)).and_then(ordinary_proxy_result)
+    run_proxy_with_listener_internal(config, listener, Some(control), ws_transport).and_then(ordinary_proxy_result)
 }
 
 fn ordinary_proxy_result(receipt: ProxyRuntimeCleanupReceipt) -> io::Result<()> {
@@ -71,8 +78,9 @@ pub fn run_proxy_with_embedded_control_receipt(
     config: RuntimeConfig,
     listener: TcpListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
+    ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
-    run_proxy_with_listener_internal(config, listener, Some(control))
+    run_proxy_with_listener_internal(config, listener, Some(control), ws_transport)
 }
 
 #[cfg(all(test, not(feature = "loom")))]
@@ -428,7 +436,14 @@ mod tests {
         let proxy_addr = listener.local_addr().expect("proxy address");
         let control = Arc::new(ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl::new(None));
         let worker_control = control.clone();
-        let proxy = thread::spawn(move || run_proxy_with_embedded_control_receipt(config, listener, worker_control));
+        let proxy = thread::spawn(move || {
+            run_proxy_with_embedded_control_receipt(
+                config,
+                listener,
+                worker_control,
+                Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+            )
+        });
 
         let mut client = TcpStream::connect(proxy_addr).expect("connect proxy");
         client.write_all(&[5, 1, 0]).expect("send SOCKS greeting");

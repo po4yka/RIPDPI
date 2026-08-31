@@ -77,7 +77,12 @@ impl BenchInfra {
         let control = Arc::new(ripdpi_runtime_api::EmbeddedProxyControl::new(None));
         let control_clone = control.clone();
         let proxy_thread = thread::spawn(move || {
-            ripdpi_proxy_runtime::run_proxy_with_embedded_control(config, listener, control_clone)
+            ripdpi_proxy_runtime::run_proxy_with_embedded_control(
+                config,
+                listener,
+                control_clone,
+                Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+            )
         });
 
         // Warmup: wait for proxy to start accepting connections.

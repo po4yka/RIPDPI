@@ -84,7 +84,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 |---|-------|-------|--------|
 | L0 | **support / test / dev** | 8 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli`, `soundness-canaries` |
 | L1 | **protocol / core** | 14 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-network-time`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
-| L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
+| L2 | **contracts / config** | 10 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry`, `ripdpi-ws-transport-port` |
 | L3 | **domain logic** | 19 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry`, `ripdpi-traffic-shape` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 9 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
@@ -208,6 +208,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-runtime-decision-ports` | Hexagonal decision-port traits | Traits | `ripdpi-config`, `ripdpi-desync`, `ripdpi-failure-classifier`, `ripdpi-proxy-config` | Port layer for L3/L4 | Keep |
 | `ripdpi-diagnostics-contracts` | Diagnostics wire contracts (`ScanRequest`/`ScanReport`) | Serde types | `ripdpi-proxy-config`, `ripdpi-telemetry` | Fan-in 15; Kotlin/Rust wire contract | Keep — golden-locked |
 | `ripdpi-telemetry` | Telemetry data structures + contracts | Serde types | — (leaf) | Wide fan-in via contracts | Keep — golden-locked |
+| `ripdpi-ws-transport-port` | Telegram WS transport boundary | Object-safe port + DC/config types | — (leaf) | Shared by L4 bootstrap/runtime, L6 diagnostics, and L7 implementation | Keep dependency-free; compose concrete transport only at outer roots |
 
 ### L3 — domain logic
 
@@ -244,7 +245,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-runtime-dns-cache` | Runtime DNS cache | Cache API | — (leaf) | Consumed by `ripdpi-ws-bootstrap` | Keep |
 | `ripdpi-tunnel-core` | TUN-to-SOCKS bridge runtime | Runtime entrypoint | `ripdpi-tun-driver`, `ripdpi-tunnel-intercept`, `ripdpi-dns-resolver`, … | Core of `libripdpi-tunnel.so`; `smoltcp` | Keep |
 | `ripdpi-tunnel-intercept` | TUN-egress packet interception + mutation | Intercept API | `ripdpi-strategy-registry`, `ripdpi-runtime-platform`, … | Mid | Keep |
-| `ripdpi-ws-bootstrap` | WebSocket-tunnel bootstrap orchestration | Bootstrap API | `ripdpi-ws-tunnel`, `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, … | Mid | Keep |
+| `ripdpi-ws-bootstrap` | WebSocket-tunnel bootstrap orchestration | Bootstrap API | `ripdpi-ws-transport-port`, `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, … | Mid | Keep |
 
 ### L5 — platform / privileged
 
@@ -304,7 +305,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-warp-core` | WARP runtime + generic AmneziaWG runtime / codec | Runtime API | `ripdpi-wireguard-ws` | `smoltcp`; root of `libripdpi-warp.so` and shared by `libripdpi-amneziawg.so` | Keep |
 | `ripdpi-wireguard-ws` | WireGuard-over-WebSocket carrier framing + protected carrier socket seam | Carrier codec + connect seam | — (leaf) | Used by `ripdpi-warp-core` for AmneziaWG `carrier = ws`; must stay JNI-free | Keep |
 | `ripdpi-apps-script-core` | Google Apps Script relay path | Transport client | — (leaf) | Consumed by `ripdpi-relay-android` | Keep |
-| `ripdpi-ws-tunnel` | MTProto WebSocket tunnel for Telegram | Tunnel client | `ripdpi-tls-profiles` | `boring` | Keep |
+| `ripdpi-ws-tunnel` | MTProto WebSocket tunnel for Telegram | `TelegramWsTransport` implementation | `ripdpi-ws-transport-port`, `ripdpi-tls-profiles` | `boring`; composed only by outer roots | Keep |
 
 ### L8 — Android / JNI adapters
 
@@ -329,7 +330,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 ## 5. Crates that must stay Android/JNI-free
 
 Every crate **except the 13 L8 crates** must not depend on `jni`,
-`android-support`, `android_logger`, or any `ndk-*` crate. That is **102 crates**
+`android-support`, `android_logger`, or any `ndk-*` crate. That is **104 crates**
 — all of L0–L7:
 
 > `feature-contract-harness`, `golden-test-support`, `local-network-fixture`,
@@ -340,7 +341,7 @@ Every crate **except the 13 L8 crates** must not depend on `jni`,
 > `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`,
 > `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`,
 > `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`,
-> `ripdpi-telemetry`, `ripdpi-desync`, `ripdpi-desync-runtime`,
+> `ripdpi-telemetry`, `ripdpi-ws-transport-port`, `ripdpi-desync`, `ripdpi-desync-runtime`,
 > `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`,
 > `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`,
 > `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,

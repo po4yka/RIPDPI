@@ -11,6 +11,7 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_proxy_runtime_adapter::platform::root_helper::RootHelperGeneration;
+use ripdpi_ws_transport_port::WsTransport;
 
 use crate::process;
 
@@ -85,12 +86,13 @@ pub(super) fn run_proxy_with_listener_internal(
     config: RuntimeConfig,
     listener: TcpListener,
     control: Option<StdArc<EmbeddedProxyControl>>,
+    ws_transport: StdArc<dyn WsTransport>,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
     let mut config = config;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let _root_helper = RootHelperRegistration::for_config(&config);
     let embedded_candidate_runtime = control.is_some();
-    let state = RuntimeState::new(config, control.clone());
+    let state = RuntimeState::new(config, control.clone(), ws_transport);
     let client_capacity = state.listener_client_capacity();
     let listener_addr = listener.local_addr()?;
     state.note_listener_started(listener_addr, client_capacity, state.listener_route_group_count());

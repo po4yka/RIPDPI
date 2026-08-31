@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyRuntimeContext};
-use ripdpi_ws_tunnel::TelegramDc;
+use ripdpi_ws_transport_port::TelegramDc;
 
 use crate::catalog::default_encrypted_dns_context;
 use crate::policy::runtime_encrypted_dns_context_for_host;

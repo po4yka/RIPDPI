@@ -59,7 +59,12 @@ fn authenticated_socks_split_host_attempt_receipt_preserves_candidate_identity_w
     let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, generation));
     let worker_control = control.clone();
     let worker = std::thread::spawn(move || {
-        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(config, listener, worker_control)
+        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(
+            config,
+            listener,
+            worker_control,
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
     });
 
     let start = Arc::new(std::sync::Barrier::new(3));
@@ -176,7 +181,12 @@ fn udp_associate_quic_desync_records_execution_receipt_for_attempt_token() {
     let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, generation));
     let worker_control = control.clone();
     let worker = std::thread::spawn(move || {
-        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(config, listener, worker_control)
+        ripdpi_proxy_runtime::run_proxy_with_embedded_control_receipt(
+            config,
+            listener,
+            worker_control,
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
     });
 
     let (_control_stream, relay) = socks_udp_associate_with_userpass(proxy_addr.port(), attempt_fixture, auth_fixture);

@@ -5304,6 +5304,7 @@ dependencies = [
  "ripdpi-diagnostics-contracts",
  "ripdpi-monitor-engine",
  "ripdpi-monitor-proxy-runtime",
+ "ripdpi-ws-tunnel",
  "serde_json",
 ]
 
@@ -5373,6 +5374,7 @@ dependencies = [
  "ripdpi-quality",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
+ "ripdpi-ws-tunnel",
  "serde",
  "serde_json",
 ]
@@ -5460,6 +5462,7 @@ dependencies = [
  "ripdpi-tuic",
  "ripdpi-vless",
  "ripdpi-webtunnel",
+ "ripdpi-ws-tunnel",
  "ripdpi-xhttp",
  "serde_json",
  "tokio",
@@ -5486,6 +5489,7 @@ dependencies = [
  "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-telemetry",
+ "ripdpi-ws-tunnel",
  "rustls",
  "serde",
  "serde_json",
@@ -5680,7 +5684,7 @@ dependencies = [
  "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-tls",
  "ripdpi-diagnostics-transport",
- "ripdpi-ws-tunnel",
+ "ripdpi-ws-transport-port",
  "rustls",
  "tracing",
 ]
@@ -5940,6 +5944,7 @@ dependencies = [
  "ripdpi-monitor-engine",
  "ripdpi-proxy-runtime",
  "ripdpi-runtime-api",
+ "ripdpi-ws-transport-port",
 ]
 
 [[package]]
@@ -6071,6 +6076,8 @@ dependencies = [
  "ripdpi-runtime-api",
  "ripdpi-session-limit",
  "ripdpi-tunnel-core",
+ "ripdpi-ws-transport-port",
+ "ripdpi-ws-tunnel",
  "rustls",
  "serde_json",
  "tempfile",
@@ -6872,10 +6879,14 @@ dependencies = [
  "ripdpi-runtime-dns-cache",
  "ripdpi-runtime-platform",
  "ripdpi-tls-profiles",
- "ripdpi-ws-tunnel",
+ "ripdpi-ws-transport-port",
  "socket2",
  "tracing",
 ]
+
+[[package]]
+name = "ripdpi-ws-transport-port"
+version = "0.1.0"
 
 [[package]]
 name = "ripdpi-ws-tunnel"
@@ -6891,6 +6902,7 @@ dependencies = [
  "rcgen",
  "ripdpi-native-protect",
  "ripdpi-tls-profiles",
+ "ripdpi-ws-transport-port",
  "socket2",
  "thiserror 2.0.20",
  "tokio",

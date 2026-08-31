@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 mod connect;
-pub mod dc;
 pub mod httpupgrade;
 mod mtproto;
 mod protect;
@@ -9,270 +8,38 @@ mod relay;
 pub mod transport;
 
 use std::io;
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-pub use dc::{TelegramDc, TelegramDcClass, dc_from_ip, is_telegram_ip, ws_host, ws_url};
 pub use httpupgrade::{
     HttpUpgradeConfig, HttpUpgradeError, HttpUpgradeTransport, UpgradeResponse, build_upgrade_request,
     parse_upgrade_response,
 };
 pub use mtproto::{
-    MtprotoSeedClassification, MtprotoTransportFamily, classify_mtproto_seed, decrypt_init_packet,
-    extract_dc_from_init, redact_seed,
+    MtprotoTransportFamily, classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, redact_seed,
+};
+pub use ripdpi_ws_transport_port::{
+    CloudflareWorkerRoute, MtprotoSeedClassification, TelegramDc, TelegramDcClass, WorkerBearer, WsTunnelConfig,
+    WsTunnelDecision, classify_target, dc_from_ip, dc_from_ipv6, is_telegram_ip, ws_host, ws_url,
 };
 pub use transport::{EarlyData, WsTransport, WsTransportConfig, WsTransportError, build_ws_request};
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct WorkerBearer(String);
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TelegramWsTransport;
 
-impl WorkerBearer {
-    pub fn parse(value: impl Into<String>) -> io::Result<Self> {
-        let value = value.into();
-        if value.is_empty() || value.len() > 4096 || !is_rfc6750_bearer_token(value.as_bytes()) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Cloudflare Worker bearer must be a bounded RFC 6750 bearer token",
-            ));
-        }
-        Ok(Self(value))
+impl ripdpi_ws_transport_port::WsTransport for TelegramWsTransport {
+    fn classify_mtproto_seed(&self, seed: &[u8]) -> MtprotoSeedClassification {
+        classify_mtproto_seed(seed)
     }
 
-    pub fn expose_secret(&self) -> &str {
-        &self.0
-    }
-}
-
-fn is_rfc6750_bearer_token(bearer: &[u8]) -> bool {
-    let padding_start = bearer.iter().position(|byte| *byte == b'=').unwrap_or(bearer.len());
-    padding_start > 0
-        && bearer[..padding_start].iter().all(|byte| byte.is_ascii_alphanumeric() || b"-._~+/".contains(byte))
-        && bearer[padding_start..].iter().all(|byte| *byte == b'=')
-}
-
-impl std::fmt::Debug for WorkerBearer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("WorkerBearer(<redacted>)")
-    }
-}
-
-/// Validated optional Cloudflare Worker route for the Telegram WS tunnel.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CloudflareWorkerRoute {
-    host: String,
-    request_authority: String,
-    port: u16,
-    request_path: String,
-    bearer: WorkerBearer,
-}
-
-impl CloudflareWorkerRoute {
-    pub fn parse(url: impl AsRef<str>, bearer: impl Into<String>) -> io::Result<Self> {
-        let url = url.as_ref();
-        validate_worker_url_characters(url)?;
-        let without_scheme = if let Some(rest) = url.strip_prefix("https://") {
-            rest
-        } else if let Some(rest) = url.strip_prefix("wss://") {
-            rest
-        } else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Cloudflare Worker URL scheme must be https or wss",
-            ));
-        };
-        if without_scheme.contains('#') {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Cloudflare Worker URL must not contain a fragment",
-            ));
-        }
-        let authority_end = without_scheme.find(['/', '?']).unwrap_or(without_scheme.len());
-        let (authority, suffix) = without_scheme.split_at(authority_end);
-        if authority.is_empty() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker URL must contain a hostname"));
-        }
-        if authority.contains('@') {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker URL must not contain userinfo"));
-        }
-        let (host, port) = parse_worker_authority(authority)?;
-        if host.is_empty() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker URL must contain a hostname"));
-        }
-        let request_path = if suffix.is_empty() {
-            "/".to_string()
-        } else if suffix.starts_with('?') {
-            format!("/{suffix}")
-        } else {
-            suffix.to_string()
-        };
-        Ok(Self {
-            host,
-            request_authority: authority.to_string(),
-            port,
-            request_path,
-            bearer: WorkerBearer::parse(bearer)?,
-        })
-    }
-
-    pub fn host(&self) -> &str {
-        &self.host
-    }
-
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-
-    pub fn request_authority(&self) -> &str {
-        &self.request_authority
-    }
-
-    pub fn request_path(&self) -> &str {
-        &self.request_path
-    }
-
-    pub fn bearer(&self) -> &WorkerBearer {
-        &self.bearer
-    }
-}
-
-fn parse_worker_authority(authority: &str) -> io::Result<(String, u16)> {
-    if let Some(stripped) = authority.strip_prefix('[') {
-        let (host, rest) = stripped.split_once(']').ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host is missing closing bracket")
-        })?;
-        host.parse::<std::net::Ipv6Addr>()
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid Cloudflare Worker IPv6 hostname"))?;
-        let port = if rest.is_empty() {
-            443
-        } else {
-            parse_worker_port(rest.strip_prefix(':').ok_or_else(|| {
-                io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host has invalid port delimiter")
-            })?)?
-        };
-        return Ok((host.to_string(), port));
-    }
-    if let Some((host, port)) = authority.rsplit_once(':') {
-        if host.contains(':') {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host must use brackets"));
-        }
-        validate_worker_hostname(host)?;
-        return Ok((host.to_string(), parse_worker_port(port)?));
-    }
-    if authority.contains(':') {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Cloudflare Worker IPv6 host must use brackets"));
-    }
-    validate_worker_hostname(authority)?;
-    Ok((authority.to_string(), 443))
-}
-
-fn validate_worker_url_characters(url: &str) -> io::Result<()> {
-    if !url.is_ascii() || url.bytes().any(|byte| byte <= b' ' || byte == 0x7f) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Cloudflare Worker URL must contain only visible ASCII characters",
-        ));
-    }
-    let bytes = url.as_bytes();
-    for (index, byte) in bytes.iter().copied().enumerate() {
-        let allowed = byte.is_ascii_alphanumeric() || b"-._~:/?[]@!$&'()*+,;=%".contains(&byte);
-        if !allowed {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Cloudflare Worker URL contains an invalid URI character",
-            ));
-        }
-        if byte == b'%'
-            && (index + 2 >= bytes.len()
-                || !bytes[index + 1].is_ascii_hexdigit()
-                || !bytes[index + 2].is_ascii_hexdigit())
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Cloudflare Worker URL contains invalid percent encoding",
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn validate_worker_hostname(host: &str) -> io::Result<()> {
-    if host.is_empty()
-        || host.split('.').any(|label| {
-            label.is_empty()
-                || label.starts_with('-')
-                || label.ends_with('-')
-                || !label.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-        })
-    {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid Cloudflare Worker hostname"));
-    }
-    Ok(())
-}
-
-fn parse_worker_port(port: &str) -> io::Result<u16> {
-    port.parse::<u16>()
-        .ok()
-        .filter(|port| *port != 0)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid Cloudflare Worker port"))
-}
-
-/// Configuration for a WebSocket tunnel connection.
-pub struct WsTunnelConfig {
-    /// Unix socket path for Android VPN socket protection. `None` when not
-    /// running in VPN mode.
-    pub protect_path: Option<String>,
-    /// Optional pre-resolved Telegram WS endpoint, usually supplied by the
-    /// runtime through encrypted DNS.
-    pub resolved_addr: Option<SocketAddr>,
-    /// Optional TCP connect timeout for the WS bootstrap path.
-    pub connect_timeout: Option<Duration>,
-    /// Optional cover domain for the TLS SNI field. When set, the TLS
-    /// ClientHello will use this domain instead of the real
-    /// `kws{dc}.web.telegram.org`, disguising the connection as traffic to a
-    /// whitelisted service (e.g. `yandex.ru`). Certificate validation is
-    /// disabled when fake SNI is active.
-    ///
-    /// **Requires `allow_insecure_sni == true`.** A `fake_sni` value
-    /// is silently ignored without an explicit opt-in, and
-    /// `relay_ws_tunnel` returns a `PermissionDenied` error so the
-    /// misconfiguration is loud rather than quiet.
-    pub fake_sni: Option<String>,
-    /// Explicit operator acknowledgement that fake-SNI mode disables
-    /// standard TLS certificate verification. Required to honour
-    /// `fake_sni`; defaults to `false` for safe-by-default behaviour.
-    /// See
-    /// completed task `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` (see git history).
-    pub allow_insecure_sni: bool,
-    /// Optional operator-owned Cloudflare Worker route. When set, the WS
-    /// tunnel still carries only Telegram MTProto, but the outer TLS/WebSocket
-    /// endpoint is the Worker host and the canonical Telegram gateway is sent
-    /// in `X-Ripdpi-Upstream`.
-    pub worker_route: Option<CloudflareWorkerRoute>,
-}
-
-/// Result of classifying a target IP for WS tunnel eligibility.
-pub enum WsTunnelDecision {
-    /// Target is a Telegram DC; use WS tunnel for this production DC.
-    Tunnel(TelegramDc),
-    /// Target is not a Telegram IP; use the normal transport path.
-    Passthrough,
-}
-
-/// Classify whether a target IP should be tunneled through WebSocket.
-///
-/// Returns `Tunnel(dc)` for known Telegram DC IPs, `Passthrough` otherwise.
-/// IPv6 dispatch uses `dc::dc_from_ipv6` against Telegram's published
-/// v6 supernets.
-pub fn classify_target(ip: IpAddr) -> WsTunnelDecision {
-    match ip {
-        IpAddr::V4(v4) => match dc::dc_from_ip(v4) {
-            Some(dc) => WsTunnelDecision::Tunnel(dc),
-            None => WsTunnelDecision::Passthrough,
-        },
-        IpAddr::V6(v6) => match dc::dc_from_ipv6(v6) {
-            Some(dc) => WsTunnelDecision::Tunnel(dc),
-            None => WsTunnelDecision::Passthrough,
-        },
+    fn relay(
+        &self,
+        client: TcpStream,
+        dc: TelegramDc,
+        seed_request: Vec<u8>,
+        config: &WsTunnelConfig,
+    ) -> io::Result<()> {
+        relay_ws_tunnel(client, dc, seed_request, config)
     }
 }
 
@@ -367,7 +134,7 @@ pub fn probe_ws_tunnel_with_addr(dc: TelegramDc, resolved_addr: Option<SocketAdd
 mod tests {
     use super::*;
 
-    use std::net::{Ipv4Addr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
 
     fn tcp_pair() -> (TcpStream, TcpStream) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");

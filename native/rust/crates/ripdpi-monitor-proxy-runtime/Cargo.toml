@@ -13,3 +13,4 @@ ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-monitor-engine = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
+ripdpi-ws-transport-port = { workspace = true }
