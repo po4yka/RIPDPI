@@ -2,7 +2,7 @@
 id: RST-1786264762917192
 title: Split the 12-method PolicyPort trait into selection and learning sub-traits
 kind: feature
-status: doing
+status: done
 area: rust-native
 priority: medium
 owner: codex
@@ -14,6 +14,10 @@ created: 2026-06-10
 updated: 2026-08-31
 source_wiki_pages: []
 linked_task: null
+status_detail: Implementation and local verification complete; remote CI intentionally not monitored per owner instruction.
+closed_at: "2026-08-31T04:25:59Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation commit a8fdb98a31f314a5e20e7d7401be405826963ecd; targeted nextest passed 442 tests with 7 skipped; targeted clippy, fmt, architecture health, metadata, and taskctl validation passed locally; remote CI not monitored per owner instruction.
 ---
 
 ## Motivation
