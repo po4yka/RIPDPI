@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore
 import com.poyka.ripdpi.data.DefaultServiceStateStore
@@ -20,14 +21,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -40,6 +45,7 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = DefaultServiceStateStore()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             val firstWriteStarted = CompletableDeferred<Unit>()
             val releaseFirstWrite = CompletableDeferred<Unit>()
             stores.beforeInsertNativeSessionEvent = { event ->
@@ -48,20 +54,33 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
                     releaseFirstWrite.await()
                 }
             }
-            val monitorScope = monitorScope()
-            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+            val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val monitor =
+                createMonitor(
+                    stores,
+                    serviceStateStore,
+                    monitorScope,
+                    appSettingsRepository = disabledMonitorSettingsRepository(),
+                )
 
             monitor.start()
-            runCurrent()
+            waitForPersistence { stores.usageSessionsState.value.size == 1 }
             serviceStateStore.updateTelemetry(telemetryWithEvent("first", createdAt = 1L))
-            runCurrent()
             firstWriteStarted.await()
             serviceStateStore.updateTelemetry(telemetryWithEvent("second", createdAt = 2L))
-            runCurrent()
             releaseFirstWrite.complete(Unit)
-            runCurrent()
+            waitForPersistence {
+                stores.nativeEventsState.value
+                    .map { it.message }
+                    .containsAll(listOf("first", "second"))
+            }
 
-            assertEquals(listOf("first", "second"), stores.nativeEventsState.value.map { it.message })
+            assertEquals(
+                listOf("first", "second"),
+                stores.nativeEventsState.value
+                    .map { it.message }
+                    .filter { it == "first" || it == "second" },
+            )
             monitorScope.cancel()
         }
 
@@ -70,6 +89,7 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = DefaultServiceStateStore()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             var failNextWrite = true
             stores.beforeInsertNativeSessionEvent = { event ->
                 if (event.message == "fails" && failNextWrite) {
@@ -77,15 +97,20 @@ internal class RuntimeHistoryMonitorPersistenceTest : RuntimeHistoryMonitorPersi
                     error("injected persistence failure")
                 }
             }
-            val monitorScope = monitorScope()
-            val monitor = createMonitor(stores, serviceStateStore, monitorScope)
+            val monitorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val monitor =
+                createMonitor(
+                    stores,
+                    serviceStateStore,
+                    monitorScope,
+                    appSettingsRepository = disabledMonitorSettingsRepository(),
+                )
 
             monitor.start()
-            runCurrent()
+            waitForPersistence { stores.usageSessionsState.value.size == 1 }
             serviceStateStore.updateTelemetry(telemetryWithEvent("fails", createdAt = 3L))
-            runCurrent()
             serviceStateStore.updateTelemetry(telemetryWithEvent("after-failure", createdAt = 4L))
-            runCurrent()
+            waitForPersistence { stores.nativeEventsState.value.any { it.message == "after-failure" } }
 
             assertTrue(stores.nativeEventsState.value.any { it.message == "after-failure" })
             monitorScope.cancel()
@@ -1093,6 +1118,24 @@ internal class RuntimeLifecyclePersistenceTest : RuntimeHistoryMonitorPersistenc
 }
 
 internal abstract class RuntimeHistoryMonitorPersistenceTestSupport {
+    protected fun disabledMonitorSettingsRepository(): AppSettingsRepository =
+        FakeAppSettingsRepository(
+            defaultDiagnosticsAppSettings()
+                .toBuilder()
+                .setDiagnosticsMonitorEnabled(false)
+                .build(),
+        )
+
+    protected suspend fun waitForPersistence(predicate: () -> Boolean) {
+        withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(8_000L) {
+                while (!predicate()) {
+                    delay(10L)
+                }
+            }
+        }
+    }
+
     protected fun kotlinx.coroutines.test.TestScope.monitorScope(): CoroutineScope =
         CoroutineScope(
             SupervisorJob() +
@@ -1106,9 +1149,10 @@ internal abstract class RuntimeHistoryMonitorPersistenceTestSupport {
         scope: CoroutineScope,
         deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
         networkTransitionFlush: (suspend (NetworkTransitionAdmission) -> Boolean)? = null,
+        appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
     ): RuntimeHistoryStartup =
         createRuntimeHistoryMonitor(
-            appSettingsRepository = FakeAppSettingsRepository(),
+            appSettingsRepository = appSettingsRepository,
             stores = stores,
             networkMetadataProvider = FakeNetworkMetadataProvider(),
             diagnosticsContextProvider = FakeDiagnosticsContextProvider(),

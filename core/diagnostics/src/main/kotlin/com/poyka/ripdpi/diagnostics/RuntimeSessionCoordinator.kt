@@ -116,21 +116,21 @@ class RuntimeSessionCoordinator
 
         suspend fun handleTelemetryUpdate(telemetry: ServiceTelemetrySnapshot) {
             stateMutex.withLock {
-                if (serviceStateStore.status.value.first == AppStatus.Running) {
-                    persistPendingTerminalSession()
-                    val mode = serviceStateStore.status.value.second
-                    ensureRecorderAttachedUsageSession(mode)
-                    updateActiveUsageSession(
-                        serviceMode = mode,
-                        telemetry = telemetry,
-                        networkType = activeUsageSession?.networkType ?: "unknown",
-                        publicIp = activeUsageSession?.publicIp,
-                    )
-                    val handoverState = telemetry.networkHandoverState?.takeIf(String::isNotBlank)
-                    if (handoverState != null && handoverState != lastRecordedNetworkHandoverState) {
-                        deviceStateEventRecorder.recordHandover()
-                        lastRecordedNetworkHandoverState = handoverState
-                    }
+                if (serviceStateStore.status.value.first != AppStatus.Running || activeUsageSession == null) {
+                    return@withLock
+                }
+                persistPendingTerminalSession()
+                val mode = serviceStateStore.status.value.second
+                updateActiveUsageSession(
+                    serviceMode = mode,
+                    telemetry = telemetry,
+                    networkType = activeUsageSession?.networkType ?: "unknown",
+                    publicIp = activeUsageSession?.publicIp,
+                )
+                val handoverState = telemetry.networkHandoverState?.takeIf(String::isNotBlank)
+                if (handoverState != null && handoverState != lastRecordedNetworkHandoverState) {
+                    deviceStateEventRecorder.recordHandover()
+                    lastRecordedNetworkHandoverState = handoverState
                 }
                 artifactPersister.persistRuntimeEvents(
                     serviceTelemetry = telemetry,
