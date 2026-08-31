@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh
 created: 2026-06-10
-updated: 2026-08-30
+updated: 2026-08-31
 source_wiki_pages: []
 linked_task: null
 ---
@@ -35,10 +35,10 @@ The 2026-06-10 Compose audit found three `LaunchedEffect(Unit)` sites that drive
 
 ## Acceptance criteria
 
-- [ ] PR confirms current state at the three cited sites.
-- [ ] Each refresh `LaunchedEffect` keys on the data-determining argument, not `Unit`.
-- [ ] Test (Compose/Robolectric or unit on the VM): changing the session key triggers a refresh.
-- [ ] `./gradlew :app:testDebugUnitTest --locked` green; goldens unchanged.
+- [x] PR confirms current state at the three cited sites.
+- [x] Each refresh `LaunchedEffect` keys on the data-determining argument, not `Unit`.
+- [x] Test (Compose/Robolectric or unit on the VM): changing the session key triggers a refresh.
+- [x] `./gradlew :app:testDebugUnitTest --locked` green; goldens unchanged.
 
 ## Risks / open questions
 

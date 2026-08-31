@@ -3,11 +3,11 @@ task_id: UIX-1786264762917972
 change: uix-1786264762917972-fix-launchedeffect-unit-session-keyed-refresh
 commit_sha: 841860c55739b839ae1056707a2bd113034eda25
 local: passed
-local_evidence: Targeted session-key tests, the complete GithubFull app unit suite, staticAnalysis, architecture health, and native Xray artifact verification passed locally; no golden files changed.
-remote_ci: required
-remote_ci_evidence: Not observed; the user explicitly requested push without waiting for GitHub CI.
-device: required
-device_evidence: Not observed; permission and lifecycle behavior is covered by Compose and Robolectric tests only.
+local_evidence: Revalidated current main on 2026-08-31. The three targeted Compose/Robolectric regression classes and the complete :app:testGithubFullDebugUnitTest suite passed with ripdpi.skipNativeBuild=true; staticAnalysis passed; architecture health reported Current 23, Baseline 23, New 0, Worsened 0, Stale 0; 18 native architecture contract tests and taskctl validation passed; no golden or screenshot files changed after the final implementation commit. Read-only code-mapper and implementation-review subagents found no blocking defect and confirmed commits 9ffbc86d0, f87455fb8, and 841860c55 are already ancestors of current main.
+remote_ci: not_applicable
+remote_ci_evidence: The owner explicitly requested local verification and push without launching, waiting for, or monitoring GitHub CI/CD.
+device: not_applicable
+device_evidence: The acceptance contract explicitly permits Compose/Robolectric or unit coverage; this change only corrects effect-key and retained-state semantics and does not change physical camera or device integration behavior.
 artifact: not_applicable
 artifact_evidence: No distributable artifact is required for this portfolio area.
 deployment: not_applicable
