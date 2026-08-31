@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-08-31T03:54:53Z",
+  "change": "rst-1786264762917569-introduce-ws-transport-port-to-fix-layer-violations",
+  "commit_sha": "6b61c635519c7e3fc2a9d2cd95e4d8b85dfcba5a",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1786264762917569"
+}

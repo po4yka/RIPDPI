@@ -2,7 +2,7 @@
 id: RST-1786264762917569
 title: Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel
 kind: feature
-status: doing
+status: done
 area: rust-native
 priority: medium
 owner: codex
@@ -11,9 +11,13 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917569-introduce-ws-transport-port-to-fix-layer-violations
 created: 2026-06-10
-updated: 2026-08-30
+updated: 2026-08-31
 source_wiki_pages: []
 linked_task: null
+status_detail: Implementation and local verification complete; remote CI intentionally not launched or monitored per owner instruction.
+closed_at: "2026-08-31T03:54:54Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Commit 6b61c635519c7e3fc2a9d2cd95e4d8b85dfcba5a; 435 affected tests passed with 8 skipped; architecture contracts report 0 violations; independent layer and API audits found no blocking findings.
 ---
 
 ## Motivation
