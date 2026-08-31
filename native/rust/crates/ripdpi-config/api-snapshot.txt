@@ -412,6 +412,7 @@ pub ripdpi_config::RuntimeAdaptiveSettings::strategy_evolution: bool
 pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_allow_insecure_sni: bool
 pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_fake_sni: core::option::Option<alloc::string::String>
 pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_mode: ripdpi_config::WsTunnelMode
+pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_worker_route: core::option::Option<ripdpi_config::RuntimeWsTunnelWorkerRoute>
 impl core::default::Default for ripdpi_config::RuntimeAdaptiveSettings
 pub fn ripdpi_config::RuntimeAdaptiveSettings::default() -> Self
 pub struct ripdpi_config::RuntimeConfig
@@ -461,6 +462,12 @@ pub ripdpi_config::RuntimeQuicSettings::support_v1: bool
 pub ripdpi_config::RuntimeQuicSettings::support_v2: bool
 impl core::default::Default for ripdpi_config::RuntimeQuicSettings
 pub fn ripdpi_config::RuntimeQuicSettings::default() -> Self
+pub struct ripdpi_config::RuntimeSecretString(_)
+impl ripdpi_config::RuntimeSecretString
+pub fn ripdpi_config::RuntimeSecretString::expose_secret(&self) -> &str
+pub fn ripdpi_config::RuntimeSecretString::new(alloc::string::String) -> Self
+impl core::fmt::Debug for ripdpi_config::RuntimeSecretString
+pub fn ripdpi_config::RuntimeSecretString::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct ripdpi_config::RuntimeTimeoutSettings
 pub ripdpi_config::RuntimeTimeoutSettings::await_interval: i32
 pub ripdpi_config::RuntimeTimeoutSettings::connect_timeout_ms: u32
@@ -474,6 +481,11 @@ pub ripdpi_config::RuntimeTimeoutSettings::timeout_ms: u32
 pub ripdpi_config::RuntimeTimeoutSettings::wait_send: bool
 impl core::default::Default for ripdpi_config::RuntimeTimeoutSettings
 pub fn ripdpi_config::RuntimeTimeoutSettings::default() -> Self
+pub struct ripdpi_config::RuntimeWsTunnelWorkerRoute
+impl ripdpi_config::RuntimeWsTunnelWorkerRoute
+pub fn ripdpi_config::RuntimeWsTunnelWorkerRoute::bearer(&self) -> &ripdpi_config::RuntimeSecretString
+pub fn ripdpi_config::RuntimeWsTunnelWorkerRoute::parse(alloc::string::String, alloc::string::String) -> core::result::Result<Self, alloc::string::String>
+pub fn ripdpi_config::RuntimeWsTunnelWorkerRoute::url(&self) -> &str
 pub struct ripdpi_config::StartupEnv
 pub ripdpi_config::StartupEnv::protect_path_present: bool
 pub ripdpi_config::StartupEnv::ss_local_port: core::option::Option<alloc::string::String>
