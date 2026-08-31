@@ -3,9 +3,9 @@ task_id: TRN-1786264762917184
 change: trn-1786264762917184-per-exit-ip-tls-cap-with-mux-preference-in-relay-core
 commit_sha: 5d628726be70d32b699cc60657d67a9575fd9974
 local: passed
-local_evidence: "Observed RED before implementation: protocols::vless::tests::port_443_carrier_slots_enforce_cap_and_release failed with 'port 443 must reserve a physical-carrier slot'. Final local gates passed: cargo nextest run --locked -p ripdpi-relay-core -p ripdpi-relay-mux reported 247 tests run, 247 passed, 1 skipped; cargo nextest run --locked -p ripdpi-relay-core -p ripdpi-relay-mux -p ripdpi-session-limit -p ripdpi-proxy-runtime -p ripdpi-vless reported 647 tests run, 647 passed, 10 skipped; cargo clippy --locked for affected crates passed with -D warnings; cargo fmt --all -- --check passed; cargo metadata --manifest-path native/rust/Cargo.toml --locked passed; python3 scripts/ci/check_architecture_health.py passed with Current 23, Baseline 23, New 0, Worsened 0, Stale 0; native architecture contracts passed with 0 violations; pr-reviewer and async cancel-safety reviewer passes recorded locally."
-remote_ci: required
-remote_ci_evidence: "Not monitored per owner instruction on 2026-08-30: use local checks and push without tracking GitHub CI/CD state."
+local_evidence: "Observed RED before implementation: protocols::vless::tests::port_443_carrier_slots_enforce_cap_and_release failed with 'port 443 must reserve a physical-carrier slot'. Revalidated current main on 2026-08-31: cargo nextest run --locked -p ripdpi-relay-core -p ripdpi-relay-mux -p ripdpi-session-limit -p ripdpi-vless reported 368 tests run, 368 passed, 3 skipped; the broader affected-crate run passed 648 of 649 tests and hit one unrelated QUIC network-fixture timeout, whose isolated retry then passed 1 of 1. Cargo clippy --locked for affected crates passed with -D warnings; cargo fmt --all -- --check and locked cargo metadata passed; cargo deny passed with only accepted workspace warnings; architecture health passed with Current 23, Baseline 23, New 0, Worsened 0, Stale 0; 18 native architecture contract tests and taskctl validation passed. Read-only code-mapper and implementation-review subagents found no blocking source defect and confirmed the implementation is already present on main."
+remote_ci: not_applicable
+remote_ci_evidence: "The owner explicitly requested local verification and push without launching, waiting for, or monitoring GitHub CI/CD."
 device: not_applicable
 device_evidence: No Android device behavior is owned by this portfolio area.
 artifact: not_applicable
