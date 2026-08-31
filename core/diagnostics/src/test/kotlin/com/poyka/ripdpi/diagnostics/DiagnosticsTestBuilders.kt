@@ -10,9 +10,9 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NoopStartupJournal
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
@@ -82,7 +82,7 @@ internal fun createDiagnosticsServices(
     diagnosticsContextProvider: DiagnosticsContextProvider,
     networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
     runtimeCoordinator: DiagnosticsRuntimeCoordinator,
-    serviceStateStore: ServiceStateStore,
+    serviceStateStore: OrderedServiceStateStore,
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
     deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore = DefaultDeviceRuntimeEvidenceStore(),
     logcatSnapshotCollector: LogcatSnapshotCollector = LogcatSnapshotCollector(),
@@ -376,7 +376,7 @@ internal fun createRuntimeHistoryMonitor(
     stores: FakeDiagnosticsHistoryStores,
     networkMetadataProvider: NetworkMetadataProvider,
     diagnosticsContextProvider: DiagnosticsContextProvider,
-    serviceStateStore: ServiceStateStore,
+    serviceStateStore: OrderedServiceStateStore,
     diagnosticsHistoryClock: DiagnosticsHistoryClock = TestDiagnosticsHistoryClock(),
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
         DefaultRememberedNetworkPolicyStore(stores, diagnosticsHistoryClock),
