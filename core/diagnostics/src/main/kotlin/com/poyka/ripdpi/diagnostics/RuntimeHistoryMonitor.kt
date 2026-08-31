@@ -1,10 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DeviceRuntimeEvidenceStore
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.OrderedServiceStateStore
+import com.poyka.ripdpi.data.ServiceHistoryEvent
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import dagger.Binds
 import dagger.Module
@@ -27,7 +28,7 @@ fun interface RuntimeHistoryStartup {
 class RuntimeHistoryMonitor
     @Inject
     constructor(
-        private val serviceStateStore: ServiceStateStore,
+        private val serviceStateStore: OrderedServiceStateStore,
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
         private val deviceRuntimeEvidenceStore: DeviceRuntimeEvidenceStore,
         private val networkPathValidationSource: NetworkPathValidationSource,
@@ -51,9 +52,24 @@ class RuntimeHistoryMonitor
         private suspend fun collectRuntimeHistory() =
             supervisorScope {
                 launch {
-                    serviceStateStore.status.collect { (status, mode) ->
-                        persistSafely("status") {
-                            sessionCoordinator.handleStatusChange(status = status, mode = mode)
+                    serviceStateStore.historyEvents.collect { event ->
+                        when (event) {
+                            is ServiceHistoryEvent.StatusChanged -> {
+                                persistSafely("lifecycle") {
+                                    sessionCoordinator.handleStatusChange(event.status, event.mode)
+                                }
+                                if (event.status == AppStatus.Running) {
+                                    persistSafely("telemetry") {
+                                        sessionCoordinator.handleTelemetryUpdate(serviceStateStore.telemetry.value)
+                                    }
+                                }
+                            }
+
+                            is ServiceHistoryEvent.Failed -> {
+                                persistSafely("lifecycle") {
+                                    sessionCoordinator.handleFailure(event.event.sender, event.event.reason)
+                                }
+                            }
                         }
                     }
                 }
@@ -62,17 +78,6 @@ class RuntimeHistoryMonitor
                     serviceStateStore.telemetry.collect { telemetry ->
                         persistSafely("telemetry") {
                             sessionCoordinator.handleTelemetryUpdate(telemetry)
-                        }
-                    }
-                }
-
-                launch {
-                    serviceStateStore.events.collect { event ->
-                        persistSafely("events") {
-                            when (event) {
-                                is ServiceEvent.Failed -> sessionCoordinator.handleFailure(event.sender, event.reason)
-                                is ServiceEvent.PermissionRevoked -> Unit
-                            }
                         }
                     }
                 }

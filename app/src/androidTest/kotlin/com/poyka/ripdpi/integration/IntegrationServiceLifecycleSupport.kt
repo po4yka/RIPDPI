@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.AcceptedUserStopRecorder
@@ -32,7 +33,7 @@ internal data class ServiceLifecycleIntegrationBindings(
     val proxyPreferencesResolver: ProxyPreferencesResolver,
     val proxyFactory: RipDpiProxyFactory,
     val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
-    val serviceStateStore: ServiceStateStore,
+    val serviceStateStore: OrderedServiceStateStore,
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
     val networkHandoverMonitor: RecordingNetworkHandoverMonitor,
     val permissionWatchdog: RecordingPermissionWatchdog,
