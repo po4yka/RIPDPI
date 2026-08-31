@@ -1,9 +1,9 @@
 ---
 task_id: DAT-1788100001077419
 change: mirror-observability-network-exposure-contracts
-commit_sha: 069795eebe6b4be1b8b0f50ac8809ff3dff0c8de
+commit_sha: 6b04cbcb87e4cc2c82fc078a9313801145648488
 local: required
-local_evidence: Producer 09e3dcf84e32fe29ac782045f08e0bec03d4fe4f; 20/20 vendored JSON contracts byte-identical, including all seven new files; taskctl validate PASS (35 tasks, 157 steps); architecture health PASS (23 indicators, no new, worsened, or stale entries); :core:data:testDebugUnitTest BUILD SUCCESSFUL.
+local_evidence: Producer d9cd463c59706db2c6979665d1ccd3dcf91c9cb3; 20/20 vendored JSON contracts byte-identical, including all seven owned files; JSON parse PASS; taskctl validate PASS (32 tasks, 144 steps); generated board byte-clean; architecture health PASS (23 indicators, no new, worsened, or stale entries); :core:data:testDebugUnitTest BUILD SUCCESSFUL.
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -20,5 +20,5 @@ deployment_evidence: Deployment behavior remains owned by the producer repositor
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-MIRROR-BYTE-IDENTITY | DAT-1788100117996369 | Producer `09e3dcf84e32fe29ac782045f08e0bec03d4fe4f`; all 20 JSON files compare byte-for-byte, including the seven new contracts. JSON parsing, taskctl validation, architecture health, and `:core:data:testDebugUnitTest` passed on client source `069795eebe6b4be1b8b0f50ac8809ff3dff0c8de`. | pass |
+| REQ-MIRROR-BYTE-IDENTITY | DAT-1788100117996369 | Producer `d9cd463c59706db2c6979665d1ccd3dcf91c9cb3`; all 20 JSON files compare byte-for-byte, including the seven owned contracts. JSON parsing, taskctl validation, generated-board comparison, architecture health, and `:core:data:testDebugUnitTest` passed on client source `6b04cbcb87e4cc2c82fc078a9313801145648488`. | pass |
 | REQ-MIRROR-SCOPE-ISOLATION | DAT-1788100118704034 | Final source-only diff review and exact-head hosted CI pending. | required |
