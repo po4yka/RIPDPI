@@ -177,6 +177,10 @@
       "maxProductionLoc": 107
     },
     {
+      "path": "native/rust/crates/ripdpi-config/src/model/runtime/adaptive.rs",
+      "maxProductionLoc": 159
+    },
+    {
       "path": "native/rust/crates/ripdpi-config/src/model/tcp/payload/fake.rs",
       "maxProductionLoc": 32
     },
