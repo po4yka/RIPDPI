@@ -222,36 +222,6 @@ class RuntimeHistoryMonitorTest {
             assertEquals(2_048L, stoppedTelemetrySample.rxBytes)
         }
 
-    @Test
-    fun `delayed monitor attaches current telemetry to queued running session exactly once`() =
-        runTest {
-            val stores = FakeDiagnosticsHistoryStores()
-            val serviceStateStore = DefaultServiceStateStore()
-            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
-            emitRunningTelemetryWithCloudflare(serviceStateStore)
-            val orderedStore = TelemetryBeforeRunningServiceStateStore(serviceStateStore)
-            val monitor =
-                createRuntimeHistoryMonitor(
-                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
-                    stores = stores,
-                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
-                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
-                    serviceStateStore = orderedStore,
-                )
-
-            monitor.start()
-
-            waitUntil(timeoutMillis = 8_000) {
-                stores.usageSessionsState.value.size == 1 &&
-                    stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
-                    stores.nativeEventsState.value.count { it.source == "proxy" } == 1
-            }
-            val session = stores.usageSessionsState.value.single()
-            assertTrue(stores.telemetryState.value.all { it.connectionSessionId == session.id })
-            assertTrue(stores.nativeEventsState.value.all { it.connectionSessionId == session.id })
-            assertEquals(1, stores.nativeEventsState.value.count { it.source == "proxy" })
-        }
-
     private fun emitRunningTelemetryWithCloudflare(serviceStateStore: DefaultServiceStateStore) {
         serviceStateStore.updateTelemetry(
             ServiceTelemetrySnapshot(
@@ -712,6 +682,64 @@ class RuntimeHistoryMonitorTest {
             )
             assertEquals(true, session.rememberedPolicyAppliedByExactMatch)
         }
+}
+
+class RuntimeHistoryMonitorOrderingTest {
+    @Test
+    fun `delayed monitor attaches current telemetry to queued running session exactly once`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            serviceStateStore.updateTelemetry(queuedRunningTelemetry())
+            val orderedStore = TelemetryBeforeRunningServiceStateStore(serviceStateStore)
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = orderedStore,
+                )
+
+            monitor.start()
+
+            waitUntil(timeoutMillis = 8_000) {
+                stores.usageSessionsState.value.size == 1 &&
+                    stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
+                    stores.nativeEventsState.value.count { it.source == "proxy" } == 1
+            }
+            val session = stores.usageSessionsState.value.single()
+            assertTrue(stores.telemetryState.value.all { it.connectionSessionId == session.id })
+            assertTrue(stores.nativeEventsState.value.all { it.connectionSessionId == session.id })
+            assertEquals(1, stores.nativeEventsState.value.count { it.source == "proxy" })
+        }
+
+    private fun queuedRunningTelemetry(): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            mode = Mode.VPN,
+            status = AppStatus.Running,
+            proxyTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    nativeEvents =
+                        listOf(
+                            NativeRuntimeEvent(
+                                source = "proxy",
+                                level = "info",
+                                message = "accepted",
+                                createdAt = 100L,
+                            ),
+                        ),
+                ),
+            tunnelTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    resolverId = "cloudflare",
+                    resolverProtocol = "doh",
+                ),
+            updatedAt = System.currentTimeMillis(),
+        )
 }
 
 private class CountingNetworkPathValidationSource : NetworkPathValidationSource {
