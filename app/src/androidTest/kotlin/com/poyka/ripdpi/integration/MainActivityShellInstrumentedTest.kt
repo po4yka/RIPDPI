@@ -18,6 +18,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
@@ -166,7 +167,11 @@ class MainActivityShellInstrumentedTest {
 
     @BindValue
     @JvmField
-    var serviceStateStore: ServiceStateStore = FakeInstrumentedServiceStateStore()
+    var serviceStateStore: OrderedServiceStateStore = FakeInstrumentedServiceStateStore()
+
+    @BindValue
+    @JvmField
+    var serviceStateStoreContract: ServiceStateStore = serviceStateStore
 
     @BindValue
     @JvmField
