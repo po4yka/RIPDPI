@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use ripdpi_native_protect::ProtectCallback;
 use russh::client::{self, Handler};
-use russh::keys::{HashAlg, PublicKey};
+use russh::keys::{HashAlg, PublicKeyOrCertificate};
 use tokio::net::TcpSocket;
 use tokio::sync::Mutex;
 
@@ -72,7 +72,14 @@ impl Handler for ObserveOnly {
     /// # Cancel safety
     /// Cancel-safe: one owned observation is published before rejecting the key;
     /// no authentication or channel can be started by this handler.
-    async fn check_server_key(&mut self, key: &PublicKey) -> Result<bool, Self::Error> {
+    async fn check_server_key(&mut self, key: &PublicKeyOrCertificate) -> Result<bool, Self::Error> {
+        // A certificate cannot be represented by the raw-key-only observation
+        // contract. Reject it rather than reporting its embedded key as a
+        // trusted host-key identity.
+        if key.certificate().is_some() {
+            return Ok(false);
+        }
+        let key = key.public_key();
         *self.observation.lock().await = Some(SshHostKeyObservation {
             fingerprint_sha256: key.fingerprint(HashAlg::Sha256).to_string(),
             algorithm: key.algorithm().to_string(),

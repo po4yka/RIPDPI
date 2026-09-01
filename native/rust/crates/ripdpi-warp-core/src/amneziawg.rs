@@ -52,9 +52,9 @@
 
 use crate::config::WarpAmneziaConfig;
 use blake2::digest::consts::U16;
-use blake2::digest::{Digest, Mac};
+use blake2::digest::{Digest, KeyInit as Blake2KeyInit, Mac};
 use blake2::{Blake2s256, Blake2sMac};
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::aead::{Aead, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -648,7 +648,7 @@ fn blake2s_hash(label: &[u8], public_key: [u8; 32]) -> [u8; 32] {
 
 fn keyed_blake2s_16(key: &[u8], message: &[u8]) -> [u8; 16] {
     type Blake2sMac128 = Blake2sMac<U16>;
-    let mut mac = <Blake2sMac128 as Mac>::new_from_slice(key).expect("WireGuard BLAKE2s key length is valid");
+    let mut mac = <Blake2sMac128 as Blake2KeyInit>::new_from_slice(key).expect("WireGuard BLAKE2s key length is valid");
     Mac::update(&mut mac, message);
     mac.finalize().into_bytes().into()
 }

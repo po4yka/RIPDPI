@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use russh::ChannelStream;
 use russh::client::{self, Config, Handler};
-use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKey, decode_secret_key};
+use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKeyOrCertificate, decode_secret_key};
 use tokio::sync::Mutex;
 
 use crate::config::{SshAuth, SshConfig, SshHostKeyPolicy, parse_fingerprint};
@@ -93,9 +93,18 @@ impl Handler for SshHandler {
     // cancel-safe: a single short lock acquisition with no `.await` held across
     // it other than the lock itself; the future is dropped cleanly on cancel,
     // leaving at most the shared `rejection` slot populated, which is harmless.
-    async fn check_server_key(&mut self, server_public_key: &PublicKey) -> std::result::Result<bool, Self::Error> {
+    async fn check_server_key(
+        &mut self,
+        server_public_key: &PublicKeyOrCertificate,
+    ) -> std::result::Result<bool, Self::Error> {
+        // This policy pins a raw host-key fingerprint. A certificate requires
+        // CA, principal, and validity-window verification, so never reduce it
+        // to its embedded key and accidentally accept it under raw-key rules.
+        if server_public_key.certificate().is_some() {
+            return Ok(false);
+        }
         // OpenSSH `SHA256:<base64>` fingerprint of the presented host key.
-        let presented = server_public_key.fingerprint(HashAlg::Sha256).to_string();
+        let presented = server_public_key.public_key().fingerprint(HashAlg::Sha256).to_string();
         match evaluate_host_key(&self.policy, &presented) {
             Ok(HostKeyDecision::Accept) => Ok(true),
             Err(reason) => {
