@@ -98,7 +98,7 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         # This job executes the pinned external emitter. Keep all repository cache
         # actions out of that execution context; it only needs a JDK for Gradle's
         # JVM-only FleetCompat test.
-        self.assertIn("actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654", fleet_job)
+        self.assertIn("actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c", fleet_job)
         self.assertNotIn("uses: ./.github/actions/setup-android-rust", fleet_job)
         self.assertNotIn("actions/cache", fleet_job)
 
