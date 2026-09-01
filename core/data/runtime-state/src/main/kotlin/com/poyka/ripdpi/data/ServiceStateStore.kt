@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -45,6 +46,27 @@ sealed class ServiceEvent {
     data class PermissionRevoked(
         val kind: String,
     ) : ServiceEvent()
+}
+
+sealed class ServiceHistoryEvent {
+    data class StatusChanged(
+        val status: AppStatus,
+        val mode: Mode,
+    ) : ServiceHistoryEvent()
+
+    data class Failed(
+        val event: ServiceEvent.Failed,
+    ) : ServiceHistoryEvent()
+}
+
+/**
+ * Service-state contract for the singleton runtime-history consumer.
+ *
+ * [historyEvents] is a lossless, single-consumer queue: collecting it from a second owner would split
+ * transitions instead of broadcasting them. Status/failure publishers are deliberately low-rate.
+ */
+interface OrderedServiceStateStore : ServiceStateStore {
+    val historyEvents: Flow<ServiceHistoryEvent>
 }
 
 object NetworkHandoverStates {
@@ -130,6 +152,7 @@ interface ServiceStateStore {
      */
     val status: StateFlow<Pair<AppStatus, Mode>>
     val events: SharedFlow<ServiceEvent>
+
     val telemetry: StateFlow<ServiceTelemetrySnapshot>
 
     fun setStatus(
@@ -174,7 +197,7 @@ class DefaultServiceStateStore
         private val widgetStateRepository: WidgetStateRepository,
         private val widgetNotifier: WidgetNotifier,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
-    ) : ServiceStateStore {
+    ) : OrderedServiceStateStore {
         constructor() : this(
             NoopWidgetStateRepository,
             NoopWidgetNotifier,
@@ -206,11 +229,16 @@ class DefaultServiceStateStore
                     started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0L),
                     replay = 0,
                 )
+        private val historyEventStream = Channel<ServiceHistoryEvent>(capacity = Channel.UNLIMITED)
+
+        /** Status and failure transitions serialized under the state-store lock. */
+        override val historyEvents: Flow<ServiceHistoryEvent> = historyEventStream.receiveAsFlow()
 
         override val telemetry: StateFlow<ServiceTelemetrySnapshot> =
             MappedStateFlow(projection, ServiceStateProjection::telemetry)
 
         init {
+            publishHistoryStatus(AppStatus.Halted, Mode.VPN)
             applicationScope.launch {
                 val snapshots = projection.map { state -> toWidgetSnapshot(state.status, state.telemetry) }
                 merge(
@@ -235,6 +263,7 @@ class DefaultServiceStateStore
             synchronized(lock) {
                 val currentProjection = projection.value
                 val previousStatus = currentProjection.status.first
+                val previousStatusPair = currentProjection.status
                 val now = System.currentTimeMillis()
                 val currentTelemetry = currentProjection.telemetry
                 projection.value =
@@ -272,6 +301,9 @@ class DefaultServiceStateStore
                                 updatedAt = now,
                             ),
                     )
+                if (previousStatusPair != status to mode) {
+                    publishHistoryStatus(status, mode)
+                }
             }
         }
 
@@ -305,6 +337,7 @@ class DefaultServiceStateStore
             val generation =
                 synchronized(lock) {
                     val previousEventStream = eventStream.value
+                    val previousStatus = projection.value.status
                     val generation = previousEventStream.generation + 1L
                     val restartCount = projection.value.telemetry.restartCount
                     eventStream.value = SessionEventStream(generation)
@@ -319,6 +352,9 @@ class DefaultServiceStateStore
                                     restartCount = restartCount,
                                 ),
                         )
+                    if (previousStatus != AppStatus.Halted to mode) {
+                        publishHistoryStatus(AppStatus.Halted, mode)
+                    }
                     generation
                 }
             return SessionBoundServiceStateStore(this, generation)
@@ -373,6 +409,7 @@ class DefaultServiceStateStore
                     publishFailedEvent(terminalStream, sender, reason)
                 }
                 val terminalProjection = projection.value
+                val previousStatus = terminalProjection.status
                 val mode = terminalProjection.status.second
                 val terminalTelemetry = terminalProjection.telemetry
                 val resetTelemetry =
@@ -410,6 +447,18 @@ class DefaultServiceStateStore
                                     },
                             ),
                     )
+                if (previousStatus != AppStatus.Halted to mode) {
+                    publishHistoryStatus(AppStatus.Halted, mode)
+                }
+            }
+        }
+
+        private fun publishHistoryStatus(
+            status: AppStatus,
+            mode: Mode,
+        ) {
+            check(historyEventStream.trySend(ServiceHistoryEvent.StatusChanged(status, mode)).isSuccess) {
+                "Service history event stream is unavailable"
             }
         }
 
@@ -458,6 +507,9 @@ class DefaultServiceStateStore
                 )
             check(stream.events.trySend(event).isSuccess) {
                 "Service event stream is unavailable"
+            }
+            check(historyEventStream.trySend(ServiceHistoryEvent.Failed(event)).isSuccess) {
+                "Service history event stream is unavailable"
             }
         }
 
@@ -584,4 +636,8 @@ abstract class ServiceStateStoreModule {
     @Binds
     @Singleton
     abstract fun bindServiceStateStore(serviceStateStore: DefaultServiceStateStore): ServiceStateStore
+
+    @Binds
+    @Singleton
+    abstract fun bindOrderedServiceStateStore(serviceStateStore: DefaultServiceStateStore): OrderedServiceStateStore
 }

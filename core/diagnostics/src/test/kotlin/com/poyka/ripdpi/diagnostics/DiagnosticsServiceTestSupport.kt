@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
@@ -32,7 +33,7 @@ import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServerCapabilityScope
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceHistoryEvent
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
@@ -85,6 +86,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -97,6 +99,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -1487,20 +1490,35 @@ internal class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
 
 internal class FakeServiceStateStore(
     initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
-) : ServiceStateStore {
+) : OrderedServiceStateStore {
     private val statusState = MutableStateFlow(initialStatus)
     private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
     private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
+    private val historyEventChannel = Channel<ServiceHistoryEvent>(Channel.UNLIMITED)
 
     override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
     override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
+    override val historyEvents: Flow<ServiceHistoryEvent> = historyEventChannel.receiveAsFlow()
     override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
+
+    init {
+        check(
+            historyEventChannel
+                .trySend(
+                    ServiceHistoryEvent.StatusChanged(initialStatus.first, initialStatus.second),
+                ).isSuccess,
+        )
+    }
 
     override fun setStatus(
         status: AppStatus,
         mode: Mode,
     ) {
+        val previousStatus = statusState.value
         statusState.value = status to mode
+        if (previousStatus != status to mode) {
+            check(historyEventChannel.trySend(ServiceHistoryEvent.StatusChanged(status, mode)).isSuccess)
+        }
         val now = System.currentTimeMillis()
         val currentTelemetry = telemetryState.value
         telemetryState.value =
@@ -1538,7 +1556,9 @@ internal class FakeServiceStateStore(
                 lastFailureAt = now,
                 updatedAt = now,
             )
-        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
+        val event = ServiceEvent.Failed(sender, reason, statusState.value.first, statusState.value.second)
+        eventFlow.tryEmit(event)
+        check(historyEventChannel.trySend(ServiceHistoryEvent.Failed(event)).isSuccess)
     }
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {

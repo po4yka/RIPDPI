@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.example/contract/observability-topology.schema.json",
+  "title": "RIPDPI observability topology",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "credential_mode",
+    "source_revision",
+    "nodes",
+    "sentinels"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "credential_mode": {"const": "systemd"},
+    "source_revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "sentinels": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 16,
+      "items": {"$ref": "#/$defs/sentinel"}
+    }
+  },
+  "$defs": {
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "listener": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "protocol"],
+      "properties": {
+        "name": {"$ref": "#/$defs/alias"},
+        "protocol": {"enum": ["tcp", "udp"]},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "port_range": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,4}-[1-9][0-9]{0,4}$"
+        }
+      },
+      "oneOf": [
+        {"required": ["port"], "not": {"required": ["port_range"]}},
+        {"required": ["port_range"], "not": {"required": ["port"]}}
+      ]
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "provider",
+        "environment",
+        "host_class",
+        "failure_domain",
+        "public_listeners"
+      ],
+      "properties": {
+        "node_id": {"$ref": "#/$defs/alias"},
+        "provider": {"$ref": "#/$defs/alias"},
+        "environment": {"$ref": "#/$defs/alias"},
+        "host_class": {"enum": ["vpn", "control-plane", "deadman"]},
+        "failure_domain": {"$ref": "#/$defs/alias"},
+        "public_listeners": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {"$ref": "#/$defs/listener"}
+        }
+      }
+    },
+    "sentinel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sentinel_id", "path_signature", "failure_domain"],
+      "properties": {
+        "sentinel_id": {"$ref": "#/$defs/alias"},
+        "path_signature": {"$ref": "#/$defs/alias"},
+        "failure_domain": {"$ref": "#/$defs/alias"}
+      }
+    }
+  }
+}

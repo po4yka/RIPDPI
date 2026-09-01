@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "generation": "manifest-v1",
+  "source_id": "manifest-source-v1",
+  "families": [
+    {
+      "name": "vpn_watchdog_collection_success",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": ["node", "role"],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_observability_expected_target",
+      "owner": "observability_contract",
+      "type": "gauge",
+      "unit": null,
+      "labels": ["node", "role"],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_observability_evidence_state",
+      "owner": "observability_contract",
+      "type": "gauge",
+      "unit": null,
+      "labels": ["node", "role", "state"],
+      "max_series": 2048,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.example/contract/observability-expected-inventory.schema.json",
+  "title": "RIPDPI observability expected inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generation", "source_id", "max_future_seconds", "targets"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "generation": {"$ref": "#/$defs/alias"},
+    "source_id": {"$ref": "#/$defs/alias"},
+    "max_future_seconds": {"type": "integer", "minimum": 0, "maximum": 300},
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {"$ref": "#/$defs/target"}
+    }
+  },
+  "$defs": {
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "metricName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-zA-Z_:][a-zA-Z0-9_:]*$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "role",
+        "lifecycle",
+        "ever_seen",
+        "label_values",
+        "required_families"
+      ],
+      "properties": {
+        "target": {"$ref": "#/$defs/alias"},
+        "role": {"$ref": "#/$defs/alias"},
+        "lifecycle": {"enum": ["enabled", "disabled", "retired"]},
+        "ever_seen": {"type": "boolean"},
+        "label_values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["node", "role"],
+          "properties": {
+            "node": {"$ref": "#/$defs/aliasList"},
+            "role": {"$ref": "#/$defs/aliasList"},
+            "profile": {"$ref": "#/$defs/aliasList"},
+            "policy": {"$ref": "#/$defs/aliasList"},
+            "severity": {"$ref": "#/$defs/aliasList"},
+            "vantage": {"$ref": "#/$defs/aliasList"}
+          }
+        },
+        "required_families": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/metricName"}
+        }
+      }
+    },
+    "aliasList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/alias"}
+    }
+  }
+}

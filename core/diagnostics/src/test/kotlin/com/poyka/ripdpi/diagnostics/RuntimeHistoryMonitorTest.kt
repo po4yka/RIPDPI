@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.NetworkPathAssociationActiveDefault
 import com.poyka.ripdpi.data.NetworkPathAssociationServiceBinder
 import com.poyka.ripdpi.data.NetworkPathObservation
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RttBand
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceHistoryEvent
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
@@ -28,9 +30,13 @@ import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -526,6 +532,7 @@ class RuntimeHistoryMonitorTest {
 
             val persisted =
                 requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-fail", Mode.VPN.preferenceValue))
+            assertEquals(stores.usageSessionsState.value.joinToString(), 1, stores.usageSessionsState.value.size)
             val session = stores.usageSessionsState.value.single()
             assertEquals(1, persisted.failureCount)
             assertEquals(1, persisted.consecutiveFailureCount)
@@ -677,6 +684,64 @@ class RuntimeHistoryMonitorTest {
         }
 }
 
+class RuntimeHistoryMonitorOrderingTest {
+    @Test
+    fun `delayed monitor attaches current telemetry to queued running session exactly once`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            serviceStateStore.updateTelemetry(queuedRunningTelemetry())
+            val orderedStore = TelemetryBeforeRunningServiceStateStore(serviceStateStore)
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = orderedStore,
+                )
+
+            monitor.start()
+
+            waitUntil(timeoutMillis = 8_000) {
+                stores.usageSessionsState.value.size == 1 &&
+                    stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
+                    stores.nativeEventsState.value.count { it.source == "proxy" } == 1
+            }
+            val session = stores.usageSessionsState.value.single()
+            assertTrue(stores.telemetryState.value.all { it.connectionSessionId == session.id })
+            assertTrue(stores.nativeEventsState.value.all { it.connectionSessionId == session.id })
+            assertEquals(1, stores.nativeEventsState.value.count { it.source == "proxy" })
+        }
+
+    private fun queuedRunningTelemetry(): ServiceTelemetrySnapshot =
+        ServiceTelemetrySnapshot(
+            mode = Mode.VPN,
+            status = AppStatus.Running,
+            proxyTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    nativeEvents =
+                        listOf(
+                            NativeRuntimeEvent(
+                                source = "proxy",
+                                level = "info",
+                                message = "accepted",
+                                createdAt = 100L,
+                            ),
+                        ),
+                ),
+            tunnelTelemetry =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    resolverId = "cloudflare",
+                    resolverProtocol = "doh",
+                ),
+            updatedAt = System.currentTimeMillis(),
+        )
+}
+
 private class CountingNetworkPathValidationSource : NetworkPathValidationSource {
     private val state = MutableStateFlow(NetworkPathValidationEvidence(captureStatus = "test_unavailable"))
     var accessCount = 0
@@ -776,6 +841,42 @@ private class RecorderFakeNetworkMetadataProvider : NetworkMetadataProvider {
                 ),
             capturedAt = System.currentTimeMillis(),
         )
+}
+
+private class TelemetryBeforeRunningServiceStateStore(
+    delegate: OrderedServiceStateStore,
+) : OrderedServiceStateStore by delegate {
+    private val initialTelemetryHandled = CompletableDeferred<Unit>()
+
+    override val telemetry: StateFlow<ServiceTelemetrySnapshot> =
+        SignallingStateFlow(delegate.telemetry) { initialTelemetryHandled.complete(Unit) }
+
+    override val historyEvents: Flow<ServiceHistoryEvent> =
+        flow {
+            delegate.historyEvents.collect { event ->
+                if (event is ServiceHistoryEvent.StatusChanged && event.status == AppStatus.Running) {
+                    initialTelemetryHandled.await()
+                }
+                emit(event)
+            }
+        }
+}
+
+@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+private class SignallingStateFlow<T>(
+    private val delegate: StateFlow<T>,
+    private val onFirstValueHandled: () -> Unit,
+) : StateFlow<T> by delegate {
+    override suspend fun collect(collector: FlowCollector<T>): Nothing {
+        var first = true
+        delegate.collect { value ->
+            collector.emit(value)
+            if (first) {
+                first = false
+                onFirstValueHandled()
+            }
+        }
+    }
 }
 
 private class RecorderFakeDiagnosticsContextProvider : DiagnosticsContextProvider {

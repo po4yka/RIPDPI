@@ -26,6 +26,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.diagnostics.BypassApproachId
@@ -157,7 +158,9 @@ private fun AndroidComposeTestRule<*, MainActivity>.waitForTag(
     timeoutMillis: Long = 5_000,
 ) {
     waitUntil(timeoutMillis = timeoutMillis) {
-        onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+        runCatching {
+            onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false)
     }
 }
 
@@ -254,7 +257,11 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
-    var serviceStateStore: ServiceStateStore = FakeInstrumentedServiceStateStore()
+    var serviceStateStore: OrderedServiceStateStore = FakeInstrumentedServiceStateStore()
+
+    @BindValue
+    @JvmField
+    var serviceStateStoreContract: ServiceStateStore = serviceStateStore
 
     @BindValue
     @JvmField
@@ -595,7 +602,11 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var serviceStateStore: ServiceStateStore = FakeInstrumentedServiceStateStore()
+    var serviceStateStore: OrderedServiceStateStore = FakeInstrumentedServiceStateStore()
+
+    @BindValue
+    @JvmField
+    var serviceStateStoreContract: ServiceStateStore = serviceStateStore
 
     @BindValue
     @JvmField
@@ -769,7 +780,11 @@ class MainActivityBiometricStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var serviceStateStore: ServiceStateStore = FakeInstrumentedServiceStateStore()
+    var serviceStateStore: OrderedServiceStateStore = FakeInstrumentedServiceStateStore()
+
+    @BindValue
+    @JvmField
+    var serviceStateStoreContract: ServiceStateStore = serviceStateStore
 
     @BindValue
     @JvmField

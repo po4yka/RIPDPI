@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverEvent
+import com.poyka.ripdpi.data.OrderedServiceStateStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -115,7 +116,11 @@ class ServiceLifecycleIntegrationTest {
 
     @BindValue
     @JvmField
-    var serviceStateStore: ServiceStateStore = IntegrationTestOverrides.serviceStateStore
+    var orderedServiceStateStore: OrderedServiceStateStore = IntegrationTestOverrides.serviceStateStore
+
+    @BindValue
+    @JvmField
+    var serviceStateStore: ServiceStateStore = orderedServiceStateStore
 
     @BindValue
     @JvmField
@@ -151,7 +156,8 @@ class ServiceLifecycleIntegrationTest {
         proxyPreferencesResolver = bindings.proxyPreferencesResolver
         proxyFactory = bindings.proxyFactory
         tun2SocksBridgeFactory = bindings.tun2SocksBridgeFactory
-        serviceStateStore = bindings.serviceStateStore
+        orderedServiceStateStore = bindings.serviceStateStore
+        serviceStateStore = orderedServiceStateStore
         vpnTunnelSessionProvider = bindings.vpnTunnelSessionProvider
         networkHandoverMonitor = bindings.networkHandoverMonitor
         permissionWatchdog = bindings.permissionWatchdog

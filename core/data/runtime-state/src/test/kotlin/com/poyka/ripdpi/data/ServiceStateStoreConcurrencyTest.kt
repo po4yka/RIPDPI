@@ -119,4 +119,32 @@ class ServiceStateStoreConcurrencyTest {
             assertEquals(Mode.VPN, failure.modeAtFailure)
             assertEquals(AppStatus.Halted to Mode.VPN, store.status.value)
         }
+
+    @Test
+    fun `history events preserve failure before terminal status`() =
+        runTest {
+            val store = DefaultServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            store.emitFailed(Sender.Proxy, FailureReason.NativeError("boom"))
+            store.setStatus(AppStatus.Halted, Mode.VPN)
+
+            val history = store.historyEvents.take(4).toList()
+
+            assertEquals(
+                listOf(
+                    ServiceHistoryEvent.StatusChanged(AppStatus.Halted, Mode.VPN),
+                    ServiceHistoryEvent.StatusChanged(AppStatus.Running, Mode.VPN),
+                    ServiceHistoryEvent.Failed(
+                        ServiceEvent.Failed(
+                            sender = Sender.Proxy,
+                            reason = FailureReason.NativeError("boom"),
+                            statusAtFailure = AppStatus.Running,
+                            modeAtFailure = Mode.VPN,
+                        ),
+                    ),
+                    ServiceHistoryEvent.StatusChanged(AppStatus.Halted, Mode.VPN),
+                ),
+                history,
+            )
+        }
 }
