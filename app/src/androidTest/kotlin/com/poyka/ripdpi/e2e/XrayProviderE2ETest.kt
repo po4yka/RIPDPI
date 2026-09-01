@@ -160,12 +160,11 @@ class XrayProviderE2ETest {
         for (network in listOf("tcp", "xhttp")) {
             start(network, wrongIdentity = false)
             val before = readControl("receipts").getInt("count")
-            val response = exchange("owned-$network")
+            val response = awaitOwnedPeerEcho(network)
             assertTrue(
                 "A distinct test UID must traverse VPN",
                 response.probeUid != null && response.probeUid != Process.myUid(),
             )
-            assertTrue("Expected independent peer echo", response.response.orEmpty().contains("xray-owned-echo"))
             assertOwnedDnsThroughProvider()
             awaitUntil {
                 val current = state.telemetry.value
@@ -334,6 +333,24 @@ class XrayProviderE2ETest {
             connectTimeoutMs = 2_000L,
             readTimeoutMs = 3_000L,
         )
+
+    private fun awaitOwnedPeerEcho(network: String): AppProcessTcpProbeResult {
+        var latest: AppProcessTcpProbeResult? = null
+        awaitUntil(
+            failureMessage = {
+                "Owned peer did not echo after listener bound: " +
+                    "ok=${latest?.ok} uid=${latest?.probeUid} " +
+                    "response=${latest?.response.orEmpty().take(128)} " +
+                    "failure=${latest?.failureKind}/${latest?.failureStage}"
+            },
+        ) {
+            latest = exchange("owned-$network")
+            latest.probeUid != null &&
+                latest.probeUid != Process.myUid() &&
+                latest.response.orEmpty().contains("xray-owned-echo")
+        }
+        return requireNotNull(latest)
+    }
 
     private fun readControl(path: String): JSONObject {
         val connection = URI("http://10.0.2.2:$controlPort/$path").toURL().openConnection() as HttpURLConnection
