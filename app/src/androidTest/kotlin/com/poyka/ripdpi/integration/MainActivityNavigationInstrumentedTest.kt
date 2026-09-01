@@ -158,7 +158,9 @@ private fun AndroidComposeTestRule<*, MainActivity>.waitForTag(
     timeoutMillis: Long = 5_000,
 ) {
     waitUntil(timeoutMillis = timeoutMillis) {
-        onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+        runCatching {
+            onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false)
     }
 }
 
