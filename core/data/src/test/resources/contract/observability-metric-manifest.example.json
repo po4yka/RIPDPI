@@ -18,6 +18,237 @@
       "alert_use": true
     },
     {
+      "name": "vpn_watchdog_last_run_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_watchdog_freshness_state",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 32,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_watchdog_result",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 32,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_watchdog_consecutive_failures",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "count",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_watchdog_restart_attempts",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "count",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_watchdog_rate_limit_state",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_watchdog_recovery_outcome",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 48,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_collection_success",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 32,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_collected_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 32,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_freshness_state",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_result",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_attempted_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_succeeded_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_failed_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 64,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_snapshot_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 32,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_backup_restore_source",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "node",
+        "role",
+        "state"
+      ],
+      "max_series": 32,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
       "name": "vpn_observability_adapter_collection_success",
       "owner": "observability_agent",
       "type": "gauge",
