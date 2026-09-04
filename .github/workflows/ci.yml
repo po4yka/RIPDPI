@@ -150,7 +150,7 @@ jobs:
           cache-dependency-path: tools/tasking/package-lock.json
 
       - name: Install pinned tasking tools
-        run: npm ci --prefix tools/tasking --ignore-scripts
+        run: npm ci --prefix tools/tasking --ignore-scripts --no-audit --prefer-offline
 
       - name: Run tasking contract tests
         run: |
