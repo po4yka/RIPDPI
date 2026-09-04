@@ -56,14 +56,13 @@ pub(crate) fn parse_fingerprint_line(line: &str) -> Option<BlockpageFingerprint>
 
     let location = if location_field == "body" {
         FingerprintLocation::Body
-    } else if let Some(header) = location_field.strip_prefix("header.") {
+    } else {
+        let header = location_field.strip_prefix("header.")?;
         let header = header.trim();
         if header.is_empty() {
             return None;
         }
         FingerprintLocation::Header(header.to_ascii_lowercase())
-    } else {
-        return None;
     };
     let pattern_type = match pattern_type_field {
         "full" => PatternType::Full,

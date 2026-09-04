@@ -30,10 +30,7 @@ pub fn parse_host_filter_spec(spec: &str) -> Result<FilterSet, ConfigError> {
 fn normalize_host_token(token: &str) -> Option<String> {
     let mut normalized = String::with_capacity(token.len());
     for ch in token.chars() {
-        match lower_host_char(ch) {
-            Some(lower) => normalized.push(lower),
-            None => return None,
-        }
+        normalized.push(lower_host_char(ch)?);
     }
     (!normalized.is_empty()).then_some(normalized)
 }

@@ -142,7 +142,7 @@ Der Datenschutz des Relay-Verkehrs hängt von dem von Ihnen konfigurierten Relay
 
 ## Build
 
-Voraussetzungen: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust-Toolchain `1.96.0`, Android-Rust-Targets für die benötigten ABIs.
+Voraussetzungen: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust-Toolchain `1.98.1`, Android-Rust-Targets für die benötigten ABIs.
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

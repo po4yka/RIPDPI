@@ -119,7 +119,7 @@ where
         let mut packet = vec![consts::SOCKS5_VERSION, methods.len() as u8];
 
         let auth = methods.iter().map(|l| l.as_u8()).collect::<Vec<_>>();
-        debug!("client auth methods supported: {:?}", &auth);
+        debug!("client auth methods supported: {:?}", auth);
         packet.extend(auth);
 
         self.socket

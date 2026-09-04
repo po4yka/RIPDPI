@@ -16,21 +16,21 @@ mod tuic;
 mod unsupported;
 mod vless;
 
-pub use anytls::*;
-pub use chain::*;
-pub use cloudflare::*;
-pub use hysteria2::*;
-pub use masque::*;
-pub use mieru::*;
-pub use naive::*;
-pub use shadowsocks::*;
-pub use shadowtls::*;
-pub use ssh::*;
-pub use tor::*;
-pub use trojan::*;
-pub use tuic::*;
-pub use unsupported::*;
-pub use vless::*;
+pub use anytls::AnyTlsRelayConfig;
+pub use chain::{CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS, ChainRelayConfig, ResolvedChainRelayHopConfig};
+pub use cloudflare::CloudflareTunnelRelayConfig;
+pub use hysteria2::Hysteria2RelayConfig;
+pub use masque::MasqueRelayConfig;
+pub use mieru::MieruRelayConfig;
+pub use naive::NaiveProxyRelayConfig;
+pub use shadowsocks::ShadowsocksRelayConfig;
+pub use shadowtls::ShadowTlsRelayConfig;
+pub use ssh::SshRelayConfig;
+pub use tor::{TorPluggableTransportConfig, TorRelayConfig};
+pub use trojan::TrojanRelayConfig;
+pub use tuic::TuicRelayConfig;
+pub use unsupported::UnsupportedRelayConfig;
+pub use vless::{VlessRealityRelayConfig, VlessRelayConfig};
 
 #[derive(Debug, Clone)]
 pub enum RelayBackendConfig {

@@ -4,7 +4,7 @@ use std::sync::Arc;
 // Intentionally retains `once_cell` rather than `std::sync::OnceLock`: the
 // fallible runtime build below relies on `get_or_try_init`, which on
 // `std::sync::OnceLock` is still unstable (`once_cell_try`, rust-lang/rust#109737)
-// as of the pinned 1.96 toolchain. `OnceLock::get_or_init` cannot propagate the
+// as of the pinned 1.98.1 toolchain. `OnceLock::get_or_init` cannot propagate the
 // `io::Result` from `Builder::build()` without redundantly building (and dropping)
 // a second tokio runtime under contention -- a behavioral change on this
 // lifecycle-critical path (see .claude/rules/android-vpn-lifecycle.md). Migrate

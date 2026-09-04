@@ -531,7 +531,7 @@ mod tests {
         DROPS.store(0, Ordering::SeqCst);
         let result = std::panic::catch_unwind(|| {
             // Per-slot const-evaluated `MaybeUninit::uninit()` —
-            // stable on the pinned 1.94.0 toolchain. The array
+            // stable on the repository's pinned toolchain. The array
             // itself is `!Drop`, so a panic that leaves slots
             // uninitialised cannot leak.
             let mut storage: [MaybeUninit<DropCounter>; 4] = [const { MaybeUninit::uninit() }; 4];

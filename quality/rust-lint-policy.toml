@@ -22,6 +22,8 @@ unused_self = "warn"
 default_trait_access = "warn"
 explicit_into_iter_loop = "warn"
 match_wildcard_for_single_variants = "warn"
+nonminimal_bool = "warn"
+overly_complex_bool_expr = "deny"
 missing_safety_doc = "allow"
 not_unsafe_ptr_arg_deref = "allow"
 undocumented_unsafe_blocks = "allow"
@@ -44,6 +46,6 @@ improper_ctypes = "warn"
 improper_ctypes_definitions = "warn"
 
 [clippy]
-msrv = "1.96.0"
+msrv = "1.98.1"
 too-many-arguments-threshold = 8
 type-complexity-threshold = 300

@@ -502,7 +502,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Opened> 
         // eg. (non-auth) {0, 1}
         // eg. (auth)     {0, 1, 2}
         let methods = read_exact!(self.inner, vec![0u8; methods_len as usize]).err_when("reading methods")?;
-        debug!("methods supported sent by the client: {:?}", &methods);
+        debug!("methods supported sent by the client: {:?}", methods);
 
         // server_methods order matter!
         // the server could choose to prioritize methods
@@ -543,7 +543,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::CommandR
     /// Reply error to the client with the reply code according to the RFC.
     pub async fn reply_error(mut self, error: &ReplyError) -> Result<(), SocksServerError> {
         let reply = new_reply(error, "0.0.0.0:0".parse().unwrap());
-        debug!("reply error to be written: {:?}", &reply);
+        debug!("reply error to be written: {:?}", reply);
 
         self.inner.write(&reply).await.err_when("writing unsuccessful reply")?;
 
