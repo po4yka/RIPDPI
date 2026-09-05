@@ -49,6 +49,7 @@ fun SupportSettingsRoute(
         uiState = uiState,
         onBack = onBack,
         onApply = viewModel::apply,
+        onRetry = { viewModel.setPackage(packageJson) },
         modifier = modifier,
     )
 }
@@ -58,6 +59,7 @@ internal fun SupportSettingsScreen(
     uiState: SupportSettingsUiState,
     onBack: () -> Unit,
     onApply: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RipDpiContentScreenScaffold(
@@ -75,6 +77,17 @@ internal fun SupportSettingsScreen(
                 )
             }
 
+            uiState.storageError && uiState.preview == null -> {
+                SupportSettingsMessageCard(
+                    title = stringResource(R.string.strategy_config_import_failed_title),
+                    body = stringResource(R.string.config_editor_hydration_failed),
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.strategy_config_restore_retry),
+                    onClick = onRetry,
+                )
+            }
+
             uiState.invalid || uiState.preview == null -> {
                 SupportSettingsMessageCard(
                     title = stringResource(R.string.support_settings_invalid_title),
@@ -83,6 +96,12 @@ internal fun SupportSettingsScreen(
             }
 
             else -> {
+                if (uiState.storageError) {
+                    SupportSettingsMessageCard(
+                        title = stringResource(R.string.strategy_config_import_failed_title),
+                        body = stringResource(R.string.asset_provider_persistence_failed_body),
+                    )
+                }
                 SupportSettingsPreviewContent(
                     uiState = uiState,
                     onApply = onApply,
