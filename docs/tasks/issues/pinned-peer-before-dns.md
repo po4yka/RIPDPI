@@ -2,7 +2,7 @@
 id: DGN-1788599171554142
 title: Attempt pinned diagnostics peers before DNS fallback
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Diagnostics transport audit
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: pinned-peer-before-dns
 created: 2026-09-05
 updated: 2026-09-05
+closed_at: "2026-09-05T12:10:36Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Pinned-first transport passed 535 local tests across six crates, strict Clippy, independent review and full CI 33963617095 on eb66de5d84388cf10d2874318b24bd50180a453d.
 ---
 
 ## Goal
