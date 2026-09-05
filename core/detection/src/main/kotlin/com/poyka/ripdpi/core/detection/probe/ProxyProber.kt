@@ -104,10 +104,10 @@ object ProxyProber {
             try {
                 socket.getOutputStream().writeHttpConnectProbe()
                 val response =
-                    socket.getInputStream().readAsciiPrefix()
+                    socket.readHttpStatusLine()
                         ?: return PortProbeResult.UNKNOWN_TCP_SERVICE
                 val code =
-                    Regex("^HTTP/1\\.[01]\\s+(\\d{3})")
+                    Regex("^HTTP/1\\.[01]\\s+(\\d{3})(?:[ \t]|\r\n)")
                         .find(response)
                         ?.groupValues
                         ?.getOrNull(1)
@@ -154,10 +154,22 @@ object ProxyProber {
         return buffer
     }
 
-    private fun InputStream.readAsciiPrefix(limit: Int = 256): String? {
-        val buffer = ByteArray(limit)
-        val read = read(buffer)
-        if (read <= 0) return null
-        return buffer.decodeToString(0, read)
+    private fun Socket.readHttpStatusLine(limit: Int = 256): String? {
+        val input = getInputStream()
+        val response = StringBuilder()
+        val timeoutMs = soTimeout
+        val deadlineNanos = System.nanoTime() + timeoutMs.toLong() * 1_000_000L
+        while (response.length < limit) {
+            if (timeoutMs > 0) {
+                val remainingNanos = deadlineNanos - System.nanoTime()
+                if (remainingNanos <= 0L) return null
+                soTimeout = ((remainingNanos + 999_999L) / 1_000_000L).toInt().coerceAtLeast(1)
+            }
+            val byte = input.read()
+            if (byte < 0) return null
+            response.append(byte.toChar())
+            if (response.endsWith("\r\n")) return response.toString()
+        }
+        return null
     }
 }
