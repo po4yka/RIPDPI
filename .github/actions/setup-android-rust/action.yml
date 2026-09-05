@@ -152,6 +152,10 @@ runs:
         bash scripts/ci/android-sdk-install.sh \
           "platform-tools" \
           "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
+        source scripts/ci/android-emulator-helpers.sh
+        sdk_root="$(resolve_android_sdk_root)"
+        test -x "$sdk_root/platform-tools/adb"
+        printf '%s\n' "$sdk_root/platform-tools" >> "$GITHUB_PATH"
 
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       if: inputs.setup-rust == 'true'
