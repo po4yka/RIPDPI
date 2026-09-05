@@ -126,25 +126,31 @@ class PcapCaptureRuntimeController
                 ?: boundBridge?.let { bridge -> startOnBoundBridge(bridge) }
                 ?: failLocked("tunnel_unavailable")
 
-        private suspend fun startOnBoundBridge(bridge: Tun2SocksBridge): PcapCaptureRuntimeState {
-            val captureSetId =
-                try {
-                    bridge.withSessionHandle { handle -> startCapture(handle) } ?: 0L
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    return failLocked("start_failed")
+        /**
+         * # Cancel safety:
+         * Native start and lease publication run together without cancellation.
+         * A cancelled caller can still stop the published capture.
+         */
+        private suspend fun startOnBoundBridge(bridge: Tun2SocksBridge): PcapCaptureRuntimeState =
+            withContext(NonCancellable) {
+                val captureSetId =
+                    try {
+                        bridge.withSessionHandle { handle -> startCapture(handle) } ?: 0L
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        return@withContext failLocked("start_failed")
+                    }
+                if (captureSetId <= 0L) {
+                    failLocked("start_failed")
+                } else {
+                    activeBridge = bridge
+                    activeCaptureSetId = captureSetId
+                    terminalCaptureSetId = null
+                    terminalState = null
+                    PcapCaptureRuntimeState.Recording(captureSetId).also { mutableState.value = it }
                 }
-            return if (captureSetId <= 0L) {
-                failLocked("start_failed")
-            } else {
-                activeBridge = bridge
-                activeCaptureSetId = captureSetId
-                terminalCaptureSetId = null
-                terminalState = null
-                PcapCaptureRuntimeState.Recording(captureSetId).also { mutableState.value = it }
             }
-        }
 
         suspend fun startIfIdle(): PcapCaptureLeaseAcquisition =
             mutex.withLock {
@@ -155,6 +161,18 @@ class PcapCaptureRuntimeController
                     else -> error("startLocked returned non-terminal state: $state")
                 }
             }
+
+        /**
+         * Runs capture-file maintenance against the current native lease.
+         * The callback must not call this controller. It holds the lifecycle
+         * mutex so cleanup cannot race native start, publication or stop.
+         *
+         * # Cancel safety:
+         * The lock wait can be cancelled. The callback does not suspend.
+         */
+        suspend fun withCaptureStorageLock(block: (activeCaptureSetId: Long?) -> Unit) {
+            mutex.withLock { block(activeCaptureSetId) }
+        }
 
         suspend fun stop(): PcapCaptureRuntimeState =
             withContext(NonCancellable) {
