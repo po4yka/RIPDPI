@@ -2,7 +2,7 @@
 id: DGN-1788582590436769
 title: Correct connectivity diagnostics and protocol configuration
 kind: bug
-status: doing
+status: done
 area: diagnostics
 priority: high
 owner: Primary audit writer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: connectivity-protocol-audit-20260905
 created: 2026-09-05
 updated: 2026-09-05
+closed_at: "2026-09-05T07:49:53Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 28 corrected finding groups; exact application SHA a0986d2e7495c0cbefd6e47781f8b9e16cdaae5d passed CI 33950376859 with 5403 Rust and 9044 JVM executions, five Android APIs, real TUN acceptance, full static analysis and release checks. Coverage limits are in the audit report.
 ---
 
 ## Goal
