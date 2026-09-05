@@ -482,6 +482,20 @@ jobs:
             "ripdpi-cloudflare-origin" "$assets_dir"
           ls -la "$RUNNER_TEMP/native-shard"
 
+      - name: Check packaged JNI export inventories
+        run: |
+          while read -r library crate; do
+            bash .github/scripts/check-jni-symbols.sh \
+              "$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}/lib${library}.so" \
+              "native/rust/crates/${crate}/jni-symbols.baseline"
+          done <<'EOF'
+          ripdpi ripdpi-android
+          ripdpi-tunnel ripdpi-tunnel-android
+          ripdpi-relay ripdpi-relay-android
+          ripdpi-warp ripdpi-warp-android
+          ripdpi-amneziawg ripdpi-amneziawg-android
+          EOF
+
       - name: Upload native artifacts for ${{ matrix.abi.name }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -1588,7 +1602,9 @@ jobs:
       - name: Fail if baseline files modified
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'baseline' | grep -v '^#'; then
+          changed_paths=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          # JNI inventories are checked against built ELF exports in rust-native-packaging.
+          if printf '%s\n' "$changed_paths" | grep -E 'baseline' | grep -Ev '^native/rust/crates/(ripdpi-android|ripdpi-tunnel-android|ripdpi-relay-android|ripdpi-warp-android|ripdpi-amneziawg-android)/jni-symbols\.baseline$'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi
