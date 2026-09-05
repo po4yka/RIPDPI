@@ -330,7 +330,8 @@ fn wait_for_lookup(
 }
 
 pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, DnsResolveError> {
-    resolve_addresses_with_timeout(target, port, DNS_RESOLVE_TIMEOUT)
+    let timeout = crate::util::bounded_scan_io_timeout(DNS_RESOLVE_TIMEOUT).map_err(|_| DnsResolveError::Timeout)?;
+    resolve_addresses_with_timeout(target, port, timeout)
 }
 
 pub(crate) fn resolve_addresses_with_timeout(
@@ -370,6 +371,15 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn public_resolution_rejects_expired_scan_deadline() {
+        let result = crate::util::with_scan_io_deadline(
+            Some(std::time::Instant::now() - std::time::Duration::from_millis(1)),
+            || super::resolve_addresses(&super::TargetAddress::Host("localhost".into()), 443),
+        );
+        assert_eq!(result, Err(super::DnsResolveError::Timeout));
+    }
+
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Condvar, Mutex};
     use std::time::Instant;
