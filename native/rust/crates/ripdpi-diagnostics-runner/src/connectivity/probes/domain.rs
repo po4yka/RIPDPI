@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request};
+use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request_targets};
 use crate::connectivity::adapters::tls::{
-    TlsClientProfile, TlsKeyLogCallback, classify_tls_signal, is_server_tls_version_rejection,
-    preferred_tls_observation, tls_key_log_callback_for_path, try_tls_handshake, try_tls_handshake_with_key_log,
+    TlsClientProfile, classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation,
+    tls_key_log_callback_for_path, try_tls_handshake_targets_with_key_log,
 };
-use crate::connectivity::adapters::transport::{TransportConfig, domain_connect_target, resolve_addresses};
+use crate::connectivity::adapters::transport::{TransportConfig, domain_connect_targets, resolve_addresses};
 use crate::connectivity::adapters::util::format_socket_result;
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
@@ -31,10 +31,17 @@ pub fn run_domain_probe_with_key_log(
     let key_log = keylog_path.map(tls_key_log_callback_for_path);
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
-    let connect_target = domain_connect_target(target);
-    let resolved = resolve_addresses(&connect_target, https_port).map_err(|error| error.to_string());
-    let tls13 = try_tls_handshake_with_optional_key_log(
-        &connect_target,
+    let connect_targets = domain_connect_targets(target);
+    let resolved = connect_targets.iter().try_fold(Vec::new(), |mut addresses, target| {
+        match resolve_addresses(target, https_port) {
+            Ok(resolved) => addresses.extend(resolved),
+            Err(error) if addresses.is_empty() => return Err(error.to_string()),
+            Err(_) => {}
+        }
+        Ok(addresses)
+    });
+    let tls13 = try_tls_handshake_targets_with_key_log(
+        &connect_targets,
         https_port,
         transport,
         &target.host,
@@ -43,8 +50,8 @@ pub fn run_domain_probe_with_key_log(
         tls_verifier,
         key_log.as_ref(),
     );
-    let tls12 = try_tls_handshake_with_optional_key_log(
-        &connect_target,
+    let tls12 = try_tls_handshake_targets_with_key_log(
+        &connect_targets,
         https_port,
         transport,
         &target.host,
@@ -53,8 +60,8 @@ pub fn run_domain_probe_with_key_log(
         tls_verifier,
         key_log.as_ref(),
     );
-    let tls_ech = try_tls_handshake_with_optional_key_log(
-        &connect_target,
+    let tls_ech = try_tls_handshake_targets_with_key_log(
+        &connect_targets,
         https_port,
         transport,
         &target.host,
@@ -63,7 +70,7 @@ pub fn run_domain_probe_with_key_log(
         tls_verifier,
         key_log.as_ref(),
     );
-    let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
+    let http = try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
     let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
     let h3_advertised = alt_svc_value.as_ref().is_some_and(|v| v.contains("h3"));
     let tls_signal = classify_tls_signal(&tls13, &tls12);
@@ -91,8 +98,8 @@ pub fn run_domain_probe_with_key_log(
 
     // Single retry on total failure to distinguish transient from consistent blocking
     let (outcome, probe_retry_count) = if outcome == "unreachable" {
-        let retry = try_tls_handshake_with_optional_key_log(
-            &connect_target,
+        let retry = try_tls_handshake_targets_with_key_log(
+            &connect_targets,
             https_port,
             transport,
             &target.host,
@@ -188,31 +195,6 @@ pub fn run_domain_probe_with_key_log(
     result
 }
 
-fn try_tls_handshake_with_optional_key_log(
-    target: &crate::connectivity::adapters::transport::TargetAddress,
-    port: u16,
-    transport: &TransportConfig,
-    server_name: &str,
-    verify_certificates: bool,
-    profile: TlsClientProfile,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> crate::connectivity::adapters::tls::TlsObservation {
-    match key_log {
-        Some(key_log) => try_tls_handshake_with_key_log(
-            target,
-            port,
-            transport,
-            server_name,
-            verify_certificates,
-            profile,
-            tls_verifier,
-            Some(key_log),
-        ),
-        None => try_tls_handshake(target, port, transport, server_name, verify_certificates, profile, tls_verifier),
-    }
-}
-
 fn http_status_code(status: &str) -> String {
     status.strip_prefix("http_status_").unwrap_or("").to_string()
 }
@@ -235,6 +217,28 @@ fn http_status_class(status: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{http_status_class, http_status_code};
+
+    #[test]
+    fn domain_probe_uses_later_pinned_address_and_preserves_host() {
+        use crate::test_fixtures::HttpTextServer;
+        use crate::types::DomainTarget;
+        let server = HttpTextServer::start(|request| {
+            assert!(String::from_utf8_lossy(&request).contains("\r\nHost: localhost:"));
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok".to_vec()
+        });
+        let target = DomainTarget {
+            host: "localhost".into(),
+            connect_ip: Some("::1".into()),
+            connect_ips: vec!["127.0.0.1".into()],
+            https_port: Some(9),
+            http_port: Some(server.port()),
+            http_path: "/".into(),
+            is_control: false,
+            concurrency_probe: None,
+        };
+        let result = super::run_domain_probe(&target, &super::TransportConfig::Direct { route_experiment: None }, None);
+        assert_eq!(result.outcome, "http_ok");
+    }
 
     #[test]
     fn http_status_details_extract_code_and_class() {

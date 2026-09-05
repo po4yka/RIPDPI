@@ -66,8 +66,12 @@ fn measure_throughput_window_with_verifier(
     let tcp_connect_ms = Some(stream_result.tcp_connect_ms);
     let tls_handshake_ms = parsed.secure.then_some(stream_result.tls_handshake_ms);
     let mut stream = stream_result.stream;
+    let mut authority = if parsed.host.contains(':') { format!("[{}]", parsed.host) } else { parsed.host.clone() };
+    if parsed.port != if parsed.secure { 443 } else { 80 } {
+        authority.push_str(&format!(":{}", parsed.port));
+    }
     let request =
-        format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n", parsed.path, parsed.host);
+        format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n", parsed.path, authority);
     if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
         stream.shutdown();
         return failed_sample_with_connection(
@@ -304,6 +308,9 @@ mod tests {
             let mut request = [0u8; 1024];
             let read = socket.read(&mut request).expect("read HTTP request");
             assert!(request[..read].starts_with(b"GET /payload HTTP/1.1\r\n"));
+            assert!(
+                String::from_utf8_lossy(&request[..read]).contains(&format!("Host: localhost:{}\r\n", addr.port()))
+            );
             socket
                 .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
                 .expect("write HTTP response");
