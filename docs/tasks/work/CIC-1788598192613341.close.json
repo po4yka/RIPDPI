@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "The regression test failed for CI and release-candidate before the change and passed after it. All 143 workflow-only contract tests passed. actionlint, pinact v4.1.1, architecture health, cargo metadata --locked, and git diff --check passed. Hosted cache hit rates require subsequent CI runs.",
+  "execution_sha256": "2851029b69402914d900336432e10884fe3adf52f9df71e7786354d236f4cb2e",
+  "issue_sha256": "1a1768c7a6e46ab57500e9e9e20abfdf8ee9f36f116c193dfccdae1d3cf491e8",
+  "outcome": "done",
+  "prepared_at": "2026-09-05T08:51:33Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1788598192613341"
+}

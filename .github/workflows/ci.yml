@@ -74,6 +74,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Preserve compiler outputs between runners, including standalone Rust jobs.
+  SCCACHE_GHA_ENABLED: "true"
+
 concurrency:
   group: >-
     ${{ github.event_name == 'pull_request'

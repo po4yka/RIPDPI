@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Reuse the compiler cache populated by main CI.
+  SCCACHE_GHA_ENABLED: "true"
+
 concurrency:
   group: release-candidate-${{ inputs.release_tag }}
   cancel-in-progress: false
