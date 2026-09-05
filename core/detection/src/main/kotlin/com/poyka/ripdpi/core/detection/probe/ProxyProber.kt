@@ -159,17 +159,16 @@ object ProxyProber {
         val response = StringBuilder()
         val timeoutMs = soTimeout
         val deadlineNanos = System.nanoTime() + timeoutMs.toLong() * 1_000_000L
-        while (response.length < limit) {
+        while (response.length < limit && !response.endsWith("\r\n")) {
             if (timeoutMs > 0) {
                 val remainingNanos = deadlineNanos - System.nanoTime()
                 if (remainingNanos <= 0L) return null
                 soTimeout = ((remainingNanos + 999_999L) / 1_000_000L).toInt().coerceAtLeast(1)
             }
             val byte = input.read()
-            if (byte < 0) return null
+            if (byte < 0) break
             response.append(byte.toChar())
-            if (response.endsWith("\r\n")) return response.toString()
         }
-        return null
+        return if (response.endsWith("\r\n")) response.toString() else null
     }
 }
