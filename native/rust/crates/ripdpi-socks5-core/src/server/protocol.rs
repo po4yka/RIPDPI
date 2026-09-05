@@ -226,6 +226,31 @@ impl<T: AsyncRead + Unpin> PasswordAuthenticationImpl<T, password_states::Starte
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    // cancel-safe: cancellation drops the local mock and protocol state.
+    #[tokio::test(flavor = "current_thread")]
+    async fn replies_complete_short_writes() {
+        let address = "127.0.0.1:443".parse().expect("address");
+        let reply = new_reply(&ReplyError::Succeeded, address);
+        let socket = tokio_test::io::Builder::new()
+            .write(&reply[..1])
+            .wait(std::time::Duration::from_millis(1))
+            .write(&reply[1..])
+            .build();
+        let proto = Socks5ServerProtocol::<_, states::CommandRead>::new(socket);
+        drop(proto.reply_success(address).await.expect("complete success reply"));
+
+        let reply = new_reply(&ReplyError::GeneralFailure, "0.0.0.0:0".parse().expect("address"));
+        let socket = tokio_test::io::Builder::new()
+            .write(&reply[..1])
+            .wait(std::time::Duration::from_millis(1))
+            .write(&reply[1..])
+            .build();
+        let proto = Socks5ServerProtocol::<_, states::CommandRead>::new(socket);
+        proto.reply_error(&ReplyError::GeneralFailure).await.expect("complete error reply");
+    }
+
     #[test]
     fn password_auth_logs_do_not_include_credential_bytes() {
         let source = include_str!("protocol.rs");
@@ -531,8 +556,14 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Opened> 
 impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::CommandRead> {
     /// Reply success to the client according to the RFC.
     /// This consumes the wrapper as after this message actual proxying should begin.
+    /// # Cancel safety:
+    /// Cancel-safe: cancellation drops the owned stream after any partial reply.
+    // cancel-safe: cancellation drops the owned stream and protocol state.
     pub async fn reply_success(mut self, sock_addr: SocketAddr) -> Result<T, SocksServerError> {
-        self.inner.write(&new_reply(&ReplyError::Succeeded, sock_addr)).await.err_when("writing successful reply")?;
+        self.inner
+            .write_all(&new_reply(&ReplyError::Succeeded, sock_addr))
+            .await
+            .err_when("writing successful reply")?;
 
         self.inner.flush().await.err_when("flushing auth reply")?;
 
@@ -541,11 +572,14 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::CommandR
     }
 
     /// Reply error to the client with the reply code according to the RFC.
+    /// # Cancel safety:
+    /// Cancel-safe: cancellation drops the owned stream after any partial reply.
+    // cancel-safe: cancellation drops the owned stream and protocol state.
     pub async fn reply_error(mut self, error: &ReplyError) -> Result<(), SocksServerError> {
         let reply = new_reply(error, "0.0.0.0:0".parse().unwrap());
         debug!("reply error to be written: {:?}", reply);
 
-        self.inner.write(&reply).await.err_when("writing unsuccessful reply")?;
+        self.inner.write_all(&reply).await.err_when("writing unsuccessful reply")?;
 
         self.inner.flush().await.err_when("flushing auth reply")?;
 
