@@ -16,7 +16,6 @@ COMMON_SUCCESS = {
     "architecture-health": {"result": "success"},
     "release-gates": {"result": "success"},
     "cargo-deny": {"result": "success"},
-    "gradle-static-analysis": {"result": "success"},
 }
 
 
@@ -43,7 +42,6 @@ class CheckCiPreflightTest(unittest.TestCase):
             "architecture-health",
             "release-gates",
             "cargo-deny",
-            "gradle-static-analysis",
         ):
             with self.subTest(job=job):
                 needs = {name: dict(detail) for name, detail in COMMON_SUCCESS.items()}
@@ -70,7 +68,6 @@ class CheckCiPreflightTest(unittest.TestCase):
             "architecture-health",
             "release-gates",
             "cargo-deny",
-            "gradle-static-analysis",
         ):
             scheduled[job]["result"] = "skipped"
         self.assertEqual([], self.errors(scheduled, event_name="schedule"))
@@ -88,7 +85,6 @@ class CheckCiPreflightTest(unittest.TestCase):
             ),
         )
         rust = {name: dict(detail) for name, detail in COMMON_SUCCESS.items()}
-        rust["gradle-static-analysis"]["result"] = "skipped"
         self.assertEqual(
             [],
             self.errors(

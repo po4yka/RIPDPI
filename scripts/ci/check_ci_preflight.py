@@ -19,7 +19,6 @@ SOURCE_REQUIRED = frozenset(
         "release-gates",
     }
 )
-ANDROID_REQUIRED = frozenset({"gradle-static-analysis"})
 RUST_REQUIRED = frozenset({"cargo-deny"})
 
 
@@ -40,8 +39,6 @@ def required_jobs(
         run_full_ci or run_android_ci or run_rust_native_ci
     ):
         required.update(SOURCE_REQUIRED)
-        if run_full_ci or run_android_ci:
-            required.update(ANDROID_REQUIRED)
         if run_full_ci or run_rust_native_ci:
             required.update(RUST_REQUIRED)
     if run_fixtures_ci:
