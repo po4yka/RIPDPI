@@ -1,9 +1,9 @@
 ---
 task_id: DAT-1788100001077419
 change: mirror-observability-network-exposure-contracts
-commit_sha: 6b04cbcb866f21c5c957eb8cee26160a94df0598
+commit_sha: c83ebecb5d593575bd3745a6dbd40c8174a58f8a
 local: required
-local_evidence: Producer d9cd463c59706db2c6979665d1ccd3dcf91c9cb3; 20/20 vendored JSON contracts byte-identical, including all seven owned files; JSON parse PASS; taskctl validate PASS (32 tasks, 144 steps); generated board byte-clean; architecture health PASS (23 indicators, no new, worsened, or stale entries); :core:data:testDebugUnitTest BUILD SUCCESSFUL.
+local_evidence: Producer 7d176401777eb7d5c1062d2dab94a725286bf8ec; all 21 vendored JSON contracts byte-identical, including all seven owned files; JSON parse PASS; taskctl validate PASS (33 tasks, 145 steps); generated board byte-clean; architecture health PASS (23 indicators, no new, worsened, or stale entries); :core:data:testDebugUnitTest BUILD SUCCESSFUL.
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -20,5 +20,5 @@ deployment_evidence: Deployment behavior remains owned by the producer repositor
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-MIRROR-BYTE-IDENTITY | DAT-1788100117996369 | Producer `d9cd463c59706db2c6979665d1ccd3dcf91c9cb3`; all 20 JSON files compare byte-for-byte, including the seven owned contracts. JSON parsing, taskctl validation, generated-board comparison, architecture health, and `:core:data:testDebugUnitTest` passed on client source `6b04cbcb866f21c5c957eb8cee26160a94df0598`. | pass |
+| REQ-MIRROR-BYTE-IDENTITY | DAT-1788100117996369 | Producer `7d176401777eb7d5c1062d2dab94a725286bf8ec`; all 21 JSON files compare byte-for-byte, including the seven owned contracts. JSON parsing, taskctl validation, generated-board comparison, architecture health, and `:core:data:testDebugUnitTest` passed on client source `c83ebecb5d593575bd3745a6dbd40c8174a58f8a`. | pass |
 | REQ-MIRROR-SCOPE-ISOLATION | DAT-1788100118704034 | Final source-only diff review and exact-head hosted CI pending. | required |
