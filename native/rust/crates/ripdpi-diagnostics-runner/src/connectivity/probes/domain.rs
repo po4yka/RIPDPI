@@ -32,14 +32,12 @@ pub fn run_domain_probe_with_key_log(
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_targets = domain_connect_targets(target);
-    let resolved = connect_targets.iter().try_fold(Vec::new(), |mut addresses, target| {
-        match resolve_addresses(target, https_port) {
-            Ok(resolved) => addresses.extend(resolved),
-            Err(error) if addresses.is_empty() => return Err(error.to_string()),
-            Err(_) => {}
-        }
-        Ok(addresses)
-    });
+    // Keep this informational lookup on the first candidate, as before multi-peer fallback.
+    // Resolving every fallback name here would consume the deadline before pinned peers run.
+    let resolved = match connect_targets.first() {
+        Some(target) => resolve_addresses(target, https_port).map_err(|error| error.to_string()),
+        None => Err(ripdpi_diagnostics_transport::transport::TransportError::NoTargetCandidates.to_string()),
+    };
     let tls13 = try_tls_handshake_targets_with_key_log(
         &connect_targets,
         https_port,

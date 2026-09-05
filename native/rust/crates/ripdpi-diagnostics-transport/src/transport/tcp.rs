@@ -39,49 +39,104 @@ pub(super) fn connect_direct_observed(
     port: u16,
     route_experiment: Option<&RouteExperimentConfig>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
-    let addresses = resolve_candidate_addresses(targets, port)
-        .map_err(|err| TransportConnectError::new(TransportFailureStage::DnsResolution, err.to_string()))?;
-    if let Some(config) = route_experiment {
-        let route_identity = route_identity(&addresses);
-        let ((stream, connected_addr, local_addr), route_report) =
-            connect_addresses_with_route_experiment(&addresses, config, &route_identity)
-                .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err))?;
-        return Ok(TransportConnectResult {
-            stream,
-            connected_addr: Some(connected_addr),
-            local_addr: Some(local_addr),
-            route_report: Some(route_report),
-        });
-    }
-    let (stream, connected_addr) = connect_addresses_with_race(&addresses)
-        .map_err(|err| TransportConnectError::new(TransportFailureStage::TcpConnect, err.to_string()))?;
-    let local_addr = stream.local_addr().ok();
-    Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr), local_addr, route_report: None })
+    connect_direct_candidates(
+        candidate_address_groups(targets, port, super::resolve_addresses_with_timeout),
+        route_experiment,
+    )
 }
 
-pub(super) fn resolve_candidate_addresses(
-    targets: &[TargetAddress],
-    port: u16,
-) -> Result<Vec<SocketAddr>, TransportError> {
-    let mut resolved = Vec::new();
-    let mut last_error = None;
-    for target in targets {
-        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-        match super::resolve_addresses_with_timeout(target, port, timeout) {
-            Ok(addresses) => {
-                for address in addresses {
-                    if !resolved.contains(&address) {
-                        resolved.push(address);
-                    }
+fn connect_direct_candidates(
+    groups: impl Iterator<Item = Result<Vec<SocketAddr>, TransportError>>,
+    route_experiment: Option<&RouteExperimentConfig>,
+) -> Result<TransportConnectResult, TransportConnectError> {
+    let mut last_error = TransportConnectError::new(TransportFailureStage::DnsResolution, "no_socket_addrs");
+    let mut attempted = false;
+    for group in groups {
+        let addresses = match group {
+            Ok(addresses) => addresses,
+            Err(error) => {
+                if !attempted || matches!(error, TransportError::ScanDeadlineExceeded) {
+                    last_error = TransportConnectError::new(TransportFailureStage::DnsResolution, error.to_string());
                 }
+                continue;
             }
-            Err(error) => last_error = Some(TransportError::from(error)),
+        };
+        attempted = true;
+        let result = if let Some(config) = route_experiment {
+            let identity = route_identity(&addresses);
+            connect_addresses_with_route_experiment(&addresses, config, &identity).map(
+                |((stream, connected_addr, local_addr), route_report)| TransportConnectResult {
+                    stream,
+                    connected_addr: Some(connected_addr),
+                    local_addr: Some(local_addr),
+                    route_report: Some(route_report),
+                },
+            )
+        } else {
+            connect_addresses_with_race(&addresses)
+                .map(|(stream, connected_addr)| {
+                    let local_addr = stream.local_addr().ok();
+                    TransportConnectResult {
+                        stream,
+                        connected_addr: Some(connected_addr),
+                        local_addr,
+                        route_report: None,
+                    }
+                })
+                .map_err(|error| error.to_string())
+        };
+        match result {
+            Ok(result) => return Ok(result),
+            Err(error) => last_error = TransportConnectError::new(TransportFailureStage::TcpConnect, error),
         }
     }
-    if resolved.is_empty() {
-        return Err(last_error.unwrap_or(TransportError::NoSocketAddrs));
-    }
-    Ok(resolved)
+    Err(last_error)
+}
+
+pub(super) fn candidate_address_groups<'a>(
+    targets: &'a [TargetAddress],
+    port: u16,
+    mut resolve: impl FnMut(&TargetAddress, u16, Duration) -> Result<Vec<SocketAddr>, super::DnsResolveError> + 'a,
+) -> impl Iterator<Item = Result<Vec<SocketAddr>, TransportError>> + 'a {
+    // Keep literal peers together for Happy Eyeballs, before any fallback DNS work.
+    let pinned = targets
+        .iter()
+        .filter_map(|target| match target {
+            TargetAddress::Ip(ip) => Some(SocketAddr::new(*ip, port)),
+            TargetAddress::Host(_) => None,
+        })
+        .collect::<Vec<_>>();
+    let literal_group = std::iter::once_with(move || {
+        bounded_scan_io_timeout(CONNECT_TIMEOUT).map(|_| pinned).map_err(|_| TransportError::ScanDeadlineExceeded)
+    });
+    let names = targets.iter().filter(|target| matches!(target, TargetAddress::Host(_))).map(move |target| {
+        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+        resolve(target, port, timeout).map_err(|error| {
+            if bounded_scan_io_timeout(CONNECT_TIMEOUT).is_err() {
+                TransportError::ScanDeadlineExceeded
+            } else {
+                TransportError::from(error)
+            }
+        })
+    });
+    let mut seen = Vec::new();
+    literal_group.chain(names).filter_map(move |group| match group {
+        Ok(addresses) => {
+            let fresh = addresses
+                .into_iter()
+                .filter(|address| {
+                    if seen.contains(address) {
+                        false
+                    } else {
+                        seen.push(*address);
+                        true
+                    }
+                })
+                .collect::<Vec<_>>();
+            (!fresh.is_empty()).then_some(Ok(fresh))
+        }
+        Err(error) => Some(Err(error)),
+    })
 }
 
 fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), TransportError> {
@@ -221,10 +276,132 @@ mod candidate_resolution_regression {
         let invalid = TargetAddress::Host("invalid\0host".to_string());
         for candidates in [[valid.clone(), invalid.clone()], [invalid.clone(), valid]] {
             assert_eq!(
-                resolve_candidate_addresses(&candidates, 443).unwrap(),
+                candidate_address_groups(&candidates, 443, super::super::resolve_addresses_with_timeout)
+                    .next()
+                    .unwrap()
+                    .unwrap(),
                 ["127.0.0.1:443".parse::<SocketAddr>().unwrap()]
             );
         }
-        assert!(resolve_candidate_addresses(&[invalid], 443).is_err());
+        assert!(
+            candidate_address_groups(&[invalid], 443, super::super::resolve_addresses_with_timeout)
+                .next()
+                .unwrap()
+                .is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod pinned_first_regression {
+    use super::*;
+    use std::cell::Cell;
+    use std::net::TcpListener;
+    use std::time::Instant;
+
+    #[test]
+    fn pinned_tcp_succeeds_without_stalled_fallback_resolution() {
+        for experiment in [
+            None,
+            Some(RouteExperimentConfig {
+                stable_flow_attempts: 1,
+                diversity_buckets: 1,
+                diversity_on_failure_only: false,
+                session_seed: 44,
+            }),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let targets = [TargetAddress::Host("fallback.invalid".into()), TargetAddress::Ip(address.ip())];
+            let calls = Cell::new(0);
+            let result = with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(1)), || {
+                let groups = candidate_address_groups(&targets, address.port(), |target, port, timeout| match target {
+                    TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
+                    TargetAddress::Host(_) => {
+                        calls.set(calls.get() + 1);
+                        thread::sleep(timeout + Duration::from_millis(1));
+                        Err(super::super::DnsResolveError::Timeout)
+                    }
+                });
+                connect_direct_candidates(groups, experiment.as_ref())
+            });
+            assert!(result.is_ok(), "{result:?}");
+            assert_eq!(calls.get(), 0);
+        }
+    }
+    #[test]
+    fn tcp_resolves_fallback_after_failed_pinned_peer() {
+        for experiment in [
+            None,
+            Some(RouteExperimentConfig {
+                stable_flow_attempts: 1,
+                diversity_buckets: 1,
+                diversity_on_failure_only: false,
+                session_seed: 44,
+            }),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let targets =
+                [TargetAddress::Ip("127.0.0.2".parse().unwrap()), TargetAddress::Host("fallback.invalid".into())];
+            let calls = Cell::new(0);
+            let groups = candidate_address_groups(&targets, address.port(), |_, _, timeout| {
+                assert!(timeout <= CONNECT_TIMEOUT);
+                calls.set(calls.get() + 1);
+                Ok(vec![address])
+            });
+            let result = connect_direct_candidates(groups, experiment.as_ref()).unwrap();
+            assert_eq!(result.connected_addr, Some(address));
+            assert_eq!(calls.get(), 1);
+        }
+    }
+
+    #[test]
+    fn hostname_only_candidates_connect_and_duplicate_peers_are_skipped() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let targets = [TargetAddress::Host("fallback.invalid".into())];
+        let groups = candidate_address_groups(&targets, address.port(), |_, _, _| Ok(vec![address, address]));
+        assert_eq!(connect_direct_candidates(groups, None).unwrap().connected_addr, Some(address));
+        let targets = [
+            TargetAddress::Ip(address.ip()),
+            TargetAddress::Ip(address.ip()),
+            TargetAddress::Host("fallback.invalid".into()),
+        ];
+        let groups = candidate_address_groups(&targets, address.port(), |_, _, _| Ok(vec![address]));
+        assert_eq!(groups.collect::<Result<Vec<_>, _>>().unwrap(), vec![vec![address]]);
+    }
+
+    #[test]
+    fn expired_deadline_prevents_fallback_resolution() {
+        let targets = [TargetAddress::Host("fallback.invalid".into())];
+        let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
+            let groups = candidate_address_groups(&targets, 443, |_, _, _| panic!("expired scan must not resolve"));
+            connect_direct_candidates(groups, None)
+        });
+        assert_eq!(result.unwrap_err().message, "scan_deadline_exceeded");
+    }
+
+    #[test]
+    fn fallback_dns_exhaustion_overrides_earlier_connect_failure() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let targets = [TargetAddress::Ip("127.0.0.2".parse().unwrap()), TargetAddress::Host("fallback.invalid".into())];
+        let result = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(100)), || {
+            let groups = candidate_address_groups(&targets, port, |_, _, timeout| {
+                thread::sleep(timeout + Duration::from_millis(1));
+                Err(super::super::DnsResolveError::Timeout)
+            });
+            connect_direct_candidates(groups, None)
+        });
+        assert_eq!(result.unwrap_err().message, "scan_deadline_exceeded");
+    }
+    #[test]
+    fn failed_fallback_dns_preserves_tcp_failure_stage() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let targets = [TargetAddress::Ip("127.0.0.2".parse().unwrap()), TargetAddress::Host("invalid\0host".into())];
+        let error = connect_direct_observed(&targets, port, None).unwrap_err();
+        assert_eq!(error.stage, TransportFailureStage::TcpConnect);
     }
 }
