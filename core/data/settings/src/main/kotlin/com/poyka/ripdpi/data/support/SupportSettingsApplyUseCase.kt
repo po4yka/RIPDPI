@@ -100,17 +100,21 @@ class SupportSettingsApplyUseCase
                         )
                     }
                 }
-            val current = appSettingsRepository.snapshot()
-            return when (val staged = stage(current, pkg)) {
-                is StagedSupportSettings.Invalid -> {
-                    SupportSettingsApplyResult.Invalid(staged.errors)
-                }
+            var result: SupportSettingsApplyResult? = null
+            appSettingsRepository.update {
+                result =
+                    when (val staged = stage(build(), pkg)) {
+                        is StagedSupportSettings.Invalid -> {
+                            SupportSettingsApplyResult.Invalid(staged.errors)
+                        }
 
-                is StagedSupportSettings.Ready -> {
-                    appSettingsRepository.replace(staged.settings)
-                    SupportSettingsApplyResult.Success(staged.changes, pkg.restartPolicy)
-                }
+                        is StagedSupportSettings.Ready -> {
+                            clear().mergeFrom(staged.settings)
+                            SupportSettingsApplyResult.Success(staged.changes, pkg.restartPolicy)
+                        }
+                    }
             }
+            return checkNotNull(result)
         }
 
         private fun stage(
