@@ -2,7 +2,7 @@
 id: DAT-1788100001077419
 title: Mirror observability and network exposure contracts
 kind: chore
-status: backlog
+status: doing
 area: data
 priority: high
 owner: codex
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: mirror-observability-network-exposure-contracts
 created: 2026-08-30
-updated: 2026-08-30
+updated: 2026-09-05
 ---
 
 ## Goal
