@@ -156,7 +156,7 @@ val stageCiInstrumentationApks =
 extensions.configure<ApplicationAndroidComponentsExtension> {
     onVariants(selector().withBuildType("debug")) { variant ->
         if (variant.name in setOf("githubFullDebug", "githubSimpleDebug")) {
-            val androidTest = requireNotNull(variant.androidTest)
+            val androidTest = variant.androidTest ?: return@onVariants
             stageCiInstrumentationApks.configure {
                 from(variant.artifacts.get(SingleArtifact.APK)) {
                     into("${variant.name}/app")
