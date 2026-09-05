@@ -9,6 +9,8 @@ use super::EncryptedDnsResolver;
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
 
 impl EncryptedDnsResolver {
+    /// # Cancel safety:
+    /// Dropping the query releases its dedicated QUIC streams; other queries use separate streams.
     pub(super) async fn exchange_doq(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let len_prefix = doq_length_prefix(query_bytes.len())?;
         if matches!(self.inner.transport, EncryptedDnsTransport::Socks5 { .. }) {
@@ -33,6 +35,8 @@ impl EncryptedDnsResolver {
         }
     }
 
+    /// # Cancel safety:
+    /// A connection is published only after its handshake completes; cancellation releases the pending handle.
     async fn get_or_connect_doq(&self, endpoint: &quinn::Endpoint) -> Result<quinn::Connection, EncryptedDnsError> {
         // Try cached connection.
         {
@@ -85,6 +89,9 @@ impl EncryptedDnsResolver {
 }
 
 fn doq_length_prefix(message_len: usize) -> Result<[u8; 2], EncryptedDnsError> {
+    if message_len < 12 {
+        return Err(EncryptedDnsError::Request("DoQ query is shorter than a DNS header".to_string()));
+    }
     let length = u16::try_from(message_len).map_err(|_| EncryptedDnsError::DnsMessageTooLarge {
         transport: "DoQ",
         size: message_len,
@@ -93,6 +100,8 @@ fn doq_length_prefix(message_len: usize) -> Result<[u8; 2], EncryptedDnsError> {
     Ok(length.to_be_bytes())
 }
 
+/// # Cancel safety:
+/// Each call owns one bidirectional stream. Dropping it aborts that exchange without reusing partial framing.
 async fn exchange_doq_query(
     conn: quinn::Connection,
     query_bytes: &[u8],
@@ -103,18 +112,30 @@ async fn exchange_doq_query(
 
     // RFC 9250: DNS wire format with 2-byte length prefix (same as DNS-over-TCP).
     send.write_all(&len_prefix).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
-    send.write_all(query_bytes).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
+    // RFC 9250 section 4.2.1 uses the stream ID to correlate queries, so the DNS ID is zero on the wire.
+    send.write_all(&[0, 0]).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write ID: {e}")))?;
+    send.write_all(&query_bytes[2..]).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
     send.finish().map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
 
     let mut len_buf = [0u8; 2];
     recv.read_exact(&mut len_buf).await.map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read len: {e}")))?;
     let resp_len = u16::from_be_bytes(len_buf) as usize;
-    if resp_len == 0 || resp_len > 65535 {
+    if resp_len < 12 {
+        conn.close(2u32.into(), b"DoQ short DNS header");
         return Err(EncryptedDnsError::DnsParse(format!("invalid DoQ response length: {resp_len}")));
     }
     let mut response = vec![0u8; resp_len];
     recv.read_exact(&mut response).await.map_err(|e| EncryptedDnsError::DnsParse(format!("DoQ read body: {e}")))?;
 
+    if response[..2] != [0, 0] {
+        conn.close(2u32.into(), b"DoQ nonzero DNS ID");
+        return Err(EncryptedDnsError::DnsParse("DoQ response has a nonzero DNS ID".to_string()));
+    }
+    if recv.read_to_end(0).await.is_err() {
+        conn.close(2u32.into(), b"DoQ trailing response data");
+        return Err(EncryptedDnsError::DnsParse("DoQ response stream has trailing data or was reset".to_string()));
+    }
+    response[..2].copy_from_slice(&query_bytes[..2]);
     Ok(response)
 }
 
@@ -196,6 +217,13 @@ mod tests {
     }
 
     #[test]
+    fn doq_length_prefix_rejects_short_dns_headers() {
+        for size in [0, 1, 11] {
+            assert!(doq_length_prefix(size).is_err());
+        }
+    }
+
+    #[test]
     fn doq_length_prefix_rejects_oversized_messages_without_truncation() {
         let size = usize::from(u16::MAX) + 1;
         let error = doq_length_prefix(size).expect_err("oversized DoQ message must fail");
@@ -209,3 +237,7 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "doq_tests.rs"]
+mod wire_tests;
