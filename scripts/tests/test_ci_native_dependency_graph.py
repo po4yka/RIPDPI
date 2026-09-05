@@ -78,6 +78,46 @@ class NativeDependencyGraphTest(unittest.TestCase):
             ":core:engine:buildRustNativeLibs -Pripdpi.nativeAbisOverride=arm64-v8a", source
         )
 
+    def test_android_setup_publishes_platform_tools_for_later_steps(self) -> None:
+        source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text()
+        step = source.split("    - name: Install Android SDK baseline via android CLI\n", 1)[1].split("    - uses:", 1)[0]
+        script = textwrap.dedent(step.split("      run: |\n", 1)[1])
+        script = script.replace("${{ steps.native-toolchain.outputs.compile-sdk }}", "37")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts/ci"
+            scripts.mkdir(parents=True)
+            (scripts / "android-sdk-install.sh").write_text("exit 0\n")
+            shutil.copyfile(ROOT / "scripts/ci/android-emulator-helpers.sh", scripts / "android-emulator-helpers.sh")
+            sdk = root / "SDK with spaces"
+            (sdk / "emulator").mkdir(parents=True)
+            (sdk / "emulator/emulator").write_text("#!/bin/sh\nexit 0\n")
+            (sdk / "emulator/emulator").chmod(0o755)
+            (sdk / "platform-tools").mkdir()
+            adb = sdk / "platform-tools/adb"
+            published = root / "github-path"
+            env = {**os.environ, "PATH": "/bin", "ANDROID_SDK_ROOT": str(sdk),
+                   "ANDROID_HOME": str(sdk), "GITHUB_PATH": str(published)}
+            for present in (True, False):
+                with self.subTest(adb_present=present):
+                    published.write_text("")
+                    if present:
+                        adb.write_text("#!/bin/sh\necho fixture-adb\n")
+                        adb.chmod(0o755)
+                    else:
+                        adb.unlink()
+                    result = subprocess.run(["/bin/bash", "-e", "-o", "pipefail", "-c", script],
+                                            cwd=root, env=env, capture_output=True, text=True, timeout=10)
+                    if not present:
+                        self.assertNotEqual(0, result.returncode)
+                        continue
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    consumer_env = {**env, "PATH": ":".join(published.read_text().splitlines()) + ":/bin"}
+                    consumer = subprocess.run(["/bin/bash", "-c", "adb"], env=consumer_env,
+                                              capture_output=True, text=True, timeout=10)
+                    self.assertEqual(0, consumer.returncode, consumer.stderr)
+                    self.assertEqual("fixture-adb\n", consumer.stdout)
+
     def test_instrumentation_consumers_use_one_verified_apk_bundle(self) -> None:
         source = job_source("android-instrumented-tests")
         self.assertNotIn("./gradlew", source)
