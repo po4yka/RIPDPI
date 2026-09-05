@@ -808,7 +808,7 @@ async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
     use crate::provider_adapter::adapter_for_config;
 
     for (auth_mode, token) in [("bearer", "bearer-secret"), ("preshared", "preshared-secret")] {
-        let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+        let fixture = MasqueH2ConnectUdpFixture::start_refusing_quic().await.expect("start MASQUE fixture");
         let config = MasqueConfig {
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: fixture.masque_url(),
@@ -837,7 +837,13 @@ async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
 
         let client = MasqueClient::new(config.clone()).expect("client");
         let mut udp = client.udp_session();
-        udp.send_to(&fixture.udp_echo_target(), b"masque-adapter-auth").await.expect("send via MASQUE");
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            udp.send_to(&fixture.udp_echo_target(), b"masque-adapter-auth"),
+        )
+        .await
+        .expect("QUIC refusal must reach HTTP/2 without an idle timeout")
+        .expect("send via MASQUE");
         let (target, payload) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
             .await
             .expect("receive timeout")

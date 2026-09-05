@@ -174,50 +174,32 @@ fn mixed_mode_serves_both_socks5_and_http_connect_on_one_port() {
 }
 
 #[test]
+#[ignore = "run by the relay interoperability lane"]
 fn domain_resolution_policy_is_enforced_end_to_end() {
-    if !nested_proxy_e2e_enabled() {
-        eprintln!("skipping domain_resolution_policy_is_enforced_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1");
-        return;
-    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     domain_resolution_policy_is_enforced(&fixture);
 }
 
 #[test]
+#[ignore = "run by the relay interoperability lane"]
 fn chained_upstream_round_trip_records_fixture_socks_usage_end_to_end() {
-    if !nested_proxy_e2e_enabled() {
-        eprintln!(
-            "skipping chained_upstream_round_trip_records_fixture_socks_usage_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
-        );
-        return;
-    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     chained_upstream_round_trip_records_fixture_socks_usage(&fixture);
 }
 
 #[test]
+#[ignore = "run by the relay interoperability lane"]
 fn host_filters_only_route_matching_domain_via_upstream_end_to_end() {
-    if !nested_proxy_e2e_enabled() {
-        eprintln!(
-            "skipping host_filters_only_route_matching_domain_via_upstream_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
-        );
-        return;
-    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     hosts_filter_only_routes_matching_domain_via_upstream(&fixture);
 }
 
 #[test]
+#[ignore = "run by the relay interoperability lane"]
 fn destination_policy_direct_bypasses_upstream_end_to_end() {
-    if !nested_proxy_e2e_enabled() {
-        eprintln!(
-            "skipping destination_policy_direct_bypasses_upstream_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
-        );
-        return;
-    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let upstream_telemetry = Arc::new(RecordingTelemetry::default());
@@ -235,13 +217,8 @@ fn destination_policy_direct_bypasses_upstream_end_to_end() {
 }
 
 #[test]
+#[ignore = "run by the relay interoperability lane"]
 fn destination_policy_block_opens_no_upstream_or_destination_connection_end_to_end() {
-    if !nested_proxy_e2e_enabled() {
-        eprintln!(
-            "skipping destination_policy_block_opens_no_upstream_or_destination_connection_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
-        );
-        return;
-    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let upstream_telemetry = Arc::new(RecordingTelemetry::default());
@@ -378,13 +355,8 @@ fn socks5_udp_quic_initial_v2_routes_by_hostname_when_enabled() {
 // ── Characterization: delayed-connect replies before reading payload ──
 
 #[test]
+#[ignore = "run by the relay interoperability lane"]
 fn socks5_delay_connect_replies_before_first_payload_and_round_trips() {
-    if !nested_proxy_e2e_enabled() {
-        eprintln!(
-            "skipping socks5_delay_connect_replies_before_first_payload_and_round_trips because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
-        );
-        return;
-    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
@@ -583,10 +555,6 @@ fn http_connect_reply_format_is_200_ok_with_crlf() {
 
 fn test_guard() -> MutexGuard<'static, ()> {
     TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-fn nested_proxy_e2e_enabled() -> bool {
-    matches!(std::env::var("RIPDPI_RUN_NESTED_PROXY_E2E").as_deref(), Ok("1"))
 }
 
 fn ephemeral_fixture_config() -> FixtureConfig {

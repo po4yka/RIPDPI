@@ -7,26 +7,16 @@ workspace_manifest="$repo_root/native/rust/Cargo.toml"
 NEXTEST_PROFILE="${CI:+ci}"
 NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
 
+# Ordinary unit tests belong to the workspace lane. This lane owns the
+# simulated-network unit tests and the in-process TUN integration binary.
+echo "==> turmoil and in-process TUN tests"
 if bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest --version >/dev/null 2>&1; then
-    run_tunnel_tests() {
-        bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --no-capture "${NEXTEST_ARGS[@]}"
-    }
-
-    run_resolver_tests() {
-        bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver --no-capture "${NEXTEST_ARGS[@]}"
-    }
+    bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked \
+        --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core -p ripdpi-dns-resolver \
+        -E 'binary(=tun_e2e) or test(turmoil_)' "${NEXTEST_ARGS[@]}"
 else
-    run_tunnel_tests() {
-        cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core -- --nocapture
-    }
-
-    run_resolver_tests() {
-        cargo test --locked --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver -- --nocapture
-    }
+    cargo test --locked --manifest-path "$workspace_manifest" \
+        -p ripdpi-tunnel-core -p ripdpi-dns-resolver --lib turmoil_ -- --nocapture
+    cargo test --locked --manifest-path "$workspace_manifest" \
+        -p ripdpi-tunnel-core --test tun_e2e -- --nocapture
 fi
-
-echo "==> turmoil-backed tunnel tests"
-run_tunnel_tests
-
-echo "==> turmoil-backed resolver tests"
-run_resolver_tests

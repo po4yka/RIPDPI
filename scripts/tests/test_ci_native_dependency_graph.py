@@ -27,9 +27,61 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_artifact_consumers_require_successful_producers(self) -> None:
+        for name in ("xray-linked-unit-tests", "build-android-debug", "release-verification",
+                     "android-instrumentation-apks", "android-instrumented-tests"):
+            source = job_source(name)
+            dependencies = re.search(r"needs: \[([^\]]+)\]", source)[1].split(", ")
+            condition = source.split("    runs-on:", 1)[0]
+            for dependency in dependencies:
+                if dependency != "change-routing":
+                    self.assertIn(f"needs.{dependency}.result == 'success'", condition, name)
+
+    def test_rust_test_lanes_keep_one_owner_for_unit_tests(self) -> None:
+        scripts = ROOT / "scripts/ci"
+        workspace = (scripts / "run-rust-workspace-tests.sh").read_text()
+        self.assertEqual(2, workspace.count("cargo nextest run --locked"))
+        self.assertEqual(2, workspace.count("--workspace"))
+        self.assertIn("--run-ignored ignored-only", workspace)
+        self.assertIn("test(startup_latency_smoke)", workspace)
+        self.assertIn(
+            "not ((package(=ripdpi-tunnel-core) or package(=ripdpi-dns-resolver)) and test(turmoil_))",
+            workspace,
+        )
+        turmoil = (scripts / "run-rust-turmoil-tests.sh").read_text()
+        self.assertIn("-p ripdpi-tunnel-core -p ripdpi-dns-resolver", turmoil)
+        self.assertIn("binary(=tun_e2e) or test(turmoil_)", turmoil)
+        self.assertIn("--lib turmoil_", turmoil)
+        self.assertIn("--test tun_e2e", turmoil)
+        for name in ("run-rust-relay-interoperability.sh", "run-rust-network-e2e.sh"):
+            source = (scripts / name).read_text()
+            self.assertNotIn("-p local-network-fixture", source)
+            self.assertEqual(2, source.count("-p ripdpi-proxy-runtime --test network_e2e"))
+            self.assertNotIn("-p ripdpi-relay-core", source)
+            self.assertNotIn("-p ripdpi-masque", source)
+        relay = (scripts / "run-rust-relay-interoperability.sh").read_text()
+        self.assertIn("--run-ignored ignored-only", relay)
+        self.assertIn("-- --ignored --nocapture", relay)
+        network_tests = (ROOT / "native/rust/crates/ripdpi-proxy-runtime/tests/network_e2e.rs").read_text()
+        self.assertEqual(6, network_tests.count('#[ignore = "run by the relay interoperability lane"]'))
+        self.assertNotIn("nested_proxy_e2e_enabled", network_tests)
+        combined = (scripts / "run-rust-native-checks.sh").read_text()
+        self.assertIn('bash "$repo_root/scripts/ci/run-rust-workspace-tests.sh"', combined)
+        self.assertIn('bash "$repo_root/scripts/ci/run-rust-turmoil-tests.sh"', combined)
+        self.assertIn("--features socks4", combined)
+        self.assertNotIn("-p local-network-fixture", combined)
+
+    def test_jni_symbol_guard_builds_only_the_consumed_abi(self) -> None:
+        source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text()
+        self.assertIn("rust-targets: aarch64-linux-android", source)
+        self.assertIn(
+            ":core:engine:buildRustNativeLibs -Pripdpi.nativeAbisOverride=arm64-v8a", source
+        )
+
     def test_instrumentation_consumers_use_one_verified_apk_bundle(self) -> None:
         source = job_source("android-instrumented-tests")
         self.assertNotIn("./gradlew", source)
+        self.assertIn('setup-java: "false"', source)
         self.assertIn('setup-gradle: "false"', source)
         self.assertIn("needs: [change-routing, android-instrumentation-apks]", source)
         self.assertIn("needs.android-instrumentation-apks.result == 'success'", source)

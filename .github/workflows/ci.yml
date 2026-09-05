@@ -401,6 +401,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -503,6 +504,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -599,6 +601,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       (github.event_name != 'schedule' ||
       github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
@@ -624,6 +627,7 @@ jobs:
     needs: [change-routing, xray-native]
     if: >-
       !cancelled() &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -673,6 +677,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       (github.event_name != 'schedule' ||
       github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
@@ -735,6 +740,10 @@ jobs:
   build-android-debug:
     if: >-
       !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, pluggable-transport-assets, xray-native]
@@ -853,6 +862,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     runs-on: ubuntu-latest
@@ -942,6 +952,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     runs-on: ubuntu-latest
@@ -988,6 +999,7 @@ jobs:
   owned-stack-tls-fingerprint:
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     needs: [change-routing, ci-preflight]
@@ -1013,6 +1025,11 @@ jobs:
   release-verification:
     if: >-
       !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.owned-stack-tls-fingerprint.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]
@@ -1197,6 +1214,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       github.event_name != 'schedule' &&
       (
@@ -1260,6 +1278,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1328,6 +1347,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1372,6 +1392,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1410,6 +1431,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1439,6 +1461,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1489,6 +1512,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1522,6 +1546,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     name: JNI API snapshot check
     runs-on: ubuntu-latest
@@ -1607,6 +1632,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1638,6 +1664,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1688,6 +1715,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1725,6 +1753,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1755,6 +1784,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_kotlin_coverage == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1810,6 +1840,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_rust_coverage == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1860,6 +1891,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       ((github.event_name == 'schedule' && github.event.schedule == '7 4 * * 1') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
@@ -2139,6 +2171,9 @@ jobs:
   android-instrumentation-apks:
     if: >-
       !cancelled() &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     needs: [change-routing, rust-native-x86_64, pluggable-transport-assets, xray-native]
@@ -2440,6 +2475,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -2467,6 +2503,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2513,6 +2550,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2559,6 +2597,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -2594,6 +2633,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -2965,6 +3005,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -3004,6 +3045,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -3089,6 +3131,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:

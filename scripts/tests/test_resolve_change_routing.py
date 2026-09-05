@@ -409,6 +409,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             with self.subTest(job=job):
                 source = ci_job_source(job)
                 self.assertIn("needs: [change-routing, ci-preflight]", source)
+                self.assertIn("needs.ci-preflight.result == 'success' &&", source)
                 self.assertRegex(
                     source,
                     r"(?ms)^    if: >-\n      !cancelled\(\) &&",
