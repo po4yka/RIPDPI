@@ -91,7 +91,7 @@ Initial tests reproduced defects before source correction in the three writer la
 - Full Rust workspace clippy (`--locked --workspace --no-deps --all-targets -- -D warnings`) passed. Full locked Cargo metadata and the runtime crate boundary guard passed.
 - Strict harness checks passed after initializing the pinned Rust-skill submodule. FFI and unsafe inventory checks passed. Four stale unsafe allowances are cleanup candidates, not an added unsafe-code regression.
 - Android: ktlint passed. Supplemental checks compiled the actual readiness and proxy source and reproduced red-to-green behavior. These checks do **not** replace pinned Gradle tests.
-- Both the app-inclusive Gradle test attempt and the narrower five-core-module attempt failed while downloading dependencies from `dl.google.com` (`No route to host`). Target Android tests were not reached. A temporary, external init script restricted unrelated Maven groups to Maven Central; repository dependency configuration was not changed.
+- The app-inclusive Gradle test attempt and the narrower five-core-module attempt failed while downloading dependencies from `dl.google.com` (`No route to host`). Target Android tests were not reached. An IPv4 retry reached more build tasks, then failed after 16m14s on `androidx.lifecycle:lifecycle-runtime-ktx:2.11.0` with a Google Maven connection timeout. The rebased offline test and lint attempt failed in six seconds on missing cached dependencies; it did not produce Android test or lint evidence. A temporary, external init script restricted unrelated Maven groups to Maven Central; repository dependency configuration was not changed.
 
 Machine-local logs used during the audit are under `/tmp/ripdpi-audit-*`, `/tmp/ripdpi-diagnostics-*`, `/tmp/ripdpi-full-drop-*`, and `/tmp/ripdpi-protocol-*`. They are transient; committed tests and the remote CI run are the durable checks. Do not treat missing logs after cleanup as a successful rerun.
 
@@ -115,4 +115,4 @@ Machine-local logs used during the audit are under `/tmp/ripdpi-audit-*`, `/tmp/
 
 ## Final revision evidence
 
-Native and tooling corrections are committed in separate units. Local Android validation, rebase onto the latest main, remote CI and final integration evidence are pending. The task remains nonterminal until required evidence is recorded.
+Native and tooling corrections are committed in separate units. The job branch was rebased onto `aa6d49ed7fd46547c84acdcddd7b6cf302d55589` without conflicts, preserving three upstream commits. Architecture, LoC and native contract checks passed on that tree. Final native/tooling reruns, remote CI and integration evidence are pending. Android local validation remains blocked by dependency access. The task remains nonterminal until required evidence is recorded.
