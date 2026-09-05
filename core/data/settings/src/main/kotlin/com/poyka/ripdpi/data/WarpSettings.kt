@@ -141,6 +141,8 @@ private val builtInWarpPresetProfiles: Map<String, WarpAmneziaSettings> by lazy 
 private const val WarpAmneziaReservedS2Offset = 56
 private const val WarpAmneziaMaxJc = 10
 private const val WarpAmneziaMaxJmax = 1024
+private const val WarpAmneziaMaxPadding = 1280
+private const val WarpAmneziaMaxHeader = 0xffff_ffffL
 
 internal fun rawWarpAmneziaSettings(appSettings: AppSettings): WarpAmneziaSettings =
     WarpAmneziaSettings(
@@ -204,24 +206,24 @@ fun resolveWarpAmneziaProfile(
 }
 
 fun normalizeWarpAmneziaSettings(settings: WarpAmneziaSettings): WarpAmneziaSettings {
-    val normalizedJmin = settings.jmin.coerceAtLeast(0)
+    val normalizedJmin = settings.jmin.coerceIn(0, WarpAmneziaMaxJmax)
     val normalizedJmax = settings.jmax.coerceAtLeast(normalizedJmin)
     val normalizedHeaders =
         listOf(settings.h1, settings.h2, settings.h3, settings.h4)
             .mapIndexed { index, value ->
-                value.takeIf { it > 0L } ?: (index + 1).toLong()
+                value.takeIf { it in 1..WarpAmneziaMaxHeader } ?: (index + 1).toLong()
             }.fold(mutableListOf<Long>()) { acc, value ->
                 var candidate = value
                 while (acc.contains(candidate)) {
-                    candidate += 1L
+                    candidate = if (candidate == WarpAmneziaMaxHeader) 1L else candidate + 1L
                 }
                 acc += candidate
                 acc
             }
-    val normalizedS1 = settings.s1.coerceAtLeast(0)
-    var normalizedS2 = settings.s2.coerceAtLeast(0)
+    val normalizedS1 = settings.s1.coerceIn(0, WarpAmneziaMaxPadding)
+    var normalizedS2 = settings.s2.coerceIn(0, WarpAmneziaMaxPadding)
     if (normalizedS1 + WarpAmneziaReservedS2Offset == normalizedS2) {
-        normalizedS2 += 1
+        normalizedS2 += if (normalizedS2 == WarpAmneziaMaxPadding) -1 else 1
     }
     return settings.copy(
         enabled = settings.enabled,
@@ -234,8 +236,8 @@ fun normalizeWarpAmneziaSettings(settings: WarpAmneziaSettings): WarpAmneziaSett
         h4 = normalizedHeaders[3],
         s1 = normalizedS1,
         s2 = normalizedS2,
-        s3 = settings.s3.coerceAtLeast(0),
-        s4 = settings.s4.coerceAtLeast(0),
+        s3 = settings.s3.coerceIn(0, WarpAmneziaMaxPadding),
+        s4 = settings.s4.coerceIn(0, WarpAmneziaMaxPadding),
     )
 }
 

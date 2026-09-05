@@ -107,6 +107,36 @@ class SupportSettingsApplyUseCaseTest {
         }
 
     @Test
+    fun `apply preserves changes committed before its atomic update`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository().apply {
+                    beforeWrite = { setProxyPort(8080).setAppTheme("light") }
+                }
+            val result =
+                SupportSettingsApplyUseCase(repository).apply(
+                    """{"schema":1,"operations":[{"op":"set","path":"settings.app_theme","value":"dark"}]}""",
+                ) as SupportSettingsApplyResult.Success
+
+            assertEquals(8080, repository.snapshot().proxyPort)
+            assertEquals("light", result.changes.single().previous)
+            assertEquals("dark", repository.snapshot().appTheme)
+        }
+
+    @Test
+    fun `malformed embedded activation filter is invalid without writing`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val useCase = SupportSettingsApplyUseCase(repository)
+            val packageJson =
+                """{"schema":1,"operations":[{"op":"set","path":"settings.group_activation_filter","value":"_w"}]}"""
+
+            assertTrue(useCase.preview(packageJson) is SupportSettingsPreviewResult.Invalid)
+            assertTrue(useCase.apply(packageJson) is SupportSettingsApplyResult.Invalid)
+            assertEquals(AppSettings.getDefaultInstance(), repository.snapshot())
+        }
+
+    @Test
     fun `repeated strings and message values are supported`() =
         runTest {
             val repository = FakeAppSettingsRepository()
@@ -183,6 +213,7 @@ private class FakeAppSettingsRepository(
     initial: AppSettings = AppSettings.getDefaultInstance(),
 ) : AppSettingsRepository {
     private val state = MutableStateFlow(initial)
+    var beforeWrite: AppSettings.Builder.() -> Unit = {}
 
     override val settings: Flow<AppSettings> = state
 
@@ -192,11 +223,21 @@ private class FakeAppSettingsRepository(
         state.value =
             state.value
                 .toBuilder()
+                .apply(beforeWrite)
+                .build()
+        state.value =
+            state.value
+                .toBuilder()
                 .apply(transform)
                 .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(beforeWrite)
+                .build()
         state.value = settings
     }
 }
