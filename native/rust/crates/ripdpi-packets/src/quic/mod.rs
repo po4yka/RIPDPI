@@ -3,6 +3,7 @@ mod crypto;
 mod fake_initial;
 mod frames;
 mod parse;
+mod response;
 mod tamper;
 
 pub use build::{build_quic_initial_from_tls, default_fake_quic_compat};
@@ -11,6 +12,7 @@ pub use fake_initial::{
     build_realistic_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
 };
 pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
+pub use response::{QuicResponseKind, build_probe_quic_initial, validate_quic_response};
 pub use tamper::{tamper_quic_initial_split_crypto, tamper_quic_initial_split_sni, tamper_quic_version};
 
 const QUIC_INITIAL_MIN_LEN: usize = 128;

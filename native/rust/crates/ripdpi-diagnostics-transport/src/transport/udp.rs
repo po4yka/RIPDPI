@@ -2,7 +2,6 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
-use super::address::resolve_addresses;
 use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
 use super::socks5::relay_udp_via_socks5;
 use super::tcp::resolve_candidate_addresses;
@@ -40,18 +39,7 @@ pub fn relay_udp_payload_observed(
         }
         TransportConfig::Socks5 { host, port: proxy_port, credentials } => {
             let mut last_error = None;
-            for target in targets {
-                let destination = match target {
-                    TargetAddress::Ip(ip) => SocketAddr::new(*ip, port),
-                    TargetAddress::Host(host_name) => {
-                        let Some(address) =
-                            resolve_addresses(&TargetAddress::Host(host_name.clone()), port)?.into_iter().next()
-                        else {
-                            continue;
-                        };
-                        address
-                    }
-                };
+            for destination in resolve_candidate_addresses(targets, port)? {
                 match relay_udp_via_socks5(host, *proxy_port, destination, payload, credentials.as_ref()) {
                     Ok((bytes, local_addr)) => {
                         return Ok(UdpRelayResult {
@@ -76,9 +64,10 @@ pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, 
     let socket = super::protect::protected_udp_bind(bind_addr, server)?;
     socket.set_read_timeout(Some(timeout))?;
     socket.set_write_timeout(Some(timeout))?;
-    socket.send_to(payload, server)?;
+    socket.connect(server)?;
+    socket.send(payload)?;
     let mut buf = [0u8; 2048];
-    let (size, _) = socket.recv_from(&mut buf).map_err(TransportError::udp_recv_error)?;
+    let size = socket.recv(&mut buf).map_err(TransportError::udp_recv_error)?;
     let local_addr = socket.local_addr()?;
     Ok((buf[..size].to_vec(), local_addr))
 }
@@ -95,6 +84,44 @@ mod tests {
     use super::{relay_udp_direct, relay_udp_payload_observed};
     use crate::transport::{Socks5Credentials, TargetAddress, TransportConfig};
 
+    fn assert_udp_ignores_unrelated_sender(route_experiment: bool) {
+        let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = server.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let mut buf = [0; 16];
+            let (_, peer) = server.recv_from(&mut buf).unwrap();
+            let other = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+            other.send_to(b"unrelated", peer).unwrap();
+            thread::sleep(Duration::from_millis(30));
+            server.send_to(b"valid", peer).unwrap();
+        });
+        let route_experiment = route_experiment.then_some(crate::transport::RouteExperimentConfig {
+            stable_flow_attempts: 1,
+            diversity_buckets: 1,
+            diversity_on_failure_only: false,
+            session_seed: 44,
+        });
+        let result = relay_udp_payload_observed(
+            &[TargetAddress::Ip(address.ip())],
+            address.port(),
+            &TransportConfig::Direct { route_experiment },
+            b"probe",
+        )
+        .unwrap();
+        worker.join().unwrap();
+        assert_eq!(result.payload, b"valid");
+    }
+
+    #[test]
+    fn direct_udp_ignores_unrelated_sender() {
+        assert_udp_ignores_unrelated_sender(false);
+    }
+
+    #[test]
+    fn route_udp_ignores_unrelated_sender() {
+        assert_udp_ignores_unrelated_sender(true);
+    }
+
     #[test]
     fn direct_udp_rejects_io_after_scan_deadline() {
         let server = "127.0.0.1:9".parse().expect("socket address");
@@ -105,8 +132,9 @@ mod tests {
         assert_eq!(result.unwrap_err().to_string(), "scan_deadline_exceeded");
     }
 
-    #[test]
-    fn authenticated_socks_transport_relays_udp_payload() {
+    fn socks_udp_fixture(
+        wrong_source: bool,
+    ) -> Result<crate::transport::UdpRelayResult, crate::transport::TransportError> {
         let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind UDP relay");
         let relay_addr = relay.local_addr().expect("UDP relay address");
         let control = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind SOCKS control");
@@ -129,6 +157,9 @@ mod tests {
                 .expect("write UDP relay address");
             let mut frame = [0u8; 256];
             let (size, peer) = relay.recv_from(&mut frame).expect("receive UDP frame");
+            if wrong_source {
+                frame[4..8].copy_from_slice(&[8, 8, 8, 8]);
+            }
             relay.send_to(&frame[..size], peer).expect("echo UDP frame");
         });
 
@@ -142,10 +173,18 @@ mod tests {
                 credentials: Some(credentials),
             },
             b"quic probe",
-        )
-        .expect("authenticated UDP relay succeeds");
-
-        assert_eq!(result.payload, b"quic probe");
+        );
         server.join().expect("SOCKS fixture thread");
+        result
+    }
+
+    #[test]
+    fn authenticated_socks_transport_relays_udp_payload() {
+        assert_eq!(socks_udp_fixture(false).unwrap().payload, b"quic probe");
+    }
+
+    #[test]
+    fn socks_udp_rejects_unrelated_encapsulated_source() {
+        assert!(socks_udp_fixture(true).is_err());
     }
 }

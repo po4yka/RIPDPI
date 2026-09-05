@@ -64,16 +64,22 @@ pub(super) fn resolve_candidate_addresses(
     port: u16,
 ) -> Result<Vec<SocketAddr>, TransportError> {
     let mut resolved = Vec::new();
+    let mut last_error = None;
     for target in targets {
         let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-        for address in super::resolve_addresses_with_timeout(target, port, timeout)? {
-            if !resolved.contains(&address) {
-                resolved.push(address);
+        match super::resolve_addresses_with_timeout(target, port, timeout) {
+            Ok(addresses) => {
+                for address in addresses {
+                    if !resolved.contains(&address) {
+                        resolved.push(address);
+                    }
+                }
             }
+            Err(error) => last_error = Some(TransportError::from(error)),
         }
     }
     if resolved.is_empty() {
-        return Err(TransportError::NoSocketAddrs);
+        return Err(last_error.unwrap_or(TransportError::NoSocketAddrs));
     }
     Ok(resolved)
 }
@@ -202,5 +208,23 @@ mod tests {
 
         assert_eq!(error.stage, TransportFailureStage::DnsResolution);
         assert_eq!(error.message, "no_socket_addrs");
+    }
+}
+
+#[cfg(test)]
+mod candidate_resolution_regression {
+    use super::*;
+
+    #[test]
+    fn failed_name_does_not_discard_valid_pinned_candidate() {
+        let valid = TargetAddress::Ip("127.0.0.1".parse().unwrap());
+        let invalid = TargetAddress::Host("invalid\0host".to_string());
+        for candidates in [[valid.clone(), invalid.clone()], [invalid.clone(), valid]] {
+            assert_eq!(
+                resolve_candidate_addresses(&candidates, 443).unwrap(),
+                ["127.0.0.1:443".parse::<SocketAddr>().unwrap()]
+            );
+        }
+        assert!(resolve_candidate_addresses(&[invalid], 443).is_err());
     }
 }
