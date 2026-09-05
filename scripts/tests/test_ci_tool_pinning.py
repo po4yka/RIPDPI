@@ -165,6 +165,36 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("android update", source)
         self.assertNotIn("android init", source)
 
+    def test_gradle_cache_writers_have_disjoint_restore_namespaces(self) -> None:
+        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text()
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        default = re.search(
+            r"(?ms)^  gradle-cache-key-prefix:\n.*?^    default: \"([^\"]+)\"", action
+        )
+        default_prefix = default[1] if default else "gradle-build-cache"
+        self.assertEqual("gradle-build-cache", default_prefix)
+        cache_steps = action.split("    - name: Restore shared Gradle build cache (read-only)\n")[1]
+        keys = re.findall(r"(?m)^        key: (.+)$", cache_steps)
+        restore_keys = re.findall(r"(?m)^          (.+-)$", cache_steps)
+        self.assertEqual(2, len(keys))
+        self.assertEqual(4, len(restore_keys))
+        namespaces = []
+        for name in ("kotlin-coverage", "pluggable-transport-assets"):
+            job = re.search(rf"(?ms)^  {name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)[0]
+            prefix = re.search(r"(?m)^          gradle-cache-key-prefix: (.+)$", job)
+            prefix = prefix[1] if prefix else default_prefix
+            rendered = [
+                key.replace("${{ inputs.gradle-cache-key-prefix }}", prefix)
+                for key in keys + restore_keys
+            ]
+            self.assertEqual(rendered[0], rendered[1])
+            self.assertEqual(rendered[2:4], rendered[4:6])
+            namespaces.append(rendered)
+        candidate = (ROOT / ".github/workflows/release-candidate.yml").read_text()
+        self.assertIn(f"gradle-cache-key-prefix: {prefix}\n", candidate)
+        for own, other in (namespaces, namespaces[::-1]):
+            self.assertFalse(any(own[0].startswith(key) for key in other[2:]))
+
     def test_gradle_build_cache_writers_are_trusted_main_only(self) -> None:
         action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
             encoding="utf-8"

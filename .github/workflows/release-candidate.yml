@@ -121,6 +121,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-release-candidate-pluggable-transports
           rust-cache-save: "false"
+          gradle-cache-key-prefix: gradle-pluggable-transport-build-cache
           gradle-cache-read-only: "true"
 
       - name: Build source-pinned pluggable transport assets

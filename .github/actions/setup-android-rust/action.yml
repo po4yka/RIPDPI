@@ -26,6 +26,10 @@ inputs:
     description: Whether Gradle cache is read-only; defaults to true so workflow owners must opt in one designated writer
     required: false
     default: "true"
+  gradle-cache-key-prefix:
+    description: Gradle build-cache namespace; each namespace must have one writer
+    required: false
+    default: "gradle-build-cache"
   java-version:
     description: Java version to install
     required: false
@@ -207,20 +211,20 @@ runs:
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
-        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
+        key: ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
         restore-keys: |
-          gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
-          gradle-build-cache-
+          ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
+          ${{ inputs.gradle-cache-key-prefix }}-
 
     - name: Shared Gradle build cache
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only != 'true'
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
-        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
+        key: ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
         restore-keys: |
-          gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
-          gradle-build-cache-
+          ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
+          ${{ inputs.gradle-cache-key-prefix }}-
 
     - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
       if: inputs.setup-gradle == 'true'

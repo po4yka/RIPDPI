@@ -683,6 +683,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-pluggable-transport-assets
           rust-cache-save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          gradle-cache-key-prefix: gradle-pluggable-transport-build-cache
           gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Build source-pinned pluggable transport assets
@@ -1769,9 +1770,9 @@ jobs:
           setup-rust: "false"
           setup-android-ndk: "false"
           setup-sccache: "false"
-          # Kotlin coverage is the sole Gradle build-cache writer on main. Every other
-          # job restores only, preventing a small parallel job from reserving
-          # the immutable SHA key before the coverage graph can populate it.
+          # Kotlin coverage owns the default Gradle build-cache namespace on main.
+          # The transport producer writes to a separate namespace so it cannot
+          # reserve the immutable SHA key before coverage fills this cache.
           gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Generate Kotlin coverage reports
