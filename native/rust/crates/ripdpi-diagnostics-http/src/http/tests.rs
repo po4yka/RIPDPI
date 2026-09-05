@@ -249,3 +249,34 @@ fn parse_http_response_preserves_alt_svc_header() {
     let response = parse_http_response(raw_headers, vec![]).unwrap();
     assert_eq!(response.headers.get("alt-svc").unwrap(), "h3=\":443\"; ma=86400");
 }
+
+#[test]
+fn http_request_preserves_ipv6_authority_and_port() {
+    use ripdpi_diagnostics_transport::transport::{TargetAddress, TransportConfig};
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
+    for plural in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buf = [0; 1024];
+            let len = stream.read(&mut buf).unwrap();
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n").unwrap();
+            String::from_utf8(buf[..len].to_vec()).unwrap()
+        });
+        let target = TargetAddress::Ip(addr.ip());
+        let transport = TransportConfig::Direct { route_experiment: None };
+        let result = if plural {
+            execute_http_request_targets(&[target], addr.port(), &transport, "::1", "/", false)
+        } else {
+            execute_http_request(&target, addr.port(), &transport, "::1", "/", false)
+        };
+        result.unwrap();
+        let request = server.join().unwrap();
+        assert!(request.contains(&format!("Host: [::1]:{}\r\n", addr.port())), "{request}");
+    }
+}

@@ -26,15 +26,16 @@ pub(crate) mod fat_header {
 pub(crate) mod http {
     pub use ripdpi_diagnostics_http::http::{
         HttpObservation, classify_http_response, describe_http_observation, is_blockpage, parse_http_response,
-        read_http_headers, read_http_response, try_http_request, try_http_request_targets_with_key_log,
+        read_http_headers, read_http_response, try_http_request_targets, try_http_request_targets_with_key_log,
     };
 }
 
 pub(crate) mod tls {
     pub use ripdpi_diagnostics_tls::tls::{
         ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
-        TlsObservation, classify_tls_signal, is_server_tls_version_rejection, open_probe_stream_targets_with_options,
-        preferred_tls_observation, tls_key_log_callback_for_path, try_tls_handshake, try_tls_handshake_with_key_log,
+        classify_tls_signal, is_server_tls_version_rejection, open_probe_stream_targets_with_options,
+        preferred_tls_observation, tls_key_log_callback_for_path, try_tls_handshake,
+        try_tls_handshake_targets_with_key_log, try_tls_handshake_with_key_log,
     };
 }
 
@@ -42,9 +43,9 @@ pub(crate) mod transport {
     #[cfg(test)]
     pub use ripdpi_diagnostics_transport::transport::direct_transport;
     pub use ripdpi_diagnostics_transport::transport::{
-        RouteExperimentReport, TargetAddress, TransportConfig, connect_transport_observed, domain_connect_target,
-        domain_connect_targets, quic_connect_target, relay_udp_direct, relay_udp_payload_observed,
-        relay_udp_via_socks5, resolve_addresses, resolve_first_socket_addr, throughput_connect_targets,
+        RouteExperimentReport, TargetAddress, TransportConfig, connect_transport_observed, domain_connect_targets,
+        quic_connect_targets, relay_udp_direct, relay_udp_payload_observed, relay_udp_via_socks5, resolve_addresses,
+        resolve_first_socket_addr, throughput_connect_targets,
     };
 }
 
