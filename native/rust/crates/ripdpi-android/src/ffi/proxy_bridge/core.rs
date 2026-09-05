@@ -23,7 +23,7 @@
 //! idempotent. The proxy adopts no externally supplied fds (it binds its own
 //! loopback listener). Failures are reported as Java exceptions thrown by the
 //! adapter (see `JniProxyError`); a contained panic yields the panic-default
-//! sentinel — `0` for `jlong`, `EINVAL` for `jniStart`, null for `jstring`.
+//! sentinel — `0` for `jlong`, `-1` for `jniStart`, null for `jstring`.
 //!
 //! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
 //! containment) and §7 (error mapping).
