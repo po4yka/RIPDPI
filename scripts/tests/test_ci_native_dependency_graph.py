@@ -27,6 +27,24 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_instrumentation_reruns_only_the_selected_test_task(self) -> None:
+        source = job_source("android-instrumented-tests")
+        self.assertNotIn("--rerun-tasks", source)
+        for step_name, variant in (
+            ("Run Simple experience integration", "GithubSimple"),
+            ("Run real Xray provider TUN acceptance", "GithubFull"),
+        ):
+            with self.subTest(step=step_name):
+                step = re.search(
+                    rf"(?ms)^      - name: {step_name}[^\n]*\n.*?(?=^      - |\Z)",
+                    source,
+                )
+                self.assertIsNotNone(step)
+                self.assertRegex(
+                    step[0].replace("\\\n", " "),
+                    rf"\./gradlew :app:connected{variant}DebugAndroidTest\s+--rerun\s",
+                )
+
     def test_xray_bootstrap_preserves_both_installed_tool_pins(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
         bootstrap = re.search(

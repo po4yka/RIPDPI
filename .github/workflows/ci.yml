@@ -2248,10 +2248,10 @@ jobs:
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple
           # The preceding Full invocation removes AndroidX Test Orchestrator
-          # packages from the shared emulator. Re-run this invocation's task
-          # graph so AGP installs its test utility before starting Simple.
+          # packages from the shared emulator. Re-run only the test task:
+          # AGP installs androidTestUtil APKs as part of that task's execution.
           ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
-            --rerun-tasks \
+            --rerun \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
@@ -2362,7 +2362,7 @@ jobs:
           fixture_port="$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1]))["controlPort"]; assert isinstance(p,int) and 0<p<65536; print(p)' "$evidence_dir/peer-ready.json")"
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
           ./gradlew :app:connectedGithubFullDebugAndroidTest \
-            --rerun-tasks \
+            --rerun \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
