@@ -287,12 +287,13 @@ fn resolve_job(
     let (lookup_response, lookup_result) = mpsc::channel();
     let resolver = Arc::clone(resolver);
     let lookup = thread::Builder::new().name("ripdpi-dns-lookup".to_string()).spawn(move || {
-        let _permit = permit;
         let result = if deadline <= Instant::now() {
             Err(DnsResolveError::Timeout)
         } else {
             catch_unwind(AssertUnwindSafe(|| resolver(&host, port))).unwrap_or(Err(DnsResolveError::Unavailable))
         };
+        // Release capacity before the result lets the supervisor start another lookup.
+        drop(permit);
         let _ = lookup_response.send(result);
     });
     let Ok(lookup) = lookup else {
