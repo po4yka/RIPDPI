@@ -41,7 +41,6 @@ Severity describes the failure path, not a claim that every user can trigger it.
 | A25 | Low | Architecture prose still called implemented SSH and Mieru transports stubs. | Align the configuration contract and descriptor comment with current TCP factories and UDP capability gates. No protocol capability was enabled. The proxy JNI panic-sentinel comment now agrees with the exported `-1`. |
 | A26 | Low | TCP and UDP ephemeral port spaces are independent. A fixture could select a TCP port already in use by UDP and panic at startup. | Reserve both sockets before runtime startup, retry only UDP `AddrInUse` up to 32 attempts, and propagate other errors. An occupied-port regression covers the collision. |
 | A27 | High, root-helper path | Truncated SCM_RIGHTS receipt could leak installed descriptors before nonce validation. A larger buffer alone does not cover Linux resource-limit truncation. | Receive the supported descriptor envelope, adopt the returned prefix even on `MSG_CTRUNC`, and reject after cleanup. Host protocol suite: 39 unit and 3 integration tests passed; independent reviewer: 10 SCM tests passed. Android aarch64 all-target clippy compiled the isolated RLIMIT regression. Linux CI passed the resource-limit and truncated-prefix regressions in the 5403-test workspace run. |
-
 | A28 | Low | The coverage summary labeled advisory targets as enforced thresholds and reported missing LINE counters as 100%. | Label advisory targets when `--enforce` is absent; reject missing counters. Preserve all enforced thresholds. Two regression tests passed; CI Gradle floors remain 40% aggregate and 5% per module. |
 
 All Rust source paths above are under `native/rust/crates/`. Android changes are under `app/`, `core/data/settings/`, `core/engine/`, `core/detection/`, `core/diagnostics/`, and `core/pcap-export/`.
@@ -50,20 +49,20 @@ All Rust source paths above are under `native/rust/crates/`. Android changes are
 
 | Area | Evidence inspected or executed | Limit |
 |---|---|---|
-| App and Compose | Support-settings UI/ViewModel, navigation-facing state, error resource reuse, new screen test source; independent review | App JVM tests and Roborazzi passed in CI; device interaction remains separate |
+| App and Compose | Support-settings UI/ViewModel, navigation-facing state, error resource reuse, new screen test source; independent review | Manual physical-device review of the new error/retry flow remains separate |
 | Data model/settings/runtime/catalog | Atomic settings update, protobuf activation parsing, WARP normalization, catalog refresh tests, configuration contracts | No schema migration changed; exhaustive database migration testing was not performed |
 | Diagnostics and diagnostics-data | Runner endpoints, domain/HTTP/QUIC/DNS probes, transport fallback, result taxonomy, capture export and retention; 726-test six-crate matrix | Device scans and operator-specific results remain separate |
-| Detection and Xray protos | Proxy status parser and real-source regression checks; protobuf build began during Gradle attempt | Pinned detection JVM suite passed in CI; local Gradle dependency access failed |
-| Engine and engine API | Readiness cancellation, WARP lifecycle reuse, JNI and cross-language contract scans | Full Android/JNI library build and R8 map proof remain separate |
-| Service | VPN protection propagation, runtime ownership boundaries, RAW_PATH exception, capture lifecycle integration | No real radio handover or foreground-service lifecycle run |
+| Detection and Xray protos | Proxy status parser, protobuf/Android build and detection JVM regressions | Hosted checks passed; local Gradle dependency access failed |
+| Engine and engine API | Readiness cancellation, WARP lifecycle reuse, JNI and cross-language contract scans | All ABI builds and release JNI callback mapping checks passed in CI |
+| Service | VPN protection propagation, runtime ownership boundaries, RAW_PATH exception, capture lifecycle integration | CI API 35 passed real Xray TUN routing/restart and wrong-identity rejection; no real radio handover |
 | SOCKS and Shadowsocks | Short I/O, TCP half-close/drop, legacy and 2022 framing, AEAD recipient and replay checks; loopback runtime tests | The updated repository fixture is not an independent upstream server |
 | DoH/DoT/DoQ/DNSCrypt/ECH | Shared socket hook and TLS verification boundary, DoQ framing, active DNS behavior; resolver and ECH tests | DoH/DoT/DNSCrypt did not receive new independent external interoperability tests |
 | QUIC and packets | Shared Initial/Retry/VN validation, RFC 9001/9369 vectors, parser tests, runner/monitor integration | No full external QUIC handshake or network impairment matrix |
-| Other relay protocols | Registry and builder paths for VLESS, TUIC, Hysteria2, MASQUE, Trojan, AnyTLS, SSH, Mieru and Tor; selected protection/TLS paths | No claim that all server versions, transports or relay chains interoperate |
+| Other relay protocols | Registry and builder paths for VLESS, TUIC, Hysteria2, MASQUE, Trojan, AnyTLS, SSH, Mieru and Tor; selected protection/TLS paths; CI upstream SSH, Mieru and AnyTLS acceptance | No claim that all server versions, transports or relay chains interoperate |
 | WARP/AmneziaWG/root/desync | Configuration and protection boundaries, native architecture/FFI/unsafe scans | WireGuard/AmneziaWG and root packet mutation were not exercised on a device |
-| Build logic/quality/harness | Architecture/LoC checks, 643 tooling tests, 33 CI tests, strict harness checks, lockfile discipline | CI ran pinned Gradle tests; static analysis follow-up and release checks are tracked below |
+| Build logic/quality/harness | Architecture/LoC checks, 645 tooling tests, 33 CI tests, strict harness checks, lockfile discipline | Full Gradle static analysis, core/app tests and all three release shards passed in CI |
 | Baseline profile/socket-bind helper | Module and CI ownership reviewed | No macrobenchmark or unprivileged bind-to-device instrumentation was run |
-| Release and dependencies | Advisory waiver checks, attempted live cargo-deny, CI route review | Live cargo-deny passed on retry; release R8 mapping remains a separate gate |
+| Release and dependencies | Advisory waiver checks, attempted live cargo-deny, CI route review | Live cargo-deny and release ELF/JNI mapping checks passed; no release was published |
 
 ## Additional source contracts sampled
 
@@ -82,32 +81,33 @@ The final breadth pass used ten bounded source paths. No further behavioral defe
 
 ## Observed validation
 
-Initial tests reproduced defects before source correction in the three writer lanes. Final source was reviewed independently before integration.
+The final application revision is `a0986d2e7495c0cbefd6e47781f8b9e16cdaae5d`. [CI run 33950376859](https://github.com/po4yka/RIPDPI/actions/runs/33950376859) completed successfully for this revision. Initial tests reproduced defects before correction. Independent reviewers examined the corrected source.
 
-- Combined native gate after rebase: **1378 passed, zero failed, ten pre-existing ignored**, across 55 suites in 15 affected crates. This includes the paired TCP/UDP fixture collision and IPC regressions.
-- Diagnostics: full tests for `ripdpi-diagnostics-dns`, `ripdpi-diagnostics-http`, `ripdpi-diagnostics-runner`, `ripdpi-diagnostics-transport`, `ripdpi-monitor-engine`, and `ripdpi-packets`: **726 passed, zero failed, five pre-existing ignored**. All-target clippy with `-D warnings`: passed.
-- Protocols: SOCKS, Shadowsocks and relay TLS suite passed; the stream-drop follow-up passed **26 TLS transport tests** and **180 relay-core tests** with one pre-existing ignored. A TCP/UDP fixture port collision appeared in one run and is tracked below.
-- DNS resolver: full DoQ/TLS regression suite passed; all-target clippy passed. MASQUE and ECH: **100 passed**, zero failed.
-- Python: **643 tooling tests** and **33 CI tests** passed. No deadlines, quality thresholds, goldens or baselines were relaxed.
-- Combined source checks: architecture health has 23 indicators, zero new/worsened entries; 117 crates and 351 internal edges. Native architecture contracts, cross-language runtime contracts and async safety passed. File LoC check found zero new violations or baseline growth.
-- Full Rust workspace clippy (`--locked --workspace --no-deps --all-targets -- -D warnings`) passed. Full locked Cargo metadata and the runtime crate boundary guard passed.
-- Strict harness checks passed after initializing the pinned Rust-skill submodule. FFI and unsafe inventory checks passed. Four stale unsafe allowances are cleanup candidates, not an added unsafe-code regression.
-- Android: ktlint passed. CI ran the pinned core and app Gradle JVM suites, Kotlin coverage verification, Xray-linked unit tests, and Roborazzi successfully. Local supplemental checks compiled actual readiness and proxy source; the final parser follow-up passed all three actual JUnit tests and built-in Detekt rules. The supplemental checks do **not** replace the full repository Gradle gate.
-- The app-inclusive Gradle test attempt and the narrower five-core-module attempt failed while downloading dependencies from `dl.google.com` (`No route to host`). Target Android tests were not reached. An IPv4 retry reached more build tasks, then failed after 16m14s on `androidx.lifecycle:lifecycle-runtime-ktx:2.11.0` with a Google Maven connection timeout. The rebased offline test and lint attempt failed in six seconds on missing cached dependencies; it did not produce Android test or lint evidence. A temporary, external init script restricted unrelated Maven groups to Maven Central; repository dependency configuration was not changed.
+- Local combined native gate after rebase: **1378 passed, zero failed, ten pre-existing ignored**, across 55 suites in 15 affected crates. Full 117-crate workspace clippy, locked Cargo metadata and runtime boundary checks passed.
+- Hosted Rust workspace gate: **5403 passed**, with 42 skips from the existing CI profile. Linux executed both the resource-limit truncation and installed-prefix FD cleanup regressions. Miri, Loom, fuzz smoke, network tests, packet smoke, cross-checks, coverage and Linux TUN gates passed.
+- Hosted core/app JVM reports: **9044 test executions, zero failures, zero skips**, including both app variants. The artifact digest is `sha256:b40015eccff9da3899c1aff7a052076b758e7ffed98e80a5b289e3ff802291ce`. The report includes 1420 diagnostics tests, 244 detection tests, 15 PCAP tests, and two support error-state screen tests in each app variant. Counts include repeated executions across variants.
+- Full `./gradlew staticAnalysis --profile -Pripdpi.skipNativeBuild=true` passed. This includes custom Detekt rule tests, Detekt, ktlint, Android Lint for Full/Simple app and service, and repository boundary/LoC checks. Roborazzi and the regenerated public API snapshot check passed. No baselines or thresholds were relaxed.
+- Instrumentation passed on **API 27, 33, 35, 36 and 37**. The existing platform-conditional skips remain; a green job does not mean every optional case ran. On API 35, the required five JNI strategy cases and two real Xray TUN acceptance cases passed with `--forbid-skips`. The TUN tests cover traffic from distinct UIDs, restart, and wrong identity without direct fallback. These are controlled emulator results, not operator-network or physical-device proof.
+- Native packaging passed for all four Android ABIs. GitHub, F-Droid and Play debug and Full/Simple release shards passed, including packaged ELF and release JNI callback mapping checks. No distributable release or deployment was published.
+- CI passed independent upstream acceptance for SSH, Mieru and AnyTLS. Shadowsocks 2022 still needs an independent server check.
+- Local Python: **645 tooling tests** plus **33 CI tests** passed. Architecture health: 23 indicators, zero new/worsened entries; 117 crates and 351 internal edges. File LoC: zero new violations or baseline growth. Native architecture, cross-language, async, FFI and unsafe inventory checks passed.
+- Strict harness checks passed with the pinned Rust-skill submodule. Four stale unsafe allowances remain cleanup candidates. `cargo deny --locked check advisories bans licenses sources` passed; dependency duplication and stale allowances were warnings.
+- Local Android Gradle attempts failed while downloading dependencies from Google Maven. The IPv4 retry failed after 16m14s on a connection timeout; the rebased offline attempt failed on missing cached dependencies. These are not local Android test passes. Hosted CI supplied the pinned Android evidence above. A temporary external repository init script did not change repository dependency configuration.
 
-Machine-local logs used during the audit are under `/tmp/ripdpi-audit-*`, `/tmp/ripdpi-diagnostics-*`, `/tmp/ripdpi-full-drop-*`, and `/tmp/ripdpi-protocol-*`. They are transient; committed tests and the remote CI run are the durable checks. Do not treat missing logs after cleanup as a successful rerun.
+Machine-local logs are under `/tmp/ripdpi-audit-*`; they are transient. Committed regression tests, the linked CI run and its artifacts are the durable evidence.
 
 ## Remaining work and growth areas
 
-1. Obtain pinned Android test, Hilt, lint and device evidence for the final revision. Capture a support-settings error/retry view and exercise PCAP start/cancel/export/retention in the app.
+1. Perform a manual visual check of support-settings error/retry states and exercise PCAP start/cancel/export/retention on a physical device. JVM render/interaction tests and emulator CI do not cover this complete flow.
 2. Test Shadowsocks 2022 against a separately built upstream implementation. The fixture and client were changed together; independent SIP022 text review reduces but does not remove common implementation errors.
 3. Exercise VPN-required ECH bootstrap on an Android device, with success and rejection of protection callbacks. Verify RAW_PATH remains callback-free.
 4. Add a controlled network matrix: IPv4/IPv6, partial DNS outage, UDP loss/reordering, MTU reduction, proxy authentication, network change and cancellation. Keep protocol reachability separate from full TLS/session success.
 5. Avoid eager fallback hostname resolution before the first pinned IP attempt if measurements show that it delays probes. The current fix preserves pinned IPs on DNS failure, but does not remove this latency.
-6. Run release-specific R8/JNI verification against an actual release mapping. Live `cargo deny --locked check advisories bans licenses sources` passed on retry; warnings include dependency duplication and stale allowances, with no blocking policy finding.
+6. Track dependency duplication and stale advisory allowances. Live dependency policy, release R8/JNI mapping and ELF checks passed; operator-specific release acceptance remains separate.
 7. Retention tests can add explicit `StopFailed` and cancellation-while-waiting-for-mutex cases. Source review found the intended behavior, but these additional test cases were not part of the initial slice.
 8. Improve coverage above current enforced floors. CI measured 46.11% aggregate, 40.55% in core:data and 64.42% in core:service. The advisory targets are higher; the current Gradle floors are 40% aggregate and 5% per module. The audit changes no floor.
 9. Remove stale unsafe allowances in a separate reviewed cleanup. Do not change baselines to hide a regression.
+10. Restore Java/Kotlin CodeQL coverage after validating the pinned compiler and extractor together. The current workflow scans GitHub Actions only; its disabled Java/Kotlin lane is not application security analysis.
 
 ## Protocol references
 
@@ -118,4 +118,4 @@ Machine-local logs used during the audit are under `/tmp/ripdpi-audit-*`, `/tmp/
 
 ## Final revision evidence
 
-Native and tooling corrections are committed in separate units. The job branch was rebased onto `aa6d49ed7fd46547c84acdcddd7b6cf302d55589` without conflicts, preserving three upstream commits. Architecture, LoC and native contract checks passed on that tree. Rebased native/tooling reruns passed. [CI run 33948468983](https://github.com/po4yka/RIPDPI/actions/runs/33948468983), at revision `682d1110b66568834ba36a3ac01c70b57d71eb0a`, passed 5403 workspace tests (42 skipped by the existing CI profile), Miri, Loom, Rust coverage, network/relay tests, Android ABI packaging, core/app JVM tests, Kotlin coverage verification and Roborazzi. Linux executed both SCM_RIGHTS cleanup regressions. Static analysis found a ReturnCount violation in the new proxy parser; the follow-up reduced exits without changing its bounds. The API check required six intentional new QUIC API entries; the owning generator updated and rechecked the snapshot with locked Cargo resolution. The parser/API follow-ups are in `494c5a065`; coverage reporting is corrected in `e57378c7f`. The next CI run must validate them. Android local validation remains blocked by dependency access. Device/release checks and integration evidence are pending; the task remains nonterminal.
+The job branch was rebased onto `aa6d49ed7fd46547c84acdcddd7b6cf302d55589` without conflicts, preserving three upstream commits. Full CI passed on application revision `a0986d2e7495c0cbefd6e47781f8b9e16cdaae5d`. Subsequent closure changes contain only this report and task/OpenSpec records. The repository requires PR integration, `ci-required`, CodeQL and linear history; the final merge record and main SHA are recorded by GitHub and the handoff.
