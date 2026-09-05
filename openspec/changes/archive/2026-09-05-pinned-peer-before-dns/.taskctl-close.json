@@ -1,0 +1,11 @@
+{
+  "change": "pinned-peer-before-dns",
+  "evidence_summary": "Pinned-first transport passed 535 local tests across six crates, strict Clippy, independent review and full CI 33963617095 on eb66de5d84388cf10d2874318b24bd50180a453d.",
+  "execution_sha256": "a32740b1189008e63eef8250488652da783441205b66e1c2ea43e8bf362c89fb",
+  "issue_sha256": "36be1ea7e4dcaf2f24076b13b29fcbed70ed25c1b24dafc9bf38fa1da7f04b51",
+  "outcome": "done",
+  "prepared_at": "2026-09-05T12:10:36Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1788599171554142"
+}

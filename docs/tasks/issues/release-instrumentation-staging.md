@@ -2,7 +2,7 @@
 id: CIC-1788607352810158
 title: Allow release instrumentation configuration with debug staging
 kind: bug
-status: doing
+status: done
 area: ci
 priority: high
 owner: Audit integration
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-09-05
 updated: 2026-09-05
 spec_reason: tooling-only
+closed_at: "2026-09-05T12:10:57Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Release null component reproduced before correction. Release/default configuration, release AndroidTest/debug staging graphs and script lint passed locally; full CI 33963617095 passed GitHub release AndroidTest on eb66de5d84388cf10d2874318b24bd50180a453d. Independent review found no blocker.
 ---
 
 ## Goal

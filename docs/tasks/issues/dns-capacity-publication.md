@@ -2,7 +2,7 @@
 id: DNS-1788602983485108
 title: Release DNS lookup capacity before publishing results
 kind: bug
-status: doing
+status: done
 area: dns
 priority: high
 owner: DNS executor audit
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dns-capacity-publication
 created: 2026-09-05
 updated: 2026-09-05
+closed_at: "2026-09-05T12:10:57Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Permit publication correction passed 59 transport tests, strict Clippy, 1000 regression repetitions, independent review and full CI 33963617095 on eb66de5d84388cf10d2874318b24bd50180a453d.
 ---
 
 ## Goal
