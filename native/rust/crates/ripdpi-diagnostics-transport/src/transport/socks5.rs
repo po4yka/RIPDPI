@@ -234,7 +234,10 @@ pub fn relay_udp_via_socks5(
 
     let mut buf = [0u8; 65535];
     let size = udp.recv(&mut buf)?;
-    let (_, payload) = decode_socks5_udp_frame(&buf[..size])?;
+    let (source, payload) = decode_socks5_udp_frame(&buf[..size])?;
+    if source != destination {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "SOCKS5 UDP source mismatch").into());
+    }
     let local_addr = udp.local_addr()?;
     Ok((payload, local_addr))
 }

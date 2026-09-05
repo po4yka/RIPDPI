@@ -29,7 +29,18 @@ pub(super) fn supported_quic_version(version: u32) -> bool {
 }
 
 pub(super) fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
-    if buffer.len() < QUIC_INITIAL_MIN_LEN || (buffer[0] & 0x80) == 0 || (buffer[0] & 0x40) == 0 {
+    if buffer.len() < QUIC_INITIAL_MIN_LEN {
+        return None;
+    }
+    let header = parse_quic_initial_response_header(buffer)?;
+    if header.dcid.is_empty() {
+        return None;
+    }
+    Some(header)
+}
+
+pub(super) fn parse_quic_initial_response_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
+    if buffer.len() < 7 || (buffer[0] & 0xc0) != 0xc0 {
         return None;
     }
     let version = read_u32(buffer, 1)?;
@@ -42,7 +53,7 @@ pub(super) fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHead
     }
 
     let dcid_len = *buffer.get(5)? as usize;
-    if dcid_len == 0 || dcid_len > QUIC_MAX_CID_LEN {
+    if dcid_len > QUIC_MAX_CID_LEN {
         return None;
     }
     let dcid = buffer.get(6..6 + dcid_len)?;
@@ -59,13 +70,14 @@ pub(super) fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHead
     let (token_len, token_varint_len) = read_quic_varint(buffer, offset)?;
     offset += token_varint_len;
     let token_len: usize = token_len.try_into().ok()?;
-    let token = buffer.get(offset..offset + token_len)?;
-    offset += token_len;
+    let token_end = offset.checked_add(token_len)?;
+    let token = buffer.get(offset..token_end)?;
+    offset = token_end;
 
     let (payload_len, payload_varint_len) = read_quic_varint(buffer, offset)?;
     offset += payload_varint_len;
     let payload_len: usize = payload_len.try_into().ok()?;
-    buffer.get(offset..offset + payload_len)?;
+    buffer.get(offset..offset.checked_add(payload_len)?)?;
 
     Some(QuicInitialHeader { version, dcid, scid, token, payload_len, pn_offset: offset })
 }
@@ -76,6 +88,15 @@ pub(super) fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHea
 
 fn decrypt_quic_initial_payload_with_offset(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<(Vec<u8>, usize)> {
     let secret = quic_derive_client_initial_secret(header.dcid, header.version)?;
+    decrypt_quic_initial_with_secret(buffer, header, &secret)
+}
+
+pub(super) fn decrypt_quic_initial_with_secret(
+    buffer: &[u8],
+    header: QuicInitialHeader<'_>,
+    secret: &[u8],
+) -> Option<(Vec<u8>, usize)> {
+    let buffer = buffer.get(..header.pn_offset.checked_add(header.payload_len)?)?;
     let mut key = [0u8; 16];
     let mut iv = [0u8; 12];
     let mut hp = [0u8; 16];
@@ -84,9 +105,9 @@ fn decrypt_quic_initial_payload_with_offset(buffer: &[u8], header: QuicInitialHe
     } else {
         ("tls13 quic key", "tls13 quic iv", "tls13 quic hp")
     };
-    quic_expand_label(&secret, key_label, &mut key)?;
-    quic_expand_label(&secret, iv_label, &mut iv)?;
-    quic_expand_label(&secret, hp_label, &mut hp)?;
+    quic_expand_label(secret, key_label, &mut key)?;
+    quic_expand_label(secret, iv_label, &mut iv)?;
+    quic_expand_label(secret, hp_label, &mut hp)?;
 
     let sample = buffer.get(header.pn_offset + 4..header.pn_offset + 4 + QUIC_HP_SAMPLE_LEN)?;
     let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
@@ -94,6 +115,9 @@ fn decrypt_quic_initial_payload_with_offset(buffer: &[u8], header: QuicInitialHe
     hp_cipher.encrypt_block(&mut sample_block);
 
     let unprotected_first = buffer[0] ^ (sample_block[0] & 0x0f);
+    if unprotected_first & 0x0c != 0 {
+        return None;
+    }
     let pn_len = ((unprotected_first & 0x03) + 1) as usize;
     let protected_pn = buffer.get(header.pn_offset..header.pn_offset + pn_len)?;
     let mut packet_number_bytes = [0u8; 4];
