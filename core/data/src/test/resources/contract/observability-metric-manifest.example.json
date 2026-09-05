@@ -313,6 +313,247 @@
       "cadence_seconds": 60,
       "stale_after_seconds": 180,
       "alert_use": true
+    },
+    {
+      "name": "vpn_honeypot_collection_success",
+      "owner": "honeypot",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_honeypot_last_success_timestamp_seconds",
+      "owner": "honeypot",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_honeypot_input_progress_total",
+      "owner": "honeypot",
+      "type": "counter",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_honeypot_input_errors_total",
+      "owner": "honeypot",
+      "type": "counter",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_honeypot_error_state",
+      "owner": "honeypot",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "state"
+      ],
+      "max_series": 2,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_collection_success",
+      "owner": "policy_ratelimit",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_last_success_timestamp_seconds",
+      "owner": "policy_ratelimit",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_input_progress_total",
+      "owner": "policy_ratelimit",
+      "type": "counter",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_input_errors_total",
+      "owner": "policy_ratelimit",
+      "type": "counter",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_error_state",
+      "owner": "policy_ratelimit",
+      "type": "gauge",
+      "unit": null,
+      "labels": [
+        "state"
+      ],
+      "max_series": 2,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_honeypot_events_60min",
+      "owner": "honeypot",
+      "type": "gauge",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_dead_contract",
+      "owner": "policy_ratelimit",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_policy_ratelimit_events_total",
+      "owner": "policy_ratelimit",
+      "type": "counter",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_burn_api_error",
+      "owner": "burn_check",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 3600,
+      "stale_after_seconds": 3900,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_burn_run_error",
+      "owner": "burn_check",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 3600,
+      "stale_after_seconds": 3900,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_burn_last_run_unixtime",
+      "owner": "burn_check",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 3600,
+      "stale_after_seconds": 3900,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_burn_failed_nodes",
+      "owner": "burn_check",
+      "type": "gauge",
+      "unit": "count",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 3600,
+      "stale_after_seconds": 3900,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_xray_stats_collection_success",
+      "owner": "monitoring",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_xray_stats_collected_timestamp_seconds",
+      "owner": "monitoring",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [],
+      "max_series": 1,
+      "cadence_seconds": 15,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_certificate_collection_success",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_certificate_not_after_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 16,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
     }
   ]
 }
