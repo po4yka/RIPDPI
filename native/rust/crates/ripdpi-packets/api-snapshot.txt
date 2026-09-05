@@ -74,6 +74,10 @@ pub ripdpi_packets::HttpFakeProfile::IanaGet
 pub enum ripdpi_packets::QuicInitialBrowserProfile
 pub ripdpi_packets::QuicInitialBrowserProfile::ChromeAndroid
 pub ripdpi_packets::QuicInitialBrowserProfile::FirefoxAndroid
+pub enum ripdpi_packets::QuicResponseKind
+pub ripdpi_packets::QuicResponseKind::Initial
+pub ripdpi_packets::QuicResponseKind::Retry
+pub ripdpi_packets::QuicResponseKind::VersionNegotiation
 pub enum ripdpi_packets::TlsFakeProfile
 pub ripdpi_packets::TlsFakeProfile::BigsizeIana
 pub ripdpi_packets::TlsFakeProfile::CompatDefault
@@ -177,6 +181,7 @@ pub const ripdpi_packets::TLS_RECORD_HEADER_LEN: usize
 pub fn ripdpi_packets::build_browser_like_quic_initial(u32, core::option::Option<&str>, ripdpi_packets::QuicInitialBrowserProfile) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_browser_like_quic_initial_seed(u32, core::option::Option<&str>, ripdpi_packets::QuicInitialBrowserProfile) -> core::option::Option<ripdpi_packets::QuicInitialSeed>
 pub fn ripdpi_packets::build_generic_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn ripdpi_packets::build_probe_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_quic_initial_from_tls(u32, &[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_realistic_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::change_tls_sni_seeded_like_c(&[u8], &[u8], usize, u32) -> ripdpi_packets::PacketMutation
@@ -218,3 +223,4 @@ pub fn ripdpi_packets::tls_session_id_mismatch(&[u8], &[u8]) -> bool
 pub fn ripdpi_packets::tune_tls_padding_size_into(&mut alloc::vec::Vec<u8>, usize) -> isize
 pub fn ripdpi_packets::tune_tls_padding_size_like_c(&[u8], usize) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::udp_fake_profile_bytes(ripdpi_packets::UdpFakeProfile) -> &'static [u8]
+pub fn ripdpi_packets::validate_quic_response(&[u8], &[u8]) -> core::option::Option<ripdpi_packets::QuicResponseKind>
