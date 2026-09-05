@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Release null component reproduced before correction. Release/default configuration, release AndroidTest/debug staging graphs and script lint passed locally; full CI 33963617095 passed GitHub release AndroidTest on eb66de5d84388cf10d2874318b24bd50180a453d. Independent review found no blocker.",
+  "execution_sha256": "b31b731e900f1071f3a57992c3c5791dc4cbe357949a8537760927ba7bdc799f",
+  "issue_sha256": "b0cf6ef174188dbf1e8881096a62e442e6f079cd6b24da0815e01dc65a7aac3e",
+  "outcome": "done",
+  "prepared_at": "2026-09-05T12:10:57Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1788607352810158"
+}
