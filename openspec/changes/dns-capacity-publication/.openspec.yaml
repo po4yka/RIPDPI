@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-05
+goal: DNS-1788602983485108 Release DNS capacity before result publication
