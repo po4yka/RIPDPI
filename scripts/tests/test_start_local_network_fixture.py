@@ -52,25 +52,25 @@ class StartLocalNetworkFixtureTest(unittest.TestCase):
         write_executable(
             self.bin_dir / "curl",
             """\
-            #!/usr/bin/env python3
-            import os
-            import sys
-            from pathlib import Path
-
-            url = sys.argv[-1]
-            counter = Path(os.environ["FAKE_CURL_COUNTER"])
-            if url.endswith("/health"):
-                attempts = (
-                    int(counter.read_text(encoding="utf-8")) + 1
-                    if counter.exists()
-                    else 1
-                )
-                counter.write_text(str(attempts), encoding="utf-8")
-                raise SystemExit(0 if attempts >= 65 else 22)
-            if url.endswith("/manifest"):
-                print('{"status":"ready"}')
-                raise SystemExit(0)
-            raise SystemExit(23)
+            #!/usr/bin/env bash
+            url="${!#}"
+            case "$url" in
+                */health)
+                    attempts=0
+                    if [[ -f "$FAKE_CURL_COUNTER" ]]; then
+                        read -r attempts < "$FAKE_CURL_COUNTER"
+                    fi
+                    attempts=$((attempts + 1))
+                    echo "$attempts" > "$FAKE_CURL_COUNTER"
+                    (( attempts >= 65 )) && exit 0
+                    exit 22
+                    ;;
+                */manifest)
+                    echo '{"status":"ready"}'
+                    exit 0
+                    ;;
+            esac
+            exit 23
             """,
         )
         write_executable(self.bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
