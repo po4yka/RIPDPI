@@ -294,51 +294,79 @@ async fn relay_runtime_builds_anytls_udp_over_tcp_fixture() {
     assert_eq!(fixture.observed().udp_magic_targets, vec!["sp.v2.udp-over-tcp.arpa:0".to_string()]);
 }
 
-#[tokio::test]
+// cancel-safe: cancellation drops local session state and fixture runtime.
+#[tokio::test(flavor = "current_thread")]
 async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks tcp payload";
 
-    let fixture = ShadowsocksLoopback::start("aes-256-gcm", "secret").await.expect("start shadowsocks fixture");
-    let mut config = sample_config("shadowsocks");
-    config.common.server = "127.0.0.1".to_string();
-    config.common.server_port = i32::from(fixture.port());
-    shadowsocks_config_mut(&mut config).method = "aes-256-gcm".to_string();
+    for (method, credential) in [
+        ("aes-256-gcm", "secret"),
+        ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw=="),
+        ("2022-blake3-aes-256-gcm", "Zml4dHVyZS1wc2stYWVzMjU2Z2NtLTMyYnl0ZWtleSE="),
+        ("2022-blake3-chacha20-poly1305", "Zml4dHVyZS1wc2stY2hhY2hhMjBwb2x5MTMwNS1rZXk="),
+    ] {
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            let fixture = ShadowsocksLoopback::start(method, credential).await.expect("start shadowsocks fixture");
+            let mut config = sample_config("shadowsocks");
+            config.common.server = "127.0.0.1".to_string();
+            config.common.server_port = i32::from(fixture.port());
+            shadowsocks_config_mut(&mut config).method = method.to_string();
+            shadowsocks_config_mut(&mut config).password = Some(credential.to_string());
 
-    let backend = build_backend(&config).await.expect("shadowsocks backend");
-    match &backend {
-        RelayBackend::Shadowsocks(_) => {}
-        other => panic!("expected Shadowsocks backend, got {:?}", std::mem::discriminant(other)),
+            let backend = build_backend(&config).await.expect("shadowsocks backend");
+            match &backend {
+                RelayBackend::Shadowsocks(_) => {}
+                other => panic!("expected Shadowsocks backend, got {:?}", std::mem::discriminant(other)),
+            }
+
+            let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+            let mut stream = backend.connect_tcp(&target).await.expect("shadowsocks connect tcp");
+            stream.write_all(PAYLOAD).await.expect("write tunnel payload");
+            let mut echoed = vec![0_u8; PAYLOAD.len()];
+            stream.read_exact(&mut echoed).await.expect("read tunnel payload");
+            assert_eq!(echoed, PAYLOAD);
+        })
+        .await
+        .expect("Shadowsocks fixture exchange deadline");
     }
-
-    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
-    let mut stream = backend.connect_tcp(&target).await.expect("shadowsocks connect tcp");
-    stream.write_all(PAYLOAD).await.expect("write tunnel payload");
-    let mut echoed = vec![0_u8; PAYLOAD.len()];
-    stream.read_exact(&mut echoed).await.expect("read tunnel payload");
-    assert_eq!(echoed, PAYLOAD);
 }
 
-#[tokio::test]
+// cancel-safe: cancellation drops local session state and fixture runtime.
+#[tokio::test(flavor = "current_thread")]
 async fn relay_runtime_builds_shadowsocks_udp_associate_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks udp payload";
 
-    let fixture = ShadowsocksLoopback::start("aes-256-gcm", "secret").await.expect("start shadowsocks fixture");
-    let mut config = sample_config("shadowsocks");
-    config.common.udp_enabled = true;
-    config.common.server = "127.0.0.1".to_string();
-    config.common.server_port = i32::from(fixture.port());
+    for (method, credential) in [
+        ("aes-256-gcm", "secret"),
+        ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw=="),
+        ("2022-blake3-aes-256-gcm", "Zml4dHVyZS1wc2stYWVzMjU2Z2NtLTMyYnl0ZWtleSE="),
+        ("2022-blake3-chacha20-poly1305", "Zml4dHVyZS1wc2stY2hhY2hhMjBwb2x5MTMwNS1rZXk="),
+    ] {
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            let fixture = ShadowsocksLoopback::start(method, credential).await.expect("start shadowsocks fixture");
+            let mut config = sample_config("shadowsocks");
+            config.common.udp_enabled = true;
+            config.common.server = "127.0.0.1".to_string();
+            config.common.server_port = i32::from(fixture.port());
+            shadowsocks_config_mut(&mut config).method = method.to_string();
+            shadowsocks_config_mut(&mut config).password = Some(credential.to_string());
 
-    let capabilities = planned_backend_capabilities(&config);
-    assert!(capabilities.udp, "Shadowsocks should report UDP capability");
-    let backend = build_backend(&config).await.expect("shadowsocks backend");
-    validate_runtime_config(&config, &backend).expect("shadowsocks udp should validate");
+            let capabilities = planned_backend_capabilities(&config);
+            assert!(capabilities.udp, "Shadowsocks should report UDP capability");
+            let backend = build_backend(&config).await.expect("shadowsocks backend");
+            validate_runtime_config(&config, &backend).expect("shadowsocks udp should validate");
 
-    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
-    let mut udp = backend.open_udp_session().await.expect("shadowsocks udp session");
-    udp.send_to(&target, PAYLOAD).await.expect("send udp payload");
-    let (source, echoed) = udp.recv_from().await.expect("receive udp payload");
-    assert_eq!(source, target);
-    assert_eq!(echoed, PAYLOAD);
+            let target =
+                RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
+            let mut udp = backend.open_udp_session().await.expect("shadowsocks udp session");
+            udp.send_to(&target, PAYLOAD).await.expect("send udp payload");
+            let (source, echoed) = udp.recv_from().await.expect("receive udp payload");
+            assert_eq!(source, target);
+            assert_eq!(echoed, PAYLOAD);
+        })
+        .await
+        .expect("Shadowsocks fixture exchange deadline");
+    }
 }
 
 #[tokio::test]
