@@ -8,6 +8,8 @@ fun interface DiagnosticsArchiveClock {
 }
 
 private const val PcapRetentionWindowMs = 24L * 60L * 60L * 1000L
+private const val PcapSetIdRadix = 16
+private const val PcapSetIdWidth = 16
 private const val PcapRetentionMaxFiles = 4
 private const val PcapRetentionMaxBytes = 64L * 1024L * 1024L
 
@@ -82,7 +84,7 @@ class DiagnosticsArchiveFileStore(
             val pcapDir = pcapDirectory
             if (!pcapDir.exists()) return@withCaptureStorageLock
             val now = clock.now()
-            val activeSetIds = setOfNotNull(activeCaptureSetId?.toString(16)?.padStart(16, '0'))
+            val activeSetIds = setOfNotNull(activeCaptureSetId?.toString(PcapSetIdRadix)?.padStart(PcapSetIdWidth, '0'))
             pcapDir
                 .listFiles()
                 .orEmpty()
