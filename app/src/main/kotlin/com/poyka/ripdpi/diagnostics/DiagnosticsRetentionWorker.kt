@@ -19,7 +19,7 @@ internal suspend fun trimDiagnosticsHistory(
     retentionStore: DiagnosticsHistoryRetentionStore,
 ) = retentionStore.trimOldData(retentionDays)
 
-internal fun cleanupDiagnosticsPcapFiles(fileStore: DiagnosticsArchiveFileStore) = fileStore.cleanupPcapFiles()
+internal suspend fun cleanupDiagnosticsPcapFiles(fileStore: DiagnosticsArchiveFileStore) = fileStore.cleanupPcapFiles()
 
 @HiltWorker
 class DiagnosticsRetentionWorker

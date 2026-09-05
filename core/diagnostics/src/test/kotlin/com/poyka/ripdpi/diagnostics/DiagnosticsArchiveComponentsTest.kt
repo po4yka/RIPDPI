@@ -49,6 +49,7 @@ class DiagnosticsArchiveComponentsTest {
         val fileStore =
             DiagnosticsArchiveFileStore(
                 cacheDir = cacheDir,
+                pcapDirectory = cacheDir.resolve("pcap"),
                 clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
             )
         val archiveDir = cacheDir.resolve(DiagnosticsArchiveFormat.directoryName).apply { mkdirs() }
@@ -94,6 +95,7 @@ class DiagnosticsArchiveComponentsTest {
         val fileStore =
             DiagnosticsArchiveFileStore(
                 cacheDir = cacheDir,
+                pcapDirectory = cacheDir.resolve("pcap"),
                 clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
                 deleteFile = { false },
             )
@@ -105,36 +107,77 @@ class DiagnosticsArchiveComponentsTest {
     }
 
     @Test
-    fun `pcap cleanup bounds completed captures but preserves active capture set`() {
-        val cacheDir = Files.createTempDirectory("pcap-retention").toFile()
-        val pcapDir = cacheDir.resolve("diagnostics").apply { mkdirs() }
-        repeat(5) { index ->
-            val setId = (index + 10).toString(16).padStart(16, '0')
-            pcapDir.resolve("$setId-1-00.pcap").apply {
-                writeText("completed-$index")
-                setLastModified(1_700_000_000_000L - index * 1_000L)
+    fun `pcap cleanup bounds completed captures but preserves active capture set`() =
+        runTest {
+            val cacheDir = Files.createTempDirectory("pcap-retention").toFile()
+            val pcapDir = cacheDir.resolve("pcap").apply { mkdirs() }
+            repeat(5) { index ->
+                val setId = (index + 10).toString(16).padStart(16, '0')
+                pcapDir.resolve("$setId-1-00.pcap").apply {
+                    writeText("completed-$index")
+                    setLastModified(1_700_000_000_000L - index * 1_000L)
+                }
+            }
+            val activeSetId = "0000000000000002"
+            val activeCompleted =
+                pcapDir.resolve("$activeSetId-1-00.pcap").apply {
+                    writeText("active-rotation")
+                    setLastModified(0L)
+                }
+            val activeCurrent = pcapDir.resolve("$activeSetId-2-01.pcap.active").apply { writeText("active-current") }
+            val fileStore =
+                DiagnosticsArchiveFileStore(
+                    cacheDir = cacheDir,
+                    pcapDirectory = cacheDir.resolve("pcap"),
+                    clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
+                    withCaptureStorageLock = { it(2L) },
+                )
+
+            fileStore.cleanupPcapFiles()
+
+            assertTrue(activeCompleted.exists())
+            assertTrue(activeCurrent.exists())
+            val inactiveCompleted =
+                pcapDir
+                    .listFiles()
+                    .orEmpty()
+                    .filter { it.extension == "pcap" && !it.name.startsWith(activeSetId) }
+            assertTrue("expected at most four inactive captures, got $inactiveCompleted", inactiveCompleted.size <= 4)
+        }
+
+    @Test
+    fun `pcap cleanup removes stale markers and expired files from actual capture storage`() =
+        runTest {
+            val storage = Files.createTempDirectory("pcap-private-retention").toFile()
+            try {
+                val cacheDir = storage.resolve("cache").apply { mkdirs() }
+                val pcapDir = storage.resolve("files/pcap").apply { mkdirs() }
+                val staleCapture =
+                    pcapDir.resolve("0000000000000001-1-00.pcap").apply {
+                        writeText("expired capture")
+                        setLastModified(0L)
+                    }
+                val staleMarker =
+                    pcapDir.resolve("0000000000000001-2-01.pcap.active").apply {
+                        writeText("orphaned writer")
+                    }
+                val unrelatedCacheFile = cacheDir.resolve("keep.txt").apply { writeText("unrelated") }
+                val fileStore =
+                    DiagnosticsArchiveFileStore(
+                        cacheDir = cacheDir,
+                        pcapDirectory = pcapDir,
+                        clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
+                    )
+
+                fileStore.cleanupPcapFiles()
+
+                assertFalse(staleCapture.exists())
+                assertFalse(staleMarker.exists())
+                assertTrue(unrelatedCacheFile.exists())
+            } finally {
+                storage.deleteRecursively()
             }
         }
-        val activeSetId = "0000000000000002"
-        val activeCompleted = pcapDir.resolve("$activeSetId-1-00.pcap").apply { writeText("active-rotation") }
-        val activeCurrent = pcapDir.resolve("$activeSetId-2-01.pcap.active").apply { writeText("active-current") }
-        val fileStore =
-            DiagnosticsArchiveFileStore(
-                cacheDir = cacheDir,
-                clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
-            )
-
-        fileStore.cleanupPcapFiles()
-
-        assertTrue(activeCompleted.exists())
-        assertTrue(activeCurrent.exists())
-        val inactiveCompleted =
-            pcapDir
-                .listFiles()
-                .orEmpty()
-                .filter { it.extension == "pcap" && !it.name.startsWith(activeSetId) }
-        assertTrue("expected at most four inactive captures, got $inactiveCompleted", inactiveCompleted.size <= 4)
-    }
 
     @Test
     fun `zip writer rejects unsafe and duplicate entry names and uses owner only permissions`() {
