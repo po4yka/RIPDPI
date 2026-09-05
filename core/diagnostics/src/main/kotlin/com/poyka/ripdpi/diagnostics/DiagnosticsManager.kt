@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-import android.content.Context
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TrimmableCache
@@ -24,7 +23,6 @@ import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.coroutines.flow.Flow
@@ -631,13 +629,6 @@ abstract class DiagnosticsManagerModule {
         @Singleton
         fun provideDiagnosticsArchiveIdGenerator(): DiagnosticsArchiveIdGenerator =
             DiagnosticsArchiveIdGenerator { UUID.randomUUID().toString() }
-
-        @Provides
-        @Singleton
-        fun provideDiagnosticsArchiveFileStore(
-            @ApplicationContext context: Context,
-            clock: DiagnosticsArchiveClock,
-        ): DiagnosticsArchiveFileStore = DiagnosticsArchiveFileStore(cacheDir = context.cacheDir, clock = clock)
 
         @Provides
         @Singleton
