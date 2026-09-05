@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.gradle.internal.tasks.FinalizeBundleTask
@@ -16,6 +17,7 @@ import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.Test
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -139,6 +141,32 @@ plugins {
     id("ripdpi.android.quality")
     id("ripdpi.android.roborazzi")
     id("ripdpi.android.serialization")
+}
+
+// One APK bundle supplies every emulator in the CI API matrix.
+val stageCiInstrumentationApks =
+    tasks.register<Sync>("stageCiInstrumentationApks") {
+        group = "verification"
+        into(layout.buildDirectory.dir("outputs/ci-instrumentation"))
+        from(configurations.named("androidTestUtil")) {
+            into("utilities")
+        }
+    }
+
+extensions.configure<ApplicationAndroidComponentsExtension> {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        if (variant.name in setOf("githubFullDebug", "githubSimpleDebug")) {
+            val androidTest = requireNotNull(variant.androidTest)
+            stageCiInstrumentationApks.configure {
+                from(variant.artifacts.get(SingleArtifact.APK)) {
+                    into("${variant.name}/app")
+                }
+                from(androidTest.artifacts.get(SingleArtifact.APK)) {
+                    into("${variant.name}/test")
+                }
+            }
+        }
+    }
 }
 
 val includeRoborazziUnitTests =

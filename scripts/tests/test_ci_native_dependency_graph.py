@@ -27,23 +27,25 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
-    def test_instrumentation_reruns_only_the_selected_test_task(self) -> None:
+    def test_instrumentation_consumers_use_one_verified_apk_bundle(self) -> None:
         source = job_source("android-instrumented-tests")
-        self.assertNotIn("--rerun-tasks", source)
-        for step_name, variant in (
-            ("Run Simple experience integration", "GithubSimple"),
-            ("Run real Xray provider TUN acceptance", "GithubFull"),
-        ):
-            with self.subTest(step=step_name):
-                step = re.search(
-                    rf"(?ms)^      - name: {step_name}[^\n]*\n.*?(?=^      - |\Z)",
-                    source,
-                )
-                self.assertIsNotNone(step)
-                self.assertRegex(
-                    step[0].replace("\\\n", " "),
-                    rf"\./gradlew :app:connected{variant}DebugAndroidTest\s+--rerun\s",
-                )
+        self.assertNotIn("./gradlew", source)
+        self.assertIn('setup-gradle: "false"', source)
+        self.assertIn("needs: [change-routing, android-instrumentation-apks]", source)
+        self.assertIn("needs.android-instrumentation-apks.result == 'success'", source)
+        self.assertIn("name: android-instrumentation-apks", source)
+        self.assertEqual(4, source.count("prebuilt_android_instrumentation.py run"))
+        self.assertEqual(4, source.count('--sha "$GITHUB_SHA"'))
+        for api in (27, 33, 35, 36, 37):
+            self.assertIn(f"api: {api}\n", source)
+        producer = job_source("android-instrumentation-apks")
+        self.assertNotIn("matrix:", producer)
+        self.assertEqual(1, producer.count(":app:stageCiInstrumentationApks"))
+        self.assertIn("-Pripdpi.enableAbiSplits=false", producer)
+        self.assertIn("prebuilt_android_instrumentation.py seal", producer)
+        required = job_source("ci-required")
+        self.assertIn("      - android-instrumentation-apks\n", required)
+        self.assertIn('"android-instrumentation-apks",', required)
 
     def test_xray_bootstrap_preserves_both_installed_tool_pins(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
@@ -122,7 +124,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
             self.assertIn(f'"{job}",', required)
 
     def test_every_apk_consumer_downloads_verified_xray(self) -> None:
-        for name in ("build-android-debug", "release-verification", "android-instrumented-tests",
+        for name in ("build-android-debug", "release-verification", "android-instrumentation-apks",
                      "phase0-baseline", "android-macrobenchmark", "android-network-e2e",
                      "android-journeys", "android-relay-emulator-smoke"):
             with self.subTest(job=name):
@@ -181,7 +183,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
     def test_instrumented_tests_wait_for_x86_64_and_verified_pt_assets(self) -> None:
         self.assertIn(
             "needs: [change-routing, rust-native-x86_64, pluggable-transport-assets, xray-native]",
-            job_source("android-instrumented-tests"),
+            job_source("android-instrumentation-apks"),
         )
 
     def test_packaging_consumers_wait_for_complete_abi_set(self) -> None:
@@ -254,7 +256,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
             ("build-android-debug", "$RUNNER_TEMP/prebuilt/assetsBin"),
             ("release-verification", "$RUNNER_TEMP/prebuilt-release/assetsBin"),
             (
-                "android-instrumented-tests",
+                "android-instrumentation-apks",
                 "$RUNNER_TEMP/prebuilt-integration/assetsBin",
             ),
         ):
@@ -292,7 +294,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
         for job_name in (
             "build-android-debug",
             "release-verification",
-            "android-instrumented-tests",
+            "android-instrumentation-apks",
         ):
             with self.subTest(job=job_name):
                 source = job_source(job_name)

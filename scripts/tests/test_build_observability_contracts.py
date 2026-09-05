@@ -32,7 +32,7 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "release-verification": 1,
             "gradle-static-analysis": 2,
             "android-macrobenchmark": 1,
-            "android-instrumented-tests": 3,
+            "android-instrumentation-apks": 1,
         }
 
         for job_name, expected_count in expected_minimum_profiles.items():
@@ -58,6 +58,7 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "gradle-static-analysis": "build-observability-gradle-static-analysis",
             "android-macrobenchmark": "build-observability-android-macrobenchmark",
             "android-instrumented-tests": "build-observability-android-instrumented-${{ matrix.device }}",
+            "android-instrumentation-apks": "build-observability-instrumentation-apks",
             "android-network-e2e": "build-observability-android-network-e2e",
             "android-journeys": "build-observability-android-journeys",
             "android-relay-emulator-smoke": "build-observability-android-relay-smoke",

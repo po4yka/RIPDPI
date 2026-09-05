@@ -97,7 +97,7 @@ class CiToolPinningTest(unittest.TestCase):
             "build-android-tests",
             "verify-roborazzi",
             "release-verification",
-            "android-instrumented-tests",
+            "android-instrumentation-apks",
         ):
             with self.subTest(job_name=job_name):
                 job = re.search(rf"(?ms)^  {job_name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
