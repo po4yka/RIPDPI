@@ -192,3 +192,120 @@ fn tcp_aead2022_aes128gcm_roundtrip() {
     assert_eq!(recovered.as_slice(), plaintext.as_slice());
     assert_eq!(consumed, encrypted.len());
 }
+
+#[test]
+fn tcp_legacy_rejects_oversized_authenticated_chunk() {
+    let cipher = Cipher::AeadAes128Gcm;
+    let password = fixture_password("chunk-limit");
+    let salt = [0; 16];
+    let key = CipherKey::derive_legacy(cipher, &password, &salt).expect("key");
+    let mut frame = key.encrypt(&counter_nonce_le(0), &0x4000u16.to_be_bytes()).expect("length");
+    frame.extend(key.encrypt(&counter_nonce_le(1), &vec![0; 0x4000]).expect("payload"));
+    let mut decoder = TcpStream::new_decrypt(cipher, &password, &salt, false).expect("decoder");
+    assert!(decoder.decrypt_chunk(&frame, 0).is_err());
+}
+
+#[test]
+fn tcp_invalid_offset_does_not_panic() {
+    let password = fixture_password("offset-limit");
+    let mut decoder = TcpStream::new_decrypt(Cipher::AeadAes128Gcm, &password, &[0; 16], false).expect("decoder");
+    assert!(decoder.decrypt_chunk(&[], usize::MAX).is_err());
+}
+
+// Independent wire-field oracle: SIP022 3.1.2/3.1.3, also used by
+// shadowsocks-rust tcprelay/aead_2022.rs (header nonce 0, body nonce 1).
+#[test]
+fn tcp_sip022_headers_match_wire_contract_and_preserve_payload_nonces() {
+    for (cipher, credential) in [
+        (Cipher::Aead2022Blake3Aes128Gcm, "AAECAwQFBgcICQoLDA0ODw=="),
+        (Cipher::Aead2022Blake3Aes256Gcm, FIXTURE_PSK_AES256_B64),
+        (Cipher::Aead2022Blake3Chacha20Poly1305, FIXTURE_PSK_CHACHA_B64),
+    ] {
+        let password = fixture_password(credential);
+        let psk = PresharedKey::from_base64(cipher, credential).expect("psk");
+        let request = b"\x01\x7f\x00\x00\x01\x01\xbb";
+        let (mut client, request_salt) = TcpStream::new_encrypt(cipher, &password, true).expect("client");
+        let frame = client.encrypt_request_header(1_700_000_000, request).expect("request header");
+        let key = CipherKey::derive_aead2022(cipher, psk.as_bytes(), &request_salt).expect("key");
+        let fixed = key.decrypt(&counter_nonce_le(0), &frame[..27]).expect("standalone fixed header");
+        assert_eq!(&fixed[..9], &[0, 0, 0, 0, 0, 101, 83, 241, 0]);
+        let body = key.decrypt(&counter_nonce_le(1), &frame[27..]).expect("variable header");
+        assert_eq!(body.len(), usize::from(u16::from_be_bytes([fixed[9], fixed[10]])));
+        assert_eq!(&body[..7], request);
+        let padding = usize::from(u16::from_be_bytes([body[7], body[8]]));
+        assert!((1..=900).contains(&padding));
+        assert_eq!(body.len(), 9 + padding);
+        let mut server = TcpStream::new_decrypt(cipher, &password, &request_salt, true).expect("server");
+        assert_eq!(
+            server.decrypt_request_header(&frame, 1_700_000_030).expect("fresh boundary").expect("header").0,
+            request
+        );
+        let payload = client.encrypt_payload(b"request payload").expect("payload");
+        assert_eq!(server.decrypt_chunk(&payload, 0).expect("decrypt").expect("chunk").0, b"request payload");
+
+        let (mut response, response_salt) = TcpStream::new_encrypt(cipher, &password, true).expect("response");
+        let frame = response.encrypt_response_header(1_700_000_000, &request_salt, b"first").expect("response header");
+        let response_key = CipherKey::derive_aead2022(cipher, psk.as_bytes(), &response_salt).expect("key");
+        let fixed_len = 27 + request_salt.len();
+        let fixed = response_key.decrypt(&counter_nonce_le(0), &frame[..fixed_len]).expect("response fields");
+        assert_eq!(fixed[0], 1);
+        assert_eq!(&fixed[9..9 + request_salt.len()], &request_salt);
+        assert_eq!(&fixed[fixed.len() - 2..], &5_u16.to_be_bytes());
+        let mut reader = TcpStream::new_decrypt(cipher, &password, &response_salt, true).expect("reader");
+        assert!(
+            reader
+                .decrypt_response_header(&frame[..frame.len() - 1], &request_salt, 1_700_000_000)
+                .expect("partial")
+                .is_none()
+        );
+        assert_eq!(
+            reader
+                .decrypt_response_header(&frame, &request_salt, 1_700_000_000)
+                .expect("complete")
+                .expect("response")
+                .0,
+            b"first"
+        );
+        let payload = response.encrypt_payload(b"second").expect("payload");
+        assert_eq!(reader.decrypt_chunk(&payload, 0).expect("decrypt").expect("chunk").0, b"second");
+    }
+}
+
+#[test]
+fn tcp_sip022_rejects_wrong_direction_timestamp_salt_and_padding() {
+    let cipher = Cipher::Aead2022Blake3Aes128Gcm;
+    let credential = "AAECAwQFBgcICQoLDA0ODw==";
+    let password = fixture_password(credential);
+    let psk = PresharedKey::from_base64(cipher, credential).expect("psk");
+    let salt = [7; 16];
+    let request_salt = [9; 16];
+    let key = CipherKey::derive_aead2022(cipher, psk.as_bytes(), &salt).expect("key");
+    let frame = |kind: u8, timestamp: u64, bound_salt: &[u8], body: &[u8]| {
+        let mut fixed = vec![kind];
+        fixed.extend(timestamp.to_be_bytes());
+        fixed.extend_from_slice(bound_salt);
+        fixed.extend((body.len() as u16).to_be_bytes());
+        let mut encrypted = key.encrypt(&counter_nonce_le(0), &fixed).expect("fixed");
+        encrypted.extend(key.encrypt(&counter_nonce_le(1), body).expect("body"));
+        encrypted
+    };
+    for malformed in [
+        frame(0, 100, &request_salt, b"response"),
+        frame(1, 69, &request_salt, b"response"),
+        frame(1, 131, &request_salt, b"response"),
+        frame(1, 100, &[8; 16], b"response"),
+        frame(1, 100, &request_salt, b""),
+    ] {
+        let mut reader = TcpStream::new_decrypt(cipher, &password, &salt, true).expect("reader");
+        assert!(reader.decrypt_response_header(&malformed, &request_salt, 100).is_err());
+    }
+    for body in [
+        b"\x01\x7f\x00\x00\x01\x01\xbb\x00\x00".as_slice(),
+        b"\x01\x7f\x00\x00\x01\x01\xbb\x00\x02\x00".as_slice(),
+        b"\x01\x7f".as_slice(),
+    ] {
+        let malformed = frame(0, 100, &[], body);
+        let mut reader = TcpStream::new_decrypt(cipher, &password, &salt, true).expect("reader");
+        assert!(reader.decrypt_request_header(&malformed, 100).is_err());
+    }
+}
