@@ -27,6 +27,76 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_baseline_guard_allows_only_registered_jni_inventories(self) -> None:
+        source = job_source("gradle-static-analysis")
+        guard = re.search(
+            r"(?ms)^      - name: Fail if baseline files modified\n.*?^        run: \|\n"
+            r"((?:^          [^\n]*\n|^\n)+)", source,
+        )
+        self.assertIsNotNone(guard)
+        script = textwrap.dedent(guard[1]).replace("${{ github.base_ref }}", "base")
+        inventories = sorted(ROOT.glob("native/rust/crates/*/jni-symbols.baseline"))
+        self.assertEqual(5, len(inventories))
+        cases = [(str(path.relative_to(ROOT)), 0) for path in inventories]
+        cases.extend((path, 1) for path in (
+            "app/detekt-baseline.xml", "app/lint-baseline.xml",
+            "config/file-loc-baseline.json", "config/architecture-health-baseline.json",
+            "native/rust/crates/unknown/jni-symbols.baseline",
+            "native/rust/crates/ripdpi-relay-android/jni-symbols.baseline.backup",
+            "other/native/rust/crates/ripdpi-relay-android/jni-symbols.baseline",
+        ))
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+
+            def git(*args: str) -> None:
+                subprocess.run(
+                    ["git", "-c", "user.name=CI Test", "-c", "user.email=ci@example.invalid",
+                     "-c", "commit.gpgsign=false", *args],
+                    cwd=directory, check=True, capture_output=True, timeout=10,
+                )
+
+            git("init", "-b", "base")
+            git("commit", "--allow-empty", "-m", "Seed")
+            for path, expected in cases:
+                with self.subTest(path=path):
+                    git("update-ref", "refs/remotes/origin/base", "HEAD")
+                    target = directory / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("Changed inventory or baseline\n")
+                    git("add", path)
+                    git("commit", "-m", "Exercise baseline policy")
+                    result = subprocess.run(
+                        ["bash", "-e", "-o", "pipefail", "-c", script],
+                        cwd=directory, capture_output=True, text=True, timeout=10,
+                    )
+                    self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
+            result = subprocess.run(
+                ["bash", "-e", "-o", "pipefail", "-c", script.replace("origin/base", "origin/missing")],
+                cwd=directory, capture_output=True, text=True, timeout=10,
+            )
+            self.assertNotEqual(0, result.returncode, "Git discovery must fail closed")
+
+    def test_jni_inventories_are_checked_before_required_native_upload(self) -> None:
+        source = job_source("rust-native-packaging")
+        start = source.index("      - name: Check packaged JNI export inventories\n")
+        end = source.index("      - name: Upload native artifacts", start)
+        step = source[start:end]
+        self.assertNotIn("if:", step)
+        self.assertNotIn("continue-on-error", step)
+        self.assertIn("bash .github/scripts/check-jni-symbols.sh", step)
+        self.assertIn("$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}", step)
+        for library, crate in (
+            ("ripdpi", "ripdpi-android"), ("ripdpi-tunnel", "ripdpi-tunnel-android"),
+            ("ripdpi-relay", "ripdpi-relay-android"), ("ripdpi-warp", "ripdpi-warp-android"),
+            ("ripdpi-amneziawg", "ripdpi-amneziawg-android"),
+        ):
+            self.assertIn(f"{library} {crate}\n", step)
+            outputs = routing_outputs([f"native/rust/crates/{crate}/jni-symbols.baseline"])
+            self.assertEqual("true", outputs["run_rust_native_ci"])
+        required = job_source("ci-required")
+        self.assertIn("      - rust-native-packaging\n", required)
+        self.assertIn('"rust-native-packaging",', required)
+
     def test_xray_bootstrap_preserves_both_installed_tool_pins(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
         bootstrap = re.search(
