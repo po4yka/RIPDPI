@@ -22,7 +22,7 @@ without adding client runtime, signer, relay, device, or deployment behavior.
 
 ## Acceptance criteria
 
-- [x] The vendored evidence schema is byte-for-byte equal to the frozen producer
+- [ ] The vendored evidence schema is byte-for-byte equal to the frozen producer
   file, parses as JSON, and declares `real_vps_awg_nat_evidence_v4`.
 - [ ] Focused mirror checks, task/OpenSpec validation, and architecture health
   pass on the exact client commit without Kotlin or Rust runtime changes.
@@ -32,6 +32,11 @@ without adding client runtime, signer, relay, device, or deployment behavior.
 
 This task exclusively owns
 `core/data/src/test/resources/contract/real-vps-awg-nat-evidence.schema.json`
-and its task/OpenSpec records. The producer implementation, signer, relay,
-client runtime, devices, artifacts, deployment, and shared `main` are out of
-scope.
+and its task/OpenSpec records. To serialize the three active changes that
+modify the shared `REQ-MIRROR-*` requirements, it also owns keeping the delta
+specs for `mirror-protocol-liveness-schema2`,
+`mirror-observability-network-exposure-contracts`, and this change identical
+until those changes are archived. Their payloads, execution records, and
+verification remain under their original owners. The producer implementation,
+signer, relay, client runtime, devices, artifacts, deployment, and shared
+`main` are out of scope.
