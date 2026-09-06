@@ -22,7 +22,7 @@ without adding client runtime, signer, relay, device, or deployment behavior.
 
 ## Acceptance criteria
 
-- [ ] The vendored evidence schema is byte-for-byte equal to the frozen producer
+- [x] The vendored evidence schema is byte-for-byte equal to the frozen producer
   file, parses as JSON, and declares `real_vps_awg_nat_evidence_v4`.
 - [ ] Focused mirror checks, task/OpenSpec validation, and architecture health
   pass on the exact client commit without Kotlin or Rust runtime changes.
