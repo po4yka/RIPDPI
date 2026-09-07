@@ -115,14 +115,14 @@ ADB
   echo "Checking diagnostics with unresponsive ADB"
   capture_android_emulator_diagnostics "$tmpdir/offline-diagnostics"
   assert_equals 2 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Offline ADB commands must be bounded"
-  for artifact in android-logcat.txt adb-devices.txt device-getprop.txt package-manager-health.txt emulator.log avd-config.ini avdmanager-create.log; do
+  for artifact in android-logcat.txt android-logcat-crash.txt adb-devices.txt device-getprop.txt package-manager-health.txt emulator.log avd-config.ini avdmanager-create.log; do
     [[ -f "$tmpdir/offline-diagnostics/$artifact" ]] || { echo "Missing diagnostic artifact: $artifact" >&2; exit 1; }
   done
 
   : > "$EMULATOR_TEST_TIMEOUT_LOG"
   export EMULATOR_TEST_CONNECTED=true
   capture_android_emulator_diagnostics "$tmpdir/connected-diagnostics"
-  assert_equals 5 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Connected device diagnostics must all be bounded"
+  assert_equals 6 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Connected device diagnostics must all be bounded"
 
   : > "$EMULATOR_TEST_TIMEOUT_LOG"
   stop_android_emulator test-owned-avd
