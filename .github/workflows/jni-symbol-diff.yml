@@ -28,16 +28,11 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           rust-components: ""
+          rust-targets: aarch64-linux-android
           rust-cache-shared-key: jni-sym
           gradle-cache-read-only: "true"
 
-      # Materialize the pinned rust-toolchain.toml channel + its components
-      # (clippy/rust-src/rust-analyzer/rustfmt) once, serially, before the
-      # parallel per-ABI cargo builds below. Without this, each ABI's cargo
-      # invocation triggers rustup to auto-install the toolchain concurrently
-      # and they race on ~/.rustup/downloads/*.partial ("could not rename ...
-      # No such file or directory"). ~/.rustup is not cached, so this is
-      # deterministic, not flaky.
+      # Install the pinned toolchain and its components before the native build.
       - name: Pre-install pinned Rust toolchain
         working-directory: native/rust
         run: |
@@ -45,7 +40,7 @@ jobs:
           cargo --version
 
       - name: Build native library (arm64-v8a release)
-        run: ./gradlew :core:engine:buildRustNativeLibs
+        run: ./gradlew :core:engine:buildRustNativeLibs -Pripdpi.nativeAbisOverride=arm64-v8a
 
       - name: Locate native libraries (arm64-v8a)
         id: locate

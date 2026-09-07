@@ -23,9 +23,15 @@ mod kind;
 mod runtime;
 mod shadowtls_inner;
 
-pub use backend::*;
-pub use finalmask::*;
+pub use backend::{
+    AnyTlsRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS, ChainRelayConfig, CloudflareTunnelRelayConfig,
+    Hysteria2RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig,
+    ResolvedChainRelayHopConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, SshRelayConfig,
+    TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig,
+    VlessRealityRelayConfig, VlessRelayConfig,
+};
+pub use finalmask::ResolvedRelayFinalmaskConfig;
 pub(crate) use flat::*;
 pub(crate) use kind::*;
-pub use runtime::*;
-pub use shadowtls_inner::*;
+pub use runtime::{CommonRelayConfig, ResolvedRelayRuntimeConfig, SocketProtection};
+pub use shadowtls_inner::ResolvedShadowTlsInnerRelayConfig;

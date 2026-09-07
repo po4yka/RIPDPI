@@ -8,9 +8,14 @@ import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
+import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -150,6 +155,23 @@ class DefaultHomeDetectorCatalogSource
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class HomeDiagnosticsAugmentationModule {
+    companion object {
+        @Provides
+        @Singleton
+        fun provideDiagnosticsArchiveFileStore(
+            @ApplicationContext context: Context,
+            clock: DiagnosticsArchiveClock,
+            pcapController: PcapController,
+            captureRuntime: PcapCaptureRuntimeController,
+        ): DiagnosticsArchiveFileStore =
+            DiagnosticsArchiveFileStore(
+                cacheDir = context.cacheDir,
+                clock = clock,
+                pcapDirectory = pcapController.captureDirectory,
+                withCaptureStorageLock = captureRuntime::withCaptureStorageLock,
+            )
+    }
+
     @Binds
     @Singleton
     abstract fun bindHomeDetectionStageRunner(runner: DefaultHomeDetectionStageRunner): HomeDetectionStageRunner

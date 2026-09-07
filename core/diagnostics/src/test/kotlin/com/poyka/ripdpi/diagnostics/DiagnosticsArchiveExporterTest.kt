@@ -118,6 +118,7 @@ internal abstract class DiagnosticsArchiveExporterTestBase {
             fileStore =
                 DiagnosticsArchiveFileStore(
                     cacheDir = context.cacheDir,
+                    pcapDirectory = context.filesDir.resolve("pcap"),
                     clock = DiagnosticsArchiveClock { 1_700_000_000_000L },
                 ),
             zipWriter = DiagnosticsArchiveZipWriter(),

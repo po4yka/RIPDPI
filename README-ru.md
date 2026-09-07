@@ -142,7 +142,7 @@ RIPDPI записывает операционные метаданные для
 
 ## Сборка
 
-Требования: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.96.0`, Android Rust targets для нужных ABI.
+Требования: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, Android Rust targets для нужных ABI.
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

@@ -38,14 +38,10 @@ pub(crate) fn relay_failure_class(error: &io::Error) -> Option<FailureClass> {
     // version classification) survives the chain layer's hop-error wrapping.
     let mut current = error.get_ref().map(|payload| payload as &(dyn std::error::Error + 'static));
     loop {
-        match current {
-            None => return None,
-            Some(inner) => {
-                if let Some(payload) = inner.downcast_ref::<ClassifiedRelayError>() {
-                    return Some(payload.class);
-                }
-                current = inner.source();
-            }
+        let inner = current?;
+        if let Some(payload) = inner.downcast_ref::<ClassifiedRelayError>() {
+            return Some(payload.class);
         }
+        current = inner.source();
     }
 }

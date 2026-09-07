@@ -120,46 +120,8 @@ fi
 NEXTEST_PROFILE="${CI:+ci}"
 NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
 
-echo "==> verify root workspace membership"
-python3 - "$workspace_manifest" <<'PY'
-import json
-import subprocess
-import sys
-
-manifest = sys.argv[1]
-result = subprocess.run(
-    ["cargo", "metadata", "--manifest-path", manifest, "--format-version", "1", "--no-deps"],
-    check=True,
-    capture_output=True,
-    text=True,
-)
-workspace_members = json.loads(result.stdout)["workspace_members"]
-third_party_members = [member for member in workspace_members if "/third_party/" in member]
-if third_party_members:
-    print("error: native/rust root workspace must stay first-party only", file=sys.stderr)
-    for member in third_party_members:
-        print(member, file=sys.stderr)
-    sys.exit(1)
-PY
-
-echo "==> native hotspot budgets"
-python3 "$repo_root/scripts/ci/check_native_hotspot_budgets.py"
-
-echo "==> native architecture checker tests"
-python3 "$repo_root/scripts/ci/test_native_architecture_contracts.py"
-
-echo "==> native architecture contracts"
-python3 "$repo_root/scripts/ci/check_native_architecture_contracts.py"
-
-echo "==> tests (workspace)"
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android "${NEXTEST_ARGS[@]}"
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-android "${NEXTEST_ARGS[@]}"
-# Exclude integration test binaries that have their own dedicated CI jobs
-# (rust-network-e2e, rust-turmoil) and platform tests needing CAP_NET_ADMIN.
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
-  -E 'not binary(network_e2e) and not binary(tun_e2e) and not test(/^platform::linux::tests::bpf_/) and not test(/^platform::linux::tests::tcp_window_clamp/) and not test(/^runtime::tests::window_clamp/)' \
-  "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/run-rust-workspace-tests.sh"
+bash "$repo_root/scripts/ci/run-rust-turmoil-tests.sh"
 
 # ripdpi-socks5-core gates its SOCKS4 module behind the optional `socks4`
 # feature (default = []), so the workspace run above never compiles or
@@ -167,6 +129,3 @@ bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manif
 # SOCKS4 reply round-trip / no-panic tests stay in the merge gate.
 echo "==> tests (ripdpi-socks5-core, socks4 feature)"
 bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-socks5-core --features socks4 "${NEXTEST_ARGS[@]}"
-
-echo "==> tests (ignored / smoke)"
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"

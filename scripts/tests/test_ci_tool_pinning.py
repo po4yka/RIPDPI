@@ -9,6 +9,20 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CiToolPinningTest(unittest.TestCase):
+    def test_sccache_workflows_enable_persistent_backend_for_all_steps(self) -> None:
+        workflows = []
+        for path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+            source = path.read_text(encoding="utf-8")
+            if "RUSTC_WRAPPER: sccache" not in source:
+                continue
+            workflows.append(path.name)
+            with self.subTest(workflow=path.name):
+                env = re.search(r"(?ms)^env:\n(.*?)(?=^\S|\Z)", source)
+                self.assertIsNotNone(env)
+                self.assertIn('  SCCACHE_GHA_ENABLED: "true"\n', env[1])
+                self.assertEqual(1, source.count("SCCACHE_GHA_ENABLED:"))
+        self.assertTrue(workflows, "No workflows use sccache")
+
     def test_compose_reports_require_explicit_gradle_opt_in(self) -> None:
         source = (
             ROOT
@@ -83,7 +97,7 @@ class CiToolPinningTest(unittest.TestCase):
             "build-android-tests",
             "verify-roborazzi",
             "release-verification",
-            "android-instrumented-tests",
+            "android-instrumentation-apks",
         ):
             with self.subTest(job_name=job_name):
                 job = re.search(rf"(?ms)^  {job_name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)
@@ -164,6 +178,36 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertNotIn("android/cli/latest", source)
         self.assertNotIn("android update", source)
         self.assertNotIn("android init", source)
+
+    def test_gradle_cache_writers_have_disjoint_restore_namespaces(self) -> None:
+        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text()
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        default = re.search(
+            r"(?ms)^  gradle-cache-key-prefix:\n.*?^    default: \"([^\"]+)\"", action
+        )
+        default_prefix = default[1] if default else "gradle-build-cache"
+        self.assertEqual("gradle-build-cache", default_prefix)
+        cache_steps = action.split("    - name: Restore shared Gradle build cache (read-only)\n")[1]
+        keys = re.findall(r"(?m)^        key: (.+)$", cache_steps)
+        restore_keys = re.findall(r"(?m)^          (.+-)$", cache_steps)
+        self.assertEqual(2, len(keys))
+        self.assertEqual(4, len(restore_keys))
+        namespaces = []
+        for name in ("kotlin-coverage", "pluggable-transport-assets"):
+            job = re.search(rf"(?ms)^  {name}:\n.*?(?=^  [\w-]+:\n|\Z)", ci)[0]
+            prefix = re.search(r"(?m)^          gradle-cache-key-prefix: (.+)$", job)
+            prefix = prefix[1] if prefix else default_prefix
+            rendered = [
+                key.replace("${{ inputs.gradle-cache-key-prefix }}", prefix)
+                for key in keys + restore_keys
+            ]
+            self.assertEqual(rendered[0], rendered[1])
+            self.assertEqual(rendered[2:4], rendered[4:6])
+            namespaces.append(rendered)
+        candidate = (ROOT / ".github/workflows/release-candidate.yml").read_text()
+        self.assertIn(f"gradle-cache-key-prefix: {prefix}\n", candidate)
+        for own, other in (namespaces, namespaces[::-1]):
+            self.assertFalse(any(own[0].startswith(key) for key in other[2:]))
 
     def test_gradle_build_cache_writers_are_trusted_main_only(self) -> None:
         action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(

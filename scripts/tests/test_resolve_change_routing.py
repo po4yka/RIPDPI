@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
 import re
+import subprocess
+import sys
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -229,7 +233,10 @@ class ResolveChangeRoutingTest(unittest.TestCase):
         )
         self.assertIn("workflow-only-contracts:", source)
         self.assertIn("task-contracts:", source)
-        self.assertIn("npm ci --prefix tools/tasking --ignore-scripts", source)
+        self.assertIn(
+            "npm ci --prefix tools/tasking --ignore-scripts --no-audit --prefer-offline",
+            source,
+        )
         self.assertIn("./taskctl validate", source)
         self.assertIn("fixture-contracts:", source)
         self.assertIn("actionlint .github/workflows/*.yml", source)
@@ -310,6 +317,47 @@ class ResolveChangeRoutingTest(unittest.TestCase):
                     r"(?ms)^    if: >-\n      !cancelled\(\) &&",
                 )
 
+    def test_gradle_lint_runs_independently_but_remains_required(self) -> None:
+        self.assertNotIn("gradle-static-analysis", ci_job_source("ci-preflight"))
+        self.assertIn("needs: change-routing\n", ci_job_source("gradle-static-analysis"))
+        aggregate = ci_job_source("ci-required")
+        needs = {
+            job: {"result": "success"}
+            for job in re.findall(r"(?m)^      - ([\w-]+)$", aggregate)
+        }
+        self.assertIn("gradle-static-analysis", needs)
+        script = textwrap.dedent(aggregate.split("python3 - <<'PY'\n", 1)[1])
+        script = script.rsplit("\nPY", 1)[0]
+        env = {name: "false" for name in re.findall(r"RUN_[A-Z_]+", aggregate)}
+        env["EVENT_NAME"] = "pull_request"
+        for route, flag in (("full", "RUN_FULL_CI"), ("android", "RUN_ANDROID_CI")):
+            for result in ("success", "failure", "skipped", "cancelled", "missing"):
+                with self.subTest(route=route, lint_result=result):
+                    results = dict(needs)
+                    if result == "missing":
+                        del results["gradle-static-analysis"]
+                    else:
+                        results["gradle-static-analysis"] = {"result": result}
+                    completed = subprocess.run(
+                        [sys.executable, "-c", script],
+                        env={
+                            **env,
+                            "ROUTE": route,
+                            flag: "true",
+                            "NEEDS_JSON": json.dumps(results),
+                        },
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        0 if result == "success" else 1,
+                        completed.returncode,
+                        completed.stdout + completed.stderr,
+                    )
+                    if result != "success":
+                        self.assertIn("gradle-static-analysis", completed.stdout)
+
     def test_preflight_barrier_blocks_compile_heavy_roots(self) -> None:
         preflight = ci_job_source("ci-preflight")
         self.assertIn("if: always()", preflight)
@@ -323,7 +371,6 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             "architecture-health",
             "release-gates",
             "cargo-deny",
-            "gradle-static-analysis",
         ):
             self.assertIn(f"      - {required_gate}\n", preflight)
         self.assertIn("python3 scripts/ci/check_ci_preflight.py", preflight)
@@ -362,6 +409,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             with self.subTest(job=job):
                 source = ci_job_source(job)
                 self.assertIn("needs: [change-routing, ci-preflight]", source)
+                self.assertIn("needs.ci-preflight.result == 'success' &&", source)
                 self.assertRegex(
                     source,
                     r"(?ms)^    if: >-\n      !cancelled\(\) &&",

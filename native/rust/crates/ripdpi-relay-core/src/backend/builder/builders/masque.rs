@@ -19,13 +19,13 @@ fn build_masque_client_config(
     config: &ResolvedRelayRuntimeConfig,
     outbound_bind_ip: Option<IpAddr>,
 ) -> io::Result<ripdpi_masque::config::MasqueConfig> {
-    // Thread the relay's outbound bind IP into the encrypted-DNS ECH lookup so
-    // that DoH/DoT socket is bound to the protected physical interface, exactly
-    // like every other relay outbound socket (see chain.rs). The relay process
-    // registers no VpnService.protect callback, so this source-bind is the
-    // protect-equivalent that keeps the lookup off the VPN's own TUN.
+    // ECH bootstrap sockets need the same protection policy as the carrier.
     build_masque_client_config_with_ech_lookup(config, move |host| {
-        ripdpi_masque::config::resolve_ech_config_via_encrypted_dns(host, outbound_bind_ip)
+        ripdpi_masque::config::resolve_ech_config_via_encrypted_dns(
+            host,
+            outbound_bind_ip,
+            config.common.socket_protection.into(),
+        )
     })
 }
 

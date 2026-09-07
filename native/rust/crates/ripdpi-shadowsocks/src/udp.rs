@@ -218,6 +218,9 @@ impl Aead2022UdpSession {
             let mut id = [0u8; 8];
             id.copy_from_slice(&body[offset..offset + 8]);
             offset += 8;
+            if id != self.session_id {
+                return Err(CipherError::InvalidPacket("wrong SIP022 UDP client session ID"));
+            }
             Some(id)
         } else {
             None
@@ -283,6 +286,9 @@ impl Aead2022UdpSession {
             let mut id = [0u8; 8];
             id.copy_from_slice(&body[offset..offset + 8]);
             offset += 8;
+            if id != self.session_id {
+                return Err(CipherError::InvalidPacket("wrong SIP022 UDP client session ID"));
+            }
             Some(id)
         } else {
             None
@@ -388,7 +394,7 @@ impl ReplayWindow {
         if self.seen.contains(&packet_id) {
             return true;
         }
-        self.highest.is_some_and(|highest| packet_id + SIP022_REPLAY_WINDOW < highest)
+        self.highest.is_some_and(|highest| highest.saturating_sub(packet_id) > SIP022_REPLAY_WINDOW)
     }
 
     fn accept(&mut self, packet_id: u64) -> Result<(), CipherError> {
@@ -398,7 +404,7 @@ impl ReplayWindow {
         self.highest = Some(self.highest.map_or(packet_id, |highest| highest.max(packet_id)));
         self.seen.insert(packet_id);
         if let Some(highest) = self.highest {
-            self.seen.retain(|seen| *seen + SIP022_REPLAY_WINDOW >= highest);
+            self.seen.retain(|seen| highest.saturating_sub(*seen) <= SIP022_REPLAY_WINDOW);
         }
         Ok(())
     }
@@ -441,4 +447,20 @@ fn decrypt_separate_header(cipher: Cipher, psk: &[u8], header: &[u8; 16]) -> Res
         _ => return Err(CipherError::Unsupported(format!("{cipher:?}"))),
     }
     Ok(block)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replay_window_handles_maximum_packet_id() {
+        let mut window = ReplayWindow::default();
+        window.accept(u64::MAX).expect("maximum packet ID");
+        assert!(window.is_replay(u64::MAX));
+        assert!(!window.is_replay(u64::MAX - SIP022_REPLAY_WINDOW));
+        assert!(window.is_replay(u64::MAX - SIP022_REPLAY_WINDOW - 1));
+        window.accept(u64::MAX - SIP022_REPLAY_WINDOW).expect("window boundary");
+        assert_eq!(window.seen.len(), 2);
+    }
 }

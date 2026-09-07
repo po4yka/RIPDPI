@@ -335,6 +335,51 @@ mod protect_tests {
         }
     }
 
+    #[test]
+    fn ech_bootstrap_hooks_preserve_socket_policy() {
+        use ripdpi_native_protect::SocketProtectionPolicy::{Inactive, VpnRequired};
+        use std::time::Duration;
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
+        let bind = Some("203.0.113.254".parse().expect("unassigned source"));
+        let hooks = crate::ech::connect_hooks(bind, VpnRequired);
+        let tcp = hooks.direct_tcp_connector.expect("required TCP connector");
+        let error = runtime.block_on(tcp(non_loopback(), Duration::from_millis(20))).err().expect("no callback");
+        assert_eq!(error.kind(), io::ErrorKind::NotConnected, "protect must precede bind/connect");
+        let udp = crate::ech::connect_hooks(None, VpnRequired).direct_udp_binder.expect("UDP binder");
+        assert_eq!(udp("0.0.0.0:0".parse().unwrap()).unwrap_err().kind(), io::ErrorKind::NotConnected);
+
+        struct RejectCallback;
+        impl ProtectCallback for RejectCallback {
+            fn protect(&self, _: RawFd) -> io::Result<()> {
+                Err(io::Error::new(io::ErrorKind::PermissionDenied, "fixture rejection"))
+            }
+        }
+        register_protect_callback(Arc::new(RejectCallback));
+        assert_eq!(
+            runtime.block_on(tcp(non_loopback(), Duration::from_millis(20))).err().unwrap().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        assert_eq!(udp("0.0.0.0:0".parse().unwrap()).unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let error = runtime.block_on(tcp(non_loopback(), Duration::from_millis(20))).err().unwrap();
+        assert_eq!(error.kind(), io::ErrorKind::AddrNotAvailable);
+        assert!(cb.last_fd.load(Ordering::Acquire) >= 0, "protect ran before source bind");
+        let socket = udp("0.0.0.0:0".parse().unwrap()).expect("protected UDP");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), socket.as_raw_fd());
+        unregister_protect_callback();
+
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("loopback server");
+        let hooks = crate::ech::connect_hooks(None, Inactive);
+        runtime
+            .block_on(hooks.direct_tcp_connector.unwrap()(listener.local_addr().unwrap(), Duration::from_secs(1)))
+            .expect("inactive TCP");
+        hooks.direct_udp_binder.unwrap()("127.0.0.1:0".parse().unwrap()).expect("inactive UDP");
+    }
+
     fn non_loopback() -> SocketAddr {
         SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 443))
     }

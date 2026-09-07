@@ -19,7 +19,7 @@ import sys
 
 manifest = sys.argv[1]
 result = subprocess.run(
-    ["cargo", "metadata", "--manifest-path", manifest, "--format-version", "1", "--no-deps"],
+    ["cargo", "metadata", "--locked", "--manifest-path", manifest, "--format-version", "1", "--no-deps"],
     check=True,
     capture_output=True,
     text=True,
@@ -46,8 +46,9 @@ echo "==> tests (workspace)"
 # Exclude integration test binaries that have their own dedicated CI jobs
 # (rust-network-e2e, rust-turmoil) and platform tests needing CAP_NET_ADMIN.
 bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
-  -E 'not binary(network_e2e) and not binary(tun_e2e) and not test(/^platform::linux::tests::bpf_/) and not test(/^platform::linux::tests::tcp_window_clamp/) and not test(/^runtime::tests::window_clamp/)' \
+  -E 'not binary(network_e2e) and not binary(tun_e2e) and not ((package(=ripdpi-tunnel-core) or package(=ripdpi-dns-resolver)) and test(turmoil_)) and not test(/^platform::linux::tests::bpf_/) and not test(/^platform::linux::tests::tcp_window_clamp/) and not test(/^runtime::tests::window_clamp/)' \
   "${NEXTEST_ARGS[@]}"
 
+# Keep workspace feature unification so the smoke test reuses the same binaries.
 echo "==> tests (ignored / smoke)"
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"

@@ -24,7 +24,7 @@ pub use ripdpi_native_protect::SocketProtectionPolicy;
 /// without taking a direct dependency on `ripdpi-shadowtls`.
 pub use ripdpi_shadowtls::{ShadowTlsFailureKind, ShadowTlsHandshakeError};
 pub use shadowsocks::{
-    ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksUdpSession, connect_shadowsocks_tcp,
+    ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksStream, ShadowsocksUdpSession, connect_shadowsocks_tcp,
     connect_shadowsocks_tcp_over, shadowsocks_proxy_target,
 };
 pub use shadowtls::{

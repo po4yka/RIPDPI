@@ -1,0 +1,11 @@
+{
+  "change": "dns-capacity-publication",
+  "evidence_summary": "Permit publication correction passed 59 transport tests, strict Clippy, 1000 regression repetitions, independent review and full CI 33963617095 on eb66de5d84388cf10d2874318b24bd50180a453d.",
+  "execution_sha256": "43437233f65b51ce9f98047d1fa679ba0c34f61d5a5747023459cf7625788a1d",
+  "issue_sha256": "15d9552eb11d05671910a1650e07df8b5592bfdd2a74aea036b15ac2fe6c5733",
+  "outcome": "done",
+  "prepared_at": "2026-09-05T12:10:57Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DNS-1788602983485108"
+}

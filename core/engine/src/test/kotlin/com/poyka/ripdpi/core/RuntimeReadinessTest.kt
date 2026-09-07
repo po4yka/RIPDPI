@@ -4,7 +4,10 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -114,6 +117,53 @@ class RuntimeReadinessTest {
 
             // An exceptionally completed signal surfaces its failure verbatim.
             assertTrue("expected IOException, got $error", error is IOException)
+        }
+
+    @Test
+    fun outerTimeoutPreservesCancellationWithoutReportingStartupTimeout() =
+        runTest {
+            var timeoutReported = false
+            val error =
+                runCatching {
+                    withTimeout(20L) {
+                        awaitRuntimeReady(
+                            startupSignal = CompletableDeferred(),
+                            timeoutMillis = 1_000L,
+                            pollIntervalMillis = 50L,
+                            timeoutMessagePrefix = "test readiness timed out",
+                            pollTelemetry = { pendingSnapshot() },
+                            onTimeout = { timeoutReported = true },
+                        )
+                    }
+                }.exceptionOrNull()
+
+            assertTrue("expected cancellation, got $error", error is TimeoutCancellationException)
+            assertFalse(timeoutReported)
+        }
+
+    @Test
+    fun telemetryTimeoutPreservesCancellationWithoutReportingStartupTimeout() =
+        runTest {
+            var timeoutReported = false
+            val error =
+                runCatching {
+                    awaitRuntimeReady(
+                        startupSignal = CompletableDeferred(),
+                        timeoutMillis = 1_000L,
+                        pollIntervalMillis = 50L,
+                        timeoutMessagePrefix = "test readiness timed out",
+                        pollTelemetry = {
+                            withTimeout(20L) {
+                                delay(100L)
+                                pendingSnapshot()
+                            }
+                        },
+                        onTimeout = { timeoutReported = true },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue("expected cancellation, got $error", error is TimeoutCancellationException)
+            assertFalse(timeoutReported)
         }
 
     @Test

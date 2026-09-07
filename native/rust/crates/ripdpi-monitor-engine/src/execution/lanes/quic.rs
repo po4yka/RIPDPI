@@ -1,4 +1,4 @@
-use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial};
+use ripdpi_packets::{QUIC_V1_VERSION, build_probe_quic_initial};
 
 mod candidate_execution;
 mod outcome;
@@ -20,10 +20,13 @@ pub(super) fn run_quic_strategy_probe(
     candidate: &StrategyCandidateSpec,
 ) -> ProbeSample {
     let started = now_ms();
-    let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
-    let response = relay_udp_payload_observed(&quic_connect_targets(target), target.port, transport, &payload);
+    let payload = build_probe_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str()));
+    let response = payload
+        .as_deref()
+        .ok_or_else(|| std::io::Error::other("QUIC Initial generation failed").into())
+        .and_then(|payload| relay_udp_payload_observed(&quic_connect_targets(target), target.port, transport, payload));
     let latency_ms = now_ms().saturating_sub(started);
-    let outcome = classify_quic_response(response);
+    let outcome = classify_quic_response(response, payload.as_deref().unwrap_or_default());
     let mut details = candidate_probe_details(candidate, "QUIC", latency_ms);
     details.extend([
         ProbeDetail { key: "port".to_string(), value: target.port.to_string() },

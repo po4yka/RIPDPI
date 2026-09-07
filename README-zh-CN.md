@@ -142,7 +142,7 @@ RIPDPI 记录用于诊断和故障排除的操作元数据：网络快照、解�
 
 ## 构建
 
-要求：JDK 17、Android SDK、Android NDK `29.0.14206865`、Rust 工具链 `1.96.0`、所需 ABI 的 Android Rust 目标。
+要求：JDK 17、Android SDK、Android NDK `29.0.14206865`、Rust 工具链 `1.98.1`、所需 ABI 的 Android Rust 目标。
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

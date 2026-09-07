@@ -15,6 +15,8 @@ mod endpoints;
 mod fallback;
 mod wire;
 
+pub use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
+
 pub use encrypted::{
     EchResolutionOutcome, EncryptedDnsEchResolver, ech_public_name, exchange_encrypted_dns_query,
     extract_ech_config_list_from_https_response, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,

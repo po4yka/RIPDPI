@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 data class SupportSettingsUiState(
@@ -28,6 +29,7 @@ data class SupportSettingsUiState(
     val preview: SupportSettingsPreview? = null,
     val changes: ImmutableList<SupportSettingsFieldChange> = persistentListOf(),
     val invalid: Boolean = false,
+    val storageError: Boolean = false,
 )
 
 @HiltViewModel
@@ -43,11 +45,18 @@ class SupportSettingsViewModel
         private var completed = false
 
         fun setPackage(packageJson: String) {
-            if (_uiState.value.packageJson == packageJson) return
+            if (_uiState.value.packageJson == packageJson && !_uiState.value.storageError) return
             completed = false
             _uiState.update { SupportSettingsUiState(packageJson = packageJson, loading = true) }
             viewModelScope.launch {
-                when (val result = applyUseCase.preview(packageJson)) {
+                val result =
+                    try {
+                        applyUseCase.preview(packageJson)
+                    } catch (_: IOException) {
+                        _uiState.update { it.copy(loading = false, storageError = true) }
+                        return@launch
+                    }
+                when (result) {
                     is SupportSettingsPreviewResult.Invalid -> {
                         _uiState.update { it.copy(loading = false, invalid = true) }
                     }
@@ -69,9 +78,16 @@ class SupportSettingsViewModel
         fun apply() {
             val state = _uiState.value
             if (!state.canApply || completed) return
-            _uiState.update { it.copy(applying = true) }
+            _uiState.update { it.copy(applying = true, storageError = false) }
             viewModelScope.launch {
-                when (val result = applyUseCase.apply(state.packageJson)) {
+                val result =
+                    try {
+                        applyUseCase.apply(state.packageJson)
+                    } catch (_: IOException) {
+                        _uiState.update { it.copy(applying = false, storageError = true) }
+                        return@launch
+                    }
+                when (result) {
                     is SupportSettingsApplyResult.Invalid -> {
                         _uiState.update { it.copy(applying = false, invalid = true) }
                     }
@@ -92,4 +108,4 @@ class SupportSettingsViewModel
     }
 
 private val SupportSettingsUiState.canApply: Boolean
-    get() = packageJson.isNotBlank() && !loading && !applying && !invalid
+    get() = packageJson.isNotBlank() && preview != null && !loading && !applying && !invalid

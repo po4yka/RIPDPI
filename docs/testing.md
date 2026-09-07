@@ -55,7 +55,9 @@ The Rust workspace contains several test styles:
 - property-based and fuzz-style parsing coverage with `proptest`
 - config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser variants
 - relay transport coverage for MASQUE path and auth handling, xHTTP Finalmask mutation, Cloudflare publish-origin helper behavior, Trojan, AnyTLS, Shadowsocks, Tor bridge/PT config, NaiveProxy helper contracts, and external PT launch paths
-- relay interoperability CI matrix exercises `local-network-fixture`, `ripdpi-xhttp`, `ripdpi-vless`, `ripdpi-hysteria2`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-anytls`, `ripdpi-masque`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-core`, and the nested proxy runtime E2E through `scripts/ci/run-rust-relay-interoperability.sh`
+- fixture and relay unit tests run once through `scripts/ci/run-rust-workspace-tests.sh`
+- relay interoperability runs the six nested proxy E2E tests with `--run-ignored ignored-only` through `scripts/ci/run-rust-relay-interoperability.sh`; CI also checks independent upstream peers
+- simulated-network unit tests and the in-process TUN integration binary run through `scripts/ci/run-rust-turmoil-tests.sh`, separately from ordinary workspace unit tests
 - runtime policy coverage for host autolearn scoping, route advancement, adaptive fake TTL learning, retry-stealth pacing, and candidate diversification
 - diagnostics monitor coverage for automatic probing/audit candidate catalogs, candidate-aware progress, probe pacing, target-order shuffling, rotating target cohorts, recommendation assembly, and audit-assessment propagation
 - state-machine coverage for proxy and tunnel session registries

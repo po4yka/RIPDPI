@@ -36,7 +36,7 @@ def line_coverage_from_xml(path: Path) -> float:
             covered = int(counter.attrib["covered"])
             total = missed + covered
             return 100.0 if total == 0 else covered * 100.0 / total
-    return 100.0
+    raise ValueError(f"No LINE counter found in {path}")
 
 
 def load_rust_line_coverage(path: Path | None) -> float | None:
@@ -69,7 +69,7 @@ def main() -> int:
     lines = [
         "## Coverage Summary",
         "",
-        "| Scope | Line coverage | Threshold |",
+        f"| Scope | Line coverage | {'Threshold' if args.enforce else 'Advisory target'} |",
         "| --- | ---: | ---: |",
         format_row("Kotlin aggregate", aggregate_coverage, AGGREGATE_THRESHOLD),
     ]
