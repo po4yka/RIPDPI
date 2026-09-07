@@ -1,0 +1,79 @@
+{
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "ci-reality-primary",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "uuid": "11111111-1111-1111-1111-111111111111",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "server_name": "ci-reality.example.invalid",
+        "reality": {
+          "enabled": true,
+          "public_key": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo=",
+          "short_id": "a1b2c3d4"
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "ci-xhttp-reserve",
+      "server": "203.0.113.11",
+      "server_port": 443,
+      "uuid": "22222222-2222-2222-2222-222222222222",
+      "tls": {
+        "server_name": "ci-xhttp.example.invalid"
+      },
+      "transport": {
+        "type": "xhttp",
+        "path": "/ci-xhttp",
+        "host": "ci-xhttp.example.invalid",
+        "mode": "auto"
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "ci-hysteria2-reserve",
+      "server": "203.0.113.12",
+      "server_port": 8443,
+      "password": "ci-hysteria2-reserve-password"
+    }
+  ],
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [
+      {
+        "tag": "ci-awg-reserve",
+        "address": [
+          "10.66.66.2/32"
+        ],
+        "dns": [
+          "1.1.1.1",
+          "1.0.0.1"
+        ],
+        "mtu": 1420,
+        "jc": 4,
+        "jmin": 10,
+        "jmax": 50,
+        "s1": 0,
+        "s2": 0,
+        "h1": 1,
+        "h2": 2,
+        "h3": 3,
+        "h4": 4,
+        "private_key": "IWSnIWSnIWSnIWSnIWSnIWSnIWSnIWSnIWSnIWSnUbM=",
+        "peer": {
+          "public_key": "np6enp6enp6enp6enp6enp6enp6enp6enp6enp6enp4=",
+          "preshared_key": "d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3c=",
+          "endpoint": "203.0.113.13:51820",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ],
+          "persistent_keepalive": 25
+        }
+      }
+    ]
+  }
+}
