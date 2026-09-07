@@ -2,7 +2,7 @@
 id: CIC-1788781739933829
 title: Retry instrumentation on emulator process crashes
 kind: bug
-status: review
+status: done
 area: ci
 priority: high
 owner: CI flake fix
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-09-07
 updated: 2026-09-07
 spec_reason: tooling-only
+closed_at: "2026-09-07T17:17:01Z"
+closed_reason: Retry, evidence preservation, and diagnostics contracts verified by hosted CI.
+evidence_summary: "Bounded instrumentation crash retry validated in production: PR runs 34131540130 and 34131588470 logged 'Instrumentation attempt 1/2 crashed; retrying' with per-attempt evidence files, and full-route CI run 34131485706 on main 641524cdb2e8ee8764dcc10c2b3a02f2fd963b53 passed including all five android-instrumented-tests API legs; 10 unit tests plus workflow contract gates green locally."
 ---
 
 ## Goal
