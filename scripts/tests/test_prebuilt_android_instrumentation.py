@@ -8,6 +8,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.ci.prebuilt_android_instrumentation import VARIANTS, orchestrator_command, parse_results, run, seal, verify
+
+CRASH = "INSTRUMENTATION_RESULT: shortMsg=Process crashed.\nINSTRUMENTATION_CODE: 0\n"
 from scripts.ci.validate_android_junit_results import validate
 
 
@@ -64,6 +66,89 @@ INSTRUMENTATION_CODE: -1
             with self.subTest(output=broken):
                 with self.assertRaises(ValueError):
                     parse_results(broken)
+
+    def sequenced_runner(self, root, protocols):
+        calls = []
+        instrumentations = []
+
+        def adb(command, **options):
+            calls.append(command)
+            output = ""
+            if command[3:] == ["shell", "getprop", "ro.build.version.sdk"]:
+                output = "35\n"
+            elif command[3:] == ["shell", "pm", "list", "instrumentation"]:
+                output = "instrumentation:com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner (target=com.poyka.ripdpi)\n"
+            elif "stdout" in options:
+                options["stdout"].write(protocols.pop(0))
+                instrumentations.append(command)
+            return subprocess.CompletedProcess(command, 0, output, "")
+
+        manifest = {"variants": {"githubFullDebug": {
+            "package": "com.poyka.ripdpi", "app": "app.apk", "test": "test.apk",
+        }}, "utilities": ["orchestrator.apk", "services.apk"]}
+        return calls, instrumentations, manifest, adb
+
+    def test_instrumentation_process_crash_is_retried_with_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ("app.apk", "test.apk", "orchestrator.apk", "services.apk"):
+                (root / name).write_bytes(b"install input")
+            calls, instrumentations, manifest, adb = self.sequenced_runner(root, [CRASH, test_output()])
+            args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
+                             variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+            with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
+                 patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
+                 patch("scripts.ci.prebuilt_android_instrumentation.CRASH_RETRY_DELAY_SECONDS", 0), \
+                 patch("subprocess.run", side_effect=adb) as run_invocations:
+                run(args)
+            self.assertEqual(2, len(instrumentations))
+            self.assertTrue((args.results / "instrumentation.attempt-1.txt").is_file())
+            self.assertEqual(CRASH, (args.results / "instrumentation.attempt-1.txt").read_text())
+            self.assertTrue((args.results / "instrumentation.txt").is_file())
+            self.assertEqual(0, validate(args.results, "example.Test#works", expected_count=1,
+                                         expected_total_count=1, minimum_total_count=None, forbid_skips=True))
+
+    def test_instrumentation_process_crash_exhaustion_fails_without_junit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ("app.apk", "test.apk", "orchestrator.apk", "services.apk"):
+                (root / name).write_bytes(b"install input")
+            calls, instrumentations, manifest, adb = self.sequenced_runner(root, [CRASH, CRASH, CRASH])
+            args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
+                             variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+            with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
+                 patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
+                 patch("scripts.ci.prebuilt_android_instrumentation.CRASH_RETRY_DELAY_SECONDS", 0), \
+                 patch("subprocess.run", side_effect=adb) as run_invocations:
+                with self.assertRaisesRegex(ValueError, "shortMsg=Process crashed"):
+                    run(args)
+            self.assertEqual(3, len(instrumentations))
+            self.assertFalse((args.results / "TEST-instrumentation.xml").exists())
+            self.assertEqual(CRASH, (args.results / "instrumentation.txt").read_text())
+            self.assertTrue((args.results / "instrumentation.attempt-1.txt").is_file())
+            self.assertTrue((args.results / "instrumentation.attempt-2.txt").is_file())
+
+    def test_failed_tests_and_malformed_output_are_never_retried(self):
+        for label, protocol, message in (
+            ("failure", test_output(code=-2), "reported failed tests"),
+            ("incomplete", test_output(final=""), "Incomplete"),
+        ):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                for name in ("app.apk", "test.apk", "orchestrator.apk", "services.apk"):
+                    (root / name).write_bytes(b"install input")
+                calls, instrumentations, manifest, adb = self.sequenced_runner(root, [protocol])
+                args = Namespace(bundle=root, sha="a" * 40, results=root / "results", api=35,
+                                 variant="githubFullDebug", test_class="example.Test", test_package=None, xray_port=1234)
+                with patch("scripts.ci.prebuilt_android_instrumentation.verify", return_value=manifest), \
+                     patch("subprocess.check_output", return_value="List of devices attached\nemulator-5554\tdevice\n"), \
+                     patch("scripts.ci.prebuilt_android_instrumentation.CRASH_RETRY_DELAY_SECONDS", 0), \
+                     patch("subprocess.run", side_effect=adb) as run_invocations:
+                    with self.assertRaisesRegex(ValueError, message):
+                        run(args)
+                self.assertEqual(1, len(instrumentations))
+                self.assertTrue((args.results / "instrumentation.txt").is_file())
+                self.assertFalse((args.results / "instrumentation.attempt-1.txt").exists())
 
     def test_orchestrator_preserves_isolation_and_quotes_filter_values(self):
         target = "com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner"
