@@ -1,16 +1,17 @@
 ## Purpose
 
-Extend the deployment contract mirror so RIPDPI rejects stale
-protocol-liveness policy schemas while keeping schema-only synchronization
-isolated from application runtime behavior.
+Keep every deployment-owned contract mirror byte-identical to its declared
+frozen producer revision while keeping contract synchronization isolated from
+client runtime behavior.
 
 ## MODIFIED Requirements
 
 ### Requirement: REQ-MIRROR-BYTE-IDENTITY — Frozen producer identity
 
-The repository MUST store every deployment-owned vendored contract, including
-the protocol-liveness policy schema, byte-for-byte equal to the contract at the
-declared frozen producer revision.
+The repository MUST store every deployment-owned vendored contract
+byte-for-byte equal to its task-declared frozen producer revision. Different
+mirror tasks MAY pin different producer revisions, but each mirror MUST name
+and validate its exact revision.
 
 #### Scenario: Exact schema 3 mirror
 
@@ -27,34 +28,56 @@ declared frozen producer revision.
 - **THEN** the files have identical bytes and the vendored document is valid
   JSON Schema describing schema version 2
 
-#### Scenario: Producer mismatch
-
-- **WHEN** any of the 22 vendored contract files differs by any byte from the
-  frozen producer contract set
-- **THEN** contract mirror validation fails instead of accepting a stale or
-  independently edited client copy
-
 #### Scenario: Legacy policy document
 
 - **WHEN** a schema 1 protocol-liveness policy without the exact sentinel
   target binding is checked against the vendored schema 2 contract
 - **THEN** validation rejects the policy as migration-required
 
-### Requirement: REQ-MIRROR-SCOPE-ISOLATION — Schema-only client change
+#### Scenario: Exact observability and network-exposure mirror
 
-The implementation MUST NOT change client runtime parsing, schema 2 probe
-matrix window semantics, network-exposure contracts, or device behavior as
-part of the protocol-liveness mirror update.
+- **WHEN** the seven task-owned contract files are compared with producer
+  revision `7d176401777eb7d5c1062d2dab94a725286bf8ec`
+- **THEN** every file has identical bytes and parses as JSON
+
+#### Scenario: Exact evidence schema 4 mirror
+
+- **WHEN** the real-VPS AWG NAT evidence schema at producer revision
+  `c8ad0861711eb5fb63c6fad46c28c179678d51a5` is compared with the vendored
+  client resource
+- **THEN** both files have identical bytes, the client document parses as JSON,
+  and its `version` constant is `real_vps_awg_nat_evidence_v4`
+
+#### Scenario: Producer mismatch
+
+- **WHEN** any task-owned producer file is absent or its vendored copy differs
+  by any byte from the declared frozen revision
+- **THEN** contract mirror validation fails instead of accepting a missing,
+  stale, reformatted, or independently edited client contract
+
+### Requirement: REQ-MIRROR-SCOPE-ISOLATION — Contract-resource-only change
+
+A deployment-contract mirror change MUST limit client changes to vendored
+contract resources and its own task/OpenSpec records. It MUST NOT add or change
+Kotlin or Rust runtime consumers, Android resources, signer or relay behavior,
+device behavior, telemetry delivery, alerting, firewall enforcement, or network
+enforcement unless a separate task and specification explicitly own that work.
 
 #### Scenario: Runtime boundary review
 
-- **WHEN** the protocol-liveness schema 2 mirror change is reviewed
-- **THEN** Kotlin and Rust runtime sources remain unchanged and the only
-  contract payload change is the vendored protocol-liveness schema
+- **WHEN** a deployment-contract mirror change is reviewed
+- **THEN** application and native runtime sources remain unchanged and only the
+  task-owned vendored contract payloads and task/OpenSpec records differ
+
+#### Scenario: Evidence-schema boundary review
+
+- **WHEN** the real-VPS AWG NAT evidence-schema mirror is reviewed
+- **THEN** it does not add signer, relay, runtime, device, artifact, or
+  deployment behavior
 
 #### Scenario: Hosted validation boundary
 
-- **WHEN** local mirror, task, OpenSpec, core data, architecture, and configured
-  hook checks pass
-- **THEN** the change remains pending until required hosted checks pass on the
+- **WHEN** local mirror, task, OpenSpec, architecture, and applicable contract
+  checks pass
+- **THEN** completion remains pending until required hosted checks pass for the
   exact published client commit
