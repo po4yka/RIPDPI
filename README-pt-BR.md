@@ -156,7 +156,7 @@ Cadeias de relay multissalto carregam uma lista ordenada de 2-4 saltos TCP (entr
 
 ## Requisitos de build
 
-Requisitos: JDK 17, Android SDK, Android NDK `29.0.14206865`, toolchain Rust `1.96.0`, targets Rust para Android das ABIs necessárias, [`just`](https://just.systems) (executor de tarefas; as receitas do `justfile` espelham a CI) e [`lefthook`](https://github.com/evilmartians/lefthook) (execute `lefthook install` uma vez para conectar os gates de pre-commit).
+Requisitos: JDK 17, Android SDK, Android NDK `29.0.14206865`, toolchain Rust `1.98.1`, targets Rust para Android das ABIs necessárias, [`just`](https://just.systems) (executor de tarefas; as receitas do `justfile` espelham a CI) e [`lefthook`](https://github.com/evilmartians/lefthook) (execute `lefthook install` uma vez para conectar os gates de pre-commit).
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

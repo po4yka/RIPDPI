@@ -77,7 +77,8 @@ fn udp_aead2022_aes_gcm_server_packet_carries_client_session_id() {
     assert_eq!(packet.len(), 16 + 1 + 8 + 8 + 2 + payload.len() + 16);
 
     let psk = sip022_aes256_psk();
-    let mut receiver = Aead2022UdpSession::new(Cipher::Aead2022Blake3Aes256Gcm, psk, session_id).expect("receiver");
+    let mut receiver =
+        Aead2022UdpSession::new(Cipher::Aead2022Blake3Aes256Gcm, psk, client_session_id).expect("receiver");
     let decoded =
         receiver.decrypt(&packet, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP).expect("decrypt server packet");
     assert_eq!(decoded.session_id, session_id);
@@ -188,4 +189,30 @@ fn udp_too_short_fails() {
     let codec = UdpPacket::new(Cipher::AeadAes256Gcm, false);
     // 5 bytes is far shorter than salt_len(32) + tag_len(16).
     assert!(codec.decrypt(&password, &[0u8; 5]).is_err());
+}
+
+#[test]
+fn udp_server_recipient_is_checked_before_replay_state() {
+    for (cipher, credential) in [
+        (Cipher::Aead2022Blake3Aes128Gcm, "AAECAwQFBgcICQoLDA0ODw=="),
+        (Cipher::Aead2022Blake3Aes256Gcm, FIXTURE_PSK_AES256_B64),
+        (Cipher::Aead2022Blake3Chacha20Poly1305, FIXTURE_PSK_CHACHA_B64),
+    ] {
+        let session = |id| {
+            Aead2022UdpSession::new(cipher, PresharedKey::from_base64(cipher, credential).expect("psk"), id)
+                .expect("session")
+        };
+        let mut client = session(*b"SID-CLNT");
+        let wrong = session(*b"SID-SRVR").encrypt_server(SIP022_TIMESTAMP, *b"OTHER-ID", b"wrong").expect("packet");
+        assert!(client.decrypt(&wrong, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP).is_err());
+        // Same server session and packet ID: a wrong recipient must not consume ID 0.
+        let correct = session(*b"SID-SRVR").encrypt_server(SIP022_TIMESTAMP, *b"SID-CLNT", b"right").expect("packet");
+        assert_eq!(
+            client
+                .decrypt(&correct, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP)
+                .expect("correct recipient")
+                .payload,
+            b"right"
+        );
+    }
 }

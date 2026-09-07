@@ -87,7 +87,7 @@ fn parse_cipher_suites(client_hello: &[u8], handshake_start: usize) -> Option<Ve
     if cipher_bytes.len() % 2 != 0 {
         return None;
     }
-    Some(cipher_bytes.chunks_exact(2).map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]])).collect())
+    Some(cipher_bytes.as_chunks::<2>().0.iter().map(|chunk| u16::from_be_bytes(*chunk)).collect())
 }
 
 fn extension_data<'a>(buffer: &'a [u8], extension: &TlsExtensionInfo) -> Option<&'a [u8]> {
@@ -128,7 +128,7 @@ fn parse_supported_groups(buffer: &[u8], extensions: &[TlsExtensionInfo]) -> Vec
     if data.len() < 2 {
         return Vec::new();
     }
-    data[2..].chunks_exact(2).map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]])).collect()
+    data[2..].as_chunks::<2>().0.iter().map(|chunk| u16::from_be_bytes(*chunk)).collect()
 }
 
 fn parse_supported_versions(buffer: &[u8], extensions: &[TlsExtensionInfo]) -> Vec<u16> {
@@ -141,7 +141,7 @@ fn parse_supported_versions(buffer: &[u8], extensions: &[TlsExtensionInfo]) -> V
     if data.is_empty() {
         return Vec::new();
     }
-    data[1..].chunks_exact(2).map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]])).collect()
+    data[1..].as_chunks::<2>().0.iter().map(|chunk| u16::from_be_bytes(*chunk)).collect()
 }
 
 fn normalize_tls_from_layout(

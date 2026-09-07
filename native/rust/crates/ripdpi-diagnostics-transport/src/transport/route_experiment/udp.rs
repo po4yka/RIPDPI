@@ -86,9 +86,10 @@ fn relay_udp_direct_with_bucket(
     let udp: UdpSocket = socket.into();
     udp.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     udp.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
-    udp.send_to(payload, server).map_err(|err| err.to_string())?;
+    udp.connect(server).map_err(|err| err.to_string())?;
+    udp.send(payload).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
-    let (size, _) = udp.recv_from(&mut buf).map_err(|err| err.to_string())?;
+    let size = udp.recv(&mut buf).map_err(|err| err.to_string())?;
     let local_addr = udp.local_addr().map_err(|err| err.to_string())?;
     Ok((buf[..size].to_vec(), server, local_addr))
 }

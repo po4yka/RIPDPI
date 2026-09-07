@@ -630,7 +630,7 @@ fn entropy_padding_disabled_leaves_fake_payload_unchanged() {
 
     // append_ttl_wrapped_packets emits SetTtl first, so the fake Write is at index 1.
     let DesyncAction::Write(fake_packet) = &actions[1] else {
-        panic!("expected fake write at actions[1], got: {:?}", &actions[1]);
+        panic!("expected fake write at actions[1], got: {:?}", actions[1]);
     };
     assert_eq!(fake_packet.as_slice(), HIGH_POPCOUNT_FAKE);
 }
@@ -650,7 +650,7 @@ fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
 
     // append_ttl_wrapped_packets emits SetTtl first, so the fake Write is at index 1.
     let DesyncAction::Write(fake_packet) = &actions[1] else {
-        panic!("expected fake write at actions[1], got: {:?}", &actions[1]);
+        panic!("expected fake write at actions[1], got: {:?}", actions[1]);
     };
     // Packet must be longer than the original fake data (padding was prepended).
     assert!(fake_packet.len() > HIGH_POPCOUNT_FAKE.len(), "expected padding to grow the fake packet");

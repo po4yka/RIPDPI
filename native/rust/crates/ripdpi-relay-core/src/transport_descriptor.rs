@@ -147,9 +147,8 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
             kind_id: "mieru",
             label: "Mieru",
             tcp: true,
-            // UDP relay is gated off in the foundation: the custom UDP/TCP wire
-            // engine is stubbed, so the UDP relay capability lands with the real
-            // engine rather than advertising support the backend cannot honour.
+            // The native Mieru session factory supports TCP only.
+            // Keep UDP disabled until its relay path is implemented and tested.
             udp: false,
             reusable: false,
             supports_outbound_bind_ip: false,

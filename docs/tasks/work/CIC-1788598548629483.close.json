@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Regression failed before the change; all 144 workflow-only contract tests passed afterward. Gradle 9.7.1 execution probe confirmed --rerun executes the selected task while its dependency remains UP-TO-DATE. Pinned AGP 9.3.2 bytecode connects androidTestUtil to the test runner APK installer. actionlint, pinact, architecture health, cargo metadata --locked, and diff checks passed. App task help was blocked by missing offline Kotlin dependencies; the online retry stalled and was stopped. Emulator validation remains for CI.",
+  "execution_sha256": "074061c6db8cea7d5fc1c0ebf9fee5a5bf736af6a9da8e0bd697444b573930fc",
+  "issue_sha256": "4a7200623fd8bb0c25456c883c531cf1d701e7451f081532d3fed3ca21f2a7d3",
+  "outcome": "done",
+  "prepared_at": "2026-09-05T08:59:43Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1788598548629483"
+}

@@ -40,6 +40,10 @@ pub(super) fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) -> O
 }
 
 pub(super) fn quic_derive_client_initial_secret(dcid: &[u8], version: u32) -> Option<[u8; 32]> {
+    quic_derive_initial_secret(dcid, version, "tls13 client in")
+}
+
+pub(super) fn quic_derive_initial_secret(dcid: &[u8], version: u32, label: &str) -> Option<[u8; 32]> {
     let salt_bytes = match version {
         QUIC_V1_VERSION => &QUIC_V1_SALT,
         QUIC_V2_VERSION => &QUIC_V2_SALT,
@@ -48,7 +52,7 @@ pub(super) fn quic_derive_client_initial_secret(dcid: &[u8], version: u32) -> Op
     let salt = Salt::new(HKDF_SHA256, salt_bytes);
     let prk = salt.extract(dcid);
     let mut secret = [0u8; 32];
-    let info = quic_hkdf_label("tls13 client in", secret.len())?;
+    let info = quic_hkdf_label(label, secret.len())?;
     let info_refs: &[&[u8]] = &[&info];
     let okm = prk.expand(info_refs, HkdfLen(secret.len())).ok()?;
     okm.fill(&mut secret).ok()?;

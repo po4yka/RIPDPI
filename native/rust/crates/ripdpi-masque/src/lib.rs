@@ -4,6 +4,7 @@ pub mod auth;
 pub mod capsule;
 mod client;
 pub mod config;
+mod ech;
 mod h2;
 mod h3;
 pub mod migration;
