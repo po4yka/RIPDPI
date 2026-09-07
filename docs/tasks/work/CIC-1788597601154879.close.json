@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "The cache collision regression failed before the fix and passed after it. All 142 workflow-only contract tests passed. actionlint, pinact v4.1.1, architecture health, cargo metadata --locked, and git diff --check passed. Hosted cache writes require the next CI run.",
+  "execution_sha256": "f55d19450f878c623a52d5051a26a4f53257ef34aeb75ce0e1ea4fce760ca033",
+  "issue_sha256": "627288c0eeb56c229acece3d40f210daa814fd454485a5809798e39a52b448e4",
+  "outcome": "done",
+  "prepared_at": "2026-09-05T08:46:33Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1788597601154879"
+}

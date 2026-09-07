@@ -74,6 +74,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Preserve compiler outputs between runners, including standalone Rust jobs.
+  SCCACHE_GHA_ENABLED: "true"
+
 concurrency:
   group: >-
     ${{ github.event_name == 'pull_request'
@@ -201,6 +205,7 @@ jobs:
             scripts.tests.test_build_observability_contracts \
             scripts.tests.test_check_ci_preflight \
             scripts.tests.test_ci_native_dependency_graph \
+            scripts.tests.test_prebuilt_android_instrumentation \
             scripts.tests.test_ci_tool_pinning \
             scripts.tests.test_nightly_coverage_selection \
             scripts.tests.test_release_artifact_uploads \
@@ -243,6 +248,7 @@ jobs:
         run: |
           python3 -m unittest \
             scripts.tests.test_validate_android_junit_results \
+            scripts.tests.test_prebuilt_android_instrumentation \
             scripts.tests.test_android_device_session \
             scripts.tests.test_run_android_e2e_emulator \
             scripts.tests.test_start_local_network_fixture
@@ -372,7 +378,6 @@ jobs:
       - architecture-health
       - release-gates
       - cargo-deny
-      - gradle-static-analysis
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -396,6 +401,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -476,6 +482,20 @@ jobs:
             "ripdpi-cloudflare-origin" "$assets_dir"
           ls -la "$RUNNER_TEMP/native-shard"
 
+      - name: Check packaged JNI export inventories
+        run: |
+          while read -r library crate; do
+            bash .github/scripts/check-jni-symbols.sh \
+              "$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}/lib${library}.so" \
+              "native/rust/crates/${crate}/jni-symbols.baseline"
+          done <<'EOF'
+          ripdpi ripdpi-android
+          ripdpi-tunnel ripdpi-tunnel-android
+          ripdpi-relay ripdpi-relay-android
+          ripdpi-warp ripdpi-warp-android
+          ripdpi-amneziawg ripdpi-amneziawg-android
+          EOF
+
       - name: Upload native artifacts for ${{ matrix.abi.name }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -498,6 +518,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -594,6 +615,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       (github.event_name != 'schedule' ||
       github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
@@ -619,6 +641,7 @@ jobs:
     needs: [change-routing, xray-native]
     if: >-
       !cancelled() &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -668,6 +691,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       (github.event_name != 'schedule' ||
       github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
@@ -683,6 +707,7 @@ jobs:
           rust-components: ""
           rust-cache-shared-key: rust-pluggable-transport-assets
           rust-cache-save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          gradle-cache-key-prefix: gradle-pluggable-transport-build-cache
           gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Build source-pinned pluggable transport assets
@@ -729,6 +754,10 @@ jobs:
   build-android-debug:
     if: >-
       !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, pluggable-transport-assets, xray-native]
@@ -847,6 +876,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     runs-on: ubuntu-latest
@@ -936,6 +966,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     runs-on: ubuntu-latest
@@ -982,6 +1013,7 @@ jobs:
   owned-stack-tls-fingerprint:
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     needs: [change-routing, ci-preflight]
@@ -1007,6 +1039,11 @@ jobs:
   release-verification:
     if: >-
       !cancelled() &&
+      needs.rust-native-packaging.result == 'success' &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.owned-stack-tls-fingerprint.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     needs: [change-routing, rust-native-packaging, rust-native-x86_64, owned-stack-tls-fingerprint, pluggable-transport-assets, xray-native]
@@ -1191,6 +1228,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       github.event_name != 'schedule' &&
       (
@@ -1254,6 +1292,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1322,6 +1361,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1366,6 +1406,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1404,6 +1445,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1433,6 +1475,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1483,6 +1526,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1516,6 +1560,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     name: JNI API snapshot check
     runs-on: ubuntu-latest
@@ -1557,7 +1602,9 @@ jobs:
       - name: Fail if baseline files modified
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'baseline' | grep -v '^#'; then
+          changed_paths=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          # JNI inventories are checked against built ELF exports in rust-native-packaging.
+          if printf '%s\n' "$changed_paths" | grep -E 'baseline' | grep -Ev '^native/rust/crates/(ripdpi-android|ripdpi-tunnel-android|ripdpi-relay-android|ripdpi-warp-android|ripdpi-amneziawg-android)/jni-symbols\.baseline$'; then
             echo "error: baseline files must not be modified in PRs — fix violations in code"
             exit 1
           fi
@@ -1601,6 +1648,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1632,6 +1680,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1682,6 +1731,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1719,6 +1769,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -1749,6 +1800,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_kotlin_coverage == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1769,9 +1821,9 @@ jobs:
           setup-rust: "false"
           setup-android-ndk: "false"
           setup-sccache: "false"
-          # Kotlin coverage is the sole Gradle build-cache writer on main. Every other
-          # job restores only, preventing a small parallel job from reserving
-          # the immutable SHA key before the coverage graph can populate it.
+          # Kotlin coverage owns the default Gradle build-cache namespace on main.
+          # The transport producer writes to a separate namespace so it cannot
+          # reserve the immutable SHA key before coverage fills this cache.
           gradle-cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Generate Kotlin coverage reports
@@ -1804,6 +1856,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_rust_coverage == 'true' &&
       github.event_name != 'schedule' &&
       (
@@ -1854,6 +1907,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       ((github.event_name == 'schedule' && github.event.schedule == '7 4 * * 1') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
@@ -2129,36 +2183,18 @@ jobs:
             ${{ runner.temp }}/macrobenchmark-summary.md
           retention-days: 7
 
-  # Runs :app instrumented smoke tests across minSdk, modern-runtime, and targetSdk x86_64 emulators.
-  # The dedicated x86_64 native shard is staged via
-  # -Pripdpi.prebuilt*Dir so cargo is skipped.
-  android-instrumented-tests:
+  # Compile Full/Simple APK pairs once; every API runner consumes this exact bundle.
+  android-instrumentation-apks:
     if: >-
       !cancelled() &&
+      needs.rust-native-x86_64.result == 'success' &&
+      needs.pluggable-transport-assets.result == 'success' &&
+      needs.xray-native.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     needs: [change-routing, rust-native-x86_64, pluggable-transport-assets, xray-native]
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - device: pixel6Api27Aosp
-            api: 27
-            system-image: default
-          - device: pixel6Api33Atd
-            api: 33
-            system-image: aosp_atd
-          - device: pixel6Api35Google
-            api: 35
-            system-image: google_apis
-          - device: pixel6Api36Google
-            api: 36
-            system-image: google_apis
-          - device: pixel6Api37Google
-            api: 37
-            system-image: google_apis_ps16k
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -2208,6 +2244,78 @@ jobs:
           cp -r "$RUNNER_TEMP/native-shard-x86_64/assetsBin-x86_64" "$assets_root/x86_64"
           find "$RUNNER_TEMP/prebuilt-integration" -maxdepth 3 -type f -print
 
+      - name: Build instrumentation APK bundle
+        run: |
+          ./gradlew :app:stageCiInstrumentationApks \
+            -Pripdpi.nativeAbisOverride=x86_64 \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
+            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
+            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
+            -Pripdpi.enableAbiSplits=false \
+            --profile
+          python3 scripts/ci/prebuilt_android_instrumentation.py seal \
+            --bundle app/build/outputs/ci-instrumentation --sha "$GITHUB_SHA"
+
+      - name: Upload instrumentation APK bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-instrumentation-apks
+          path: app/build/outputs/ci-instrumentation/
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-instrumentation-apks
+
+  android-instrumented-tests:
+    if: >-
+      !cancelled() && needs.android-instrumentation-apks.result == 'success' &&
+      github.event_name != 'schedule' &&
+      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
+    needs: [change-routing, android-instrumentation-apks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: pixel6Api27Aosp
+            api: 27
+            system-image: default
+          - device: pixel6Api33Atd
+            api: 33
+            system-image: aosp_atd
+          - device: pixel6Api35Google
+            api: 35
+            system-image: google_apis
+          - device: pixel6Api36Google
+            api: 36
+            system-image: google_apis
+          - device: pixel6Api37Google
+            api: 37
+            system-image: google_apis_ps16k
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          setup-java: "false"
+          setup-gradle: "false"
+          setup-rust: "false"
+          setup-sccache: "false"
+          setup-android-ndk: "false"
+
+      - name: Download instrumentation APK bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: android-instrumentation-apks
+          path: ${{ runner.temp }}/instrumentation-apks
+
       - name: Enable KVM for emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -2226,38 +2334,20 @@ jobs:
       - name: Run instrumented tests on ${{ matrix.device }}
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
-          ./gradlew :app:connectedGithubFullDebugAndroidTest \
-            -Pripdpi.nativeAbisOverride=x86_64 \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
-            -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration \
-            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
-            --profile \
-            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          python3 scripts/ci/prebuilt_android_instrumentation.py run \
+            --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
+            --variant githubFullDebug --api ${{ matrix.api }} \
+            --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --test-package com.poyka.ripdpi.integration
 
       - name: Run Simple experience integration on ${{ matrix.device }}
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple
-          # The preceding Full invocation removes AndroidX Test Orchestrator
-          # packages from the shared emulator. Re-run this invocation's task
-          # graph so AGP installs its test utility before starting Simple.
-          ./gradlew :app:connectedGithubSimpleDebugAndroidTest \
-            --rerun-tasks \
-            -Pripdpi.nativeAbisOverride=x86_64 \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
-            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel \
-            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
-            --profile \
-            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          python3 scripts/ci/prebuilt_android_instrumentation.py run \
+            --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
+            --variant githubSimpleDebug --api ${{ matrix.api }} \
+            --results app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple \
+            --test-class com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest#simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel
 
       - name: Validate GitHub Full instrumentation evidence on ${{ matrix.device }}
         run: |
@@ -2298,18 +2388,11 @@ jobs:
         if: matrix.api == 35
         run: |
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
-          ./gradlew :app:connectedGithubFullDebugAndroidTest \
-            -Pripdpi.nativeAbisOverride=x86_64 \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
-            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest \
-            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
-            --profile \
-            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          python3 scripts/ci/prebuilt_android_instrumentation.py run \
+            --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
+            --variant githubFullDebug --api ${{ matrix.api }} \
+            --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --test-class com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest
 
       - name: Validate JNI strategy instrumentation evidence
         if: matrix.api == 35
@@ -2356,19 +2439,12 @@ jobs:
           done
           fixture_port="$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1]))["controlPort"]; assert isinstance(p,int) and 0<p<65536; print(p)' "$evidence_dir/peer-ready.json")"
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
-          ./gradlew :app:connectedGithubFullDebugAndroidTest \
-            --rerun-tasks \
-            -Pripdpi.nativeAbisOverride=x86_64 \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
-            -Pripdpi.prebuiltPluggableTransportAssetsDir="$RUNNER_TEMP/prebuilt-pluggable-transport-assets" \
-            -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}" \
-            -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.e2e.XrayProviderE2ETest \
-            -Pandroid.testInstrumentationRunnerArguments.ripdpi.xrayFixturePort="$fixture_port" \
-            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
-            --profile
+          python3 scripts/ci/prebuilt_android_instrumentation.py run \
+            --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
+            --variant githubFullDebug --api ${{ matrix.api }} \
+            --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --xray-port "$fixture_port" \
+            --test-class com.poyka.ripdpi.e2e.XrayProviderE2ETest
           for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect; do
             python3 scripts/ci/validate_android_junit_results.py \
               app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
@@ -2415,6 +2491,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-latest
@@ -2442,6 +2519,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2488,6 +2566,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
     runs-on: ubuntu-latest
     steps:
@@ -2534,6 +2613,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -2569,6 +2649,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '43 4 * * 3') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_nightly_coverage == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -2940,6 +3021,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -2979,6 +3061,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -3064,6 +3147,7 @@ jobs:
     needs: [change-routing, ci-preflight]
     if: >-
       !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
@@ -3170,6 +3254,7 @@ jobs:
       - rust-criterion-bench
       - phase0-baseline
       - android-macrobenchmark
+      - android-instrumentation-apks
       - android-instrumented-tests
       - rust-loom
       - rust-native-soak
@@ -3247,6 +3332,7 @@ jobs:
                           "build-android-tests",
                           "verify-roborazzi",
                           "gradle-static-analysis",
+                          "android-instrumentation-apks",
                           "android-instrumented-tests",
                       }
                   )

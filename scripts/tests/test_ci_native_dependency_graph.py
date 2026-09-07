@@ -27,6 +27,188 @@ def job_source(name: str) -> str:
 
 
 class NativeDependencyGraphTest(unittest.TestCase):
+    def test_artifact_consumers_require_successful_producers(self) -> None:
+        for name in ("xray-linked-unit-tests", "build-android-debug", "release-verification",
+                     "android-instrumentation-apks", "android-instrumented-tests"):
+            source = job_source(name)
+            dependencies = re.search(r"needs: \[([^\]]+)\]", source)[1].split(", ")
+            condition = source.split("    runs-on:", 1)[0]
+            for dependency in dependencies:
+                if dependency != "change-routing":
+                    self.assertIn(f"needs.{dependency}.result == 'success'", condition, name)
+
+    def test_rust_test_lanes_keep_one_owner_for_unit_tests(self) -> None:
+        scripts = ROOT / "scripts/ci"
+        workspace = (scripts / "run-rust-workspace-tests.sh").read_text()
+        self.assertEqual(2, workspace.count("cargo nextest run --locked"))
+        self.assertEqual(2, workspace.count("--workspace"))
+        self.assertIn("--run-ignored ignored-only", workspace)
+        self.assertIn("test(startup_latency_smoke)", workspace)
+        self.assertIn(
+            "not ((package(=ripdpi-tunnel-core) or package(=ripdpi-dns-resolver)) and test(turmoil_))",
+            workspace,
+        )
+        turmoil = (scripts / "run-rust-turmoil-tests.sh").read_text()
+        self.assertIn("-p ripdpi-tunnel-core -p ripdpi-dns-resolver", turmoil)
+        self.assertIn("binary(=tun_e2e) or test(turmoil_)", turmoil)
+        self.assertIn("--lib turmoil_", turmoil)
+        self.assertIn("--test tun_e2e", turmoil)
+        for name in ("run-rust-relay-interoperability.sh", "run-rust-network-e2e.sh"):
+            source = (scripts / name).read_text()
+            self.assertNotIn("-p local-network-fixture", source)
+            self.assertEqual(2, source.count("-p ripdpi-proxy-runtime --test network_e2e"))
+            self.assertNotIn("-p ripdpi-relay-core", source)
+            self.assertNotIn("-p ripdpi-masque", source)
+        relay = (scripts / "run-rust-relay-interoperability.sh").read_text()
+        self.assertIn("--run-ignored ignored-only", relay)
+        self.assertIn("-- --ignored --nocapture", relay)
+        network_tests = (ROOT / "native/rust/crates/ripdpi-proxy-runtime/tests/network_e2e.rs").read_text()
+        self.assertEqual(6, network_tests.count('#[ignore = "run by the relay interoperability lane"]'))
+        self.assertNotIn("nested_proxy_e2e_enabled", network_tests)
+        combined = (scripts / "run-rust-native-checks.sh").read_text()
+        self.assertIn('bash "$repo_root/scripts/ci/run-rust-workspace-tests.sh"', combined)
+        self.assertIn('bash "$repo_root/scripts/ci/run-rust-turmoil-tests.sh"', combined)
+        self.assertIn("--features socks4", combined)
+        self.assertNotIn("-p local-network-fixture", combined)
+
+    def test_jni_symbol_guard_builds_only_the_consumed_abi(self) -> None:
+        source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text()
+        self.assertIn("rust-targets: aarch64-linux-android", source)
+        self.assertIn(
+            ":core:engine:buildRustNativeLibs -Pripdpi.nativeAbisOverride=arm64-v8a", source
+        )
+
+    def test_android_setup_publishes_platform_tools_for_later_steps(self) -> None:
+        source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text()
+        step = source.split("    - name: Install Android SDK baseline via android CLI\n", 1)[1].split("    - uses:", 1)[0]
+        script = textwrap.dedent(step.split("      run: |\n", 1)[1])
+        script = script.replace("${{ steps.native-toolchain.outputs.compile-sdk }}", "37")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts/ci"
+            scripts.mkdir(parents=True)
+            (scripts / "android-sdk-install.sh").write_text("exit 0\n")
+            shutil.copyfile(ROOT / "scripts/ci/android-emulator-helpers.sh", scripts / "android-emulator-helpers.sh")
+            sdk = root / "SDK with spaces"
+            (sdk / "emulator").mkdir(parents=True)
+            (sdk / "emulator/emulator").write_text("#!/bin/sh\nexit 0\n")
+            (sdk / "emulator/emulator").chmod(0o755)
+            (sdk / "platform-tools").mkdir()
+            adb = sdk / "platform-tools/adb"
+            published = root / "github-path"
+            env = {**os.environ, "PATH": "/bin", "ANDROID_SDK_ROOT": str(sdk),
+                   "ANDROID_HOME": str(sdk), "GITHUB_PATH": str(published)}
+            for present in (True, False):
+                with self.subTest(adb_present=present):
+                    published.write_text("")
+                    if present:
+                        adb.write_text("#!/bin/sh\necho fixture-adb\n")
+                        adb.chmod(0o755)
+                    else:
+                        adb.unlink()
+                    result = subprocess.run(["/bin/bash", "-e", "-o", "pipefail", "-c", script],
+                                            cwd=root, env=env, capture_output=True, text=True, timeout=10)
+                    if not present:
+                        self.assertNotEqual(0, result.returncode)
+                        continue
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    consumer_env = {**env, "PATH": ":".join(published.read_text().splitlines()) + ":/bin"}
+                    consumer = subprocess.run(["/bin/bash", "-c", "adb"], env=consumer_env,
+                                              capture_output=True, text=True, timeout=10)
+                    self.assertEqual(0, consumer.returncode, consumer.stderr)
+                    self.assertEqual("fixture-adb\n", consumer.stdout)
+
+    def test_instrumentation_consumers_use_one_verified_apk_bundle(self) -> None:
+        source = job_source("android-instrumented-tests")
+        self.assertNotIn("./gradlew", source)
+        self.assertIn('setup-java: "false"', source)
+        self.assertIn('setup-gradle: "false"', source)
+        self.assertIn("needs: [change-routing, android-instrumentation-apks]", source)
+        self.assertIn("needs.android-instrumentation-apks.result == 'success'", source)
+        self.assertIn("name: android-instrumentation-apks", source)
+        self.assertEqual(4, source.count("prebuilt_android_instrumentation.py run"))
+        self.assertEqual(4, source.count('--sha "$GITHUB_SHA"'))
+        for api in (27, 33, 35, 36, 37):
+            self.assertIn(f"api: {api}\n", source)
+        producer = job_source("android-instrumentation-apks")
+        self.assertNotIn("matrix:", producer)
+        self.assertEqual(1, producer.count(":app:stageCiInstrumentationApks"))
+        self.assertIn("-Pripdpi.enableAbiSplits=false", producer)
+        self.assertIn("prebuilt_android_instrumentation.py seal", producer)
+        required = job_source("ci-required")
+        self.assertIn("      - android-instrumentation-apks\n", required)
+        self.assertIn('"android-instrumentation-apks",', required)
+
+    def test_baseline_guard_allows_only_registered_jni_inventories(self) -> None:
+        source = job_source("gradle-static-analysis")
+        guard = re.search(
+            r"(?ms)^      - name: Fail if baseline files modified\n.*?^        run: \|\n"
+            r"((?:^          [^\n]*\n|^\n)+)", source,
+        )
+        self.assertIsNotNone(guard)
+        script = textwrap.dedent(guard[1]).replace("${{ github.base_ref }}", "base")
+        inventories = sorted(ROOT.glob("native/rust/crates/*/jni-symbols.baseline"))
+        self.assertEqual(5, len(inventories))
+        cases = [(str(path.relative_to(ROOT)), 0) for path in inventories]
+        cases.extend((path, 1) for path in (
+            "app/detekt-baseline.xml", "app/lint-baseline.xml",
+            "config/file-loc-baseline.json", "config/architecture-health-baseline.json",
+            "native/rust/crates/unknown/jni-symbols.baseline",
+            "native/rust/crates/ripdpi-relay-android/jni-symbols.baseline.backup",
+            "other/native/rust/crates/ripdpi-relay-android/jni-symbols.baseline",
+        ))
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+
+            def git(*args: str) -> None:
+                subprocess.run(
+                    ["git", "-c", "user.name=CI Test", "-c", "user.email=ci@example.invalid",
+                     "-c", "commit.gpgsign=false", *args],
+                    cwd=directory, check=True, capture_output=True, timeout=10,
+                )
+
+            git("init", "-b", "base")
+            git("commit", "--allow-empty", "-m", "Seed")
+            for path, expected in cases:
+                with self.subTest(path=path):
+                    git("update-ref", "refs/remotes/origin/base", "HEAD")
+                    target = directory / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("Changed inventory or baseline\n")
+                    git("add", path)
+                    git("commit", "-m", "Exercise baseline policy")
+                    result = subprocess.run(
+                        ["bash", "-e", "-o", "pipefail", "-c", script],
+                        cwd=directory, capture_output=True, text=True, timeout=10,
+                    )
+                    self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
+            result = subprocess.run(
+                ["bash", "-e", "-o", "pipefail", "-c", script.replace("origin/base", "origin/missing")],
+                cwd=directory, capture_output=True, text=True, timeout=10,
+            )
+            self.assertNotEqual(0, result.returncode, "Git discovery must fail closed")
+
+    def test_jni_inventories_are_checked_before_required_native_upload(self) -> None:
+        source = job_source("rust-native-packaging")
+        start = source.index("      - name: Check packaged JNI export inventories\n")
+        end = source.index("      - name: Upload native artifacts", start)
+        step = source[start:end]
+        self.assertNotIn("if:", step)
+        self.assertNotIn("continue-on-error", step)
+        self.assertIn("bash .github/scripts/check-jni-symbols.sh", step)
+        self.assertIn("$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}", step)
+        for library, crate in (
+            ("ripdpi", "ripdpi-android"), ("ripdpi-tunnel", "ripdpi-tunnel-android"),
+            ("ripdpi-relay", "ripdpi-relay-android"), ("ripdpi-warp", "ripdpi-warp-android"),
+            ("ripdpi-amneziawg", "ripdpi-amneziawg-android"),
+        ):
+            self.assertIn(f"{library} {crate}\n", step)
+            outputs = routing_outputs([f"native/rust/crates/{crate}/jni-symbols.baseline"])
+            self.assertEqual("true", outputs["run_rust_native_ci"])
+        required = job_source("ci-required")
+        self.assertIn("      - rust-native-packaging\n", required)
+        self.assertIn('"rust-native-packaging",', required)
+
     def test_xray_bootstrap_preserves_both_installed_tool_pins(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
         bootstrap = re.search(
@@ -104,7 +286,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
             self.assertIn(f'"{job}",', required)
 
     def test_every_apk_consumer_downloads_verified_xray(self) -> None:
-        for name in ("build-android-debug", "release-verification", "android-instrumented-tests",
+        for name in ("build-android-debug", "release-verification", "android-instrumentation-apks",
                      "phase0-baseline", "android-macrobenchmark", "android-network-e2e",
                      "android-journeys", "android-relay-emulator-smoke"):
             with self.subTest(job=name):
@@ -163,7 +345,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
     def test_instrumented_tests_wait_for_x86_64_and_verified_pt_assets(self) -> None:
         self.assertIn(
             "needs: [change-routing, rust-native-x86_64, pluggable-transport-assets, xray-native]",
-            job_source("android-instrumented-tests"),
+            job_source("android-instrumentation-apks"),
         )
 
     def test_packaging_consumers_wait_for_complete_abi_set(self) -> None:
@@ -236,7 +418,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
             ("build-android-debug", "$RUNNER_TEMP/prebuilt/assetsBin"),
             ("release-verification", "$RUNNER_TEMP/prebuilt-release/assetsBin"),
             (
-                "android-instrumented-tests",
+                "android-instrumentation-apks",
                 "$RUNNER_TEMP/prebuilt-integration/assetsBin",
             ),
         ):
@@ -274,7 +456,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
         for job_name in (
             "build-android-debug",
             "release-verification",
-            "android-instrumented-tests",
+            "android-instrumentation-apks",
         ):
             with self.subTest(job=job_name):
                 source = job_source(job_name)

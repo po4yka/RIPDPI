@@ -179,6 +179,7 @@ internal fun createDiagnosticsServices(
             fileStore =
                 DiagnosticsArchiveFileStore(
                     cacheDir = context.cacheDir,
+                    pcapDirectory = context.filesDir.resolve("pcap"),
                     clock = DiagnosticsArchiveClock { System.currentTimeMillis() },
                 ),
             zipWriter = DiagnosticsArchiveZipWriter(),

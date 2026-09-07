@@ -443,7 +443,7 @@ fn is_valid_connect_udp(request: &Request<()>, allowed_target: SocketAddr) -> bo
         && request.headers().get("capsule-protocol").is_some_and(|value| value == "?1")
 }
 
-fn server_config() -> io::Result<(quinn::ServerConfig, CertificateDer<'static>, String)> {
+pub(crate) fn server_config() -> io::Result<(quinn::ServerConfig, CertificateDer<'static>, String)> {
     let certified = generate_simple_self_signed(vec![SERVER_NAME.to_string()])
         .map_err(|error| io::Error::other(format!("generate MASQUE H3 fixture certificate: {error}")))?;
     let certificate_pem = certified.cert.pem();

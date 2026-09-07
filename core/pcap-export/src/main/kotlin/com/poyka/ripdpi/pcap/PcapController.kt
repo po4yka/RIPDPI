@@ -34,7 +34,7 @@ class PcapController
     ) {
         private val contentResolver: ContentResolver get() = context.contentResolver
 
-        internal val captureDirectory: File
+        val captureDirectory: File
             get() = File(context.filesDir, "pcap")
 
         /**

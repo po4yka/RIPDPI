@@ -88,6 +88,7 @@ def load_metadata(metadata_file: Path | None) -> dict[str, Any]:
         [
             "cargo",
             "metadata",
+            "--locked",
             "--manifest-path",
             str(WORKSPACE_MANIFEST),
             "--format-version",

@@ -237,6 +237,9 @@ where
     ///    $ nc -k -l 80 | hexdump -C
     /// ```
     ///
+    /// # Cancel safety:
+    /// Not cancel-safe: a partial frame can be written. Drop the stream if cancelled.
+    // NOT cancel-safe: cancellation can leave a partial request on the stream.
     async fn request_header(&mut self, cmd: Socks5Command) -> Result<()> {
         let mut packet = [0u8; MAX_ADDR_LEN + 3];
         let padding; // maximum len of the headers sent
@@ -296,7 +299,7 @@ where
 
         // we limit the end of the packet right after the domain + port number, we don't need to print
         // useless 0 bytes, otherwise other protocol won't understand the request (like HTTP servers).
-        self.socket.write(&packet[..padding]).await.context("Can't write request header's packet.")?;
+        self.socket.write_all(&packet[..padding]).await.context("Can't write request header's packet.")?;
 
         self.socket.flush().await.context("Can't flush request header's packet")?;
 
@@ -617,6 +620,23 @@ mod tests {
     use super::*;
     use log::{LevelFilter, Log, Metadata, Record};
     use tokio::io::DuplexStream;
+
+    // cancel-safe: cancellation drops the local mock and protocol state.
+    #[tokio::test(flavor = "current_thread")]
+    async fn request_header_completes_short_writes() {
+        let packet = [5, 1, 0, 1, 127, 0, 0, 1, 1, 187];
+        let socket = tokio_test::io::Builder::new()
+            .write(&packet[..1])
+            .wait(std::time::Duration::from_millis(1))
+            .write(&packet[1..])
+            .build();
+        let mut stream = Socks5Stream {
+            socket,
+            config: Config::default(),
+            target_addr: Some(TargetAddr::Ip("127.0.0.1:443".parse().expect("target"))),
+        };
+        stream.request_header(Socks5Command::TCPConnect).await.expect("complete request");
+    }
 
     struct CapturingLogger {
         messages: Mutex<Vec<String>>,

@@ -38,42 +38,33 @@ class StartLocalNetworkFixtureTest(unittest.TestCase):
         write_executable(
             self.bin_dir / "cargo",
             """\
-            #!/usr/bin/env python3
-            import os
-            import time
-
-            if os.environ.get("FAKE_CARGO_PID"):
-                open(os.environ["FAKE_CARGO_PID"], "w", encoding="utf-8").write(str(os.getpid()))
-
-            while True:
-                time.sleep(1)
+            #!/bin/sh
+            if [ -n "${FAKE_CARGO_PID:-}" ]; then
+                printf '%s\\n' "$$" > "$FAKE_CARGO_PID"
+            fi
+            exec /bin/sleep 3600
             """,
         )
         write_executable(
-            self.bin_dir / "curl",
+            self.bin_dir / "test-env.sh",
             """\
-            #!/usr/bin/env python3
-            import os
-            import sys
-            from pathlib import Path
-
-            url = sys.argv[-1]
-            counter = Path(os.environ["FAKE_CURL_COUNTER"])
-            if url.endswith("/health"):
-                attempts = (
-                    int(counter.read_text(encoding="utf-8")) + 1
-                    if counter.exists()
-                    else 1
-                )
-                counter.write_text(str(attempts), encoding="utf-8")
-                raise SystemExit(0 if attempts >= 65 else 22)
-            if url.endswith("/manifest"):
-                print('{"status":"ready"}')
-                raise SystemExit(0)
-            raise SystemExit(23)
+            # Keep the 65 readiness polls, but avoid a process launch per poll.
+            curl() {
+                local url="${!#}" counter="$FAKE_CURL_COUNTER" attempts=0
+                case "$url" in
+                    */health)
+                        if [[ -f "$counter" ]]; then read -r attempts < "$counter"; fi
+                        attempts=$((attempts + 1))
+                        printf '%s\\n' "$attempts" > "$counter"
+                        [[ "$attempts" -ge 65 ]]
+                        ;;
+                    */manifest) printf '%s\\n' '{"status":"ready"}' ;;
+                    *) return 23 ;;
+                esac
+            }
+            sleep() { :; }
             """,
         )
-        write_executable(self.bin_dir / "sleep", "#!/usr/bin/env bash\nexit 0\n")
 
     def tearDown(self) -> None:
         subprocess.run(
@@ -90,6 +81,7 @@ class StartLocalNetworkFixtureTest(unittest.TestCase):
         env.update(
             {
                 "FAKE_CURL_COUNTER": str(counter),
+                "BASH_ENV": str(self.bin_dir / "test-env.sh"),
                 "PATH": f"{self.bin_dir}:{env['PATH']}",
             }
         )
@@ -148,15 +140,17 @@ class StartLocalNetworkFixtureTest(unittest.TestCase):
         env.update(
             {
                 "FAKE_CURL_COUNTER": str(counter),
+                "BASH_ENV": str(self.bin_dir / "test-env.sh"),
                 "FAKE_CARGO_PID": str(observed_pid),
                 "PATH": f"{self.bin_dir}:{env['PATH']}",
                 "RIPDPI_FIXTURE_STARTUP_TIMEOUT_SECONDS": "2",
             }
         )
-        (self.bin_dir / "curl").write_text(
-            "#!/usr/bin/env bash\nexit 22\n", encoding="utf-8"
+        (self.bin_dir / "test-env.sh").write_text(
+            "curl() { for ((i=0; i<100; i++)); do "
+            "[[ -f \"$FAKE_CARGO_PID\" ]] && break; /bin/sleep 0.01; done; return 22; }\n"
+            "sleep() { :; }\n", encoding="utf-8"
         )
-        (self.bin_dir / "curl").chmod(0o755)
 
         completed = subprocess.run(
             [

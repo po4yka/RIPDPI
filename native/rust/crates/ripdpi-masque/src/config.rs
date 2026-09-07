@@ -103,9 +103,13 @@ impl fmt::Debug for MasqueConfig {
 pub fn resolve_ech_config_via_encrypted_dns(
     host: &str,
     outbound_bind_ip: Option<IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<Option<OutboundEchConfig>> {
-    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns(host, outbound_bind_ip)
-        .map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}")))
+    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns(
+        host,
+        crate::ech::connect_hooks(outbound_bind_ip, socket_protection),
+    )
+    .map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}")))
 }
 
 impl MasqueConfig {
