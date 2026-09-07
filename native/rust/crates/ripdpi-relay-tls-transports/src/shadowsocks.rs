@@ -1,6 +1,8 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use rand::RngExt;
 use ripdpi_network_time::NetworkTimeProvider;
@@ -9,10 +11,45 @@ use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
     UdpPacket,
 };
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
+use tokio::task::AbortHandle;
 
 const BUFFER_SIZE: usize = 65_536;
+
+/// Application endpoint for a Shadowsocks connection.
+/// Write shutdown preserves the response direction. Drop cancels both pumps.
+pub struct ShadowsocksStream {
+    io: DuplexStream,
+    abort: AbortHandle,
+}
+
+impl Drop for ShadowsocksStream {
+    fn drop(&mut self) {
+        // Cancelling the supervisor drops its JoinSet, which aborts both pumps.
+        self.abort.abort();
+    }
+}
+
+impl AsyncRead for ShadowsocksStream {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.io).poll_read(cx, buf)
+    }
+}
+
+impl AsyncWrite for ShadowsocksStream {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.io).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.io).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.io).poll_shutdown(cx)
+    }
+}
 
 #[derive(Clone)]
 pub struct ShadowsocksSessionFactory {
@@ -75,10 +112,13 @@ impl ShadowsocksSessionFactory {
 }
 
 impl RelaySession for ShadowsocksSession {
-    type Stream = tokio::io::DuplexStream;
+    type Stream = ShadowsocksStream;
     type Datagram = ShadowsocksUdpSession;
     type Error = io::Error;
 
+    /// # Cancel safety:
+    /// Cancellation drops owned transport and stream state.
+    // cancel-safe: cancellation closes the owned connection or aborts its pumps.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         connect_tcp(Arc::clone(&self.config), target).await
     }
@@ -176,18 +216,24 @@ impl ShadowsocksUdpSession {
     }
 }
 
+/// # Cancel safety:
+/// Cancellation drops owned transport and stream state.
+// cancel-safe: cancellation closes the owned connection or aborts its pumps.
 pub async fn connect_shadowsocks_tcp(
     factory: &ShadowsocksSessionFactory,
     target: &str,
-) -> io::Result<tokio::io::DuplexStream> {
+) -> io::Result<ShadowsocksStream> {
     connect_tcp(Arc::clone(&factory.config), target).await
 }
 
+/// # Cancel safety:
+/// Cancellation drops owned transport and stream state.
+// cancel-safe: cancellation closes the owned connection or aborts its pumps.
 pub async fn connect_shadowsocks_tcp_over<S>(
     factory: &ShadowsocksSessionFactory,
     transport: S,
     target: &str,
-) -> io::Result<tokio::io::DuplexStream>
+) -> io::Result<ShadowsocksStream>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -198,45 +244,45 @@ pub fn shadowsocks_proxy_target(factory: &ShadowsocksSessionFactory) -> String {
     format!("{}:{}", factory.config.server_host, factory.config.server_port)
 }
 
-async fn connect_tcp(config: Arc<ShadowsocksClientConfig>, target: &str) -> io::Result<tokio::io::DuplexStream> {
+/// # Cancel safety:
+/// Cancellation drops owned transport and stream state.
+// cancel-safe: cancellation closes the owned connection or aborts its pumps.
+async fn connect_tcp(config: Arc<ShadowsocksClientConfig>, target: &str) -> io::Result<ShadowsocksStream> {
     let socket = connect_server(&config).await?;
     connect_tcp_over_transport(config, socket, target).await
 }
 
+/// # Cancel safety:
+/// Cancel-safe: cancellation before the handoff drops the owned transport. There
+/// are no await points after the pumps start; they own both stream directions.
+// cancel-safe: a partial initial write is discarded with the owned transport.
 async fn connect_tcp_over_transport<S>(
     config: Arc<ShadowsocksClientConfig>,
     mut transport: S,
     target: &str,
-) -> io::Result<tokio::io::DuplexStream>
+) -> io::Result<ShadowsocksStream>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let secret = SecretString::new(config.password.clone());
     let (mut encrypt, salt) =
         ShadowsocksTcpCodec::new_encrypt(config.cipher, &secret, config.cipher.is_aead_2022()).map_err(to_io)?;
-    transport.write_all(&salt).await?;
     let request = encode_address(target, &[])?;
-    transport.write_all(&encrypt.encrypt_payload(&request).map_err(to_io)?).await?;
+    let mut initial = salt.clone();
+    initial.extend(if config.cipher.is_aead_2022() {
+        encrypt.encrypt_request_header(NetworkTimeProvider::shared().now_unix_u64(), &request).map_err(to_io)?
+    } else {
+        encrypt.encrypt_payload(&request).map_err(to_io)?
+    });
+    transport.write_all(&initial).await?;
+    transport.flush().await?;
 
-    let mut response_salt = vec![0_u8; config.cipher.salt_len()];
-    transport.read_exact(&mut response_salt).await?;
-    let mut decrypt =
-        ShadowsocksTcpCodec::new_decrypt(config.cipher, &secret, &response_salt, config.cipher.is_aead_2022())
-            .map_err(to_io)?;
     let (app_stream, relay_stream) = tokio::io::duplex(BUFFER_SIZE);
     let (mut app_read, mut app_write) = tokio::io::split(relay_stream);
     let (mut socket_read, mut socket_write) = tokio::io::split(transport);
 
-    // The two pumps each hold one half of the split relay stream, so a single
-    // pump exiting cannot deliver EOF to the application -- the sibling's half
-    // keeps `relay_stream` alive and the application hangs. Whenever either
-    // pump finishes, abort the sibling so the whole relay tears down and the
-    // application half observes EOF too. The application half is a
-    // DuplexStream handoff, which cannot express a write-only half-close: an
-    // upstream exit therefore means the application is gone entirely, and the
-    // pump has already forwarded that close to the server (TLS close_notify /
-    // TCP FIN) before exiting. The pumps own no state that needs graceful
-    // teardown beyond that forwarded close, so abort is safe here.
+    // A successful upstream EOF is a write half-close. Keep receiving the
+    // response; downstream completion or either pump error ends the session.
     let mut pumps = tokio::task::JoinSet::new();
     pumps.spawn(async move {
         let result: io::Result<()> = async {
@@ -255,17 +301,39 @@ where
             }
         }
         .await;
-        result
+        (true, result)
     });
     pumps.spawn(async move {
         let result: io::Result<()> = async {
             let mut encrypted = Vec::new();
+            let mut response_salt = vec![0; config.cipher.salt_len()];
+            let mut first_response = config.cipher.is_aead_2022();
+            if first_response {
+                // SIP022 requires salt and the fixed header in one read.
+                let mut first = vec![0; 11 + 2 * config.cipher.salt_len() + config.cipher.tag_len()];
+                if socket_read.read(&mut first).await? != first.len() {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "short SIP022 initial response"));
+                }
+                response_salt.copy_from_slice(&first[..config.cipher.salt_len()]);
+                encrypted.extend_from_slice(&first[config.cipher.salt_len()..]);
+            } else {
+                socket_read.read_exact(&mut response_salt).await?;
+            }
+            let mut decrypt =
+                ShadowsocksTcpCodec::new_decrypt(config.cipher, &secret, &response_salt, config.cipher.is_aead_2022())
+                    .map_err(to_io)?;
             let mut buffer = [0_u8; 4096];
             loop {
                 // Drain every complete AEAD chunk already buffered.
                 loop {
-                    match decrypt.decrypt_chunk(&encrypted, 0) {
+                    let chunk = if first_response {
+                        decrypt.decrypt_response_header(&encrypted, &salt, NetworkTimeProvider::shared().now_unix_u64())
+                    } else {
+                        decrypt.decrypt_chunk(&encrypted, 0)
+                    };
+                    match chunk {
                         Ok(Some((plain, consumed))) => {
+                            first_response = false;
                             encrypted.drain(..consumed);
                             app_write.write_all(&plain).await?;
                         }
@@ -289,14 +357,17 @@ where
             }
         }
         .await;
-        result
+        (false, result)
     });
-    tokio::spawn(async move {
-        let _ = pumps.join_next().await;
+    let abort = tokio::spawn(async move {
+        if let Some(Ok((true, Ok(())))) = pumps.join_next().await {
+            let _ = pumps.join_next().await;
+        }
         pumps.abort_all();
-    });
+    })
+    .abort_handle();
 
-    Ok(app_stream)
+    Ok(ShadowsocksStream { io: app_stream, abort })
 }
 
 async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStream> {
@@ -417,6 +488,133 @@ mod tests {
     use tokio::io::ReadBuf;
     use tokio::sync::Notify;
 
+    // cancel-safe: cancellation drops the local streams; the test runtime owns the server task.
+    #[tokio::test(flavor = "current_thread")]
+    async fn client_can_send_before_server_response_salt() {
+        let cipher = Cipher::AeadAes128Gcm;
+        let config = Arc::new(ShadowsocksClientConfig {
+            server_host: "192.0.2.1".into(),
+            server_port: 443,
+            cipher,
+            password: "test-credential".into(),
+            outbound_bind_ip: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        });
+        let (transport, mut server) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move {
+            let secret = SecretString::new("test-credential".into());
+            let mut salt = vec![0; cipher.salt_len()];
+            server.read_exact(&mut salt).await.expect("request salt");
+            let mut decoder = ShadowsocksTcpCodec::new_decrypt(cipher, &secret, &salt, false).expect("decoder");
+            for expected in [encode_address("192.0.2.1:443", &[]).expect("address"), b"GET /".to_vec()] {
+                let mut frame = vec![0; 2 + expected.len() + 2 * cipher.tag_len()];
+                server.read_exact(&mut frame).await.expect("client frame");
+                assert_eq!(decoder.decrypt_chunk(&frame, 0).expect("decrypt").expect("chunk").0, expected);
+            }
+            let (mut encoder, mut response) =
+                ShadowsocksTcpCodec::new_encrypt(cipher, &secret, false).expect("encoder");
+            response.extend(encoder.encrypt_payload(b"ok").expect("response"));
+            server.write_all(&response).await.expect("send response");
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            let mut app = connect_tcp_over_transport(config, transport, "192.0.2.1:443").await.expect("connect");
+            app.write_all(b"GET /").await.expect("application request");
+            let mut response = [0; 2];
+            app.read_exact(&mut response).await.expect("application response");
+            assert_eq!(&response, b"ok");
+            server_task.await.expect("server");
+        })
+        .await
+        .expect("client-first protocols must not deadlock");
+    }
+
+    // cancel-safe: cancellation drops local streams; the test runtime owns the server task.
+    #[tokio::test(flavor = "current_thread")]
+    async fn client_half_close_preserves_server_response() {
+        let cipher = Cipher::AeadAes128Gcm;
+        let config = Arc::new(ShadowsocksClientConfig {
+            server_host: "192.0.2.1".into(),
+            server_port: 443,
+            cipher,
+            password: "test-credential".into(),
+            outbound_bind_ip: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        });
+        let (transport, mut server) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move {
+            let secret = SecretString::new("test-credential".into());
+            let (mut encoder, salt) = ShadowsocksTcpCodec::new_encrypt(cipher, &secret, false).expect("encoder");
+            server.write_all(&salt).await.expect("response salt");
+            let mut request = Vec::new();
+            server.read_to_end(&mut request).await.expect("request until FIN");
+            server.write_all(&encoder.encrypt_payload(b"after FIN").expect("response")).await.expect("send response");
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            let mut app = connect_tcp_over_transport(config, transport, "192.0.2.1:443").await.expect("connect");
+            app.write_all(b"GET /").await.expect("request");
+            app.shutdown().await.expect("half close");
+            let mut response = Vec::new();
+            app.read_to_end(&mut response).await.expect("response after FIN");
+            assert_eq!(response, b"after FIN");
+            server_task.await.expect("server");
+        })
+        .await
+        .expect("half-closed exchange");
+    }
+
+    // cancel-safe: the test owns its streams; cancellation drops the observer receiver.
+    #[tokio::test(flavor = "current_thread")]
+    async fn full_application_drop_releases_transport_with_silent_peer() {
+        struct ObservedTransport {
+            inner: tokio::io::DuplexStream,
+            dropped: Option<tokio::sync::oneshot::Sender<()>>,
+        }
+        impl Drop for ObservedTransport {
+            fn drop(&mut self) {
+                if let Some(dropped) = self.dropped.take() {
+                    let _ = dropped.send(());
+                }
+            }
+        }
+        impl AsyncRead for ObservedTransport {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context<'_>,
+                buf: &mut ReadBuf<'_>,
+            ) -> Poll<io::Result<()>> {
+                Pin::new(&mut self.inner).poll_read(cx, buf)
+            }
+        }
+        impl AsyncWrite for ObservedTransport {
+            fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+                Pin::new(&mut self.inner).poll_write(cx, buf)
+            }
+            fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+                Pin::new(&mut self.inner).poll_flush(cx)
+            }
+            fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+                Pin::new(&mut self.inner).poll_shutdown(cx)
+            }
+        }
+        let config = Arc::new(ShadowsocksClientConfig {
+            server_host: "192.0.2.1".into(),
+            server_port: 443,
+            cipher: Cipher::AeadAes128Gcm,
+            password: "test-credential".into(),
+            outbound_bind_ip: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        });
+        let (inner, _silent_peer) = tokio::io::duplex(4096);
+        let (dropped, observed) = tokio::sync::oneshot::channel();
+        let transport = ObservedTransport { inner, dropped: Some(dropped) };
+        let app = connect_tcp_over_transport(config, transport, "192.0.2.1:443").await.expect("connect");
+        drop(app);
+        tokio::time::timeout(std::time::Duration::from_secs(2), observed)
+            .await
+            .expect("full application drop must stop pumps without waiting for the peer")
+            .expect("transport destructor must run");
+    }
+
     /// Regression test (audit H4): a bare IPv6 literal must be rejected with
     /// `InvalidInput` instead of being silently split into a corrupted host
     /// (`"2001:db8:"`) and a bogus port (`1`).
@@ -514,15 +712,10 @@ mod tests {
         server_task.abort();
     }
 
-    /// Regression test for half-close propagation: when the application
-    /// disconnects, the upstream pump must forward the close to the server
-    /// (`AsyncWrite::shutdown`, i.e. TLS close_notify / TCP FIN) BEFORE the
-    /// relay tears down. Before the fix the pump returned on app EOF without
-    /// shutting anything down and the supervisor aborted the sibling, so the
-    /// carrier socket was dropped mid-flight and the server saw a truncated,
-    /// unordered end of stream.
+    /// Explicit application shutdown reaches the carrier before teardown.
+    // cancel-safe: the test runtime owns and drops its transport tasks.
     #[tokio::test]
-    async fn app_disconnect_forwards_shutdown_to_server_before_teardown() {
+    async fn app_shutdown_forwards_shutdown_to_server_before_teardown() {
         let cipher = Cipher::AeadAes128Gcm;
         let credential = "test-credential";
         let config = Arc::new(ShadowsocksClientConfig {
@@ -534,8 +727,7 @@ mod tests {
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         });
 
-        // tokio's DuplexStream shutdown is a no-op, so wrap the transport in a
-        // double that records shutdown calls instead of forwarding them.
+        // Record the ordered shutdown call before transport teardown.
         struct ShutdownRecordingTransport {
             inner: tokio::io::DuplexStream,
             shutdowns: Arc<Notify>,
@@ -590,10 +782,8 @@ mod tests {
         let mut app = connect_tcp_over_transport(config, transport, "192.0.2.1:443").await.expect("connect");
         app.write_all(b"GET /").await.expect("write request");
 
-        // The application goes away entirely; through the DuplexStream handoff
-        // this is the only observable form of write-side close.
-        drop(app);
-
+        app.shutdown().await.expect("application write shutdown");
         server_task.await.expect("server task");
+        drop(app);
     }
 }

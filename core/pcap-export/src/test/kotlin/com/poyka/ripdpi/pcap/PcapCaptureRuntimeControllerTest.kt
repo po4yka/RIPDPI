@@ -5,12 +5,87 @@ import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PcapCaptureRuntimeControllerTest {
+    @Test
+    fun `capture cleanup waits for native start and observes its published lease`() =
+        runTest {
+            val nativeStarted = CompletableDeferred<Unit>()
+            val finishStart = CompletableDeferred<Unit>()
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = {
+                        nativeStarted.complete(Unit)
+                        finishStart.await()
+                        7L
+                    },
+                    stopCapture = { PcapStopResult(true, emptyList()) },
+                )
+            controller.bindTunnel(FakeTunnelBridge(41L))
+            val start = launch { controller.start() }
+            nativeStarted.await()
+            var cleanupEntered = false
+            var activeSetId: Long? = null
+            val cleanup =
+                launch {
+                    controller.withCaptureStorageLock {
+                        cleanupEntered = true
+                        activeSetId = it
+                    }
+                }
+            runCurrent()
+            assertTrue(!cleanupEntered)
+            finishStart.complete(Unit)
+            start.join()
+            cleanup.join()
+            assertEquals(7L, activeSetId)
+            controller.stop()
+        }
+
+    @Test
+    fun `cancellation after native start still publishes a stoppable capture`() =
+        runTest {
+            listOf(false, true).forEach { acquireLease ->
+                lateinit var startJob: Job
+                val stoppedHandles = mutableListOf<Long>()
+                val controller =
+                    PcapCaptureRuntimeController(
+                        startCapture = {
+                            withContext(StandardTestDispatcher(testScheduler)) {
+                                startJob.cancel()
+                                7L
+                            }
+                        },
+                        stopCapture = { handle ->
+                            stoppedHandles += handle
+                            PcapStopResult(true, emptyList())
+                        },
+                    )
+                controller.bindTunnel(FakeTunnelBridge(41L))
+                startJob =
+                    launch {
+                        if (acquireLease) controller.startIfIdle() else controller.start()
+                    }
+                startJob.join()
+
+                assertEquals(PcapCaptureRuntimeState.Recording(7L), controller.state.value)
+                controller.stop()
+                assertEquals(listOf(41L), stoppedHandles)
+            }
+        }
+
     @Test
     fun `start and stop use the live tunnel handle`() =
         runTest {

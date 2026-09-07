@@ -189,3 +189,8 @@ nohup "$emulator_bin" \
 if [[ "$no_wait" != "true" ]]; then
   wait_for_android_boot "$boot_timeout"
 fi
+
+# Enlarge the log ring buffers so a crashed instrumentation process keeps its
+# stack trace in the main and crash buffers until the diagnostics capture runs,
+# instead of being flooded out by GMS boot-time logging.
+adb_cmd_timeout 10 logcat -G 8M >/dev/null 2>&1 || true

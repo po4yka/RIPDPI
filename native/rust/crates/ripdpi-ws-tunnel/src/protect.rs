@@ -18,7 +18,7 @@ pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Re
     stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
 
-    let payload = [b'1'];
+    let payload = *b"1";
     let iov = [IoSlice::new(&payload)];
     let fd = socket.as_raw_fd();
     let fds = [fd];

@@ -22,14 +22,16 @@ tls_catalog_refresh = load_module("tls_catalog_refresh", "scripts/ci/check_tls_c
 
 class TlsCatalogRefreshTest(unittest.TestCase):
     def test_repo_log_matches_catalog(self) -> None:
+        log = tls_catalog_refresh.load_json(tls_catalog_refresh.REFRESH_LOG_PATH)
+        latest_review = max(entry["reviewedAt"] for entry in log["entries"])
         summary = tls_catalog_refresh.validate_refresh_log(
-            tls_catalog_refresh.load_json(tls_catalog_refresh.REFRESH_LOG_PATH),
+            log,
             tls_catalog_refresh.load_json(tls_catalog_refresh.CATALOG_PATH),
             tls_catalog_refresh.load_json(tls_catalog_refresh.ACCEPTANCE_CORPUS_PATH),
             tls_catalog_refresh.load_json(tls_catalog_refresh.ACCEPTANCE_REPORT_PATH),
-            today=date(2026, 6, 22),
+            today=date.fromisoformat(latest_review),
         )
-        self.assertEqual("2026-06-22", summary["latestReviewedAt"])
+        self.assertEqual(latest_review, summary["latestReviewedAt"])
         self.assertEqual(["browser_family_v2", "ech_canary_v1"], summary["profileSetIds"])
         self.assertEqual("phase11_tls_template_acceptance", summary["acceptanceCorpusRef"])
         self.assertEqual("tls_template_acceptance_report", summary["acceptanceReportRef"])

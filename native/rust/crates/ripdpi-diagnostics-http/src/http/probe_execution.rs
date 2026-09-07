@@ -99,7 +99,7 @@ pub fn execute_http_request_with_key_log(
         open_probe_stream_targets_with_options(std::slice::from_ref(target), port, transport, tls_name, &options)
             .map_err(|err| err.to_string())?
             .stream;
-    let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
+    let request = request_head(host_header, port, path, secure);
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;
     let response = read_http_response(&mut stream, MAX_HTTP_BYTES)?;
@@ -138,10 +138,18 @@ pub fn execute_http_request_targets_with_key_log(
     let mut stream = open_probe_stream_targets_with_options(targets, port, transport, tls_name, &options)
         .map_err(|err| err.to_string())?
         .stream;
-    let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
+    let request = request_head(host_header, port, path, secure);
     stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;
     let response = read_http_response(&mut stream, MAX_HTTP_BYTES)?;
     stream.shutdown();
     Ok(response)
+}
+
+fn request_head(host: &str, port: u16, path: &str, secure: bool) -> String {
+    let mut authority = if host.parse::<std::net::Ipv6Addr>().is_ok() { format!("[{host}]") } else { host.to_string() };
+    if port != if secure { 443 } else { 80 } {
+        authority.push_str(&format!(":{port}"));
+    }
+    format!("GET {path} HTTP/1.1\r\nHost: {authority}\r\nAccept: */*\r\nConnection: close\r\n\r\n")
 }

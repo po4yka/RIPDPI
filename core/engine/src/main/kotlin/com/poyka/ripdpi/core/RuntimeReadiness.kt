@@ -2,13 +2,10 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Shared readiness-polling loop for the native runtime wrappers ([RipDpiProxy]
- * and [RipDpiRelay]).
+ * Shared readiness-polling loop for the native proxy, relay, WARP and AmneziaWG wrappers.
  *
  * Each wrapper arms a [CompletableDeferred] startup signal when it creates its
  * native session, then waits for the runtime to announce readiness. The waiting
@@ -52,12 +49,12 @@ internal suspend fun awaitRuntimeReady(
     var pollCount = 0L
     var lastState = "idle"
     var lastEventMessage: String? = null
-    try {
-        withTimeout(timeoutMillis) {
+    val ready =
+        withTimeoutOrNull(timeoutMillis) {
             while (true) {
                 if (startupSignal.isCompleted) {
                     startupSignal.await()
-                    return@withTimeout
+                    return@withTimeoutOrNull Unit
                 }
 
                 val telemetry = pollTelemetry()
@@ -66,7 +63,7 @@ internal suspend fun awaitRuntimeReady(
                 if (telemetry.hasRuntimeReadyEvent()) {
                     startupSignal.complete(Unit)
                     startupSignal.await()
-                    return@withTimeout
+                    return@withTimeoutOrNull Unit
                 }
 
                 pollCount++
@@ -77,7 +74,7 @@ internal suspend fun awaitRuntimeReady(
                 withTimeoutOrNull(pollIntervalMillis) { startupSignal.await() }
             }
         }
-    } catch (_: TimeoutCancellationException) {
+    if (ready == null) {
         val details =
             buildString {
                 append(timeoutMessagePrefix)

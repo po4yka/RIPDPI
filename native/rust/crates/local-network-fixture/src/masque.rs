@@ -50,8 +50,20 @@ pub struct MasqueH2ConnectUdpFixture {
 }
 
 impl MasqueH2ConnectUdpFixture {
+    // cancel-safe: no await points; the returned fixture owns its runtime thread.
     pub async fn start() -> io::Result<Self> {
+        Self::start_fixture(false)
+    }
+
+    /// Reject QUIC immediately for tests of HTTP/2 behavior, without an idle timeout.
+    // cancel-safe: no await points; the returned fixture owns its runtime thread.
+    pub async fn start_refusing_quic() -> io::Result<Self> {
+        Self::start_fixture(true)
+    }
+
+    fn start_fixture(refuse_quic: bool) -> io::Result<Self> {
         let (tls, certificate_pem) = server_tls_config()?;
+        let quic_refusal = if refuse_quic { Some(crate::masque_h3::server_config()?.0) } else { None };
         let observed = Arc::new(Mutex::new(Vec::new()));
         let (addr_tx, addr_rx) = std::sync::mpsc::channel();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -62,12 +74,27 @@ impl MasqueH2ConnectUdpFixture {
                 tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("build MASQUE fixture runtime");
             runtime.block_on(async move {
                 let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind MASQUE H2 fixture");
+                let tcp_address = listener.local_addr().expect("MASQUE fixture local TCP address");
+                if let Some(config) = quic_refusal {
+                    let endpoint = match quinn::Endpoint::server(config, tcp_address) {
+                        Ok(endpoint) => endpoint,
+                        Err(error) => {
+                            let _ = addr_tx.send(Err(error));
+                            return;
+                        }
+                    };
+                    // The fixture runtime stops this task and drops the endpoint on shutdown.
+                    tokio::spawn(async move {
+                        while let Some(incoming) = endpoint.accept().await {
+                            incoming.refuse();
+                        }
+                    });
+                }
                 let udp_echo = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind MASQUE UDP echo fixture");
                 let tcp_echo = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind MASQUE TCP echo fixture");
-                let tcp_address = listener.local_addr().expect("MASQUE fixture local TCP address");
                 let udp_address = udp_echo.local_addr().expect("MASQUE fixture local UDP address");
                 let tcp_echo_address = tcp_echo.local_addr().expect("MASQUE fixture local TCP echo address");
-                addr_tx.send((tcp_address, udp_address, tcp_echo_address)).ok();
+                addr_tx.send(Ok((tcp_address, udp_address, tcp_echo_address))).ok();
                 tokio::spawn(echo_udp(udp_echo));
                 tokio::spawn(echo_tcp(tcp_echo));
                 serve(listener, tls, observed_for_thread, shutdown_rx).await;
@@ -75,7 +102,7 @@ impl MasqueH2ConnectUdpFixture {
         });
 
         let (address, udp_echo_address, tcp_echo_address) =
-            addr_rx.recv().map_err(|error| io::Error::other(format!("fixture failed to start: {error}")))?;
+            addr_rx.recv().map_err(|error| io::Error::other(format!("fixture failed to start: {error}")))??;
         Ok(Self {
             address,
             udp_echo_address,

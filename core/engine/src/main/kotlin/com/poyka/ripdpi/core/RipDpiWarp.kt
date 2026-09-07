@@ -6,12 +6,9 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -373,40 +370,13 @@ class RipDpiWarp(
 
     override suspend fun awaitReady(timeoutMillis: Long) {
         val startupSignal = readinessSignal ?: throw NativeError.NotRunning("WARP")
-        var lastState = "idle"
-        var lastEventMessage: String? = null
-        try {
-            withTimeout(timeoutMillis) {
-                while (true) {
-                    if (startupSignal.isCompleted) {
-                        startupSignal.await()
-                        return@withTimeout
-                    }
-                    val telemetry = pollTelemetry()
-                    lastState = telemetry.state
-                    lastEventMessage = telemetry.nativeEvents.lastOrNull()?.message
-                    if (telemetry.hasRuntimeReadyEvent()) {
-                        startupSignal.complete(Unit)
-                        startupSignal.await()
-                        return@withTimeout
-                    }
-                    // Wait out the poll interval, but wake immediately when a
-                    // native readiness push completes the signal (ADR 0003).
-                    withTimeoutOrNull(ReadyPollIntervalMs) { startupSignal.await() }
-                }
-            }
-        } catch (_: TimeoutCancellationException) {
-            error(
-                buildString {
-                    append("WARP readiness timed out state=")
-                    append(lastState)
-                    lastEventMessage?.let {
-                        append(" lastEvent=")
-                        append(it)
-                    }
-                },
-            )
-        }
+        awaitRuntimeReady(
+            startupSignal = startupSignal,
+            timeoutMillis = timeoutMillis,
+            pollIntervalMillis = ReadyPollIntervalMs,
+            timeoutMessagePrefix = "WARP readiness timed out",
+            pollTelemetry = ::pollTelemetry,
+        )
     }
 
     override suspend fun stop() {
@@ -434,5 +404,3 @@ class RipDpiWarp(
             ?: NativeRuntimeSnapshot.idle(source = "warp")
     }
 }
-
-private fun NativeRuntimeSnapshot.hasRuntimeReadyEvent(): Boolean = nativeEvents.any { it.kind == "runtime_ready" }

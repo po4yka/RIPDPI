@@ -179,7 +179,9 @@ fn parse_cipher_suites(bytes: &[u8]) -> Vec<u16> {
     let cipher_suites_len = u16::from_be_bytes([bytes[index], bytes[index + 1]]) as usize;
     index += 2;
     bytes[index..index + cipher_suites_len]
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
         .collect()
 }

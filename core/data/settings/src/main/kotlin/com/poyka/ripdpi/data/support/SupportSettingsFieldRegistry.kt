@@ -239,7 +239,7 @@ private fun parseUnsupportedMessage(
 ): Any? {
     val bytes = base64Bytes(value)
     return if (MessageLite::class.java.isAssignableFrom(type) && bytes != null) {
-        type.getMethod("parseFrom", ByteArray::class.java).invoke(null, bytes)
+        runCatching { type.getMethod("parseFrom", ByteArray::class.java).invoke(null, bytes) }.getOrNull()
     } else {
         null
     }
