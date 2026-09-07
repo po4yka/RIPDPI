@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/po4yka/ripdpi-vpn-deploy/contract/real-vps-awg-nat-evidence.schema.json",
+  "title": "Real VPS AmneziaWG NAT evidence v4",
+  "$comment": "Structural validation only. Consumers must also run the canonical executable validator for correlation, timestamp ordering, PASS, and recurring-pair semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "sourceSha", "engineIdentity", "clientAcceptance", "startedAtEpoch", "finishedAtEpoch", "generatedAtEpoch", "provenance", "runnerIdSha256", "producerDigests", "classification", "reasonCode", "phases", "captureDigests", "privateLogSha256", "serverDeployment", "rotation", "cleanup"],
+  "properties": {
+    "version": {"const": "real_vps_awg_nat_evidence_v4"},
+    "sourceSha": {"$ref": "#/$defs/sha1"},
+    "engineIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amneziawgGoCommit", "amneziawgGoBinarySha256"],
+      "properties": {
+        "amneziawgGoCommit": {"$ref": "#/$defs/sha1"},
+        "amneziawgGoBinarySha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "clientAcceptance": {"$ref": "#/$defs/clientAcceptance"},
+    "startedAtEpoch": {"type": "integer", "minimum": 1},
+    "finishedAtEpoch": {"type": "integer", "minimum": 1},
+    "generatedAtEpoch": {"type": "integer", "minimum": 1},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executor", "entrypointPath", "invocationId", "invocationAttempt", "sourceArchiveSha256"],
+      "properties": {
+        "executor": {"enum": ["github_actions", "local_systemd"]},
+        "entrypointPath": {"enum": [".github/workflows/real-vps-awg-nat.yml", "scripts/run-real-vps-awg-nat-local.sh"]},
+        "invocationId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "invocationAttempt": {"type": "integer", "minimum": 1},
+        "sourceArchiveSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "runnerIdSha256": {"$ref": "#/$defs/sha256"},
+    "producerDigests": {"$ref": "#/$defs/producerDigests"},
+    "classification": {"enum": ["PASS", "PRODUCT_FAILURE", "INFRA_UNAVAILABLE"]},
+    "reasonCode": {"type": "string", "minLength": 1},
+    "phases": {"type": "array", "items": {"$ref": "#/$defs/phase"}},
+    "captureDigests": {"type": "array", "items": {"$ref": "#/$defs/sha256"}, "uniqueItems": true},
+    "privateLogSha256": {"$ref": "#/$defs/sha256"},
+    "serverDeployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceCurrent", "archiveMatched", "receiptSha256"],
+      "properties": {
+        "sourceCurrent": {"type": "boolean"},
+        "archiveMatched": {"type": "boolean"},
+        "receiptSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "rotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prepared", "oldKeyRejected", "newKeyMatched", "committed", "rolledBack"],
+      "properties": {
+        "prepared": {"type": "boolean"}, "oldKeyRejected": {"type": "boolean"},
+        "newKeyMatched": {"type": "boolean"}, "committed": {"type": "boolean"},
+        "rolledBack": {"type": "boolean"}
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientStopped", "capturesRemoved", "scratchRemoved", "serverTransactionFinalized"],
+      "properties": {
+        "clientStopped": {"type": "boolean"}, "capturesRemoved": {"type": "boolean"},
+        "scratchRemoved": {"type": "boolean"}, "serverTransactionFinalized": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"classification": {"const": "PASS"}}, "required": ["classification"]},
+      "then": {
+        "properties": {
+          "reasonCode": {"const": "NONE"},
+          "sourceSha": {"$ref": "#/$defs/nonzeroSha1"},
+          "runnerIdSha256": {"$ref": "#/$defs/nonzeroSha256"},
+          "privateLogSha256": {"$ref": "#/$defs/nonzeroSha256"},
+          "provenance": {
+            "properties": {
+              "sourceArchiveSha256": {"$ref": "#/$defs/nonzeroSha256"}
+            }
+          },
+          "producerDigests": {
+            "properties": {
+              "runnerSha256": {"$ref": "#/$defs/nonzeroSha256"},
+              "serverControlHookSha256": {"$ref": "#/$defs/nonzeroSha256"},
+              "serverDeployHookSha256": {"$ref": "#/$defs/nonzeroSha256"},
+              "rotationHookSha256": {"$ref": "#/$defs/nonzeroSha256"}
+            }
+          },
+          "engineIdentity": {
+            "properties": {
+              "amneziawgGoCommit": {"$ref": "#/$defs/nonzeroSha1"},
+              "amneziawgGoBinarySha256": {"$ref": "#/$defs/nonzeroSha256"}
+            }
+          },
+          "clientAcceptance": {
+            "properties": {
+              "ripdpiSourceSha": {"$ref": "#/$defs/nonzeroSha1"},
+              "apkSha256": {"$ref": "#/$defs/nonzeroSha256"},
+              "reportSha256": {"$ref": "#/$defs/nonzeroSha256"},
+              "correlationSha256": {"$ref": "#/$defs/nonzeroSha256"},
+              "pass": {"const": true},
+              "outcomes": {
+                "properties": {
+                  "routedTcp": {"const": true},
+                  "routedUdp": {"const": true},
+                  "recovery": {"const": true},
+                  "staleKeyRejected": {"const": true},
+                  "cleanup": {"const": true}
+                }
+              }
+            }
+          },
+          "phases": {
+            "minItems": 5,
+            "maxItems": 5,
+            "prefixItems": [
+              {"$ref": "#/$defs/passDirectControlPhase"},
+              {"$ref": "#/$defs/passInitialConnectPhase"},
+              {"$ref": "#/$defs/passRestartRecoveryPhase"},
+              {"$ref": "#/$defs/passOldKeyRejectionPhase"},
+              {"$ref": "#/$defs/passReloadRotationRecoveryPhase"}
+            ],
+            "items": false
+          },
+          "captureDigests": {
+            "items": {"$ref": "#/$defs/nonzeroSha256"},
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "serverDeployment": {
+            "properties": {
+              "sourceCurrent": {"const": true},
+              "archiveMatched": {"const": true},
+              "receiptSha256": {"$ref": "#/$defs/nonzeroSha256"}
+            }
+          },
+          "rotation": {
+            "properties": {
+              "prepared": {"const": true},
+              "oldKeyRejected": {"const": true},
+              "newKeyMatched": {"const": true},
+              "committed": {"const": true},
+              "rolledBack": {"const": false}
+            }
+          },
+          "cleanup": {
+            "properties": {
+              "clientStopped": {"const": true},
+              "capturesRemoved": {"const": true},
+              "scratchRemoved": {"const": true},
+              "serverTransactionFinalized": {"const": true}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "provenance": {
+            "properties": {"executor": {"const": "github_actions"}},
+            "required": ["executor"]
+          }
+        },
+        "required": ["provenance"]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {"entrypointPath": {"const": ".github/workflows/real-vps-awg-nat.yml"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "provenance": {
+            "properties": {"executor": {"const": "local_systemd"}},
+            "required": ["executor"]
+          }
+        },
+        "required": ["provenance"]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {"entrypointPath": {"const": "scripts/run-real-vps-awg-nat-local.sh"}}
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonzeroSha1": {"type": "string", "pattern": "^(?!0{40}$)[0-9a-f]{40}$"},
+    "nonzeroSha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "clientAcceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "ripdpiSourceSha", "apkSha256", "reportSha256", "correlationSha256", "startedAtEpoch", "finishedAtEpoch", "transport", "pass", "outcomes"],
+      "properties": {
+        "format": {"const": "ripdpi_awg_live_acceptance_v1"},
+        "ripdpiSourceSha": {"$ref": "#/$defs/sha1"},
+        "apkSha256": {"$ref": "#/$defs/sha256"},
+        "reportSha256": {"$ref": "#/$defs/sha256"},
+        "correlationSha256": {"$ref": "#/$defs/sha256"},
+        "startedAtEpoch": {"type": "integer", "minimum": 1},
+        "finishedAtEpoch": {"type": "integer", "minimum": 1},
+        "transport": {"const": "amneziawg"},
+        "pass": {"type": "boolean"},
+        "outcomes": {
+          "type": "object", "additionalProperties": false,
+          "required": ["routedTcp", "routedUdp", "recovery", "staleKeyRejected", "cleanup"],
+          "properties": {
+            "routedTcp": {"type": "boolean"}, "routedUdp": {"type": "boolean"},
+            "recovery": {"type": "boolean"}, "staleKeyRejected": {"type": "boolean"},
+            "cleanup": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "producerDigests": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runnerSha256", "serverControlHookSha256", "serverDeployHookSha256", "rotationHookSha256"],
+      "properties": {
+        "runnerSha256": {"$ref": "#/$defs/sha256"}, "serverControlHookSha256": {"$ref": "#/$defs/sha256"},
+        "serverDeployHookSha256": {"$ref": "#/$defs/sha256"}, "rotationHookSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "probe": {
+      "type": "object", "additionalProperties": false, "required": ["ok", "durationMs"],
+      "properties": {"ok": {"type": "boolean"}, "durationMs": {"type": ["integer", "null"], "minimum": 0}}
+    },
+    "phase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "expected", "tcp", "udp", "server"],
+      "properties": {
+        "id": {"type": "string"}, "expected": {"enum": ["success", "failure"]},
+        "tcp": {"$ref": "#/$defs/probe"}, "udp": {"$ref": "#/$defs/probe"},
+        "server": {"anyOf": [{"$ref": "#/$defs/server"}, {"type": "null"}]}
+      }
+    },
+    "passProbeOk": {
+      "allOf": [
+        {"$ref": "#/$defs/probe"},
+        {"properties": {"ok": {"const": true}, "durationMs": {"type": "integer", "minimum": 0}}}
+      ]
+    },
+    "passProbeRejected": {
+      "allOf": [
+        {"$ref": "#/$defs/probe"},
+        {"properties": {"ok": {"const": false}, "durationMs": {"const": null}}}
+      ]
+    },
+    "passServerHealthy": {
+      "allOf": [
+        {"$ref": "#/$defs/server"},
+        {"properties": {
+          "serviceActive": {"const": true}, "interfaceUp": {"const": true},
+          "deploymentCurrent": {"const": true}, "peerConfigMatched": {"const": true},
+          "handshakeFresh": {"const": true},
+          "peerRxDelta": {"type": "integer", "minimum": 1},
+          "peerTxDelta": {"type": "integer", "minimum": 1},
+          "natPacketDelta": {"type": "integer", "minimum": 1},
+          "natByteDelta": {"type": "integer", "minimum": 1}
+        }}
+      ]
+    },
+    "passServerOldKeyRejected": {
+      "allOf": [
+        {"$ref": "#/$defs/server"},
+        {"properties": {
+          "serviceActive": {"const": true}, "interfaceUp": {"const": true},
+          "deploymentCurrent": {"const": true}, "peerConfigMatched": {"const": true},
+          "handshakeFresh": {"const": false},
+          "peerRxDelta": {"const": 0}, "peerTxDelta": {"const": 0},
+          "natPacketDelta": {"const": 0}, "natByteDelta": {"const": 0},
+          "configGenerationChanged": {"const": true}
+        }}
+      ]
+    },
+    "passDirectControlPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {
+          "id": {"const": "direct_control"}, "expected": {"const": "success"},
+          "tcp": {"$ref": "#/$defs/passProbeOk"}, "udp": {"$ref": "#/$defs/passProbeOk"},
+          "server": {"const": null}
+        }}
+      ]
+    },
+    "passInitialConnectPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {
+          "id": {"const": "initial_connect"}, "expected": {"const": "success"},
+          "tcp": {"$ref": "#/$defs/passProbeOk"}, "udp": {"$ref": "#/$defs/passProbeOk"},
+          "server": {"$ref": "#/$defs/passServerHealthy"}
+        }}
+      ]
+    },
+    "passRestartRecoveryPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {
+          "id": {"const": "restart_recovery"}, "expected": {"const": "success"},
+          "tcp": {"$ref": "#/$defs/passProbeOk"}, "udp": {"$ref": "#/$defs/passProbeOk"},
+          "server": {"allOf": [{"$ref": "#/$defs/passServerHealthy"}, {"properties": {"serviceGenerationChanged": {"const": true}}}]}
+        }}
+      ]
+    },
+    "passOldKeyRejectionPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {
+          "id": {"const": "old_key_rejection"}, "expected": {"const": "failure"},
+          "tcp": {"$ref": "#/$defs/passProbeRejected"}, "udp": {"$ref": "#/$defs/passProbeRejected"},
+          "server": {"$ref": "#/$defs/passServerOldKeyRejected"}
+        }}
+      ]
+    },
+    "passReloadRotationRecoveryPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {
+          "id": {"const": "reload_rotation_recovery"}, "expected": {"const": "success"},
+          "tcp": {"$ref": "#/$defs/passProbeOk"}, "udp": {"$ref": "#/$defs/passProbeOk"},
+          "server": {"$ref": "#/$defs/passServerHealthy"}
+        }}
+      ]
+    },
+    "server": {
+      "type": "object", "additionalProperties": false,
+      "required": ["serviceActive", "interfaceUp", "deploymentCurrent", "peerConfigMatched", "handshakeFresh", "serviceGenerationChanged", "configGenerationChanged", "peerRxDelta", "peerTxDelta", "natPacketDelta", "natByteDelta"],
+      "properties": {
+        "serviceActive": {"type": "boolean"}, "interfaceUp": {"type": "boolean"},
+        "deploymentCurrent": {"type": "boolean"}, "peerConfigMatched": {"type": "boolean"},
+        "handshakeFresh": {"type": "boolean"}, "serviceGenerationChanged": {"type": "boolean"},
+        "configGenerationChanged": {"type": "boolean"},
+        "peerRxDelta": {"type": "integer", "minimum": 0}, "peerTxDelta": {"type": "integer", "minimum": 0},
+        "natPacketDelta": {"type": "integer", "minimum": 0}, "natByteDelta": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
