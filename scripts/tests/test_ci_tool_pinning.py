@@ -93,6 +93,21 @@ class CiToolPinningTest(unittest.TestCase):
         self.assertIn("base64 --decode > \"$bundle_path\"", action)
         self.assertIn('test -s "$bundle_path"', action)
 
+        # Secret-less (dependabot) pull_request runs materialize the committed
+        # CI fixture bundle; every other event still requires the secret.
+        self.assertIn(
+            "if: inputs.embedded-relay-bundle-base64 == '' && github.event_name == 'pull_request'",
+            action,
+        )
+        self.assertIn(
+            "scripts/fixtures/embedded-relay-bundle/ci-fixture.json",
+            action,
+        )
+        self.assertTrue(
+            (ROOT / "scripts/fixtures/embedded-relay-bundle/ci-fixture.json").is_file(),
+            "the CI fixture bundle must be committed next to the action that copies it",
+        )
+
         for job_name in (
             "build-android-tests",
             "verify-roborazzi",
@@ -159,7 +174,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d",
+            "uses: taiki-e/install-action@5bf6ce016fd2e72eefc647cbca1e4213f65955b8",
             source,
         )
         self.assertIn("tool: cargo-fuzz@0.13.1", source)
