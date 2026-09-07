@@ -15,6 +15,13 @@ from pathlib import Path
 
 VARIANTS = {"githubFullDebug": "com.poyka.ripdpi", "githubSimpleDebug": "com.poyka.ripdpi.simple"}
 
+# Emulator-level instrumentation crashes are transient: the target process can
+# die during GMS post-boot memory pressure (CI run 33967607861, API 37
+# pixel6Api37Google). Retry the am instrument invocation a bounded number of
+# times; failed tests and malformed protocol output still fail without retry.
+INSTRUMENTATION_ATTEMPTS = 3
+CRASH_RETRY_DELAY_SECONDS = 5
+
 
 def bundle_file(root, relative):
     path = (root / relative).resolve()
@@ -135,6 +142,11 @@ def parse_results(output):
     return suite
 
 
+def is_instrumentation_process_crash(error: ValueError) -> bool:
+    """Classify an instrumentation-level process death reported by am instrument."""
+    return str(error).startswith("INSTRUMENTATION_RESULT: shortMsg=")
+
+
 def orchestrator_command(target, arguments):
     command = ["am", "instrument", "-w", "-r", "-e", "targetInstrumentation", target]
     for key, value in {"clearPackageData": "true", "coverage": "false", **arguments}.items():
@@ -175,18 +187,39 @@ def run(args):
         arguments = {"class" if args.test_class else "package": args.test_class or args.test_package}
         if args.xray_port:
             arguments["ripdpi.xrayFixturePort"] = str(args.xray_port)
-        output_file = args.results / "instrumentation.txt"
-        # Write output as it arrives so timeouts and runner crashes retain evidence.
-        with output_file.open("w") as output:
-            started = time.monotonic()
-            result = subprocess.run(["adb", "-s", serials[0], "shell", orchestrator_command(targets[0], arguments)],
-                                    stdout=output, stderr=subprocess.STDOUT, timeout=1800)
-        result.check_returncode()
-        suite = parse_results(output_file.read_text())
-        suite.set("time", f"{time.monotonic() - started:.3f}")
-        ET.ElementTree(suite).write(args.results / "TEST-instrumentation.xml", encoding="utf-8", xml_declaration=True)
-        if suite.get("failures") != "0" or suite.get("errors") != "0":
-            raise ValueError("Instrumentation reported failed tests")
+        started = time.monotonic()
+        for attempt in range(1, INSTRUMENTATION_ATTEMPTS + 1):
+            # Write output as it arrives so timeouts and runner crashes retain evidence.
+            # The final attempt owns the canonical instrumentation.txt name so a
+            # hard timeout still leaves evidence where evidence validation looks.
+            output_file = args.results / (
+                "instrumentation.txt" if attempt == INSTRUMENTATION_ATTEMPTS
+                else f"instrumentation.attempt-{attempt}.txt")
+            with output_file.open("w") as output:
+                result = subprocess.run(["adb", "-s", serials[0], "shell", orchestrator_command(targets[0], arguments)],
+                                        stdout=output, stderr=subprocess.STDOUT, timeout=1800)
+            result.check_returncode()
+            try:
+                suite = parse_results(output_file.read_text())
+            except ValueError as error:
+                if attempt < INSTRUMENTATION_ATTEMPTS and is_instrumentation_process_crash(error):
+                    print(f"Instrumentation attempt {attempt} crashed; retrying: {error}", file=sys.stderr)
+                    time.sleep(CRASH_RETRY_DELAY_SECONDS)
+                    continue
+                if attempt != INSTRUMENTATION_ATTEMPTS:
+                    # Deterministic failure on a non-final attempt: keep the
+                    # evidence at the canonical path and stop retrying.
+                    output_file.replace(args.results / "instrumentation.txt")
+                raise
+            if attempt != INSTRUMENTATION_ATTEMPTS:
+                # A completed attempt is canonical regardless of which retry
+                # produced it; earlier crashes stay in attempt-N files.
+                output_file.replace(args.results / "instrumentation.txt")
+            suite.set("time", f"{time.monotonic() - started:.3f}")
+            ET.ElementTree(suite).write(args.results / "TEST-instrumentation.xml", encoding="utf-8", xml_declaration=True)
+            if suite.get("failures") != "0" or suite.get("errors") != "0":
+                raise ValueError("Instrumentation reported failed tests")
+            break
     finally:
         with (args.results / "cleanup.txt").open("w") as output:
             for name in reversed(packages):
