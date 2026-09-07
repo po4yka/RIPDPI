@@ -210,6 +210,21 @@ runs:
         printf '%s' "$EMBEDDED_RELAY_BUNDLE_BASE64" | base64 --decode > "$bundle_path"
         test -s "$bundle_path"
 
+    # Dependabot pull requests run without access to Actions secrets, so the
+    # secret-materialized bundle above stays absent. Fall back to the committed
+    # CI fixture (format-valid placeholder relay profiles) so Simple-variant
+    # builds and instrumented runs still work on pull requests. Real releases
+    # run on push/tag/dispatch events and keep requiring the secret bundle.
+    - name: Materialize embedded relay bundle CI fixture
+      if: inputs.embedded-relay-bundle-base64 == '' && github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        set -euo pipefail
+        bundle_path="app/src/simple/assets/embedded-relay-bundle.json"
+        install -d "$(dirname "$bundle_path")"
+        cp "${{ github.workspace }}/scripts/fixtures/embedded-relay-bundle/ci-fixture.json" "$bundle_path"
+        test -s "$bundle_path"
+
     - name: Restore shared Gradle build cache (read-only)
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only == 'true'
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
