@@ -292,6 +292,7 @@ capture_android_emulator_diagnostics() {
 
   mkdir -p "$output_dir"
   : > "$logcat_file"
+  : > "$output_dir/android-logcat-crash.txt"
   : > "$output_dir/adb-devices.txt"
   : > "$output_dir/device-getprop.txt"
   : > "$output_dir/package-manager-health.txt"
@@ -333,6 +334,9 @@ capture_android_emulator_diagnostics() {
     adb_cmd_timeout 10 shell getprop >"$output_dir/device-getprop.txt" 2>&1 || true
     adb_cmd_timeout 5 shell pm path android >"$output_dir/package-manager-health.txt" 2>&1 || true
     adb_cmd_timeout 15 logcat -d >"$logcat_file" 2>&1 || true
+    # The crash buffer survives main-buffer rotation and keeps the stack trace
+    # of an instrumentation process crash that the main buffer already lost.
+    adb_cmd_timeout 15 logcat -d -b crash >"$output_dir/android-logcat-crash.txt" 2>&1 || true
   fi
 }
 
