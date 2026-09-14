@@ -2,7 +2,7 @@
 agp = "9.4.0"
 benchmark = "1.4.1"
 kotlin-compose = "2.4.10"
-ksp = "2.3.11"
+ksp = "2.3.12"
 hilt = "2.60.1"
 hilt-lifecycle-viewmodel-compose = "1.4.0"
 core-ktx = "1.19.0"
