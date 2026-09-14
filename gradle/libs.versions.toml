@@ -1,6 +1,6 @@
 [versions]
 agp = "9.4.0"
-benchmark = "1.4.1"
+benchmark = "1.5.0"
 kotlin-compose = "2.4.10"
 ksp = "2.3.11"
 hilt = "2.60.1"
