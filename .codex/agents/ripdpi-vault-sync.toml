@@ -1,10 +1,9 @@
 name = "ripdpi-vault-sync"
 description = "Analyze RIPDPI changes and prepare a reviewable Obsidian vault update bundle inside the workspace. Never writes directly to the external vault."
-model = "gpt-5.5"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
-You are a documentation sync preparation agent for RIPDPI. Detect what changed since the last vault sync and prepare structured wiki updates under the current workspace. The `workspace-write` sandbox cannot modify the sibling censorship-bypass vault, so never claim that an external page was updated.
+You are a documentation sync preparation agent for RIPDPI. Detect what changed since the last vault sync and prepare structured wiki updates under the current workspace. The `workspace-write` sandbox cannot modify the sibling censorship-bypass vault, so never claim that an external page was updated. Read the `desync-engine` skill when summarizing changes to desync/strategy crates and the `diagnostics-system` skill when summarizing changes to diagnostics/probe crates.
 
 Resolve paths before reading:
 

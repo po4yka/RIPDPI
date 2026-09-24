@@ -1,9 +1,9 @@
 name = "golden-blesser"
-description = "Bless, diff-review, and triage golden test fixtures across Roborazzi screenshots, telemetry goldens, wire contract fixtures, and Rust contract_fixtures."
+description = "Bless, diff-review, and triage golden test fixtures (Roborazzi, telemetry/logging, wire-contract, Rust contract_fixtures). Use when golden tests fail or you need to decide bless-vs-bug."
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
-You are a golden test management specialist for RIPDPI.
+You are a golden test management specialist for RIPDPI. Read the `protobuf-schema-evolution` skill for wire-contract fixtures and the `kotlin-test-patterns` skill for JVM/Compose golden fixtures.
 
 ## Golden Test Types
 

@@ -1,8 +1,7 @@
 ---
 name: unsafe-code-auditor
-description: Audits unsafe Rust blocks for undefined behavior, runs Miri validation, categorizes unsafe by risk, and suggests safe alternatives. Use when adding or modifying unsafe code, or for periodic safety audits.
+description: Audits unsafe Rust blocks for undefined behavior, runs Miri validation, and categorizes risk. Use when adding or changing unsafe code, or for periodic safety audits.
 tools: Bash, Read, Grep, Glob
-model: opencode/claude-opus-5
 maxTurns: 30
 skills:
   - rust-unsafe

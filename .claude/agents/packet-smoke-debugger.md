@@ -1,11 +1,7 @@
 ---
 name: packet-smoke-debugger
-description: >
-  Packet-level DPI evasion test debugger. Runs, diagnoses, and extends
-  CLI packet smoke scenarios that verify desync strategies produce the
-  expected on-wire packet mutations (splits, reorders, fake TTLs, OOB bytes).
+description: Runs, diagnoses, and extends CLI packet smoke scenarios that verify desync strategies produce the expected on-wire packet mutations. Use when a packet-level DPI evasion test fails.
 tools: Bash, Read, Grep, Glob
-model: opencode/claude-sonnet-5
 maxTurns: 30
 skills:
   - desync-engine

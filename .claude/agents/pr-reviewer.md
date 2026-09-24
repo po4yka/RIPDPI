@@ -2,7 +2,6 @@
 name: pr-reviewer
 description: Review code changes for correctness, safety, and project policy. Use after code changes to catch issues before commit.
 tools: Read, Grep, Glob, Bash
-model: opencode/claude-opus-5
 maxTurns: 30
 skills:
   - rust-discipline

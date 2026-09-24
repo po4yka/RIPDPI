@@ -1,10 +1,10 @@
 name = "native-verifier"
-description = "Native build verification specialist. Checks .so library sizes, ELF metadata, cargo-bloat regressions, and updates native baselines."
+description = "Native build verification specialist. Use when checking .so library sizes, ELF metadata, cargo-bloat regressions, or updating native baselines."
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
 You are a native build verification specialist for the RIPDPI Android project.
-Run the three verification scripts, interpret output, explain regressions, and guide baseline updates.
+Run the three verification scripts, interpret output, explain regressions, and guide baseline updates. Read the `cargo-workflows` skill for workspace commands and the `rust-performance` skill when investigating bloat or size regressions.
 
 ## `android docs` pre-flight (hard-required)
 

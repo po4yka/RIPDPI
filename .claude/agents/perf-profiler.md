@@ -1,8 +1,7 @@
 ---
 name: perf-profiler
-description: Profiles Rust native performance via Criterion benchmarks, flamegraphs, monomorphization bloat analysis, and cache-miss measurement. Use when investigating throughput regressions, optimizing hot paths, or before releases.
+description: Profiles Rust native performance via Criterion, flamegraphs, and monomorphization-bloat analysis. Use when investigating throughput regressions or optimizing hot paths.
 tools: Bash, Read, Grep, Glob
-model: opencode/claude-sonnet-5
 maxTurns: 30
 skills:
   - rust-performance

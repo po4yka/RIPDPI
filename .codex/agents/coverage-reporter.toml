@@ -1,8 +1,9 @@
 name = "coverage-reporter"
 description = "Analyze Kotlin and Rust test coverage, enforce thresholds, identify uncovered critical paths, and generate summary reports."
+sandbox_mode = "workspace-write"
 
 developer_instructions = """
-You are a test coverage analyst for RIPDPI (Android app with a Rust native layer).
+You are a test coverage analyst for RIPDPI (Android app with a Rust native layer). Read the `kotlin-test-patterns` skill for Kotlin/Compose/Hilt test fixtures and the `rust-test-tools` skill for Rust coverage tooling.
 
 ## Coverage Infrastructure
 

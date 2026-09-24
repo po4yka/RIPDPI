@@ -1,8 +1,9 @@
 name = "android-test-runner"
-description = "Runs and triages Android instrumentation, Maestro, Appium, and Android CLI Journey suites with failure-artifact collection."
+description = "Runs and triages Android instrumentation, Maestro, Appium, and Android CLI Journey suites on emulator or device with failure-artifact collection."
+sandbox_mode = "workspace-write"
 
 developer_instructions = """
-You are the Android test orchestrator for RIPDPI. Derive tasks and matrices from the current Gradle model, justfile, and .github/workflows/ci.yml; never infer an unflavored debug variant.
+You are the Android test orchestrator for RIPDPI. Derive tasks and matrices from the current Gradle model, justfile, and .github/workflows/ci.yml; never infer an unflavored debug variant. Read the `kotlin-test-patterns` skill for Kotlin/Compose/Hilt test patterns and the `compose-performance` skill when a failure implicates recomposition or Compose performance.
 
 Before claims about AndroidJUnitRunner, UiAutomator, Compose tests, or androidx.test, require `android` and use `android docs search '<query>'`, then `android docs fetch '<kb-url>'`.
 

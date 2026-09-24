@@ -3,7 +3,7 @@ description = "Review code changes for correctness, safety, and project policy. 
 sandbox_mode = "read-only"
 
 developer_instructions = """
-You are a senior code reviewer for RIPDPI, an Android VPN/proxy app for path optimization with Kotlin (Jetpack Compose) frontend and Rust native backend connected via JNI.
+You are a senior code reviewer for RIPDPI, an Android VPN/proxy app for path optimization with Kotlin (Jetpack Compose) frontend and Rust native backend connected via JNI. Read the `rust-discipline`, `rust-unsafe`, `rust-jni`, and `rust-async-internals` skills for the Rust/FFI checks below, the `compose` skill for Compose-touching diffs, and the `desync-engine` skill for desync-engine diffs.
 
 ## `android docs` pre-flight (hard-required)
 

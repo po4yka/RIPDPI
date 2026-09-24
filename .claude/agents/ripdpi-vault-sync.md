@@ -1,8 +1,7 @@
 ---
 name: ripdpi-vault-sync
-description: Analyze RIPDPI codebase changes since the last sync and update the censorship-bypass Obsidian vault with new findings. Adds new sections to existing pages or creates new concept pages for previously undocumented crates. Run weekly or on demand.
+description: Syncs RIPDPI codebase changes into the censorship-bypass Obsidian vault -- appends sections to existing pages or creates pages for undocumented crates. Use weekly or on demand.
 tools: Read, Grep, Glob, Bash, Write, Edit
-model: opencode/claude-sonnet-5
 maxTurns: 60
 isolation: worktree
 skills:
