@@ -1,6 +1,6 @@
 ---
 name: convention-plugin-development
-description: Gradle convention plugins, shared build policy, diagnostics catalog generation, and AGP APIs.
+description: Author or modify a build-logic convention plugin. Use when changing plugin internals, the diagnostics catalog, or Rust-native wiring. Not for adding a dependency/module (gradle-build-system) or version bumps (dependency-update).
 ---
 
 ## 1. Plugin Architecture
@@ -64,6 +64,7 @@ diagnostics catalog renderer uses it at task execution time.
 | `ripdpi.android.jacoco` | `ripdpi.android.jacoco.gradle.kts` | JaCoCo setup: excludes generated/Hilt/proto classes, registers `jacocoDebugUnitTestReport` task |
 | `ripdpi.android.roborazzi` | `ripdpi.android.roborazzi.gradle.kts` | Screenshot testing: enables Android resources in unit tests, sets output dir to `src/test/screenshots` |
 | `ripdpi.diagnostics.catalog` | `ripdpi.diagnostics.catalog.gradle.kts` | Registers `generateDiagnosticsCatalog` and `checkDiagnosticsCatalog` tasks. See section 3 |
+| `ripdpi.android.test` | `ripdpi.android.test.gradle.kts` | Configures `com.android.test` modules (currently `:baselineprofile`); wires the shared Gradle Managed Device registry |
 
 ### Helper Kotlin Files (not plugins)
 
@@ -110,63 +111,12 @@ as an `@Input` to force re-execution when the generation date changes.
 
 ## 4. Rust-Native Plugin
 
-`ripdpi.android.rust-native.gradle.kts` is the most complex plugin. It cross-compiles
-Rust crates into Android `.so` libraries.
+`ripdpi.android.rust-native.gradle.kts` is the largest and most volatile convention plugin: it cross-compiles the Rust workspace into Android `.so` libraries, the root-helper executable, naive-proxy and Cloudflare-origin binaries, and pluggable-transport assets.
 
-### Cargo Invocation
+- Two task classes do the work: `BuildRustNativeLibsTask` (Cargo-built artifact groups -- `.so` libraries, root-helper, naive-proxy, Cloudflare-origin) and `BuildPluggableTransportAssetsTask` (assets built from `native/pluggable-transports/sources.json`). Both are `@CacheableTask`.
+- Artifact groups are declared as pipe-delimited `"<cargo-package>|<cargo-output>|<output-name>"` triples in separate `rustNativeArtifactSpecs`, `rustRootHelperArtifactSpecs`, `rustNaiveProxyArtifactSpecs`, and `rustCloudflareOriginArtifactSpecs` lists near the bottom of the plugin file. Read them directly before changing or reasoning about which artifacts get built -- this set changes independently of the skill and is not reproduced here.
 
-The `BuildRustNativeLibsTask` is a `@CacheableTask` that:
-
-1. Validates all requested ABIs have installed Rust targets (`rustup target list --installed`)
-2. Resolves the NDK toolchain bin directory for the host platform (linux-x86_64, darwin-arm64, etc.)
-3. Builds all ABIs **in parallel** using a thread pool capped to available CPUs
-4. For each ABI, sets environment variables: `CC_<target>`, `AR_<target>`, `CARGO_TARGET_<target>_LINKER`, `CARGO_TARGET_DIR`
-5. Runs `cargo build --manifest-path ... -p <package> --locked --target <triple> --profile <profile> --jobs <n>`
-6. Copies output `.so` files to `build/generated/jniLibs/<abi>/`
-
-### ABI Mapping
-
-| Android ABI | Rust Target Triple | Clang Target Prefix |
-|---|---|---|
-| `armeabi-v7a` | `armv7-linux-androideabi` | `armv7a-linux-androideabi` |
-| `arm64-v8a` | `aarch64-linux-android` | `aarch64-linux-android` |
-| `x86` | `i686-linux-android` | `i686-linux-android` |
-| `x86_64` | `x86_64-linux-android` | `x86_64-linux-android` |
-
-### Profile Selection (NativeBuildPolicy.kt)
-
-- **CI or release-like builds**: uses `ripdpi.nativeCargoProfile` (default: `android-jni`)
-- **Local dev builds**: uses `ripdpi.localNativeCargoProfileDefault` (default: `android-jni-dev`) for faster iteration
-- **ABI narrowing**: local builds default to `arm64-v8a` only (`ripdpi.localNativeAbisDefault`), CI builds compile all four ABIs
-
-The detection logic is in `resolvedNativeCargoProfile()` and `resolvedNativeAbis()` in
-`NativeBuildPolicy.kt`. A build is considered "release-like" if any task name contains
-"release", "bundle", or "publish".
-
-### Task Wiring
-
-The plugin hooks `buildRustNativeLibs` into AGP's JNI packaging pipeline by making
-`merge*JniLibFolders`, `copy*JniLibsProjectOnly`, `merge*NativeLibs`, and `preBuild`
-depend on it. This ensures Rust source changes trigger repackaging even when Android
-sources are unchanged.
-
-### Artifact Specs
-
-Artifacts are declared as pipe-delimited strings: `"<cargo-package>|<cargo-output>|<jniLibs-name>"`.
-Current artifacts:
-- `ripdpi-android|libripdpi_android.so|libripdpi.so`
-- `ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so`
-
-### Cache Invalidation
-
-The task's `@InputFiles` include:
-- `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`
-- The entire `.cargo/` directory
-- All source directories for crates listed in `rustNativePackageDirs` (excluding `target/`)
-
-Keep `rustNativePackageDirs` aligned with the actual dependency closure of the JNI crates.
-If a new crate is added that `ripdpi-android` or `ripdpi-tunnel-android` depends on,
-add its directory name to the list or Gradle will skip the Rust rebuild when that crate changes.
+For the Cargo invocation sequence, ABI-to-target-triple mapping, profile selection, task wiring into AGP's packaging pipeline, and cache-input tracking, read `references/rust-native.md`.
 
 ## 5. Adding a New Convention Plugin
 
@@ -228,10 +178,10 @@ for legacy debt.
 
 ### Rust-Native Cache Misses
 
-If the Rust build runs unexpectedly:
-1. Check if a crate directory is missing from `rustNativePackageDirs`
-2. Check if `Cargo.lock` changed (dependency update triggers rebuild)
-3. Verify the profile selection logic -- local dev should use `android-jni-dev`
+If the Rust build runs unexpectedly, or skips when a rebuild was expected:
+1. Every Rust-native task's `@InputFiles` tracks the whole `native/rust/crates/` tree, `Cargo.lock`, `rust-toolchain.toml`, `.cargo/`, and `vendor/` automatically -- there is no manually maintained per-crate allowlist to fall out of sync. See `references/rust-native.md` for the exact input set.
+2. Check if `Cargo.lock` changed (a dependency update triggers a rebuild).
+3. Verify the profile selection logic -- local dev should use `android-jni-dev`.
 
 ### Protobuf Plugin
 
@@ -239,3 +189,8 @@ The project deliberately avoids the `protobuf-gradle-plugin` and instead uses a 
 `GenerateProtoLiteSourcesTask` that downloads protoc as a detached configuration and
 runs it directly. This avoids version conflicts and configuration-cache issues with the
 official plugin.
+
+## See Also
+
+- `gradle-build-system` skill -- everyday dependency/module lookups and build-failure triage; start there before this deeper reference.
+- `dependency-update` skill -- version-catalog and cross-ecosystem (Gradle + Cargo) update workflows.

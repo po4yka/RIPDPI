@@ -1,6 +1,6 @@
 ---
 name: ci-workflow-authoring
-description: GitHub Actions authoring for workflows, CI jobs, caches, artifacts, and failure triage.
+description: Add or modify a GitHub Actions job. Use when editing a file under .github/workflows/. Not for running a workflow locally (local-ci-act) or release signing (release-signing).
 ---
 
 # CI Workflow Authoring
@@ -51,7 +51,7 @@ If you add a new manual-only lane, wire its input into both the job `if:` condit
 
 Checklist:
 
-1. Decide whether the job belongs in `ci.yml`, `release.yml`, `mutation-testing.yml`, or `codeql.yml`.
+1. Decide which workflow the job belongs in -- inspect `.github/workflows/` for the current file list and pick the nearest match; the repo has grown well past a small fixed set and this skill does not maintain a second inventory of it.
 2. Copy environment setup from the nearest existing job instead of inventing a new setup pattern.
 3. Read the NDK version from `gradle.properties`; never hardcode it in YAML.
 4. Add `timeout-minutes` unless the job is trivially short.
@@ -86,18 +86,14 @@ my-new-job:
 - Kotlin/Java analysis remains disabled; re-check the current workflow comment and active Kotlin version before changing that decision.
 - If re-enabling Kotlin analysis, restore explicit Android/JDK build steps rather than assuming the default CodeQL autobuild is enough.
 
-## Release Workflow (`release.yml`)
+## Release Workflows (`release-candidate.yml`, `release.yml`)
 
-Triggered by `v*` tags or manual dispatch.
+These are two separate workflows with different triggers -- do not conflate them:
 
-Key behaviors:
+- `release-candidate.yml` is `workflow_dispatch`-triggered. It decodes the base64 keystore secret and runs the flavor-qualified Play/Fdroid/Github release tasks to produce a signed candidate artifact.
+- `release.yml` is triggered only by `v*` tag pushes (no manual dispatch). It verifies the tag against an already-successful `release-candidate.yml` run and promotes that exact, already-signed candidate; it never touches the keystore secret and never runs an assemble task itself.
 
-1. Decode the base64 keystore secret.
-2. Run the flavor-qualified Play/Fdroid/Github release tasks defined in `release.yml`.
-3. Upload AAB, APK, mapping files, compose mapping, and native symbols.
-4. Optionally create a GitHub Release.
-
-See `release-signing` for signing and R8 details.
+This skill owns CI job authoring, not the release contract. For signing, R8 keep-rule, and versioning details, read the `release-signing` skill; for the gated multi-phase prepare-integrate-produce-publish procedure and its authorization boundaries, read the `ripdpi-release` skill.
 
 ## Mutation Testing Workflow (`mutation-testing.yml`)
 
@@ -118,6 +114,6 @@ See `release-signing` for signing and R8 details.
 
 ## See Also
 
-- `.github/skills/local-ci-act/SKILL.md` -- Local workflow execution with `act`
-- `.github/skills/release-signing/SKILL.md` -- Release signing and R8 details
-- `.github/skills/dependency-update/SKILL.md` -- Version changes that affect workflow setup
+- `local-ci-act` skill -- local workflow execution with `act`.
+- `release-signing` skill -- release signing and R8 details.
+- `dependency-update` skill -- version changes that affect workflow setup.

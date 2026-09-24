@@ -1,26 +1,27 @@
 ---
 name: r8-jni-keep-rules
-description: R8 and ProGuard keep rules for serializable routes, JNI bindings, protobufs, and minification.
+description: Author the narrowest R8/ProGuard keep rule for a JNI binding, serializable nav route, or proto-lite class. Use when adding one of those or triaging missing_rules.txt after a release build.
 ---
 
 # R8 / JNI Keep-Rule Authoring
 
-Release builds minify the app via R8. Three failure modes are common:
+Release builds minify the app via R8. Four failure modes are common:
 
 1. A native method loses its exact symbol name, and `System.loadLibrary` can't resolve the JNI signature → runtime `UnsatisfiedLinkError`.
 2. A `kotlinx.serialization` `@Serializable` class loses its generated `$$serializer` or companion, and Navigation Compose type-safe route encode/decode fails → runtime `SerializationException` on nav transition.
 3. A proto-lite class is renamed, and DataStore can't rehydrate persisted settings → runtime crash on first launch of the minified build.
+4. A Kotlin interface method that native code invokes *by name* via JNI `call_method` (not the reverse -- no `external fun` involved) loses its name because nothing in Kotlin calls it, and the native runtime's callback silently no-ops or crashes at the JNI boundary.
 
 The project keeps keep-rules narrow on purpose. Read the hard rule first:
 
-> Do **not** paste `missing_rules.txt` suggestions verbatim. Add the **smallest** rule that names the exact compatibility boundary. No blanket `-keep class **` or `-dontwarn **` — the reviewer will push back.
+> If a future minified build fails, add the smallest rule that names the exact compatibility boundary. Do not paste missing_rules.txt suggestions verbatim and do not add blanket -dontwarn or -keep rules.
 > — `app/proguard-rules.pro:8-10`
 
 ## Where keep-rules live
 
 | File | Scope | Contains |
 |---|---|---|
-| `core/engine/consumer-rules.pro` | JNI boundary for the native engine | `RipDpiProxyNativeBindings`, `Tun2SocksNativeBindings`, `NetworkDiagnosticsNativeBindings` — `-keepclasseswithmembernames` + `native <methods>;` only |
+| `core/engine/consumer-rules.pro` | JNI boundary for the native engine | `-keepclasseswithmembernames` + `native <methods>;` blocks for each native-binding class (read the file for the current list), plus interface keep-blocks for Kotlin callbacks native code invokes by name (see below) |
 | `core/data/consumer-rules.pro` | Proto-lite compatibility surface | `com.poyka.ripdpi.proto.**` keep |
 | `app/proguard-rules.pro` | App-level shims (intentionally tiny) | Only Guava j2objc `-dontwarn` today |
 
@@ -32,7 +33,7 @@ The project keeps keep-rules narrow on purpose. Read the hard rule first:
 
 When you add a class with `external fun` members called from Rust:
 
-1. Add the class to `core/engine/consumer-rules.pro` following the exact pattern of the three existing entries.
+1. Add the class to `core/engine/consumer-rules.pro` following the exact pattern of the existing entries.
 2. Keep the rule to `-keepclasseswithmembernames` + `native <methods>;` only. Do **not** add `-keep class` (full class preservation) — only the native method names need to survive shrinking, the higher-level Kotlin wrapper does not.
 3. Verify the native method signatures resolve post-shrink with the affected flavor-qualified release task, then launch that artifact and trigger the new binding.
 
@@ -43,6 +44,24 @@ When you add a class with `external fun` members called from Rust:
     native <methods>;
 }
 ```
+
+### Adding a Kotlin callback invoked by name from native code
+
+A fourth boundary shape, distinct from the JNI-native-method binding above: a Kotlin interface method that native code invokes **by name** via JNI `call_method` -- no `external fun` is involved, and nothing in Kotlin itself calls the method, so R8 has no reachability evidence and will strip or rename it.
+
+1. Keep the interface method and every implementor's override, not the whole class:
+   ```proguard
+   -keep interface com.poyka.ripdpi.core.YourCallback {
+       void yourMethod();
+   }
+   -keepclassmembers class * implements com.poyka.ripdpi.core.YourCallback {
+       void yourMethod();
+   }
+   ```
+2. The `implements` wildcard form covers every implementor, including a SAM-lambda registration, not just a named class.
+3. Add a comment above the rule naming the native call site that invokes the method by name, so a future reader doesn't mistake it for dead code and delete it.
+
+**Anchor example** (`core/engine/consumer-rules.pro`): `RuntimeReadinessListener` -- the native runtime invokes `onRuntimeReady()` by name via JNI `call_method`; it is never called from Kotlin, so R8 would otherwise strip or rename it. `SshProbeSocketController`'s `protectSocket(int)` follows the same pattern.
 
 ### Adding a new `@Serializable` navigation route
 

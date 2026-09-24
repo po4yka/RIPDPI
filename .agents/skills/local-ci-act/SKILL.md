@@ -1,6 +1,6 @@
 ---
 name: local-ci-act
-description: Local GitHub Actions checks with act and workflow wiring triage on macOS.
+description: Run GitHub Actions workflows locally with act on macOS. Use when validating workflow wiring or a job before pushing. Not for authoring the workflow itself (ci-workflow-authoring).
 ---
 
 # Local CI with act
@@ -30,7 +30,8 @@ These jobs exist in CI but are not curated by the wrapper yet:
 | `release-verification` | Likely | use the flavor-qualified release tasks from the current workflow |
 | `cli-packet-smoke` | Maybe | `bash scripts/ci/run-cli-packet-smoke.sh` |
 | `rust-turmoil` | Likely | `bash scripts/ci/run-rust-turmoil-tests.sh` |
-| `coverage` | Heavy | `./gradlew coverageReport` plus the CI-scoped `bash scripts/ci/run-rust-coverage.sh` |
+| `kotlin-coverage` | Heavy | `./gradlew coverageReport` |
+| `rust-coverage` | Heavy | the CI-scoped `bash scripts/ci/run-rust-coverage.sh` |
 | `rust-criterion-bench` | Likely | `cd native/rust && cargo bench --locked --package ripdpi-bench` |
 | `android-macrobenchmark` | No | Needs emulator/KVM; use GitHub CI or a native Linux host |
 | `android-instrumented-tests` | No | GMD instrumented-test matrix; needs emulator/KVM -- use GitHub CI |

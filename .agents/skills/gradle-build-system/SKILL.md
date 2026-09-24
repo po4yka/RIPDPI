@@ -1,6 +1,6 @@
 ---
 name: gradle-build-system
-description: Gradle dependencies, modules, convention plugins, and Android build failure triage.
+description: Add a Gradle dependency or module, or triage a build failure. Use when editing gradle.properties or a build.gradle.kts. Not for plugin internals (convention-plugin-development) or version bumps (dependency-update).
 ---
 
 # Gradle Build System
@@ -20,8 +20,9 @@ RIPDPI uses the Gradle version pinned by `gradle/wrapper/gradle-wrapper.properti
 | `ripdpi.android.quality` | Shared detekt + ktlint + Android lint verification wiring |
 | `ripdpi.android.coverage` | Shared JaCoCo coverage wiring |
 | `ripdpi.android.protobuf` | Protobuf code generation setup |
+| `ripdpi.android.test` | `com.android.test` modules (`:baselineprofile`): wires the shared Gradle Managed Device registry |
 
-Plugin sources: `build-logic/convention/src/main/kotlin/ripdpi.android.*.gradle.kts`
+This table is a working subset for everyday lookups, not the full inventory. Plugin sources: `build-logic/convention/src/main/kotlin/ripdpi.android.*.gradle.kts` -- for the complete plugin list, helper classes, and how to add a new plugin, read the `convention-plugin-development` skill.
 
 ## Adding a Dependency
 
@@ -81,3 +82,8 @@ All in `gradle.properties`:
 | Hardcoding version in build.gradle.kts | Add to version catalog `libs.versions.toml` |
 | Changing SDK versions in module | Change in `gradle.properties`, convention plugins read it |
 | Missing namespace in new library module | Required: `android { namespace = "com.poyka.ripdpi..." }` |
+
+## See Also
+
+- `convention-plugin-development` skill -- full plugin inventory, plugin internals, and how to author a new convention plugin.
+- `dependency-update` skill -- version-catalog update workflows and cross-ecosystem (Gradle + Cargo) coordination.

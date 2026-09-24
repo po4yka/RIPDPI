@@ -1,6 +1,6 @@
 ---
 name: dependency-update
-description: Gradle and Rust dependency updates, version catalogs, AGP/Kotlin/NDK bumps, and Renovate.
+description: Bump a Gradle or Rust dependency version. Use when editing libs.versions.toml, native/rust/Cargo.toml, or reviewing a Renovate PR. Not for adding a module or plugin (gradle-build-system, convention-plugin-development).
 ---
 
 # Dependency Update
@@ -11,12 +11,14 @@ Two dependency ecosystems (Gradle + Cargo) with Renovate automating PR creation.
 
 **File:** `gradle/libs.versions.toml`
 
+Values below are illustrative placeholders only -- always read the live pins from `gradle/libs.versions.toml` before reporting or bumping a version; they change independently of this skill.
+
 Structure:
 ```toml
 [versions]
-agp = "9.3.1"              # current snapshot; read versions live
-kotlin-compose = "2.4.10"
-compose-bom = "2026.06.01"
+agp = "X.Y.Z"
+kotlin-compose = "X.Y.Z"
+compose-bom = "YYYY.MM.NN"
 
 [libraries]
 androidx-core = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
@@ -171,5 +173,5 @@ cd ../.. && ./gradlew :core:engine:buildRustNativeLibs  # Cross-compilation
 
 ## See Also
 
-- `.github/skills/gradle-build-system/SKILL.md` -- Convention plugins and dependency management patterns
-- `.github/skills/ci-workflow-authoring/SKILL.md` -- CI environment setup that depends on these versions
+- `gradle-build-system` skill -- convention plugins and dependency management patterns.
+- `ci-workflow-authoring` skill -- CI environment setup that depends on these versions.

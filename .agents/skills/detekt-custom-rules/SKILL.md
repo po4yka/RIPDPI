@@ -1,6 +1,6 @@
 ---
 name: detekt-custom-rules
-description: Custom detekt rules, DI/privacy/suppression guardrails, detekt.yml configuration, and false-positive triage.
+description: Register, activate, and test a custom detekt rule in :quality:detekt-rules. Use when adding a DI/privacy/suppression guardrail rule or debugging a false positive.
 ---
 
 # Custom Detekt Rules
@@ -8,6 +8,8 @@ description: Custom detekt rules, DI/privacy/suppression guardrails, detekt.yml 
 Custom rule set `diGuardrails` in module `:quality:detekt-rules`. Enforces DI, Hilt, suppression, and resolver-log privacy conventions at compile time.
 
 ## Existing Rules
+
+`scripts/ci/check_harness_manifests.py` (`validate_factual_ground_truth`) mechanically checks that every rule registered in `RipDpiRuleSetProvider.kt` appears in this table -- omitting a rule here fails CI rather than silently drifting.
 
 | Rule | What It Catches | Why |
 |------|-----------------|-----|
