@@ -1,10 +1,11 @@
 ---
-description: Manual external reference for the sibling ripdpi-vpn-deploy repository; no RIPDPI-local path selector.
 paths:
   - "../ripdpi-vpn-deploy/ansible/**/*.yml"
   - "../ripdpi-vpn-deploy/ansible/**/*.yaml"
   - "../ripdpi-vpn-deploy/ansible/**/*.j2"
 ---
+
+Manual external reference for the sibling `ripdpi-vpn-deploy` repository; it has no RIPDPI-local path selector.
 
 ## Ansible molecule + xray template authoring
 
@@ -12,7 +13,11 @@ Three failure modes ate hours of converge time during the May 2026
 full-stack test pass against the sibling `ripdpi-vpn-deploy` repo. All
 three are nearly invisible until the converge logs are read carefully,
 and all three are load-bearing when separately working in that sibling
-repository. This file is not an automatic rule for RIPDPI-local paths.
+repository. This file targets only the sibling `ripdpi-vpn-deploy` repository:
+its `paths:` globs resolve outside this repository's root (`../ripdpi-vpn-deploy/...`),
+so a coding agent editing files inside RIPDPI can never auto-load it — it never
+auto-loads inside RIPDPI. Treat it as a manual reference to read only when
+directly working in that sibling repository.
 
 ### Rule 1: molecule platforms must be in the target group, not host_vars alone
 

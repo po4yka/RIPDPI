@@ -24,12 +24,6 @@ targets = [
 ]
 ```
 
-Recommended additions to `components` for full agent productivity:
-
-```toml
-components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
-```
-
 - `rust-src` is needed by Miri and by `-Zbuild-std` sanitizer builds.
 - `rust-analyzer` is needed by any rust-analyzer MCP integration.
 - `miri` is a nightly-only component — install separately via `rustup +nightly component add miri`.

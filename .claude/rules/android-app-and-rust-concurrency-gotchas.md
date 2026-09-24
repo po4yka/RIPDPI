@@ -11,16 +11,15 @@ These are conventions and pitfalls confirmed against live source that are not ye
 
 ### Rust: ordering for cross-thread lifecycle atomics
 
-Use `Release`/`Acquire` when an atomic transition publishes or consumes other
-memory and document that invariant at the site. `Relaxed` is valid for pure
-counters and for flags whose correctness does not depend on visibility of
-separate state; synchronization-backed cancellation tokens do not need a
-blanket ordering rule here. Add a short comment when the ordering supplies a
-specific happens-before edge.
+Choosing between `Relaxed`, `Release`/`Acquire`, and the other orderings for a
+cross-thread flag or counter is covered in full by the `memory-model` skill —
+read it before adding or reviewing an atomic ordering. Document the chosen
+ordering's happens-before edge at the call site regardless of which one you
+pick.
 
 ### Rust: isolate panics in bare `thread::spawn` workers that never cross the FFI boundary
 
-`docs/rust-soundness-policy.md`'s "FFI panic-unwind containment" section requires `catch_unwind` on every function exported via an `extern` ABI or handed to foreign code as a callback pointer — but a bare `thread::spawn` worker that updates shared completion or lifecycle state and never itself crosses that boundary is out of that section's scope. `ripdpi-monitor-engine/src/session/worker.rs`'s `spawn_scan_worker` is the canonical example already in the workspace: it wraps the spawned closure in `std::panic::catch_unwind(AssertUnwindSafe(...))` and records a terminal progress state from the `Err` branch, so a panic still reaches the polling caller as a defined outcome instead of an apparent hang. Apply the same shape to any new long-running `thread::spawn` worker that publishes shared state — `native/rust/crates/ripdpi-diagnostics-transport/src/transport/address.rs`'s DNS-resolution worker is one existing spawn site that does not yet follow it and is worth revisiting.
+`docs/rust-soundness-policy.md`'s "FFI panic-unwind containment" section requires `catch_unwind` on every function exported via an `extern` ABI or handed to foreign code as a callback pointer — but a bare `thread::spawn` worker that updates shared completion or lifecycle state and never itself crosses that boundary is out of that section's scope. `ripdpi-monitor-engine/src/session/worker.rs`'s `spawn_scan_worker` is the canonical example already in the workspace: it wraps the spawned closure in `std::panic::catch_unwind(AssertUnwindSafe(...))` and records a terminal progress state from the `Err` branch, so a panic still reaches the polling caller as a defined outcome instead of an apparent hang. Apply the same shape to any new long-running `thread::spawn` worker that publishes shared state. In `ripdpi-diagnostics-transport`'s DNS resolver, the per-lookup thread already follows this pattern — it wraps the resolver call in `catch_unwind`. The supervisor thread that runs `resolver_worker` and dispatches jobs to it does not; a panic inside `resolver_worker` (for example in the dispatch path before a lookup thread is spawned) unwinds the supervisor silently instead of surfacing a defined outcome. Wrap `resolver_worker`'s dispatch loop the same way before treating this class of worker as fully covered.
 
 ### Kotlin/Compose: cache system-service lookups
 
@@ -32,9 +31,7 @@ When a `when` or `catch` block branches on a sealed exception hierarchy's concre
 
 ### Compose testing: Robolectric viewport and Hilt default-param gotchas
 
-Robolectric's default test viewport (roughly 320x470px) means off-screen `LazyColumn` items are never composed, so `assertIsDisplayed()` fails on below-fold items even though they logically exist in the list. Use `performScrollToKey(key)` to bring an item into view before asserting on it — already the pattern in `AdvancedSettingsScreenCharacterizationTest.kt` — since `performScrollToNode(hasText(...))` fails when the node has not been composed yet, or set `Modifier.height(2000.dp)` on the `LazyColumn` under test so every item composes without scrolling. Several section headers render through `.uppercase()` (see `DetectionResultCards.kt`, `DetectionHistoryCommunityCards.kt`), so assertions on those headers must match the uppercased string, not the source string.
-
-Hilt/Dagger ignores Kotlin default parameter values on `@Inject` constructors, which surfaces as a `MissingBinding` error at compile or runtime rather than falling back to the default. This codebase's existing workaround — see `BackupRestoreViewModel.kt`'s `@Named("appVersionName")` parameter and its matching `@Provides` — is to add `@Named("paramName")` on the constructor parameter plus a matching `@Provides` method in the Hilt module; tests can still pass the parameter by name as normal.
+The `kotlin-test-patterns` skill's "Common Mistakes" section owns the Robolectric viewport / off-screen `LazyColumn` assertion gotcha and the Hilt default-parameter `MissingBinding` workaround — read it before debugging either failure shape.
 
 ### Android manifest: backup deny-all is the whole privacy contract
 

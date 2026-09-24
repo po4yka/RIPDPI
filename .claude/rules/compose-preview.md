@@ -12,7 +12,7 @@ paths:
 ### What this is NOT
 
 - **Not a Roborazzi replacement.** Roborazzi (`ripdpi.android.roborazzi`) continues to own regression-locked golden screenshots under `app/src/test/screenshots/`. Those goldens are governed by `golden-bless-discipline.md` and are intentionally hard to change.
-- **Not a daemon.** Upstream ships a CLI + a Gradle plugin + a VS Code extension — **no HTTP daemon, no localhost endpoint**. Agents drive it through Gradle tasks. (The original integration plan called for a daemon; it does not exist in the pinned `0.16.59` integration.)
+- **Not a daemon.** Upstream ships a CLI + a Gradle plugin + a VS Code extension — **no HTTP daemon, no localhost endpoint**. Agents drive it through Gradle tasks. (The original integration plan called for a daemon; it does not exist in the pinned integration — check the `compose-preview-plugin` version in `gradle/libs.versions.toml` before assuming otherwise.)
 - **Not goldens.** Output PNGs are throwaway artifacts. They live under a gitignored path and must never be committed, copied into `app/src/test/screenshots/`, or used as bless inputs.
 
 ### Architecture — what the plugin does vs what the CLI does
@@ -39,7 +39,7 @@ The script wraps the upstream CLI (`compose-preview render` / `compose-preview l
 
 ### Where the PNGs land
 
-Fixed by the pinned plugin (`0.16.59`; verify upstream before assuming a new override):
+Fixed by the pinned plugin (read the current version from the `compose-preview-plugin` key in `gradle/libs.versions.toml`; verify upstream before assuming a new override):
 
 | Path | Contents |
 |------|----------|
@@ -48,7 +48,7 @@ Fixed by the pinned plugin (`0.16.59`; verify upstream before assuming a new ove
 | `app/build/compose-previews/previews.json` | preview index (FQN → file, dimensions, device) |
 | `app/build/compose-previews/**/*.json` | per-render metadata |
 
-All matched by the `**/build/compose-previews/` entry in `.gitignore`. None of those paths overlap the regex enforced by `golden-bless-discipline.md` (`tests/golden/|src/test/resources/golden/`).
+All matched by the `**/build/compose-previews/` entry in `.gitignore`. None of those paths overlap the path patterns declared in `golden-bless-discipline.md`'s `paths:` frontmatter.
 
 ### Required RIPDPI configuration
 
@@ -59,7 +59,7 @@ state today:
 ```kotlin
 composePreview {
     variant.set("githubFullDebug") // RIPDPI app variant
-    sdkVersion.set(35)       // Robolectric SDK version — matches ripdpi.targetSdk=35
+    sdkVersion.set(providers.gradleProperty("ripdpi.targetSdk").get().toInt()) // never hardcode; must match ripdpi.targetSdk in gradle.properties
     enabled.set(true)
 }
 ```
@@ -80,15 +80,15 @@ from the Gradle model when the plugin or Android configuration changes.
 
 ### Upstream requirements (already satisfied)
 
-| Requirement | Upstream needs | RIPDPI has |
+| Requirement | Upstream needs | Read the current RIPDPI value from |
 |---|---|---|
-| Gradle | 9.4.1+ | 9.6.1 |
+| Gradle | 9.4.1+ | `distributionUrl` in `gradle/wrapper/gradle-wrapper.properties` |
 | Java | 17+ | JVM 17 target |
-| AGP | 9.1+ | 9.3.1 |
-| Kotlin | 2.2.21+ | 2.4.10 |
-| Robolectric | 4.16.x | 4.16.1 (already pinned) |
+| AGP | 9.1+ | `agp` key in `gradle/libs.versions.toml` |
+| Kotlin | 2.2.21+ | `kotlin` key in `gradle/libs.versions.toml` |
+| Robolectric | 4.16.x | `robolectric` key in `gradle/libs.versions.toml` |
 
-A Robolectric major-version drift in either direction must be re-verified — `compose-preview` and Roborazzi share the Robolectric classpath.
+Each of these drifts independently of this rule file. Re-verify the actual value from its canonical source before relying on it — do not trust a remembered or previously-pinned number. A Robolectric major-version drift in either direction must be re-verified — `compose-preview` and Roborazzi share the Robolectric classpath.
 
 ### Cross-references
 

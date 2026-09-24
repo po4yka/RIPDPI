@@ -4,6 +4,8 @@ paths:
   - "core/service/**/*.kt"
   - "core/engine/**/*.kt"
   - "native/rust/crates/ripdpi-*-android/**/*.rs"
+  - "native/rust/crates/ripdpi-android/**/*.rs"
+  - "native/rust/crates/ripdpi-android-*/**/*.rs"
   - "native/rust/crates/ripdpi-tunnel-*/**/*.rs"
 ---
 

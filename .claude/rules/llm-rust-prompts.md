@@ -36,7 +36,7 @@ No exceptions. The reviewer pass costs minutes; an unaudited bug from this list 
 
 ### CI infrastructure expectations
 
-- **Miri nightly** for every crate without `#![forbid(unsafe_code)]`. The 10× test slowdown is the price; empirical measurement shows 22/40 (~55%) of LLM-generated `unsafe` samples have UB. Run as a scheduled (nightly) job, not on every PR.
+- **Miri nightly** for every crate without `#![forbid(unsafe_code)]`. The 10× test slowdown is the price; LLM-generated `unsafe` code has a materially higher UB rate than hand-written code in this codebase's experience, which is why Miri coverage on AI-authored `unsafe` is non-negotiable rather than aspirational. Run as a scheduled (nightly) job, not on every PR.
 - **`clippy::pedantic` + selected nursery lints** for substantially AI-authored code. Adopt this **per-crate** (crate-root `#![warn(clippy::pedantic)]` opt-in), not as a workspace-wide group flip; `ripdpi-tor/src/lib.rs` is the maintained demonstration.
 - **`cargo deny --locked` on every PR** — already wired in RIPDPI; do not regress.
 - **`cargo audit` daily on `main`** to catch published advisories against pinned deps.
@@ -96,11 +96,11 @@ Exception: `cargo update -p <crate> --precise <version>` and `cargo update --wor
 
 ### rust-analyzer MCP — query before guessing
 
-When a model would otherwise need to "guess" a Rust type, lifetime, trait bound, or signature, the model MUST first query rust-analyzer (via MCP, when available) for `hover` / `find_references` / `goto_definition` on the relevant identifier. Empirical: this reduces retry-to-compile by ~2× for borrow-checker errors specifically.
+When a model would otherwise need to "guess" a Rust type, lifetime, trait bound, or signature, the model MUST first query rust-analyzer (via MCP, when available) for `hover` / `find_references` / `goto_definition` on the relevant identifier. Querying the real signature instead of guessing measurably cuts borrow-checker retry loops.
 
 Hook this into sub-agent dispatch: any agent whose prompt involves a type or borrow-checker question should be told "consult rust-analyzer MCP before guessing." For any agent class focused on borrow-checker error review, this is mandatory; for general code generation, it is strongly preferred.
 
-When rust-analyzer MCP is not configured, the fallback is `cargo expand -p <crate> <module>` (for macro-related questions) and reading the `cargo doc --locked --no-deps --message-format=json` output (for cross-crate types). Never let the model guess a signature when one of these tools can answer in < 5 seconds.
+No rust-analyzer MCP server is committed in this repository's `.mcp.json` today, so the fallback below is the default path in a fresh checkout, not a rarely-used exception. When rust-analyzer MCP is not configured, the fallback is `cargo expand -p <crate> <module>` (for macro-related questions) and reading the `cargo doc --locked --no-deps --message-format=json` output (for cross-crate types). Never let the model guess a signature when one of these tools can answer in < 5 seconds.
 
 ### When the LLM disagrees with this rule file
 
