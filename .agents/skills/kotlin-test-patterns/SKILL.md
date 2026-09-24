@@ -1,6 +1,6 @@
 ---
 name: kotlin-test-patterns
-description: Kotlin unit, Compose, Hilt, coroutine, fake, fixture, and golden-test patterns.
+description: "Kotlin/Compose/Hilt/coroutine test code patterns: fakes, MainDispatcherRule, Turbine, Roborazzi, golden-contract calls. Use when writing or fixing Kotlin test code. Not for the TDD workflow (use tdd)."
 ---
 
 # Kotlin Test Patterns -- RIPDPI
@@ -101,7 +101,7 @@ vm.uiState.test {
 
 ### ComposeTestRule (Robolectric)
 
-Requires `@GraphicsMode(GraphicsMode.Mode.NATIVE)` and `@Config(sdk = [35])`.
+Requires `@GraphicsMode(GraphicsMode.Mode.NATIVE)` and `@Config(sdk = [35])`. The SDK is pinned below `ripdpi.compileSdk`/`ripdpi.targetSdk` in `gradle.properties` because the resolved Robolectric version does not yet support the current compile SDK -- see the comment in `core/data/src/test/resources/robolectric.properties` for the current rationale and value; do not assume it tracks `targetSdk` directly.
 Test tags centralized in `com.poyka.ripdpi.ui.testing.RipDpiTestTags`.
 
 ```kotlin
@@ -186,6 +186,8 @@ class FakeAppSettingsRepository(
 
 ## 7. Golden Contract Tests
 
+For the full blessing workflow, fixture locations by layer, and volatile-field scrubbing patterns, see the `golden-test-management` skill -- this section only shows the Kotlin `GoldenContractSupport` call shape.
+
 `GoldenContractSupport` verifies serialization stability across Kotlin/Rust boundaries.
 Copies exist in `core/engine`, `core/diagnostics`, `core/service`, and `app/src/androidTest`.
 
@@ -269,3 +271,19 @@ Helpers: `diagnosticsTestJson()`, `repoFixture(path)`, `TestDiagnosticsHistoryCl
 
 8. **Hilt isolation**: call `IntegrationTestOverrides.reset()` in `@Before` and
    re-assign `@BindValue` fields.
+
+9. **`assertIsDisplayed()` failing on a below-fold `LazyColumn` item**: Robolectric's default
+   test viewport (roughly 320x470px) never composes off-screen items. Use
+   `performScrollToKey(key)` to bring the item into view before asserting on it (the pattern in
+   `AdvancedSettingsScreenCharacterizationTest.kt`) -- `performScrollToNode(hasText(...))` fails
+   on a node that has not been composed yet. Alternatively set `Modifier.height(2000.dp)` on the
+   `LazyColumn` under test so every item composes without scrolling. Also remember that section
+   headers rendered through `.uppercase()` (see `DetectionResultCards.kt`,
+   `DetectionHistoryCommunityCards.kt`) must be asserted against the uppercased string, not the
+   source string.
+
+10. **`MissingBinding` on an `@Inject` constructor with a Kotlin default parameter**: Hilt/Dagger
+    ignores Kotlin default values on `@Inject` constructors, so a default does not satisfy the
+    graph. Add `@Named("paramName")` on the constructor parameter plus a matching `@Provides`
+    method in the Hilt module (see `BackupRestoreViewModel.kt`'s `@Named("appVersionName")`
+    parameter and its provider). Tests can still pass the parameter by name as normal.

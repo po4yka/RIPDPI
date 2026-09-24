@@ -1,6 +1,6 @@
 ---
 name: appium-test-debug
-description: Appium failure triage for flaky tests, locators, waits, sessions, and stability.
+description: "RIPDPI Appium failure triage: flaky tests, locator/session/wait issues, screenshot and element-tree debugging. Use when an Appium test fails or is flaky."
 ---
 
 # Appium Test Debug
@@ -104,6 +104,6 @@ The `conftest.py` fixture saves screenshots on failure:
 
 ## See Also
 
-- `.github/skills/appium-automation-contract/SKILL.md` -- Preset values and launch flow
-- `.github/skills/appium-test-authoring/SKILL.md` -- Conventions for writing tests and page objects
-- `.github/skills/android-device-debug/SKILL.md` -- ADB commands, logcat, emulator management
+- `.agents/skills/appium-automation-contract/SKILL.md` -- Preset values and launch flow
+- `.agents/skills/appium-test-authoring/SKILL.md` -- Conventions for writing tests and page objects
+- `.agents/skills/android-device-debug/SKILL.md` -- ADB commands, logcat, emulator management

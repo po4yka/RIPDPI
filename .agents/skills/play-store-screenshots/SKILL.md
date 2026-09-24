@@ -1,6 +1,6 @@
 ---
 name: play-store-screenshots
-description: "Use when generating Google Play Store assets for RIPDPI — phone screenshots (1080x1920), feature graphics (1024x500), tablet screenshots, or marketing images. Also use when updating play-store-screenshots/src/app/page.tsx, refreshing the raw app captures in public/screenshots/, running the Puppeteer batch capture, or aligning slides with DESIGN.md tokens. Triggers on \"Play Store assets\", \"marketing screenshots\", \"feature graphic\", \"screenshot generator\", \"1080x1920\", or \"play-store-screenshots\"."
+description: "Build or update RIPDPI's Play Store marketing screenshots and feature graphic (Next.js generator, play-store-screenshots/). Use only when explicitly asked for Play Store assets. Never invoke implicitly."
 disable-model-invocation: true
 ---
 
@@ -24,37 +24,9 @@ Build or update the Next.js page in `play-store-screenshots/` that renders Googl
 
 ## Existing Project Structure
 
-The generator already exists at `play-store-screenshots/`. Check if it needs updating rather than scaffolding from scratch.
+The generator already exists at `play-store-screenshots/`. Check if it needs updating rather than scaffolding from scratch. For the current file layout, asset sources and resolutions, brand/logo state, and the two-stage raw-capture-to-rendered-output pipeline, read `play-store-screenshots/AGENTS.md` first -- it is the canonical, actively-verified source for those facts; do not re-derive them here.
 
-```
-play-store-screenshots/
-├── public/
-│   ├── app-icon.png                  # Copied from app/src/main/ic_launcher-playstore.png
-│   └── screenshots/                  # High-res app screenshots
-│       ├── home-light.png            # From docs/screenshots/main.png (1080x2400)
-│       ├── diagnostics.png           # From docs/screenshots/diagnostics.png (1080x2400)
-│       └── settings.png             # From docs/screenshots/settings.png (1080x2400)
-├── src/app/
-│   ├── layout.tsx                    # Geist Sans + Geist Mono font setup
-│   └── page.tsx                      # The screenshot generator (single file)
-├── capture.mjs                       # Puppeteer batch capture script
-└── package.json                      # next, html-to-image, puppeteer (devDep)
-```
-
-### Asset Sources
-
-| Asset | Source | Resolution |
-|-------|--------|-----------|
-| App icon (current) | `app/src/main/ic_launcher-playstore.png` -- brutalist black silhouette (bag-in-arch motif) on white | 512x512 |
-| Launcher variants (7) | `app/src/main/res/drawable/ic_launcher_foreground_ripdpi_{clean,cracked,disintegrate,glitch,rubble,stitch}.xml` + `ic_launcher_monochrome_ripdpi.xml` | adaptive XML |
-| High-res screenshots | `docs/screenshots/*.png` | 1080x2400 |
-| Low-res test screenshots | `app/src/test/screenshots/com.poyka.ripdpi.ui.screenshot.*.png` | 420x900 to 720x920 |
-
-**Brand shift note (2026-05):** The previous logo (dove rising from barbed wire on navy) was replaced with a brutalist black silhouette on white. The app now also ships 7 user-selectable launcher icon variants via the in-app icon picker (`customization_icon_*` strings). The marketing screenshots use the **default `clean` variant** at the top-level `ic_launcher-playstore.png`. If you want a slide that shows the customization feature, capture each variant from a real device (the variants are XML adaptive icons; there are no PNG rasters in the repo).
-
-**Use only high-res screenshots (1080x2400) from `docs/screenshots/`.** The Roborazzi test screenshots are too low-resolution for Play Store quality. If a screen is only available as a test screenshot, use text-focused slides instead.
-
-**Refreshing the cached icon:** After any logo change, run `cp app/src/main/ic_launcher-playstore.png play-store-screenshots/public/app-icon.png` and rerun `bun run capture:prod`. The cached copy is the icon the screenshot generator reads.
+**Screenshot quality floor:** only use the high-res Stage-1 captures in `public/screenshots/` (see AGENTS.md for the current resolution and file list). The Roborazzi test screenshots under `app/src/test/screenshots/` are too low-resolution for Play Store quality (420x900 to 720x920) -- if a screen is only available as a test screenshot, use a text-focused slide instead.
 
 ## Step 1: Confirm RIPDPI Defaults with the User
 
@@ -161,9 +133,9 @@ cd play-store-screenshots
 bun install  # or npm install
 ```
 
-Check if `public/screenshots/` has the latest high-res screenshots from `docs/screenshots/`. Copy any updated ones.
+`public/screenshots/` holds the raw Stage-1 app captures (see `play-store-screenshots/AGENTS.md`'s Two-Stage Pipeline section). If a screen's UI changed, re-capture it from a device per that file's Stage 1 instructions -- do not copy from `docs/screenshots/`, which holds the rendered Stage-2 marketing *outputs*, not a source for raw captures.
 
-### If scaffolding new
+### If scaffolding new (only if the project does not already exist)
 
 Package manager priority: **bun > pnpm > yarn > npm**
 
@@ -175,13 +147,12 @@ bun add -d puppeteer
 bun pm trust puppeteer  # allow postinstall to download Chromium
 ```
 
-Copy assets:
+Copy the app icon, then seed `public/screenshots/` with fresh Stage-1 device captures per `play-store-screenshots/AGENTS.md`:
+
 ```bash
 mkdir -p public/screenshots
 cp ../app/src/main/ic_launcher-playstore.png public/app-icon.png
-cp ../docs/screenshots/main.png public/screenshots/home-light.png
-cp ../docs/screenshots/diagnostics.png public/screenshots/diagnostics.png
-cp ../docs/screenshots/settings.png public/screenshots/settings.png
+# then follow AGENTS.md's Stage 1 capture steps to populate public/screenshots/*.png
 ```
 
 ### Font Setup (Next.js 16+)
@@ -353,7 +324,7 @@ const dataUrl = await toPng(el, opts);  // actual capture
 
 ### Puppeteer Batch Export (headless)
 
-Use `capture.mjs` against the **production** build (dev server HMR causes timeouts):
+Prefer `bun run capture:prod` (see `play-store-screenshots/AGENTS.md`'s Common Workflows table) -- it builds, boots the production server, runs the capture, and always tears the server down. The manual equivalent, against a **production** build (dev server HMR causes timeouts):
 
 ```bash
 bun run build && bun run start -- -p 3099 &

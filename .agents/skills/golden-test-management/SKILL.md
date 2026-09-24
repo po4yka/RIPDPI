@@ -1,6 +1,6 @@
 ---
 name: golden-test-management
-description: Golden fixtures, snapshot tests, blessing workflows, mismatch triage, and volatile-field scrubbing.
+description: "Golden-fixture contract discipline: locations, bless workflow, env vars, volatile-field scrubbing, failure-artifact triage. Use when a golden/snapshot test fails or a new golden fixture is added."
 ---
 
 # Golden Test Management

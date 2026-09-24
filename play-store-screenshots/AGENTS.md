@@ -1,12 +1,12 @@
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This project pins Next.js 16, which differs from older training data in APIs, conventions, and file structure. When changing a Next.js API or convention (routing, fonts, `useSearchParams`, build/start behavior), check the version-matched guide under `node_modules/next/dist/docs/` after `bun install`, and heed any deprecation notices found there.
 <!-- END:nextjs-agent-rules -->
 
 ## Purpose
 
-Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x1920 phone screenshots plus a 1024x500 feature graphic. The full design and constraints reference lives in `.claude/skills/play-store-screenshots/SKILL.md`; this file is the entry-point cheat sheet.
+Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x1920 phone screenshots plus a 1024x500 feature graphic. The full design and constraints reference lives in `.agents/skills/play-store-screenshots/SKILL.md`; this file is the entry-point cheat sheet.
 
 ## Brand
 
@@ -59,7 +59,7 @@ Regenerate: install the debug build on a 1080x2400 device, navigate to each scre
 
 ## Slide Registry
 
-Defined in `page.tsx:855–862` (`SLIDES` array). The feature graphic is a separate component (`FeatureGraphicSlide`) addressed by `?slide=fg`.
+Defined in `page.tsx` (grep for `const SLIDES`). The feature graphic is a separate component (`FeatureGraphicSlide`) addressed by `?slide=fg`.
 
 | Idx | `id` | Label | Headline |
 |-----|------|-------|----------|
@@ -71,7 +71,7 @@ Defined in `page.tsx:855–862` (`SLIDES` array). The feature graphic is a separ
 | 6 | `more` | More Features | And so much more. |
 | fg | — | Feature Graphic | Browse without borders |
 
-Puppeteer file names are pinned in `capture.mjs:4-12` (`01-hero`, `02-no-root`, …, `feature-graphic`).
+Puppeteer file names are pinned in `capture.mjs` (grep for `const SLIDES`): `01-hero`, `02-no-root`, …, `feature-graphic`.
 
 ## Common Workflows
 
@@ -97,4 +97,4 @@ First install on a fresh machine needs `bun pm trust puppeteer` so Chromium down
 
 ## Skill Reference
 
-For comprehensive design rules (Google Play constraints, copy framework, slide narrative arc, M3 Expressive typography, token sync with `DESIGN.md`), see `.claude/skills/play-store-screenshots/SKILL.md`.
+For comprehensive design rules (Google Play constraints, copy framework, slide narrative arc, M3 Expressive typography, token sync with `DESIGN.md`), see `.agents/skills/play-store-screenshots/SKILL.md`.

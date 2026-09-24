@@ -1,17 +1,15 @@
 ---
 name: tdd
-description: Test-first workflow for features, bug fixes, refactors, and project-specific test patterns.
+description: "Red-green-refactor-lint workflow for RIPDPI plus test-double, FaultQueue, and golden-bless conventions. Use when building a feature or fixing a bug test-first. Not for Kotlin test syntax (use kotlin-test-patterns)."
 ---
 
 # Test-Driven Development
-
-This skill is **RIGID**. Follow every step exactly. Do not skip RED. Do not write implementation before a failing test exists.
 
 Full test stack documentation: `docs/testing.md`. Do not duplicate it here -- read it when you need runner details, CI lanes, or fixture locations.
 
 ## Workflow
 
-Repeat this cycle for every behavior change:
+Repeat this cycle for every behavior change. Write the failing test before any implementation -- do not skip RED.
 
 1. **RED** -- Write exactly one failing test. Run it. Confirm it fails for the expected reason.
 2. **GREEN** -- Write the minimum implementation to make the test pass. Run the test again.
@@ -122,16 +120,11 @@ This prevents the "write test and implementation together" anti-pattern.
 
 ## Rules
 
-1. **Never skip RED.** Every test must fail before you write implementation.
-2. **One test at a time.** Do not write the next test until the current cycle is complete.
-3. **Run staticAnalysis before commit.** `./gradlew staticAnalysis` covers detekt, ktlint, and Android lint. It applies to test code too.
-4. **Test and implementation in one commit.** Never commit a test without its implementation or vice versa.
-5. **Fake* doubles only.** No mocking frameworks. Add new Fakes to `TestDoubles.kt`.
-6. **FaultQueue for error paths.** Use `FaultSpec` + `FaultQueue`, not ad-hoc exception throwing.
-7. **Golden contracts are read-only by default.** Bless intentionally, review the diff, explain in the commit message.
-8. **Use backtick names in Kotlin tests.** `@Test fun `proxy start propagates native exception`()`.
-9. **Use snake_case names in Rust tests.** `fn proxy_start_propagates_native_exception()`.
-10. **Prefer unit tests.** Only escalate to integration/E2E when the behavior requires real Android or network components.
+1. **Fake* doubles only.** No mocking frameworks. Add new Fakes to `TestDoubles.kt`.
+2. **FaultQueue for error paths.** Use `FaultSpec` + `FaultQueue`, not ad-hoc exception throwing.
+3. **Golden contracts are read-only by default.** Bless intentionally, review the diff, explain in the commit message.
+4. **Use backtick names in Kotlin tests.** `@Test fun `proxy start propagates native exception`()`.
+5. **Use snake_case names in Rust tests.** `fn proxy_start_propagates_native_exception()`.
 
 ## Common Mistakes
 

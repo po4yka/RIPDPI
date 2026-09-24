@@ -1,0 +1,6 @@
+interface:
+  display_name: "Play Store Screenshots"
+  short_description: "Build RIPDPI's Google Play Store marketing screenshots"
+  default_prompt: "Use $play-store-screenshots to build or update the requested Play Store marketing screenshots or feature graphic."
+policy:
+  allow_implicit_invocation: false

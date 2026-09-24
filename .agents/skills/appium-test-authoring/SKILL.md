@@ -1,6 +1,6 @@
 ---
 name: appium-test-authoring
-description: Appium test authoring, page objects, locators, assertions, and new-screen coverage.
+description: "RIPDPI Appium test authoring: page objects, resource-id locators, assertions, wait tiers. Use when writing a new Appium test or page object, or adding coverage for a new screen."
 ---
 
 # Appium Test Authoring
@@ -238,5 +238,5 @@ Rules:
 
 ## See Also
 
-- `.github/skills/appium-automation-contract/SKILL.md` -- Preset values and marker parameters
-- `.github/skills/appium-test-debug/SKILL.md` -- Troubleshooting failures and flakiness
+- `.agents/skills/appium-automation-contract/SKILL.md` -- Preset values and marker parameters
+- `.agents/skills/appium-test-debug/SKILL.md` -- Troubleshooting failures and flakiness

@@ -1,6 +1,6 @@
 ---
 name: appium-automation-contract
-description: Appium launch contract, start routes, state presets, and wrong-screen test debugging.
+description: "RIPDPI Appium launch-contract reference: start routes, permission/service/data presets, and wrong-screen debugging. Use when a test launches to the wrong screen or a new automation route is added."
 ---
 
 # Appium Automation Contract
@@ -139,6 +139,6 @@ All parameters are keyword-only. Omitted params use defaults shown in the Intent
 
 ## See Also
 
-- `.github/skills/appium-test-authoring/SKILL.md` -- How to write tests using the automation marker
-- `.github/skills/appium-test-debug/SKILL.md` -- Troubleshooting when launch fails
-- `.github/skills/android-device-debug/SKILL.md` -- Raw ADB commands for device interaction
+- `.agents/skills/appium-test-authoring/SKILL.md` -- How to write tests using the automation marker
+- `.agents/skills/appium-test-debug/SKILL.md` -- Troubleshooting when launch fails
+- `.agents/skills/android-device-debug/SKILL.md` -- Raw ADB commands for device interaction

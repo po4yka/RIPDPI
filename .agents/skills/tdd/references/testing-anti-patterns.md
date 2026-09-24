@@ -62,7 +62,7 @@ Putting fixtures in the wrong directory causes silent test skips or misleading p
 
 **Explicit runtime for fixture lifecycle.** When tests use the local-network-fixture binary, build and manage the Tokio runtime explicitly. Do not rely on `#[tokio::test]` defaults for tests that need fixture startup/teardown sequencing.
 
-**Ephemeral ports.** Always bind to port 0 and read back the assigned port. Hard-coded ports cause CI failures when the port is already in use.
+**Ephemeral ports.** See the `rust-tdd` skill for the general ephemeral-port pattern. The RIPDPI-specific exception is `scripts/ci/start-local-network-fixture.sh`: it intentionally binds fixed, well-known ports (control port `RIPDPI_FIXTURE_CONTROL_PORT`, default `46090`, plus the TCP/TLS/DNS ports the `android-device-debug` skill's port-forwarding commands hardcode) rather than an ephemeral one, because those ports are forwarded to a device with `adb reverse` and must be predictable. Do not change the fixture to bind port 0.
 
 **Proptest regression files.** When `proptest` finds a failing case, it writes a regression file. Commit these files -- they prevent the same failure from being missed in future runs.
 

@@ -1,6 +1,6 @@
 ---
 name: android-device-debug
-description: Android device or emulator debugging, logs, instrumented tests, crashes, and network issues.
+description: "ADB-based RIPDPI device/emulator debugging: build/install/launch, logcat filtering, fixture port-forwarding, instrumented tests, crash/ANR triage. Use when debugging on a real device or emulator."
 ---
 
 # Android Device Debug
