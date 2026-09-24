@@ -1,6 +1,6 @@
 ---
 name: edge-to-edge
-description: Edge-to-edge and window-inset handling for Compose screens, scaffolds, sheets, and system bars.
+description: RIPDPI's edge-to-edge and window-inset rules for Compose screens, scaffolds, sheets, and the single enableEdgeToEdge() call site. Use for insets, system bars, or edge-to-edge layout here.
 ---
 
 # Edge-to-Edge on RIPDPI

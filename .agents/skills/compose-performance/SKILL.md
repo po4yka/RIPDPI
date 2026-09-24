@@ -1,6 +1,6 @@
 ---
 name: compose-performance
-description: Compose performance, recomposition, stability reports, Lazy lists, annotations, and metrics.
+description: "RIPDPI Compose performance: stability annotations, compiler metrics, LazyColumn key/contentType, per-screen recomposition notes. Use when diagnosing recomposition, stability, or list performance here."
 ---
 
 # Compose Performance -- RIPDPI
@@ -93,9 +93,9 @@ state on every list change. Also provide `contentType` when mixing different
 item structures -- the slot pool is keyed by content type.
 
 Project status:
-- HistoryScreen: `key = { it.id }`, `contentType = { "connection_session" }`
+- History screen family (`HistorySections.kt`): `key = { it.id }`, `contentType = { "connection_session" }` / `{ "diagnostics_session" }` / `{ "event" }`
 - DiagnosticsLiveSection: `key = { it.label }`, `contentType = { "trend" }`
-- LogsScreen: `key = { _, entry -> entry.id }` -- missing `contentType`
+- LogsScreen: `key = { _, entry -> entry.id }`, `contentType = { _, _ -> "log_entry" }`
 
 ### Lambda captures
 
@@ -113,11 +113,20 @@ items(list, key = { it.id }) { item ->
 }
 ```
 
-### Avoid index-based keys
+### Derived keys for a truncated live preview
 
-DiagnosticsScanSection uses `"$index-${probe.target}-${probe.outcome}"`. The
-index prefix defeats stable keys during insertions/deletions. Prefer a
-domain-unique identifier.
+DiagnosticsScanSection's live-probe preview (`livePreviewProbes`) is a
+`remember`-memoized `reversed().take(N)` window over the growing
+`completedProbes` list, so the raw display index is not stable across new
+completions. The list key uses `liveProbeItemKey(completedProbeCount,
+previewIndex): Int = completedProbeCount - previewIndex - 1`, which resolves
+to each probe's own append-order position in the untruncated list rather
+than its position in the preview window -- that position never changes once
+assigned, and it no longer risks colliding on repeated `target`/`outcome`
+pairs the way a literal `"$index-${probe.target}-${probe.outcome}"` key
+would. Follow this pattern (a stable position derived from a monotonically
+growing count, not the display index) for any other reversed/truncated
+live-preview list.
 
 ## 5. Project-specific screen performance
 
@@ -151,17 +160,14 @@ domain-unique identifier.
 - Architecture passes individual section state (DesyncCoreUiState, etc.)
   so each section only recomposes when its own state changes.
 
-### HistoryScreen
-- Three tabs, each with LazyColumn. All items have `key` + `contentType`.
+### History screen family
+- Three tabs, each with a LazyColumn. The `items()` calls with `key` +
+  `contentType` live in `HistorySections.kt`, not `HistoryScreen.kt`.
 - Models are @Immutable. Uses `derivedStateOf` for empty-state detection.
 
 ## 6. Quick wins checklist
 
-- [ ] Add `contentType` to LogsScreen LazyColumn `itemsIndexed` call
-- [ ] Remove index prefix from DiagnosticsScanSection probe key
 - [ ] Run compiler reports and diff `-composables.csv` against baseline
-- [ ] Add `TrackRecomposition` to DiagnosticsScreen, LogsScreen,
-      AdvancedSettingsScreen
 - [ ] Verify new UI model classes have @Immutable or @Stable
 - [ ] New compose-stability.conf entries must match actual immutability
 - [ ] New LazyColumn: always provide `key` and `contentType`

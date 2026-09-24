@@ -1,7 +1,7 @@
 ---
 name: compose
-description: Jetpack Compose guidance and audit for RIPDPI — state, recomposition, modifiers, navigation, theming, performance, and scored quality reports.
-user-invokable: true
+description: Jetpack Compose API guidance (state, modifiers, navigation, performance, theming) plus a scored RIPDPI audit. Use when writing or reviewing Compose code, or running a Compose quality audit.
+user-invocable: true
 argument-hint: "[audit [scope: full|performance|state|side-effects|api] [module: :app|all]]"
 ---
 

@@ -1,13 +1,15 @@
 ---
 name: material-3
-description: Material Design 3 guidance for tokens, components, dynamic color, layout, and accessibility.
-user-invokable: true
+description: MD3 vocabulary, component catalog, and a compliance-audit rubric across Web/Flutter/Compose. Use for MD3 tokens/components or an audit -- RIPDPI disables dynamic color (see android-compose-patterns).
+user-invocable: true
 argument-hint: "[component|theme|layout|scaffold|audit] [description or URL]"
 ---
 
 # Material Design 3
 
 This skill guides implementation of Google's Material Design 3 (MD3) — a personal, adaptive, expressive design system. MD3 uses dynamic color, tonal surfaces, rounded shapes, and spring-based motion to create UIs that feel alive and personal.
+
+**RIPDPI note:** this repo's Compose implementation disables Material You / dynamic color and reads its color scheme, spacing, and typography through `RipDpiThemeTokens` (see the `android-compose-patterns` skill and `docs/design/rds/README.md`). Use this skill here for MD3 vocabulary, the component catalog, and the compliance-audit rubric only — do not add `dynamicLightColorScheme`/`dynamicDarkColorScheme` calls in this repo.
 
 ## Philosophy
 
@@ -178,17 +180,10 @@ Code examples for the canonical MD3 screen-level layouts — app shell (responsi
 
 ## Platform Notes
 
-### Flutter
-```dart
-MaterialApp(
-  theme: ThemeData(
-    useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-  ),
-);
-```
+For Flutter and the cross-platform component name mapping, see [references/platform-notes.md](references/platform-notes.md).
 
 ### Jetpack Compose
+
 ```kotlin
 MaterialTheme(
     colorScheme = dynamicLightColorScheme(context), // or dynamicDarkColorScheme
@@ -199,14 +194,7 @@ MaterialTheme(
 }
 ```
 
-### Component Name Mapping
-| Concept | Web | Flutter | Compose |
-|---------|-----|---------|---------|
-| Filled button | `md-filled-button` | `FilledButton` | `Button` |
-| Outlined text field | `md-outlined-text-field` | `OutlinedTextField` | `OutlinedTextField` |
-| FAB | `md-fab` | `FloatingActionButton` | `FloatingActionButton` |
-| Navigation bar | `md-navigation-bar` | `NavigationBar` | `NavigationBar` |
-| Switch | `md-switch` | `Switch` | `Switch` |
+`dynamicLightColorScheme`/`dynamicDarkColorScheme` derive the scheme from the user's wallpaper (Android 12+, Material You). **Do not use them in RIPDPI** — this repo supplies its own `ColorScheme` through `RipDpiThemeTokens` instead (see the `android-compose-patterns` skill).
 
 ## M3 Expressive (May 2025)
 
@@ -333,3 +321,5 @@ Status thresholds: **pass** (7+), **warn** (4-6), **fail** (0-3)
 - `references/navigation-patterns.md` — Which navigation component to use, responsive nav transitions
 - `references/layout-and-responsive.md` — Breakpoints, canonical layouts, CSS Grid implementation
 - `references/theming-and-dynamic-color.md` — Theme generation, brand color integration, dark mode, runtime switching
+- `references/web-implementation.md` — `@material/web` setup, imports, and theming for a web target
+- `references/platform-notes.md` — Flutter setup and the cross-platform component name mapping

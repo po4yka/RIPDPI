@@ -1,6 +1,6 @@
 ---
 name: android-compose-patterns
-description: Compose UI, ViewModels, navigation, state, and app-module theming.
+description: "RIPDPI's own Compose conventions: ViewModel pattern, Route/Screen split, DataStore->StateFlow, RipDpiThemeTokens. Use for how this app does Compose, not generic Compose API questions (see compose)."
 ---
 
 # Android Compose Patterns
@@ -114,7 +114,8 @@ fun ExampleScreen(uiState: UiState, onAction: () -> Unit) { /* ... */ }
 
 ## Related Skills
 
-- **`jetpack-compose-api`** (`.github/skills/jetpack-compose-api/SKILL.md`):
-  General Jetpack Compose API reference with guidance docs and actual androidx source code.
+- **`compose`** (`.agents/skills/compose/SKILL.md`):
+  General Jetpack Compose API reference (guidance docs plus a live-fetch index into the
+  actual androidx source) and the scored RIPDPI Compose quality audit.
   Use for questions about how Compose APIs work internally, correct API usage patterns,
   recomposition mechanics, Modifier ordering, side-effects, performance, or accessibility.
