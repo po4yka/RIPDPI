@@ -1,6 +1,6 @@
 ---
 name: release-signing
-description: Release APK/AAB signing, keystores, R8/ProGuard, version bumps, and Play Store uploads.
+description: Reference for RIPDPI release signing config, R8/ProGuard keep rules, and versioning. Use when touching signing config, JNI keep rules, or version bumps. Hand off tagging and publishing to ripdpi-release.
 ---
 
 # Release Signing
@@ -22,17 +22,9 @@ Four environment variables, read via Gradle providers in `app/build.gradle.kts`:
 | `RIPDPI_SIGNING_KEY_ALIAS` | Key alias within the keystore |
 | `RIPDPI_SIGNING_KEY_PASSWORD` | Key password |
 
-**CI flow:** Keystore is stored as base64 in GitHub secret `KEYSTORE_BASE64`, decoded to a temp file at build time. The signing config in `app/build.gradle.kts` (lines 12-36) only creates the `release` signing config when `RIPDPI_SIGNING_STORE_FILE` is set -- local dev builds skip signing.
+**Lookup order:** `app/build.gradle.kts` resolves each signing value through a `localOrEnv(propKey, envKey)` helper in the `signingConfigs { }` block: it reads `local.properties` first (keys `signing.storeFile`, `signing.storePassword`, `signing.keyAlias`, `signing.keyPassword`), falling back to the matching environment variable only when the property is absent. The `release` signing config is created only when the resolved store-file path is non-null -- a build with neither source configured skips signing.
 
-```kotlin
-// app/build.gradle.kts pattern
-val releaseStoreFilePath = providers.environmentVariable("RIPDPI_SIGNING_STORE_FILE")
-signingConfigs {
-    releaseStoreFilePath.orNull?.let { configuredStoreFile ->
-        create("release") { storeFile = file(configuredStoreFile); ... }
-    }
-}
-```
+**CI flow:** the keystore is stored as base64 in GitHub secret `KEYSTORE_BASE64`; `release-candidate.yml` decodes it to a temp file and exports `RIPDPI_SIGNING_STORE_FILE` (and the matching password/alias variables) so `localOrEnv()` resolves them from the environment. `release.yml` never touches the keystore -- it only promotes an already-signed candidate.
 
 Never commit keystores to the repository.
 
@@ -44,7 +36,7 @@ Three layers of rules, evaluated together at build time:
 |------|---------|
 | `app/proguard-rules.pro` | App-level rules (intentionally minimal -- relies on library consumer rules) |
 | `core/data/consumer-rules.pro` | Preserves protobuf lite classes: `com.poyka.ripdpi.proto.**` |
-| `core/engine/consumer-rules.pro` | Preserves JNI binding classes: `RipDpiProxyNativeBindings`, `Tun2SocksNativeBindings`, `NetworkDiagnosticsNativeBindings` |
+| `core/engine/consumer-rules.pro` | Preserves each JNI binding class with `-keepclasseswithmembernames`, plus a couple of by-name-callback keep blocks; see the file for the current entries |
 
 ### R8 Diagnostics
 
@@ -63,15 +55,15 @@ Configured in `ripdpi.android.application.gradle.kts`.
 
 ### Adding JNI Consumer Rules
 
-When adding a new JNI binding class, add a keep rule to the module's `consumer-rules.pro`:
+When adding a new JNI binding class, add a keep rule to the module's `consumer-rules.pro` using the same shape as the existing entries:
 
 ```proguard
--keep class com.poyka.ripdpi.core.engine.NewNativeBindings {
+-keepclasseswithmembernames class com.poyka.ripdpi.core.NewNativeBindings {
     native <methods>;
-    # Keep any methods called from native code
-    void onCallback(...);
 }
 ```
+
+A Kotlin callback invoked by name from native code (not a native method itself) needs a different keep shape; see the `.agents/skills/r8-jni-keep-rules/SKILL.md` decision tree for that case and for the general JNI keep-rule failure modes.
 
 ## Versioning
 
@@ -88,10 +80,9 @@ RIPDPI-{versionName}-{versionCode}-{buildType}-universal.apk
 ```
 
 Version bumping checklist:
-1. Update `versionCode` (must increment for every Play Store upload)
-2. Update `versionName` (semantic versioning)
-3. After explicit user approval, create a git tag: `git tag v{versionName}`
-4. After explicit user approval, push the tag to trigger release: `git push origin v{versionName}`
+1. Update `versionCode` (must increment for every Play Store upload).
+2. Update `versionName` (semantic versioning).
+3. Do not tag or push directly -- hand off to the `ripdpi-release` skill, which enforces the release-window cut and the candidate-dispatch sequence before any tag exists.
 
 ## Release Artifacts
 
@@ -135,6 +126,8 @@ before the signed-candidate environment. This catches:
 
 ## See Also
 
+- `.agents/skills/ripdpi-release/SKILL.md` -- the gated tag/publish workflow this skill hands off to
+- `.agents/skills/r8-jni-keep-rules/SKILL.md` -- general JNI/route/proto keep-rule decision tree
 - `.agents/skills/ci-workflow-authoring/SKILL.md` -- CI pipeline guidance
 - `quality/release-gates/release-contract.json` -- machine-readable release flow
 - `.github/workflows/release-candidate.yml` -- signed candidate production

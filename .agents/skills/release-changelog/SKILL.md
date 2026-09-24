@@ -1,6 +1,6 @@
 ---
 name: release-changelog
-description: Collect a read-only, exact-range evidence pack and draft curated RIPDPI release notes from Git history, changed files, source, tests, and merged pull requests. Use when preparing a changelog, GitHub Release description, Play/F-Droid notes, or an audit of changes between a stable tag and a candidate SHA. Never tag, push, edit a release, or publish from this skill.
+description: Never tags, pushes, edits, or publishes. Read-only evidence pack and curated RIPDPI release notes from Git/GitHub history for a stable-tag-to-candidate-SHA range. Use when preparing a changelog or release notes.
 ---
 
 # RIPDPI Release Changelog

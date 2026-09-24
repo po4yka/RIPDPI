@@ -1,6 +1,6 @@
 ---
 name: protobuf-schema-evolution
-description: Protobuf compatibility, reserved fields, diagnostics wire contracts, schema versions, and goldens.
+description: Reserved-field rules and mechanical field-number lookup for evolving AppSettings, plus the Rust/Kotlin diagnostics wire contract. Use before assigning/removing a proto field or changing a wire message.
 ---
 
 # Protobuf Schema Evolution
@@ -20,14 +20,14 @@ silent data loss or deserialization failures at runtime.
 
 Schema: `core/data/model/src/main/proto/app_settings.proto`
 
-Reserved field numbers (never reuse): `15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130`
+Never trust a cached reserved-number list or highest-field-number in this skill, in a prior PR, or from memory -- both grow with every schema change and a stale number is exactly the silent-corruption risk this skill exists to prevent. Before assigning any new field number, run both of these against the live schema:
 
-Reserved field names: `desync_method`, `split_position`, `split_at_host`,
-`tlsrec_enabled`, `tlsrec_position`, `tlsrec_at_sni`, `udp_fake_count`,
-`split_marker`, `tlsrec_marker`, `dns_doh_url`, `dns_doh_bootstrap_ips`,
-`settings_migration_level`
+```bash
+grep -n reserved core/data/model/src/main/proto/app_settings.proto
+grep -oE '= [0-9]+;' core/data/model/src/main/proto/app_settings.proto | grep -oE '[0-9]+' | sort -n | tail -1
+```
 
-Highest field number in use: **129** (`freeze_detection_enabled`).
+The first command prints every `reserved` block (there may be more than one, each with a numbers line and a names line); the second prints the highest field number currently declared anywhere in the file. Assign the next number strictly above that highest number, and confirm it does not fall inside any reserved range first.
 
 ## Rules
 
@@ -90,7 +90,7 @@ update mode), then run Kotlin tests. Commit updated fixtures with the code.
 
 ### Adding an AppSettings field
 
-1. Pick next field number (currently 131+).
+1. Run the reserved/highest-number lookup above and pick the next available number. Never reuse a number cached in this skill, a past PR, or memory.
 2. Add to `app_settings.proto`.
 3. Set default in `AppSettingsSerializer.defaultValue`.
 4. Map in UI state conversions (`toUiState()`, `toConfigDraft()`).

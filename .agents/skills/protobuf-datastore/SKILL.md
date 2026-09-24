@@ -1,6 +1,6 @@
 ---
 name: protobuf-datastore
-description: App settings protobuf schema, new preferences, DataStore persistence, and Kotlin mapping.
+description: Schema and Kotlin mapping for the AppSettings proto-backed DataStore. Use when adding, reading, or removing an app-settings field, or wiring its UI-state and native-preferences conversion.
 ---
 
 # Protobuf DataStore
@@ -80,7 +80,7 @@ val uiState = combine(application.settingsStore.data, otherFlow) { settings, oth
 | General | app_theme, ripdpi_mode, dns_ip, ipv6_enable | Mode is "vpn" or "proxy" |
 | Command mode | enable_cmd_settings, cmd_args | Raw CLI args for command-line mode of the native RIPDPI proxy |
 | Proxy | proxy_ip, proxy_port, max_connections, buffer_size | Defaults: 127.0.0.1:1080 |
-| Desync | desync_method, split_position, fake_ttl, fake_sni, etc. | Method: none/split/disorder/fake/oob/disoob |
+| Desync | default_ttl, custom_ttl, fake_ttl, fake_sni, fake_offset, oob_data, drop_sack, etc. | `desync_method` and `split_position` are reserved/removed; grep `app_settings.proto` for the current field list |
 | Protocols | desync_http, desync_https, desync_udp | Bool flags for which protocols to desync |
 | Hosts | hosts_mode, hosts_blacklist, hosts_whitelist | Mode: disable/blacklist/whitelist |
 | TLS | tlsrec_enabled, tlsrec_position, tlsrec_at_sni | TLS record splitting |
