@@ -6,7 +6,7 @@ Codex loads project hooks only after the project is trusted and the hook configu
 
 ## Enforcement
 
-The `PreToolUse` hook calls `.agents/hooks/pre_tool_policy.py`. It normalizes both structured `Edit`/`Write` inputs and textual `apply_patch` payloads, then denies edits to the repository's quality baselines. The denial uses the shared `hookSpecificOutput.permissionDecision = "deny"` protocol and Codex's explicit top-level `decision = "block"` field. Claude Code edits arrive as `Edit`/`Write`; Codex edits arrive as `apply_patch`, which is why only the Codex matcher lists it.
+The `PreToolUse` hook calls `.agents/hooks/pre_tool_policy.py`. It normalizes both structured `Edit`/`Write` inputs and textual `apply_patch` payloads, then denies edits to the repository's quality baselines. The denial uses the shared `hookSpecificOutput.permissionDecision = "deny"` protocol and Codex's explicit top-level `decision = "block"` field. Claude Code edits arrive as `Edit`/`Write`; Codex edits arrive as `apply_patch`, so the Codex matcher is `Edit|Write|apply_patch` and the Claude matcher is `Edit|Write`.
 
 The `PostToolUse` hook calls `rust-postedit-check.sh`. After a Rust edit it locates the enclosing crate and runs `cargo check -p <crate> --locked --message-format=short`; a compile failure exits 2 so the error reaches the model on both runtimes. Set `RIPDPI_RUST_HOOKS=off` to disable it temporarily.
 

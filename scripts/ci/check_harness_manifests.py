@@ -24,6 +24,16 @@ SKILL_MIRRORS = (
 ALLOWED_SANDBOX_MODES = {"read-only", "workspace-write", "danger-full-access"}
 WRITE_CAPABLE_AGENTS = {"golden-blesser", "native-verifier", "ripdpi-vault-sync"}
 CODEX_WORKSPACE_WRITERS = WRITE_CAPABLE_AGENTS | {"ripdpi-doc-exporter"}
+# Auditors and reviewers never modify files: read-only sandbox in Codex, no Write/Edit tools in Claude Code.
+READ_ONLY_AGENTS = {
+    "arch-layer-auditor",
+    "async-cancel-safety",
+    "jni-bridge-verifier",
+    "kotlin-design-auditor",
+    "pr-reviewer",
+    "rust-api-auditor",
+    "unsafe-code-auditor",
+}
 # Claude Code subagent `model:` values. Omitting the key inherits the session model (preferred).
 CLAUDE_MODEL_ALIASES = {"inherit", "opus", "sonnet", "haiku", "fable"}
 # Claude Code SKILL.md frontmatter keys; unknown keys are silently ignored by Claude Code, so a typo disables intent.
@@ -230,6 +240,8 @@ def validate_claude_agents(names: set[str]) -> None:
         tools = metadata.get("tools", "")
         tool_names = {item.strip() for item in tools.split(",")} if isinstance(tools, str) else set()
         mutating_tools = not tool_names.isdisjoint({"Write", "Edit"})
+        if path.stem in READ_ONLY_AGENTS and mutating_tools:
+            raise ValueError(f"{path.relative_to(REPO_ROOT)}: read-only audit agent must not have Write/Edit tools")
         if (path.stem in WRITE_CAPABLE_AGENTS or mutating_tools) and metadata.get("isolation") != "worktree":
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: write-capable agent requires worktree isolation")
 
@@ -247,6 +259,8 @@ def validate_codex_agents() -> None:
             raise ValueError(
                 f"{path.relative_to(REPO_ROOT)}: declare sandbox_mode explicitly (got {sandbox!r})"
             )
+        if path.stem in READ_ONLY_AGENTS and sandbox != "read-only":
+            raise ValueError(f"{path.relative_to(REPO_ROOT)}: read-only audit agent requires sandbox_mode = \"read-only\"")
         if path.stem in CODEX_WORKSPACE_WRITERS and sandbox != "workspace-write":
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: write-capable agent requires workspace-write")
 

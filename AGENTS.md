@@ -42,7 +42,7 @@ Work is done when the requested change is implemented, its relevant gate passes 
 - Never extend detekt, lint, LoC, or architecture-health baselines to hide a regression. Fix the underlying violation. Golden and performance baselines follow their explicit approval workflows and are not covered by this blanket prohibition.
 - The app must work fully on non-rooted devices. Root-only features are opt-in behind `root_mode_enabled` and degrade gracefully when root is unavailable.
 - Do not add a required backend service. Product features work offline and locally; external data is bundled or fetched from static user-visible sources, and user data leaves the device only through explicit export.
-- Reproduce a defect (ideally as a failing test) before fixing it. Surface undocumented JNI, protobuf, schema, activation, or migration contracts instead of guessing them.
+- Define verifiable success criteria (the test, gate, or artifact that will prove the change) before implementing. Reproduce a defect, ideally as a failing test, before fixing it. Surface undocumented JNI, protobuf, schema, activation, or migration contracts instead of guessing them.
 - Removing quality gates, custom detekt rules, lint checks, or security enforcement is out of scope unless the user explicitly requests it.
 - Never edit compiled `.so` files or generated JNI outputs. Change their Rust/Kotlin sources and rebuild.
 

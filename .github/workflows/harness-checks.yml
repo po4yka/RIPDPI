@@ -18,6 +18,7 @@ on:
       - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/tests/test_agent_hooks.py'
+      - 'tools/tasking/generated-assets.lock.json'
       - 'scripts/tests/test_check_harness_*.py'
       - 'justfile'
   push:
@@ -38,6 +39,7 @@ on:
       - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/tests/test_agent_hooks.py'
+      - 'tools/tasking/generated-assets.lock.json'
       - 'scripts/tests/test_check_harness_*.py'
       - 'justfile'
 
