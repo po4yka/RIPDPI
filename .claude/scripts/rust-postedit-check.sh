@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # rust-postedit-check.sh — PostToolUse hook
 #
-# Fires after Edit/Write/MultiEdit/apply_patch. For *.rs files in native/rust/crates/,
+# Fires after Edit/Write (Claude Code) or apply_patch (Codex). For *.rs files in native/rust/crates/,
 # runs `cargo check --locked` on the touched crate. Exits 2 with stderr piped on
-# compile error so Claude Code injects the error back into model context
+# compile error so Claude Code and Codex inject the error back into model context
 # for the next iteration. Skips silently for non-Rust files and for files
 # outside the workspace.
 #
