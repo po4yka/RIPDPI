@@ -282,7 +282,7 @@ toml = "1.1"
 socket2 = "0.6"
 proptest = "1"
 rcgen = "0.14"
-rustls = { version = "0.23.40", default-features = false, features = ["ring", "std", "tls12", "aws-lc-rs"] }
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12", "aws-lc-rs"] }
 # Exact upstream revision containing the malformed-RDATA bounds fix from
 # hickory-dns/hickory-dns#3743. Return to crates.io when the fix is released.
 hickory-proto = { git = "https://github.com/hickory-dns/hickory-dns.git", rev = "ac6cc706d9641ce8440bd20e2da20d51b522555f", default-features = false, features = ["std"] }
@@ -328,7 +328,7 @@ blake2 = "0.11"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
-ringbuf = { version = "0.5", features = ["alloc"] }
+ringbuf = { version = "0.5.2", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"
