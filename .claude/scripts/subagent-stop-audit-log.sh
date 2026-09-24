@@ -9,8 +9,9 @@
 # (e.g., "findings", "audit complete", "0 violations", "RISK"), which usually
 # signals a degenerate run.
 #
-# Pure observability — never blocks the parent session. Always exits 0 because
-# Anthropic's SubagentStop hook does NOT support additionalContext injection.
+# Pure observability by design: it never blocks, continues, or feeds context back
+# into the sub-agent (both Claude Code and Codex would treat decision/exit 2 as
+# "keep the sub-agent running"), so it always exits 0 with no stdout.
 #
 # Disabled with: RIPDPI_SUBAGENT_HOOKS=off
 

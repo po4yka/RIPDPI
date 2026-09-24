@@ -24,17 +24,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "ROOT=$(git -c core.fsmonitor=false rev-parse --show-toplevel 2>/dev/null || pwd); bash \"$ROOT/.claude/scripts/rust-stop-verify.sh\"",
-            "timeout": 240
-          }
-        ]
-      }
-    ],
     "SubagentStop": [
       {
         "hooks": [

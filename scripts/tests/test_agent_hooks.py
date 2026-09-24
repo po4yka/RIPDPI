@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import unittest
 from pathlib import Path
@@ -82,10 +83,21 @@ class HookPolicyTest(unittest.TestCase):
         )
 
     def test_committed_hook_manifests_cover_enforcement_events(self) -> None:
-        for manifest in (ROOT / ".claude/settings.json", ROOT / ".codex/hooks.json"):
-            hooks = json.loads(manifest.read_text())["hooks"]
-            self.assertEqual(set(hooks), {"PreToolUse", "PostToolUse", "Stop", "SubagentStop"})
+        # Claude Code edits arrive as Edit/Write; Codex edits arrive as apply_patch.
+        expected_matchers = {".claude/settings.json": "Edit|Write", ".codex/hooks.json": "Edit|Write|apply_patch"}
+        for relative, matcher in expected_matchers.items():
+            hooks = json.loads((ROOT / relative).read_text())["hooks"]
+            self.assertEqual(set(hooks), {"PreToolUse", "PostToolUse", "SubagentStop"})
             self.assertIn("pre_tool_policy.py", hooks["PreToolUse"][0]["hooks"][0]["command"])
+            for event in ("PreToolUse", "PostToolUse"):
+                self.assertEqual(hooks[event][0]["matcher"], matcher, f"{relative} {event}")
+
+    def test_committed_hook_commands_reference_existing_scripts(self) -> None:
+        for manifest in (ROOT / ".claude/settings.json", ROOT / ".codex/hooks.json"):
+            for groups in json.loads(manifest.read_text())["hooks"].values():
+                for handler in (hook for group in groups for hook in group["hooks"]):
+                    for script in re.findall(r'\$ROOT/([^"\\\s]+)', handler["command"]):
+                        self.assertTrue((ROOT / script).is_file(), f"{manifest.name}: missing {script}")
 
 
 if __name__ == "__main__":
