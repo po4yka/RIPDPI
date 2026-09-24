@@ -1,1 +1,0 @@
-../../.claude/rules/android-app-and-rust-concurrency-gotchas.md

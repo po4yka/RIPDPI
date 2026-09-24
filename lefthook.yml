@@ -78,15 +78,12 @@ pre-commit:
       run: python3 scripts/ci/check_native_architecture_contracts.py
 
     harness-link-audit:
-      glob: ".claude/**"
+      glob: "{AGENTS.md,CLAUDE.md,.agents/**,.claude/**,.codex/**}"
       run: python3 scripts/ci/check_harness_links.py --report-only
 
     pinact-check:
       glob: ".github/workflows/*.yml"
       run: command -v pinact >/dev/null || exit 0; pinact run --check {staged_files}
-
-    rules-drift-check:
-      run: bash scripts/ci/check-rules-drift.sh
 
     harness-cargo-locked:
       run: python3 scripts/ci/check_harness_cargo_locked.py

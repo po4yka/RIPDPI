@@ -195,6 +195,16 @@ fmt-check:
     echo "Checking Rust formatting..."
     cargo fmt --manifest-path {{rust_dir}}/Cargo.toml --all --check
 
+# Validate agent harness files (AGENTS.md, CLAUDE.md, .agents/, .claude/, .codex/); mirrors the harness-checks workflow
+[group('lint')]
+harness-check:
+    python3 scripts/ci/check_harness_manifests.py
+    python3 scripts/ci/check_harness_links.py --strict
+    python3 scripts/ci/check_harness_policy.py
+    python3 scripts/ci/check_harness_cargo_locked.py
+    python3 scripts/tests/test_agent_hooks.py
+    python3 -m unittest scripts.tests.test_check_harness_cargo_locked scripts.tests.test_check_harness_links scripts.tests.test_network_surface_scanner
+
 # Regenerate the module dependency graph (docs/architecture/MODULE_GRAPH.md)
 [group('lint')]
 module-graph:

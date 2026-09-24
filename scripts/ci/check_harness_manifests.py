@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate coding-agent harness manifests, discovery roots, and preloads."""
+"""Validate coding-agent harness manifests, discovery roots, skill routing metadata, and agent parity."""
 
 from __future__ import annotations
 
 import configparser
+import json
 import re
 import sys
 import tomllib
@@ -15,14 +16,57 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL_SKILLS = REPO_ROOT / ".agents" / "skills"
 CENTRAL_RUST_SKILLS = REPO_ROOT / ".agents" / "vendor" / "rust-skills" / "skills"
+# Codex reads .agents/skills directly; Claude Code reads .claude/skills; GitHub Copilot reads .github/skills.
 SKILL_MIRRORS = (
     REPO_ROOT / ".claude" / "skills",
-    REPO_ROOT / ".codex" / "skills",
     REPO_ROOT / ".github" / "skills",
 )
 ALLOWED_SANDBOX_MODES = {"read-only", "workspace-write", "danger-full-access"}
 WRITE_CAPABLE_AGENTS = {"golden-blesser", "native-verifier", "ripdpi-vault-sync"}
 CODEX_WORKSPACE_WRITERS = WRITE_CAPABLE_AGENTS | {"ripdpi-doc-exporter"}
+# Claude Code subagent `model:` values. Omitting the key inherits the session model (preferred).
+CLAUDE_MODEL_ALIASES = {"inherit", "opus", "sonnet", "haiku", "fable"}
+# Claude Code SKILL.md frontmatter keys; unknown keys are silently ignored by Claude Code, so a typo disables intent.
+SKILL_FRONTMATTER_KEYS = {
+    "name",
+    "description",
+    "when_to_use",
+    "argument-hint",
+    "arguments",
+    "disable-model-invocation",
+    "user-invocable",
+    "allowed-tools",
+    "disallowed-tools",
+    "model",
+    "effort",
+    "context",
+    "agent",
+    "background",
+    "hooks",
+    "paths",
+    "shell",
+    "metadata",
+    "license",
+    "compatibility",
+}
+# Codex shortens skill descriptions to fit a small listing budget, so project skills keep them short.
+MAX_LOCAL_SKILL_DESCRIPTION = 250
+GENERATED_ASSET_LOCK = REPO_ROOT / "tools" / "tasking" / "generated-assets.lock.json"
+# Centralized Rust skills deliberately not exposed in this repository, with the missing surface that justifies it.
+# When the submodule adds a skill, expose it (symlink) or list it here; re-expose one when the surface appears.
+EXCLUDED_VENDOR_SKILLS = {
+    "rust-cli": "ripdpi-cli is a local debug binary without clap or a published CLI contract",
+    "rust-crate-release": "no crate is published to a registry",
+    "rust-database": "no SQL or embedded database in native/rust",
+    "rust-embedded-no-std": "no no_std crates",
+    "rust-ios-build": "Android-only application",
+    "rust-native-linking": "no build.rs or native C library linking in the workspace",
+    "rust-swift-ffi": "no Swift consumer",
+    "rust-wasm": "no WebAssembly target",
+    "uniffi-boundary": "the JNI boundary is hand-written with the jni crate, not UniFFI",
+    "uniffi-packaging-versioning": "the JNI boundary is hand-written with the jni crate, not UniFFI",
+}
+# Former local skills replaced by the centralized catalog; must not be reintroduced as local copies.
 REMOVED_LOCAL_RUST_SKILLS = {
     "mutation-testing",
     "native-jni-development",
@@ -49,20 +93,53 @@ def frontmatter(path: Path) -> dict[str, object]:
     return parsed
 
 
+def generated_skill_files() -> set[str]:
+    payload = json.loads(GENERATED_ASSET_LOCK.read_text(encoding="utf-8"))
+    return set(payload.get("files", {}))
+
+
 def skill_names() -> set[str]:
     names: set[str] = set()
+    generated = generated_skill_files()
     for path in sorted(CANONICAL_SKILLS.glob("*/SKILL.md")):
         metadata = frontmatter(path)
+        relative = path.relative_to(REPO_ROOT)
         name = path.parent.name
         if metadata.get("name") != name:
-            raise ValueError(f"{path.relative_to(REPO_ROOT)}: name must be {name!r}")
+            raise ValueError(f"{relative}: name must be {name!r}")
         description = metadata.get("description")
         if not isinstance(description, str) or not description.strip():
-            raise ValueError(f"{path.relative_to(REPO_ROOT)}: non-empty description required")
+            raise ValueError(f"{relative}: non-empty description required")
         names.add(name)
+        if path.parent.is_symlink():
+            continue  # centralized skill; content is owned upstream
+        unknown = sorted(set(metadata) - SKILL_FRONTMATTER_KEYS)
+        if unknown:
+            raise ValueError(f"{relative}: unknown frontmatter keys {unknown}")
+        if relative.as_posix() not in generated and len(description) > MAX_LOCAL_SKILL_DESCRIPTION:
+            raise ValueError(
+                f"{relative}: description is {len(description)} chars; keep it under "
+                f"{MAX_LOCAL_SKILL_DESCRIPTION} and move detail into the body"
+            )
+        validate_invocation_policy(path, metadata)
     if not names:
         raise ValueError("no canonical skills found under .agents/skills")
     return names
+
+
+def validate_invocation_policy(path: Path, metadata: dict[str, object]) -> None:
+    """Manual-only skills must be manual-only in both Claude Code and Codex."""
+    manual_claude = metadata.get("disable-model-invocation") is True
+    policy_path = path.parent / "agents" / "openai.yaml"
+    manual_codex = False
+    if policy_path.is_file():
+        policy = yaml.safe_load(policy_path.read_text(encoding="utf-8")) or {}
+        manual_codex = (policy.get("policy") or {}).get("allow_implicit_invocation") is False
+    if manual_claude != manual_codex:
+        raise ValueError(
+            f"{path.parent.relative_to(REPO_ROOT)}: disable-model-invocation ({manual_claude}) must match "
+            f"agents/openai.yaml policy.allow_implicit_invocation: false ({manual_codex})"
+        )
 
 
 def validate_central_rust_skills(names: set[str]) -> None:
@@ -83,13 +160,21 @@ def validate_central_rust_skills(names: set[str]) -> None:
     if not source_names:
         raise ValueError("central Rust skill catalog is empty")
 
-    missing = sorted(source_names - names)
+    excluded = set(EXCLUDED_VENDOR_SKILLS)
+    exposed = source_names & names
+    undecided = sorted(source_names - exposed - excluded)
+    stale_exclusions = sorted(excluded - source_names)
+    excluded_but_exposed = sorted(excluded & names)
     local_rust = {name for name in names if name.startswith("rust-")}
     extra = sorted((local_rust - source_names) | (names & REMOVED_LOCAL_RUST_SKILLS))
-    if missing or extra:
-        raise ValueError(f"central Rust skill exposure mismatch: missing={missing}, extra={extra}")
+    if undecided or stale_exclusions or excluded_but_exposed or extra:
+        raise ValueError(
+            "central Rust skill exposure mismatch: "
+            f"expose or exclude={undecided}, excluded but not upstream={stale_exclusions}, "
+            f"excluded but exposed={excluded_but_exposed}, local copies={extra}"
+        )
 
-    for name in sorted(source_names):
+    for name in sorted(exposed):
         path = CANONICAL_SKILLS / name
         if not path.is_symlink():
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: central Rust skill must be a symlink")
@@ -128,6 +213,14 @@ def validate_claude_agents(names: set[str]) -> None:
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: name must match filename")
         if not isinstance(metadata.get("description"), str):
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: description required")
+        model = metadata.get("model")
+        if model is not None and not (
+            isinstance(model, str) and (model in CLAUDE_MODEL_ALIASES or model.startswith("claude-"))
+        ):
+            raise ValueError(
+                f"{path.relative_to(REPO_ROOT)}: model {model!r} is not a Claude Code model value; "
+                "omit it to inherit the session model"
+            )
         preloads = metadata.get("skills", [])
         if not isinstance(preloads, list) or not all(isinstance(item, str) for item in preloads):
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: skills must be a string list")
@@ -150,8 +243,10 @@ def validate_codex_agents() -> None:
             if not isinstance(metadata.get(key), str) or not metadata[key].strip():
                 raise ValueError(f"{path.relative_to(REPO_ROOT)}: non-empty {key} required")
         sandbox = metadata.get("sandbox_mode")
-        if sandbox is not None and sandbox not in ALLOWED_SANDBOX_MODES:
-            raise ValueError(f"{path.relative_to(REPO_ROOT)}: invalid sandbox_mode {sandbox!r}")
+        if sandbox not in ALLOWED_SANDBOX_MODES:
+            raise ValueError(
+                f"{path.relative_to(REPO_ROOT)}: declare sandbox_mode explicitly (got {sandbox!r})"
+            )
         if path.stem in CODEX_WORKSPACE_WRITERS and sandbox != "workspace-write":
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: write-capable agent requires workspace-write")
 
@@ -169,17 +264,34 @@ def validate_codex_external_writes() -> None:
                 )
 
 
+def validate_agent_parity() -> None:
+    """Every Claude agent has a Codex counterpart that names the skills Claude preloads."""
+    for path in sorted((REPO_ROOT / ".claude" / "agents").glob("*.md")):
+        counterpart = REPO_ROOT / ".codex" / "agents" / f"{path.stem}.toml"
+        if not counterpart.is_file():
+            raise ValueError(f"{counterpart.relative_to(REPO_ROOT)}: missing Codex counterpart")
+        instructions = tomllib.loads(counterpart.read_text(encoding="utf-8"))["developer_instructions"]
+        # Codex cannot preload skills, so the counterpart must tell the agent which skills to read.
+        unnamed = sorted(
+            skill
+            for skill in frontmatter(path).get("skills", [])
+            if not re.search(rf"(?<![\w-]){re.escape(skill)}(?![\w-])", instructions)
+        )
+        if unnamed:
+            raise ValueError(
+                f"{counterpart.relative_to(REPO_ROOT)}: developer_instructions must name preloaded skills {unnamed}"
+            )
+
+
 def validate_rules() -> None:
-    claude_rules = REPO_ROOT / ".claude" / "rules"
-    codex_rules = REPO_ROOT / ".codex" / "rules"
-    names = {path.name for path in claude_rules.glob("*.md")}
-    if names != {path.name for path in codex_rules.glob("*.md")}:
-        raise ValueError(".claude/rules and .codex/rules names differ")
-    for path in sorted(claude_rules.glob("*.md")):
+    for path in sorted((REPO_ROOT / ".claude" / "rules").glob("*.md")):
         metadata = frontmatter(path)
         paths = metadata.get("paths")
         if not isinstance(paths, list) or not paths or not all(isinstance(item, str) for item in paths):
             raise ValueError(f"{path.relative_to(REPO_ROOT)}: non-empty paths list required")
+        # Claude Code reads only `paths` from rule frontmatter; anything else is silently ignored.
+        if set(metadata) != {"paths"}:
+            raise ValueError(f"{path.relative_to(REPO_ROOT)}: rule frontmatter may only contain paths")
 
 
 def validate_instruction_entrypoints() -> None:
@@ -388,6 +500,7 @@ def main() -> int:
         validate_mirrors(names)
         validate_claude_agents(names)
         validate_codex_agents()
+        validate_agent_parity()
         validate_codex_external_writes()
         validate_rules()
         validate_instruction_entrypoints()
@@ -395,7 +508,7 @@ def main() -> int:
         validate_specialist_ground_truth()
         validate_skill_portability()
         validate_factual_ground_truth()
-    except (OSError, ValueError, tomllib.TOMLDecodeError, yaml.YAMLError) as exc:
+    except (OSError, ValueError, KeyError, json.JSONDecodeError, tomllib.TOMLDecodeError, yaml.YAMLError) as exc:
         print(f"HARNESS MANIFEST ERROR: {exc}", file=sys.stderr)
         return 1
     print(

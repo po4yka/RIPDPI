@@ -1,1 +1,0 @@
-../../.claude/rules/network-fingerprint-privacy.md
