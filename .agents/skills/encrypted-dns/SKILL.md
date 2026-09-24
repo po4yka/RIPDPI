@@ -1,6 +1,6 @@
 ---
 name: encrypted-dns
-description: Encrypted DNS protocols, resolver health, bootstrap, SOCKS transport, and tamper diagnostics.
+description: "Reference for the ripdpi-dns-resolver crate: DoH/DoT/DNSCrypt/DoQ/ODoH, health scoring, bootstrap IPs, tamper diagnostics. Use when touching encrypted DNS resolution, failover, or tamper detection."
 ---
 
 ## Supported protocols
@@ -11,6 +11,7 @@ description: Encrypted DNS protocols, resolver health, bootstrap, SOCKS transpor
 | DoT      | RFC 7858 | TCP + TLS, length-prefixed DNS wire format | 853 | Yes |
 | DNSCrypt | dnscrypt.info spec | TCP, XSalsa20Poly1305 (ChaChaBox) | 443 | No (own crypto) |
 | DoQ      | RFC 9250 | QUIC bidirectional streams, length-prefixed | 853 | Yes (QUIC TLS) |
+| ODoH     | RFC 9230 | HTTPS POST with `application/oblivious-dns-message`, HPKE-encrypted payload | 443 | Yes (HTTPS + HPKE) |
 
 All protocols use standard DNS wire format (RFC 1035) for the query and
 response payloads. The protocol layer only differs in how the wire bytes
@@ -21,56 +22,47 @@ resolver returns `EncryptedDnsError::Request` if you try.
 
 ## Architecture
 
-```
-ResolverPool (pool.rs)
-  |-- HealthRegistry (health.rs)      -- EWMA scoring per endpoint
-  |-- FallbackCache (LRU, pool.rs)    -- cold-start memory
-  |-- Vec<EncryptedDnsResolver>        -- one per configured endpoint
-        |
-        EncryptedDnsResolver (resolver.rs)
-          |-- protocol dispatch: Doh | Dot | DnsCrypt | Doq
-          |-- ConnectionPool           -- single idle DoT/DNSCrypt session
-          |-- reqwest::Client          -- DoH HTTP client (when not using hooks)
-          |-- quinn::Endpoint          -- DoQ QUIC client
-          |-- DnsCryptCachedCertificate -- cached cert with validity window
-          |
-          transport.rs                 -- shared helpers
-          |-- normalize_endpoint()     -- fills defaults, validates fields
-          |-- build_doh_client()       -- configures reqwest with bootstrap IPs
-          |-- build_client_config()    -- rustls TLS config with webpki roots
-          |-- build_dns_query()        -- hickory-proto Message construction
-          |-- extract_ip_answers()     -- parses A/AAAA from response bytes
-          |
-          dnscrypt.rs                  -- DNSCrypt-specific crypto
-          hickory_backend.rs           -- optional hickory-resolver backend (feature-gated)
+The crate (`native/rust/crates/ripdpi-dns-resolver`) is organized by concern, one
+top-level `<name>.rs` module file plus a `<name>/` directory of submodules for
+each area. List the current layout rather than trusting a snapshot:
+
+```bash
+find native/rust/crates/ripdpi-dns-resolver/src -name '*.rs' | sort
 ```
 
-### Key files
+At a high level:
 
-| File | Purpose |
-|------|---------|
-| `src/lib.rs` | Public API re-exports |
-| `src/types.rs` | `EncryptedDnsProtocol`, `EncryptedDnsEndpoint`, `EncryptedDnsTransport`, `EncryptedDnsError`, `EncryptedDnsConnectHooks` |
-| `src/resolver.rs` | `EncryptedDnsResolver` -- per-endpoint resolver with protocol dispatch |
-| `src/pool.rs` | `ResolverPool`, `ResolverPoolBuilder` -- multi-endpoint pool with health rotation |
-| `src/health.rs` | `HealthRegistry`, `HealthScoreSnapshot` -- EWMA health tracking |
-| `src/transport.rs` | Shared TLS config, DNS query building, SOCKS5 helpers |
-| `src/dnscrypt.rs` | Certificate parsing, encryption/decryption, padding |
-| `src/hickory_backend.rs` | Feature-gated `hickory-resolver` backend for DoH/DoT |
-| `src/tests.rs` | Integration tests with local TLS/DNSCrypt servers |
+- `pool.rs` + `pool/{builder,exchange,fallback_order,health_updates,ranking,tests}.rs`
+  -- `ResolverPool`/`ResolverPoolBuilder`, the LRU fallback cache, and health-based rotation.
+- `resolver.rs` + `resolver/{connection,dispatch,dnscrypt_transport,doh,doq,doq_tests,dot,state,tcp}.rs`
+  -- `EncryptedDnsResolver`, protocol dispatch (`dispatch.rs`), and per-protocol exchange logic;
+  `resolver/doh/` further splits the manual HTTP/1.1 DoH path into request/response/chunked-body helpers.
+- `health.rs` + `health/{oracle_policy,registry,score,snapshot,tests}.rs` -- `HealthRegistry`, EWMA scoring.
+- `transport.rs` + `transport/{client,framing,normalize,util,wire}.rs` -- shared TLS config, endpoint
+  normalization (`normalize.rs`), DNS wire helpers, and `extract_ip_answers()`.
+- `dnscrypt.rs` + `dnscrypt/{certificate,cipher,framing,identity,padding}.rs` -- DNSCrypt crypto.
+- `doh_pipeline.rs` + `doh_pipeline/{builder,cache,https_bindings,ip_candidates,lookup,types}.rs` --
+  higher-level DoH batch-lookup pipeline (`DohResolverPipeline`) used by the diagnostics/oracle side.
+- `https_service_binding.rs` + `https_service_binding/{cursor,dto,ech,records}.rs` -- HTTPS/SVCB record
+  parsing (used by ODoH config discovery and ECH).
+- `odoh.rs` -- ODoH client-side config resolution and HPKE query/response handling (no submodule split yet).
+- `hickory_backend.rs` -- optional feature-gated `hickory-resolver` backend for DoH/DoT.
+- `types/` -- `EncryptedDnsProtocol`, `EncryptedDnsEndpoint`, `EncryptedDnsError`, `EncryptedDnsConnectHooks`,
+  `OdohEndpointConfig`, and related public types, re-exported from `lib.rs`.
+- `tests/{mod,pipeline,pool,https_service_binding}.rs` -- integration tests (see Testing patterns below).
 
 ## Health scoring
 
 `HealthRegistry` tracks per-endpoint and per-bootstrap-IP health using
 exponentially weighted moving averages (EWMA).
 
-**Score model** (`health.rs:HealthScore`):
+**Score model** (`health/score.rs:HealthScore`):
 - `ewma_success_rate`: decays toward 0.5 (neutral prior) with configurable
   half-life (default 60s via `DEFAULT_HEALTH_HALF_LIFE` in pool.rs)
 - `ewma_latency_ms`: decays toward 200ms initial prior
 - Composite: `success_rate * 0.7 + (1 - latency/2000) * 0.3`
 
-**How scores influence pool selection** (`pool.rs:try_order()`):
+**How scores influence pool selection** (`pool/ranking.rs:try_order()`):
 1. `HealthRegistry::rank_indices()` sorts endpoints by composite score (best first)
 2. Cold-start override: if the top-ranked endpoint has zero observations, the
    `FallbackCache` (LRU) promotes the most recently successful endpoint to rank 0
@@ -92,8 +84,9 @@ all accumulated health data.
 
 ## DNSCrypt specifics
 
-DNSCrypt uses its own crypto layer instead of TLS. The implementation lives
-in `dnscrypt.rs` and the exchange logic in `resolver.rs:exchange_dnscrypt()`.
+DNSCrypt uses its own crypto layer instead of TLS. The crypto implementation
+lives in `dnscrypt.rs`/`dnscrypt/`, and the exchange logic in
+`resolver/dnscrypt_transport.rs:exchange_dnscrypt()`.
 
 **Certificate lifecycle** (`fetch_dnscrypt_certificate()` / `current_dnscrypt_certificate()`):
 1. Query the provider for `2.dnscrypt-cert.<provider_name>` TXT records
@@ -120,6 +113,22 @@ in `dnscrypt.rs` and the exchange logic in `resolver.rs:exchange_dnscrypt()`.
 1. Verify 8-byte response magic (`DNSCRYPT_RESPONSE_MAGIC`)
 2. Extract full 24-byte nonce; verify first 12 bytes match query nonce half
 3. Decrypt with ChaChaBox, then unpad (`dnscrypt_unpad()`: find last 0x80)
+
+## ODoH (Oblivious DoH)
+
+Implementation lives in `src/odoh.rs` (no submodule split) and uses the
+`odoh-rs` crate for the RFC 9230 HPKE encrypt/decrypt/message framing
+(`ObliviousDoHMessage`, `encrypt_query()`, `decrypt_response()`, `compose()`,
+`parse()`). Dispatch is `EncryptedDnsResolver::exchange_odoh()`, wired from
+`resolver/dispatch.rs`; default port is 443 like DoH.
+
+**Config discovery** (`OdohConfigSource`): `Bundled` and `CustomBytes` variants
+carry pre-fetched config bytes with a retrieval time and TTL; `HttpsSvcb`
+parses the target's HTTPS/SVCB record (key `32769`, `ODOHCONFIG_SVCB_KEY`) via
+`parse_https_service_bindings()` from `https_service_binding.rs`. `HttpsSvcb`
+config lookup carries an `OdohConfigLookupSecurity` tag and **must** be
+`EncryptedDns`; a `PlainDns` tag returns `OdohError::PlaintextConfigLookup`
+before use, so ODoH config material is never trusted from a plaintext lookup.
 
 ## Bootstrap problem
 
@@ -148,7 +157,7 @@ The `hickory-backend` feature flag (`Cargo.toml`) enables an alternative code
 path that routes DoH and DoT through `hickory-resolver` instead of the manual
 reqwest/tokio-rustls implementations.
 
-**Fallback conditions** (`can_use_hickory()` in resolver.rs):
+**Fallback conditions** (`can_use_hickory()` in `resolver/dispatch.rs`):
 - Custom TLS roots are provided -> manual path (hickory uses its own root store)
 - Custom TLS verifier is set -> manual path
 - DirectTcpConnector hook is set -> manual path (hickory manages its own sockets)
@@ -186,7 +195,12 @@ detect DNS tampering by the ISP/middlebox.
 
 Default encrypted DNS is **AdGuard** (changed from Cloudflare). Priority:
 AdGuard > DNS.SB > Mullvad > Google IP > Cloudflare IP > Google > Quad9 > Cloudflare.
-Defined in `BuiltInDnsProviders` (`DnsResolverConfig.kt`) and `DEFAULT_DOH_*` (`util.rs`).
+Defined solely in `BuiltInDnsProviders` (`DnsResolverConfig.kt`); the Rust crate
+has no equivalent default-ordering constant, it just resolves whatever endpoint
+list it is given. Do not silently reorder the built-in providers or change the
+default provider unless the user explicitly asks for it -- ordering changes
+propagate to `CriticalResolverChain` and `EncryptedDnsPathSelection` and are
+compatibility-sensitive for existing remembered-policy state.
 
 ### DNS.SB TLS server name
 
@@ -207,23 +221,26 @@ connection-level failures during bootstrap were silently dropped.
 
 ## Adding a new DNS protocol
 
-End-to-end walkthrough for adding a hypothetical "DoX" protocol:
+End-to-end walkthrough for adding a hypothetical "DoX" protocol (module paths
+reflect the current per-concern split; re-run the `find` command above if the
+layout has moved further since):
 
-1. **types.rs**: Add `Doq`-style variant to `EncryptedDnsProtocol`, implement
-   `as_str()` and `default_port()`. Add any protocol-specific fields to
-   `EncryptedDnsEndpoint`. Add error variants to `EncryptedDnsError` and
-   classify them in `kind()`.
+1. **types/endpoint.rs**: Add a `Doq`-style variant to `EncryptedDnsProtocol`,
+   implement `as_str()` and `default_port()`. Add any protocol-specific fields
+   to `EncryptedDnsEndpoint`. Add error variants to `EncryptedDnsError`
+   (`types/error.rs`) and classify them in `kind()`.
 
-2. **transport.rs**: Add normalization branch in `normalize_endpoint()` to
-   validate required fields and fill defaults. If the protocol needs TLS,
-   reuse `build_client_config()`.
+2. **transport/normalize.rs**: Add a normalization branch in
+   `normalize_endpoint()` to validate required fields and fill defaults. If
+   the protocol needs TLS, reuse `build_client_config()` from `transport.rs`.
 
-3. **resolver.rs**: Add `exchange_dox()` method on `EncryptedDnsResolver`.
-   Wire it into `exchange_with_metadata()` protocol dispatch match. If the
-   protocol uses connection reuse, add a variant to `PooledConnection` and
+3. **resolver/dispatch.rs** + **resolver.rs**: Add an `exchange_dox()` method
+   on `EncryptedDnsResolver` and wire it into the protocol dispatch match. If
+   the protocol uses connection reuse, add a variant to `PooledConnection` and
    implement `take_dox_session()` / `connect_dox_session()` following the
-   DoT/DNSCrypt pattern. If it needs a persistent client (like quinn::Endpoint
-   for DoQ), add it to `ResolverInner` and initialize in `with_health()`.
+   DoT/DNSCrypt pattern (see `resolver/dot.rs`, `resolver/dnscrypt_transport.rs`).
+   If it needs a persistent client (like `quinn::Endpoint` for DoQ), add it to
+   `ResolverInner` in `resolver/state.rs` and initialize in `with_health()`.
 
 4. **lib.rs**: No changes needed unless you add new public types -- the
    protocol enum variant propagates through existing re-exports.
@@ -234,23 +251,25 @@ End-to-end walkthrough for adding a hypothetical "DoX" protocol:
 6. **hickory_backend.rs** (optional): If hickory-resolver gains support for
    the protocol, add `exchange_dox()` and wire `can_use_hickory()` fallback.
 
-7. **tests.rs**: Add integration tests following the existing patterns:
+7. **tests/**: Add integration tests following the existing patterns in
+   `tests/pool.rs` / `tests/pipeline.rs`:
    - Spawn a local server (see `DnsCryptTestServer`, TLS listener patterns)
    - Create an endpoint pointing to `127.0.0.1` with the local port
    - Test both success path and error conditions
 
 ## Testing patterns
 
-**Integration tests** (`tests.rs`, ~72K lines):
+**Integration tests** (`src/tests/{mod,pipeline,pool,https_service_binding}.rs`):
 - Local TLS servers using `rcgen` self-signed certs + `rustls::ServerConfig`
 - Local DNSCrypt servers with test Ed25519 keypairs
 - `turmoil` crate for deterministic network simulation (used for `TcpClientStream` trait)
 - `local-network-fixture` dev-dependency for network test infrastructure
 
-**Unit tests** (inline in each module):
-- `health.rs`: fake clock (`advancing_fake_clock()`) for deterministic EWMA testing
+**Unit tests** (inline in each module, plus dedicated `<module>/tests.rs` files
+for `health/` and `pool/`):
+- `health/tests.rs`: fake clock (`advancing_fake_clock()`) for deterministic EWMA testing
 - `dnscrypt.rs`: Ed25519 keypair generation for certificate round-trip tests
-- `pool.rs`: manual fallback cache seeding to test cold-start behavior
+- `pool/tests.rs`: manual fallback cache seeding to test cold-start behavior
 
 **Mock resolvers**: Tests create `EncryptedDnsResolver::with_extra_tls_roots()`
 pointing to localhost with self-signed certificate DER bytes passed as extra

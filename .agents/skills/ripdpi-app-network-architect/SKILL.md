@@ -1,7 +1,6 @@
 ---
 name: ripdpi-app-network-architect
-description: >-
-  Audit and improve the RIPDPI Android VPN/proxy/diagnostics application from a network-engineering perspective: VpnService, TUN-to-SOCKS, SOCKS5, Rust native data plane, DNS, TLS/QUIC strategy probing, relay transports, MTU, telemetry, privacy, reliability, and network tests. Trigger for RIPDPI app network reviews, protocol strategy reviews, or app-side VPN/proxy architecture work.
+description: "Network-engineering audit playbook for the RIPDPI Android app: VpnService, TUN-to-SOCKS, Rust data plane, DNS, TLS/QUIC strategy, relays, and diagnostics. Use for RIPDPI app network reviews or protocol/VPN architecture audits."
 ---
 
 # RIPDPI App Network Architect
@@ -71,77 +70,24 @@ Always cover these dimensions in a serious audit:
 - **Privacy and security:** no payload logging, redaction, secret handling, root-helper IPC, subprocess confinement, permission scope, archive contents.
 - **Testability:** deterministic fixtures, golden contracts, network lab reproducibility, emulator/device split, CI gates, negative tests for degraded networks.
 
-## Innovative idea generation
+## Idea generation
 
-When asked for innovative ideas, generate designs as experiment cards, not vague suggestions. Each idea must include:
+This skill is an audit playbook, not an idea generator. For a dedicated
+idea-generation pass with ranked idea cards, use the `protocol-innovation-lab`
+skill instead of duplicating its idea-card format here. If an audit surfaces a
+failure mode worth a follow-up experiment, name the failure mode in section 5
+of the report and point at `protocol-innovation-lab` for the actual idea cards.
 
-- target failure mode;
-- hypothesis;
-- owner-controlled infrastructure required;
-- protocol primitive used;
-- minimal implementation surface;
-- measurement plan;
-- rollback path;
-- privacy/security risks;
-- operational/legal caveats.
-
-Allowed directions include owner-controlled TURN/STUN/ICE labs, MASQUE/CONNECT-UDP, HTTP/3/WebTransport experiments, QUIC path characterization, adaptive MTU probes, synthetic target cohorts, protocol selector scoring, deterministic replay fixtures, and per-AS/network reachability telemetry that stores only redacted metadata.
-
-Do **not** propose abusing third-party TURN/CDN/RTC/media infrastructure, using credentials or accounts without authorization, hiding unauthorized traffic inside public services, bypassing rate limits, or deploying covert infrastructure on systems the operator does not control. If a third-party pattern is used as inspiration, convert it into an owner-controlled lab design.
+Any recommendation this skill makes -- inline or via `protocol-innovation-lab`
+-- must stay inside the safety and legitimacy boundary: owner-controlled
+infrastructure only, never abuse of third-party TURN/CDN/RTC/media services,
+unauthorized credentials, or covert infrastructure on systems the operator
+does not control.
 
 ## Report format
 
-Use this structure:
-
-```md
-# RIPDPI App Network Architecture Report
-
-## 1. Executive summary
-- Overall assessment
-- Top risks
-- Top low-risk wins
-- Files modified: yes/no
-
-## 2. Topology and packet-flow map
-- Proxy mode
-- VPN/TUN mode
-- Relay mode
-- Diagnostics raw-path vs in-path
-
-## 3. Network failure model
-- DNS
-- TCP/TLS
-- QUIC/UDP
-- MTU/fragmentation
-- active probing / IP blocking
-- handover / NAT rebinding
-
-## 4. Findings
-For each finding:
-- Severity: critical/high/medium/low/info
-- Confidence: high/medium/low
-- Location
-- Current behavior
-- Network-engineering concern
-- Recommendation
-- Verification
-- Rollback
-
-## 5. Innovative experiment backlog
-For each idea:
-- Hypothesis
-- Owner-controlled infra
-- Minimal patch
-- Metrics
-- Risk
-
-## 6. Verification plan
-- Commands run
-- Commands not run and why
-- Required lab/device coverage
-
-## 7. Residual risk
-```
+Fill in the structure in `references/report-template.md` (one canonical copy;
+do not duplicate the section list inline here).
 
 ## Implementation rules
 

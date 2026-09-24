@@ -1,6 +1,6 @@
 ---
 name: service-lifecycle
-description: VPN/proxy service lifecycle, coordinators, status, telemetry, handovers, and remembered policy.
+description: "Reference for Android VPN/proxy service lifecycle: runtime coordinators, status/telemetry flow, where to make changes. Use when touching service start/stop, handover, or coordinator code."
 ---
 
 # Service Lifecycle

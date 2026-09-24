@@ -1,12 +1,17 @@
 ---
 name: client-legal-safety
-description: Client legal-safety review for domains, diagnostics targets, probes, workflows, and jurisdiction risk.
+description: Conservative review of end-user legal exposure from diagnostics targets and probe hosts, by jurisdiction. Use when shipping or editing diagnostics target lists, probe hosts, or bootstrap endpoints.
 ---
 
 # Client Legal Safety
 
 Conservative review workflow for what an end user may be exposed to by running
-the app, enabling a feature, or executing built-in diagnostics.
+the app, enabling a feature, or executing built-in diagnostics. This is about
+*client-side exposure from what ships in the app* -- a separate, local-only,
+gitignored skill (name: `legal-check`, not present in every checkout) instead
+reviews public-doc prose for Russian VPN/circumvention advertising-law framing
+risk. If the task is about wording in a README or public doc rather than which
+hosts/targets ship, that is the other skill's job.
 
 ## When To Use
 

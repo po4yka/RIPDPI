@@ -1,6 +1,6 @@
 ---
 name: network-traffic-debug
-description: SOCKS5, VPN tunnel, on-device packet capture, and mitmproxy traffic debugging.
+description: Playbook for capturing SOCKS5/VPN-tunnel traffic on Android devices and emulators with mitmproxy, tcpdump, or PCAPdroid. Use when debugging on-device network traffic or correlating Kotlin/Rust logs.
 ---
 
 # Network Traffic Debug
@@ -186,7 +186,7 @@ android_support::set_android_log_scope_level("network-debug", LevelFilter::Trace
 android_support::clear_android_log_scope_level("network-debug");
 ```
 
-The `set_android_log_scope_level` function (in `native/rust/crates/android-support/src/lib.rs`) keeps the most verbose active scope as the global log level.
+`set_android_log_scope_level` is defined in `native/rust/crates/android-support/src/logging.rs` and re-exported from `lib.rs`; it keeps the most verbose active scope as the global log level.
 
 ### Logcat Filtering for Network Issues
 

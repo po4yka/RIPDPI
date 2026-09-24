@@ -3,4 +3,4 @@ interface:
   short_description: "Generate owner-controlled VPN/proxy protocol experiments and topology ideas with risk and test plans."
   default_prompt: "Use $protocol-innovation-lab to generate controlled, owner-infrastructure VPN/proxy protocol experiments. Include risks, metrics, and rollback."
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

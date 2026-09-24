@@ -1,6 +1,6 @@
 ---
 name: ws-tunnel-telegram
-description: Use when modifying the MTProto WebSocket tunnel for Telegram in ripdpi-ws-tunnel, Telegram DC IP routing (149.154.* / 91.108.* etc.), MTProto obfuscated2 classification, kws*.web.telegram.org bootstrap and TLS handshake, choosing between rustls and BoringSSL backends, the AvoidsBlocked517ByteClientHello invariant, or the telegram_availability diagnostics probe. Triggers on "Telegram", "MTProto", "ws tunnel", "WsTunnelMode", "ClientHello fingerprint", or Telegram-DC routing questions.
+description: "MTProto-over-WebSocket tunnel for Telegram: DC classification, obfuscated2 detection, TLS backend choice, and the relay loop. Use when touching Telegram DC routing, MTProto classification, or ripdpi-ws-tunnel."
 ---
 
 # WebSocket Tunnel for Telegram (ripdpi-ws-tunnel)
@@ -18,15 +18,20 @@ standard TLS + HTTP Upgrade rather than raw MTProto.
 
 ## 2. Architecture
 
+Three crates now share this pipeline. `ripdpi-ws-transport-port` owns DC
+classification and the `WsTransport` trait boundary; `ripdpi-ws-bootstrap`
+owns encrypted-DNS resolution of the WS endpoint; `ripdpi-ws-tunnel` owns the
+concrete MTProto/TLS/WS implementation and re-exports the transport-port types
+so most call sites only need to depend on `ripdpi-ws-tunnel`.
+
 ```
 App -> TUN -> ripdpi-proxy -> handshake pipeline
-  1. detect_telegram_dc(target_ip)          -- dc.rs: dc_from_ip
-  2. classify_target(target_ip)             -- lib.rs: WsTunnelDecision::Tunnel(dc)
-  3. read 64-byte MTProto init from client  -- ws_tunnel.rs: read_mtproto_seed
-  4. classify_mtproto_seed(init)            -- mtproto.rs: ValidatedMtproto{dc}
-  5. resolve_ws_tunnel_addr(dc)             -- ws_bootstrap.rs: encrypted DNS
-  6. open_ws_tunnel(dc, resolved_addr)      -- connect.rs: TLS + WS handshake
-  7. ws_relay(client, ws, seed_request)     -- relay.rs: bidirectional relay
+  1. classify_target(target_ip)             -- ripdpi-ws-transport-port/src/dc.rs (dc_from_ip / dc_from_ipv6)
+  2. read 64-byte MTProto init from client  -- ripdpi-proxy-runtime/.../handshake/ws_tunnel.rs
+  3. classify_mtproto_seed(init)            -- ripdpi-ws-tunnel/src/mtproto.rs: ValidatedMtproto{dc}
+  4. resolve_ws_tunnel_addr(dc)             -- ripdpi-ws-bootstrap/src/resolver.rs: encrypted DNS
+  5. open_ws_tunnel(dc, resolved_addr)      -- ripdpi-ws-tunnel/src/connect.rs: TLS + WS handshake
+  6. ws_relay(client, ws, seed_request)     -- ripdpi-ws-tunnel/src/relay.rs (+ relay/ submodules)
 ```
 
 Runtime entry points (`ripdpi-proxy-runtime/src/runtime/handshake/ws_tunnel.rs`):
@@ -37,7 +42,7 @@ Runtime entry points (`ripdpi-proxy-runtime/src/runtime/handshake/ws_tunnel.rs`)
 `WsTunnelResult` enum: `ValidatedMtproto`, `NotMtproto`, `UnmappableDc`,
 `ShortInit`, `BootstrapFailed`, `WsOpenOrRelayFailed`.
 
-## 3. Telegram DC Database (`dc.rs`)
+## 3. Telegram DC Database (`ripdpi-ws-transport-port/src/dc.rs`)
 
 **Types:** `TelegramDc` (number/raw/class), `TelegramDcClass` (Production/Test/MediaOrCdn).
 `TelegramDc::from_raw()`: 1-5 = Production, 10001-10005 = Test, -1..-5 = MediaOrCdn.
@@ -56,10 +61,26 @@ Runtime entry points (`ripdpi-proxy-runtime/src/runtime/handshake/ws_tunnel.rs`)
 
 Unrecognized subnets within Telegram prefixes fall back to DC2 intentionally --
 unknown-but-Telegram traffic should be tunneled rather than leaked as raw MTProto.
-IPv6 always returns `None`.
+
+**IPv6** (`dc_from_ipv6`): two recognised Telegram-owned supernets are also
+tunneled, each mapped to one representative production DC (not per-sub-prefix):
+`2001:67c:4e8::/48` -> DC2, `2001:b28:f23c::/46`..`f23f` -> DC3. Any other IPv6
+address returns `None` (passthrough, not tunneled). `classify_target()` in
+`ripdpi-ws-transport-port/src/lib.rs` calls `dc_from_ipv6()` for `IpAddr::V6`
+exactly like the V4 path -- IPv6 Telegram traffic in the two known supernets is
+tunneled, not silently dropped to passthrough.
 
 **WS endpoints:** `ws_host()` -> `kws{n}.web.telegram.org` (or `kws{n}-test.*`),
 `ws_url()` -> `wss://kws{n}.web.telegram.org/apiws`. MediaOrCdn returns `None`.
+
+**Cloudflare Worker route (`worker_route.rs`):** `CloudflareWorkerRoute` +
+`WorkerBearer` let an operator route the outer TLS/WebSocket connection
+through their own Cloudflare Worker (real Telegram gateway carried in
+`X-Ripdpi-Upstream`) instead of connecting to `kws*.web.telegram.org`
+directly. `WorkerBearer` validates an RFC 6750 bearer token and redacts itself
+in `Debug`. A worker route must never be combined with `fake_sni` -- the
+implementation is required to reject that combination so a verified Worker
+TLS connection is never silently downgraded to the insecure fake-SNI path.
 
 ## 4. MTProto Handling (`mtproto.rs`)
 
@@ -133,12 +154,18 @@ remainder, then start bidirectional relay.
 `drive_close_handshake()` attempts graceful WS close. Ping/Pong handled
 automatically by tungstenite.
 
-## 8. Encrypted DNS Bootstrap (`ws_bootstrap.rs`)
+## 8. Encrypted DNS Bootstrap (`ripdpi-ws-bootstrap` crate, `src/resolver.rs`)
 
 `resolve_ws_tunnel_addr(dc, runtime_context, protect_path)` resolves
 `kws{n}.web.telegram.org` via encrypted DNS (DoH/DoT), using
 `ProxyRuntimeContext` if available, falling back to default context. Prevents
-DNS-based blocking of the WS tunnel endpoint.
+DNS-based blocking of the WS tunnel endpoint. This is a separate crate from
+`ripdpi-ws-tunnel`; it depends on `ripdpi-dns-resolver` and
+`ripdpi-ws-transport-port` (for `TelegramDc`/`ws_host()`), not the other way
+around. A same-named `resolve_ws_tunnel_addr` wrapper also exists as a
+`pub(in crate::runtime)` method on `ripdpi-proxy-runtime/src/runtime/state/ws.rs`
+-- that one just forwards into this crate's function with the runtime's
+current context, it is not a second implementation.
 
 ## 9. Diagnostics Integration (`ripdpi-diagnostics-telegram/src/telegram.rs`)
 
@@ -152,15 +179,22 @@ escalation (`ripdpi-android-telemetry-adapter/src/{observer,adaptive}.rs`); runt
 
 ## 10. Updating Telegram DC Ranges
 
-1. Edit `dc_from_ip()` in `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs`
-2. Add `(octet0, octet1) => match o[2] { ... }` arms
-3. Add boundary tests (first and last IP in range)
+1. Edit `dc_from_ip()` (IPv4) or `dc_from_ipv6()` (IPv6) in
+   `native/rust/crates/ripdpi-ws-transport-port/src/dc.rs`
+2. Add `(octet0, octet1) => match o[2] { ... }` arms (IPv4) or a new supernet
+   comparison against `ip.segments()` (IPv6)
+3. Add boundary tests (first and last IP/supernet in range)
 4. If adding DC6+, update `TelegramDc::from_raw()` range checks
-5. Run `cargo test --locked -p ripdpi-ws-tunnel`
-6. Update DC endpoints in diagnostics probe target configuration
+5. Bump `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` and keep the
+   `dc_ipv4_table_provenance` test's `YYYY-MM-DD` format check passing
+6. Run `cargo test --locked -p ripdpi-ws-transport-port`
+7. Update DC endpoints in diagnostics probe target configuration
 
-Static lookup table by design -- must work without network, and DC ranges change
-rarely (last: 185.76.0.0/16 added for DC2).
+Static lookup table by design -- must work without network. Per the docstring
+in `dc.rs`, the IPv4 table is reviewed quarterly (`docs/strategy-pack-operations.md`
+"Telegram DC table review"); the IPv6 supernet mapping shares that review
+obligation. Do not treat "last reviewed" as a fixed historical fact -- read
+`TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` from source rather than restating a date here.
 
 ## 11. Common Issues
 
@@ -178,5 +212,8 @@ for desync fallback.
 Uplink retries at 1ms intervals; sustained pressure blocks uplink (preferable
 to unbounded memory growth).
 
-**No IPv6:** `classify_target` returns `Passthrough` for IPv6. Telegram does not
-serve MTProto over IPv6 in the Russian market.
+**Partial IPv6 coverage:** `classify_target()` tunnels IPv6 addresses inside the
+two known Telegram supernets (see section 3) exactly like IPv4, but returns
+`Passthrough` for any other IPv6 address -- there is no IPv6 equivalent of the
+IPv4 "unrecognized subnet still falls back to DC2" behavior. An IPv6 Telegram
+address outside those two supernets is not detected and is not tunneled.
