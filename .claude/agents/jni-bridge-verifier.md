@@ -65,7 +65,7 @@ Audit `JNI_OnLoad` in `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-a
 When reviewing a diff that adds a new JNI adapter crate OR modifies an existing `JNI_OnLoad`, verify the diff preserves this pattern:
 - `install_panic_hook()` runs INSIDE `catch_unwind` (so hooks are installed even if earlier init fails).
 - The outer match returns `JNI_ERR` on the panic arm, not 0 (0 means "requested JNI version unsupported" which is a different failure mode).
-- Any new `extern "system" fn Java_*` method uses `EnvUnowned::with_env` + `into_outcome` per the `rust-discipline` skill.
+- Any new `extern "system" fn Java_*` method uses `EnvUnowned::with_env` + `into_outcome` per the `rust-panic-safety` skill.
 
 A new `JNI_OnLoad` or `Java_*` method without panic containment is a CRITICAL finding.
 

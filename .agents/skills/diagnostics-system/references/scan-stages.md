@@ -41,25 +41,15 @@ run first depends on `confirm_good_dpi_evidence`. Re-read
 ## Runner Registration
 
 All runners are instantiated in `engine/runners/mod.rs` via
-`execution_coordinator()`: the 9 connectivity runners come from the
-`PROBE_STAGE_REGISTRATIONS` descriptor/factory registry (adding a
-connectivity probe is a one-line addition there), and the 5 strategy
-runners are hand-rolled because they need a `CandidateRuntimeLauncher`
-constructor argument and consume `StrategyCandidateSpec` inputs rather
-than the `Probe` trait:
-
-```
-# from PROBE_STAGE_REGISTRATIONS:
-EnvironmentRunner, DnsRunner, WebRunner, QuicRunner, TcpRunner,
-ServiceRunner, CircumventionRunner, TelegramRunner, ThroughputRunner
-# hand-rolled:
-StrategyDnsBaselineRunner, StrategyTcpRunner, StrategyQuicRunner,
-StrategyConnectionConcurrencyRunner, StrategyRecommendationRunner
-```
-
-That is 14 runners as of this writing; re-count from `execution_coordinator()`
-rather than trusting this number, since the registry-based half in
-particular is designed to grow with a one-line change. The plan determines
+`execution_coordinator()`: the connectivity runners come from the
+`PROBE_STAGE_REGISTRATIONS` descriptor/factory registry in
+`engine/runners/registry.rs` (adding a connectivity probe is a one-line
+addition there), and the strategy runners (`Strategy*Runner`) are
+hand-rolled in `execution_coordinator()` because they need a
+`CandidateRuntimeLauncher` constructor argument and consume
+`StrategyCandidateSpec` inputs rather than the `Probe` trait. Read both
+places for the current runner set instead of relying on a copied list.
+The plan determines
 which subset runs and in what order. Runners for stages not in
 `plan.stage_order` are never invoked.
 

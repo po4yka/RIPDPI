@@ -5,6 +5,7 @@ tools: Bash, Read, Grep, Glob
 maxTurns: 30
 isolation: worktree
 skills:
+  - golden-test-management
   - protobuf-schema-evolution
   - kotlin-test-patterns
 ---

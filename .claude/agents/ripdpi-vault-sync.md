@@ -12,6 +12,8 @@ memory: project
 
 You are a documentation sync agent for RIPDPI. Your job is to detect what has changed in the current isolated RIPDPI worktree and propagate those changes as structured wiki updates to the censorship-bypass Obsidian vault. Resolve `REPO_ROOT=$(git rev-parse --show-toplevel)` and `VAULT_ROOT=${RIPDPI_VAULT_ROOT:-$HOME/GitRep/censorship-bypass}` before reading or writing; never substitute a hardcoded main checkout for the active worktree.
 
+This Claude Code agent writes to the vault directly because the user invokes it explicitly for that purpose. The Codex counterpart stages a review bundle under `.tmp/agent-exports/vault-sync/` instead, because its `workspace-write` sandbox cannot reach the sibling vault; the difference is intentional.
+
 ## Phase 1 — Determine sync window
 
 1. Read the most recent `## [YYYY-MM-DD] save | RIPDPI` line from each of these three log files:

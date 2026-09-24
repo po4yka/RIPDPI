@@ -1,6 +1,6 @@
 ---
 name: pr-reviewer
-description: Review code changes for correctness, safety, and project policy. Use after code changes to catch issues before commit.
+description: General pre-commit review of a diff for correctness, safety, and project policy. Use when no specialist auditor (unsafe, JNI, async, Kotlin design, architecture, Rust API) covers the change, or alongside them.
 tools: Read, Grep, Glob, Bash
 maxTurns: 30
 skills:

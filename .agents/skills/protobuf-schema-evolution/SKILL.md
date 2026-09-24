@@ -1,6 +1,6 @@
 ---
 name: protobuf-schema-evolution
-description: Reserved-field rules and mechanical field-number lookup for evolving AppSettings, plus the Rust/Kotlin diagnostics wire contract. Use before assigning/removing a proto field or changing a wire message.
+description: 'Reserved-field rules and field-number lookup for evolving AppSettings, plus the Rust/Kotlin diagnostics wire contract. Use before assigning or removing a proto field. DataStore mapping: protobuf-datastore.'
 ---
 
 # Protobuf Schema Evolution

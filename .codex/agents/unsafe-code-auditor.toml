@@ -39,6 +39,8 @@ When the diff touches those modules, apply the syscall FFI wrapper checklist fro
 
 ## extern boundary catch_unwind audit
 
+Check each match against the audit-checklist protocol in the `rust-panic-safety` skill.
+
 Every pub extern "C" fn / pub extern "system" fn MUST terminate a panic before return (panic unwinding across extern boundary is UB).
 Grep: rg 'pub extern "(C|system)"' native/rust/ --type rust -B 2 -A 10
 - JNI_OnLoad and Java_* bodies: use std::panic::catch_unwind OR wrap work in EnvUnowned::with_env + into_outcome (Outcome tri-state catches panics).

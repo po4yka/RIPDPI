@@ -1,6 +1,6 @@
 ---
 name: release-signing
-description: Reference for RIPDPI release signing config, R8/ProGuard keep rules, and versioning. Use when touching signing config, JNI keep rules, or version bumps. Hand off tagging and publishing to ripdpi-release.
+description: 'Reference for RIPDPI release signing config and versioning. Use when touching signing config or version bumps. Keep rules: r8-jni-keep-rules. Tagging and publishing: ripdpi-release.'
 ---
 
 # Release Signing

@@ -1,6 +1,6 @@
 ---
 name: native-verifier
-description: Native build verification specialist. Use when checking .so library sizes, ELF metadata, cargo-bloat regressions, or updating native baselines.
+description: 'Native build verification: .so sizes, ELF metadata, cargo-bloat, and native baseline updates. Use when checking native artifacts or updating their baselines. Finding the commit that regressed: regression-detector.'
 tools: Read, Grep, Glob, Bash
 maxTurns: 30
 isolation: worktree

@@ -74,8 +74,8 @@ diagnostics catalog renderer uses it at task execution time.
 | `DiagnosticsCatalogAssembler.kt` | Orchestrates pack loading, profile loading, validation, JSON rendering |
 | `DiagnosticsCatalogDefinitions.kt` | Singleton entry point wiring the assembler with default sources |
 | `DiagnosticsCatalogDomain.kt` | Domain model: `DiagnosticsCatalog`, `TargetPackDefinition`, `DiagnosticsProfileDefinition`, enums |
-| `DiagnosticsCatalogDpiData.kt` | DPI-specific target pack data (IP addresses, endpoints, domains) |
-| `DiagnosticsCatalogPackSource.kt` | `DefaultDiagnosticsCatalogPackSource` -- builds target pack list |
+| `DiagnosticsCatalogDpiData.kt` | DPI-profile target data (domains, TCP targets, whitelist SNI) consumed by `DefaultDiagnosticsCatalogProfileSource` |
+| `DefaultDiagnosticsCatalogPackSource.kt` | `DefaultDiagnosticsCatalogPackSource` -- builds target pack list |
 | `DefaultDiagnosticsCatalogProfileSource.kt` | `DefaultDiagnosticsCatalogProfileSource` -- builds profile list referencing packs |
 | `DiagnosticsCatalogRendering.kt` | `DiagnosticsCatalogJsonRenderer` and `DiagnosticsCatalogValidator` -- serializes to JSON, validates pack refs and versions |
 | `DiagnosticsCatalogSharedData.kt` | Shared constants (common domains, DNS servers) reused across packs |
@@ -105,9 +105,7 @@ as an `@Input` to force re-execution when the generation date changes.
 
 ### Adding a New Target Pack or Profile
 
-1. Add data to `DiagnosticsCatalogDpiData.kt` (packs) or `DefaultDiagnosticsCatalogProfileSource.kt` (profiles)
-2. Run `:core:diagnostics:generateDiagnosticsCatalog`
-3. Commit the updated JSON asset alongside the Kotlin changes
+The catalog's content (packs, profiles, and how to add them) is owned by the `diagnostics-system` skill; this skill covers only the generator plumbing above.
 
 ## 4. Rust-Native Plugin
 

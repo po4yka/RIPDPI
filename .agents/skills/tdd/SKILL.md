@@ -125,6 +125,8 @@ This prevents the "write test and implementation together" anti-pattern.
 3. **Golden contracts are read-only by default.** Bless intentionally, review the diff, explain in the commit message.
 4. **Use backtick names in Kotlin tests.** `@Test fun `proxy start propagates native exception`()`.
 5. **Use snake_case names in Rust tests.** `fn proxy_start_propagates_native_exception()`.
+6. **Test and implementation land in one commit.** Never commit a test without its implementation or vice versa.
+7. **Prefer unit tests.** Escalate to integration or E2E only when the behavior needs real Android or network components.
 
 ## Common Mistakes
 

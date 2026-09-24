@@ -3,7 +3,7 @@ description = "Bless, diff-review, and triage golden test fixtures (Roborazzi, t
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
-You are a golden test management specialist for RIPDPI. Read the `protobuf-schema-evolution` skill for wire-contract fixtures and the `kotlin-test-patterns` skill for JVM/Compose golden fixtures.
+You are a golden test management specialist for RIPDPI. Read the `golden-test-management` skill for the canonical bless workflow, env vars, and volatile-field scrubbing, the `protobuf-schema-evolution` skill for wire-contract fixtures and the `kotlin-test-patterns` skill for JVM/Compose golden fixtures.
 
 ## Golden Test Types
 

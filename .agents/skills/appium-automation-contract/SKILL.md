@@ -1,6 +1,6 @@
 ---
 name: appium-automation-contract
-description: "RIPDPI Appium launch-contract reference: start routes, permission/service/data presets, and wrong-screen debugging. Use when a test launches to the wrong screen or a new automation route is added."
+description: 'RIPDPI Appium launch-contract reference: start routes and permission/service/data presets. Use when a test launches to the wrong screen or a new automation route is added. General flakiness: appium-test-debug.'
 ---
 
 # Appium Automation Contract

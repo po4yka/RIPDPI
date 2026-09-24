@@ -1,6 +1,6 @@
 ---
 name: protobuf-datastore
-description: Schema and Kotlin mapping for the AppSettings proto-backed DataStore. Use when adding, reading, or removing an app-settings field, or wiring its UI-state and native-preferences conversion.
+description: 'Kotlin mapping for the AppSettings proto-backed DataStore: UI-state and native-preferences conversion. Use when adding or reading an app-settings field. Removing a field: use protobuf-schema-evolution first.'
 ---
 
 # Protobuf DataStore
@@ -83,7 +83,7 @@ val uiState = combine(application.settingsStore.data, otherFlow) { settings, oth
 | Desync | default_ttl, custom_ttl, fake_ttl, fake_sni, fake_offset, oob_data, drop_sack, etc. | `desync_method` and `split_position` are reserved/removed; grep `app_settings.proto` for the current field list |
 | Protocols | desync_http, desync_https, desync_udp | Bool flags for which protocols to desync |
 | Hosts | hosts_mode, hosts_blacklist, hosts_whitelist | Mode: disable/blacklist/whitelist |
-| TLS | tlsrec_enabled, tlsrec_position, tlsrec_at_sni | TLS record splitting |
+| TLS | tls_minor_enabled, etc. | `tlsrec_*` names are reserved/removed (TLS record splitting is a desync chain step now); grep `app_settings.proto` for the current field list |
 | App | onboarding_complete, biometric_enabled, backup_pin | App lifecycle settings |
 
 ## Preferences Conversion (Proto -> Native)

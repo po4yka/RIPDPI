@@ -1,6 +1,6 @@
 ---
 name: desync-engine
-description: Reference for the DPI desync pipeline (ripdpi-config/ripdpi-desync/ripdpi-desync-runtime/ripdpi-proxy-runtime). Use when adding a TcpChainStep/UdpChainStep, offset expression, fake-packet/TTL/TLS-prelude behavior, or strategy-probe candidate.
+description: 'Reference for the DPI desync pipeline (ripdpi-config/-desync/-desync-runtime/-proxy-runtime). Use when changing TcpChainStep/UdpChainStep, offsets, fake-packet/TTL/TLS-prelude behavior, or a candidate''s technique. Scheduling: diagnostics-system.'
 ---
 
 # Desync Engine -- RIPDPI

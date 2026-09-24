@@ -1,6 +1,6 @@
 ---
 name: regression-detector
-description: Detects and localizes performance/binary-size regressions -- compares Criterion, macrobenchmarks, .so sizes, and cargo-bloat against baselines. Use to pinpoint the offending commit.
+description: Localizes performance and binary-size regressions (Criterion, macrobenchmarks, .so size, cargo-bloat) to the offending commit. Read-only diagnosis; baseline updates go to native-verifier.
 tools: Read, Grep, Glob, Bash
 maxTurns: 30
 skills:

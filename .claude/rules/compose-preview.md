@@ -85,7 +85,7 @@ from the Gradle model when the plugin or Android configuration changes.
 | Gradle | 9.4.1+ | `distributionUrl` in `gradle/wrapper/gradle-wrapper.properties` |
 | Java | 17+ | JVM 17 target |
 | AGP | 9.1+ | `agp` key in `gradle/libs.versions.toml` |
-| Kotlin | 2.2.21+ | `kotlin` key in `gradle/libs.versions.toml` |
+| Kotlin | 2.2.21+ | `kotlin-compose` key in `gradle/libs.versions.toml` |
 | Robolectric | 4.16.x | `robolectric` key in `gradle/libs.versions.toml` |
 
 Each of these drifts independently of this rule file. Re-verify the actual value from its canonical source before relying on it — do not trust a remembered or previously-pinned number. A Robolectric major-version drift in either direction must be re-verified — `compose-preview` and Roborazzi share the Robolectric classpath.

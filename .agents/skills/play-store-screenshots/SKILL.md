@@ -1,6 +1,6 @@
 ---
 name: play-store-screenshots
-description: "Build or update RIPDPI's Play Store marketing screenshots and feature graphic (Next.js generator, play-store-screenshots/). Use only when explicitly asked for Play Store assets. Never invoke implicitly."
+description: Never invoke implicitly; use only when explicitly asked for Play Store assets. Builds or updates RIPDPI's marketing screenshots and feature graphic (Next.js generator in play-store-screenshots/).
 disable-model-invocation: true
 ---
 

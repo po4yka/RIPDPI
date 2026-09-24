@@ -52,7 +52,7 @@ Audit JNI_OnLoad in ripdpi-android, ripdpi-tunnel-android, ripdpi-relay-android,
 When reviewing a diff adding a new JNI adapter crate or modifying an existing JNI_OnLoad, verify:
 - install_panic_hook() runs INSIDE catch_unwind.
 - Outer match returns JNI_ERR on panic arm, not 0.
-- New extern "system" fn Java_* methods use EnvUnowned::with_env + into_outcome per rust-panic-safety skill.
+- New extern "system" fn Java_* methods use EnvUnowned::with_env + into_outcome per the `rust-panic-safety` skill.
 
 A new JNI_OnLoad or Java_* without panic containment is CRITICAL.
 

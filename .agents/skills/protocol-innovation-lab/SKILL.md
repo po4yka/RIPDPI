@@ -1,6 +1,6 @@
 ---
 name: protocol-innovation-lab
-description: Generates ranked, owner-controlled VPN/proxy protocol and topology experiment ideas for restrictive networks (TURN/ICE/MASQUE/QUIC/WebTransport). Explicit-invocation only. Never for abusing third-party infrastructure.
+description: Explicit invocation only; never for abusing third-party infrastructure. Generates ranked, owner-controlled VPN/proxy protocol and topology experiment ideas for restrictive networks (TURN/ICE/MASQUE/QUIC/WebTransport).
 disable-model-invocation: true
 ---
 

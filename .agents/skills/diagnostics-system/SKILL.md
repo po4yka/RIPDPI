@@ -1,6 +1,6 @@
 ---
 name: diagnostics-system
-description: Reference for the two-tier diagnostics pipeline (Rust ripdpi-monitor-engine/ripdpi-diagnostics-*, Kotlin core/diagnostics). Use when changing ScanRequest/ScanReport, ProbeTask families, strategy-probe candidates, the catalog, or the wire contract.
+description: 'Reference for the diagnostics pipeline (ripdpi-monitor-engine/ripdpi-diagnostics-* and core/diagnostics). Use when changing ScanRequest/ScanReport, ProbeTask families, probe scheduling, the catalog, or the wire contract. Techniques: desync-engine.'
 ---
 
 # Diagnostics System
@@ -209,7 +209,7 @@ Located in `build-logic/convention/src/main/kotlin/DiagnosticsCatalog*.kt`:
 - `DiagnosticsCatalogDomain.kt` -- domain model: `TargetPackDefinition`,
   `DiagnosticsProfileDefinition`, `CatalogScanKind`, enums for profile
   families (GENERAL, WEB_CONNECTIVITY, MESSAGING, CIRCUMVENTION, etc.)
-- `DiagnosticsCatalogPackSource.kt` -- `DefaultDiagnosticsCatalogPackSource`
+- `DefaultDiagnosticsCatalogPackSource.kt` -- `DefaultDiagnosticsCatalogPackSource`
   defines target packs (e.g., `ru-independent-media`, `ru-global-platforms`,
   `ru-messaging`, `ru-circumvention`, `ru-throttling`, `neutral-control`)
 - `DefaultDiagnosticsCatalogProfileSource.kt` -- `DefaultDiagnosticsCatalogProfileSource`
@@ -224,12 +224,14 @@ Located in `build-logic/convention/src/main/kotlin/DiagnosticsCatalog*.kt`:
 1. Add a `TargetPackDefinition` to `DefaultDiagnosticsCatalogPackSource.load()`
    with an id, version, and target lists (domain, DNS, TCP, QUIC, etc.)
 2. Reference it from profiles via `index.requirePack("your-pack-id")`
+3. Run `./gradlew :core:diagnostics:generateDiagnosticsCatalog` and commit the regenerated `core/diagnostics/src/main/assets/diagnostics/default_profiles.json` with the Kotlin change (`checkDiagnosticsCatalog` fails `check` when it is stale)
 
 ### How to add a new diagnostic profile
 
 1. Add a function to `DefaultDiagnosticsCatalogProfileSource` that returns
    a `DiagnosticsProfileDefinition`
 2. Include it in the `load()` list
+3. Regenerate and commit the catalog JSON as for a new pack
 3. Set `kind`, `family`, `executionPolicy`, `packRefs`, and target lists
 4. For strategy probe profiles: set `kind = CatalogScanKind.STRATEGY_PROBE`
    and provide a `StrategyProbeDefinition` with the suite ID
@@ -237,32 +239,7 @@ Located in `build-logic/convention/src/main/kotlin/DiagnosticsCatalog*.kt`:
 
 ## 6. DiagnosticsHome Composite Run
 
-`core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/HomeCompositeStageDefinitions.kt`
-is the source of truth for both stage lists below; read it directly
-rather than trusting this table once stages are added, removed, or
-reordered.
-
-### `HomeCompositeStageSpecs` (full run, 9 stages)
-
-| Stage key | Profile | Notes |
-|-----------|---------|-------|
-| `automatic_audit` | `automatic-audit` (full_matrix_v1 strategy probe) | `StrategyProbeStageTimeoutMs` (330s); see "Stage timeouts" above |
-| `detection_signals` | `detection-signals` | `DETECTION_SIGNALS` kind; `DetectionStageTimeoutMs` (90s) |
-| `default_connectivity` | `default` | Standard connectivity check |
-| `ru_throttling` | `ru-throttling` | `ThrottlingStageTimeoutMs` (240s) |
-| `ru_circumvention` | `ru-circumvention` | Sensitive-services reachability; `SensitiveServicesStageTimeoutMs` (240s) |
-| `dpi_full` | `ru-dpi-full` | Full DPI detection sweep; `DpiFullStageTimeoutMs` (240s) -- **not** `dpi-detector-full` and **not** the 330s strategy-probe budget |
-| `path_comparison` | `path-comparison` | IN_PATH mode (proxy vs. direct); `PathComparisonStageTimeoutMs` (180s) |
-| `vpn_route_evidence` | `vpn-route-evidence` | Passive VPN-route evidence only; does not start a scan session (`startsScanSession = false`) |
-| `dpi_strategy` | `ru-dpi-strategy` | `STRATEGY_PROBE` (full_matrix_v1) scoped to Russian-domain target packs; shares `StrategyProbeStageTimeoutMs` (330s) with `automatic_audit` |
-
-### `QuickScanStageSpecs` (reduced run, 4 stages)
-
-A separate list used for the quick/automatic (non-manual-audit) path:
-`automatic_audit`, `detection_signals`, `vpn_route_evidence`,
-`dpi_strategy` -- the same specs as above, but `dpi_strategy` uses
-`QuickScanStrategyProbeNativeDeadlineMs` (60s) instead of the full 270s
-native deadline (see "Stage timeouts" above).
+The DiagnosticsHome run chains several profiles as stages: a full run (`HomeCompositeStageSpecs`) and a reduced quick scan (`QuickScanStageSpecs`), both defined in `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/HomeCompositeStageDefinitions.kt`, which is the source of truth. Read `references/composite-run.md` for the per-stage profiles, kinds, and timeouts when changing a stage or its budget.
 
 ## 7. Kotlin Orchestration Layer
 

@@ -1,6 +1,6 @@
 ---
 name: compose
-description: Jetpack Compose API guidance (state, modifiers, navigation, performance, theming) plus a scored RIPDPI audit. Use when writing or reviewing Compose code, or running a Compose quality audit.
+description: Jetpack Compose API guidance (state, modifiers, navigation, theming) plus a scored RIPDPI audit. Use for generic Compose API questions or an audit. Not for RIPDPI conventions (see android-compose-patterns).
 user-invocable: true
 argument-hint: "[audit [scope: full|performance|state|side-effects|api] [module: :app|all]]"
 ---
