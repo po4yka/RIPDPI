@@ -21,31 +21,47 @@ preserving request order).
 
 ## Strategy Probe Stages
 
-These stages execute in fixed order for `ScanKind::StrategyProbe` scans.
+These stages execute for `ScanKind::StrategyProbe` scans, in the order
+`strategy_stage_order()` (`engine/plan.rs`) builds. The order is not a
+fixed constant: `Web` is inserted after `Environment` only for in-path
+scans with a route and domain targets, and whether TCP or QUIC candidates
+run first depends on `confirm_good_dpi_evidence`. Re-read
+`strategy_stage_order()` before restating this table.
 
 | Stage ID | Phase | What it checks | Key types | Output |
 |----------|-------|---------------|-----------|--------|
 | `Environment` | `environment` | Same as connectivity Environment stage. | `NetworkSnapshot` | Network environment probe result |
+| `Web` | `web` | Conditional: only when in-path mode with a route and domain targets configured. | `DomainTarget` | Domain reachability results ahead of strategy evaluation |
 | `StrategyDnsBaseline` | `dns_baseline` | DNS tampering detection via system vs encrypted DNS comparison. If tampering found, short-circuits the entire scan -- skips candidate evaluation and recommends resolver override. | `StrategyProbeBaseline`, `ClassifiedFailure` | `probe_type = "dns_integrity"` results; sets `baseline_failure` in strategy state |
 | `StrategyTcpCandidates` | `tcp` | Evaluates each TCP bypass strategy candidate against the target domain set. For each candidate: configures proxy, probes targets via HTTP/HTTPS, records success/failure. Candidates include baseline, hostfake, fake, split, disorder, OOB, TLS record splitting, etc. | `StrategyCandidateSpec`, `StrategyProbeCandidateSummary` | Per-candidate summary with `succeeded_targets`, `weighted_success_score`, `quality_score`, `proxy_config_json` |
 | `StrategyQuicCandidates` | `quic` | Evaluates QUIC bypass strategy candidates (disabled, compat burst, realistic burst, full burst). Same per-target evaluation as TCP but over QUIC. | `StrategyCandidateSpec`, `StrategyProbeCandidateSummary` | Per-candidate QUIC summary |
+| `StrategyConnectionConcurrency` | `connection_concurrency` | Opens simultaneous TLS connections to eligible targets across every available TLS profile at increasing concurrency levels to detect concurrency-triggered DPI/middlebox behavior a single-connection probe cannot see. | `ConnectionConcurrencyCell`, `ConnectionConcurrencyVerdict` | `ConnectionConcurrencyAssessment` per target |
 | `StrategyRecommendation` | `recommendation` | Selects TCP and QUIC winners by quality score. Builds `StrategyProbeRecommendation` with winning config JSON. Computes `AuditAssessment` with coverage metrics and confidence level. | `StrategyProbeRecommendation`, `StrategyProbeAuditAssessment`, `StrategyProbeReport` | Final `StrategyProbeReport` embedded in `ScanReport` |
 
 ## Runner Registration
 
 All runners are instantiated in `engine/runners/mod.rs` via
-`execution_coordinator()`. The function creates an `ExecutionCoordinator`
-with all 13 runners:
+`execution_coordinator()`: the 9 connectivity runners come from the
+`PROBE_STAGE_REGISTRATIONS` descriptor/factory registry (adding a
+connectivity probe is a one-line addition there), and the 5 strategy
+runners are hand-rolled because they need a `CandidateRuntimeLauncher`
+constructor argument and consume `StrategyCandidateSpec` inputs rather
+than the `Probe` trait:
 
 ```
+# from PROBE_STAGE_REGISTRATIONS:
 EnvironmentRunner, DnsRunner, WebRunner, QuicRunner, TcpRunner,
-ServiceRunner, CircumventionRunner, TelegramRunner, ThroughputRunner,
+ServiceRunner, CircumventionRunner, TelegramRunner, ThroughputRunner
+# hand-rolled:
 StrategyDnsBaselineRunner, StrategyTcpRunner, StrategyQuicRunner,
-StrategyRecommendationRunner
+StrategyConnectionConcurrencyRunner, StrategyRecommendationRunner
 ```
 
-The plan determines which subset runs and in what order. Runners for stages
-not in `plan.stage_order` are never invoked.
+That is 14 runners as of this writing; re-count from `execution_coordinator()`
+rather than trusting this number, since the registry-based half in
+particular is designed to grow with a one-line change. The plan determines
+which subset runs and in what order. Runners for stages not in
+`plan.stage_order` are never invoked.
 
 ## Observation Mapping
 

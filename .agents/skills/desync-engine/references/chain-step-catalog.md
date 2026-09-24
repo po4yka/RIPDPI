@@ -36,10 +36,18 @@ implementations use the later (fake) data.
 **Hard gate**: Only activates on round 1, stream_start >= 0, total <= 1500
 bytes. Falls back to `Split` otherwise.
 
-**Platform requirement**: `seqovl_supported()` must return true (Linux only).
+**Platform requirement**: `seqovl_supported()` must return true. It probes
+`IpFragmentationCapabilities::tcp_repair` (`ripdpi-runtime-platform/src/retransmit.rs`),
+which on Android is only satisfied through the privileged root helper
+(`ripdpi-privileged-ops/src/linux/tcp_repair.rs`) -- this is a root-gated
+capability, not merely a Linux-vs-other-OS check. `emitter_tier()` marks
+`SeqOverlap` as `RootedProduction`. Falls back to `Split` when unsupported,
+so a non-rooted device never hard-fails, but the step silently degrades
+rather than "working" as configured.
 
 **When to use**: When the DPI reassembles TCP but uses last-segment-wins
-semantics. More complex than Split but defeats reassembly-based DPI.
+semantics, on hardware where the TCP_REPAIR capability is available.
+More complex than Split but defeats reassembly-based DPI.
 
 ---
 
@@ -246,8 +254,72 @@ DPI may not reassemble IP fragments.
 **Constraint**: Only activates on round 1 with a valid split position.
 Falls back to normal write otherwise.
 
-**When to use**: When the DPI does not perform IP fragment reassembly.
-Effective against simpler DPI but increasingly rare.
+**Platform requirement**: Routed through `transport_io::raw_socket::send_ip_fragmented_tcp()`,
+which needs raw-socket (`CAP_NET_RAW`) access. `emitter_tier()` marks
+`IpFrag2` as `RootedProduction`, the same tier as `SeqOverlap`.
+
+**When to use**: When the DPI does not perform IP fragment reassembly,
+on hardware with raw-socket access. Effective against simpler DPI but
+increasingly rare.
+
+---
+
+### SynData
+
+**Description**: Plans identically to `Split` (`plan_tcp.rs` matches
+`Split | SynData` in the same arm) -- the payload is written as a normal
+ordered segment. The distinct behavior lives one layer up, at connection
+setup: `group_uses_direct_syn_data_tfo()` (in
+`ripdpi-proxy-runtime-adapter/src/model/config/tcp_connect.rs`) checks
+whether the desync group has a `SynData` step and no `ext_socks` upstream
+configured; if so, the FIRST outbound connect on that route requests
+direct TCP Fast Open (TFO), sending the request payload inside the SYN
+packet itself instead of after the three-way handshake.
+
+**Actions generated**: Same as `Split` -- `Write(chunk)`, `AwaitWritable`.
+The TFO request happens at the socket-connect layer, not in the
+`DesyncAction` sequence.
+
+**Config fields**: `offset` (same as `Split`).
+
+**Fallback**: `first_write_failure_retries_syn_data_without_tfo()` retries
+the first outbound connect without TFO if the initial TFO write fails,
+so a network path that rejects TFO SYN data does not hard-fail the
+connection.
+
+**Emitter tier**: `NonRootProduction` -- no root or raw-socket capability
+required; TFO is a standard Linux socket option.
+
+**When to use**: To save a round trip on the very first request of a
+connection when the upstream is reached directly (no SOCKS hop) and the
+network path is known to support TFO.
+
+---
+
+### FakeRst
+
+**Description**: Sends a fake, wire-layer TCP RST (`platform::send_fake_rst()`)
+immediately before writing the real chunk with its own optional TCP flag
+overrides. Unlike the other fake-packet steps, this constructs and injects
+the RST at the raw-socket layer rather than through ordinary
+`TcpStream::write`.
+
+**Actions generated**: Not expressed as a portable `DesyncAction` sequence;
+executed directly by `tcp_plan/execution/fake_rst.rs`, which calls
+`platform::send_fake_rst()` then `write_strategy_payload_with_optional_flags_named()`.
+
+**Config fields**: `offset`; `fake_flags` (`TcpFlagOverrides`) control the
+injected RST's TCP flags, `original_flags` control the following real
+write's flags.
+
+**Emitter tier**: `LabDiagnosticsOnly` -- the most restrictive tier in
+`EmitterTier`/`StrategyEmitterTier` (stricter than `RootedProduction`).
+Requires raw-socket access and is not eligible for non-root production
+builds; see the "Non-rooted Android constraints" section of `SKILL.md`.
+
+**When to use**: Lab/diagnostics evaluation of RST-injection evasion only,
+on rooted or desktop-Linux test hardware. Do not wire this into a
+production strategy-probe candidate pool intended for non-root Android.
 
 ---
 
@@ -274,27 +346,41 @@ Initials before the real one.
 
 ### DummyPrepend
 
-**Description**: Sends N random 64-byte packets that are NOT valid QUIC
-(high bit cleared). Intended to confuse DPI state machines that track
-UDP flow state.
+**Description**: Sends N browser-like QUIC Initial filler packets
+(`build_dummy_prepend_packets()` in `plan_udp/packet_family/split.rs`)
+before the real payload. Each copy grows in size (`QUIC_INITIAL_MIN_PREFIX
++ idx * 32` bytes, plus `idx * 8` bytes of tail padding) and alternates
+`ChromeAndroid`/`FirefoxAndroid` browser profiles via
+`quic_browser_profile_for_index()`. Intended to confuse DPI state machines
+that track packet count or expect the SNI in a specific packet index --
+this is not raw filler data, it is valid-looking QUIC.
 
 **Config fields**: `count`.
 
-**When to use**: When the DPI uses flow-level state tracking for UDP.
-Random non-QUIC packets may reset or corrupt the DPI's flow state.
+**When to use**: When the DPI uses flow-level or packet-index state
+tracking for UDP/QUIC. The varying, browser-realistic filler packets
+displace where the DPI expects to find the real Initial.
 
 ---
 
 ### QuicSniSplit
 
-**Description**: Sends a tampered copy of the QUIC Initial with the SNI
-split at `host_start`. Uses `tamper_quic_initial_split_sni()` from
-`ripdpi-packets`.
+**Description**: Sends a copy of the QUIC Initial re-packetized with a
+split at `authority_split_offset` (the SNI/authority boundary parsed by
+`normalized_quic_plan_input()`). Built via `QuicInitialPacketLayout::split_at()`
++ `packetize_input_quic_initial()` (`plan_udp/quic.rs`), which re-emits
+from the parsed `QuicInitialSeed` rather than byte-patching the original
+packet. `ripdpi-packets::tamper_quic_initial_split_sni()` implements the
+same split concept as a standalone byte-tampering function and remains
+covered by its own unit tests, but the current planner path does not call
+it directly -- verify with `grep -rn tamper_quic_initial_split_sni
+native/rust/crates/ripdpi-desync` before assuming it is still wired in.
 
 **Config fields**: `count`.
 
 **Prerequisite**: Payload must be a valid QUIC Initial with parseable TLS
-ClientHello inside. Returns empty if not QUIC.
+ClientHello inside (`normalized_quic_plan_input()` returns `None`
+otherwise, and the step produces no packets).
 
 **When to use**: When the DPI extracts SNI from QUIC Initial packets.
 The split SNI confuses the extraction.
@@ -316,6 +402,108 @@ inspect the packet. A fake version may cause the DPI to skip inspection.
 
 ---
 
+### QuicCryptoSplit
+
+**Description**: Sends a copy of the QUIC Initial re-packetized with a
+split at `crypto_split_offset` -- the CRYPTO/ClientHello frame boundary
+computed by `normalized_quic_plan_input()` (first entry of
+`crypto_frame_boundaries` if in range, otherwise the ClientHello midpoint).
+This is a different split point than `QuicSniSplit`: it targets the QUIC
+CRYPTO frame structure rather than the TLS SNI/authority field.
+
+**Config fields**: `count`.
+
+**When to use**: When the DPI reassembles the QUIC CRYPTO stream before
+extracting SNI, so a split at the SNI boundary alone is insufficient --
+splitting the underlying CRYPTO frame confuses reassembly one layer
+earlier.
+
+---
+
+### QuicPaddingLadder
+
+**Description**: Sends N copies of the QUIC Initial with increasing tail
+padding (`extra_tail_padding = 8 * (idx + 1)` bytes per copy, via
+`build_quic_padding_ladder_packets()`), producing a "ladder" of datagram
+lengths around the real Initial.
+
+**Config fields**: `count`.
+
+**When to use**: When the DPI fingerprints QUIC flows by a fixed or
+narrow Initial-datagram-length signature. The length ladder defeats
+length-based matching without altering the ClientHello content itself.
+
+---
+
+### QuicCidChurn
+
+**Description**: Sends N Initials, each with the last byte of the
+Destination Connection ID (DCID) mutated
+(`*last ^= (idx as u8).wrapping_add(version as u8).max(1)`, via
+`build_quic_cid_churn_packets()`), so consecutive decoys carry different
+DCIDs from each other and from the real Initial.
+
+**Config fields**: `count`.
+
+**When to use**: When the DPI keys its per-flow tracking state on QUIC
+DCID. Churning the DCID across decoys prevents the DPI from correlating
+them into one flow or keying onto the real DCID early.
+
+---
+
+### QuicPacketNumberGap
+
+**Description**: Sends N decoy Initials with non-zero, incrementing
+packet numbers (`packet_number = (idx + 1) * 2`, via
+`build_quic_packet_number_gap_packets()`), rather than the `0` a real
+first Initial always carries.
+
+**Config fields**: `count`.
+
+**When to use**: When the DPI expects `packet_number == 0` on the first
+Initial of a connection and discards or deprioritizes anything else.
+The gapped packet numbers cause the decoys to be silently skipped by
+that heuristic while still occupying the DPI's early-packet inspection
+window.
+
+---
+
+### QuicVersionNegotiationDecoy
+
+**Description**: Sends a copy of the QUIC Initial with its version field
+XORed against `0x0f0f_0f0f` (via `build_quic_version_negotiation_decoy_packets()`
++ `tamper_quic_version()`), simulating a version the DPI has not seen
+negotiated yet.
+
+**Config fields**: `count`.
+
+**When to use**: When the DPI's QUIC parser tracks version-negotiation
+state per flow and treats an unexpected version as "negotiation already
+happened, skip re-inspection." Distinct from `QuicFakeVersion`, which
+uses the group's configured `quic_fake_version` constant rather than an
+XOR of the real version.
+
+---
+
+### QuicMultiInitialRealistic
+
+**Description**: Sends 2+ Initials with browser-realistic per-index
+padding (`extra_tail_padding = idx * 8`) and alternating browser profile
+(`quic_browser_profile_for_index()`), via
+`build_quic_multi_initial_realistic_packets()`. Mimics Chrome's own
+multi-datagram Initial behavior (real Chrome QUIC clients sometimes split
+a large ClientHello across more than one Initial datagram).
+
+**Config fields**: `count` (minimum 2 packets regardless of configured
+count).
+
+**When to use**: When the DPI treats a single-Initial connection as
+suspicious/atypical and a multi-Initial burst better matches real browser
+traffic shape, or to combine with other decoy variants for a fuller
+realistic-traffic profile.
+
+---
+
 ### IpFrag2Udp
 
 **Description**: Sends the UDP datagram as two IP fragments. Only
@@ -323,8 +511,14 @@ activates on round 1 for QUIC traffic.
 
 **Config fields**: `split_bytes` (fragment boundary in bytes).
 
-**When to use**: When the DPI does not reassemble IP fragments for UDP.
-Similar to TCP IpFrag2 but for QUIC/UDP traffic.
+**Platform requirement**: `emitter_tier()` marks `IpFrag2Udp` as
+`RootedProduction` -- the only UDP step at that tier; every other
+`UdpChainStepKind` variant is `NonRootProduction`. Same raw-socket
+requirement class as TCP `IpFrag2`.
+
+**When to use**: When the DPI does not reassemble IP fragments for UDP,
+on hardware with raw-socket access. Similar to TCP IpFrag2 but for
+QUIC/UDP traffic.
 
 ---
 
@@ -334,3 +528,16 @@ All TCP chain steps support `inter_segment_delay_ms` (0-500ms) for
 timer-based evasion via `DesyncAction::Delay`. When set, the execution
 runtime inserts a `tokio::time::sleep()` between segments of that step.
 Used by `split_delayed_50ms` and `split_delayed_150ms` probe candidates.
+
+Every non-`IpFrag2Udp` `UdpChainStepKind` step's generated packets are
+wrapped in a low-TTL bracket by `append_ttl_wrapped_packets()`
+(`plan_udp/sequencing.rs`): `SetTtl(group.actions.ttl.unwrap_or(8))`,
+then each packet, then `RestoreDefaultTtl`. This applies uniformly
+regardless of which packet-family builder produced the packets, so a new
+UDP variant gets TTL wrapping "for free" as long as it is planned through
+`build_udp_prelude_packets()`.
+
+When adding or removing a `TcpChainStepKind` or `UdpChainStepKind`
+variant, regenerate the matching table in `SKILL.md` in the same change
+-- both are meant to describe the same enum from `ripdpi-config`, and
+letting them diverge is how the last round of drift happened.

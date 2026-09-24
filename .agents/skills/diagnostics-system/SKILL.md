@@ -1,6 +1,6 @@
 ---
 name: diagnostics-system
-description: Use when modifying the diagnostics scan pipeline, ScanRequest/ScanReport types, ProbeTask families, ripdpi-monitor-engine / ripdpi-diagnostics-* crates, strategy-probe candidates, the diagnostics catalog (packs/profiles), wire-schema contracts between Rust and Kotlin, DIAGNOSTICS_ENGINE_SCHEMA_VERSION, golden contract tests, or adding a new probe type / profile. Triggers on diagnostics scans, strategy probes, automatic audit, dpi-detector profiles, or anything in core/diagnostics or native/rust/crates/ripdpi-monitor-*.
+description: Reference for the two-tier diagnostics pipeline (Rust ripdpi-monitor-engine/ripdpi-diagnostics-*, Kotlin core/diagnostics). Use when changing ScanRequest/ScanReport, ProbeTask families, strategy-probe candidates, the catalog, or the wire contract.
 ---
 
 # Diagnostics System
@@ -46,9 +46,13 @@ The engine uses a plan-then-execute architecture:
 1. **Plan** (`engine/plan.rs`): `build_execution_plan()` creates an
    `ExecutionPlan` with an ordered `Vec<ExecutionStageId>`. For connectivity
    scans the order is derived from `probe_tasks` families (or a default
-   sequence). For strategy probes the order is fixed:
-   Environment -> StrategyDnsBaseline -> StrategyTcpCandidates ->
-   StrategyQuicCandidates -> StrategyRecommendation.
+   sequence). For strategy probes, `strategy_stage_order()` builds:
+   Environment -> (`Web`, only when in-path mode with a route and domain
+   targets) -> StrategyDnsBaseline -> `StrategyTcpCandidates`/`StrategyQuicCandidates`
+   (QUIC first when `confirm_good_dpi_evidence` is set, TCP first otherwise)
+   -> `StrategyConnectionConcurrency` -> `StrategyRecommendation`. Read
+   `strategy_stage_order()` directly before restating this order; it is a
+   stale-prone list, not a fixed constant.
 
 2. **Coordinate** (`engine/runtime.rs`): `ExecutionCoordinator` holds a
    `BTreeMap<ExecutionStageId, Box<dyn ExecutionStageRunner>>` and iterates
@@ -142,12 +146,40 @@ total scan time.
 Within each candidate's domain set, up to 3 domains are tested concurrently
 via `thread::scope` inside `execute_tcp_candidate()`.
 
+### Connection concurrency probing (`StrategyConnectionConcurrencyRunner`)
+
+Runs after TCP/QUIC candidate evaluation and before the recommendation
+stage. Opens simultaneous raw TLS connections to eligible targets across
+every available TLS profile (`ripdpi_tls_profiles::AVAILABLE_PROFILES`) at
+increasing concurrency levels -- `[1, 4]` for a quick/automatic scan,
+`[1, 2, 4, 8]` for a full audit -- to detect DPI/middlebox behavior that
+only triggers once several connections open at once (a class of
+concurrency-based throttling or blocking a single-connection probe cannot
+see). Produces a `ConnectionConcurrencyAssessment` per target via
+`classify_connection_concurrency_matrix()`. See
+`native/rust/crates/ripdpi-monitor-engine/src/engine/runners/strategy/connection_concurrency.rs`.
+
 ### Stage timeouts
 
-`StrategyProbeStageTimeoutMs = 300_000` (5 minutes) applies to the
-`automatic_audit` and `dpi_strategy` stages. The native engine's scan deadline
-is set via `scan_deadline_ms` in `ScanRequest`; it defaults to
-`stageTimeout - 30_000` (30s grace) when not explicitly provided.
+These are the Kotlin-side timeouts applied when a strategy-probe profile
+runs inside the DiagnosticsHome composite run (section 6); a standalone
+scan outside that flow is not bound by them. Timeouts are computed from
+`HomeCompositeStageDefinitions.kt` (`stageTimeoutMs()`), not passed as a
+single flat constant. The strategy
+probe budget is a sum of two independently-tunable sub-budgets:
+`StrategyProbeStageTimeoutMs = StrategyProbeNativeDeadlineMs (270_000ms)
++ StrategyProbeFinalizationTimeoutMs (60_000ms)` = 330s total. It applies
+to the `automatic_audit` and `dpi_strategy` (`ru-dpi-strategy` profile)
+stages; `ru-dpi-full` (`dpi_full` stage) uses a separate, shorter
+`DpiFullStageTimeoutMs` (240s). Quick-scan mode uses
+`QuickScanStrategyProbeNativeDeadlineMs` (60_000ms) instead of the full
+270s deadline for `ru-dpi-strategy`. The native engine's own
+`scan_deadline_ms` in `ScanRequest` is set from `stageScanDeadlineMs()`,
+which for strategy-probe stages returns the native deadline sub-budget
+directly (not `stageTimeout - 30s`) so the 60s finalization budget is
+reserved for report retrieval after the native deadline fires. Re-derive
+these numbers from `HomeCompositeStageDefinitions.kt` rather than citing
+the totals above once any of the underlying constants change.
 
 ### Partial results recovery
 
@@ -205,20 +237,32 @@ Located in `build-logic/convention/src/main/kotlin/DiagnosticsCatalog*.kt`:
 
 ## 6. DiagnosticsHome Composite Run
 
-`DiagnosticsHomeViewModel` (or the equivalent run coordinator) executes a
-composite run of multiple profiles in sequence. As of the current version the
-run has **4 stages**:
+`core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/HomeCompositeStageDefinitions.kt`
+is the source of truth for both stage lists below; read it directly
+rather than trusting this table once stages are added, removed, or
+reordered.
 
-| Stage | Profile | Notes |
-|-------|---------|-------|
-| `automatic_audit` | `automatic-audit` (full_matrix_v1 strategy probe) | 5-min timeout via `StrategyProbeStageTimeoutMs` |
+### `HomeCompositeStageSpecs` (full run, 9 stages)
+
+| Stage key | Profile | Notes |
+|-----------|---------|-------|
+| `automatic_audit` | `automatic-audit` (full_matrix_v1 strategy probe) | `StrategyProbeStageTimeoutMs` (330s); see "Stage timeouts" above |
+| `detection_signals` | `detection-signals` | `DETECTION_SIGNALS` kind; `DetectionStageTimeoutMs` (90s) |
 | `default_connectivity` | `default` | Standard connectivity check |
-| `dpi_full` | `dpi-detector-full` | Full DPI detection sweep |
-| `dpi_strategy` | `ru-dpi-strategy` | Runs `STRATEGY_PROBE` with Russian-specific domains; 5-min timeout |
+| `ru_throttling` | `ru-throttling` | `ThrottlingStageTimeoutMs` (240s) |
+| `ru_circumvention` | `ru-circumvention` | Sensitive-services reachability; `SensitiveServicesStageTimeoutMs` (240s) |
+| `dpi_full` | `ru-dpi-full` | Full DPI detection sweep; `DpiFullStageTimeoutMs` (240s) -- **not** `dpi-detector-full` and **not** the 330s strategy-probe budget |
+| `path_comparison` | `path-comparison` | IN_PATH mode (proxy vs. direct); `PathComparisonStageTimeoutMs` (180s) |
+| `vpn_route_evidence` | `vpn-route-evidence` | Passive VPN-route evidence only; does not start a scan session (`startsScanSession = false`) |
+| `dpi_strategy` | `ru-dpi-strategy` | `STRATEGY_PROBE` (full_matrix_v1) scoped to Russian-domain target packs; shares `StrategyProbeStageTimeoutMs` (330s) with `automatic_audit` |
 
-The `ru-dpi-strategy` profile uses the `full_matrix_v1` suite scoped to
-Russian-domain target packs. It shares the same 5-minute stage timeout as
-`automatic_audit`.
+### `QuickScanStageSpecs` (reduced run, 4 stages)
+
+A separate list used for the quick/automatic (non-manual-audit) path:
+`automatic_audit`, `detection_signals`, `vpn_route_evidence`,
+`dpi_strategy` -- the same specs as above, but `dpi_strategy` uses
+`QuickScanStrategyProbeNativeDeadlineMs` (60s) instead of the full 270s
+native deadline (see "Stage timeouts" above).
 
 ## 7. Kotlin Orchestration Layer
 
@@ -279,25 +323,29 @@ rotation loss on scans that exceed the default logcat ring-buffer window.
 ## 9. Wire Protocol
 
 Rust and Kotlin communicate via JSON serialization over JNI. The wire types
-mirror each other:
+mirror each other (`EngineScanRequestWire`, `EngineProgressWire`,
+`EngineScanReportWire`, plus the embedded result/observation types); see
+`references/wire-protocol.md` for the full type table and field-level detail.
 
-| Rust type | Kotlin type | Direction |
-|-----------|-------------|-----------|
-| `EngineScanRequestWire` | `EngineScanRequestWire` | Kotlin -> Rust |
-| `EngineProgressWire` | `EngineProgressWire` | Rust -> Kotlin (poll) |
-| `EngineScanReportWire` | `EngineScanReportWire` | Rust -> Kotlin (take) |
-| `EngineObservationWire` | `ObservationFact` | Embedded in report |
-| `EngineProbeResultWire` | `EngineProbeResultWire` | Embedded in report |
+The schema version constant is defined once, in the `ripdpi-diagnostics-contracts`
+crate (`native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs`,
+`DIAGNOSTICS_ENGINE_SCHEMA_VERSION`); `ripdpi-monitor-engine`'s own `wire.rs`
+only re-exports it. Kotlin mirrors it as `DiagnosticsEngineSchemaVersion`
+(`contract/engine/EngineContract.kt`). Both must be equal; this is enforced
+by contract tests. Re-verify the current value with
+`grep -n DIAGNOSTICS_ENGINE_SCHEMA_VERSION native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs`
+rather than trusting a copied number -- it is 9 as of this writing and has
+moved before.
 
-Schema version is tracked via `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` (Rust,
-`wire.rs`) and `DiagnosticsEngineSchemaVersion` (Kotlin,
-`contract/engine/EngineContract.kt`). Both must be equal; this is enforced
-by contract tests.
-
-The `ScanRequest` field `scan_deadline_ms` is optional; when absent the engine
-uses its internal default (stage timeout minus 30s).
-
-See `references/wire-protocol.md` for field-level details.
+The `ScanRequest` field `scan_deadline_ms` is optional. The Rust engine's own
+internal default when it is absent is 360,000ms (360s -- the same value as
+the `is_past_deadline()` hard deadline in "Cancellation and deadlines"
+above), not a stage-timeout-derived number. A caller going through the
+DiagnosticsHome composite run instead gets an explicit value from Kotlin's
+`stageScanDeadlineMs()` (see "Stage timeouts" in section 4), which for most
+non-strategy-probe stages is approximately `stageTimeout - 30s` but for
+`automatic_audit`/`ru-dpi-strategy` is the native deadline sub-budget
+directly -- do not conflate the two defaults.
 
 ## 10. Adding a New Probe Type
 

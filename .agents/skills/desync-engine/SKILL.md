@@ -1,6 +1,6 @@
 ---
 name: desync-engine
-description: Use when designing or reviewing DPI desync evasion chains, TcpChainStep/UdpChainStep configurations, OffsetExpr/OffsetBase expressions, fake-packet injection, TLS-prelude steps, strategy-probe candidate behavior, fake-TTL semantics across TUN vs proxy mode, or anything in the ripdpi-config/ripdpi-desync/ripdpi-desync-runtime/ripdpi-proxy-runtime desync pipeline. Triggers on "desync", "DesyncMode", "fake packet", "TTL", "OOB", "tlsrec", "QUIC initial split", or DPI-bypass strategy questions.
+description: Reference for the DPI desync pipeline (ripdpi-config/ripdpi-desync/ripdpi-desync-runtime/ripdpi-proxy-runtime). Use when adding a TcpChainStep/UdpChainStep, offset expression, fake-packet/TTL/TLS-prelude behavior, or strategy-probe candidate.
 ---
 
 # Desync Engine -- RIPDPI
@@ -129,8 +129,10 @@ Step-by-step flow when a TCP payload is sent through `send_with_group()`:
 | `TlsRec` | TLS record-layer split (prelude step) | Splits TLS record, not TCP segment |
 | `TlsRandRec` | Random TLS record fragmentation (prelude step) | Multiple random-sized TLS records |
 | `IpFrag2` | IP-layer fragmentation of the TCP segment | Only on round 1; kernel reassembly trick |
+| `SynData` | Same segment plan as `Split`, but the connection's first outbound socket requests direct TCP Fast Open with the payload riding the SYN | Only applies to the direct (non-SOCKS) route; retried without TFO on first-write failure |
+| `FakeRst` | Injects a fake TCP RST at the wire layer before writing the real chunk | Root/raw-socket only (`LabDiagnosticsOnly` emitter tier); not for non-root production builds |
 
-See `references/chain-step-catalog.md` for the full catalog with config fields.
+This table is generated from `TcpChainStepKind` (`native/rust/crates/ripdpi-config/src/model/tcp.rs`). See `references/chain-step-catalog.md` for the full catalog with config fields; when a variant is added or removed, regenerate both tables from the enum in the same change rather than hand-editing one.
 
 ## Strategy probe candidates
 
@@ -176,30 +178,27 @@ Round 1 qualifier tests each candidate against 1 domain (2 probes: HTTP+HTTPS). 
 
 ## UDP desync
 
-UDP desync (`plan_udp()` in `plan_udp.rs`) targets QUIC Initial packets.
-The chain uses `UdpChainStepKind` variants:
+UDP desync (`plan_udp()` and `plan_udp/packet_family.rs`) targets QUIC
+Initial packets. The chain uses `UdpChainStepKind` variants, built by
+`build_udp_prelude_packets()`:
 
-- **FakeBurst** -- Sends N copies of a fake QUIC packet before the real one.
-  Fake content comes from `udp_fake_payload()` which selects between
-  `QuicFakeProfile::CompatDefault` (static fake), `RealisticInitial`
-  (crafted QUIC Initial with fake host), or profile-based bytes.
-  Burst count is adjusted by `AdaptiveUdpBurstProfile` (Conservative/
-  Balanced/Aggressive).
+| Kind | What it does | Emitter tier |
+|------|--------------|--------------|
+| `FakeBurst` | Sends N copies of a fake QUIC packet before the real one. Fake content comes from `udp_fake_payload()`, selecting between `QuicFakeProfile::CompatDefault` (static fake), `RealisticInitial` (crafted QUIC Initial with fake host), or profile-based bytes. Burst count adjusted by `AdaptiveUdpBurstProfile` | NonRootProduction |
+| `DummyPrepend` | Sends N browser-like QUIC Initial filler packets (growing size/tail padding per index, alternating browser profile) to confuse DPI state machines that track packet count or expect SNI in a specific index | NonRootProduction |
+| `QuicSniSplit` | Sends a re-packetized copy of the QUIC Initial split at `authority_split_offset` (the SNI boundary), causing DPI SNI extraction to fail | NonRootProduction |
+| `QuicFakeVersion` | Sends a copy with a fake QUIC version number (`group.actions.quic_fake_version`), poisoning DPI version detection | NonRootProduction |
+| `QuicCryptoSplit` | Sends a copy split at `crypto_split_offset` (the CRYPTO/ClientHello frame boundary, not the SNI boundary) | NonRootProduction |
+| `QuicPaddingLadder` | Sends N copies with increasing tail padding (8 bytes per index) to vary datagram length across the burst | NonRootProduction |
+| `QuicCidChurn` | Sends N Initials with a mutated last Destination Connection ID byte per copy, defeating DPI keyed on DCID | NonRootProduction |
+| `QuicPacketNumberGap` | Sends N decoy Initials with non-zero, incrementing packet numbers, defeating DPI that expects `packet_number == 0` on the first Initial | NonRootProduction |
+| `QuicVersionNegotiationDecoy` | Sends a copy with the version XORed against `0x0f0f_0f0f`, simulating a stale/negotiated version so DPI treats negotiation as already complete | NonRootProduction |
+| `QuicMultiInitialRealistic` | Sends 2+ Initials with browser-realistic per-index padding and profile variation, mimicking Chrome's multi-datagram Initial behavior | NonRootProduction |
+| `IpFrag2Udp` | IP-layer fragmentation of the UDP datagram (round 1 only, QUIC traffic only) | RootedProduction |
 
-- **DummyPrepend** -- Sends random 64-byte non-QUIC packets (high bit
-  cleared) to confuse DPI state machines.
+This table is generated from `UdpChainStepKind` (`native/rust/crates/ripdpi-config/src/model/udp.rs`) and the builders under `native/rust/crates/ripdpi-desync/src/plan_udp/packet_family/`. See `references/chain-step-catalog.md` for config fields and `native/rust/crates/ripdpi-desync/docs/spikes/zapret-quic-desync-taxonomy-2026-05-16.md` for the zapret-primitive mapping each variant implements.
 
-- **QuicSniSplit** -- Sends a tampered copy of the QUIC Initial with the
-  SNI split at `host_start`, causing DPI SNI extraction to fail.
-
-- **QuicFakeVersion** -- Sends a copy with a fake QUIC version number,
-  poisoning DPI version detection.
-
-- **IpFrag2Udp** -- IP-layer fragmentation of the UDP datagram (round 1
-  only, QUIC traffic only).
-
-All UDP fake packets are sent at low TTL (default 8) so they expire before
-reaching the destination.
+All UDP fake/decoy packets are sent at low TTL (default 8) so they expire before reaching the destination, except `IpFrag2Udp` which relies on IP-layer fragmentation instead of TTL expiry.
 
 ## Offset system
 
@@ -363,29 +362,21 @@ where the kernel's TCP state makes overlap unreliable.
 (from the resolved offsets + payload boundaries). If fewer offsets
 resolve, it returns `DesyncError`. Configure at least 2 offset points.
 
-## QUIC anti-fingerprinting (2026)
+## QUIC anti-fingerprinting
 
-New in the 2025-2026 QUIC-evasion research cycle:
+### Shipped
 
-### quinn `pad_to_mtu` option
+`UdpChainStepKind` carries ten non-fragmentation variants (see "UDP desync" above), six of which are the direct product of the 2026-05-16 zapret-primitive mapping spike (`native/rust/crates/ripdpi-desync/docs/spikes/zapret-quic-desync-taxonomy-2026-05-16.md`): `QuicCryptoSplit`, `QuicPaddingLadder`, `QuicCidChurn`, `QuicPacketNumberGap`, `QuicVersionNegotiationDecoy`, `QuicMultiInitialRealistic`. That spike found RIPDPI already covers every QUIC/UDP desync primitive that has shipped in zapret (bol-van/zapret); read it before adding another UDP arm to confirm it is not already covered under a different name.
 
-`quinn` 0.11.x merged [PR #2274](https://github.com/quinn-rs/quinn/pull/2274) (June 2025) adding a `pad_to_mtu` transport config flag. When enabled, every application-data QUIC packet is padded to the path MTU regardless of payload size. This defeats size-based QUIC flow fingerprinting on censoring middleboxes that profile short application packets as distinct from Initial/Handshake packets.
+The spike also names two gaps neither RIPDPI nor zapret has shipped yet (see the spike's "Recommendation" section for full detail):
 
-**RIPDPI applicability**: the QUIC-carrying crates (`ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, and the optional QUIC probe path in `ripdpi-diagnostics-runner`) should expose `pad_to_mtu` as a `QuicFakeProfile` variant or a per-session toggle. Size normalisation is cheap at the quinn layer — no application changes needed once the flag is set.
+- **`QuicEchDecoy`** (priority 1) — send Initials with a crafted ECH outer ClientHello so DPI SNI matching sees a trusted decoy domain instead of the real SNI. No `UdpChainStepKind` variant, `ripdpi-config`, or planner support exists for this yet — verify with `grep -rn QuicEchDecoy native/rust/` before assuming otherwise.
+- **`QuicLengthJitter`** (priority 2) — vary Initial datagram length via PADDING frames to defeat fixed-length fingerprinting. Also unimplemented; same verification approach applies.
 
-### USENIX Security 2025: GFW QUIC censorship
+### Aspirational (not implemented; verify before citing as current)
 
-Peer-reviewed research at USENIX Security 2025 (see [net4people/bbs#505](https://github.com/net4people/bbs/issues/505)) documented the Great Firewall's current QUIC censorship techniques:
-
-- SNI fingerprinting on the QUIC Initial packet (same attack class as TLS SNI blocking; the QUIC Initial carries an unencrypted ClientHello).
-- Initial-packet size/shape profiling (the motivation for `pad_to_mtu` above).
-- QUIC version negotiation probing.
-
-Implications for `DesyncMode` extensions:
-
-- New QUIC Initial-packet fragmentation variant (`UdpChainStepKind`-level) should mirror the TCP split / fake-TTL approach adapted for QUIC Initial framing.
-- QUIC SNI scrambling must coordinate with the TLS layer — splitting the ClientHello across multiple QUIC Initial packets requires the TLS record boundary to align with a QUIC frame boundary.
-- Version negotiation: do not advertise a QUIC version that the censor flags; RIPDPI's current `QuicFakeProfile` enum should gain a `VersionPolicy` field.
+- **quinn `pad_to_mtu`**: `quinn` 0.11.x merged [PR #2274](https://github.com/quinn-rs/quinn/pull/2274) (June 2025) adding a `pad_to_mtu` transport config flag that pads every application-data QUIC packet to the path MTU, defeating size-based flow fingerprinting. Confirmed absent from this codebase (`grep -rn pad_to_mtu native/rust/` returns nothing). If adopted, the QUIC-carrying crates (`ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, and the optional QUIC probe path in `ripdpi-diagnostics-runner`) would need to expose it as a `QuicFakeProfile` variant or per-session toggle.
+- **`QuicFakeProfile::VersionPolicy`**: a proposed field to avoid advertising a QUIC version the censor flags, motivated by USENIX Security 2025 GFW-QUIC-censorship research ([net4people/bbs#505](https://github.com/net4people/bbs/issues/505)) on SNI fingerprinting, Initial size/shape profiling, and version-negotiation probing. `QuicFakeProfile` currently has only `Disabled`, `CompatDefault`, `RealisticInitial` (`native/rust/crates/ripdpi-config/src/model/group.rs`) — confirmed no `VersionPolicy` variant exists.
 
 ### No uTLS in Rust yet
 
@@ -395,65 +386,25 @@ RIPDPI's answer is `ripdpi-tls-profiles` wrapping BoringSSL directly (via the `b
 
 If a Rust-native uTLS equivalent emerges (a port of utls to rustls or a ClientHello-builder crate over BoringSSL), it replaces `ripdpi-tls-profiles`' manual boring wrapping. Until then, this is the known gap.
 
+## Validation rules for desync changes
+
+A change compiling and passing unit tests does not prove it bypasses DPI on the wire. Match the validation to what actually changed:
+
+- **On-wire behavior claims** (a strategy now evades a specific DPI, a fake packet reaches the middlebox but not the destination, etc.) must be backed by packet capture or packet-smoke-style validation, not static code inspection alone. Pair with the `packet-smoke-debugger` agent.
+- **Rust behavior changes** (new `DesyncAction` variant, new planner arm, changed offset resolution) need the `rust-test-runner` agent to run the targeted crate's test suite, not just a local compile check.
+- **Unsafe or raw-socket boundaries** (anything touching `ripdpi-privileged-ops`, `ripdpi-desync-runtime/src/platform/`, or raw TCP/IP header construction) need `unsafe-code-auditor` review before merge.
+- **JNI or Kotlin engine-contract changes** (new field surfaced through `ripdpi-proxy-runtime` state into the Android bridge, a new strategy-family label reaching the UI) need `jni-bridge-verifier`.
+
+Do not claim a packet-level behavior change is correct from static inspection alone; say explicitly which of the above validations still need to run.
+
 ## Related skills
 
 - `ws-tunnel-telegram` — the WS-over-TLS tunnel consumes the same TLS fingerprint profiles and shares the 517-byte invariant concern.
 - `rust-panic-safety` — desync execution paths must handle all panic cases at the JNI boundary; `ripdpi-desync` errors are typed via `thiserror`.
 - `rust-async-internals` — UDP desync interacts with the tunnel io_loop; consult its manual-poll bridge guidance before adding UDP fake-packet injection.
+- `network-traffic-debug` — capture and inspect the resulting traffic (mitmproxy/tcpdump/PCAPdroid) once a change is implemented.
 
-## TLS ClientHello semantic markers
-
-When implementing offset bases like `host`, `endhost`, `midsld`, `sniext`, `extlen`, the parser must locate fields in the ClientHello byte layout per RFC 8446 §4.1.2. The byte structure after the TLS record header (5 bytes) and handshake header (4 bytes) is:
-
-```
-ClientHello {
-    legacy_version              (2)
-    random                     (32)
-    legacy_session_id_len       (1)
-    legacy_session_id        (0..32)
-    cipher_suites_len           (2)
-    cipher_suites               (variable)
-    legacy_compression_len      (1)
-    legacy_compression          (variable)
-    extensions_len              (2)    // <- `extlen` marker location
-    extensions                  (variable)
-}
-```
-
-Inside `extensions`, each entry is `ExtensionType (2) + ExtensionData_len (2) + ExtensionData`. The `server_name` extension (`ExtensionType=0`) wraps a `ServerNameList`:
-
-```
-server_name_extension {
-    list_len                    (2)
-    ServerNameList [
-        NameType (1)            // 0 for HostName
-        HostName_len (2)
-        HostName (variable)     // <- `host` marker starts here
-                                // <- `endhost` marker ends here
-                                // <- `midsld` = host_start + sld_offset + sld_len/2
-    ]
-}
-```
-
-Specific marker offsets:
-- `host` — first byte of the `HostName` payload inside the `server_name` extension.
-- `endhost` — byte AFTER the last byte of `HostName`.
-- `midsld` — middle byte of the second-level domain (the part to the left of the final dot). For `www.google.com`, `sld = "google"`, so `midsld` is at `host_offset + len("www.") + len("goo") = host_offset + 7`.
-- `sniext` — first byte of the `server_name` extension header (i.e. the `ExtensionType` byte = 0x00).
-- `extlen` — the 2-byte `extensions_length` field that immediately precedes the extensions array.
-
-### Parser edge cases
-
-The parser MUST handle:
-
-- **GREASE extensions** (RFC 8701). Random extension types like `0x0a0a`, `0x1a1a`, ... appear sprinkled across the ClientHello. They contain no useful data but must not cause the parser to abort. Skip unknown ExtensionType values, do not error.
-- **Encrypted ClientHello (ECH, RFC 9460).** When the outer ClientHello contains `encrypted_client_hello` extension (type `0xfe0d`), the outer SNI is the ECH config's `public_name` and the real SNI is encrypted inside. Split-position manipulation on the OUTER SNI is bypass-useless (DPI sees only the public_name; no censored domain to match) and breaks 0-RTT. Detection: if `encrypted_client_hello` is present, skip all SNI-based desync strategies and fall back to QUIC Initial manipulation or transport-level desync.
-- **ALPN extension (`application_layer_protocol_negotiation`, type 16).** Split positions MUST NOT fall inside this extension; servers reject ClientHello with a malformed ALPN. The planner should compute ALPN's byte range and reject candidate offsets that intersect.
-- **TLS 1.3 `pre_shared_key` extension.** Must be the LAST extension per RFC 8446 §4.2.11. A split that crosses its boundary (e.g., splits after the second-to-last extension's end and before `pre_shared_key`'s start) breaks 0-RTT — the server is required to fall back to 1-RTT, losing the early-data savings. Detection: if `pre_shared_key` is the last extension, treat all candidate offsets after its start as 0-RTT-breaking.
-
-### Implementation pointer
-
-For reference parser behavior, use `rustls::internal::msgs::*` (rustls v0.23+) — it's the gold standard for correctness. For RIPDPI's hot-path parser, write a zero-allocation byte parser that returns only the marker offsets, NOT a full struct. The `tls-parser` crate (Rusticata) is a third-party reference.
+See `references/offset-system.md` for the TLS ClientHello byte-layout markers (`host`, `endhost`, `midsld`, `sniext`, `extlen`) and their parser edge cases (GREASE, ECH, ALPN, `pre_shared_key`).
 
 ## Fake-TTL / fakeddisorder boundary in proxy-mode vs TUN-mode
 

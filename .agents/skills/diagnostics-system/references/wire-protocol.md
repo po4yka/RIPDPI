@@ -2,15 +2,20 @@
 
 ## Schema Version Tracking
 
-The wire protocol version is a single integer constant maintained in two places:
+The wire protocol version is a single integer constant, defined once and
+mirrored in Kotlin:
 
 | Location | Constant | Language |
 |----------|----------|----------|
-| `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` | `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 5` | Rust |
-| `native/rust/crates/ripdpi-monitor-engine/src/wire.rs` | Re-export of the diagnostics contract constant | Rust |
-| `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt` | `DiagnosticsEngineSchemaVersion = 5` | Kotlin |
+| `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` | `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` -- the canonical definition | Rust |
+| `native/rust/crates/ripdpi-monitor-engine/src/wire.rs` | Re-export of the `ripdpi-diagnostics-contracts` constant; does not redefine it | Rust |
+| `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt` | `DiagnosticsEngineSchemaVersion` | Kotlin |
 
-These must always be equal. Schema `5` is current-only: missing, older, and future versions are rejected. The contract governance test
+These must always be equal, and the current value is current-only:
+missing, older, and future versions are rejected. Read the current value
+with `grep -n DIAGNOSTICS_ENGINE_SCHEMA_VERSION native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs`
+rather than trusting a hardcoded number in this file -- it is `9` as of
+this writing and has changed before. The contract governance test
 `DiagnosticsContractGovernanceTest::engine schema version matches rust contract constant`
 reads the Rust source file directly and asserts equality with the Kotlin constant.
 

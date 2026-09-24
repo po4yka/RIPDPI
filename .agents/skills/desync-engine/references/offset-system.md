@@ -121,3 +121,57 @@ steps with unresolvable adaptive offsets without error.
 - `OffsetExpr::absolute_positive()` -- returns `Some(delta)` only for
   `Abs` base with non-negative delta. Used by `udp_fake_payload()` to
   slice fake data.
+
+## TLS ClientHello semantic markers
+
+When implementing offset bases like `host`, `endhost`, `midsld`, `sniext`, `extlen`, the parser must locate fields in the ClientHello byte layout per RFC 8446 §4.1.2. The byte structure after the TLS record header (5 bytes) and handshake header (4 bytes) is:
+
+```
+ClientHello {
+    legacy_version              (2)
+    random                     (32)
+    legacy_session_id_len       (1)
+    legacy_session_id        (0..32)
+    cipher_suites_len           (2)
+    cipher_suites               (variable)
+    legacy_compression_len      (1)
+    legacy_compression          (variable)
+    extensions_len              (2)    // <- `extlen` marker location
+    extensions                  (variable)
+}
+```
+
+Inside `extensions`, each entry is `ExtensionType (2) + ExtensionData_len (2) + ExtensionData`. The `server_name` extension (`ExtensionType=0`) wraps a `ServerNameList`:
+
+```
+server_name_extension {
+    list_len                    (2)
+    ServerNameList [
+        NameType (1)            // 0 for HostName
+        HostName_len (2)
+        HostName (variable)     // <- `host` marker starts here
+                                // <- `endhost` marker ends here
+                                // <- `midsld` = host_start + sld_offset + sld_len/2
+    ]
+}
+```
+
+Specific marker offsets:
+- `host` — first byte of the `HostName` payload inside the `server_name` extension.
+- `endhost` — byte AFTER the last byte of `HostName`.
+- `midsld` — middle byte of the second-level domain (the part to the left of the final dot). For `www.google.com`, `sld = "google"`, so `midsld` is at `host_offset + len("www.") + len("goo") = host_offset + 7`.
+- `sniext` — first byte of the `server_name` extension header (i.e. the `ExtensionType` byte = 0x00).
+- `extlen` — the 2-byte `extensions_length` field that immediately precedes the extensions array.
+
+### Parser edge cases
+
+The parser MUST handle:
+
+- **GREASE extensions** (RFC 8701). Random extension types like `0x0a0a`, `0x1a1a`, ... appear sprinkled across the ClientHello. They contain no useful data but must not cause the parser to abort. Skip unknown ExtensionType values, do not error.
+- **Encrypted ClientHello (ECH, RFC 9460).** When the outer ClientHello contains `encrypted_client_hello` extension (type `0xfe0d`), the outer SNI is the ECH config's `public_name` and the real SNI is encrypted inside. Split-position manipulation on the OUTER SNI is bypass-useless (DPI sees only the public_name; no censored domain to match) and breaks 0-RTT. Detection: if `encrypted_client_hello` is present, skip all SNI-based desync strategies and fall back to QUIC Initial manipulation or transport-level desync.
+- **ALPN extension (`application_layer_protocol_negotiation`, type 16).** Split positions MUST NOT fall inside this extension; servers reject ClientHello with a malformed ALPN. The planner should compute ALPN's byte range and reject candidate offsets that intersect.
+- **TLS 1.3 `pre_shared_key` extension.** Must be the LAST extension per RFC 8446 §4.2.11. A split that crosses its boundary (e.g., splits after the second-to-last extension's end and before `pre_shared_key`'s start) breaks 0-RTT — the server is required to fall back to 1-RTT, losing the early-data savings. Detection: if `pre_shared_key` is the last extension, treat all candidate offsets after its start as 0-RTT-breaking.
+
+### Implementation pointer
+
+For reference parser behavior, use `rustls::internal::msgs::*` (rustls v0.23+) — it's the gold standard for correctness. For RIPDPI's hot-path parser, write a zero-allocation byte parser that returns only the marker offsets, NOT a full struct. The `tls-parser` crate (Rusticata) is a third-party reference.
