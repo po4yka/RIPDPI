@@ -4,26 +4,20 @@
 
 RIPDPI is an offline-first Android network-path diagnostics and performance toolkit. Jetpack Compose provides the UI, Android services own VPN/proxy lifecycles, and repository-owned Rust modules implement the native data plane, diagnostics, relays, tunnels, and JNI adapters.
 
-This file is the always-loaded operational contract for coding agents. Keep it below Codex's default 32 KiB project-instruction limit. Detailed architecture belongs under `docs/architecture/`; task-specific procedures belong in skills; file-specific guidance belongs in path-scoped `.claude/rules/` files.
-
 ## Source of truth
 
-- Start architecture work at `docs/architecture/ARCHITECTURE.md`, then follow links to `NATIVE_RUST.md`, `JNI_CONTRACT.md`, `CONFIG_CONTRACTS.md`, `DIAGNOSTICS_ARCHITECTURE.md`, and `FEATURE_EXTENSION_GUIDE.md`.
+- For cross-module or architecture work, start at `docs/architecture/ARCHITECTURE.md` and follow its links (`NATIVE_RUST.md`, `JNI_CONTRACT.md`, `CONFIG_CONTRACTS.md`, `DIAGNOSTICS_ARCHITECTURE.md`, `FEATURE_EXTENSION_GUIDE.md`) as the change requires.
 - Derive protocol and relay claims from current Kotlin/Rust registries, schemas, tests, and crate existence. Old plans, README prose, and rollout notes are not authoritative when code disagrees.
 - Native build properties come from `gradle.properties`; dependency versions come from `gradle/libs.versions.toml`; Rust membership and dependencies come from `native/rust/Cargo.toml` and `cargo metadata --locked`.
-- Generated artifacts and reports must be regenerated through their owning task or script; do not hand-edit generated files.
+- Generated artifacts and reports are regenerated through their owning task or script, never hand-edited.
 
 ## Setup
 
 Requirements: JDK 17, the Android SDK level declared by `ripdpi.compileSdk` in `gradle.properties`, Android NDK `29.0.14206865`, the pinned Rust toolchain with Android targets, `just`, `lefthook`, and Android CLI 1.0+ (`android`). Install Android packages with slash notation such as `ndk/29.0.14206865` and `platforms/android-<compileSdk>`.
 
-The Android build invokes the `ripdpi.android.rust-native` convention plugin from `:core:engine`, which builds the native workspace under `native/rust/`. Local non-release builds default to the host ABI; CI and releases build the full ABI set.
+The Android build invokes the `ripdpi.android.rust-native` convention plugin from `:core:engine`, which builds the native workspace under `native/rust/`. Local non-release builds default to the host ABI; CI and releases build the full ABI set. For Gradle, KSP, sccache, worktree, and parallel-build tuning, see `docs/contributor/build-performance.md`.
 
-Merge only the required entries from `.claude/settings.example.json` into the gitignored `.claude/settings.local.json` when using optional local Claude MCP configuration. Never overwrite the committed `.claude/settings.json`; it contains repository security hooks. Security enforcement must live in committed project settings or blocking CI; local settings must not be treated as the enforcement boundary.
-
-See `docs/contributor/build-performance.md` for Gradle, KSP, sccache, worktree, Android Studio, and parallel-build tuning.
-
-## Build and test
+## Build, test, and verification
 
 ```bash
 ./gradlew assembleDebug
@@ -35,16 +29,30 @@ See `docs/contributor/build-performance.md` for Gradle, KSP, sccache, worktree, 
 ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
 ```
 
-Use `just` recipes where they mirror CI. For Rust commands, pass `--locked` whenever Cargo resolves the workspace. Run the exact requested gate and report its actual result; do not replace a blocked gate with a weaker claim.
+Use `just` recipes where they mirror CI. For Rust commands, pass `--locked` whenever Cargo resolves the workspace (for example `cargo test -p <crate> --locked` from `native/rust/`).
+
+Local builds, unit tests, lint, formatting, and Cargo checks use disposable outputs and no production access. Run them, fix failures caused by your change, and rerun the affected checks without asking for approval at each step.
+
+Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim.
+
+Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch.
 
 ## Non-negotiable project rules
 
 - Never extend detekt, lint, LoC, or architecture-health baselines to hide a regression. Fix the underlying violation. Golden and performance baselines follow their explicit approval workflows and are not covered by this blanket prohibition.
 - The app must work fully on non-rooted devices. Root-only features are opt-in behind `root_mode_enabled` and degrade gracefully when root is unavailable.
 - Do not add a required backend service. Product features work offline and locally; external data is bundled or fetched from static user-visible sources, and user data leaves the device only through explicit export.
-- Before implementation, define verifiable success criteria. Reproduce defects before fixing them and surface undocumented JNI, protobuf, schema, activation, or migration contracts rather than guessing.
+- Reproduce a defect (ideally as a failing test) before fixing it. Surface undocumented JNI, protobuf, schema, activation, or migration contracts instead of guessing them.
 - Removing quality gates, custom detekt rules, lint checks, or security enforcement is out of scope unless the user explicitly requests it.
 - Never edit compiled `.so` files or generated JNI outputs. Change their Rust/Kotlin sources and rebuild.
+
+## Decision boundaries
+
+Proceed without asking for reversible, repository-local work: reading code, editing files in your worktree, running local builds and tests, and committing finished units on the job branch.
+
+Ask first, and name the exact action, for anything that leaves the worktree or cannot be cheaply undone: integrating into `main`, pushing, deleting worktrees or branches, rewriting shared history, tags, releases and publishing (use the `ripdpi-release` skill), blessing golden fixtures (see `golden-bless-discipline.md`), CI secrets and signing material, and any external communication.
+
+Plan before editing only where the approach is genuinely uncertain: cross-module or contract changes, concurrency or unsafe-code redesigns, migrations, and release procedures. `docs/tasks/README.md` defines when a change requires an OpenSpec specification.
 
 ## Locales
 
@@ -58,7 +66,7 @@ The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any 
 
 ## Worktree and commit workflow
 
-Every job or feature runs in a dedicated git worktree, never directly in the `main` checkout. Read-only fan-out may use ordinary subagents; every writer needs isolated ownership, and multiple writers use separate worktrees.
+Every job or feature that changes files runs in a dedicated git worktree, never directly in the `main` checkout; other agents share that checkout. Read-only investigation may run anywhere. Every writer needs isolated ownership, and parallel writers use separate worktrees.
 
 Each atomic unit is a self-contained Conventional Commit with an imperative subject under 72 characters. Preserve unrelated dirty state and stage only the task slice.
 
@@ -96,7 +104,7 @@ When multiple branches are in flight, prefer a PR merge queue. Before integratio
   -> :core:diagnostics-data (diagnostics contracts)
 ```
 
-Additional modules include `:quality:detekt-rules` and `:baselineprofile`. Convention plugins live in `build-logic/convention/`. Do not reproduce full module, crate, candidate, resolver, or CI inventories here; use the canonical architecture documents and machine-readable build configuration.
+Additional modules include `:quality:detekt-rules` and `:baselineprofile`. Convention plugins live in `build-logic/convention/`. Full module, crate, and CI inventories live in the architecture documents and machine-readable build configuration.
 
 ### Native artifacts
 
@@ -106,7 +114,7 @@ Relay, diagnostics, VPN protection, root-helper IPC, candidate-family, and trans
 
 ## Task board
 
-Repository tasks live under `docs/tasks/`. Read the `repo-task-board` skill before creating, updating, triaging, executing, or closing work.
+Repository tasks live under `docs/tasks/`; use the `repo-task-board` skill when creating, updating, triaging, executing, or closing work.
 
 - `docs/tasks/issues/<slug>.md` is the portfolio source of truth with stable IDs.
 - Simple execution lives in `docs/tasks/work/<TASK-ID>.md`; specification-driven execution lives in `openspec/changes/<change>/tasks.md`.
@@ -117,15 +125,19 @@ Use only `./taskctl` for task state, mdtask access, OpenSpec archival, validatio
 
 ## Skills and subagents
 
-Portable project skills are exposed under `.agents/skills/`. The centralized Rust catalog is pinned as the `.agents/vendor/rust-skills` submodule from `https://github.com/po4yka/rust-skills` and exposed through symlinks; initialize it with `git submodule update --init --depth 1 .agents/vendor/rust-skills`. `.claude/skills/`, `.codex/skills/`, and `.github/skills/` contain compatibility symlinks to the same entries. Never copy or locally fork centralized Rust skill bodies. Use only skills and agents present in the active tool's catalog, and read the selected `SKILL.md` completely before acting.
+Project skills live in `.agents/skills/` (Codex reads them there; `.claude/skills/` and `.github/skills/` are symlink mirrors). Rust engineering skills come from the pinned `.agents/vendor/rust-skills` submodule; initialize it with `git submodule update --init --depth 1 .agents/vendor/rust-skills` and never copy or fork its skill bodies.
 
-Claude subagents live in `.claude/agents/`; Codex subagents live in `.codex/agents/`. Prefer the narrowest specialist matching the task. Audit/review/verifier agents must be technically read-only; write-capable agents must use worktree isolation.
+Subagents are defined in `.claude/agents/` (Claude Code) and `.codex/agents/` (Codex) under the same names. Delegate when isolation helps, and do small or local work directly:
 
-Codex agents do not support Claude's `skills:` preload field. Their instructions must explicitly read any required skill at runtime. Keep counterpart prompts aligned semantically even when their file formats differ.
+- Independent review of a non-trivial diff before committing: `pr-reviewer`; for unsafe Rust, JNI, or async changes add `unsafe-code-auditor`, `jni-bridge-verifier`, or `async-cancel-safety`.
+- Long test or benchmark runs and their triage: `rust-test-runner`, `android-test-runner`, `packet-smoke-debugger`, `perf-profiler`.
+- Baseline or fixture updates: `native-verifier` and `golden-blesser`, which write under isolation.
+
+Audit and review agents never modify files. Changes to skills, subagents, rules, hooks, or these entry points follow `.claude/rules/harness-maintenance.md`.
 
 ## Path-scoped rules
 
-Long-form file-specific rules live in `.claude/rules/` and have `paths:` frontmatter so Claude loads them only for matching work. Codex receives this routing table through `AGENTS.md` and should read the matching `.claude/rules/<name>.md` before acting:
+File-area rules live in `.claude/rules/`. Claude Code loads them automatically when matching files are read; other tools should read the matching file when working in that area:
 
 - `vpnservice-protect-invariant.md`: outbound non-loopback sockets while VPN protection is active.
 - `android-vpn-lifecycle.md`: Android VPN/FGS and native tunnel lifecycle.
@@ -136,14 +148,9 @@ Long-form file-specific rules live in `.claude/rules/` and have `paths:` frontma
 - `compose-preview.md`: Compose preview rendering and generated images.
 - `rds-spec.md`: Compose UI and RDS implementation.
 - `android-app-and-rust-concurrency-gotchas.md`: Android/Kotlin and native concurrency-sensitive code.
+- `harness-maintenance.md`: agent instructions, skills, subagents, rules, hooks, and their CI.
 - `ansible-molecule.md`: only work against the sibling deployment repository's Ansible/Molecule files.
-
-Rules are instructions, not enforcement. Security boundaries belong in committed permissions, hooks, and blocking CI checks.
 
 ## Design sources
 
 For UI work use, in order, `DESIGN.md`, `docs/design-system.md`, the Compose theme implementation, and Roborazzi baselines. Implementation and verified baselines win when descriptive prose disagrees.
-
-## Harness maintenance
-
-Any change to `AGENTS.md`, `CLAUDE.md`, skills, subagents, rules, hooks, or harness CI must run the strict harness validation suite. Keep this file below 32 KiB and ensure `CLAUDE.md` imports it with `@AGENTS.md`.
