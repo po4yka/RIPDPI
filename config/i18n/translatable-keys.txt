@@ -673,6 +673,8 @@ app:config_relay_apps_script_front_domain
 app:config_relay_apps_script_google_ip
 app:config_relay_apps_script_ids
 app:config_relay_apps_script_parallel
+app:config_relay_apps_script_proxy_only_body
+app:config_relay_apps_script_proxy_only_title
 app:config_relay_apps_script_sni_hosts
 app:config_relay_apps_script_verify_ssl
 app:config_relay_body
