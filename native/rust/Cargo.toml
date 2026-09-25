@@ -231,7 +231,7 @@ ripdpi-ssh = { path = "crates/ripdpi-ssh" }
 # primitives (rsa, ssh-key, ssh-cipher) remain release candidates and ship in every
 # build via the always-on SSH relay. Track the remaining upstream stabilization in
 # deny.toml [advisories] "Known RC-crypto exposure" and Eugeny/russh #697 / PR #702.
-russh = "=0.63.2"
+russh = "=0.63.3"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
@@ -264,7 +264,7 @@ log = "0.4"
 loom = "0.7"
 metrics = "0.24"
 lru = "0.18"
-maxminddb = "0.30"
+maxminddb = "0.31"
 mlua = "0.12"
 mio = { version = "1.2", features = ["net", "os-poll"] }
 nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
@@ -311,7 +311,7 @@ yamux = "0.14"
 boring = "=5.1.0"
 tokio-boring = "=5.1.0"
 webpki-roots = "1.0"
-io-uring = "=0.7.14"
+io-uring = "=0.7.15"
 flume = "0.12"
 crossbeam-queue = "0.3"
 waker-fn = "1"
