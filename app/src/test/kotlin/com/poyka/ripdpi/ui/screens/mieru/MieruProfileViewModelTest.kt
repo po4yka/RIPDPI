@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -49,7 +51,11 @@ class MieruProfileViewModelTest {
         profileStore: RelayProfileStore,
         credentialStore: RelayCredentialStore,
         settings: AppSettingsRepository,
-    ): MieruProfileViewModel = MieruProfileViewModel(RelayProfileActivator(profileStore, credentialStore, settings))
+    ): MieruProfileViewModel =
+        MieruProfileViewModel(
+            RelayProfileActivator(profileStore, credentialStore, settings),
+            ConfigRelayArtifactRepository(settings, profileStore, credentialStore),
+        )
 
     @Test
     fun `saving a complete mieru editor activates the native relay`() =
@@ -103,6 +109,85 @@ class MieruProfileViewModelTest {
             advanceUntilIdle()
 
             assertFalse(settings.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `editing imported Mieru keeps its identity and credentials`() =
+        runTest {
+            val profiles = FakeRelayProfileStore()
+            val credentials = FakeRelayCredentialStore()
+            val settings = FakeAppSettingsRepository()
+            val original =
+                RelayProfileRecord(
+                    id = "mieru-imported",
+                    kind = RelayKindMieru,
+                    server = "before.example",
+                    serverPort = 8443,
+                    mieruMultiplexing = "high",
+                    mieruMtu = 1280,
+                )
+            profiles.save(original)
+            credentials.save(
+                RelayCredentialRecord(original.id, mieruUsername = usernameFixture, mieruPassword = passwordFixture),
+            )
+            val viewModel = viewModel(profiles, credentials, settings)
+            viewModel.loadProfile(original.id)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.editing)
+            assertEquals(
+                original.id,
+                viewModel.uiState.value.editor
+                    .rawText(MieruEditorField.DISPLAY_NAME),
+            )
+
+            viewModel.onFieldChanged(MieruEditorField.DISPLAY_NAME, "another-id")
+            viewModel.onFieldChanged(MieruEditorField.SERVER, "after.example")
+            viewModel.savedEvents.test {
+                viewModel.onSave()
+                advanceUntilIdle()
+                awaitItem()
+            }
+            assertEquals("after.example", profiles.load(original.id)?.server)
+            assertEquals(null, profiles.load("another-id"))
+            assertEquals(original.mieruMultiplexing, profiles.load(original.id)?.mieruMultiplexing)
+            assertEquals(passwordFixture, credentials.load(original.id)?.mieruPassword)
+        }
+
+    @Test
+    fun `stale Mieru edit does not replace a newer profile`() =
+        runTest {
+            val profiles = FakeRelayProfileStore()
+            val credentials = FakeRelayCredentialStore()
+            val original = RelayProfileRecord(id = "mieru-stale", kind = RelayKindMieru, server = "before.example")
+            profiles.save(original)
+            credentials.save(
+                RelayCredentialRecord(original.id, mieruUsername = usernameFixture, mieruPassword = passwordFixture),
+            )
+            val viewModel = viewModel(profiles, credentials, FakeAppSettingsRepository())
+            viewModel.loadProfile(original.id)
+            advanceUntilIdle()
+            profiles.save(original.copy(server = "newer.example"))
+            viewModel.onFieldChanged(MieruEditorField.SERVER, "stale.example")
+            viewModel.onSave()
+            advanceUntilIdle()
+            assertEquals("newer.example", profiles.load(original.id)?.server)
+            assertEquals(R.string.relay_editor_activation_failed, viewModel.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `missing Mieru edit target cannot create a new profile`() =
+        runTest {
+            val profiles = FakeRelayProfileStore()
+            val viewModel = viewModel(profiles, FakeRelayCredentialStore(), FakeAppSettingsRepository())
+            viewModel.loadProfile("missing")
+            advanceUntilIdle()
+            viewModel.onFieldChanged(MieruEditorField.SERVER, "mieru.example")
+            viewModel.onFieldChanged(MieruEditorField.SERVER_PORT, "443")
+            viewModel.onFieldChanged(MieruEditorField.USERNAME, usernameFixture)
+            viewModel.onFieldChanged(MieruEditorField.PASSWORD, passwordFixture)
+            viewModel.onSave()
+            advanceUntilIdle()
+            assertTrue(profiles.list().isEmpty())
         }
 }
 

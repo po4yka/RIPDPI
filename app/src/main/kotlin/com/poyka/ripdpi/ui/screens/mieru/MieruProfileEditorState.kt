@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
+import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayMieruMtuMax
@@ -143,5 +144,20 @@ data class MieruProfileEditorState(
     companion object {
         /** A fresh editor: empty fields, TCP transport, and the Mieru-default `middle` multiplexing. */
         fun initial(): MieruProfileEditorState = MieruProfileEditorState()
+
+        fun fromDraft(draft: ConfigDraft): MieruProfileEditorState =
+            MieruProfileEditorState(
+                rawTextByField =
+                    mapOf(
+                        MieruEditorField.DISPLAY_NAME to draft.relayProfileId,
+                        MieruEditorField.SERVER to draft.relayServer,
+                        MieruEditorField.SERVER_PORT to draft.relayServerPort,
+                        MieruEditorField.USERNAME to draft.relayMieruUsername,
+                        MieruEditorField.PASSWORD to draft.relayMieruPassword,
+                        MieruEditorField.MTU to draft.relayMieruMtu,
+                    ),
+                protocol = draft.relayMieruProtocol,
+                multiplexing = draft.relayMieruMultiplexing,
+            )
     }
 }

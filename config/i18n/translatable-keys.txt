@@ -667,6 +667,14 @@ app:config_presets_loading_body
 app:config_presets_loading_title
 app:config_presets_section
 app:config_proxy_helper
+app:config_relay_apps_script_auth_key
+app:config_relay_apps_script_direct_hosts
+app:config_relay_apps_script_front_domain
+app:config_relay_apps_script_google_ip
+app:config_relay_apps_script_ids
+app:config_relay_apps_script_parallel
+app:config_relay_apps_script_sni_hosts
+app:config_relay_apps_script_verify_ssl
 app:config_relay_body
 app:config_relay_chain_cumulative_caveat_body
 app:config_relay_chain_cumulative_caveat_title
@@ -762,6 +770,7 @@ app:config_relay_presets_title
 app:config_relay_profile_id
 app:config_relay_profile_id_helper
 app:config_relay_profile_id_taken
+app:config_relay_protocol_section_proxy
 app:config_relay_protocol_section_pt
 app:config_relay_protocol_section_quic
 app:config_relay_protocol_section_recommended
@@ -773,9 +782,12 @@ app:config_relay_section
 app:config_relay_server
 app:config_relay_server_name
 app:config_relay_server_port
+app:config_relay_shadowsocks_method
+app:config_relay_shadowsocks_password
 app:config_relay_shadowtls_inner_profile_id
 app:config_relay_shadowtls_password
 app:config_relay_title
+app:config_relay_trojan_password
 app:config_relay_tuic_congestion_bbr
 app:config_relay_tuic_congestion_control
 app:config_relay_tuic_congestion_cubic

@@ -9,7 +9,22 @@ internal data class RelayKindFieldActions(
     val masque: RelayMasqueActions = RelayMasqueActions(),
     val tuic: RelayTuicActions = RelayTuicActions(),
     val misc: RelayMiscKindActions = RelayMiscKindActions(),
+    val additional: RelayAdditionalKindActions = RelayAdditionalKindActions(),
     val finalmask: RelayFinalmaskActions = RelayFinalmaskActions(),
+)
+
+internal data class RelayAdditionalKindActions(
+    val onTrojanPasswordChanged: (String) -> Unit = {},
+    val onShadowsocksMethodChanged: (String) -> Unit = {},
+    val onShadowsocksPasswordChanged: (String) -> Unit = {},
+    val onAppsScriptScriptIdsChanged: (String) -> Unit = {},
+    val onAppsScriptGoogleIpChanged: (String) -> Unit = {},
+    val onAppsScriptFrontDomainChanged: (String) -> Unit = {},
+    val onAppsScriptSniHostsChanged: (String) -> Unit = {},
+    val onAppsScriptVerifySslChanged: (Boolean) -> Unit = {},
+    val onAppsScriptParallelRelayChanged: (Boolean) -> Unit = {},
+    val onAppsScriptDirectHostsChanged: (String) -> Unit = {},
+    val onAppsScriptAuthKeyChanged: (String) -> Unit = {},
 )
 
 internal data class RelayEndpointActions(

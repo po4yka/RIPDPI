@@ -1947,4 +1947,16 @@ fakeddisorder endhost</string>
     <string name="diagnostics_device_gate_rerun">स्वीकृति जाँच फिर शुरू करें</string>
     <string name="diagnostics_device_gate_share">संपादित रिपोर्ट साझा करें</string>
     <string name="detection_check_export_failed">डायग्नोस्टिक्स निर्यात नहीं हो सका</string>
+    <string name="config_relay_trojan_password">Trojan पासवर्ड</string>
+    <string name="config_relay_shadowsocks_method">Shadowsocks विधि</string>
+    <string name="config_relay_shadowsocks_password">Shadowsocks पासवर्ड</string>
+    <string name="config_relay_apps_script_ids">Apps Script परिनियोजन ID (प्रति पंक्ति एक)</string>
+    <string name="config_relay_apps_script_google_ip">Google IP पता</string>
+    <string name="config_relay_apps_script_front_domain">फ्रंट डोमेन</string>
+    <string name="config_relay_apps_script_sni_hosts">SNI होस्ट (प्रति पंक्ति एक)</string>
+    <string name="config_relay_apps_script_direct_hosts">सीधे होस्ट (प्रति पंक्ति एक)</string>
+    <string name="config_relay_apps_script_auth_key">Apps Script प्रमाणीकरण कुंजी</string>
+    <string name="config_relay_apps_script_verify_ssl">SSL सत्यापित करें</string>
+    <string name="config_relay_apps_script_parallel">समानांतर रिले</string>
+    <string name="config_relay_protocol_section_proxy">प्रॉक्सी ट्रांसपोर्ट</string>
 </resources>

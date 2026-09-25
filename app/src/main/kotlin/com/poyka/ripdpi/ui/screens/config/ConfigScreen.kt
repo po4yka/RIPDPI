@@ -139,8 +139,20 @@ fun ConfigRoute(
                 select = remember(viewModel) { viewModel::selectRelayProfile },
                 create = onOpenProfileEditor,
                 edit = { profileId ->
-                    viewModel.startEditingPreset("relay-profile:$profileId")
-                    onOpenModeEditor()
+                    when (uiState.vpnProfiles.firstOrNull { it.id == profileId }?.kind) {
+                        com.poyka.ripdpi.data.RelayKindMieru -> {
+                            onOpenProfileEditor(Route.MieruProfileEdit(profileId))
+                        }
+
+                        com.poyka.ripdpi.data.RelayKindSsh -> {
+                            onOpenProfileEditor(Route.SshProfileEdit(profileId))
+                        }
+
+                        else -> {
+                            viewModel.startEditingPreset("relay-profile:$profileId")
+                            onOpenModeEditor()
+                        }
+                    }
                 },
             ),
         initialModeSection = initialModeSection,

@@ -8,11 +8,17 @@ import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayKindAnyTls
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindMieru
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.flow.Flow
@@ -20,10 +26,110 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigRelayArtifactRepositoryTest {
+    @Test
+    fun `four imported relay kinds retain configuration and secrets after edit`() =
+        runTest {
+            val kinds = listOf(RelayKindVless, RelayKindTrojan, RelayKindShadowsocks, RelayKindGoogleAppsScript)
+            for (kind in kinds) {
+                val profiles = FailingRelayProfileStore()
+                val credentials = FailingRelayCredentialRepository()
+                val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+                val profile =
+                    RelayProfileRecord(
+                        id = "imported-$kind",
+                        kind = kind,
+                        server = "before.example",
+                        serverName = "tls.example",
+                        securityLayer = RelaySecurityLayerTls,
+                        vlessTransport = RelayVlessTransportXhttp,
+                        xhttpPath = "/proxy",
+                        appsScriptScriptIds = listOf("deployment-a", "deployment-b"),
+                        appsScriptGoogleIp = "8.8.8.8",
+                        appsScriptFrontDomain = "front.example",
+                        appsScriptSniHosts = listOf(" sni.example "),
+                        appsScriptDirectHosts = listOf("direct.example"),
+                        appsScriptVerifySsl = false,
+                        appsScriptParallelRelay = true,
+                    )
+                val secret =
+                    RelayCredentialRecord(
+                        profileId = profile.id,
+                        vlessUuid = "00000000-0000-4000-8000-000000000001",
+                        trojanPassword = "trojan-fixture",
+                        shadowsocksMethod = "aes-128-gcm",
+                        shadowsocksPassword = "ss-fixture",
+                        appsScriptAuthKey = "apps-fixture",
+                    )
+                profiles.save(profile)
+                credentials.save(secret)
+                val draft = repository.hydrateProfile(profile.id)
+                assertEquals(profile.id, draft.editingRelayProfileId)
+                repository.persist(draft.copy(relayServerPort = "8443"))
+                val saved = requireNotNull(profiles.load(profile.id))
+                val savedSecret = requireNotNull(credentials.load(profile.id))
+                assertEquals(8443, saved.serverPort)
+                assertEquals(profile.securityLayer, saved.securityLayer)
+                assertEquals(profile.vlessTransport, saved.vlessTransport)
+                assertEquals(profile.appsScriptScriptIds, saved.appsScriptScriptIds)
+                assertEquals(profile.appsScriptSniHosts, saved.appsScriptSniHosts)
+                assertEquals(profile.appsScriptDirectHosts, saved.appsScriptDirectHosts)
+                assertEquals(profile.appsScriptVerifySsl, saved.appsScriptVerifySsl)
+                assertEquals(profile.appsScriptParallelRelay, saved.appsScriptParallelRelay)
+                assertEquals(secret.vlessUuid, savedSecret.vlessUuid)
+                assertEquals(secret.trojanPassword, savedSecret.trojanPassword)
+                assertEquals(secret.shadowsocksMethod, savedSecret.shadowsocksMethod)
+                assertEquals(secret.shadowsocksPassword, savedSecret.shadowsocksPassword)
+                assertEquals(secret.appsScriptAuthKey, savedSecret.appsScriptAuthKey)
+            }
+        }
+
+    @Test
+    fun `new relay kinds reject missing required credentials`() {
+        for (kind in listOf(
+            RelayKindVless,
+            RelayKindTrojan,
+            RelayKindShadowsocks,
+            RelayKindGoogleAppsScript,
+            RelayKindMieru,
+            RelayKindSsh,
+        )) {
+            val errors =
+                validateConfigDraft(
+                    ConfigDraft(
+                        relayEnabled = true,
+                        relayKind = kind,
+                        relayProfileId = "new-$kind",
+                        relayServer = "relay.example",
+                        relayServerName = "relay.example",
+                        relayVlessTransport = RelayVlessTransportXhttp,
+                    ),
+                )
+            assertNotNull("$kind accepted empty credentials", errors[ConfigFieldRelayCredentials])
+        }
+    }
+
+    @Test
+    fun `Apps Script accepts native default IP and rejects disabled TLS verification`() {
+        val draft =
+            ConfigDraft(
+                relayEnabled = true,
+                relayKind = RelayKindGoogleAppsScript,
+                relayProfileId = "apps-script",
+                relayAppsScriptScriptIds = "deployment-a",
+                relayAppsScriptAuthKey = "auth-fixture",
+            )
+        assertNull(validateConfigDraft(draft)[ConfigFieldRelayCredentials])
+        assertEquals(
+            "unsupported",
+            validateConfigDraft(draft.copy(relayAppsScriptVerifySsl = false))[ConfigFieldRelayCredentials],
+        )
+    }
+
     @Test
     fun `mode edits preserve imported SSH and Mieru authentication and carrier options`() =
         runTest {

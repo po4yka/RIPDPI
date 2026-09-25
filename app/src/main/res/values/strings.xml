@@ -4308,4 +4308,16 @@ Source: %2$s</string>
     <string name="diagnostics_tool_state_running">Running</string>
     <string name="diagnostics_tool_state_complete">Complete</string>
     <string name="diagnostics_tool_state_failed">Failed</string>
+    <string name="config_relay_trojan_password">Trojan password</string>
+    <string name="config_relay_shadowsocks_method">Shadowsocks method</string>
+    <string name="config_relay_shadowsocks_password">Shadowsocks password</string>
+    <string name="config_relay_apps_script_ids">Apps Script deployment IDs (one per line)</string>
+    <string name="config_relay_apps_script_google_ip">Google IP address</string>
+    <string name="config_relay_apps_script_front_domain">Front domain</string>
+    <string name="config_relay_apps_script_sni_hosts">SNI hosts (one per line)</string>
+    <string name="config_relay_apps_script_direct_hosts">Direct hosts (one per line)</string>
+    <string name="config_relay_apps_script_auth_key">Apps Script auth key</string>
+    <string name="config_relay_apps_script_verify_ssl">Verify SSL</string>
+    <string name="config_relay_apps_script_parallel">Parallel relay</string>
+    <string name="config_relay_protocol_section_proxy">Proxy transports</string>
 </resources>

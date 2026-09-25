@@ -4177,4 +4177,16 @@ Quelle: %2$s</string>
     <string name="diagnostics_tool_state_running">Wird ausgeführt</string>
     <string name="diagnostics_tool_state_complete">Abgeschlossen</string>
     <string name="diagnostics_tool_state_failed">Fehlgeschlagen</string>
+    <string name="config_relay_trojan_password">Trojan-Passwort</string>
+    <string name="config_relay_shadowsocks_method">Shadowsocks-Methode</string>
+    <string name="config_relay_shadowsocks_password">Shadowsocks-Passwort</string>
+    <string name="config_relay_apps_script_ids">Apps Script-Bereitstellungs-IDs (eine pro Zeile)</string>
+    <string name="config_relay_apps_script_google_ip">Google-IP-Adresse</string>
+    <string name="config_relay_apps_script_front_domain">Front-Domain</string>
+    <string name="config_relay_apps_script_sni_hosts">SNI-Hosts (einer pro Zeile)</string>
+    <string name="config_relay_apps_script_direct_hosts">Direkte Hosts (einer pro Zeile)</string>
+    <string name="config_relay_apps_script_auth_key">Apps Script-Authentifizierungsschlüssel</string>
+    <string name="config_relay_apps_script_verify_ssl">SSL prüfen</string>
+    <string name="config_relay_apps_script_parallel">Paralleles Relay</string>
+    <string name="config_relay_protocol_section_proxy">Proxy-Transporte</string>
 </resources>

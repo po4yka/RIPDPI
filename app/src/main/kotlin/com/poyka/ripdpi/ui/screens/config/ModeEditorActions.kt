@@ -76,6 +76,7 @@ internal data class ModeEditorActions(
     val onRelayLocalSocksPortChanged: (String) -> Unit,
     val onOpenXrayImport: () -> Unit,
     val onSave: () -> Unit,
+    val additional: RelayAdditionalKindActions = RelayAdditionalKindActions(),
 )
 
 internal val NoOpModeEditorActions =

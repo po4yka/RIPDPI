@@ -4205,4 +4205,16 @@ fakeddisorder endhost</string>
     <string name="diagnostics_tool_state_running">قيد التشغيل</string>
     <string name="diagnostics_tool_state_complete">مكتمل</string>
     <string name="diagnostics_tool_state_failed">فشل</string>
+    <string name="config_relay_trojan_password">كلمة مرور Trojan</string>
+    <string name="config_relay_shadowsocks_method">طريقة Shadowsocks</string>
+    <string name="config_relay_shadowsocks_password">كلمة مرور Shadowsocks</string>
+    <string name="config_relay_apps_script_ids">معرّفات نشر Apps Script (واحد في كل سطر)</string>
+    <string name="config_relay_apps_script_google_ip">عنوان IP من Google</string>
+    <string name="config_relay_apps_script_front_domain">النطاق الأمامي</string>
+    <string name="config_relay_apps_script_sni_hosts">مضيفو SNI (واحد في كل سطر)</string>
+    <string name="config_relay_apps_script_direct_hosts">المضيفون المباشرون (واحد في كل سطر)</string>
+    <string name="config_relay_apps_script_auth_key">مفتاح مصادقة Apps Script</string>
+    <string name="config_relay_apps_script_verify_ssl">التحقق من SSL</string>
+    <string name="config_relay_apps_script_parallel">ترحيل متوازٍ</string>
+    <string name="config_relay_protocol_section_proxy">نواقل الوكيل</string>
 </resources>

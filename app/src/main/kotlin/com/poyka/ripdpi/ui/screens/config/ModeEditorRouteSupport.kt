@@ -10,6 +10,7 @@ import com.poyka.ripdpi.activities.MasqueImportAction
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 
 internal fun updateRelayKind(
@@ -18,7 +19,9 @@ internal fun updateRelayKind(
 ) {
     viewModel.updateDraft {
         when (relayKind) {
-            RelayKindCloudflareTunnel -> {
+            RelayKindCloudflareTunnel,
+            RelayKindVless,
+            -> {
                 copy(
                     relayKind = relayKind,
                     relayVlessTransport = RelayVlessTransportXhttp,

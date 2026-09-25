@@ -62,7 +62,7 @@ internal fun VlessUuidField(
 }
 
 @Composable
-private fun XhttpFields(
+internal fun XhttpFields(
     draft: ConfigDraft,
     actions: RelayVlessActions,
 ) {

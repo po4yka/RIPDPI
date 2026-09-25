@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -9,6 +10,7 @@ import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -42,7 +44,11 @@ class SshProfileViewModelTest {
         profileStore: RelayProfileStore,
         credentialStore: RelayCredentialStore,
         settings: AppSettingsRepository,
-    ): SshProfileViewModel = SshProfileViewModel(RelayProfileActivator(profileStore, credentialStore, settings))
+    ): SshProfileViewModel =
+        SshProfileViewModel(
+            RelayProfileActivator(profileStore, credentialStore, settings),
+            ConfigRelayArtifactRepository(settings, profileStore, credentialStore),
+        )
 
     @Test
     fun `onSave activates the ssh relay with udp disabled and flips saved`() =
@@ -91,6 +97,65 @@ class SshProfileViewModelTest {
             advanceUntilIdle()
 
             assertFalse(settings.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `editing imported SSH keeps its id and private key`() =
+        runTest {
+            val profiles = FakeRelayProfileStore()
+            val credentials = FakeRelayCredentialStore()
+            val original =
+                RelayProfileRecord(
+                    id = "ssh-imported",
+                    kind = RelayKindSsh,
+                    server = "before.example",
+                    serverPort = 22,
+                    sshAuthType = RelaySshAuthTypePrivateKey,
+                    sshHostKeyFingerprint = "SHA256:original",
+                    sshStrictHostKey = true,
+                )
+            profiles.save(original)
+            credentials.save(
+                RelayCredentialRecord(
+                    profileId = original.id,
+                    sshUsername = "alice",
+                    sshPrivateKey = "key-fixture",
+                    sshPrivateKeyPassphrase = "passphrase-fixture",
+                ),
+            )
+            val viewModel = viewModel(profiles, credentials, FakeAppSettingsRepository())
+            viewModel.loadProfile(original.id)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.editing)
+            viewModel.onFieldChanged(SshEditorField.DISPLAY_NAME, "another-id")
+            viewModel.onFieldChanged(SshEditorField.SERVER, "after.example")
+            viewModel.savedEvents.test {
+                viewModel.onSave()
+                advanceUntilIdle()
+                awaitItem()
+            }
+            assertEquals("after.example", profiles.load(original.id)?.server)
+            assertEquals(null, profiles.load("another-id"))
+            assertEquals(original.sshHostKeyFingerprint, profiles.load(original.id)?.sshHostKeyFingerprint)
+            assertTrue(profiles.load(original.id)?.sshStrictHostKey == true)
+            assertEquals("key-fixture", credentials.load(original.id)?.sshPrivateKey)
+            assertEquals("passphrase-fixture", credentials.load(original.id)?.sshPrivateKeyPassphrase)
+        }
+
+    @Test
+    fun `missing SSH edit target cannot create a new profile`() =
+        runTest {
+            val profiles = FakeRelayProfileStore()
+            val viewModel = viewModel(profiles, FakeRelayCredentialStore(), FakeAppSettingsRepository())
+            viewModel.loadProfile("missing")
+            advanceUntilIdle()
+            viewModel.onFieldChanged(SshEditorField.SERVER, "ssh.example")
+            viewModel.onFieldChanged(SshEditorField.SERVER_PORT, "22")
+            viewModel.onFieldChanged(SshEditorField.USERNAME, "alice")
+            viewModel.onFieldChanged(SshEditorField.PASSWORD, passwordFixture)
+            viewModel.onSave()
+            advanceUntilIdle()
+            assertTrue(profiles.list().isEmpty())
         }
 }
 

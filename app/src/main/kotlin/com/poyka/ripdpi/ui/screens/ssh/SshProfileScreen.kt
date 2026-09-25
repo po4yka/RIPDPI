@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.ssh
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -62,11 +63,13 @@ private fun rememberSshAuthTypeDropdownOptions():
 @Composable
 fun SshProfileRoute(
     onBack: () -> Unit,
+    profileId: String? = null,
     modifier: Modifier = Modifier,
     viewModel: SshProfileViewModel = hiltViewModel(),
     onRequestPrivateKeyReveal: (() -> Unit)? = null,
     onRequestPassphraseReveal: (() -> Unit)? = null,
 ) {
+    LaunchedEffect(profileId) { profileId?.let(viewModel::loadProfile) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleEventEffect(viewModel.savedEvents) { onBack() }
     SshProfileScreen(
@@ -99,16 +102,22 @@ internal fun SshProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SshProfile)),
+        modifier =
+            modifier.ripDpiTestTag(
+                RipDpiTestTags.screen(if (uiState.editing) Route.SshProfileEdit() else Route.SshProfile),
+            ),
     ) {
-        EndpointSection(uiState.editor, onFieldChanged)
+        uiState.errorMessage?.let { errorRes ->
+            RipDpiCard { RipDpiPanelHeader(title = stringResource(errorRes)) }
+        }
+        EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         AuthSection(uiState.editor, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
         HostKeySection(uiState.editor, onFieldChanged, onStrictHostKeyChanged)
         RipDpiButton(
             text = stringResource(R.string.ssh_save_action),
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = uiState.editor.isComplete,
+            enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
         )
     }
 }
@@ -117,10 +126,17 @@ internal fun SshProfileScreen(
 private fun EndpointSection(
     editor: SshProfileEditorState,
     onFieldChanged: (SshEditorField, String) -> Unit,
+    editing: Boolean,
 ) {
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.ssh_section_endpoint))
-        PlainField(SshEditorField.DISPLAY_NAME, R.string.ssh_field_display_name, editor, onFieldChanged)
+        PlainField(
+            SshEditorField.DISPLAY_NAME,
+            R.string.ssh_field_display_name,
+            editor,
+            onFieldChanged,
+            readOnly = editing,
+        )
         PlainField(SshEditorField.SERVER, R.string.ssh_field_server, editor, onFieldChanged)
         PlainField(
             SshEditorField.SERVER_PORT,
@@ -213,6 +229,7 @@ private fun PlainField(
     editor: SshProfileEditorState,
     onFieldChanged: (SshEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    readOnly: Boolean = false,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -227,6 +244,7 @@ private fun PlainField(
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                readOnly = readOnly,
             ),
     )
 }

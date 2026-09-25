@@ -53,6 +53,19 @@ internal fun ConfigDraft.withRelaySettings(relay: RelaySettingsModel): ConfigDra
         relayTuicZeroRtt = relay.profile.tuicZeroRtt,
         relayTuicCongestionControl = relay.profile.tuicCongestionControl,
         relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
+        relayAppsScriptScriptIds = relay.profile.appsScriptScriptIds.joinToString("\n"),
+        relayAppsScriptGoogleIp = relay.profile.appsScriptGoogleIp,
+        relayAppsScriptFrontDomain = relay.profile.appsScriptFrontDomain,
+        relayAppsScriptSniHosts = relay.profile.appsScriptSniHosts.joinToString("\n"),
+        relayAppsScriptVerifySsl = relay.profile.appsScriptVerifySsl,
+        relayAppsScriptParallelRelay = relay.profile.appsScriptParallelRelay,
+        relayAppsScriptDirectHosts = relay.profile.appsScriptDirectHosts.joinToString("\n"),
+        relayMieruProtocol = relay.profile.mieruProtocol,
+        relayMieruMultiplexing = relay.profile.mieruMultiplexing,
+        relayMieruMtu = relay.profile.mieruMtu.toString(),
+        relaySshAuthType = relay.profile.sshAuthType,
+        relaySshHostKeyFingerprint = relay.profile.sshHostKeyFingerprint,
+        relaySshStrictHostKey = relay.profile.sshStrictHostKey,
         relayNaivePath = relay.profile.naivePath,
         relayPtBridgeLine = relay.profile.ptBridgeLine,
         relayWebTunnelUrl = relay.profile.ptWebTunnelUrl,
@@ -144,6 +157,22 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         setRelayTuicZeroRtt(draft.relayTuicZeroRtt)
         setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
         setRelayShadowtlsInnerProfileId(draft.relayShadowTlsInnerProfileId)
+        clearRelayAppsScriptScriptIds()
+        addAllRelayAppsScriptScriptIds(draft.relayAppsScriptScriptIds.relayLines())
+        setRelayAppsScriptGoogleIp(draft.relayAppsScriptGoogleIp)
+        setRelayAppsScriptFrontDomain(draft.relayAppsScriptFrontDomain)
+        clearRelayAppsScriptSniHosts()
+        addAllRelayAppsScriptSniHosts(draft.relayAppsScriptSniHosts.relayLines())
+        setRelayAppsScriptVerifySsl(draft.relayAppsScriptVerifySsl)
+        setRelayAppsScriptParallelRelay(draft.relayAppsScriptParallelRelay)
+        clearRelayAppsScriptDirectHosts()
+        addAllRelayAppsScriptDirectHosts(draft.relayAppsScriptDirectHosts.relayLines())
+        setRelayMieruProtocol(draft.relayMieruProtocol)
+        setRelayMieruMultiplexing(draft.relayMieruMultiplexing)
+        setRelayMieruMtu(draft.relayMieruMtu.toIntOrNull() ?: 1400)
+        setRelaySshAuthType(draft.relaySshAuthType)
+        setRelaySshHostKeyFingerprint(draft.relaySshHostKeyFingerprint)
+        setRelaySshStrictHostKey(draft.relaySshStrictHostKey)
         setRelayNaivePath(draft.relayNaivePath)
         setRelayLocalSocksHost("127.0.0.1")
         setRelayLocalSocksPort(draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort)
@@ -158,3 +187,5 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         setRelayFinalmaskFragmentMinBytes(draft.relayFinalmaskFragmentMinBytes.toIntOrNull() ?: 0)
         setRelayFinalmaskFragmentMaxBytes(draft.relayFinalmaskFragmentMaxBytes.toIntOrNull() ?: 0)
     }
+
+internal fun String.relayLines(): List<String> = lineSequence().map(String::trim).filter(String::isNotEmpty).toList()

@@ -4182,4 +4182,16 @@ fakeddisorder endhost</string>
     <string name="diagnostics_tool_state_running">در حال اجرا</string>
     <string name="diagnostics_tool_state_complete">تکمیل‌شده</string>
     <string name="diagnostics_tool_state_failed">ناموفق</string>
+    <string name="config_relay_trojan_password">گذرواژه Trojan</string>
+    <string name="config_relay_shadowsocks_method">روش Shadowsocks</string>
+    <string name="config_relay_shadowsocks_password">گذرواژه Shadowsocks</string>
+    <string name="config_relay_apps_script_ids">شناسه‌های استقرار Apps Script (هر خط یکی)</string>
+    <string name="config_relay_apps_script_google_ip">نشانی IP گوگل</string>
+    <string name="config_relay_apps_script_front_domain">دامنه جلویی</string>
+    <string name="config_relay_apps_script_sni_hosts">میزبان‌های SNI (هر خط یکی)</string>
+    <string name="config_relay_apps_script_direct_hosts">میزبان‌های مستقیم (هر خط یکی)</string>
+    <string name="config_relay_apps_script_auth_key">کلید احراز هویت Apps Script</string>
+    <string name="config_relay_apps_script_verify_ssl">بررسی SSL</string>
+    <string name="config_relay_apps_script_parallel">رله موازی</string>
+    <string name="config_relay_protocol_section_proxy">انتقال‌های پروکسی</string>
 </resources>

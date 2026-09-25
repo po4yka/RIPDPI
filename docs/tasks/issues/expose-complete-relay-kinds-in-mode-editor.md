@@ -2,7 +2,7 @@
 id: RLY-1790340340749310
 title: Expose complete relay kinds in Mode Editor
 kind: bug
-status: doing
+status: review
 area: relay
 priority: medium
 owner: relay editor
@@ -26,4 +26,4 @@ Allow users to create and edit the six existing relay kinds missing from Mode Ed
 
 ## Ownership
 
-The relay editor agent owns Mode Editor relay fields/actions, ConfigDraft relay mapping, persistence and validation, relevant tests, and this task/OpenSpec change in its isolated worktree. Other P2 agents own separate worktrees. Shared locale resources and generated board are serialized during integration.
+The relay editor agent owns Mode Editor relay fields/actions, ConfigDraft relay mapping, persistence and validation, ConfigScreen/VpnConfigScreen, Route/NavHost, Mieru/SSH dedicated editor state/ViewModels/routes, navigation test and UI audit route registry, relevant tests, and this task/OpenSpec change in its isolated worktree. Other P2 agents own separate worktrees. Shared locale resources and generated board are serialized during integration.

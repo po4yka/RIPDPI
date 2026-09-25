@@ -226,7 +226,10 @@ private fun VpnProfileItem(
             value = profile.kindLabel,
             leadingIcon = RipDpiIcons.Public,
             onClick =
-                if (isModeEditorRelayKindSupported(profile.kind)) {
+                if (isModeEditorRelayKindSupported(profile.kind) ||
+                    profile.kind == com.poyka.ripdpi.data.RelayKindMieru ||
+                    profile.kind == com.poyka.ripdpi.data.RelayKindSsh
+                ) {
                     { onProfileEdit(profile.id) }
                 } else {
                     null

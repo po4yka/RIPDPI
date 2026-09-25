@@ -406,7 +406,9 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.XrayImport.stableRoute to "xray/import-screen",
         Route.AnyTlsProfile.stableRoute to "profile/anytls-screen",
         Route.MieruProfile.stableRoute to "profile/mieru-screen",
+        Route.MieruProfileEdit().stableRoute to "profile/mieru/edit-screen",
         Route.SshProfile.stableRoute to "profile/ssh-screen",
+        Route.SshProfileEdit().stableRoute to "profile/ssh/edit-screen",
     )
 
 private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
@@ -490,5 +492,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
             setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
         Route.MieruProfile.stableRoute to
             setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
+        Route.MieruProfileEdit().stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.SshProfile.stableRoute to setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
+        Route.SshProfileEdit().stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
     )

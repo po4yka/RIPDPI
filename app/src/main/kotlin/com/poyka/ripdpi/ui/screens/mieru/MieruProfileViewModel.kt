@@ -4,6 +4,9 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -28,6 +31,8 @@ import javax.inject.Inject
 data class MieruProfileUiState(
     val editor: MieruProfileEditorState,
     val saving: Boolean = false,
+    val loading: Boolean = false,
+    val editing: Boolean = false,
     @StringRes val errorMessage: Int? = null,
 )
 
@@ -50,18 +55,54 @@ class MieruProfileViewModel
     @Inject
     constructor(
         private val relayActivator: RelayProfileActivator,
+        private val relayArtifacts: ConfigRelayArtifactRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(MieruProfileUiState(editor = MieruProfileEditorState.initial()))
         val uiState: StateFlow<MieruProfileUiState> = _uiState.asStateFlow()
         private val savedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val savedEvents: Flow<Unit> = savedEventChannel.receiveAsFlow()
         private var completed = false
+        private var editingDraft: ConfigDraft? = null
+        private var requestedEditProfileId: String? = null
+
+        fun loadProfile(profileId: String) {
+            if (profileId.isBlank() || _uiState.value.loading || editingDraft != null) return
+            requestedEditProfileId = profileId
+            _uiState.update { it.copy(loading = true, errorMessage = null) }
+            viewModelScope.launch {
+                val draft =
+                    runCatching { relayArtifacts.hydrateProfile(profileId) }
+                        .getOrElse { error ->
+                            if (error is CancellationException) throw error
+                            _uiState.update {
+                                it.copy(
+                                    loading = false,
+                                    errorMessage = R.string.relay_editor_activation_failed,
+                                )
+                            }
+                            return@launch
+                        }
+                if (draft.relayKind != RelayKindMieru) {
+                    _uiState.update { it.copy(loading = false, errorMessage = R.string.relay_editor_activation_failed) }
+                    return@launch
+                }
+                editingDraft = draft
+                _uiState.update {
+                    it.copy(
+                        editor = MieruProfileEditorState.fromDraft(draft),
+                        loading = false,
+                        editing = true,
+                    )
+                }
+            }
+        }
 
         /** Applies a user edit of [field] to [raw], tracking the keystrokes regardless of validity. */
         fun onFieldChanged(
             field: MieruEditorField,
             raw: String,
         ) {
+            if (_uiState.value.editing && field == MieruEditorField.DISPLAY_NAME) return
             _uiState.update { it.copy(editor = it.editor.updateField(field, raw), errorMessage = null) }
         }
 
@@ -77,22 +118,43 @@ class MieruProfileViewModel
 
         /**
          * Assembles a complete editor into a [com.poyka.ripdpi.data.ProxyProfile.Mieru]
-         * and applies it as the active native relay. A no-op when the required fields do
+         * and saves it as a new or existing relay profile. A no-op when the required fields do
          * not validate or a save is already in flight; surfaces [errorMessage] and keeps
          * the user on the screen when activation does not take, so the editor never reports
          * success for a relay it failed to create.
          */
         fun onSave() {
             val profile = _uiState.value.editor.toProfile() ?: return
-            if (_uiState.value.saving || completed) return
+            if (_uiState.value.saving || _uiState.value.loading || completed ||
+                (requestedEditProfileId != null && editingDraft == null)
+            ) {
+                return
+            }
             _uiState.update { it.copy(saving = true, errorMessage = null) }
             viewModelScope.launch {
                 val activated =
-                    runCatching { relayActivator.activate(profile) }
-                        .getOrElse { error ->
-                            if (error is CancellationException) throw error
-                            false
+                    runCatching {
+                        val original = editingDraft
+                        if (original == null) {
+                            relayActivator.activate(profile)
+                        } else {
+                            relayArtifacts.persist(
+                                original.copy(
+                                    relayServer = profile.server,
+                                    relayServerPort = profile.serverPort.toString(),
+                                    relayMieruUsername = profile.username,
+                                    relayMieruPassword = profile.password,
+                                    relayMieruProtocol = profile.protocol,
+                                    relayMieruMultiplexing = profile.multiplexing,
+                                    relayMieruMtu = profile.mtu.toString(),
+                                ),
+                            )
+                            true
                         }
+                    }.getOrElse { error ->
+                        if (error is CancellationException) throw error
+                        false
+                    }
                 _uiState.update {
                     if (activated) {
                         it.copy(saving = false)

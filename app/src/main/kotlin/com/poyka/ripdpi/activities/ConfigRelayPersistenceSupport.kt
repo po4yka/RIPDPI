@@ -9,9 +9,16 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
+import com.poyka.ripdpi.data.RelayKindMieru
+import com.poyka.ripdpi.data.RelayKindShadowsocks
+import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
@@ -37,6 +44,28 @@ internal fun ConfigDraft.withRelayArtifacts(
         relayTuicPassword = credentials?.tuicPassword.orEmpty(),
         relayShadowTlsPassword = credentials?.shadowTlsPassword.orEmpty(),
         relayTrojanPassword = credentials?.trojanPassword.orEmpty(),
+        relayShadowsocksMethod = credentials?.shadowsocksMethod.orEmpty(),
+        relayShadowsocksPassword = credentials?.shadowsocksPassword.orEmpty(),
+        relayAppsScriptAuthKey = credentials?.appsScriptAuthKey.orEmpty(),
+        relayMieruUsername = credentials?.mieruUsername.orEmpty(),
+        relayMieruPassword = credentials?.mieruPassword.orEmpty(),
+        relaySshUsername = credentials?.sshUsername.orEmpty(),
+        relaySshPassword = credentials?.sshPassword.orEmpty(),
+        relaySshPrivateKey = credentials?.sshPrivateKey.orEmpty(),
+        relaySshPrivateKeyPassphrase = credentials?.sshPrivateKeyPassphrase.orEmpty(),
+        relayAppsScriptScriptIds = profile?.appsScriptScriptIds?.joinToString("\n").orEmpty(),
+        relayAppsScriptGoogleIp = profile?.appsScriptGoogleIp.orEmpty(),
+        relayAppsScriptFrontDomain = profile?.appsScriptFrontDomain.orEmpty(),
+        relayAppsScriptSniHosts = profile?.appsScriptSniHosts?.joinToString("\n").orEmpty(),
+        relayAppsScriptVerifySsl = profile?.appsScriptVerifySsl ?: relayAppsScriptVerifySsl,
+        relayAppsScriptParallelRelay = profile?.appsScriptParallelRelay ?: relayAppsScriptParallelRelay,
+        relayAppsScriptDirectHosts = profile?.appsScriptDirectHosts?.joinToString("\n").orEmpty(),
+        relayMieruProtocol = profile?.mieruProtocol ?: relayMieruProtocol,
+        relayMieruMultiplexing = profile?.mieruMultiplexing ?: relayMieruMultiplexing,
+        relayMieruMtu = profile?.mieruMtu?.toString() ?: relayMieruMtu,
+        relaySshAuthType = profile?.sshAuthType ?: relaySshAuthType,
+        relaySshHostKeyFingerprint = profile?.sshHostKeyFingerprint.orEmpty(),
+        relaySshStrictHostKey = profile?.sshStrictHostKey ?: relaySshStrictHostKey,
         relayNaiveUsername = credentials?.naiveUsername.orEmpty(),
         relayNaivePassword = credentials?.naivePassword.orEmpty(),
         relayCloudflareCredentialsRef =
@@ -106,6 +135,12 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         server = relayServer,
         serverPort = relayServerPort.toIntOrNull() ?: defaultRelayPort,
         serverName = if (relayKind == RelayKindAnyTls) relayServerName.ifBlank { relayServer } else relayServerName,
+        securityLayer =
+            matchingSourceRelayProfile(profileId)?.securityLayer
+                ?: if (relayKind == RelayKindVless) RelaySecurityLayerTls else RelayProfileRecord().securityLayer,
+        vlessFlow =
+            matchingSourceRelayProfile(profileId)?.vlessFlow
+                ?: if (relayKind == RelayKindVless) "" else RelayProfileRecord().vlessFlow,
         realityPublicKey = relayRealityPublicKey,
         realityShortId = relayRealityShortId,
         vlessTransport = relayVlessTransport,
@@ -137,6 +172,28 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
         shadowTlsInnerProfileId = relayShadowTlsInnerProfileId,
         naivePath = relayNaivePath,
+        appsScriptScriptIds =
+            relayAppsScriptScriptIds.preserveRelayLines(
+                matchingSourceRelayProfile(profileId)?.appsScriptScriptIds,
+            ),
+        appsScriptGoogleIp = relayAppsScriptGoogleIp,
+        appsScriptFrontDomain = relayAppsScriptFrontDomain,
+        appsScriptSniHosts =
+            relayAppsScriptSniHosts.preserveRelayLines(
+                matchingSourceRelayProfile(profileId)?.appsScriptSniHosts,
+            ),
+        appsScriptVerifySsl = relayAppsScriptVerifySsl,
+        appsScriptParallelRelay = relayAppsScriptParallelRelay,
+        appsScriptDirectHosts =
+            relayAppsScriptDirectHosts.preserveRelayLines(
+                matchingSourceRelayProfile(profileId)?.appsScriptDirectHosts,
+            ),
+        mieruProtocol = relayMieruProtocol,
+        mieruMultiplexing = relayMieruMultiplexing,
+        mieruMtu = relayMieruMtu.toIntOrNull() ?: 1400,
+        sshAuthType = relaySshAuthType,
+        sshHostKeyFingerprint = relaySshHostKeyFingerprint,
+        sshStrictHostKey = relaySshStrictHostKey,
         ptBridgeLine = relayPtBridgeLine,
         ptWebTunnelUrl = relayWebTunnelUrl,
         ptSnowflakeBrokerUrl = relaySnowflakeBrokerUrl.ifBlank { DefaultSnowflakeBrokerUrl },
@@ -167,7 +224,76 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         tuicUuid = relayTuicUuid.ifBlank { null },
         tuicPassword = relayTuicPassword.ifBlank { null },
         shadowTlsPassword = relayShadowTlsPassword.ifBlank { null },
-        trojanPassword = relayTrojanPassword.ifBlank { null },
+        trojanPassword =
+            kindCredential(
+                profileId,
+                RelayKindTrojan,
+                relayTrojanPassword,
+                sourceRelayCredentials?.trojanPassword,
+            ),
+        shadowsocksMethod =
+            kindCredential(
+                profileId,
+                RelayKindShadowsocks,
+                relayShadowsocksMethod,
+                sourceRelayCredentials?.shadowsocksMethod,
+            ),
+        shadowsocksPassword =
+            kindCredential(
+                profileId,
+                RelayKindShadowsocks,
+                relayShadowsocksPassword,
+                sourceRelayCredentials?.shadowsocksPassword,
+            ),
+        appsScriptAuthKey =
+            kindCredential(
+                profileId,
+                RelayKindGoogleAppsScript,
+                relayAppsScriptAuthKey,
+                sourceRelayCredentials?.appsScriptAuthKey,
+            ),
+        mieruUsername =
+            kindCredential(
+                profileId,
+                RelayKindMieru,
+                relayMieruUsername,
+                sourceRelayCredentials?.mieruUsername,
+            ),
+        mieruPassword =
+            kindCredential(
+                profileId,
+                RelayKindMieru,
+                relayMieruPassword,
+                sourceRelayCredentials?.mieruPassword,
+            ),
+        sshUsername =
+            kindCredential(
+                profileId,
+                RelayKindSsh,
+                relaySshUsername,
+                sourceRelayCredentials?.sshUsername,
+            ),
+        sshPassword =
+            kindCredential(
+                profileId,
+                RelayKindSsh,
+                relaySshPassword,
+                sourceRelayCredentials?.sshPassword,
+            ),
+        sshPrivateKey =
+            kindCredential(
+                profileId,
+                RelayKindSsh,
+                relaySshPrivateKey,
+                sourceRelayCredentials?.sshPrivateKey,
+            ),
+        sshPrivateKeyPassphrase =
+            kindCredential(
+                profileId,
+                RelayKindSsh,
+                relaySshPrivateKeyPassphrase,
+                sourceRelayCredentials?.sshPrivateKeyPassphrase,
+            ),
         naiveUsername = relayNaiveUsername.ifBlank { null },
         naivePassword = relayNaivePassword.ifBlank { null },
         masqueAuthMode = normalizeRelayMasqueAuthMode(relayMasqueAuthMode),
@@ -177,6 +303,21 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         cloudflareTunnelToken = relayCloudflareTunnelToken.ifBlank { null },
         cloudflareTunnelCredentialsJson = relayCloudflareTunnelCredentialsJson.ifBlank { null },
     )
+
+private fun ConfigDraft.kindCredential(
+    profileId: String,
+    kind: String,
+    value: String,
+    previous: String?,
+): String? =
+    when {
+        sourceRelayProfile != null && matchingSourceRelayProfile(profileId) == null -> null
+        relayKind == kind -> value.ifBlank { null }
+        else -> previous
+    }
+
+private fun String.preserveRelayLines(previous: List<String>?): List<String> =
+    if (previous != null && this == previous.joinToString("\n")) previous else relayLines()
 
 private fun ConfigDraft.matchingSourceRelayProfile(profileId: String): RelayProfileRecord? =
     sourceRelayProfile?.takeIf { it.id == profileId && it.kind == relayKind }
@@ -191,7 +332,39 @@ internal fun ConfigDraft.applyRelayDraftEdit(transform: ConfigDraft.() -> Config
 
 private fun ConfigDraft.discardReboundRelaySource(previous: ConfigDraft): ConfigDraft =
     if (relayProfileId != previous.relayProfileId || relayKind != previous.relayKind) {
-        copy(sourceRelayProfile = null, sourceRelayCredentials = null)
+        if (previous.sourceRelayProfile == null) {
+            copy(sourceRelayProfile = null, sourceRelayCredentials = null)
+        } else {
+            copy(
+                sourceRelayProfile = null,
+                sourceRelayCredentials = null,
+                relayVlessUuid = "",
+                relayAnyTlsPassword = "",
+                relayHysteriaPassword = "",
+                relayHysteriaSalamanderKey = "",
+                relayTuicUuid = "",
+                relayTuicPassword = "",
+                relayShadowTlsPassword = "",
+                relayTrojanPassword = "",
+                relayShadowsocksMethod = "",
+                relayShadowsocksPassword = "",
+                relayAppsScriptAuthKey = "",
+                relayMieruUsername = "",
+                relayMieruPassword = "",
+                relaySshUsername = "",
+                relaySshPassword = "",
+                relaySshPrivateKey = "",
+                relaySshPrivateKeyPassphrase = "",
+                relaySshHostKeyFingerprint = "",
+                relayNaiveUsername = "",
+                relayNaivePassword = "",
+                relayMasqueAuthToken = "",
+                relayMasqueClientCertificateChainPem = "",
+                relayMasqueClientPrivateKeyPem = "",
+                relayCloudflareTunnelToken = "",
+                relayCloudflareTunnelCredentialsJson = "",
+            )
+        }
     } else {
         this
     }

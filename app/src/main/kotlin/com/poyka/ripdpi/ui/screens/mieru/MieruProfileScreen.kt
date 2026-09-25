@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.mieru
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -76,9 +77,11 @@ private fun rememberMieruMultiplexingDropdownOptions():
 @Composable
 fun MieruProfileRoute(
     onBack: () -> Unit,
+    profileId: String? = null,
     modifier: Modifier = Modifier,
     viewModel: MieruProfileViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(profileId) { profileId?.let(viewModel::loadProfile) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleEventEffect(viewModel.savedEvents) { onBack() }
     MieruProfileScreen(
@@ -107,7 +110,10 @@ internal fun MieruProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.MieruProfile)),
+        modifier =
+            modifier.ripDpiTestTag(
+                RipDpiTestTags.screen(if (uiState.editing) Route.MieruProfileEdit() else Route.MieruProfile),
+            ),
     ) {
         WarningBanner(
             title = stringResource(R.string.mieru_experimental_title),
@@ -120,14 +126,14 @@ internal fun MieruProfileScreen(
                 RipDpiPanelHeader(title = stringResource(errorRes))
             }
         }
-        EndpointSection(uiState.editor, onFieldChanged)
+        EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         CredentialsSection(uiState.editor, onFieldChanged)
         TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
         RipDpiButton(
             text = stringResource(R.string.mieru_save_action),
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = uiState.editor.isComplete && !uiState.saving,
+            enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
         )
     }
 }
@@ -136,10 +142,17 @@ internal fun MieruProfileScreen(
 private fun EndpointSection(
     editor: MieruProfileEditorState,
     onFieldChanged: (MieruEditorField, String) -> Unit,
+    editing: Boolean,
 ) {
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.mieru_section_endpoint))
-        PlainField(MieruEditorField.DISPLAY_NAME, R.string.mieru_field_display_name, editor, onFieldChanged)
+        PlainField(
+            MieruEditorField.DISPLAY_NAME,
+            R.string.mieru_field_display_name,
+            editor,
+            onFieldChanged,
+            readOnly = editing,
+        )
         PlainField(MieruEditorField.SERVER, R.string.mieru_field_server, editor, onFieldChanged)
         PlainField(
             MieruEditorField.SERVER_PORT,
@@ -210,6 +223,7 @@ private fun PlainField(
     editor: MieruProfileEditorState,
     onFieldChanged: (MieruEditorField, String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
+    readOnly: Boolean = false,
 ) {
     val hasError = editor.hasFieldError(field)
     RipDpiTextField(
@@ -224,6 +238,7 @@ private fun PlainField(
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                readOnly = readOnly,
             ),
     )
 }

@@ -4172,4 +4172,16 @@ Fonte: %2$s</string>
     <string name="diagnostics_tool_state_running">Em execução</string>
     <string name="diagnostics_tool_state_complete">Concluído</string>
     <string name="diagnostics_tool_state_failed">Falhou</string>
+    <string name="config_relay_trojan_password">Senha do Trojan</string>
+    <string name="config_relay_shadowsocks_method">Método do Shadowsocks</string>
+    <string name="config_relay_shadowsocks_password">Senha do Shadowsocks</string>
+    <string name="config_relay_apps_script_ids">IDs de implantação do Apps Script (um por linha)</string>
+    <string name="config_relay_apps_script_google_ip">Endereço IP do Google</string>
+    <string name="config_relay_apps_script_front_domain">Domínio frontal</string>
+    <string name="config_relay_apps_script_sni_hosts">Hosts SNI (um por linha)</string>
+    <string name="config_relay_apps_script_direct_hosts">Hosts diretos (um por linha)</string>
+    <string name="config_relay_apps_script_auth_key">Chave de autenticação do Apps Script</string>
+    <string name="config_relay_apps_script_verify_ssl">Verificar SSL</string>
+    <string name="config_relay_apps_script_parallel">Retransmissão paralela</string>
+    <string name="config_relay_protocol_section_proxy">Transportes proxy</string>
 </resources>

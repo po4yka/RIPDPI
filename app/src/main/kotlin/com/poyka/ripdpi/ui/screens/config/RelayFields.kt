@@ -11,14 +11,18 @@ import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTor
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
@@ -57,6 +61,22 @@ internal fun RelayFieldsContent(
     when (draft.relayKind) {
         RelayKindVlessReality -> {
             VlessRealityRelayFields(draft = draft, actions = actions.vless)
+        }
+
+        RelayKindVless -> {
+            VlessPlainRelayFields(draft = draft, actions = actions.vless)
+        }
+
+        RelayKindTrojan -> {
+            TrojanRelayFields(draft = draft, actions = actions.additional)
+        }
+
+        RelayKindShadowsocks -> {
+            ShadowsocksRelayFields(draft = draft, actions = actions.additional)
+        }
+
+        RelayKindGoogleAppsScript -> {
+            AppsScriptRelayFields(draft = draft, actions = actions.additional)
         }
 
         RelayKindCloudflareTunnel -> {
@@ -135,7 +155,8 @@ private fun String.supportsStandardRelayEndpointFields(): Boolean =
         this == RelayKindCloudflareTunnel ||
         this == RelayKindHysteria2 ||
         this == RelayKindTuicV5 ||
-        this == RelayKindNaiveProxy
+        this == RelayKindNaiveProxy ||
+        this == RelayKindVless || this == RelayKindTrojan || this == RelayKindShadowsocks
 
 @Composable
 internal fun RowScope.RelayKindChip(

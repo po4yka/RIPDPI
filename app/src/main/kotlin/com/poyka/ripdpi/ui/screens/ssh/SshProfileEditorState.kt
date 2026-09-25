@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
+import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
@@ -154,5 +155,22 @@ data class SshProfileEditorState(
     companion object {
         /** A fresh editor: empty fields, password auth, and a lenient (non-strict) host-key policy. */
         fun initial(): SshProfileEditorState = SshProfileEditorState()
+
+        fun fromDraft(draft: ConfigDraft): SshProfileEditorState =
+            SshProfileEditorState(
+                rawTextByField =
+                    mapOf(
+                        SshEditorField.DISPLAY_NAME to draft.relayProfileId,
+                        SshEditorField.SERVER to draft.relayServer,
+                        SshEditorField.SERVER_PORT to draft.relayServerPort,
+                        SshEditorField.USERNAME to draft.relaySshUsername,
+                        SshEditorField.PASSWORD to draft.relaySshPassword,
+                        SshEditorField.PRIVATE_KEY to draft.relaySshPrivateKey,
+                        SshEditorField.PRIVATE_KEY_PASSPHRASE to draft.relaySshPrivateKeyPassphrase,
+                        SshEditorField.HOST_KEY_FINGERPRINT to draft.relaySshHostKeyFingerprint,
+                    ),
+                authType = draft.relaySshAuthType,
+                strictHostKey = draft.relaySshStrictHostKey,
+            )
     }
 }

@@ -6,24 +6,41 @@ import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayMieruMtuMax
+import com.poyka.ripdpi.data.RelayMieruMtuMin
+import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
+import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
+import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
+import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
+import com.poyka.ripdpi.data.RelayMieruProtocolTcp
+import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelaySshAuthTypePassword
+import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
+import com.poyka.ripdpi.data.isValidRelayXhttpMode
+import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
@@ -101,6 +118,22 @@ private fun validateRelayKindDraft(
             validateVlessRealityDraft(draft)
         }
 
+        RelayKindVless -> {
+            buildMap {
+                putAll(
+                    validateEndpointRelayDraft(
+                        draft,
+                        draft.relayServerName.isBlank() || !isValidVlessUuid(draft.relayVlessUuid),
+                    ),
+                )
+                if (draft.relayVlessTransport != RelayVlessTransportXhttp || draft.relayUdpEnabled) {
+                    put(ConfigFieldRelayCredentials, "unsupported")
+                } else if (!isValidRelayXhttpMode(draft.relayXhttpMode)) {
+                    put(ConfigFieldRelayCredentials, "invalid")
+                }
+            }
+        }
+
         RelayKindCloudflareTunnel -> {
             validateCloudflareTunnelDraft(draft)
         }
@@ -136,6 +169,71 @@ private fun validateRelayKindDraft(
             )
         }
 
+        RelayKindShadowsocks -> {
+            buildMap {
+                putAll(
+                    validateEndpointRelayDraft(
+                        draft,
+                        draft.relayShadowsocksMethod.isBlank() || draft.relayShadowsocksPassword.isBlank(),
+                    ),
+                )
+                if (draft.relayShadowsocksMethod.isNotBlank() &&
+                    draft.relayShadowsocksMethod.trim().lowercase() !in supportedShadowsocksMethods
+                ) {
+                    put(ConfigFieldRelayCredentials, "unsupported")
+                }
+            }
+        }
+
+        RelayKindGoogleAppsScript -> {
+            buildMap {
+                if (draft.relayAppsScriptScriptIds.relayLines().isEmpty() ||
+                    draft.relayAppsScriptAuthKey.isBlank()
+                ) {
+                    put(ConfigFieldRelayCredentials, "required")
+                } else if (draft.relayAppsScriptGoogleIp.isNotBlank() && !checkIp(draft.relayAppsScriptGoogleIp)) {
+                    put(ConfigFieldRelayCredentials, "invalid")
+                } else if (!draft.relayAppsScriptVerifySsl) {
+                    put(ConfigFieldRelayCredentials, "unsupported")
+                }
+            }
+        }
+
+        RelayKindMieru -> {
+            buildMap {
+                putAll(
+                    validateEndpointRelayDraft(
+                        draft,
+                        draft.relayMieruUsername.isBlank() || draft.relayMieruPassword.isBlank(),
+                    ),
+                )
+                if (draft.relayMieruProtocol !in setOf(RelayMieruProtocolTcp, RelayMieruProtocolUdp) ||
+                    draft.relayMieruMultiplexing !in
+                    setOf(
+                        RelayMieruMultiplexingOff,
+                        RelayMieruMultiplexingLow,
+                        RelayMieruMultiplexingMiddle,
+                        RelayMieruMultiplexingHigh,
+                    ) ||
+                    draft.relayMieruMtu.toIntOrNull() !in RelayMieruMtuMin..RelayMieruMtuMax
+                ) {
+                    put(ConfigFieldRelayCredentials, "invalid")
+                }
+            }
+        }
+
+        RelayKindSsh -> {
+            buildMap {
+                putAll(validateEndpointRelayDraft(draft, draft.relaySshUsername.isBlank()))
+                if (draft.relaySshAuthType !in setOf(RelaySshAuthTypePassword, RelaySshAuthTypePrivateKey) ||
+                    (draft.relaySshAuthType == RelaySshAuthTypePassword && draft.relaySshPassword.isBlank()) ||
+                    (draft.relaySshAuthType == RelaySshAuthTypePrivateKey && draft.relaySshPrivateKey.isBlank())
+                ) {
+                    put(ConfigFieldRelayCredentials, "required")
+                }
+            }
+        }
+
         RelayKindShadowTlsV3 -> {
             validateShadowTlsDraft(draft)
         }
@@ -168,6 +266,16 @@ private fun validateRelayKindDraft(
             emptyMap()
         }
     }
+
+private val supportedShadowsocksMethods =
+    setOf(
+        "aes-128-gcm",
+        "aes-256-gcm",
+        "chacha20-ietf-poly1305",
+        "2022-blake3-aes-128-gcm",
+        "2022-blake3-aes-256-gcm",
+        "2022-blake3-chacha20-poly1305",
+    )
 
 private fun validateVlessRealityDraft(draft: ConfigDraft): Map<String, String> =
     buildMap {

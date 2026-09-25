@@ -413,9 +413,37 @@ sealed class Route {
     }
 
     @Serializable
+    data class MieruProfileEdit(
+        val profileId: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "profile/mieru/edit"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.mieru_editor_title
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object SshProfile : Route() {
         override val stableRoute = "profile/ssh"
         override val titleRes = R.string.ssh_editor_title
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data class SshProfileEdit(
+        val profileId: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "profile/ssh/edit"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.ssh_editor_title
+
+        @kotlinx.serialization.Transient
         override val icon: ImageVector? = null
     }
 
@@ -472,7 +500,9 @@ sealed class Route {
                     XrayImport,
                     AnyTlsProfile,
                     MieruProfile,
+                    MieruProfileEdit(),
                     SshProfile,
+                    SshProfileEdit(),
                 )
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }

@@ -4166,4 +4166,16 @@ fake_burst 3</string>
     <string name="diagnostics_tool_state_running">运行中</string>
     <string name="diagnostics_tool_state_complete">已完成</string>
     <string name="diagnostics_tool_state_failed">失败</string>
+    <string name="config_relay_trojan_password">Trojan 密码</string>
+    <string name="config_relay_shadowsocks_method">Shadowsocks 加密方式</string>
+    <string name="config_relay_shadowsocks_password">Shadowsocks 密码</string>
+    <string name="config_relay_apps_script_ids">Apps Script 部署 ID（每行一个）</string>
+    <string name="config_relay_apps_script_google_ip">Google IP 地址</string>
+    <string name="config_relay_apps_script_front_domain">前置域名</string>
+    <string name="config_relay_apps_script_sni_hosts">SNI 主机（每行一个）</string>
+    <string name="config_relay_apps_script_direct_hosts">直连主机（每行一个）</string>
+    <string name="config_relay_apps_script_auth_key">Apps Script 身份验证密钥</string>
+    <string name="config_relay_apps_script_verify_ssl">验证 SSL</string>
+    <string name="config_relay_apps_script_parallel">并行中继</string>
+    <string name="config_relay_protocol_section_proxy">代理传输</string>
 </resources>

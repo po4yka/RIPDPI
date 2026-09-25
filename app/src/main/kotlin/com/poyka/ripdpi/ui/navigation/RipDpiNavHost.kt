@@ -846,8 +846,20 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
     composable<Route.MieruProfile> {
         MieruProfileRoute(onBack = { navController.popBackStack() })
     }
+    composable<Route.MieruProfileEdit> { entry ->
+        MieruProfileRoute(
+            onBack = { navController.popBackStack() },
+            profileId = entry.toRoute<Route.MieruProfileEdit>().profileId,
+        )
+    }
     composable<Route.SshProfile> {
         SshProfileRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.SshProfileEdit> { entry ->
+        SshProfileRoute(
+            onBack = { navController.popBackStack() },
+            profileId = entry.toRoute<Route.SshProfileEdit>().profileId,
+        )
     }
 }
 
@@ -954,7 +966,9 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },
         Route.AnyTlsProfile.stableRoute to { hasRoute<Route.AnyTlsProfile>() },
         Route.MieruProfile.stableRoute to { hasRoute<Route.MieruProfile>() },
+        Route.MieruProfileEdit().stableRoute to { hasRoute<Route.MieruProfileEdit>() },
         Route.SshProfile.stableRoute to { hasRoute<Route.SshProfile>() },
+        Route.SshProfileEdit().stableRoute to { hasRoute<Route.SshProfileEdit>() },
     )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(
