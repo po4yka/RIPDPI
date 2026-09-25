@@ -486,7 +486,9 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
                 ReachabilityMechanism.InAppNavigate,
                 ReachabilityMechanism.LaunchRequest,
             ),
-        Route.AnyTlsProfile.stableRoute to setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
-        Route.MieruProfile.stableRoute to setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
+        Route.AnyTlsProfile.stableRoute to
+            setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
+        Route.MieruProfile.stableRoute to
+            setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
         Route.SshProfile.stableRoute to setOf(ReachabilityMechanism.InAppNavigate, ReachabilityMechanism.LaunchRequest),
     )

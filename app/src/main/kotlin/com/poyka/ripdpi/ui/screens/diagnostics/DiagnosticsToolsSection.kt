@@ -54,15 +54,25 @@ private const val timingBreakdownDisplayCount = 4
 
 internal fun diagnosticToolStateLabelRes(state: Enum<*>): Int =
     when (state) {
-        DiagnosticsDnsIntegrityState.Idle, DiagnosticsDomainReachabilityState.Idle ->
+        DiagnosticsDnsIntegrityState.Idle, DiagnosticsDomainReachabilityState.Idle -> {
             R.string.diagnostics_tool_state_idle
-        DiagnosticsDnsIntegrityState.Running, DiagnosticsDomainReachabilityState.Running ->
+        }
+
+        DiagnosticsDnsIntegrityState.Running, DiagnosticsDomainReachabilityState.Running -> {
             R.string.diagnostics_tool_state_running
-        DiagnosticsDnsIntegrityState.Complete, DiagnosticsDomainReachabilityState.Complete ->
+        }
+
+        DiagnosticsDnsIntegrityState.Complete, DiagnosticsDomainReachabilityState.Complete -> {
             R.string.diagnostics_tool_state_complete
-        DiagnosticsDnsIntegrityState.Failed, DiagnosticsDomainReachabilityState.Failed ->
+        }
+
+        DiagnosticsDnsIntegrityState.Failed, DiagnosticsDomainReachabilityState.Failed -> {
             R.string.diagnostics_tool_state_failed
-        else -> error("Unexpected diagnostic tool state: $state")
+        }
+
+        else -> {
+            error("Unexpected diagnostic tool state: $state")
+        }
     }
 
 internal data class DiagnosticsDpiToolActions(
