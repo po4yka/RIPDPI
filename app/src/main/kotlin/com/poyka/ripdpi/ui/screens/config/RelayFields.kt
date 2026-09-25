@@ -55,9 +55,7 @@ internal fun RelayFieldsContent(
     uiState: ConfigUiState,
     actions: RelayKindFieldActions = RelayKindFieldActions(),
 ) {
-    if (draft.relayKind.supportsStandardRelayEndpointFields()) {
-        RelayEndpointFields(draft = draft, uiState = uiState, actions = actions.endpoint)
-    }
+    RelayStandardEndpointFields(draft = draft, uiState = uiState, actions = actions.endpoint)
     when (draft.relayKind) {
         RelayKindVlessReality -> {
             VlessRealityRelayFields(draft = draft, actions = actions.vless)
@@ -139,13 +137,33 @@ internal fun RelayFieldsContent(
         }
     }
 
+    RelaySupportedFinalmaskFields(draft = draft, uiState = uiState, actions = actions.finalmask)
+}
+
+@Composable
+private fun RelaySupportedFinalmaskFields(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: RelayFinalmaskActions,
+) {
     if (draft.supportsFinalmask() || draft.relayFinalmaskType != RelayFinalmaskTypeOff) {
         RelayFinalmaskFields(
             draft = draft,
             uiState = uiState,
-            actions = actions.finalmask,
+            actions = actions,
             canConfigure = draft.supportsFinalmask(),
         )
+    }
+}
+
+@Composable
+private fun RelayStandardEndpointFields(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: RelayEndpointActions,
+) {
+    if (draft.relayKind.supportsStandardRelayEndpointFields()) {
+        RelayEndpointFields(draft = draft, uiState = uiState, actions = actions)
     }
 }
 
