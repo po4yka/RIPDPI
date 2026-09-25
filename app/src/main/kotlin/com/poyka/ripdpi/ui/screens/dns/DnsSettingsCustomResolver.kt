@@ -13,10 +13,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OdohResolverFields
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -78,7 +80,12 @@ internal fun CustomEncryptedDnsSection(
         }
 
         EncryptedDnsProtocolDot, EncryptedDnsProtocolDoq -> {
-            val doqUnavailable = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq
+            val doqUnavailable =
+                uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq &&
+                    (
+                        uiState.selectedMode != Mode.Proxy ||
+                            (uiState.serviceStatus != AppStatus.Halted && uiState.activeMode != Mode.Proxy)
+                    )
             Text(
                 text =
                     stringResource(

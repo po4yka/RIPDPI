@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
@@ -103,17 +104,19 @@ internal class SettingsDnsActions(
 
     fun setCustomDotResolver(
         protocol: String,
+        selectedMode: Mode,
         host: String,
         port: Int,
         tlsServerName: String,
         bootstrapIps: List<String>,
     ) {
         require(protocol == EncryptedDnsProtocolDot || protocol == EncryptedDnsProtocolDoq)
-        require(protocol != EncryptedDnsProtocolDoq) { "DoQ is unavailable with routed VPN DNS" }
+        if (protocol == EncryptedDnsProtocolDoq && !canSaveDoq(selectedMode)) return
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
         updateDnsSetting(
             key = "encryptedDnsHost",
             value = host,
+            canApply = { protocol != EncryptedDnsProtocolDoq || canSaveDoq(selectedMode) },
         ) {
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
@@ -204,12 +207,19 @@ internal class SettingsDnsActions(
     private fun updateDnsSetting(
         key: String,
         value: String,
+        canApply: () -> Boolean = { true },
         transform: SettingsMutation,
     ) {
         mutations.launch {
+            if (!canApply()) return@launch
             updateSettingAndAwait(key = key, value = value, transform = transform)
-            applySavedDnsToRunningService()
+            if (canApply()) applySavedDnsToRunningService()
         }
+    }
+
+    private fun canSaveDoq(selectedMode: Mode): Boolean {
+        val (status, activeMode) = serviceStateStore.status.value
+        return selectedMode == Mode.Proxy && !(status != AppStatus.Halted && activeMode == Mode.VPN)
     }
 
     private suspend fun applySavedDnsToRunningService() {

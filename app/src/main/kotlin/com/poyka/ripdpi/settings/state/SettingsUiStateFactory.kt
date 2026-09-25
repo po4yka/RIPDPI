@@ -87,6 +87,7 @@ internal fun AppSettings.toUiState(
         rootModeEnabled = rootModeEnabled,
         communityApiUrl = communityApiUrl,
         serviceStatus = serviceStatus,
+        activeMode = serviceTelemetry.mode,
         isVpn = isVpn,
         selectedMode = if (isVpn) Mode.VPN else Mode.Proxy,
         useCmdSettings = enableCmdSettings,

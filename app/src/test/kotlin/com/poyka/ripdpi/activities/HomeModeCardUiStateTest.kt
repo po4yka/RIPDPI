@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import android.app.Application
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.platform.StringResolver
@@ -101,6 +103,24 @@ class HomeModeCardUiStateTest {
         assertEquals("Local VPN", remoteVpn.primaryLabel)
         assertTrue(remoteVpn.primaryActionEnabled)
         assertEquals("", remoteVpn.primaryActionDisabledHint)
+    }
+
+    @Test
+    fun `vpn card explains why saved doq cannot start vpn but keeps stop available`() {
+        val settings =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setDnsMode(DnsModeEncrypted)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolDoq)
+                .build()
+        val disconnected = buildCards(settings = settings).single { it.mode == HomeMode.RemoteVpn }
+        assertFalse(disconnected.primaryActionEnabled)
+        assertTrue(disconnected.primaryActionDisabledHint.contains("Proxy mode"))
+
+        val connected =
+            buildCards(settings = settings, activeMode = Mode.VPN, connectionState = ConnectionState.Connected)
+                .single { it.mode == HomeMode.RemoteVpn }
+        assertTrue(connected.primaryActionEnabled)
     }
 
     @Test

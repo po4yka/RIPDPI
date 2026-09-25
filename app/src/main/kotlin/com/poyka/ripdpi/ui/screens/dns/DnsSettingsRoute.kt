@@ -45,7 +45,7 @@ fun DnsSettingsRoute(
             viewModel.setCustomDohResolver(dohUrl, bootstrapIps)
         },
         onSaveCustomDot = { protocol, host, port, tlsServerName, bootstrapIps ->
-            viewModel.setCustomDotResolver(protocol, host, port, tlsServerName, bootstrapIps)
+            viewModel.setCustomDotResolver(protocol, uiState.selectedMode, host, port, tlsServerName, bootstrapIps)
         },
         onSaveCustomDnsCrypt = { host, port, providerName, publicKey, bootstrapIps ->
             viewModel.setCustomDnsCryptResolver(host, port, providerName, publicKey, bootstrapIps)

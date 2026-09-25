@@ -110,20 +110,67 @@ class SettingsDnsActionsTest {
                 )
             val before = repository.snapshot()
 
-            assertThrows(IllegalArgumentException::class.java) {
-                actions.setCustomDotResolver(
-                    EncryptedDnsProtocolDoq,
-                    "quic.example",
-                    853,
-                    "quic.example",
-                    listOf("1.1.1.1"),
-                )
-            }
+            actions.setCustomDotResolver(
+                EncryptedDnsProtocolDoq,
+                Mode.Proxy,
+                "quic.example",
+                853,
+                "quic.example",
+                listOf("1.1.1.1"),
+            )
             advanceUntilIdle()
 
             assertEquals(before, repository.snapshot())
             assertEquals(0, serviceController.stopCount)
             assertTrue(serviceController.startedModes.isEmpty())
+        }
+
+    @Test
+    fun `doq saves and restarts an active proxy resolver`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
+            val actions = createActions(repository, serviceStateStore, serviceController)
+
+            actions.setCustomDotResolver(
+                EncryptedDnsProtocolDoq,
+                Mode.Proxy,
+                "quic.example",
+                853,
+                "quic.example",
+                listOf("1.1.1.1"),
+            )
+            runCurrent()
+
+            val settings = repository.snapshot()
+            assertEquals(EncryptedDnsProtocolDoq, settings.encryptedDnsProtocol)
+            assertEquals("quic.example", settings.encryptedDnsTlsServerName)
+            assertEquals(1, serviceController.stopCount)
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
+            advanceUntilIdle()
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+        }
+
+    @Test
+    fun `doq cannot save for selected vpn`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
+            val actions = createActions(repository, serviceStateStore)
+            val before = repository.snapshot()
+
+            actions.setCustomDotResolver(
+                EncryptedDnsProtocolDoq,
+                Mode.VPN,
+                "quic.example",
+                853,
+                "quic.example",
+                listOf("1.1.1.1"),
+            )
+            advanceUntilIdle()
+
+            assertEquals(before, repository.snapshot())
         }
 
     @Test

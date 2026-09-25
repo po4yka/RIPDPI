@@ -35,6 +35,7 @@ internal class MainConnectionActions(
     private val serviceStateStore: ServiceStateStore,
     private val trafficStatsReader: TrafficStatsReader,
     private val stringResolver: StringResolver,
+    private val currentSettings: () -> AppSettings,
     private val runtimeState: ConnectionRuntimeStateReducer,
     private val refreshPermissionSnapshot: () -> Unit,
     private val onLocalNetworkRequired: (Mode) -> Unit = {},
@@ -53,6 +54,10 @@ internal class MainConnectionActions(
     }
 
     fun startMode(mode: Mode) {
+        if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
+            mutations.trySend(MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)))
+            return
+        }
         setConnectingState()
         when (val result = serviceController.start(mode)) {
             is ServiceStartResult.Accepted -> {

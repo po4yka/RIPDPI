@@ -4212,7 +4212,7 @@ Quelle: %2$s</string>
     <string name="dns_custom_odoh_configs_hex_label">Zielkonfiguration in Hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">Abrufzeit (Unix-Sekunden)</string>
     <string name="dns_custom_odoh_ttl_label">Gültigkeit (Sekunden)</string>
-    <string name="dns_custom_doq_unavailable">DoQ kann nicht aktiviert werden, da VPN-DNS SOCKS5 nutzt und SOCKS5 DoQ nicht unterstützt.</string>
+    <string name="dns_custom_doq_unavailable">DoQ funktioniert nur im Proxy-Modus. VPN-DNS nutzt SOCKS5 und unterstützt DoQ nicht. Stoppe ein aktives VPN vor dem Wechsel.</string>
     <string name="dns_custom_odoh_config_invalid">Gültige ODoH-Zielkonfiguration mit unterstütztem Schlüssel eingeben.</string>
     <string name="dns_custom_odoh_config_expired">Die ODoH-Zielkonfiguration ist abgelaufen. Neue Bytes und Abrufzeit eingeben.</string>
 </resources>

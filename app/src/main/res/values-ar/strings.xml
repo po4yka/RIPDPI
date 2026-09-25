@@ -4240,7 +4240,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_odoh_configs_hex_label">إعداد الهدف بصيغة hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">وقت الجلب (ثواني Unix)</string>
     <string name="dns_custom_odoh_ttl_label">مدة الصلاحية (ثواني)</string>
-    <string name="dns_custom_doq_unavailable">لا يمكن تفعيل DoQ لأن توجيه DNS في VPN يستخدم SOCKS5 الذي لا يدعم DoQ.</string>
+    <string name="dns_custom_doq_unavailable">يعمل DoQ في وضع الوكيل فقط. يستخدم DNS في VPN بروتوكول SOCKS5 الذي لا يدعم DoQ. أوقف VPN النشط قبل تبديل الوضع.</string>
     <string name="dns_custom_odoh_config_invalid">أدخل بايتات إعداد ODoH صالحة بمفتاح مدعوم.</string>
     <string name="dns_custom_odoh_config_expired">انتهت صلاحية إعداد ODoH. أدخل بايتات جديدة ووقت الحصول عليها.</string>
 </resources>

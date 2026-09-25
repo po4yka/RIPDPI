@@ -13,7 +13,7 @@ The current encrypted DNS Compose form has a DoH fallback branch. App UI state o
 - Reuse existing common host/port/bootstrap and text-field components for DoQ.
 - Give ODoH its own fields for proxy URL and operator, target host/path and operator, config source/bytes and timestamps, matching the existing tunnel contract.
 - Keep custom protocol selection in Compose draft state. Save is the only path that writes a custom resolver.
-- Block DoQ Save while VPN DNS routes through SOCKS5. The native tunnel rejects DoQ over that transport, including split DNS.
+- Allow DoQ Save only for Proxy mode when no VPN is running. Block home VPN activation with saved DoQ because the native tunnel rejects DoQ over SOCKS5, including split DNS.
 - Validate ODoH HTTPS URL, target fields, supported config wire bytes, and freshness before mutation.
 
 ## Contracts and ownership
@@ -23,7 +23,7 @@ App DNS UI, mapper, actions, ViewModel, tests and DNS-specific locale keys belon
 ## Risks / Trade-offs
 
 - Manually supplied ODoH config bytes can expire while the editor is open. The settings action revalidates on Save.
-- Direct DoQ is supported by the native resolver, but the current VPN DNS plan selects SOCKS5 for its split DNS policy. The UI retains the DoQ editor and explains the activation limit.
+- Proxy runtime supports direct DoQ. The current VPN DNS plan selects SOCKS5 for split DNS, so DoQ cannot start in VPN mode. The native tunnel rejects unsupported activation from non-home entry points.
 
 ## Migration Plan
 

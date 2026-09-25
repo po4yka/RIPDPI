@@ -66,6 +66,7 @@ data class SettingsUiState(
     val rootModeEnabled: Boolean = false,
     val communityApiUrl: String = "",
     val serviceStatus: AppStatus = AppStatus.Halted,
+    val activeMode: Mode? = null,
     val isVpn: Boolean = true,
     val selectedMode: Mode = Mode.VPN,
     val useCmdSettings: Boolean = false,

@@ -4212,7 +4212,7 @@ Origen: %2$s</string>
     <string name="dns_custom_odoh_configs_hex_label">Configuración de destino en hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">Fecha de obtención (segundos Unix)</string>
     <string name="dns_custom_odoh_ttl_label">Duración (segundos)</string>
-    <string name="dns_custom_doq_unavailable">No se puede activar DoQ porque el DNS de la VPN usa SOCKS5, que no admite DoQ.</string>
+    <string name="dns_custom_doq_unavailable">DoQ solo funciona en modo Proxy. El DNS de la VPN usa SOCKS5 y no admite DoQ. Detén la VPN activa antes de cambiar de modo.</string>
     <string name="dns_custom_odoh_config_invalid">Introduce bytes de configuración ODoH válidos con una clave compatible.</string>
     <string name="dns_custom_odoh_config_expired">La configuración ODoH ha caducado. Introduce nuevos bytes y la hora de obtención.</string>
 </resources>

@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -122,13 +123,16 @@ class DnsSettingsScreenTest {
     }
 
     @Test
-    fun savedDoqShowsTlsEditorButCannotActivateUnsupportedTransport() {
+    fun savedDoqShowsTlsEditorButCannotReplaceRunningVpn() {
         var savedProtocol: String? = null
         composeRule.setContent {
             RipDpiTheme {
                 DnsSettingsScreen(
                     uiState =
                         SettingsUiState(
+                            selectedMode = Mode.Proxy,
+                            activeMode = Mode.VPN,
+                            serviceStatus = AppStatus.Running,
                             dns =
                                 DnsUiState(
                                     dnsMode = DnsModeEncrypted,
@@ -159,6 +163,49 @@ class DnsSettingsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomTlsServerName).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
         composeRule.runOnIdle { assertEquals(null, savedProtocol) }
+    }
+
+    @Test
+    fun savedDoqCanBeEditedAndSavedInProxyMode() {
+        var savedProtocol: String? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            selectedMode = Mode.Proxy,
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCustom,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolDoq,
+                                    encryptedDnsHost = "quic.example",
+                                    encryptedDnsPort = 853,
+                                    encryptedDnsTlsServerName = "quic.example",
+                                    encryptedDnsBootstrapIps = persistentListOf("1.1.1.1"),
+                                ),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { protocol, _, _, _, _ -> savedProtocol = protocol },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomHost).performTextReplacement("new.example")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.DnsCustomSave)
+            .assertIsEnabled()
+            .performScrollTo()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(EncryptedDnsProtocolDoq, savedProtocol) }
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceController
@@ -153,12 +154,14 @@ class SettingsViewModel
 
         fun setCustomDotResolver(
             protocol: String,
+            selectedMode: Mode,
             host: String,
             port: Int,
             tlsServerName: String,
             bootstrapIps: List<String>,
         ) = dnsActions.setCustomDotResolver(
             protocol = protocol,
+            selectedMode = selectedMode,
             host = host,
             port = port,
             tlsServerName = tlsServerName,

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
@@ -66,6 +68,9 @@ internal fun buildHomeModeCards(input: HomeModeCardsInput): ImmutableList<HomeMo
     return buildHomeModeCards(input, draft)
 }
 
+internal fun hasUnsupportedVpnDoq(settings: AppSettings): Boolean =
+    settings.dnsMode == DnsModeEncrypted && settings.encryptedDnsProtocol == EncryptedDnsProtocolDoq
+
 private fun buildHomeModeCards(
     input: HomeModeCardsInput,
     draft: ConfigDraft,
@@ -81,6 +86,7 @@ private fun buildHomeModeCards(
         ),
         buildRemoteVpnCard(
             draft = draft,
+            settings = input.settings,
             activeMode = input.activeMode,
             configuredMode = input.configuredMode,
             connectionState = input.connectionState,
@@ -151,6 +157,7 @@ private fun buildLocalBypassCard(
 
 private fun buildRemoteVpnCard(
     draft: ConfigDraft,
+    settings: AppSettings,
     activeMode: Mode,
     configuredMode: Mode,
     connectionState: ConnectionState,
@@ -159,6 +166,8 @@ private fun buildRemoteVpnCard(
     stringResolver: StringResolver,
 ): HomeModeCardUiState {
     val relaySummary = draft.relaySummary
+    val isActive = connectionState == ConnectionState.Connected && isRemoteVpnMode(activeMode)
+    val doqUnavailable = hasUnsupportedVpnDoq(settings) && !isActive
     return HomeModeCardUiState(
         mode = HomeMode.RemoteVpn,
         title = stringResolver.getString(R.string.home_mode_remote_vpn),
@@ -183,18 +192,17 @@ private fun buildRemoteVpnCard(
             ) ?: stringResolver.getString(R.string.home_mode_card_status_inactive),
         primaryActionLabel =
             connectionActionLabel(
-                isActive =
-                    connectionState == ConnectionState.Connected &&
-                        isRemoteVpnMode(activeMode),
+                isActive = isActive,
                 stringResolver = stringResolver,
             ),
         configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
-        isActive =
-            connectionState == ConnectionState.Connected &&
-                isRemoteVpnMode(activeMode),
+        isActive = isActive,
         isLoading =
             connectionState == ConnectionState.Connecting &&
                 isRemoteVpnMode(configuredMode),
+        primaryActionEnabled = !doqUnavailable,
+        primaryActionDisabledHint =
+            if (doqUnavailable) stringResolver.getString(R.string.dns_custom_doq_unavailable) else "",
     )
 }
 

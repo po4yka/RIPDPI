@@ -4217,7 +4217,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_odoh_configs_hex_label">پیکربندی هدف به صورت hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">زمان دریافت (ثانیه یونیکس)</string>
     <string name="dns_custom_odoh_ttl_label">مدت اعتبار (ثانیه)</string>
-    <string name="dns_custom_doq_unavailable">DoQ فعال نمی‌شود، زیرا مسیریابی DNS در VPN از SOCKS5 استفاده می‌کند که از DoQ پشتیبانی نمی‌کند.</string>
+    <string name="dns_custom_doq_unavailable">DoQ فقط در حالت پروکسی کار می‌کند. DNS در VPN از SOCKS5 استفاده می‌کند و از DoQ پشتیبانی نمی‌کند. پیش از تغییر حالت، VPN فعال را متوقف کنید.</string>
     <string name="dns_custom_odoh_config_invalid">بایت‌های معتبر پیکربندی ODoH را با کلید پشتیبانی‌شده وارد کنید.</string>
     <string name="dns_custom_odoh_config_expired">اعتبار پیکربندی ODoH پایان یافته است. بایت‌های تازه و زمان دریافت را وارد کنید.</string>
 </resources>

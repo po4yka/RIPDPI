@@ -4115,7 +4115,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_odoh_configs_hex_label">Конфигурация цели в hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">Время получения (Unix, секунды)</string>
     <string name="dns_custom_odoh_ttl_label">Срок действия (секунды)</string>
-    <string name="dns_custom_doq_unavailable">DoQ нельзя включить: маршрутизация DNS через VPN использует SOCKS5, который не поддерживает DoQ.</string>
+    <string name="dns_custom_doq_unavailable">DoQ работает только в режиме прокси. DNS в VPN использует SOCKS5 и не поддерживает DoQ. Остановите активный VPN перед переключением.</string>
     <string name="dns_custom_odoh_config_invalid">Укажите корректные байты конфигурации ODoH с поддерживаемым ключом.</string>
     <string name="dns_custom_odoh_config_expired">Срок действия конфигурации ODoH истёк. Укажите новые байты и время их получения.</string>
 </resources>
