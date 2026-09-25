@@ -71,6 +71,7 @@ class HarnessLinkAuditor:
     def __init__(self, root: Path, strict: bool) -> None:
         self.root = root
         self.claude_root = root / ".claude"
+        self.vendor_skills = root / ".agents" / "vendor" / "rust-skills" / "skills"
         self.strict = strict
         self.findings: list[Finding] = []
         self.walked = 0
@@ -123,12 +124,20 @@ class HarnessLinkAuditor:
             self._check_md_backtick_refs(raw_line, src, lineno)
             self._check_bare_path_refs(raw_line, src, lineno)
 
+    def _is_vendored(self, src: str) -> bool:
+        return (self.root / src).resolve().is_relative_to(self.vendor_skills.resolve())
+
     def _check_skill_refs(self, line: str, src: str, lineno: int) -> None:
         for m in _RE_SKILL_NAME.finditer(line):
             skill_name = m.group(1)
             local_path = self.root / ".agents" / "skills" / skill_name / "SKILL.md"
             rel = f".agents/skills/{skill_name}/SKILL.md"
             if local_path.exists():
+                continue
+            # A central skill names its siblings conditionally ("when it is
+            # installed"). A sibling in EXCLUDED_VENDOR_SKILLS still resolves
+            # in the pinned catalog, so the reference is verified, not dead.
+            if self._is_vendored(src) and (self.vendor_skills / skill_name / "SKILL.md").is_file():
                 continue
             # Skill not in canonical project skills — treat as global (WARN, not DEAD)
             self.findings.append(Finding(
