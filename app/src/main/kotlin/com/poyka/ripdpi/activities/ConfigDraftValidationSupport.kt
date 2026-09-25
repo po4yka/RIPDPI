@@ -118,20 +118,10 @@ private fun validateRelayKindDraft(
             validateVlessRealityDraft(draft)
         }
 
-        RelayKindVless -> {
-            buildMap {
-                putAll(
-                    validateEndpointRelayDraft(
-                        draft,
-                        draft.relayServerName.isBlank() || !isValidVlessUuid(draft.relayVlessUuid),
-                    ),
-                )
-                if (draft.relayVlessTransport != RelayVlessTransportXhttp || draft.relayUdpEnabled) {
-                    put(ConfigFieldRelayCredentials, "unsupported")
-                } else if (!isValidRelayXhttpMode(draft.relayXhttpMode)) {
-                    put(ConfigFieldRelayCredentials, "invalid")
-                }
-            }
+        RelayKindVless, RelayKindTrojan, RelayKindShadowsocks,
+        RelayKindGoogleAppsScript, RelayKindMieru, RelayKindSsh,
+        -> {
+            validateImportedKindDraft(draft)
         }
 
         RelayKindCloudflareTunnel -> {
@@ -160,78 +150,6 @@ private fun validateRelayKindDraft(
                 draft = draft,
                 credentialsMissing = draft.relayAnyTlsPassword.isBlank(),
             )
-        }
-
-        RelayKindTrojan -> {
-            validateEndpointRelayDraft(
-                draft = draft,
-                credentialsMissing = draft.relayServerName.isBlank() || draft.relayTrojanPassword.isBlank(),
-            )
-        }
-
-        RelayKindShadowsocks -> {
-            buildMap {
-                putAll(
-                    validateEndpointRelayDraft(
-                        draft,
-                        draft.relayShadowsocksMethod.isBlank() || draft.relayShadowsocksPassword.isBlank(),
-                    ),
-                )
-                if (draft.relayShadowsocksMethod.isNotBlank() &&
-                    draft.relayShadowsocksMethod.trim().lowercase() !in supportedShadowsocksMethods
-                ) {
-                    put(ConfigFieldRelayCredentials, "unsupported")
-                }
-            }
-        }
-
-        RelayKindGoogleAppsScript -> {
-            buildMap {
-                if (draft.relayAppsScriptScriptIds.relayLines().isEmpty() ||
-                    draft.relayAppsScriptAuthKey.isBlank()
-                ) {
-                    put(ConfigFieldRelayCredentials, "required")
-                } else if (draft.relayAppsScriptGoogleIp.isNotBlank() && !checkIp(draft.relayAppsScriptGoogleIp)) {
-                    put(ConfigFieldRelayCredentials, "invalid")
-                } else if (!draft.relayAppsScriptVerifySsl) {
-                    put(ConfigFieldRelayCredentials, "unsupported")
-                }
-            }
-        }
-
-        RelayKindMieru -> {
-            buildMap {
-                putAll(
-                    validateEndpointRelayDraft(
-                        draft,
-                        draft.relayMieruUsername.isBlank() || draft.relayMieruPassword.isBlank(),
-                    ),
-                )
-                if (draft.relayMieruProtocol !in setOf(RelayMieruProtocolTcp, RelayMieruProtocolUdp) ||
-                    draft.relayMieruMultiplexing !in
-                    setOf(
-                        RelayMieruMultiplexingOff,
-                        RelayMieruMultiplexingLow,
-                        RelayMieruMultiplexingMiddle,
-                        RelayMieruMultiplexingHigh,
-                    ) ||
-                    draft.relayMieruMtu.toIntOrNull() !in RelayMieruMtuMin..RelayMieruMtuMax
-                ) {
-                    put(ConfigFieldRelayCredentials, "invalid")
-                }
-            }
-        }
-
-        RelayKindSsh -> {
-            buildMap {
-                putAll(validateEndpointRelayDraft(draft, draft.relaySshUsername.isBlank()))
-                if (draft.relaySshAuthType !in setOf(RelaySshAuthTypePassword, RelaySshAuthTypePrivateKey) ||
-                    (draft.relaySshAuthType == RelaySshAuthTypePassword && draft.relaySshPassword.isBlank()) ||
-                    (draft.relaySshAuthType == RelaySshAuthTypePrivateKey && draft.relaySshPrivateKey.isBlank())
-                ) {
-                    put(ConfigFieldRelayCredentials, "required")
-                }
-            }
         }
 
         RelayKindShadowTlsV3 -> {
@@ -264,6 +182,119 @@ private fun validateRelayKindDraft(
 
         else -> {
             emptyMap()
+        }
+    }
+
+private fun validateImportedKindDraft(draft: ConfigDraft): Map<String, String> =
+    when (draft.relayKind) {
+        RelayKindVless -> {
+            validatePlainVlessDraft(draft)
+        }
+
+        RelayKindTrojan -> {
+            validateEndpointRelayDraft(
+                draft,
+                draft.relayServerName.isBlank() || draft.relayTrojanPassword.isBlank(),
+            )
+        }
+
+        RelayKindShadowsocks -> {
+            validateShadowsocksDraft(draft)
+        }
+
+        RelayKindGoogleAppsScript -> {
+            validateAppsScriptDraft(draft)
+        }
+
+        RelayKindMieru -> {
+            validateMieruDraft(draft)
+        }
+
+        RelayKindSsh -> {
+            validateSshDraft(draft)
+        }
+
+        else -> {
+            emptyMap()
+        }
+    }
+
+private fun validatePlainVlessDraft(draft: ConfigDraft): Map<String, String> =
+    buildMap {
+        putAll(
+            validateEndpointRelayDraft(
+                draft,
+                draft.relayServerName.isBlank() || !isValidVlessUuid(draft.relayVlessUuid),
+            ),
+        )
+        if (draft.relayVlessTransport != RelayVlessTransportXhttp || draft.relayUdpEnabled) {
+            put(ConfigFieldRelayCredentials, "unsupported")
+        } else if (!isValidRelayXhttpMode(draft.relayXhttpMode)) {
+            put(ConfigFieldRelayCredentials, "invalid")
+        }
+    }
+
+private fun validateShadowsocksDraft(draft: ConfigDraft): Map<String, String> =
+    buildMap {
+        putAll(
+            validateEndpointRelayDraft(
+                draft,
+                draft.relayShadowsocksMethod.isBlank() || draft.relayShadowsocksPassword.isBlank(),
+            ),
+        )
+        if (draft.relayShadowsocksMethod.isNotBlank() &&
+            draft.relayShadowsocksMethod.trim().lowercase() !in supportedShadowsocksMethods
+        ) {
+            put(ConfigFieldRelayCredentials, "unsupported")
+        }
+    }
+
+private fun validateAppsScriptDraft(draft: ConfigDraft): Map<String, String> =
+    buildMap {
+        if (draft.relayAppsScriptScriptIds.relayLines().isEmpty() || draft.relayAppsScriptAuthKey.isBlank()) {
+            put(ConfigFieldRelayCredentials, "required")
+        } else if (draft.relayAppsScriptGoogleIp.isNotBlank() && !checkIp(draft.relayAppsScriptGoogleIp)) {
+            put(ConfigFieldRelayCredentials, "invalid")
+        } else if (!draft.relayAppsScriptVerifySsl) {
+            put(ConfigFieldRelayCredentials, "unsupported")
+        }
+    }
+
+private fun validateMieruDraft(draft: ConfigDraft): Map<String, String> =
+    buildMap {
+        putAll(
+            validateEndpointRelayDraft(
+                draft,
+                draft.relayMieruUsername.isBlank() || draft.relayMieruPassword.isBlank(),
+            ),
+        )
+        val protocolInvalid = draft.relayMieruProtocol !in setOf(RelayMieruProtocolTcp, RelayMieruProtocolUdp)
+        val multiplexingInvalid =
+            draft.relayMieruMultiplexing !in
+                setOf(
+                    RelayMieruMultiplexingOff,
+                    RelayMieruMultiplexingLow,
+                    RelayMieruMultiplexingMiddle,
+                    RelayMieruMultiplexingHigh,
+                )
+        val mtuInvalid = draft.relayMieruMtu.toIntOrNull() !in RelayMieruMtuMin..RelayMieruMtuMax
+        if (protocolInvalid || multiplexingInvalid || mtuInvalid) {
+            put(ConfigFieldRelayCredentials, "invalid")
+        }
+    }
+
+private fun validateSshDraft(draft: ConfigDraft): Map<String, String> =
+    buildMap {
+        putAll(validateEndpointRelayDraft(draft, draft.relaySshUsername.isBlank()))
+        val authTypeInvalid = draft.relaySshAuthType !in setOf(RelaySshAuthTypePassword, RelaySshAuthTypePrivateKey)
+        val credentialMissing =
+            when (draft.relaySshAuthType) {
+                RelaySshAuthTypePassword -> draft.relaySshPassword.isBlank()
+                RelaySshAuthTypePrivateKey -> draft.relaySshPrivateKey.isBlank()
+                else -> false
+            }
+        if (authTypeInvalid || credentialMissing) {
+            put(ConfigFieldRelayCredentials, "required")
         }
     }
 

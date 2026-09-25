@@ -125,11 +125,9 @@ class MieruProfileViewModel
          */
         fun onSave() {
             val profile = _uiState.value.editor.toProfile() ?: return
-            if (_uiState.value.saving || _uiState.value.loading || completed ||
-                (requestedEditProfileId != null && editingDraft == null)
-            ) {
-                return
-            }
+            val editTargetReady = requestedEditProfileId == null || editingDraft != null
+            val busy = _uiState.value.saving || _uiState.value.loading
+            if (busy || completed || !editTargetReady) return
             _uiState.update { it.copy(saving = true, errorMessage = null) }
             viewModelScope.launch {
                 val activated =

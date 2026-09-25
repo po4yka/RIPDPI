@@ -3,7 +3,7 @@ task_id: RLY-1790340340749310
 change: expose-relay-mode-editor-kinds
 commit_sha: null
 local: required
-local_evidence: Targeted app unit, Compose, and navigation tests; app/service lint; Kotlin formatting checks; task validation; and translation export check passed with ripdpi.skipNativeBuild=true.
+local_evidence: Targeted app unit, Compose, and navigation tests; app/service lint; app detekt; Kotlin formatting checks; and task validation passed with ripdpi.skipNativeBuild=true. Translation export requires regeneration after parallel locale integration.
 remote_ci: required
 remote_ci_evidence: null
 device: required

@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
@@ -127,8 +128,9 @@ internal fun ConfigDraft.withSavedRelayIdentityFrom(savedDraft: ConfigDraft): Co
         this
     }
 
-internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRecord =
-    (matchingSourceRelayProfile(profileId) ?: RelayProfileRecord()).copy(
+internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRecord {
+    val source = matchingSourceRelayProfile(profileId)
+    return (source ?: RelayProfileRecord()).copy(
         id = profileId,
         kind = relayKind,
         presetId = relayPresetId,
@@ -136,10 +138,10 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         serverPort = relayServerPort.toIntOrNull() ?: defaultRelayPort,
         serverName = if (relayKind == RelayKindAnyTls) relayServerName.ifBlank { relayServer } else relayServerName,
         securityLayer =
-            matchingSourceRelayProfile(profileId)?.securityLayer
+            source?.securityLayer
                 ?: if (relayKind == RelayKindVless) RelaySecurityLayerTls else RelayProfileRecord().securityLayer,
         vlessFlow =
-            matchingSourceRelayProfile(profileId)?.vlessFlow
+            source?.vlessFlow
                 ?: if (relayKind == RelayKindVless) "" else RelayProfileRecord().vlessFlow,
         realityPublicKey = relayRealityPublicKey,
         realityShortId = relayRealityShortId,
@@ -172,25 +174,16 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
         shadowTlsInnerProfileId = relayShadowTlsInnerProfileId,
         naivePath = relayNaivePath,
-        appsScriptScriptIds =
-            relayAppsScriptScriptIds.preserveRelayLines(
-                matchingSourceRelayProfile(profileId)?.appsScriptScriptIds,
-            ),
+        appsScriptScriptIds = relayAppsScriptScriptIds.preserveRelayLines(source?.appsScriptScriptIds),
         appsScriptGoogleIp = relayAppsScriptGoogleIp,
         appsScriptFrontDomain = relayAppsScriptFrontDomain,
-        appsScriptSniHosts =
-            relayAppsScriptSniHosts.preserveRelayLines(
-                matchingSourceRelayProfile(profileId)?.appsScriptSniHosts,
-            ),
+        appsScriptSniHosts = relayAppsScriptSniHosts.preserveRelayLines(source?.appsScriptSniHosts),
         appsScriptVerifySsl = relayAppsScriptVerifySsl,
         appsScriptParallelRelay = relayAppsScriptParallelRelay,
-        appsScriptDirectHosts =
-            relayAppsScriptDirectHosts.preserveRelayLines(
-                matchingSourceRelayProfile(profileId)?.appsScriptDirectHosts,
-            ),
+        appsScriptDirectHosts = relayAppsScriptDirectHosts.preserveRelayLines(source?.appsScriptDirectHosts),
         mieruProtocol = relayMieruProtocol,
         mieruMultiplexing = relayMieruMultiplexing,
-        mieruMtu = relayMieruMtu.toIntOrNull() ?: 1400,
+        mieruMtu = relayMieruMtu.toIntOrNull() ?: RelayMieruMtuDefault,
         sshAuthType = relaySshAuthType,
         sshHostKeyFingerprint = relaySshHostKeyFingerprint,
         sshStrictHostKey = relaySshStrictHostKey,
@@ -210,9 +203,11 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         finalmaskFragmentMinBytes = relayFinalmaskFragmentMinBytes.toIntOrNull() ?: 0,
         finalmaskFragmentMaxBytes = relayFinalmaskFragmentMaxBytes.toIntOrNull() ?: 0,
     )
+}
 
-internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCredentialRecord =
-    (matchingSourceRelayCredentials(profileId) ?: RelayCredentialRecord(profileId)).copy(
+internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCredentialRecord {
+    val source = sourceRelayCredentials
+    return (matchingSourceRelayCredentials(profileId) ?: RelayCredentialRecord(profileId)).copy(
         profileId = profileId,
         updatedAtEpochMillis = System.currentTimeMillis(),
         vlessUuid = relayVlessUuid.ifBlank { null },
@@ -224,75 +219,45 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         tuicUuid = relayTuicUuid.ifBlank { null },
         tuicPassword = relayTuicPassword.ifBlank { null },
         shadowTlsPassword = relayShadowTlsPassword.ifBlank { null },
-        trojanPassword =
-            kindCredential(
-                profileId,
-                RelayKindTrojan,
-                relayTrojanPassword,
-                sourceRelayCredentials?.trojanPassword,
-            ),
+        trojanPassword = kindCredential(profileId, RelayKindTrojan, relayTrojanPassword, source?.trojanPassword),
         shadowsocksMethod =
             kindCredential(
                 profileId,
                 RelayKindShadowsocks,
                 relayShadowsocksMethod,
-                sourceRelayCredentials?.shadowsocksMethod,
+                source?.shadowsocksMethod,
             ),
         shadowsocksPassword =
             kindCredential(
                 profileId,
                 RelayKindShadowsocks,
                 relayShadowsocksPassword,
-                sourceRelayCredentials?.shadowsocksPassword,
+                source?.shadowsocksPassword,
             ),
         appsScriptAuthKey =
             kindCredential(
                 profileId,
                 RelayKindGoogleAppsScript,
                 relayAppsScriptAuthKey,
-                sourceRelayCredentials?.appsScriptAuthKey,
+                source?.appsScriptAuthKey,
             ),
         mieruUsername =
             kindCredential(
                 profileId,
                 RelayKindMieru,
                 relayMieruUsername,
-                sourceRelayCredentials?.mieruUsername,
+                source?.mieruUsername,
             ),
-        mieruPassword =
-            kindCredential(
-                profileId,
-                RelayKindMieru,
-                relayMieruPassword,
-                sourceRelayCredentials?.mieruPassword,
-            ),
-        sshUsername =
-            kindCredential(
-                profileId,
-                RelayKindSsh,
-                relaySshUsername,
-                sourceRelayCredentials?.sshUsername,
-            ),
-        sshPassword =
-            kindCredential(
-                profileId,
-                RelayKindSsh,
-                relaySshPassword,
-                sourceRelayCredentials?.sshPassword,
-            ),
-        sshPrivateKey =
-            kindCredential(
-                profileId,
-                RelayKindSsh,
-                relaySshPrivateKey,
-                sourceRelayCredentials?.sshPrivateKey,
-            ),
+        mieruPassword = kindCredential(profileId, RelayKindMieru, relayMieruPassword, source?.mieruPassword),
+        sshUsername = kindCredential(profileId, RelayKindSsh, relaySshUsername, source?.sshUsername),
+        sshPassword = kindCredential(profileId, RelayKindSsh, relaySshPassword, source?.sshPassword),
+        sshPrivateKey = kindCredential(profileId, RelayKindSsh, relaySshPrivateKey, source?.sshPrivateKey),
         sshPrivateKeyPassphrase =
             kindCredential(
                 profileId,
                 RelayKindSsh,
                 relaySshPrivateKeyPassphrase,
-                sourceRelayCredentials?.sshPrivateKeyPassphrase,
+                source?.sshPrivateKeyPassphrase,
             ),
         naiveUsername = relayNaiveUsername.ifBlank { null },
         naivePassword = relayNaivePassword.ifBlank { null },
@@ -303,6 +268,7 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         cloudflareTunnelToken = relayCloudflareTunnelToken.ifBlank { null },
         cloudflareTunnelCredentialsJson = relayCloudflareTunnelCredentialsJson.ifBlank { null },
     )
+}
 
 private fun ConfigDraft.kindCredential(
     profileId: String,

@@ -449,15 +449,17 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelaySnowflakeFrontDomainChanged = actions.onRelaySnowflakeFrontDomainChanged,
             ),
         additional = actions.additional,
-        finalmask =
-            RelayFinalmaskActions(
-                onRelayFinalmaskTypeChanged = actions.onRelayFinalmaskTypeChanged,
-                onRelayFinalmaskHeaderHexChanged = actions.onRelayFinalmaskHeaderHexChanged,
-                onRelayFinalmaskTrailerHexChanged = actions.onRelayFinalmaskTrailerHexChanged,
-                onRelayFinalmaskRandRangeChanged = actions.onRelayFinalmaskRandRangeChanged,
-                onRelayFinalmaskSudokuSeedChanged = actions.onRelayFinalmaskSudokuSeedChanged,
-                onRelayFinalmaskFragmentPacketsChanged = actions.onRelayFinalmaskFragmentPacketsChanged,
-                onRelayFinalmaskFragmentMinBytesChanged = actions.onRelayFinalmaskFragmentMinBytesChanged,
-                onRelayFinalmaskFragmentMaxBytesChanged = actions.onRelayFinalmaskFragmentMaxBytesChanged,
-            ),
+        finalmask = relayFinalmaskActions(actions),
+    )
+
+private fun relayFinalmaskActions(actions: ModeEditorActions): RelayFinalmaskActions =
+    RelayFinalmaskActions(
+        onRelayFinalmaskTypeChanged = actions.onRelayFinalmaskTypeChanged,
+        onRelayFinalmaskHeaderHexChanged = actions.onRelayFinalmaskHeaderHexChanged,
+        onRelayFinalmaskTrailerHexChanged = actions.onRelayFinalmaskTrailerHexChanged,
+        onRelayFinalmaskRandRangeChanged = actions.onRelayFinalmaskRandRangeChanged,
+        onRelayFinalmaskSudokuSeedChanged = actions.onRelayFinalmaskSudokuSeedChanged,
+        onRelayFinalmaskFragmentPacketsChanged = actions.onRelayFinalmaskFragmentPacketsChanged,
+        onRelayFinalmaskFragmentMinBytesChanged = actions.onRelayFinalmaskFragmentMinBytesChanged,
+        onRelayFinalmaskFragmentMaxBytesChanged = actions.onRelayFinalmaskFragmentMaxBytesChanged,
     )

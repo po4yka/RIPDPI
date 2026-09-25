@@ -139,11 +139,9 @@ class SshProfileViewModel
         fun onSave() {
             val editor = _uiState.value.editor
             val profile = editor.toProfile() ?: return
-            if (_uiState.value.saving || _uiState.value.loading || completed ||
-                (requestedEditProfileId != null && editingDraft == null)
-            ) {
-                return
-            }
+            val editTargetReady = requestedEditProfileId == null || editingDraft != null
+            val busy = _uiState.value.saving || _uiState.value.loading
+            if (busy || completed || !editTargetReady) return
             _uiState.update { it.copy(saving = true) }
             viewModelScope.launch {
                 val activated =

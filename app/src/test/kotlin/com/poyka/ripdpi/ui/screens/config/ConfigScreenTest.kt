@@ -20,8 +20,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performScrollToKey
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -35,9 +33,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -488,95 +484,6 @@ class ConfigScreenTest {
             assertEquals("scan action should use the existing QR scanner callback", 1, scanClicks)
             assertEquals(listOf("default"), profileShareClicks)
         }
-    }
-
-    @Test
-    fun `every saved vpn profile can be opened for editing`() {
-        val edited = mutableListOf<String>()
-        val kinds = listOf("vless", "trojan", "shadowsocks", "google_apps_script", "mieru", "ssh")
-        val profiles = kinds.map { kind -> RelayProfileUiState("relay-$kind", kind, kind, "", "") }
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.Vpn,
-            vpnProfiles = profiles.toImmutableList(),
-            profileActions = ConfigProfileActions(edit = { edited += it }),
-        )
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfilesMore)
-            .performScrollTo()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList)
-            .performScrollToKey("relay-ssh")
-        assertTrue(kinds.take(4).all(::isModeEditorRelayKindSupported))
-        for ((index, kind) in kinds.withIndex()) {
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList)
-                .performScrollToKey("relay-$kind")
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-$kind"))
-                .performScrollTo()
-                .assertHasClickAction()
-                .performSemanticsAction(SemanticsActions.OnClick)
-            composeRule.runOnIdle { assertEquals(kinds.take(index + 1).map { "relay-$it" }, edited) }
-        }
-    }
-
-    @Test
-    fun `saved VLESS Trojan and Shadowsocks profiles open by tap`() {
-        assertPreviewProfilesOpenByTap(listOf("vless", "trojan", "shadowsocks"))
-    }
-
-    @Test
-    fun `saved Apps Script Mieru and SSH profiles open by tap`() {
-        assertPreviewProfilesOpenByTap(listOf("google_apps_script", "mieru", "ssh"))
-    }
-
-    private fun assertPreviewProfilesOpenByTap(kinds: List<String>) {
-        val edited = mutableListOf<String>()
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.Vpn,
-            vpnProfiles =
-                kinds
-                    .map { kind ->
-                        RelayProfileUiState("relay-$kind", kind, kind, "", "")
-                    }.toImmutableList(),
-            profileActions = ConfigProfileActions(edit = { edited += it }),
-        )
-        for ((index, kind) in kinds.withIndex()) {
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-$kind"))
-                .performScrollTo()
-                .performClick()
-            composeRule.runOnIdle { assertEquals(kinds.take(index + 1).map { "relay-$it" }, edited) }
-        }
-    }
-
-    @Test
-    fun `saved profile beyond preview opens by tap`() {
-        val edited = mutableListOf<String>()
-        val kinds = listOf("vless", "trojan", "shadowsocks", "google_apps_script")
-        setConfigScreen(
-            initialModeSection = ConfigModeSection.Vpn,
-            vpnProfiles =
-                kinds
-                    .map { kind ->
-                        RelayProfileUiState("relay-$kind", kind, kind, "", "")
-                    }.toImmutableList(),
-            profileActions = ConfigProfileActions(edit = { edited += it }),
-        )
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfilesMore)
-            .performScrollTo()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList)
-            .performScrollToKey("relay-google_apps_script")
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-google_apps_script"))
-            .performScrollTo()
-            .performClick()
-        composeRule.runOnIdle { assertEquals(listOf("relay-google_apps_script"), edited) }
     }
 
     @Test

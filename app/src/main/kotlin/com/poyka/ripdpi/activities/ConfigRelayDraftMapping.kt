@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelaySettingsModel
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
@@ -169,7 +170,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         addAllRelayAppsScriptDirectHosts(draft.relayAppsScriptDirectHosts.relayLines())
         setRelayMieruProtocol(draft.relayMieruProtocol)
         setRelayMieruMultiplexing(draft.relayMieruMultiplexing)
-        setRelayMieruMtu(draft.relayMieruMtu.toIntOrNull() ?: 1400)
+        setRelayMieruMtu(draft.relayMieruMtu.toIntOrNull() ?: RelayMieruMtuDefault)
         setRelaySshAuthType(draft.relaySshAuthType)
         setRelaySshHostKeyFingerprint(draft.relaySshHostKeyFingerprint)
         setRelaySshStrictHostKey(draft.relaySshStrictHostKey)
