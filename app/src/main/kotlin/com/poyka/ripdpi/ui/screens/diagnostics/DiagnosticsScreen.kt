@@ -212,6 +212,7 @@ private fun DiagnosticsScreenFrame(
         topBar = {
             DiagnosticsTopBar(
                 actions = actions,
+                debugInfoAvailable = uiState.performance != null,
                 onToggleDebugInfo = onToggleDebugInfo,
                 topBarExtraActions = topBarExtraActions,
             )
@@ -267,16 +268,24 @@ private fun DiagnosticsScreenFrame(
 @Composable
 private fun DiagnosticsTopBar(
     actions: DiagnosticsScreenActions,
+    debugInfoAvailable: Boolean,
     onToggleDebugInfo: () -> Unit,
     topBarExtraActions: @Composable () -> Unit,
 ) {
     RipDpiTopAppBar(
         title = stringResource(R.string.diagnostics_title),
         modifier =
-            Modifier.combinedClickable(
-                onClick = {},
-                onLongClick = onToggleDebugInfo,
-            ),
+            if (BuildConfig.DEBUG && debugInfoAvailable) {
+                val debugLabel = stringResource(R.string.detection_debug_diagnostics_label)
+                Modifier.combinedClickable(
+                    onClickLabel = debugLabel,
+                    onLongClickLabel = debugLabel,
+                    onClick = onToggleDebugInfo,
+                    onLongClick = onToggleDebugInfo,
+                )
+            } else {
+                Modifier
+            },
         actions = {
             RipDpiIconButton(
                 icon = RipDpiIcons.NetworkCheck,

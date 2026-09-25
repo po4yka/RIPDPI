@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -26,6 +27,7 @@ import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
+import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
@@ -182,6 +184,56 @@ private fun DiagnosticsScreen(
 class DiagnosticsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun diagnosticsHeaderHasNoActionWithoutDebugInfo() {
+        composeRule.setContent {
+            val pagerState = rememberPagerState(pageCount = { DiagnosticsSection.entries.size })
+            RipDpiTheme {
+                DiagnosticsScreen(uiState = DiagnosticsUiState(), pagerState = pagerState)
+            }
+        }
+
+        composeRule.onNodeWithText("Diagnostics").assertHasNoClickAction()
+    }
+
+    @Test
+    fun diagnosticsHeaderActivationTogglesDebugInfo() {
+        composeRule.setContent {
+            val pagerState = rememberPagerState(pageCount = { DiagnosticsSection.entries.size })
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            performance =
+                                DiagnosticsPerformanceUiModel(
+                                    buildSequence = 1,
+                                    totalDurationMillis = 1.0,
+                                    eventMappingDurationMillis = 0.0,
+                                    resolveDurationMillis = 0.0,
+                                    overviewDurationMillis = 0.0,
+                                    scanDurationMillis = 0.0,
+                                    liveDurationMillis = 0.0,
+                                    sessionsDurationMillis = 0.0,
+                                    approachesDurationMillis = 0.0,
+                                    eventsDurationMillis = 0.0,
+                                    shareDurationMillis = 0.0,
+                                    telemetryCount = 0,
+                                    nativeEventCount = 0,
+                                    sessionCount = 0,
+                                ),
+                        ),
+                    pagerState = pagerState,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Debug #1", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Diagnostics").performClick()
+        composeRule.onNodeWithText("Debug #1", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Diagnostics").performClick()
+        composeRule.onNodeWithText("Debug #1", substring = true).assertDoesNotExist()
+    }
 
     @Suppress("LongMethod")
     @Test
