@@ -4187,6 +4187,8 @@ Origen: %2$s</string>
     <string name="config_relay_apps_script_direct_hosts">Hosts directos (uno por línea)</string>
     <string name="config_relay_apps_script_auth_key">Clave de autenticación de Apps Script</string>
     <string name="config_relay_apps_script_verify_ssl">Verificar SSL</string>
+    <string name="config_relay_apps_script_proxy_only_title">Apps Script no está disponible en modo VPN</string>
+    <string name="config_relay_apps_script_proxy_only_body">Cambie al modo proxy para usar este relay. La VPN no puede proteger su conexión HTTP.</string>
     <string name="config_relay_apps_script_parallel">Relé paralelo</string>
     <string name="config_relay_protocol_section_proxy">Transportes proxy</string>
 </resources>

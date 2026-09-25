@@ -1957,6 +1957,8 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_direct_hosts">सीधे होस्ट (प्रति पंक्ति एक)</string>
     <string name="config_relay_apps_script_auth_key">Apps Script प्रमाणीकरण कुंजी</string>
     <string name="config_relay_apps_script_verify_ssl">SSL सत्यापित करें</string>
+    <string name="config_relay_apps_script_proxy_only_title">VPN मोड में Apps Script उपलब्ध नहीं है</string>
+    <string name="config_relay_apps_script_proxy_only_body">इस रिले का उपयोग करने के लिए प्रॉक्सी मोड पर जाएँ। VPN इसके HTTP कनेक्शन की सुरक्षा नहीं कर सकता।</string>
     <string name="config_relay_apps_script_parallel">समानांतर रिले</string>
     <string name="config_relay_protocol_section_proxy">प्रॉक्सी ट्रांसपोर्ट</string>
 </resources>

@@ -21,6 +21,7 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayLocalSocksPort
 import com.poyka.ripdpi.activities.ConfigFieldRelayProfileId
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayPresetUiState
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
@@ -123,6 +124,13 @@ private fun ModeEditorRelayEnabledFields(
     }
     ModeEditorRelayPresetChips(uiState = uiState, draft = draft, actions = actions)
     ModeEditorRelayKindChips(draft = draft, actions = actions)
+    if (draft.relayKind == RelayKindGoogleAppsScript && draft.mode != Mode.Proxy) {
+        WarningBanner(
+            title = stringResource(R.string.config_relay_apps_script_proxy_only_title),
+            message = stringResource(R.string.config_relay_apps_script_proxy_only_body),
+            tone = WarningBannerTone.Warning,
+        )
+    }
     if (uiState.validationErrors[ConfigFieldRelayCredentials] != null) {
         WarningBanner(
             title = stringResource(R.string.config_relay_credentials_title),
@@ -184,6 +192,7 @@ private fun ModeEditorRelayKindChips(
     draft: ConfigDraft,
     actions: ModeEditorActions,
 ) {
+    val proxyOnly = draft.mode != Mode.Proxy
     relayProtocolSections().forEach { section ->
         RelayChipSection(
             sectionKey = section.key,
@@ -192,7 +201,15 @@ private fun ModeEditorRelayKindChips(
             selectedKind = draft.relayKind,
             onRelayKindChanged = actions.onRelayKindChanged,
             enabled = draft.editingRelayProfileId.isBlank(),
+            disabledKinds = if (proxyOnly) setOf(RelayKindGoogleAppsScript) else emptySet(),
         )
+        if (proxyOnly && draft.relayKind != RelayKindGoogleAppsScript && section.key == "tls-transports") {
+            Text(
+                text = stringResource(R.string.config_relay_apps_script_proxy_only_title),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
     }
 }
 
@@ -204,6 +221,7 @@ private fun RelayChipSection(
     selectedKind: String,
     onRelayKindChanged: (String) -> Unit,
     enabled: Boolean,
+    disabledKinds: Set<String> = emptySet(),
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -228,7 +246,7 @@ private fun RelayChipSection(
                         chip = chip,
                         selectedKind = selectedKind,
                         onRelayKindChanged = onRelayKindChanged,
-                        enabled = enabled,
+                        enabled = enabled && chip.kind !in disabledKinds,
                     )
                 }
                 repeat(relayChipColumns - rowChips.size) {

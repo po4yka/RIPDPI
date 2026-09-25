@@ -4192,6 +4192,8 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_direct_hosts">میزبان‌های مستقیم (هر خط یکی)</string>
     <string name="config_relay_apps_script_auth_key">کلید احراز هویت Apps Script</string>
     <string name="config_relay_apps_script_verify_ssl">بررسی SSL</string>
+    <string name="config_relay_apps_script_proxy_only_title">Apps Script در حالت VPN در دسترس نیست</string>
+    <string name="config_relay_apps_script_proxy_only_body">برای استفاده از این رله به حالت پروکسی بروید. VPN نمی‌تواند اتصال HTTP آن را محافظت کند.</string>
     <string name="config_relay_apps_script_parallel">رله موازی</string>
     <string name="config_relay_protocol_section_proxy">انتقال‌های پروکسی</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -51,6 +52,10 @@ import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableMap
+import java.util.Base64
+
+private const val Shadowsocks2022Aes128KeyBytes = 16
+private const val Shadowsocks2022Aes256KeyBytes = 32
 
 internal fun validateConfigDraft(
     draft: ConfigDraft,
@@ -246,12 +251,33 @@ private fun validateShadowsocksDraft(draft: ConfigDraft): Map<String, String> =
             draft.relayShadowsocksMethod.trim().lowercase() !in supportedShadowsocksMethods
         ) {
             put(ConfigFieldRelayCredentials, "unsupported")
+        } else if (!hasValidShadowsocks2022Key(draft.relayShadowsocksMethod, draft.relayShadowsocksPassword)) {
+            put(ConfigFieldRelayCredentials, "invalid")
         }
     }
 
+private fun hasValidShadowsocks2022Key(
+    method: String,
+    password: String,
+): Boolean {
+    val keyLength =
+        when (method.trim().lowercase()) {
+            "2022-blake3-aes-128-gcm" -> Shadowsocks2022Aes128KeyBytes
+            "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305" -> Shadowsocks2022Aes256KeyBytes
+            else -> return true
+        }
+    val encoded = password.trim()
+    return runCatching {
+        val key = Base64.getDecoder().decode(encoded)
+        key.size == keyLength && Base64.getEncoder().encodeToString(key) == encoded
+    }.getOrDefault(false)
+}
+
 private fun validateAppsScriptDraft(draft: ConfigDraft): Map<String, String> =
     buildMap {
-        if (draft.relayAppsScriptScriptIds.relayLines().isEmpty() || draft.relayAppsScriptAuthKey.isBlank()) {
+        if (draft.mode != Mode.Proxy) {
+            put(ConfigFieldRelayCredentials, "unsupported")
+        } else if (draft.relayAppsScriptScriptIds.relayLines().isEmpty() || draft.relayAppsScriptAuthKey.isBlank()) {
             put(ConfigFieldRelayCredentials, "required")
         } else if (draft.relayAppsScriptGoogleIp.isNotBlank() && !checkIp(draft.relayAppsScriptGoogleIp)) {
             put(ConfigFieldRelayCredentials, "invalid")

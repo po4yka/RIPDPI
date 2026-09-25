@@ -4176,6 +4176,8 @@ fake_burst 3</string>
     <string name="config_relay_apps_script_direct_hosts">直连主机（每行一个）</string>
     <string name="config_relay_apps_script_auth_key">Apps Script 身份验证密钥</string>
     <string name="config_relay_apps_script_verify_ssl">验证 SSL</string>
+    <string name="config_relay_apps_script_proxy_only_title">Apps Script 在 VPN 模式下不可用</string>
+    <string name="config_relay_apps_script_proxy_only_body">切换到代理模式以使用此中继。VPN 无法保护其 HTTP 连接。</string>
     <string name="config_relay_apps_script_parallel">并行中继</string>
     <string name="config_relay_protocol_section_proxy">代理传输</string>
 </resources>

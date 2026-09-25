@@ -4318,6 +4318,8 @@ Source: %2$s</string>
     <string name="config_relay_apps_script_direct_hosts">Direct hosts (one per line)</string>
     <string name="config_relay_apps_script_auth_key">Apps Script auth key</string>
     <string name="config_relay_apps_script_verify_ssl">Verify SSL</string>
+    <string name="config_relay_apps_script_proxy_only_title">Apps Script is unavailable in VPN mode</string>
+    <string name="config_relay_apps_script_proxy_only_body">Switch to Proxy mode to use this relay. VPN cannot protect its HTTP connection.</string>
     <string name="config_relay_apps_script_parallel">Parallel relay</string>
     <string name="config_relay_protocol_section_proxy">Proxy transports</string>
 </resources>

@@ -4090,6 +4090,8 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_direct_hosts">Прямые хосты (по одному в строке)</string>
     <string name="config_relay_apps_script_auth_key">Ключ авторизации Apps Script</string>
     <string name="config_relay_apps_script_verify_ssl">Проверять SSL</string>
+    <string name="config_relay_apps_script_proxy_only_title">Apps Script недоступен в режиме VPN</string>
+    <string name="config_relay_apps_script_proxy_only_body">Переключитесь в режим прокси. VPN не может защитить HTTP-соединение этого ретранслятора.</string>
     <string name="config_relay_apps_script_parallel">Параллельное реле</string>
     <string name="config_relay_protocol_section_proxy">Прокси-транспорты</string>
 </resources>

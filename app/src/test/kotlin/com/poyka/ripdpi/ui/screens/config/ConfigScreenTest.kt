@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -557,6 +558,53 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.modeEditorRelayChip("vless_reality"))
             .assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Apps Script cannot be selected for VPN and explains existing profiles`() {
+        val draft =
+            AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                mode = Mode.VPN,
+                relayEnabled = true,
+                relayKind = "google_apps_script",
+                relayProfileId = "saved-apps-script",
+                editingRelayProfileId = "saved-apps-script",
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                ModeEditorRelaySection(draft, configUiState(), NoOpModeEditorActions)
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.modeEditorRelayChip("google_apps_script"))
+            .assertIsNotEnabled()
+        composeRule.onNodeWithText("Apps Script is unavailable in VPN mode").assertExists()
+    }
+
+    @Test
+    fun `Apps Script chip is available only for new proxy profiles`() {
+        val draft =
+            mutableStateOf(
+                AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                    mode = Mode.VPN,
+                    relayEnabled = true,
+                ),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                ModeEditorRelaySection(draft.value, configUiState(), NoOpModeEditorActions)
+            }
+        }
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.modeEditorRelayChip("google_apps_script"))
+            .assertIsNotEnabled()
+        composeRule.onNodeWithText("Apps Script is unavailable in VPN mode").assertExists()
+        composeRule.runOnIdle { draft.value = draft.value.copy(mode = Mode.Proxy) }
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.modeEditorRelayChip("google_apps_script"))
+            .assertIsEnabled()
+        composeRule.onNodeWithText("Apps Script is unavailable in VPN mode").assertDoesNotExist()
     }
 
     private fun setConfigScreen(

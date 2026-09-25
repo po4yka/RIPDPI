@@ -4215,6 +4215,8 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_direct_hosts">المضيفون المباشرون (واحد في كل سطر)</string>
     <string name="config_relay_apps_script_auth_key">مفتاح مصادقة Apps Script</string>
     <string name="config_relay_apps_script_verify_ssl">التحقق من SSL</string>
+    <string name="config_relay_apps_script_proxy_only_title">Apps Script غير متاح في وضع VPN</string>
+    <string name="config_relay_apps_script_proxy_only_body">انتقل إلى وضع الوكيل لاستخدام هذا المرحل. لا يمكن لشبكة VPN حماية اتصال HTTP الخاص به.</string>
     <string name="config_relay_apps_script_parallel">ترحيل متوازٍ</string>
     <string name="config_relay_protocol_section_proxy">نواقل الوكيل</string>
 </resources>

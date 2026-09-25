@@ -117,6 +117,7 @@ class ConfigRelayArtifactRepositoryTest {
     fun `Apps Script accepts native default IP and rejects disabled TLS verification`() {
         val draft =
             ConfigDraft(
+                mode = Mode.Proxy,
                 relayEnabled = true,
                 relayKind = RelayKindGoogleAppsScript,
                 relayProfileId = "apps-script",
@@ -127,6 +128,38 @@ class ConfigRelayArtifactRepositoryTest {
         assertEquals(
             "unsupported",
             validateConfigDraft(draft.copy(relayAppsScriptVerifySsl = false))[ConfigFieldRelayCredentials],
+        )
+        assertEquals(
+            "unsupported",
+            validateConfigDraft(draft.copy(mode = Mode.VPN))[ConfigFieldRelayCredentials],
+        )
+    }
+
+    @Test
+    fun `Shadowsocks 2022 requires standard base64 key of cipher length`() {
+        val draft =
+            ConfigDraft(
+                relayEnabled = true,
+                relayKind = RelayKindShadowsocks,
+                relayProfileId = "shadowsocks-2022",
+                relayServer = "relay.example",
+                relayServerPort = "443",
+                relayShadowsocksMethod = "2022-blake3-aes-128-gcm",
+                relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==",
+            )
+        assertNull(validateConfigDraft(draft)[ConfigFieldRelayCredentials])
+        assertEquals(
+            "invalid",
+            validateConfigDraft(draft.copy(relayShadowsocksPassword = "foo"))[ConfigFieldRelayCredentials],
+        )
+        assertEquals(
+            "invalid",
+            validateConfigDraft(
+                draft.copy(
+                    relayShadowsocksMethod = "2022-blake3-aes-256-gcm",
+                    relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==",
+                ),
+            )[ConfigFieldRelayCredentials],
         )
     }
 

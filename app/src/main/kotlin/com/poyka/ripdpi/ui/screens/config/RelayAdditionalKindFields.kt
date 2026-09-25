@@ -86,6 +86,7 @@ internal fun AppsScriptRelayFields(
         checked = draft.relayAppsScriptVerifySsl,
         onCheckedChange = actions.onAppsScriptVerifySslChanged,
         label = stringResource(R.string.config_relay_apps_script_verify_ssl),
+        enabled = !draft.relayAppsScriptVerifySsl,
     )
     RipDpiSwitch(
         checked = draft.relayAppsScriptParallelRelay,
