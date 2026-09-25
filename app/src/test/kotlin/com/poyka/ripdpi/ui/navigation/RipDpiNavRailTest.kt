@@ -14,6 +14,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -61,6 +62,17 @@ class RipDpiNavRailTest {
         assertDestinationsVisibleAndNamed(fontScale = 2f)
     }
 
+    @Test
+    fun `all destinations can be reached in a short landscape window`() {
+        setRailContent(fontScale = 2f, heightDp = 240)
+        destinationLabels().forEach { label ->
+            composeRule
+                .onNode(hasContentDescription(label) and hasClickAction())
+                .performScrollTo()
+                .assertIsDisplayed()
+        }
+    }
+
     private fun assertDestinationsVisibleAndNamed(fontScale: Float) {
         setRailContent(fontScale)
 
@@ -72,11 +84,14 @@ class RipDpiNavRailTest {
         }
     }
 
-    private fun setRailContent(fontScale: Float) {
+    private fun setRailContent(
+        fontScale: Float,
+        heightDp: Int = 400,
+    ) {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
-                    Box(modifier = Modifier.width(700.dp).height(400.dp)) {
+                    Box(modifier = Modifier.width(700.dp).height(heightDp.dp)) {
                         RipDpiNavRail(
                             selectedRoute = Route.Home,
                             onNavigate = {},

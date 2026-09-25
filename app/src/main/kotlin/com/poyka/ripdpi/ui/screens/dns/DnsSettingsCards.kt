@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -200,8 +201,10 @@ internal fun DnsOptionCard(
         onClick = onClick,
         modifier =
             Modifier
-                .semantics { contentDescription = title }
-                .animateContentSize(
+                .semantics {
+                    contentDescription = title
+                    this.selected = selected
+                }.animateContentSize(
                     animationSpec = motion.stateTween(),
                 ).ripDpiTestTag(testTag),
     ) {
