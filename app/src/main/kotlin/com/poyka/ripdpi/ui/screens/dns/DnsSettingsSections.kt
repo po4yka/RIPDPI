@@ -187,6 +187,7 @@ internal fun DnsResolverCatalogSection(
 @Composable
 internal fun DnsCustomResolverSettingsSection(
     uiState: SettingsUiState,
+    persistedProtocol: String,
     input: DnsSettingsInputState,
     validation: DnsSettingsValidation,
     onSaveCustomDoh: (String, List<String>) -> Unit,
@@ -220,6 +221,7 @@ internal fun DnsCustomResolverSettingsSection(
                 DnsModeEncrypted -> {
                     EncryptedDnsEditor(
                         uiState = uiState,
+                        persistedProtocol = persistedProtocol,
                         input = input,
                         validation = validation,
                         onSaveCustomDoh = onSaveCustomDoh,
@@ -375,6 +377,7 @@ private fun PlainDnsEditor(
 @Composable
 private fun EncryptedDnsEditor(
     uiState: SettingsUiState,
+    persistedProtocol: String,
     input: DnsSettingsInputState,
     validation: DnsSettingsValidation,
     onSaveCustomDoh: (String, List<String>) -> Unit,
@@ -395,6 +398,7 @@ private fun EncryptedDnsEditor(
     }
     CustomEncryptedDnsSection(
         uiState = uiState,
+        protocolChanged = uiState.dns.encryptedDnsProtocol != persistedProtocol,
         dohUrl = input.customDohUrl,
         onDohUrlChange = input.onCustomDohUrlChange,
         dotHost = input.customDotHost,

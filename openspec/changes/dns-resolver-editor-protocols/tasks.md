@@ -2,7 +2,7 @@
 
 ## Objective
 
-Saved DoQ and ODoH resolver settings open their matching forms and survive edits without protocol loss.
+DoQ and ODoH settings open their matching forms without activating invalid or unsupported DNS.
 
 ## Ownership
 

@@ -144,8 +144,6 @@ class SettingsViewModel
 
         fun selectBuiltInDnsProvider(providerId: String) = dnsActions.selectBuiltInDnsProvider(providerId)
 
-        fun setEncryptedDnsProtocol(protocol: String) = dnsActions.setEncryptedDnsProtocol(protocol)
-
         fun setPlainDnsServer(dnsIp: String) = dnsActions.setPlainDnsServer(dnsIp)
 
         fun setCustomDohResolver(

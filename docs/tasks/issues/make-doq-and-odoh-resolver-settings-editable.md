@@ -16,13 +16,14 @@ updated: 2026-09-25
 
 ## Goal
 
-DNS settings presents the stored DoQ and ODoH protocols and permits editing their required endpoint settings without silently converting either protocol to DoH.
+DNS settings presents DoQ and ODoH fields without silently changing the active resolver. ODoH can be saved after validation; DoQ activation is blocked until routed VPN DNS supports its UDP transport.
 
 ## Acceptance criteria
 
-- A saved DoQ resolver opens a DoQ form and saves as DoQ.
+- A saved DoQ resolver opens a DoQ form and explains why Save is unavailable with routed VPN DNS.
 - A saved ODoH resolver opens an ODoH form and saves all required fields as ODoH.
-- Invalid endpoints cannot be saved; app unit and Compose tests cover both paths.
+- Selecting a custom protocol before Save does not persist settings or restart a running service.
+- Invalid or expired ODoH configs cannot be saved; app unit and Compose tests cover the boundary.
 
 ## Ownership
 

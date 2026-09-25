@@ -32,6 +32,7 @@ import java.net.URI
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun CustomEncryptedDnsSection(
     uiState: SettingsUiState,
+    protocolChanged: Boolean = false,
     dohUrl: String,
     onDohUrlChange: (String) -> Unit,
     dotHost: String,
@@ -67,6 +68,7 @@ internal fun CustomEncryptedDnsSection(
         EncryptedDnsProtocolOdoh -> {
             OdohDnsEditor(
                 current = uiState.dns.odoh,
+                protocolChanged = protocolChanged,
                 currentBootstrapIps = uiState.dns.encryptedDnsBootstrapIps,
                 bootstrapInput = bootstrapInput,
                 onBootstrapInputChange = onBootstrapInputChange,
@@ -76,6 +78,7 @@ internal fun CustomEncryptedDnsSection(
         }
 
         EncryptedDnsProtocolDot, EncryptedDnsProtocolDoq -> {
+            val doqUnavailable = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq
             Text(
                 text =
                     stringResource(
@@ -140,7 +143,7 @@ internal fun CustomEncryptedDnsSection(
                         keyboardActions =
                             KeyboardActions(
                                 onDone = {
-                                    if (customDotValid && customDotDirty) {
+                                    if (customDotValid && customDotDirty && !doqUnavailable) {
                                         onSaveCustomDot()
                                     }
                                 },
@@ -150,13 +153,19 @@ internal fun CustomEncryptedDnsSection(
             RipDpiButton(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDot,
-                enabled = customDotValid && customDotDirty,
+                enabled = customDotValid && customDotDirty && !doqUnavailable,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
-            if (!(customDotValid && customDotDirty)) {
+            if (doqUnavailable) {
+                Text(
+                    text = stringResource(R.string.dns_custom_doq_unavailable),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            } else if (!(customDotValid && customDotDirty)) {
                 Text(
                     text = stringResource(R.string.dns_custom_save_requirements_hint),
                     style = type.caption,

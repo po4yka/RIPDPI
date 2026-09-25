@@ -1973,12 +1973,15 @@ app:dns_custom_doh_url_helper
 app:dns_custom_doh_url_label
 app:dns_custom_doq_body
 app:dns_custom_doq_title
+app:dns_custom_doq_unavailable
 app:dns_custom_dot_body
 app:dns_custom_dot_host_helper
 app:dns_custom_dot_title
 app:dns_custom_dot_tls_helper
 app:dns_custom_host_label
 app:dns_custom_odoh_body
+app:dns_custom_odoh_config_expired
+app:dns_custom_odoh_config_invalid
 app:dns_custom_odoh_configs_hex_label
 app:dns_custom_odoh_proxy_operator_label
 app:dns_custom_odoh_proxy_url_label

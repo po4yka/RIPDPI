@@ -4207,4 +4207,7 @@ Fonte: %2$s</string>
     <string name="dns_custom_odoh_configs_hex_label">Configuração do destino em hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">Hora da obtenção (segundos Unix)</string>
     <string name="dns_custom_odoh_ttl_label">Validade (segundos)</string>
+    <string name="dns_custom_doq_unavailable">Não é possível ativar DoQ porque o DNS da VPN usa SOCKS5, que não aceita DoQ.</string>
+    <string name="dns_custom_odoh_config_invalid">Insira bytes válidos de configuração ODoH com uma chave compatível.</string>
+    <string name="dns_custom_odoh_config_expired">A configuração ODoH expirou. Insira novos bytes e o horário da obtenção.</string>
 </resources>

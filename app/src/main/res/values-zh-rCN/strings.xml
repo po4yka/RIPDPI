@@ -4201,4 +4201,7 @@ fake_burst 3</string>
     <string name="dns_custom_odoh_configs_hex_label">目标配置十六进制</string>
     <string name="dns_custom_odoh_retrieved_at_label">获取时间（Unix 秒）</string>
     <string name="dns_custom_odoh_ttl_label">有效期（秒）</string>
+    <string name="dns_custom_doq_unavailable">无法启用 DoQ：VPN DNS 路由使用 SOCKS5，而 SOCKS5 不支持 DoQ。</string>
+    <string name="dns_custom_odoh_config_invalid">输入包含受支持密钥的有效 ODoH 目标配置字节。</string>
+    <string name="dns_custom_odoh_config_expired">ODoH 目标配置已过期。请输入新配置字节和获取时间。</string>
 </resources>

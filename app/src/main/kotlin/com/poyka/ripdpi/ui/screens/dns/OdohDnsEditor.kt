@@ -16,6 +16,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LegacyOdohConfigSourceCustom
 import com.poyka.ripdpi.activities.OdohResolverFields
+import com.poyka.ripdpi.activities.hasFreshConfig
+import com.poyka.ripdpi.activities.hasSupportedConfigWire
 import com.poyka.ripdpi.activities.isValid
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceBundled
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
@@ -32,6 +34,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Suppress("LongMethod")
 internal fun OdohDnsEditor(
     current: OdohResolverFields,
+    protocolChanged: Boolean,
     currentBootstrapIps: List<String>,
     bootstrapInput: String,
     onBootstrapInputChange: (String) -> Unit,
@@ -80,7 +83,7 @@ internal fun OdohDnsEditor(
         )
     val canSave =
         candidate.isValid() && bootstrapIpsValid &&
-            (candidate != current || parseBootstrapIps(bootstrapInput) != currentBootstrapIps)
+            (protocolChanged || candidate != current || parseBootstrapIps(bootstrapInput) != currentBootstrapIps)
 
     Text(stringResource(R.string.dns_custom_odoh_title), style = type.bodyEmphasis, color = colors.foreground)
     Text(stringResource(R.string.dns_custom_odoh_body), style = type.body, color = colors.mutedForeground)
@@ -123,10 +126,16 @@ internal fun OdohDnsEditor(
     OdohTextField(configsHex, {
         configsHex = it
     }, R.string.dns_custom_odoh_configs_hex_label, RipDpiTestTags.DnsOdohConfigsHex)
+    if (configsHex.isNotBlank() && !candidate.hasSupportedConfigWire()) {
+        Text(stringResource(R.string.dns_custom_odoh_config_invalid), style = type.caption, color = colors.destructive)
+    }
     OdohTextField(retrievedAt, {
         retrievedAt = it
     }, R.string.dns_custom_odoh_retrieved_at_label, RipDpiTestTags.DnsOdohRetrievedAt, KeyboardType.Number)
     OdohTextField(ttl, { ttl = it }, R.string.dns_custom_odoh_ttl_label, RipDpiTestTags.DnsOdohTtl, KeyboardType.Number)
+    if (candidate.configsRetrievedAtSecs > 0 && candidate.configsTtlSecs > 0 && !candidate.hasFreshConfig()) {
+        Text(stringResource(R.string.dns_custom_odoh_config_expired), style = type.caption, color = colors.destructive)
+    }
     OdohTextField(
         bootstrapInput,
         onBootstrapInputChange,

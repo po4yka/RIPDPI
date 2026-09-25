@@ -9,7 +9,8 @@ DNS settings renders saved DoQ and ODoH resolvers as a DoH editor. Saving that f
 ## What Changes
 
 - Show DoQ and ODoH as selectable encrypted DNS protocols.
-- Show protocol-specific forms and preserve protocol and endpoint fields when saving.
+- Show protocol-specific forms without changing the active resolver before Save.
+- Save fresh, structurally valid ODoH settings; block DoQ activation while routed VPN DNS requires SOCKS5.
 - Reject incomplete or malformed endpoint input before writing settings.
 
 ## Capabilities

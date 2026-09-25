@@ -140,11 +140,13 @@ internal fun rememberDnsSettingsInputState(dns: DnsUiState): DnsSettingsInputSta
 @Composable
 internal fun rememberDnsSettingsValidation(
     dns: DnsUiState,
+    selectedProtocol: String,
     input: DnsSettingsInputState,
 ): DnsSettingsValidation {
     val normalizedBootstrapIps = remember(input.bootstrapInput) { parseBootstrapIps(input.bootstrapInput) }
     return DnsSettingsValidation(
         dns = dns,
+        selectedProtocol = selectedProtocol,
         input = input,
         normalizedBootstrapIps = normalizedBootstrapIps,
     )
@@ -172,6 +174,7 @@ private fun encryptedPortInput(dns: DnsUiState): String =
 
 private fun DnsSettingsValidation(
     dns: DnsUiState,
+    selectedProtocol: String,
     input: DnsSettingsInputState,
     normalizedBootstrapIps: List<String>,
 ): DnsSettingsValidation {
@@ -205,6 +208,7 @@ private fun DnsSettingsValidation(
                 bootstrapIpsValid,
         customDotDirty =
             dns.isCustomDotDirty(
+                protocol = selectedProtocol,
                 host = trimmedDotHost,
                 port = dotPort,
                 tlsServerName = trimmedDotTlsServerName,
@@ -243,13 +247,14 @@ private fun DnsUiState.isCustomDohDirty(
         bootstrapIps != encryptedDnsBootstrapIps
 
 private fun DnsUiState.isCustomDotDirty(
+    protocol: String,
     host: String,
     port: Int,
     tlsServerName: String,
     bootstrapIps: List<String>,
 ): Boolean =
     dnsMode != DnsModeEncrypted ||
-        (encryptedDnsProtocol != EncryptedDnsProtocolDot && encryptedDnsProtocol != EncryptedDnsProtocolDoq) ||
+        encryptedDnsProtocol != protocol ||
         dnsProviderId != DnsProviderCustom ||
         host != encryptedDnsHost ||
         port != encryptedDnsPort ||

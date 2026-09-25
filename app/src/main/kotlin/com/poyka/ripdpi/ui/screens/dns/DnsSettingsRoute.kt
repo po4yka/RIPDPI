@@ -8,8 +8,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCloudflare
-import com.poyka.ripdpi.data.DnsProviderCustom
-import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 
 @Composable
 fun DnsSettingsRoute(
@@ -24,32 +22,21 @@ fun DnsSettingsRoute(
         onBack = onBack,
         onModeSelected = { mode ->
             if (mode == DnsModeEncrypted) {
-                if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
-                    uiState.dns.dnsProviderId != DnsProviderCustom
-                ) {
-                    viewModel.selectBuiltInDnsProvider(uiState.dns.dnsProviderId)
-                } else {
-                    viewModel.setEncryptedDnsProtocol(
-                        uiState.dns.encryptedDnsProtocol.ifBlank { EncryptedDnsProtocolDoh },
-                    )
-                }
-            } else {
-                viewModel.setPlainDnsServer(uiState.dns.dnsIp)
-            }
-        },
-        onProtocolSelected = { protocol ->
-            when (protocol) {
-                EncryptedDnsProtocolDoh -> {
+                if (uiState.dns.dnsMode != DnsModeEncrypted) {
                     val providerId =
                         resolverOptions.firstOrNull { it.providerId == uiState.dns.dnsProviderId }?.providerId
                             ?: DnsProviderCloudflare
                     viewModel.selectBuiltInDnsProvider(providerId)
                 }
-
-                else -> {
-                    viewModel.setEncryptedDnsProtocol(protocol)
-                }
+            } else {
+                viewModel.setPlainDnsServer(uiState.dns.dnsIp)
             }
+        },
+        onProtocolSelected = { _ ->
+            val providerId =
+                resolverOptions.firstOrNull { it.providerId == uiState.dns.dnsProviderId }?.providerId
+                    ?: DnsProviderCloudflare
+            viewModel.selectBuiltInDnsProvider(providerId)
         },
         onResolverSelected = { resolver ->
             viewModel.selectBuiltInDnsProvider(resolver.providerId)

@@ -46,29 +46,6 @@ internal class SettingsDnsActions(
         }
     }
 
-    fun setEncryptedDnsProtocol(protocol: String) {
-        updateDnsSetting(
-            key = "encryptedDnsProtocol",
-            value = protocol,
-        ) {
-            setDnsMode(DnsModeEncrypted)
-            setDnsProviderId(DnsProviderCustom)
-            setEncryptedDnsProtocol(protocol)
-            if (protocol != EncryptedDnsProtocolDoh) {
-                setEncryptedDnsDohUrl("")
-            }
-            if (protocol != EncryptedDnsProtocolDnsCrypt) {
-                setEncryptedDnsDnscryptProviderName("")
-                setEncryptedDnsDnscryptPublicKey("")
-            }
-            if (protocol != EncryptedDnsProtocolDot && protocol != EncryptedDnsProtocolDoq &&
-                protocol != EncryptedDnsProtocolDoh
-            ) {
-                setEncryptedDnsTlsServerName("")
-            }
-        }
-    }
-
     fun setPlainDnsServer(dnsIp: String) {
         updateDnsSetting(
             key = "dnsIp",
@@ -132,6 +109,7 @@ internal class SettingsDnsActions(
         bootstrapIps: List<String>,
     ) {
         require(protocol == EncryptedDnsProtocolDot || protocol == EncryptedDnsProtocolDoq)
+        require(protocol != EncryptedDnsProtocolDoq) { "DoQ is unavailable with routed VPN DNS" }
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
         updateDnsSetting(
             key = "encryptedDnsHost",

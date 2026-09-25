@@ -3,7 +3,7 @@ task_id: DNS-1790339241109329
 change: dns-resolver-editor-protocols
 commit_sha: null
 local: passed
-local_evidence: "Full :app:testGithubFullDebugUnitTest, :app:lintGithubFullDebug, :core:service:lintDebug, and staticAnalysis passed with ripdpi.skipNativeBuild=true; i18n export, OpenSpec strict validation, and task contracts passed."
+local_evidence: "Full :app:testGithubFullDebugUnitTest, :app:lintGithubFullDebug, :core:service:lintDebug, and staticAnalysis passed with ripdpi.skipNativeBuild=true; cargo test -p ripdpi-tunnel-core --locked doq passed 2/2; i18n export, OpenSpec strict validation, and task contracts passed."
 remote_ci: required
 remote_ci_evidence: Pending integration and hosted CI.
 device: blocked
@@ -20,5 +20,5 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DNS-EDITOR-PROTOCOL | DNS-1790339324021183 | `DnsSettingsScreenTest`, `SettingsDnsActionsTest`, and `SettingsUiStateTest` passed in the full app unit suite | local passed; device pending |
-| REQ-DNS-EDITOR-VALIDATION | DNS-1790339324021183 | Compose Save validation and action rejection tests passed; app lint and staticAnalysis passed | local passed; device pending |
+| REQ-DNS-EDITOR-PROTOCOL | DNS-1790339324021183 | `DnsSettingsScreenTest` covers draft selection while running; `SettingsDnsActionsTest` confirms rejected DoQ causes no restart; native direct/SOCKS5 tests passed | local passed; device pending |
+| REQ-DNS-EDITOR-VALIDATION | DNS-1790339324021183 | ODoH config wire, expiry and target path boundary tests passed; app lint and staticAnalysis passed | local passed; device pending |

@@ -151,6 +151,22 @@ fn active_split_dns_rejects_doq_over_socks_at_startup() {
 }
 
 #[test]
+fn direct_doq_transport_is_selected_without_split_policy() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.encrypted_dns_protocol = Some("doq".to_string());
+    mapdns.encrypted_dns_host = Some("dns.example.test".to_string());
+    mapdns.encrypted_dns_port = Some(853);
+    mapdns.encrypted_dns_tls_server_name = Some("dns.example.test".to_string());
+    mapdns.encrypted_dns_bootstrap_ips = vec!["127.0.0.1".to_string()];
+    let config = tunnel_config_with_mapdns(Some(mapdns));
+
+    assert_eq!(
+        mapdns_resolver_transport(&config, config.mapdns.as_ref().expect("mapdns")),
+        EncryptedDnsTransport::Direct,
+    );
+}
+
+#[test]
 fn build_encrypted_dns_resolver_uses_odoh_config_and_socks_transport() {
     let mut mapdns = mapdns_config(16);
     mapdns.resolver_id = Some("fixture-odoh".to_string());

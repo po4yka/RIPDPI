@@ -3,6 +3,10 @@ package com.poyka.ripdpi.ui.screens.dns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,8 +47,12 @@ internal fun DnsSettingsScreen(
     onIpv6Changed: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val input = rememberDnsSettingsInputState(uiState.dns)
-    val validation = rememberDnsSettingsValidation(uiState.dns, input)
+    var draftProtocol by rememberSaveable(uiState.dns.encryptedDnsProtocol) { mutableStateOf<String?>(null) }
+    val editorUiState =
+        draftProtocol?.let { protocol -> uiState.copy(dns = uiState.dns.copy(encryptedDnsProtocol = protocol)) }
+            ?: uiState
+    val input = rememberDnsSettingsInputState(editorUiState.dns)
+    val validation = rememberDnsSettingsValidation(uiState.dns, editorUiState.dns.encryptedDnsProtocol, input)
     val selectedResolver = selectedResolverOption(uiState.dns)
     val colors = RipDpiThemeTokens.colors
 
@@ -62,10 +70,21 @@ internal fun DnsSettingsScreen(
         DnsProxyModeWarning(uiState)
         DnsActiveConfigurationCard(uiState = uiState, selectedResolver = selectedResolver)
         DnsModeSection(uiState = uiState, onModeSelected = onModeSelected)
-        DnsProtocolSection(uiState = uiState, onProtocolSelected = onProtocolSelected)
-        DnsResolverCatalogSection(uiState = uiState, onResolverSelected = onResolverSelected)
+        DnsProtocolSection(
+            uiState = editorUiState,
+            onProtocolSelected = { protocol ->
+                if (protocol == EncryptedDnsProtocolDoh) {
+                    draftProtocol = null
+                    onProtocolSelected(protocol)
+                } else {
+                    draftProtocol = protocol
+                }
+            },
+        )
+        DnsResolverCatalogSection(uiState = editorUiState, onResolverSelected = onResolverSelected)
         DnsCustomResolverSettingsSection(
-            uiState = uiState,
+            uiState = editorUiState,
+            persistedProtocol = uiState.dns.encryptedDnsProtocol,
             input = input,
             validation = validation,
             onSaveCustomDoh = onSaveCustomDoh,

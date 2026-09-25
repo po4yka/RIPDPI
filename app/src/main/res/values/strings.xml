@@ -4343,4 +4343,7 @@ Source: %2$s</string>
     <string name="dns_custom_odoh_configs_hex_label">Target configuration hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">Retrieved at (Unix seconds)</string>
     <string name="dns_custom_odoh_ttl_label">Lifetime (seconds)</string>
+    <string name="dns_custom_doq_unavailable">DoQ cannot be activated because VPN DNS routing uses SOCKS5, which does not support DoQ.</string>
+    <string name="dns_custom_odoh_config_invalid">Enter valid ODoH target configuration bytes with a supported key.</string>
+    <string name="dns_custom_odoh_config_expired">The ODoH target configuration has expired. Enter fresh bytes and retrieval time.</string>
 </resources>

@@ -10,8 +10,8 @@ import kotlinx.collections.immutable.toImmutableList
 import java.net.URI
 
 private val DefaultDnsUiSeed = canonicalDefaultEncryptedDnsSettings()
-private const val HexRadix = 16
 private const val MaxDnsPort = 65_535
+private const val MillisecondsPerSecond = 1_000
 internal const val LegacyOdohConfigSourceCustom = "custom"
 
 @Stable
@@ -48,7 +48,7 @@ data class OdohResolverFields(
     val configsTtlSecs: Long = 0L,
 )
 
-fun OdohResolverFields.isValid(): Boolean {
+fun OdohResolverFields.isValid(nowSecs: Long = System.currentTimeMillis() / MillisecondsPerSecond): Boolean {
     val url = runCatching { URI(proxyUrl.trim()) }.getOrNull()
     return url != null &&
         url.scheme.equals("https", ignoreCase = true) &&
@@ -56,7 +56,7 @@ fun OdohResolverFields.isValid(): Boolean {
         (url.port == -1 || url.port in 1..MaxDnsPort) &&
         proxyOperatorId.isNotBlank() &&
         targetHost.isNotBlank() &&
-        targetPath.startsWith('/') && targetPath.length > 1 &&
+        targetPath.startsWith('/') &&
         targetOperatorId.isNotBlank() &&
         !proxyOperatorId.equals(targetOperatorId, ignoreCase = true) &&
         (
@@ -64,7 +64,11 @@ fun OdohResolverFields.isValid(): Boolean {
                 configSource == EncryptedDnsOdohConfigSourceCustomBytes ||
                 configSource == LegacyOdohConfigSourceCustom
         ) &&
-        configsHex.isNotBlank() && configsHex.length % 2 == 0 &&
-        configsHex.all { it.digitToIntOrNull(HexRadix) != null } &&
-        configsRetrievedAtSecs > 0 && configsTtlSecs > 0
+        hasSupportedConfigWire() && hasFreshConfig(nowSecs)
 }
+
+fun OdohResolverFields.hasFreshConfig(nowSecs: Long = System.currentTimeMillis() / MillisecondsPerSecond): Boolean =
+    configsRetrievedAtSecs > 0 &&
+        configsTtlSecs > 0 &&
+        configsRetrievedAtSecs <= Long.MAX_VALUE - configsTtlSecs &&
+        configsRetrievedAtSecs + configsTtlSecs > nowSecs

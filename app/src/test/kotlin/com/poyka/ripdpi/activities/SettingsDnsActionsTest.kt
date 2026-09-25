@@ -20,6 +20,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+internal const val ValidOdohConfigsHex =
+    "002c000100280020000100010020c6a793bedbd601c25970b1cc46bea80fdb1a8ec51540d79e4f9f17b8baa9da33"
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsDnsActionsTest {
     @get:Rule
@@ -95,25 +98,32 @@ class SettingsDnsActionsTest {
         }
 
     @Test
-    fun `custom doq save preserves protocol and endpoint`() =
+    fun `doq cannot replace a running resolver over unsupported vpn transport`() =
         runTest {
             val repository = FakeAppSettingsRepository()
-            val actions = createActions(repository = repository)
+            val serviceController = FakeServiceController()
+            val actions =
+                createActions(
+                    repository = repository,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceController = serviceController,
+                )
+            val before = repository.snapshot()
 
-            actions.setCustomDotResolver(
-                EncryptedDnsProtocolDoq,
-                "quic.example",
-                853,
-                "quic.example",
-                listOf("1.1.1.1"),
-            )
+            assertThrows(IllegalArgumentException::class.java) {
+                actions.setCustomDotResolver(
+                    EncryptedDnsProtocolDoq,
+                    "quic.example",
+                    853,
+                    "quic.example",
+                    listOf("1.1.1.1"),
+                )
+            }
             advanceUntilIdle()
 
-            val settings = repository.snapshot()
-            assertEquals(EncryptedDnsProtocolDoq, settings.encryptedDnsProtocol)
-            assertEquals("quic.example", settings.encryptedDnsHost)
-            assertEquals(853, settings.encryptedDnsPort)
-            assertEquals("quic.example", settings.encryptedDnsTlsServerName)
+            assertEquals(before, repository.snapshot())
+            assertEquals(0, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
         }
 
     @Test
@@ -129,8 +139,8 @@ class SettingsDnsActionsTest {
                     targetPath = "/dns-query",
                     targetOperatorId = "target-operator",
                     configSource = EncryptedDnsOdohConfigSourceCustomBytes,
-                    configsHex = "0102",
-                    configsRetrievedAtSecs = 1_700_000_000,
+                    configsHex = ValidOdohConfigsHex,
+                    configsRetrievedAtSecs = System.currentTimeMillis() / 1_000,
                     configsTtlSecs = 86_400,
                 )
 
@@ -169,8 +179,8 @@ class SettingsDnsActionsTest {
                 targetPath = "/dns-query",
                 targetOperatorId = "SAME-OPERATOR",
                 configSource = EncryptedDnsOdohConfigSourceCustomBytes,
-                configsHex = "0102",
-                configsRetrievedAtSecs = 1_700_000_000,
+                configsHex = ValidOdohConfigsHex,
+                configsRetrievedAtSecs = System.currentTimeMillis() / 1_000,
                 configsTtlSecs = 86_400,
             )
         assertThrows(IllegalArgumentException::class.java) {

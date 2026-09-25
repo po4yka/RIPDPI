@@ -13,6 +13,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.OdohResolverFields
+import com.poyka.ripdpi.activities.ValidOdohConfigsHex
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
@@ -120,7 +122,7 @@ class DnsSettingsScreenTest {
     }
 
     @Test
-    fun savedDoqShowsTlsEditorAndSavesAsDoq() {
+    fun savedDoqShowsTlsEditorButCannotActivateUnsupportedTransport() {
         var savedProtocol: String? = null
         composeRule.setContent {
             RipDpiTheme {
@@ -154,9 +156,43 @@ class DnsSettingsScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomDohUrl).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomHost).performTextReplacement("new.example")
-        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
-        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).performScrollTo().performClick()
-        composeRule.runOnIdle { assertEquals(EncryptedDnsProtocolDoq, savedProtocol) }
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomTlsServerName).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+        composeRule.runOnIdle { assertEquals(null, savedProtocol) }
+    }
+
+    @Test
+    fun selectingOdohAndDoqWhileRunningLeavesActiveResolverUnchanged() {
+        var protocolCommits = 0
+        var odohSaves = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState = SettingsUiState(serviceStatus = AppStatus.Running),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = { protocolCommits++ },
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> odohSaves++ },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolOdoh)).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohTargetHost).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDoq)).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomTlsServerName).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+        composeRule.runOnIdle {
+            assertEquals(0, protocolCommits)
+            assertEquals(0, odohSaves)
+        }
     }
 
     @Test
@@ -171,7 +207,7 @@ class DnsSettingsScreenTest {
                 targetOperatorId = "target",
                 configSource = "custom_bytes",
                 configsHex = "0",
-                configsRetrievedAtSecs = 1_700_000_000,
+                configsRetrievedAtSecs = System.currentTimeMillis() / 1_000,
                 configsTtlSecs = 86_400,
             )
         composeRule.setContent {
@@ -205,10 +241,10 @@ class DnsSettingsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomDohUrl).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohTargetHost).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
-        composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohConfigsHex).performTextReplacement("0102")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohConfigsHex).performTextReplacement(ValidOdohConfigsHex)
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).performScrollTo().performClick()
-        composeRule.runOnIdle { assertEquals("0102", saved?.configsHex) }
+        composeRule.runOnIdle { assertEquals(ValidOdohConfigsHex, saved?.configsHex) }
     }
 
     @Test
@@ -233,8 +269,8 @@ class DnsSettingsScreenTest {
                                             targetPath = "/dns-query",
                                             targetOperatorId = "target",
                                             configSource = "custom_bytes",
-                                            configsHex = "0102",
-                                            configsRetrievedAtSecs = 1_700_000_000,
+                                            configsHex = ValidOdohConfigsHex,
+                                            configsRetrievedAtSecs = System.currentTimeMillis() / 1_000,
                                             configsTtlSecs = 86_400,
                                         ),
                                 ),

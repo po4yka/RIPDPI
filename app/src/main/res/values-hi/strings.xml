@@ -1982,4 +1982,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_odoh_configs_hex_label">लक्ष्य कॉन्फ़िगरेशन hex</string>
     <string name="dns_custom_odoh_retrieved_at_label">प्राप्ति समय (Unix सेकंड)</string>
     <string name="dns_custom_odoh_ttl_label">वैधता अवधि (सेकंड)</string>
+    <string name="dns_custom_doq_unavailable">DoQ चालू नहीं किया जा सकता क्योंकि VPN DNS रूटिंग SOCKS5 का उपयोग करती है, जो DoQ का समर्थन नहीं करता।</string>
+    <string name="dns_custom_odoh_config_invalid">समर्थित कुंजी वाले मान्य ODoH लक्ष्य कॉन्फ़िगरेशन बाइट दर्ज करें।</string>
+    <string name="dns_custom_odoh_config_expired">ODoH लक्ष्य कॉन्फ़िगरेशन की अवधि समाप्त हो गई है। नए बाइट और प्राप्ति समय दर्ज करें।</string>
 </resources>

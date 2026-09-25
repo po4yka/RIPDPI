@@ -1,17 +1,22 @@
 ## Purpose
 
-Let users inspect and edit the complete encrypted DNS resolver that is active on their VPN connection, including DoQ and ODoH, without accidental protocol changes.
+Let users inspect encrypted DNS resolver fields without activating an incomplete or unsupported resolver.
 
 ## ADDED Requirements
 
 ### Requirement: REQ-DNS-EDITOR-PROTOCOL — Preserve selected protocol
 
-The DNS settings screen MUST show an editor for the saved encrypted DNS protocol and MUST save through that protocol's settings mutation.
+The DNS settings screen MUST show the editor for the selected encrypted DNS protocol. Selecting a custom protocol MUST remain a local draft until valid Save.
+
+#### Scenario: Selecting ODoH while VPN is running
+
+- **WHEN** ODoH is selected before its required fields are complete
+- **THEN** the editor shows ODoH fields and neither persisted DNS nor the running service changes
 
 #### Scenario: Stored DoQ resolver
 
-- **WHEN** a saved DoQ resolver opens in DNS settings and its endpoint is edited and saved
-- **THEN** the editor shows DoQ fields and the saved protocol remains DoQ
+- **WHEN** a saved DoQ resolver opens in DNS settings
+- **THEN** the editor shows DoQ fields and explains that activation is unavailable with the current routed VPN DNS transport
 
 #### Scenario: Stored ODoH resolver
 
@@ -20,9 +25,19 @@ The DNS settings screen MUST show an editor for the saved encrypted DNS protocol
 
 ### Requirement: REQ-DNS-EDITOR-VALIDATION — Validate endpoint before saving
 
-The DNS settings screen MUST prevent saving an invalid or incomplete DoQ or ODoH endpoint.
+The DNS settings screen MUST prevent saving an invalid, stale, or incomplete ODoH endpoint. DoQ activation MUST be blocked while VPN DNS uses a SOCKS5 transport.
 
 #### Scenario: Missing ODoH target config
 
 - **WHEN** the ODoH form has no valid target configuration bytes
 - **THEN** Save is disabled and the saved resolver remains unchanged
+
+#### Scenario: Expired ODoH target config
+
+- **WHEN** the target config expiry is at or before the current time
+- **THEN** Save is disabled and the form explains that fresh config material is required
+
+#### Scenario: DoQ over routed VPN DNS
+
+- **WHEN** DoQ is selected while the VPN DNS path requires SOCKS5
+- **THEN** Save is disabled and the current resolver remains active
