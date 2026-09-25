@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.proto.AppSettings
@@ -19,6 +22,17 @@ internal data class ResolverRefreshPlan(
     val requiresRuntimeRecompose: Boolean = false,
     val connectionPolicy: ConnectionPolicyResolution? = null,
 )
+
+internal fun requireSupportedVpnDnsTransport(
+    mode: Mode,
+    activeDns: ActiveDnsSettings,
+) {
+    if (mode == Mode.VPN && activeDns.isDoq) {
+        throw ServiceStartupRejectedException(
+            FailureReason.NativeError("DoQ cannot use VPN DNS routing over SOCKS5"),
+        )
+    }
+}
 
 internal fun resolveEffectiveDns(
     settings: AppSettings,

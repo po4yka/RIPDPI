@@ -25,7 +25,9 @@ The DNS settings screen MUST show the editor for the selected encrypted DNS prot
 
 ### Requirement: REQ-DNS-EDITOR-VALIDATION — Validate endpoint before saving
 
-The DNS settings screen MUST prevent saving an invalid, stale, or incomplete ODoH endpoint. DoQ Save MUST be available in Proxy mode and blocked in VPN mode or while VPN is running. VPN start with saved DoQ MUST be blocked on the home path while VPN DNS uses a SOCKS5 transport.
+The DNS settings screen MUST prevent saving an invalid, stale, or incomplete ODoH endpoint. DoQ Save MUST be available in Proxy mode and blocked in VPN mode or while VPN is running. VPN startup MUST reject an effective DoQ resolver before tunnel setup while VPN DNS uses SOCKS5. Config restart paths MUST preserve a running service when saved DoQ cannot start VPN.
+
+An accepted VPN start and a DoQ Save MUST NOT overlap, including the interval before the service publishes a non-Halted status. Completion of one accepted start MUST NOT release another in-flight start reservation.
 
 #### Scenario: Missing ODoH target config
 
@@ -51,3 +53,28 @@ The DNS settings screen MUST prevent saving an invalid, stale, or incomplete ODo
 
 - **WHEN** the home VPN action is shown with saved DoQ
 - **THEN** Start is disabled with a transport explanation and an active VPN retains Stop
+
+#### Scenario: VPN start outside the home screen
+
+- **WHEN** any service entry point requests VPN with effective DoQ DNS
+- **THEN** policy resolution rejects startup before VPN tunnel setup
+
+#### Scenario: VPN starts during DoQ Save
+
+- **WHEN** a VPN start is dispatched while a Proxy-mode DoQ DataStore update is in progress
+- **THEN** the start is rejected with retry guidance and the DoQ update can complete
+
+#### Scenario: DoQ Save during pending VPN start
+
+- **WHEN** a VPN start was accepted but the service status still reads Halted
+- **THEN** DoQ Save is rejected until the matching start command finishes or is canceled
+
+#### Scenario: Overlapping VPN starts finish out of order
+
+- **WHEN** a second accepted VPN start finishes or is rejected while the first start is still running
+- **THEN** DoQ Save remains blocked until the first start also finishes or is canceled
+
+#### Scenario: Proxy DoQ scope
+
+- **WHEN** DoQ is saved and Proxy mode runs
+- **THEN** RIPDPI can resolve hostnames handled by its local proxy through DoQ, while Android device DNS remains unchanged

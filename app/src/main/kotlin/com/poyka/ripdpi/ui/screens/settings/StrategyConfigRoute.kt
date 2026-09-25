@@ -460,8 +460,17 @@ private fun savedStrategyConfigBanner(
                 StrategyConfigApplyResult.RestartAlreadyPending -> {
                     context.getString(R.string.strategy_config_saved_restart_pending_body)
                 }
+
+                StrategyConfigApplyResult.UnsupportedVpnDns -> {
+                    context.getString(R.string.dns_custom_doq_unavailable)
+                }
             },
-        tone = WarningBannerTone.Info,
+        tone =
+            if (result == StrategyConfigApplyResult.UnsupportedVpnDns) {
+                WarningBannerTone.Restricted
+            } else {
+                WarningBannerTone.Info
+            },
         saved = true,
     )
 

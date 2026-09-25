@@ -1155,7 +1155,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_chain_cli_override_note">CLI overrides bypass strategy</string>
     <string name="config_default_ttl_helper">Deja vacío para usar el valor por defecto del motor.</string>
-    <string name="config_dns_summary_disabled">Guardado ahora y aplicado la próxima vez que el modo VPN local esté activo</string>
+    <string name="config_dns_summary_disabled">El modo Proxy puede resolver nombres con DNS cifrado. La interceptación del DNS del dispositivo requiere un resolutor VPN compatible.</string>
     <string name="config_engine_section">Motor</string>
     <string name="config_error_invalid_proxy_ip">Introduce una dirección de escucha de proxy válida.</string>
     <string name="config_fake_tls_size_helper">0 = tamaño de entrada, positivo = bytes objetivo exactos, negativo = entrada menos N.</string>
@@ -1342,7 +1342,8 @@ fake_burst 3</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_protocol_builtin_and_custom">Integrado + personalizado</string>
     <string name="dns_protocol_doh_body">Mejor flujo por defecto. Los perfiles integrados de Cloudflare, Google, Quad9 y AdGuard están listos para usar.</string>
-    <string name="dns_proxy_banner_body">La anulación de DNS solo se aplica mientras RIPDPI se ejecuta en modo VPN local.</string>
+    <string name="dns_save_in_progress">Se está guardando la configuración DNS. Inténtalo de nuevo.</string>
+    <string name="dns_proxy_banner_body">El modo Proxy no cambia el DNS del dispositivo. El DNS cifrado resuelve los nombres que maneja el proxy local; el modo VPN puede interceptar el DNS del dispositivo con un resolutor compatible.</string>
     <string name="dns_private_dns_info_title">RIPDPI gestiona el DNS por sí mismo</string>
     <string name="dns_private_dns_info_body">RIPDPI resuelve el DNS mediante su propio interceptor dentro de la VPN. El ajuste de DNS privado del sistema Android no cambia cómo se resuelven los nombres mientras la VPN está activa.</string>
     <string name="dns_private_dns_warning_title">El DNS privado del sistema está activado</string>
@@ -1544,7 +1545,7 @@ Origen: %2$s</string>
     <string name="settings_biometric_confirm_enable">Activar</string>
     <string name="settings_biometric_pin_required_ok">Aceptar</string>
     <string name="settings_community_api_url_helper">Deja vacío para usar el endpoint por defecto.</string>
-    <string name="settings_connectivity_dns_body_proxy">Guardado ahora y aplicado la próxima vez que el modo VPN esté activo.</string>
+    <string name="settings_connectivity_dns_body_proxy">El DNS cifrado puede resolver los nombres del proxy local. El DNS del dispositivo no cambia.</string>
     <string name="settings_diagnostics_export_history_body">Attach stored history tables when you explicitly build a diagnostics archive for sharing or local export.</string>
     <string name="settings_diagnostics_retention_body">How long saved connection sessions, samples, diagnostics reports, and export records stay in app storage before cleanup deletes them. Archives or log files you save elsewhere remain there until you delete them.</string>
     <string name="settings_exclude_russian_apps_title">Excluir apps rusas</string>
@@ -1661,7 +1662,7 @@ Origen: %2$s</string>
     <string name="config_chain_editor_helper">Usa las secciones [tcp] y [udp]. Los marcadores aceptan desplazamientos numéricos o semánticos. La sección HTTPS a continuación puede crear visualmente pasos tlsrec únicos y tlsrandrec aleatorizados, mientras que las tarjetas de Hostfake y aproximación falsa explican los bloques falsos dirigidos al nombre de host y las aproximaciones tipo retransmisión. Las aproximaciones exclusivas de Linux/Android están disponibles como fakedsplit host+1 y fakeddisorder endhost para cargas útiles adyacentes a HTTP o SNI TLS.</string>
     <string name="config_cli_banner_body">Los argumentos a continuación tienen prioridad sobre los controles visuales en esta pantalla.</string>
     <string name="config_default_ttl_summary">Anulación del tiempo de vida para los paquetes salientes</string>
-    <string name="config_dns_summary_enabled">Aplicado dentro del modo VPN local</string>
+    <string name="config_dns_summary_enabled">Se usa para interceptar el DNS del dispositivo en modo VPN cuando el resolutor es compatible.</string>
     <string name="config_chain_block_valid">Chain validates against the strategy registry model.</string>
     <string name="config_chain_block_invalid">Invalid chain: %1$s</string>
     <string name="config_chain_block_invalid_body">Open the raw DSL view to repair syntax or ordering before block editing resumes.</string>
@@ -1832,7 +1833,7 @@ Origen: %2$s</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s accesibles</string>
     <string name="diagnostics_trends_section">Tendencias recientes</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
-    <string name="dns_active_route_saved">Guardado ahora y aplicado la próxima vez que el modo VPN local esté activo.</string>
+    <string name="dns_active_route_saved">Resuelve los nombres que maneja el proxy local. El DNS del dispositivo no cambia.</string>
     <string name="dns_custom_bootstrap_label">IPs de bootstrap</string>
     <string name="dns_custom_dnscrypt_public_key_error">Introduce una clave pública hexadecimal válida de 64 caracteres.</string>
     <string name="dns_custom_doh_title">DoH personalizado</string>

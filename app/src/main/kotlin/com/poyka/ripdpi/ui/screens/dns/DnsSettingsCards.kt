@@ -171,16 +171,23 @@ internal fun DnsActiveConfigurationCard(
         )
         DnsDetailRow(
             label = stringResource(R.string.dns_active_detail_route),
-            value =
-                when {
-                    !uiState.isVpn -> stringResource(R.string.dns_active_route_saved)
-                    uiState.dns.dnsMode == DnsModeEncrypted -> stringResource(R.string.dns_active_route_encrypted_vpn)
-                    else -> stringResource(R.string.dns_active_route_plain_vpn)
-                },
+            value = dnsActiveRouteDescription(uiState.isVpn, uiState.dns.dnsMode == DnsModeEncrypted),
             monospace = false,
         )
     }
 }
+
+@Composable
+private fun dnsActiveRouteDescription(
+    isVpn: Boolean,
+    isEncrypted: Boolean,
+): String =
+    when {
+        !isVpn && isEncrypted -> stringResource(R.string.dns_active_route_saved)
+        !isVpn -> stringResource(R.string.config_dns_disabled_helper)
+        isEncrypted -> stringResource(R.string.dns_active_route_encrypted_vpn)
+        else -> stringResource(R.string.dns_active_route_plain_vpn)
+    }
 
 @Composable
 internal fun DnsOptionCard(

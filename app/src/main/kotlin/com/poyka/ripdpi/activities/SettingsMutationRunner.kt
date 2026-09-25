@@ -29,10 +29,16 @@ internal class SettingsMutationRunner(
     suspend fun updateSettingAndAwait(
         key: String,
         value: String,
+        canApply: AppSettings.Builder.() -> Boolean = { true },
         transform: SettingsMutation,
-    ) {
-        appSettingsRepository.update(transform)
-        effects.emit(SettingsEffect.SettingChanged(key = key, value = value))
+    ): Boolean {
+        var applied = false
+        appSettingsRepository.update {
+            applied = canApply()
+            if (applied) transform()
+        }
+        if (applied) effects.emit(SettingsEffect.SettingChanged(key = key, value = value))
+        return applied
     }
 
     fun launch(block: suspend SettingsMutationRunner.() -> Unit) {

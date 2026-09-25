@@ -662,8 +662,8 @@
     <string name="config_preset_custom_title">نمایه دستی</string>
     <string name="config_preset_custom_body">نمایه‌ای برای DNS دستی، نقطه پایانی پروکسی، مقدارهای موتور و بازنویسی‌های اختیاری خط فرمان.</string>
     <string name="config_mode_summary">مسیر مسیریابی VPN محلی یا پراکسی</string>
-    <string name="config_dns_summary_enabled">اعمال‌شده درون حالت VPN محلی</string>
-    <string name="config_dns_summary_disabled">حالا ذخیره شد و دفعه بعدی که حالت VPN محلی فعال شود اعمال می‌شود</string>
+    <string name="config_dns_summary_enabled">در حالت VPN و با حل‌کننده سازگار، برای رهگیری DNS دستگاه استفاده می‌شود.</string>
+    <string name="config_dns_summary_disabled">حالت پروکسی می‌تواند نام‌ها را با DNS رمزگذاری‌شده حل کند. رهگیری DNS دستگاه به حل‌کننده سازگار VPN نیاز دارد.</string>
     <string name="config_listen_address_summary">جایی که شنوندهٔ پراکسی محلی متصل می‌شود</string>
     <string name="config_desync_method_summary">راهبرد عبور فعال</string>
     <string name="config_default_ttl_summary">جایگزینی زمان زنده‌مانی برای بسته‌های خروجی</string>
@@ -1611,7 +1611,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_warn_notification_permission">مجوز اعلان غیرفعال است، بنابراین متوجه شدن مشکلات سرویس ممکن است سخت‌تر باشد.</string>
     <string name="dns_active_bootstrap_not_required">در حالت DNS ساده مورد نیاز نیست</string>
     <string name="dns_active_detail_route">مسیر تونل</string>
-    <string name="dns_active_route_saved">اکنون ذخیره شد و دفعه بعد که حالت VPN محلی فعال باشد اعمال خواهد شد.</string>
+    <string name="dns_active_route_saved">نام‌های پردازش‌شده توسط پروکسی محلی را حل می‌کند. DNS دستگاه تغییر نمی‌کند.</string>
     <string name="dns_custom_bootstrap_error">یک یا چند آدرس IP بوت‌استرپ غیرمحلی وارد کنید.</string>
     <string name="dns_custom_save_requirements_hint">برای ذخیره، همه فیلدهای لازم را پر کنید</string>
     <string name="dns_custom_dnscrypt_body">با مشخص کردن endpoint، نام ارائه‌دهنده، کلید عمومی و IPهای بوت‌استرپ از یک resolver DNSCrypt استفاده کنید.</string>
@@ -1629,7 +1629,8 @@ fakeddisorder endhost</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_protocol_custom_only">فقط سفارشی</string>
     <string name="dns_protocol_doh_body">بهترین جریان کار پیش‌فرض. نمایه‌های داخلی Cloudflare، Google، Quad9 و AdGuard آماده استفاده‌اند.</string>
-    <string name="dns_proxy_banner_body">بازنویسی DNS فقط هنگامی اعمال می‌شود که RIPDPI در حالت VPN محلی در حال اجراست.</string>
+    <string name="dns_save_in_progress">تنظیمات DNS در حال ذخیره است. دوباره تلاش کنید.</string>
+    <string name="dns_proxy_banner_body">حالت پروکسی DNS دستگاه را تغییر نمی‌دهد. DNS رمزگذاری‌شده نام‌های پردازش‌شده توسط پروکسی محلی را حل می‌کند؛ حالت VPN با حل‌کننده سازگار می‌تواند DNS دستگاه را رهگیری کند.</string>
     <string name="dns_private_dns_info_title">RIPDPI خودش DNS را مدیریت می‌کند</string>
     <string name="dns_private_dns_info_body">RIPDPI نام‌ها را از طریق رهگیر اختصاصی خود درون VPN حل می‌کند. تنظیم «DNS خصوصی» سیستم اندروید تا زمانی که VPN فعال است، نحوهٔ حل نام‌ها را تغییر نمی‌دهد.</string>
     <string name="dns_private_dns_warning_title">DNS خصوصی سیستم روشن است</string>
@@ -1777,7 +1778,7 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_ok">باشد</string>
     <string name="settings_biometric_unavailable">سخت‌افزار بیومتریک روی این دستگاه در دسترس نیست.</string>
     <string name="settings_community_api_url_label">URL API جامعه</string>
-    <string name="settings_connectivity_dns_body_proxy">اکنون ذخیره شد و دفعه بعد که حالت VPN فعال باشد اعمال خواهد شد.</string>
+    <string name="settings_connectivity_dns_body_proxy">DNS رمزگذاری‌شده می‌تواند نام‌های مقصد پروکسی محلی را حل کند. DNS دستگاه تغییر نمی‌کند.</string>
     <string name="settings_customization_body">آیکن برنامه، شکل تطبیقی و گزینه‌های آیکن تم‌دار.</string>
     <string name="settings_exclude_russian_apps_body">برنامه‌های بانکی، تحویل و دولتی برای جلوگیری از مشکلات شناسایی، VPN را دور می‌زنند</string>
     <string name="settings_full_tunnel_exclusions_disabled">غیرفعال است زیرا حالت Full Tunnel فعال است</string>

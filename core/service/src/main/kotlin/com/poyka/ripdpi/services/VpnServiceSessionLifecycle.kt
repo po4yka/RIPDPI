@@ -35,6 +35,7 @@ internal class VpnServiceSessionLifecycle(
             onRefreshNotification = service::refreshForegroundNotification,
         ),
 ) {
+    private val initialStartGeneration = serviceIntentArbiter.captureVpnStartGeneration()
     private var sessionComponent: VpnServiceSessionComponent? = null
     private var stateInitializer: ServiceSessionStateInitializer? = null
     private var sessionStateStore: ServiceStateStore? = null
@@ -115,6 +116,7 @@ internal class VpnServiceSessionLifecycle(
                 onRevoke = { revokeSession(initializer, runtimeCoordinator) },
             )
         }.onFailure {
+            serviceIntentArbiter.completeVpnStart(initialStartGeneration)
             stateInitializer?.close()
             clearSessionReferences()
             hardKillSwitchRefreshBroadcastLifecycle.close()
@@ -141,6 +143,7 @@ internal class VpnServiceSessionLifecycle(
         } else {
             stateInitializer?.close()
         }
+        serviceIntentArbiter.completeVpnStart(initialStartGeneration)
         clearSessionReferences()
     }
 

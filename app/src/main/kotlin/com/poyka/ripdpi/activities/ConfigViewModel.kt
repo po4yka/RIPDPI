@@ -549,10 +549,18 @@ class ConfigViewModel
                             } else {
                                 applySavedConfigDraftToRunningService(
                                     draft = persistedDraft,
+                                    appSettingsRepository = appSettingsRepository,
                                     serviceStateStore = serviceStateStore,
                                     serviceController = serviceController,
                                     startRuntimeMode = { mode ->
                                         startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
+                                    },
+                                    onUnsupportedVpnDns = {
+                                        _effects.tryEmit(
+                                            ConfigEffect.Message(
+                                                stringResolver.getString(R.string.dns_custom_doq_unavailable),
+                                            ),
+                                        )
                                     },
                                 )
                                 ConfigSaveOutcome.Saved(savedDraft)

@@ -18,6 +18,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.util.Optional
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -109,6 +110,8 @@ sealed interface ServiceStartRejectionReason {
 
     data object VpnConsentMissing : ServiceStartRejectionReason
 
+    data object DnsSettingsUpdatePending : ServiceStartRejectionReason
+
     data class ForegroundServiceBlocked(
         val message: String?,
     ) : ServiceStartRejectionReason
@@ -129,6 +132,45 @@ class ServiceIntentArbiter
         private val lock = ReentrantLock()
         private var explicitUserIntentRecorded = false
         private var explicitUserIntentGeneration = 0L
+        private var doqSaveInProgress = false
+        private val pendingVpnStarts = mutableSetOf<Long>()
+        private var vpnStartGeneration = 0L
+
+        /** The lease covers the entire suspend DataStore update, while start dispatch remains synchronous. */
+        fun tryReserveDoqSave(canSave: () -> Boolean): AutoCloseable? =
+            lock.withLock {
+                if (doqSaveInProgress || pendingVpnStarts.isNotEmpty() || !canSave()) return@withLock null
+                doqSaveInProgress = true
+                val closed = AtomicBoolean(false)
+                AutoCloseable {
+                    if (closed.compareAndSet(false, true)) lock.withLock { doqSaveInProgress = false }
+                }
+            }
+
+        fun dispatchVpnStart(action: () -> ServiceStartResult): ServiceStartResult =
+            lock.withLock {
+                if (doqSaveInProgress) {
+                    return@withLock ServiceStartResult.Rejected(
+                        Mode.VPN,
+                        ServiceStartRejectionReason.DnsSettingsUpdatePending,
+                    )
+                }
+                vpnStartGeneration += 1
+                val generation = vpnStartGeneration
+                pendingVpnStarts += generation
+                var accepted = false
+                try {
+                    action().also { accepted = it is ServiceStartResult.Accepted }
+                } finally {
+                    if (!accepted) pendingVpnStarts -= generation
+                }
+            }
+
+        fun captureVpnStartGeneration(): Long = lock.withLock { vpnStartGeneration }
+
+        fun completeVpnStart(generation: Long) {
+            lock.withLock { pendingVpnStarts -= generation }
+        }
 
         fun <T> serialize(block: () -> T): T = lock.withLock(block)
 
@@ -299,6 +341,22 @@ class DefaultServiceController
             if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
                 return ServiceStartResult.Accepted(mode)
             }
+            return if (mode == Mode.VPN) {
+                serviceIntentArbiter.dispatchVpnStart {
+                    dispatchStartInternal(mode, action, transportFailoverRequestId, transportFailoverTarget)
+                }
+            } else {
+                dispatchStartInternal(mode, action, transportFailoverRequestId, transportFailoverTarget)
+            }
+        }
+
+        @Suppress("ReturnCount")
+        private fun dispatchStartInternal(
+            mode: Mode,
+            action: String,
+            transportFailoverRequestId: Long? = null,
+            transportFailoverTarget: TransportFailoverTarget? = null,
+        ): ServiceStartResult {
             if (mode == Mode.VPN && VpnService.prepare(context) != null) {
                 Logger.i {
                     "Cannot start VPN service: VPN consent not given"
@@ -312,6 +370,7 @@ class DefaultServiceController
                         Intent(context, RipDpiVpnService::class.java).apply {
                             this.action = action
                             stampExplicitIntent(action)
+                            putExtra(vpnStartGenerationExtra, serviceIntentArbiter.captureVpnStartGeneration())
                             transportFailoverRequestId?.let { requestId ->
                                 putExtra(transportFailoverRequestIdExtra, requestId)
                             }

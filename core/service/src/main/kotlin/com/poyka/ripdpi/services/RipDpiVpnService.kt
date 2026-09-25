@@ -229,6 +229,7 @@ class RipDpiVpnService :
             transportFailoverRequestId = transportFailoverCommand.requestId,
             transportFailoverTarget = transportFailoverCommand.target,
             explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
+            vpnStartGeneration = intent.vpnStartGeneration(),
         )
     }
 

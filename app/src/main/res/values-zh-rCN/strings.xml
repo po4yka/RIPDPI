@@ -1133,7 +1133,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_editor_helper">使用 [tcp] 和 [udp] 区段。标记可接受数字或语义偏移量。下方的 HTTPS 区段可以可视化地编写单个 tlsrec 和随机化的 tlsrandrec 步骤;Hostfake 和 fake 近似卡片则解释针对主机名的伪造分片和重传式近似。仅适用于 Linux/Android 的近似可作为 fakedsplit host+1 和 fakeddisorder endhost 用于 HTTP 或 TLS SNI 相邻载荷。</string>
     <string name="config_cli_banner_title">命令行覆盖已启用</string>
     <string name="config_default_ttl_summary">出站数据包的 TTL 覆盖值</string>
-    <string name="config_dns_summary_disabled">现在保存,下次本地 VPN 模式激活时应用</string>
+    <string name="config_dns_summary_disabled">代理模式可以使用加密 DNS 解析目标域名。拦截设备 DNS 需要受支持的 VPN 解析器。</string>
     <string name="config_editor_title">编辑配置档</string>
     <string name="config_error_invalid_marker">请输入有效的标记表达式。</string>
     <string name="config_error_required">此字段为必填项。</string>
@@ -1281,7 +1281,8 @@ fakeddisorder endhost</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_protocol_dnscrypt_body">带提供商名称和公钥验证的 DNSCrypt。仅用于自定义解析器。</string>
     <string name="dns_protocol_dot_body">853 端口上的 DoT。适用于您控制主机名和 TLS 服务器名的场景。</string>
-    <string name="dns_proxy_banner_body">DNS 覆盖仅在 RIPDPI 以本地 VPN 模式运行时应用。</string>
+    <string name="dns_save_in_progress">正在保存 DNS 设置。请重试。</string>
+    <string name="dns_proxy_banner_body">代理模式不会更改设备 DNS。加密 DNS 解析本地代理处理的域名；使用受支持的解析器时，VPN 模式可以拦截设备 DNS。</string>
     <string name="dns_private_dns_info_title">RIPDPI 自行处理 DNS</string>
     <string name="dns_private_dns_info_body">RIPDPI 通过 VPN 内部自带的拦截器解析 DNS。在 VPN 处于活动状态时，Android 系统的“私人 DNS”设置不会改变名称的解析方式。</string>
     <string name="dns_private_dns_warning_title">系统私人 DNS 已开启</string>
@@ -1658,7 +1659,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_command_line_caption">优先使用原始 RIPDPI 标志,而非可视化编辑器。</string>
     <string name="config_desync_method_summary">活动绕过策略</string>
-    <string name="config_dns_summary_enabled">在本地 VPN 模式下生效</string>
+    <string name="config_dns_summary_enabled">解析器受支持时，用于在 VPN 模式下拦截设备 DNS。</string>
     <string name="config_engine_section">引擎</string>
     <string name="config_error_invalid_port">请输入有效的 TCP 端口。</string>
     <string name="config_error_unsupported">当前构建不支持此选项。</string>
@@ -2086,7 +2087,7 @@ fake_burst 3</string>
     <string name="settings_biometric_confirm_title">启用身份验证?</string>
     <string name="settings_biometric_pin_required_title">需要备用 PIN</string>
     <string name="settings_community_api_url_helper">留空以使用默认端点。</string>
-    <string name="settings_connectivity_dns_body_proxy">现已保存,将在下次启用 VPN 模式时生效。</string>
+    <string name="settings_connectivity_dns_body_proxy">加密 DNS 可以解析本地代理的目标域名。设备 DNS 不会更改。</string>
     <string name="settings_danger_section">危险区域</string>
     <string name="settings_diagnostics_monitor_body">在 RIPDPI 运行期间持续采样连接遥测、网络状态和上下文。</string>
     <string name="settings_diagnostics_retention_title">历史保留(天)</string>
@@ -2390,7 +2391,7 @@ fake_burst 3</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s 可达</string>
     <string name="diagnostics_warn_power_restriction">电源或后台限制可能干扰稳定的诊断。</string>
     <string name="dns_active_detail_endpoint">端点</string>
-    <string name="dns_active_route_saved">已保存,将在下一次启用本地 VPN 模式时应用。</string>
+    <string name="dns_active_route_saved">解析本地代理处理的域名。设备 DNS 不会更改。</string>
     <string name="dns_custom_bootstrap_helper">输入一个或多个解析器 IP,使用逗号或空格分隔。</string>
     <string name="dns_custom_dnscrypt_provider_helper">DNSCrypt 解析器声明的证书提供者名称。</string>
     <string name="dns_custom_dnscrypt_public_key_label">公钥</string>

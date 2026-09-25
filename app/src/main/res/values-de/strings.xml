@@ -1155,7 +1155,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_chain_cli_override_note">CLI overrides bypass strategy</string>
     <string name="config_default_ttl_helper">Leer lassen, um den Engine-Standard zu verwenden.</string>
-    <string name="config_dns_summary_disabled">Jetzt gespeichert und beim nächsten aktiven lokalen VPN-Modus angewendet</string>
+    <string name="config_dns_summary_disabled">Der Proxy-Modus kann Zielnamen mit verschlüsseltem DNS auflösen. Zum Abfangen von Geräte-DNS ist ein unterstützter VPN-Resolver nötig.</string>
     <string name="config_engine_section">Engine</string>
     <string name="config_error_invalid_proxy_ip">Geben Sie eine gültige Proxy-Listen-Adresse ein.</string>
     <string name="config_fake_tls_size_helper">0 = Eingabegröße, positiv = exakte Ziel-Bytes, negativ = Eingabe minus N.</string>
@@ -1342,7 +1342,8 @@ fake_burst 3</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_protocol_builtin_and_custom">Integriert + benutzerdefiniert</string>
     <string name="dns_protocol_doh_body">Bester Standard-Workflow. Integrierte Profile von Cloudflare, Google, Quad9 und AdGuard sind einsatzbereit.</string>
-    <string name="dns_proxy_banner_body">Die DNS-Überschreibung wird nur angewendet, solange RIPDPI im lokalen VPN-Modus läuft.</string>
+    <string name="dns_save_in_progress">Die DNS-Einstellungen werden gespeichert. Versuche es erneut.</string>
+    <string name="dns_proxy_banner_body">Der Proxy-Modus ändert das Geräte-DNS nicht. Verschlüsseltes DNS löst Namen auf, die der lokale Proxy verarbeitet. Der VPN-Modus kann Geräte-DNS mit einem unterstützten Resolver abfangen.</string>
     <string name="dns_private_dns_info_title">RIPDPI verarbeitet DNS selbst</string>
     <string name="dns_private_dns_info_body">RIPDPI löst DNS über einen eigenen Interceptor innerhalb des VPN auf. Die System-Einstellung „Privates DNS“ von Android ändert nicht, wie Namen aufgelöst werden, solange das VPN aktiv ist.</string>
     <string name="dns_private_dns_warning_title">System-DNS (Privates DNS) ist aktiv</string>
@@ -1544,7 +1545,7 @@ Quelle: %2$s</string>
     <string name="settings_biometric_confirm_enable">Aktivieren</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
     <string name="settings_community_api_url_helper">Leer lassen, um den Standardendpunkt zu verwenden.</string>
-    <string name="settings_connectivity_dns_body_proxy">Jetzt gespeichert und beim nächsten aktiven VPN-Modus angewendet.</string>
+    <string name="settings_connectivity_dns_body_proxy">Verschlüsseltes DNS kann Zielnamen des lokalen Proxys auflösen. Geräte-DNS bleibt unverändert.</string>
     <string name="settings_diagnostics_export_history_body">Attach stored history tables when you explicitly build a diagnostics archive for sharing or local export.</string>
     <string name="settings_diagnostics_retention_body">How long saved connection sessions, samples, diagnostics reports, and export records stay in app storage before cleanup deletes them. Archives or log files you save elsewhere remain there until you delete them.</string>
     <string name="settings_exclude_russian_apps_title">Russische Apps ausschließen</string>
@@ -1661,7 +1662,7 @@ Quelle: %2$s</string>
     <string name="config_chain_editor_helper">Verwenden Sie [tcp]- und [udp]-Abschnitte. Marker akzeptieren numerische oder semantische Offsets. Der HTTPS-Abschnitt unten kann einzelne tlsrec- und randomisierte tlsrandrec-Schritte visuell erstellen, während die Karten zu Hostfake und Fake-Approximation hostnamen-gezielte Fake-Chunks und retransmissionsartige Approximationen erläutern. Linux/Android-spezifische Approximationen sind als fakedsplit host+1 und fakeddisorder endhost für HTTP- oder TLS-SNI-nahe Nutzlasten verfügbar.</string>
     <string name="config_cli_banner_body">Die untenstehenden Argumente haben Vorrang vor den visuellen Steuerelementen auf diesem Bildschirm.</string>
     <string name="config_default_ttl_summary">Time-to-Live-Override für ausgehende Pakete</string>
-    <string name="config_dns_summary_enabled">Innerhalb des lokalen VPN-Modus angewendet</string>
+    <string name="config_dns_summary_enabled">Wird im VPN-Modus zum Abfangen von Geräte-DNS verwendet, wenn der Resolver unterstützt wird.</string>
     <string name="config_chain_block_valid">Chain validates against the strategy registry model.</string>
     <string name="config_chain_block_invalid">Invalid chain: %1$s</string>
     <string name="config_chain_block_invalid_body">Open the raw DSL view to repair syntax or ordering before block editing resumes.</string>
@@ -1832,7 +1833,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s erreichbar</string>
     <string name="diagnostics_trends_section">Aktuelle Trends</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
-    <string name="dns_active_route_saved">Jetzt gespeichert und beim nächsten Aktivieren des lokalen VPN-Modus angewendet.</string>
+    <string name="dns_active_route_saved">Löst Namen auf, die der lokale Proxy verarbeitet. Geräte-DNS bleibt unverändert.</string>
     <string name="dns_custom_bootstrap_label">Bootstrap-IPs</string>
     <string name="dns_custom_dnscrypt_public_key_error">Geben Sie einen gültigen 64-stelligen hexadezimalen öffentlichen Schlüssel ein.</string>
     <string name="dns_custom_doh_title">Benutzerdefiniertes DoH</string>

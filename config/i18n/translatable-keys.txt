@@ -2043,6 +2043,7 @@ app:dns_resolver_google_title
 app:dns_resolver_quad9_body
 app:dns_resolver_quad9_title
 app:dns_resolvers_section
+app:dns_save_in_progress
 app:dns_selected_badge
 app:dns_unknown_provider
 app:domain_bypass_clean_count

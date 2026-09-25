@@ -658,8 +658,8 @@
     <string name="config_preset_custom_title">ملف شخصي يدوي</string>
     <string name="config_preset_custom_body">ملف شخصي لـ DNS يدوي ونقطة نهاية الوكيل وقيم المحرك وتجاوزات سطر الأوامر الاختيارية.</string>
     <string name="config_mode_summary">مسار توجيه VPN المحلي أو الوكيل</string>
-    <string name="config_dns_summary_enabled">مطبّق داخل وضع VPN المحلي</string>
-    <string name="config_dns_summary_disabled">محفوظ الآن ويُطبَّق في المرة القادمة عند تفعيل وضع VPN المحلي</string>
+    <string name="config_dns_summary_enabled">يُستخدم لاعتراض DNS الجهاز في وضع VPN عندما يكون المحلل متوافقًا.</string>
+    <string name="config_dns_summary_disabled">يمكن لوضع الوكيل حل الأسماء عبر DNS المشفّر. يتطلب اعتراض DNS الجهاز محلل VPN متوافقًا.</string>
     <string name="config_listen_address_summary">العنوان الذي يرتبط به مستمع الوكيل المحلي</string>
     <string name="config_desync_method_summary">استراتيجية التجاوز النشطة</string>
     <string name="config_default_ttl_summary">تجاوز وقت الحياة للحزم الصادرة</string>
@@ -1534,9 +1534,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_bootstrap_not_required">غير مطلوب في وضع DNS العادي</string>
     <string name="dns_active_route_encrypted_vpn">اعتراض DNS المعيَّن نشط في وضع VPN المحلي.</string>
     <string name="dns_active_route_plain_vpn">تتوجَّه الاستعلامات مباشرةً إلى عنوان IP هذا للمحلِّل في وضع VPN المحلي.</string>
-    <string name="dns_active_route_saved">تمَّ الحفظ الآن وسيُطبَّق في المرة القادمة التي يكون فيها وضع VPN المحلي نشطاً.</string>
+    <string name="dns_active_route_saved">يحل الأسماء التي يعالجها الوكيل المحلي. يظل DNS الجهاز دون تغيير.</string>
     <string name="dns_proxy_banner_title">وضع الوكيل نشط</string>
-    <string name="dns_proxy_banner_body">تجاوز DNS لا يُطبَّق إلا عندما يعمل RIPDPI في وضع VPN المحلي.</string>
+    <string name="dns_save_in_progress">جارٍ حفظ إعدادات DNS. حاول مرة أخرى.</string>
+    <string name="dns_proxy_banner_body">لا يغيّر وضع الوكيل DNS الجهاز. يحل DNS المشفّر الأسماء التي يعالجها الوكيل المحلي؛ ويمكن لوضع VPN اعتراض DNS الجهاز باستخدام محلل متوافق.</string>
     <string name="dns_private_dns_info_title">يتولَّى RIPDPI معالجة DNS بنفسه</string>
     <string name="dns_private_dns_info_body">يحلِّل RIPDPI DNS عبر معترِض مدمج داخل VPN. إعداد DNS الخاص بنظام Android لا يغيِّر طريقة حلِّ الأسماء أثناء تشغيل VPN.</string>
     <string name="dns_private_dns_warning_title">DNS الخاص بالنظام مُفعَّل</string>
@@ -2042,7 +2043,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_always_on_needed">فعّل VPN دائم التشغيل لـ RIPDPI في إعدادات VPN بنظام Android عند الحاجة إلى منع التسريب بشكل صارم.</string>
     <string name="settings_permissions_always_on_unknown">لم يُبلّغ Android عن حالة VPN دائم التشغيل بعد. افتح إعدادات VPN للتحقق.</string>
     <string name="settings_connectivity_dns_body">وضع المحلل، البروتوكول، IPv6، وسلوك DNS النفق المحلي.</string>
-    <string name="settings_connectivity_dns_body_proxy">محفوظ الآن ويُطبَّق في المرة القادمة التي يكون فيها وضع VPN نشطاً.</string>
+    <string name="settings_connectivity_dns_body_proxy">يمكن أن يحل DNS المشفّر أسماء أهداف الوكيل المحلي. يظل DNS الجهاز دون تغيير.</string>
     <string name="settings_advanced_body">أعلام RIPDPI المتقدمة، مستمعو الوكيل، وتجاوزات البروتوكول.</string>
     <string name="settings_security_section">الخصوصية &amp; الأمان</string>
     <string name="settings_webrtc_title">حماية WebRTC</string>

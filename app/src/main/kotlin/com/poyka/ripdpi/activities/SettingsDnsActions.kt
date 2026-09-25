@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -25,6 +26,7 @@ internal class SettingsDnsActions(
     private val mutations: SettingsMutationRunner,
     private val serviceStateStore: ServiceStateStore,
     private val serviceController: ServiceController,
+    private val serviceIntentArbiter: ServiceIntentArbiter,
 ) {
     fun selectBuiltInDnsProvider(providerId: String) {
         val resolver = dnsProviderById(providerId) ?: return
@@ -117,6 +119,11 @@ internal class SettingsDnsActions(
             key = "encryptedDnsHost",
             value = host,
             canApply = { protocol != EncryptedDnsProtocolDoq || canSaveDoq(selectedMode) },
+            requiresVpnStartReservation = protocol == EncryptedDnsProtocolDoq,
+            canApplyInTransaction = {
+                protocol != EncryptedDnsProtocolDoq ||
+                    (ripdpiMode == Mode.Proxy.preferenceValue && canSaveDoq(selectedMode))
+            },
         ) {
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
@@ -208,11 +215,31 @@ internal class SettingsDnsActions(
         key: String,
         value: String,
         canApply: () -> Boolean = { true },
+        canApplyInTransaction: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Boolean = { true },
+        requiresVpnStartReservation: Boolean = false,
         transform: SettingsMutation,
     ) {
         mutations.launch {
             if (!canApply()) return@launch
-            updateSettingAndAwait(key = key, value = value, transform = transform)
+            val lease =
+                if (requiresVpnStartReservation) {
+                    serviceIntentArbiter.tryReserveDoqSave(canApply)
+                } else {
+                    null
+                }
+            if (requiresVpnStartReservation && lease == null) return@launch
+            val applied =
+                try {
+                    updateSettingAndAwait(
+                        key = key,
+                        value = value,
+                        canApply = canApplyInTransaction,
+                        transform = transform,
+                    )
+                } finally {
+                    lease?.close()
+                }
+            if (!applied) return@launch
             if (canApply()) applySavedDnsToRunningService()
         }
     }

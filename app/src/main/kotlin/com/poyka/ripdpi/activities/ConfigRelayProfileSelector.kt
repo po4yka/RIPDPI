@@ -36,10 +36,16 @@ internal class ConfigRelayProfileSelector(
                     val draft = dependencies.relayArtifacts.selectProfile(profileId)
                     applySavedConfigDraftToRunningService(
                         draft = draft,
+                        appSettingsRepository = dependencies.appSettingsRepository,
                         serviceStateStore = dependencies.serviceStateStore,
                         serviceController = dependencies.serviceController,
                         startRuntimeMode = { mode ->
                             startConfigRuntimeMode(mode, dependencies.serviceController, stringResolver, effects)
+                        },
+                        onUnsupportedVpnDns = {
+                            effects.tryEmit(
+                                ConfigEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
+                            )
                         },
                     )
                 }.onFailure { error ->

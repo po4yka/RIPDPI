@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -7,6 +8,9 @@ import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.ServiceIntentArbiter
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
+import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -128,7 +132,13 @@ class SettingsDnsActionsTest {
     @Test
     fun `doq saves and restarts an active proxy resolver`() =
         runTest {
-            val repository = FakeAppSettingsRepository()
+            val repository =
+                FakeAppSettingsRepository(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setRipdpiMode(Mode.Proxy.preferenceValue)
+                        .build(),
+                )
             val serviceController = FakeServiceController()
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
             val actions = createActions(repository, serviceStateStore, serviceController)
@@ -150,6 +160,123 @@ class SettingsDnsActionsTest {
             serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
             advanceUntilIdle()
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+        }
+
+    @Test
+    fun `doq transaction refuses vpn that starts after save was requested`() =
+        runTest {
+            val backing =
+                FakeAppSettingsRepository(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setRipdpiMode(Mode.Proxy.preferenceValue)
+                        .build(),
+                )
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy)
+            val repository =
+                object : AppSettingsRepository by backing {
+                    override suspend fun update(transform: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit) {
+                        serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+                        backing.update(transform)
+                    }
+                }
+            val controller = FakeServiceController()
+            val actions = createActions(repository, serviceStateStore, controller)
+            val before = backing.snapshot()
+
+            actions.setCustomDotResolver(
+                EncryptedDnsProtocolDoq,
+                Mode.Proxy,
+                "quic.example",
+                853,
+                "quic.example",
+                listOf("1.1.1.1"),
+            )
+            advanceUntilIdle()
+
+            assertEquals(before, backing.snapshot())
+            assertEquals(0, controller.stopCount)
+        }
+
+    @Test
+    fun `doq save lease rejects vpn dispatch until data store update completes`() =
+        runTest {
+            val arbiter = ServiceIntentArbiter()
+            val backing =
+                FakeAppSettingsRepository(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setRipdpiMode(Mode.Proxy.preferenceValue)
+                        .build(),
+                )
+            var startResult: ServiceStartResult? = null
+            val repository =
+                object : AppSettingsRepository by backing {
+                    override suspend fun update(transform: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit) {
+                        startResult = arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+                        backing.update(transform)
+                    }
+                }
+            val actions =
+                createActions(
+                    repository = repository,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
+                    serviceIntentArbiter = arbiter,
+                )
+
+            actions.setCustomDotResolver(
+                EncryptedDnsProtocolDoq,
+                Mode.Proxy,
+                "quic.example",
+                853,
+                "quic.example",
+                listOf("1.1.1.1"),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.DnsSettingsUpdatePending),
+                startResult,
+            )
+            assertEquals(EncryptedDnsProtocolDoq, backing.snapshot().encryptedDnsProtocol)
+            assertEquals(
+                ServiceStartResult.Accepted(Mode.VPN),
+                arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) },
+            )
+        }
+
+    @Test
+    fun `doq save refuses a pending vpn start before status leaves halted`() =
+        runTest {
+            val arbiter = ServiceIntentArbiter()
+            val repository =
+                FakeAppSettingsRepository(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setRipdpiMode(Mode.Proxy.preferenceValue)
+                        .build(),
+                )
+            val before = repository.snapshot()
+            val actions =
+                createActions(
+                    repository = repository,
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
+                    serviceIntentArbiter = arbiter,
+                )
+            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+
+            actions.setCustomDotResolver(
+                EncryptedDnsProtocolDoq,
+                Mode.Proxy,
+                "quic.example",
+                853,
+                "quic.example",
+                listOf("1.1.1.1"),
+            )
+            advanceUntilIdle()
+
+            assertEquals(before, repository.snapshot())
+            arbiter.completeVpnStart(arbiter.captureVpnStartGeneration())
         }
 
     @Test
@@ -236,9 +363,10 @@ class SettingsDnsActionsTest {
     }
 
     private fun createActions(
-        repository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        repository: AppSettingsRepository = FakeAppSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
+        serviceIntentArbiter: ServiceIntentArbiter = ServiceIntentArbiter(),
     ): SettingsDnsActions =
         SettingsDnsActions(
             mutations =
@@ -253,5 +381,6 @@ class SettingsDnsActionsTest {
                 ),
             serviceStateStore = serviceStateStore,
             serviceController = serviceController,
+            serviceIntentArbiter = serviceIntentArbiter,
         )
 }

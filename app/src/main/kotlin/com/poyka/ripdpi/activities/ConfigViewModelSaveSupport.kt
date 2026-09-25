@@ -40,11 +40,17 @@ internal fun observeConfigCapabilityEvidence(
 
 internal suspend fun applySavedConfigDraftToRunningService(
     draft: ConfigDraft,
+    appSettingsRepository: AppSettingsRepository,
     serviceStateStore: ServiceStateStore,
     serviceController: ServiceController,
     startRuntimeMode: (Mode) -> Unit,
+    onUnsupportedVpnDns: () -> Unit = {},
 ) {
     if (serviceStateStore.status.value.first != AppStatus.Running) return
+    if (draft.mode == Mode.VPN && hasUnsupportedVpnDoq(appSettingsRepository.snapshot())) {
+        onUnsupportedVpnDns()
+        return
+    }
     serviceController.stop()
     val halted =
         withTimeoutOrNull(10.seconds) {

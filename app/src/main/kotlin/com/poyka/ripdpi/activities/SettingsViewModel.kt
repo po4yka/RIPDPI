@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ class SettingsViewModel
         private val settingsViewModelBootstrapper: SettingsViewModelBootstrapper,
         settingsUiStateAssembler: SettingsUiStateAssembler,
         serviceController: ServiceController,
+        serviceIntentArbiter: ServiceIntentArbiter,
     ) : ViewModel() {
         private val _effects =
             MutableSharedFlow<SettingsEffect>(
@@ -77,6 +79,7 @@ class SettingsViewModel
                 mutations = mutations,
                 serviceStateStore = settingsActionDependencies.serviceStateStore,
                 serviceController = serviceController,
+                serviceIntentArbiter = serviceIntentArbiter,
             )
         private val customizationActions by lazy {
             SettingsCustomizationActions(

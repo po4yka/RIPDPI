@@ -4,4 +4,5 @@ enum class StrategyConfigApplyResult {
     NextSession,
     RestartingActiveService,
     RestartAlreadyPending,
+    UnsupportedVpnDns,
 }

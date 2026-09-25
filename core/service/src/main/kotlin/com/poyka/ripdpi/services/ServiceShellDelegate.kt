@@ -16,6 +16,10 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 const val explicitUserIntentGenerationExtra = "explicit_user_intent_generation"
+const val vpnStartGenerationExtra = "vpn_start_generation"
+
+internal fun Intent?.vpnStartGeneration(): Long? =
+    this?.takeIf { it.hasExtra(vpnStartGenerationExtra) }?.getLongExtra(vpnStartGenerationExtra, -1L)
 
 internal fun Intent?.explicitUserIntentGeneration(): Long? =
     this
@@ -77,18 +81,34 @@ internal class ServiceShellDelegate(
     private class QueuedCommand(
         val block: suspend () -> Unit,
         val onDrop: () -> Unit,
+        val onCompletion: () -> Unit,
         val cancellableByUserStop: Boolean,
         val acceptedStopEpoch: Long,
     ) {
         private val dispositionClaimed = AtomicBoolean(false)
+        private val executionStarted = AtomicBoolean(false)
+        private val completionClaimed = AtomicBoolean(false)
+
+        fun markStarted() {
+            executionStarted.set(true)
+        }
+
+        fun completeStart() {
+            if (completionClaimed.compareAndSet(false, true)) onCompletion()
+        }
 
         fun markExecuted() {
             dispositionClaimed.compareAndSet(false, true)
+            completeStart()
         }
 
         fun cancelWithoutExecution() {
             if (dispositionClaimed.compareAndSet(false, true)) {
-                onDrop()
+                try {
+                    onDrop()
+                } finally {
+                    if (!executionStarted.get()) completeStart()
+                }
             }
         }
     }
@@ -126,6 +146,7 @@ internal class ServiceShellDelegate(
         transportFailoverRequestId: Long? = null,
         transportFailoverTarget: TransportFailoverTarget? = null,
         explicitUserIntentGeneration: Long? = null,
+        vpnStartGeneration: Long? = null,
     ): Int =
         when (action) {
             // null is a sticky restart after process death. Android's Always-on
@@ -136,22 +157,26 @@ internal class ServiceShellDelegate(
             packageReplacedRecoveryStartAction,
             processDeathRecoveryStartAction,
             -> {
-                enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
+                enqueueInitialStart(action, startId, vpnStartGeneration)
                 android.app.Service.START_STICKY
             }
 
             startAction -> {
-                enqueueExplicitUserStart(action, startId, explicitUserIntentGeneration)
+                enqueueExplicitUserStart(action, startId, explicitUserIntentGeneration, vpnStartGeneration)
                 android.app.Service.START_STICKY
             }
 
             diagnosticsStartAction -> {
-                enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
+                enqueueInitialStart(action, startId, vpnStartGeneration)
                 android.app.Service.START_STICKY
             }
 
             transportFailoverRestartAction -> {
-                enqueueTransportFailoverRestart(transportFailoverRequestId, transportFailoverTarget)
+                enqueueTransportFailoverRestart(
+                    transportFailoverRequestId,
+                    transportFailoverTarget,
+                    vpnStartGeneration = vpnStartGeneration,
+                )
                 android.app.Service.START_STICKY
             }
 
@@ -159,14 +184,20 @@ internal class ServiceShellDelegate(
                 val guard = acceptExplicitUserStart(explicitUserIntentGeneration)
                 if (guard == null) {
                     transportFailoverRequestId?.let(transportFailoverCommandHandler.reject)
+                    vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
                 } else {
-                    enqueueTransportFailoverRestart(transportFailoverRequestId, transportFailoverTarget, guard)
+                    enqueueTransportFailoverRestart(
+                        transportFailoverRequestId,
+                        transportFailoverTarget,
+                        guard,
+                        vpnStartGeneration,
+                    )
                 }
                 android.app.Service.START_STICKY
             }
 
             startupFallbackStartAction -> {
-                enqueue(cancellableByUserStop = true) { onStartWithId(action, startId) }
+                enqueueInitialStart(action, startId, vpnStartGeneration)
                 android.app.Service.START_STICKY
             }
 
@@ -201,9 +232,20 @@ internal class ServiceShellDelegate(
 
             else -> {
                 Logger.w { "Unknown action for $serviceLabel service: $action" }
+                vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
                 android.app.Service.START_STICKY
             }
         }
+
+    private fun enqueueInitialStart(
+        action: String?,
+        startId: Int,
+        vpnStartGeneration: Long?,
+    ) {
+        enqueue(cancellableByUserStop = true, vpnStartGeneration = vpnStartGeneration) {
+            onStartWithId(action, startId)
+        }
+    }
 
     private fun enqueueUserStop(
         action: String,
@@ -257,10 +299,15 @@ internal class ServiceShellDelegate(
         action: String,
         startId: Int,
         generation: Long?,
+        vpnStartGeneration: Long? = null,
     ) {
-        val guard = acceptExplicitUserStart(generation) ?: return
+        val guard = acceptExplicitUserStart(generation)
+        if (guard == null) {
+            vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
+            return
+        }
         val prepareUserStart = shouldPrepareUserStart()
-        enqueue(cancellableByUserStop = true) {
+        enqueue(cancellableByUserStop = true, vpnStartGeneration = vpnStartGeneration) {
             if (guard.isCurrent()) {
                 if (prepareUserStart) beforeUserStart(guard)
                 if (guard.isCurrent()) onStartWithId(action, startId)
@@ -279,10 +326,12 @@ internal class ServiceShellDelegate(
         requestId: Long?,
         target: TransportFailoverTarget?,
         explicitGuard: ExplicitUserStartGuard? = null,
+        vpnStartGeneration: Long? = null,
     ) {
         if (requestId == null || target == null) {
             requestId?.let(transportFailoverCommandHandler.reject)
             Logger.w { "Ignoring transport failover restart without request identity" }
+            vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
             return
         }
         val apply =
@@ -295,6 +344,7 @@ internal class ServiceShellDelegate(
             }
         if (apply == null) {
             transportFailoverCommandHandler.reject(requestId)
+            vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart)
             return
         }
         enqueue(
@@ -307,6 +357,7 @@ internal class ServiceShellDelegate(
             },
             onDrop = { transportFailoverCommandHandler.reject(requestId) },
             cancellableByUserStop = true,
+            vpnStartGeneration = vpnStartGeneration,
         )
     }
 
@@ -351,9 +402,11 @@ internal class ServiceShellDelegate(
         }
 
         try {
+            command.markStarted()
             job.start()
             job.join()
         } finally {
+            command.completeStart()
             synchronized(commandStateLock) {
                 if (activeCommand?.job === job) {
                     activeCommand = null
@@ -375,11 +428,18 @@ internal class ServiceShellDelegate(
     private fun enqueue(
         onDrop: () -> Unit = {},
         cancellableByUserStop: Boolean = false,
+        vpnStartGeneration: Long? = null,
         block: suspend () -> Unit,
     ) {
         val command =
             synchronized(commandStateLock) {
-                QueuedCommand(block, onDrop, cancellableByUserStop, acceptedStopEpoch)
+                QueuedCommand(
+                    block = block,
+                    onDrop = onDrop,
+                    onCompletion = { vpnStartGeneration?.let(serviceIntentArbiter::completeVpnStart) },
+                    cancellableByUserStop = cancellableByUserStop,
+                    acceptedStopEpoch = acceptedStopEpoch,
+                )
             }
         if (commandQueue.trySend(command).isFailure) {
             command.cancelWithoutExecution()

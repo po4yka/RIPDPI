@@ -253,7 +253,7 @@
     <string name="settings_permissions_always_on_needed">जब आपको पुख्ता लीक रोकथाम की आवश्यकता हो, तो Android VPN सेटिंग्स में RIPDPI के लिए Always-on VPN सक्षम करें।</string>
     <string name="settings_permissions_always_on_unknown">Android ने अभी तक Always-on VPN स्थिति की रिपोर्ट नहीं की है। इसकी पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
     <string name="settings_connectivity_dns_body">रिज़ॉल्वर मोड, प्रोटोकॉल, IPv6, और स्थानीय टनल DNS व्यवहार।</string>
-    <string name="settings_connectivity_dns_body_proxy">अभी सहेजा गया और अगली बार VPN मोड सक्रिय होने पर लागू किया जाएगा।</string>
+    <string name="settings_connectivity_dns_body_proxy">एन्क्रिप्टेड DNS स्थानीय प्रॉक्सी के लक्ष्य नाम हल कर सकता है। डिवाइस DNS नहीं बदलता।</string>
     <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड।</string>
     <string name="settings_security_section">गोपनीयता &amp; सुरक्षा</string>
     <string name="settings_webrtc_title">WebRTC सुरक्षा</string>

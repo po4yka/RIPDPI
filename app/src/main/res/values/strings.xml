@@ -672,8 +672,8 @@
     <string name="config_preset_custom_title">Manual profile</string>
     <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
     <string name="config_mode_summary">Local VPN or proxy routing path</string>
-    <string name="config_dns_summary_enabled">Applied inside local VPN mode</string>
-    <string name="config_dns_summary_disabled">Saved now and applied the next time local VPN mode is active</string>
+    <string name="config_dns_summary_enabled">Used for device DNS interception in VPN mode when the resolver is supported.</string>
+    <string name="config_dns_summary_disabled">Proxy mode can resolve local proxy target names with encrypted DNS. Device DNS interception needs a supported VPN resolver.</string>
     <string name="config_listen_address_summary">Where the local proxy listener binds</string>
     <string name="config_desync_method_summary">Active bypass strategy</string>
     <string name="config_default_ttl_summary">Time-to-live override for outgoing packets</string>
@@ -1565,9 +1565,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_bootstrap_not_required">Not required in plain DNS mode</string>
     <string name="dns_active_route_encrypted_vpn">Mapped DNS interception is active in local VPN mode.</string>
     <string name="dns_active_route_plain_vpn">Queries go directly to this resolver IP in local VPN mode.</string>
-    <string name="dns_active_route_saved">Saved now and applied the next time local VPN mode is active.</string>
+    <string name="dns_active_route_saved">Resolves names handled by the local proxy. Device DNS is unchanged.</string>
     <string name="dns_proxy_banner_title">Proxy mode is active</string>
-    <string name="dns_proxy_banner_body">DNS override is only applied while RIPDPI is running in local VPN mode.</string>
+    <string name="dns_save_in_progress">DNS settings are being saved. Try again.</string>
+    <string name="dns_proxy_banner_body">Proxy mode leaves device DNS unchanged. Encrypted DNS resolves names handled by the local proxy; VPN mode can intercept device DNS with a supported resolver.</string>
     <string name="dns_private_dns_info_title">RIPDPI handles DNS itself</string>
     <string name="dns_private_dns_info_body">RIPDPI resolves DNS through its own in-VPN interceptor. Android\'s system Private DNS setting does not change how names are resolved while the VPN is active.</string>
     <string name="dns_private_dns_warning_title">System Private DNS is on</string>
@@ -2141,7 +2142,7 @@ Source: %2$s</string>
     <string name="settings_permissions_always_on_needed">Enable Always-on VPN for RIPDPI in Android VPN settings when you need hard leak prevention.</string>
     <string name="settings_permissions_always_on_unknown">Android has not reported the Always-on VPN state yet. Open VPN settings to verify it.</string>
     <string name="settings_connectivity_dns_body">Resolver mode, protocol, IPv6, and local tunnel DNS behavior.</string>
-    <string name="settings_connectivity_dns_body_proxy">Saved now and applied the next time VPN mode is active.</string>
+    <string name="settings_connectivity_dns_body_proxy">Encrypted DNS can resolve local proxy target names. Device DNS is unchanged.</string>
     <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides.</string>
     <string name="settings_security_section">Privacy &amp; security</string>
     <string name="settings_webrtc_title">WebRTC protection</string>

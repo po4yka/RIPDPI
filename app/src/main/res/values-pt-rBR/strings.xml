@@ -662,8 +662,8 @@
     <string name="config_preset_custom_title">Perfil manual</string>
     <string name="config_preset_custom_body">Perfil para DNS manual, endpoint de proxy, valores do mecanismo e sobreposições opcionais de linha de comando.</string>
     <string name="config_mode_summary">Caminho de roteamento de VPN local ou proxy</string>
-    <string name="config_dns_summary_enabled">Aplicado dentro do modo de VPN local</string>
-    <string name="config_dns_summary_disabled">Salvo agora e aplicado na próxima vez em que o modo de VPN local estiver ativo</string>
+    <string name="config_dns_summary_enabled">Usado para interceptar o DNS do dispositivo no modo VPN quando o resolvedor é compatível.</string>
+    <string name="config_dns_summary_disabled">O modo Proxy pode resolver nomes com DNS criptografado. Interceptar o DNS do dispositivo exige um resolvedor VPN compatível.</string>
     <string name="config_listen_address_summary">Endereço onde o listener do proxy local fica vinculado</string>
     <string name="config_desync_method_summary">Estratégia de desvio ativa</string>
     <string name="config_default_ttl_summary">Substituição de time-to-live para pacotes enviados</string>
@@ -1540,9 +1540,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_bootstrap_not_required">Não necessário no modo DNS simples</string>
     <string name="dns_active_route_encrypted_vpn">A intercepção de DNS mapeada está ativa no modo VPN local.</string>
     <string name="dns_active_route_plain_vpn">As consultas vão diretamente a este IP de resolvedor no modo VPN local.</string>
-    <string name="dns_active_route_saved">Salvo agora e aplicado na próxima vez em que o modo VPN local estiver ativo.</string>
+    <string name="dns_active_route_saved">Resolve nomes tratados pelo proxy local. O DNS do dispositivo não muda.</string>
     <string name="dns_proxy_banner_title">O modo proxy está ativo</string>
-    <string name="dns_proxy_banner_body">A substituição de DNS só é aplicada enquanto o RIPDPI está em execução no modo VPN local.</string>
+    <string name="dns_save_in_progress">As configurações de DNS estão sendo salvas. Tente novamente.</string>
+    <string name="dns_proxy_banner_body">O modo Proxy não altera o DNS do dispositivo. O DNS criptografado resolve nomes tratados pelo proxy local; o modo VPN pode interceptar o DNS do dispositivo com um resolvedor compatível.</string>
     <string name="dns_private_dns_info_title">O RIPDPI cuida do DNS por conta própria</string>
     <string name="dns_private_dns_info_body">O RIPDPI resolve o DNS por meio do próprio interceptor dentro da VPN. A configuração Private DNS do sistema Android não muda como os nomes são resolvidos enquanto a VPN está ativa.</string>
     <string name="dns_private_dns_warning_title">O Private DNS do sistema está ativado</string>
@@ -2105,7 +2106,7 @@ Fonte: %2$s</string>
     <string name="settings_permissions_always_on_needed">Ative a VPN sempre ativa para o RIPDPI nas configurações de VPN do Android quando precisar de prevenção rigorosa contra vazamentos.</string>
     <string name="settings_permissions_always_on_unknown">O Android ainda não informou o estado da VPN sempre ativa. Abra as configurações de VPN para verificar.</string>
     <string name="settings_connectivity_dns_body">Modo do resolvedor, protocolo, IPv6 e comportamento de DNS do túnel local.</string>
-    <string name="settings_connectivity_dns_body_proxy">Salvo agora e aplicado na próxima vez em que o modo VPN estiver ativo.</string>
+    <string name="settings_connectivity_dns_body_proxy">O DNS criptografado pode resolver destinos do proxy local. O DNS do dispositivo não muda.</string>
     <string name="settings_advanced_body">Flags de baixo nível do RIPDPI, listeners de proxy e substituições de protocolo.</string>
     <string name="settings_security_section">Privacidade &amp; segurança</string>
     <string name="settings_webrtc_title">Proteção WebRTC</string>

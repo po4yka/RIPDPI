@@ -181,6 +181,37 @@ class ServiceControllerForegroundDenialTest {
     }
 
     @Test
+    fun doqSaveAndVpnDispatchCannotOverlapWhileStatusIsHalted() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val arbiter = ServiceIntentArbiter()
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy),
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = RuntimeResumeIntentTracker(),
+                serviceIntentArbiter = arbiter,
+            )
+
+        val saveLease = checkNotNull(arbiter.tryReserveDoqSave { true })
+        assertEquals(
+            ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.DnsSettingsUpdatePending),
+            controller.start(Mode.VPN),
+        )
+        assertEquals(0, starter.startCount)
+        saveLease.close()
+
+        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
+        assertEquals(1, starter.startCount)
+        assertNull(arbiter.tryReserveDoqSave { true })
+        arbiter.completeVpnStart(arbiter.captureVpnStartGeneration())
+        checkNotNull(arbiter.tryReserveDoqSave { true }).close()
+    }
+
+    @Test
     fun transportFailoverUsesInternalVpnRestartAction() {
         ShadowServiceControllerVpnPrepareService.prepareIntent = null
         val tracker = RuntimeResumeIntentTracker()

@@ -127,6 +127,7 @@ class DefaultConnectionPolicyResolver
                     buildRememberedResolution(mode, baseline, handoverClassification)
                 }
             val resolution = rememberedResolution ?: buildBaselineResolution(baseline, handoverClassification)
+            requireSupportedVpnDnsTransport(mode, resolution.activeDns)
             val localNetworkDependent =
                 com.poyka.ripdpi.data
                     .AndroidLocalNetworkAccess(context)

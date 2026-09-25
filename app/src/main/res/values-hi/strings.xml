@@ -660,8 +660,8 @@
     <string name="config_preset_custom_title">मैनुअल प्रोफ़ाइल</string>
     <string name="config_preset_custom_body">मैनुअल DNS, proxy एंडपॉइंट, इंजन मानों और वैकल्पिक कमांड लाइन ओवरराइड के लिए प्रोफ़ाइल।</string>
     <string name="config_mode_summary">लोकल VPN या proxy रूटिंग पथ</string>
-    <string name="config_dns_summary_enabled">लोकल VPN मोड के अंदर लागू किया गया</string>
-    <string name="config_dns_summary_disabled">अभी सहेजा गया और अगली बार लोकल VPN मोड सक्रिय होने पर लागू किया जाएगा</string>
+    <string name="config_dns_summary_enabled">समर्थित रिज़ॉल्वर के साथ VPN मोड में डिवाइस DNS अनुरोधों को संभालने के लिए उपयोग किया जाता है।</string>
+    <string name="config_dns_summary_disabled">प्रॉक्सी मोड स्थानीय प्रॉक्सी के लक्ष्य नाम एन्क्रिप्टेड DNS से हल कर सकता है। डिवाइस DNS अनुरोधों को संभालने के लिए समर्थित VPN रिज़ॉल्वर चाहिए।</string>
     <string name="config_listen_address_summary">जहाँ लोकल proxy श्रोता बाइंड होता है</string>
     <string name="config_desync_method_summary">सक्रिय बायपास रणनीति</string>
     <string name="config_default_ttl_summary">आउटगोइंग पैकेटों के लिए TTL ओवरराइड</string>
@@ -1536,9 +1536,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_bootstrap_not_required">सादा DNS मोड में आवश्यक नहीं</string>
     <string name="dns_active_route_encrypted_vpn">स्थानीय VPN मोड में मैप्ड DNS इंटरसेप्शन सक्रिय है।</string>
     <string name="dns_active_route_plain_vpn">स्थानीय VPN मोड में क्वेरी सीधे इस रिज़ॉल्वर IP पर जाती हैं।</string>
-    <string name="dns_active_route_saved">अभी सहेजा गया और अगली बार स्थानीय VPN मोड सक्रिय होने पर लागू किया गया।</string>
+    <string name="dns_active_route_saved">स्थानीय प्रॉक्सी के लक्ष्य नाम हल करता है। डिवाइस DNS नहीं बदलता।</string>
     <string name="dns_proxy_banner_title">प्रॉक्सी मोड सक्रिय है</string>
-    <string name="dns_proxy_banner_body">DNS ओवरराइड केवल तभी लागू होता है जब RIPDPI स्थानीय VPN मोड में चल रहा हो।</string>
+    <string name="dns_save_in_progress">DNS सेटिंग सहेजी जा रही हैं। फिर से प्रयास करें।</string>
+    <string name="dns_proxy_banner_body">प्रॉक्सी मोड डिवाइस DNS नहीं बदलता। एन्क्रिप्टेड DNS स्थानीय प्रॉक्सी के लक्ष्य नाम हल करता है; VPN मोड समर्थित रिज़ॉल्वर से डिवाइस DNS संभाल सकता है।</string>
     <string name="dns_private_dns_info_title">RIPDPI खुद DNS संभालता है</string>
     <string name="dns_private_dns_info_body">RIPDPI अपने VPN-आंतरिक इंटरसेप्टर के माध्यम से DNS हल करता है। VPN सक्रिय रहने पर Android\'s सिस्टम Private DNS सेटिंग नाम हल करने के तरीके को नहीं बदलती।</string>
     <string name="dns_private_dns_warning_title">सिस्टम Private DNS चालू है</string>

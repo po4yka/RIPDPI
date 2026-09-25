@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.AppStartupReadinessState
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -81,8 +82,15 @@ class MainViewModel
         private val strategyConfigActions =
             MainStrategyConfigApplyActions(
                 scope = viewModelScope,
+                appSettingsRepository = appSettingsRepository,
+                currentSettings = { settingsState.value },
                 serviceStateStore = mainServiceDependencies.serviceStateStore,
                 serviceController = mainServiceDependencies.serviceController,
+                onUnsupportedVpnDns = {
+                    _effects.tryEmit(
+                        MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
+                    )
+                },
             )
 
         private val settingsState: StateFlow<AppSettings> =

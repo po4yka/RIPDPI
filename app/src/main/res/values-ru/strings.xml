@@ -520,8 +520,8 @@
     <string name="config_preset_proxy_body">Профиль для режима локального обхода с теми же базовыми настройками.</string>
     <string name="config_preset_custom_title">Ручной профиль</string>
     <string name="config_preset_custom_body">Профиль для ручной настройки DNS, конечной точки прокси, параметров движка и необязательных переопределений командной строки.</string>
-    <string name="config_dns_summary_enabled">Применяется внутри локального режима VPN</string>
-    <string name="config_dns_summary_disabled">Сохранено и будет применено при следующей активации локального режима VPN</string>
+    <string name="config_dns_summary_enabled">Используется для перехвата DNS устройства в режиме VPN, если резолвер поддерживается.</string>
+    <string name="config_dns_summary_disabled">Режим прокси может разрешать имена через зашифрованный DNS. Для перехвата DNS устройства нужен поддерживаемый VPN-резолвер.</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
@@ -1121,9 +1121,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_bootstrap_not_required">Не требуется в режиме обычного DNS</string>
     <string name="dns_active_route_encrypted_vpn">Перехват DNS с маппингом активен в режиме локального VPN.</string>
     <string name="dns_active_route_plain_vpn">Запросы идут напрямую на IP этого резолвера в режиме локального VPN.</string>
-    <string name="dns_active_route_saved">Сохранено и будет применено при следующей активации режима локального VPN.</string>
+    <string name="dns_active_route_saved">Разрешает имена, обрабатываемые локальным прокси. DNS устройства не меняется.</string>
     <string name="dns_proxy_banner_title">Режим прокси активен</string>
-    <string name="dns_proxy_banner_body">Переопределение DNS применяется только в режиме локального VPN при запущенном RIPDPI.</string>
+    <string name="dns_save_in_progress">Настройки DNS сохраняются. Повторите попытку.</string>
+    <string name="dns_proxy_banner_body">Режим прокси не меняет DNS устройства. Зашифрованный DNS разрешает имена, обрабатываемые локальным прокси; VPN может перехватывать DNS устройства с поддерживаемым резолвером.</string>
     <string name="dns_private_dns_info_title">RIPDPI обрабатывает DNS самостоятельно</string>
     <string name="dns_private_dns_info_body">RIPDPI разрешает DNS через собственный перехватчик внутри VPN. Системная настройка «Частный DNS» в Android не влияет на то, как разрешаются имена, пока VPN активен.</string>
     <string name="dns_private_dns_warning_title">Системный частный DNS включён</string>
@@ -1558,7 +1559,7 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_always_on_needed">Включите Постоянный VPN для RIPDPI в настройках Android VPN, если нужна жесткая защита от утечек.</string>
     <string name="settings_permissions_always_on_unknown">Android еще не сообщил состояние постоянного VPN. Откройте настройки VPN, чтобы проверить его.</string>
     <string name="settings_connectivity_dns_body">Режим резолвера, протокол, IPv6 и поведение DNS туннеля.</string>
-    <string name="settings_connectivity_dns_body_proxy">Сохранено и будет применено при следующей активации режима VPN.</string>
+    <string name="settings_connectivity_dns_body_proxy">Зашифрованный DNS может разрешать имена целей локального прокси. DNS устройства не меняется.</string>
     <string name="settings_advanced_body">Низкоуровневые флаги RIPDPI, слушатели прокси и переопределения протоколов.</string>
     <string name="settings_security_section">Конфиденциальность и безопасность</string>
     <string name="settings_webrtc_title">Защита WebRTC</string>

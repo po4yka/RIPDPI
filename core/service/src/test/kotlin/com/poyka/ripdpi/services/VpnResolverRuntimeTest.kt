@@ -6,7 +6,10 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -14,10 +17,27 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VpnResolverRuntimeTest {
+    @Test
+    fun `doq is accepted for proxy targets but rejected before vpn composition`() {
+        val doqDns =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setDnsMode(DnsModeEncrypted)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolDoq)
+                .build()
+                .activeDnsSettings()
+
+        requireSupportedVpnDnsTransport(Mode.Proxy, doqDns)
+        assertThrows(ServiceStartupRejectedException::class.java) {
+            requireSupportedVpnDnsTransport(Mode.VPN, doqDns)
+        }
+    }
+
     @Test
     fun `empty route digest preserves legacy signature while policy mutations change it`() {
         val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()

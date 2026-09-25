@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.DnsProviderQuad9
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
@@ -34,6 +35,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
 import com.poyka.ripdpi.data.RootSettingsSection
 import com.poyka.ripdpi.data.ServerCapabilityObservation
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
@@ -58,6 +60,38 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ConnectionPolicyResolverTest {
+    @Test
+    fun `saved doq resolves for proxy but rejects vpn before runtime composition`() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDnsMode(DnsModeEncrypted)
+                    .setEncryptedDnsProtocol(EncryptedDnsProtocolDoq)
+                    .build()
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(null),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                )
+
+            assertEquals(EncryptedDnsProtocolDoq, resolver.resolve(mode = Mode.Proxy).activeDns.encryptedDnsProtocol)
+            assertTrue(
+                runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull() is ServiceStartupRejectedException,
+            )
+        }
+
     @Test
     fun `initial resolution fails when destination routing source is unavailable`() =
         runTest {

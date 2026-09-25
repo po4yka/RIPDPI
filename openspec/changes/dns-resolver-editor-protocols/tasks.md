@@ -6,7 +6,7 @@ DoQ and ODoH settings open their matching forms without activating invalid or un
 
 ## Ownership
 
-DNS editor lane owns app DNS screen/state/actions, home VPN start guard, focused tests, task and this change. Shared locale resources and generated board serialize at integration.
+DNS editor lane owns app DNS screen/state/actions, home VPN start guard, service intent reservation and policy guard, focused tests, task and this change. Shared locale resources and generated board serialize at integration.
 
 ## Execution
 
@@ -14,4 +14,4 @@ DNS editor lane owns app DNS screen/state/actions, home VPN start guard, focused
 
 ## Verification
 
-Run targeted app unit and Compose tests, app lint and OpenSpec/task validation. Record device and hosted CI separately after integration.
+Run targeted app/service unit and Compose tests, app/service lint, static analysis and OpenSpec/task validation. Exercise both DoQ Save/VPN start interleavings and a stale start completion. Record device and hosted CI separately after integration.
