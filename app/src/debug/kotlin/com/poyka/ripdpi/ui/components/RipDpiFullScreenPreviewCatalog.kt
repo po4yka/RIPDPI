@@ -345,8 +345,9 @@ internal fun RipDpiDnsSettingsPreviewScene() {
             onProtocolSelected = {},
             onResolverSelected = {},
             onSaveCustomDoh = { _, _ -> },
-            onSaveCustomDot = { _, _, _, _ -> },
+            onSaveCustomDot = { _, _, _, _, _ -> },
             onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+            onSaveCustomOdoh = { _, _ -> },
             onSavePlainDns = {},
             onIpv6Changed = {},
         )

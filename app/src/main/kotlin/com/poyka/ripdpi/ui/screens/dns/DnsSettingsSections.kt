@@ -14,12 +14,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.protocolDisplayName
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -187,8 +190,9 @@ internal fun DnsCustomResolverSettingsSection(
     input: DnsSettingsInputState,
     validation: DnsSettingsValidation,
     onSaveCustomDoh: (String, List<String>) -> Unit,
-    onSaveCustomDot: (String, Int, String, List<String>) -> Unit,
+    onSaveCustomDot: (String, String, Int, String, List<String>) -> Unit,
     onSaveCustomDnsCrypt: (String, Int, String, String, List<String>) -> Unit,
+    onSaveCustomOdoh: (OdohResolverFields, List<String>) -> Unit,
     onSavePlainDns: (String) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -221,6 +225,7 @@ internal fun DnsCustomResolverSettingsSection(
                         onSaveCustomDoh = onSaveCustomDoh,
                         onSaveCustomDot = onSaveCustomDot,
                         onSaveCustomDnsCrypt = onSaveCustomDnsCrypt,
+                        onSaveCustomOdoh = onSaveCustomOdoh,
                     )
                 }
             }
@@ -278,6 +283,24 @@ private fun DnsProtocolOptionCards(
         badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
         onClick = { onProtocolSelected(EncryptedDnsProtocolDnsCrypt) },
         testTag = RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDnsCrypt),
+    )
+    DnsOptionCard(
+        icon = RipDpiIcons.Lock,
+        title = stringResource(R.string.dns_protocol_doq),
+        body = stringResource(R.string.dns_protocol_doq_body),
+        selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq,
+        badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
+        onClick = { onProtocolSelected(EncryptedDnsProtocolDoq) },
+        testTag = RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolDoq),
+    )
+    DnsOptionCard(
+        icon = RipDpiIcons.Lock,
+        title = stringResource(R.string.dns_protocol_odoh),
+        body = stringResource(R.string.dns_protocol_odoh_body),
+        selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolOdoh,
+        badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
+        onClick = { onProtocolSelected(EncryptedDnsProtocolOdoh) },
+        testTag = RipDpiTestTags.dnsProtocol(EncryptedDnsProtocolOdoh),
     )
 }
 
@@ -355,8 +378,9 @@ private fun EncryptedDnsEditor(
     input: DnsSettingsInputState,
     validation: DnsSettingsValidation,
     onSaveCustomDoh: (String, List<String>) -> Unit,
-    onSaveCustomDot: (String, Int, String, List<String>) -> Unit,
+    onSaveCustomDot: (String, String, Int, String, List<String>) -> Unit,
     onSaveCustomDnsCrypt: (String, Int, String, String, List<String>) -> Unit,
+    onSaveCustomOdoh: (OdohResolverFields, List<String>) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -400,6 +424,7 @@ private fun EncryptedDnsEditor(
         },
         onSaveCustomDot = {
             onSaveCustomDot(
+                uiState.dns.encryptedDnsProtocol,
                 validation.trimmedDotHost,
                 validation.dotPort,
                 validation.trimmedDotTlsServerName,
@@ -415,5 +440,6 @@ private fun EncryptedDnsEditor(
                 validation.normalizedBootstrapIps,
             )
         },
+        onSaveCustomOdoh = { fields -> onSaveCustomOdoh(fields, validation.normalizedBootstrapIps) },
     )
 }

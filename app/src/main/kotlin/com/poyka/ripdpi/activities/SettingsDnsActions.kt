@@ -6,7 +6,9 @@ import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
@@ -59,7 +61,9 @@ internal class SettingsDnsActions(
                 setEncryptedDnsDnscryptProviderName("")
                 setEncryptedDnsDnscryptPublicKey("")
             }
-            if (protocol != EncryptedDnsProtocolDot && protocol != EncryptedDnsProtocolDoh) {
+            if (protocol != EncryptedDnsProtocolDot && protocol != EncryptedDnsProtocolDoq &&
+                protocol != EncryptedDnsProtocolDoh
+            ) {
                 setEncryptedDnsTlsServerName("")
             }
         }
@@ -121,11 +125,13 @@ internal class SettingsDnsActions(
     }
 
     fun setCustomDotResolver(
+        protocol: String,
         host: String,
         port: Int,
         tlsServerName: String,
         bootstrapIps: List<String>,
     ) {
+        require(protocol == EncryptedDnsProtocolDot || protocol == EncryptedDnsProtocolDoq)
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
         updateDnsSetting(
             key = "encryptedDnsHost",
@@ -134,7 +140,7 @@ internal class SettingsDnsActions(
             setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
             setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
-            setEncryptedDnsProtocol(EncryptedDnsProtocolDot)
+            setEncryptedDnsProtocol(protocol)
             setEncryptedDnsHost(host.trim())
             setEncryptedDnsPort(port)
             setEncryptedDnsTlsServerName(tlsServerName.trim())
@@ -170,6 +176,41 @@ internal class SettingsDnsActions(
             setEncryptedDnsDohUrl("")
             setEncryptedDnsDnscryptProviderName(providerName.trim())
             setEncryptedDnsDnscryptPublicKey(publicKey.trim())
+        }
+    }
+
+    fun setCustomOdohResolver(
+        fields: OdohResolverFields,
+        bootstrapIps: List<String>,
+    ) {
+        require(fields.isValid())
+        val url = java.net.URI(fields.proxyUrl.trim())
+        val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
+        updateDnsSetting(
+            key = "encryptedDnsOdohProxyUrl",
+            value = fields.proxyUrl,
+        ) {
+            setDnsMode(DnsModeEncrypted)
+            setDnsProviderId(DnsProviderCustom)
+            setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
+            setEncryptedDnsProtocol(EncryptedDnsProtocolOdoh)
+            setEncryptedDnsHost(url.host)
+            setEncryptedDnsPort(url.port.takeIf { it > 0 } ?: defaultDnsPort)
+            setEncryptedDnsTlsServerName(url.host)
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(normalizedBootstrapIps)
+            setEncryptedDnsDohUrl("")
+            setEncryptedDnsDnscryptProviderName("")
+            setEncryptedDnsDnscryptPublicKey("")
+            setEncryptedDnsOdohProxyUrl(fields.proxyUrl.trim())
+            setEncryptedDnsOdohProxyOperatorId(fields.proxyOperatorId.trim())
+            setEncryptedDnsOdohTargetHost(fields.targetHost.trim())
+            setEncryptedDnsOdohTargetPath(fields.targetPath.trim())
+            setEncryptedDnsOdohTargetOperatorId(fields.targetOperatorId.trim())
+            setEncryptedDnsOdohConfigSource(fields.configSource)
+            setEncryptedDnsOdohConfigsHex(fields.configsHex.trim())
+            setEncryptedDnsOdohConfigsRetrievedAtSecs(fields.configsRetrievedAtSecs)
+            setEncryptedDnsOdohConfigsTtlSecs(fields.configsTtlSecs)
         }
     }
 

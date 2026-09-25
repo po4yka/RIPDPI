@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
@@ -1737,6 +1738,33 @@ class SettingsUiStateTest {
             state.dns.encryptedDnsDnscryptPublicKey,
         )
         assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", state.dns.dnsSummary)
+    }
+
+    @Test
+    fun `saved odoh resolver exposes target configuration in ui state`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setDnsMode(DnsModeEncrypted)
+                .setDnsProviderId(DnsProviderCustom)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolOdoh)
+                .setEncryptedDnsOdohProxyUrl("https://proxy.example/dns-query")
+                .setEncryptedDnsOdohProxyOperatorId("proxy")
+                .setEncryptedDnsOdohTargetHost("target.example")
+                .setEncryptedDnsOdohTargetPath("/dns-query")
+                .setEncryptedDnsOdohTargetOperatorId("target")
+                .setEncryptedDnsOdohConfigSource("custom_bytes")
+                .setEncryptedDnsOdohConfigsHex("0102")
+                .setEncryptedDnsOdohConfigsRetrievedAtSecs(1_700_000_000)
+                .setEncryptedDnsOdohConfigsTtlSecs(86_400)
+                .build()
+                .toUiState()
+
+        assertEquals(EncryptedDnsProtocolOdoh, state.dns.encryptedDnsProtocol)
+        assertEquals("https://proxy.example/dns-query", state.dns.odoh.proxyUrl)
+        assertEquals("target", state.dns.odoh.targetOperatorId)
+        assertEquals("0102", state.dns.odoh.configsHex)
+        assertEquals(86_400, state.dns.odoh.configsTtlSecs)
     }
 
     private fun AppSettings.Builder.withPrimaryDesyncMethod(

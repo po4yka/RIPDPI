@@ -1623,7 +1623,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_port_helper">از پورت resolver برای پروتکل رمزگذاری‌شده انتخاب‌شده استفاده کنید.</string>
     <string name="dns_custom_section">سرور سفارشی</string>
     <string name="dns_custom_tls_server_name_label">نام سرور TLS</string>
-    <string name="dns_mode_encrypted_body">DNS را داخل VPN رهگیری کنید و آن را از طریق DoH، DoT یا DNSCrypt حل کنید.</string>
+    <string name="dns_mode_encrypted_body">DNS را داخل VPN رهگیری کنید و آن را از طریق پروتکل رمزگذاری‌شده انتخاب‌شده حل کنید.</string>
     <string name="dns_mode_plain">DNS ساده</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
@@ -4196,4 +4196,25 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_body">برای استفاده از این رله به حالت پروکسی بروید. VPN نمی‌تواند اتصال HTTP آن را محافظت کند.</string>
     <string name="config_relay_apps_script_parallel">رله موازی</string>
     <string name="config_relay_protocol_section_proxy">انتقال‌های پروکسی</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS از طریق QUIC. میزبان، نام TLS، درگاه و IPهای راه‌اندازی را وارد کنید.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">DNS ناشناس از طریق HTTPS. پراکسی، هدف و کلید هدف را تنظیم کنید.</string>
+    <string name="dns_custom_doq_title">DoQ سفارشی</string>
+    <string name="dns_custom_doq_body">سرور DNS روی QUIC را با میزبان، درگاه، نام TLS و IPهای راه‌اندازی تنظیم کنید.</string>
+    <string name="dns_custom_odoh_title">ODoH سفارشی</string>
+    <string name="dns_custom_odoh_body">گردانندگان جداگانه برای پراکسی و هدف، بایت‌های پیکربندی و IPهای راه‌اندازی را تعیین کنید.</string>
+    <string name="dns_custom_odoh_proxy_url_label">نشانی HTTPS پراکسی</string>
+    <string name="dns_custom_odoh_proxy_operator_label">شناسه گرداننده پراکسی</string>
+    <string name="dns_custom_odoh_target_host_label">میزبان هدف</string>
+    <string name="dns_custom_odoh_target_path_label">مسیر هدف</string>
+    <string name="dns_custom_odoh_target_operator_label">شناسه گرداننده هدف</string>
+    <string name="dns_custom_odoh_source_label">منبع پیکربندی هدف</string>
+    <string name="dns_custom_odoh_source_custom">بایت‌های سفارشی</string>
+    <string name="dns_custom_odoh_source_custom_body">بایت‌های پیکربندی دریافتی از گرداننده هدف را جای‌گذاری کنید.</string>
+    <string name="dns_custom_odoh_source_bundled">بایت‌های همراه</string>
+    <string name="dns_custom_odoh_source_bundled_body">از بایت‌های پیکربندی موجود در نمایه سرور استفاده کنید.</string>
+    <string name="dns_custom_odoh_configs_hex_label">پیکربندی هدف به صورت hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">زمان دریافت (ثانیه یونیکس)</string>
+    <string name="dns_custom_odoh_ttl_label">مدت اعتبار (ثانیه)</string>
 </resources>

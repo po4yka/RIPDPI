@@ -1485,7 +1485,7 @@ fakeddisorder endhost</string>
     <string name="dns_mode_doh">DNS مشفّر</string>
     <string name="dns_mode_plain">DNS عادي</string>
     <string name="dns_mode_helper">يعترض DNS المشفّر حركة DNS داخل VPN ويحلّها عبر البروتوكول المشفّر المحدد. يستخدم DNS العادي عنوان IP أدناه مباشرةً.</string>
-    <string name="dns_mode_encrypted_body">اعتراض DNS داخل VPN وتحليله عبر DoH أو DoT أو DNSCrypt.</string>
+    <string name="dns_mode_encrypted_body">اعتراض DNS داخل VPN وتحليله عبر البروتوكول المشفر المحدد.</string>
     <string name="dns_mode_plain_body">إرسال DNS مباشرةً إلى IP المحلل دون اعتراض مشفّر أو إعداد bootstrap.</string>
     <string name="dns_protocol_section">البروتوكول المشفّر</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
@@ -4219,4 +4219,25 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_body">انتقل إلى وضع الوكيل لاستخدام هذا المرحل. لا يمكن لشبكة VPN حماية اتصال HTTP الخاص به.</string>
     <string name="config_relay_apps_script_parallel">ترحيل متوازٍ</string>
     <string name="config_relay_protocol_section_proxy">نواقل الوكيل</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS عبر QUIC. أدخل المضيف واسم TLS والمنفذ وعناوين IP للتهيئة.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">DNS مخفي عبر HTTPS. اضبط الوكيل والهدف ومفتاح الهدف.</string>
+    <string name="dns_custom_doq_title">DoQ مخصص</string>
+    <string name="dns_custom_doq_body">استخدم DNS عبر QUIC مع مضيف ومنفذ واسم TLS وعناوين IP للتهيئة.</string>
+    <string name="dns_custom_odoh_title">ODoH مخصص</string>
+    <string name="dns_custom_odoh_body">حدد مشغلين منفصلين للوكيل والهدف، وبايتات الإعداد وعناوين IP للتهيئة.</string>
+    <string name="dns_custom_odoh_proxy_url_label">رابط HTTPS للوكيل</string>
+    <string name="dns_custom_odoh_proxy_operator_label">معرّف مشغل الوكيل</string>
+    <string name="dns_custom_odoh_target_host_label">مضيف الهدف</string>
+    <string name="dns_custom_odoh_target_path_label">مسار الهدف</string>
+    <string name="dns_custom_odoh_target_operator_label">معرّف مشغل الهدف</string>
+    <string name="dns_custom_odoh_source_label">مصدر إعداد الهدف</string>
+    <string name="dns_custom_odoh_source_custom">بايتات مخصصة</string>
+    <string name="dns_custom_odoh_source_custom_body">الصق بايتات الإعداد التي حصلت عليها من مشغل الهدف.</string>
+    <string name="dns_custom_odoh_source_bundled">بايتات مضمّنة</string>
+    <string name="dns_custom_odoh_source_bundled_body">استخدم بايتات الإعداد من ملف المحلل.</string>
+    <string name="dns_custom_odoh_configs_hex_label">إعداد الهدف بصيغة hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">وقت الجلب (ثواني Unix)</string>
+    <string name="dns_custom_odoh_ttl_label">مدة الصلاحية (ثواني)</string>
 </resources>

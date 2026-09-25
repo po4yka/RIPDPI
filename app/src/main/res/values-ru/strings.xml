@@ -1072,7 +1072,7 @@ fakeddisorder endhost</string>
     <string name="dns_mode_doh">Зашифрованный DNS</string>
     <string name="dns_mode_plain">Обычный DNS</string>
     <string name="dns_mode_helper">Зашифрованный DNS перехватывает DNS-запросы внутри VPN и разрешает их через выбранный зашифрованный протокол. Обычный DNS напрямую использует указанный IP-адрес.</string>
-    <string name="dns_mode_encrypted_body">Перехватывать DNS внутри VPN и разрешать через DoH, DoT или DNSCrypt.</string>
+    <string name="dns_mode_encrypted_body">Перехватывать DNS внутри VPN и разрешать через выбранный зашифрованный протокол.</string>
     <string name="dns_mode_plain_body">Отправлять DNS-запросы напрямую на IP-адрес резолвера без зашифрованного перехвата или дополнительной настройки.</string>
     <string name="dns_protocol_section">Зашифрованный протокол</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
@@ -4094,4 +4094,25 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_body">Переключитесь в режим прокси. VPN не может защитить HTTP-соединение этого ретранслятора.</string>
     <string name="config_relay_apps_script_parallel">Параллельное реле</string>
     <string name="config_relay_protocol_section_proxy">Прокси-транспорты</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS через QUIC. Укажите свой хост, TLS-имя, порт и IP-адреса начальной загрузки.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">Обезличенный DNS через HTTPS. Настройте прокси, целевой сервер и ключ.</string>
+    <string name="dns_custom_doq_title">Пользовательский DoQ</string>
+    <string name="dns_custom_doq_body">Укажите сервер DNS через QUIC, порт, TLS-имя и IP-адреса начальной загрузки.</string>
+    <string name="dns_custom_odoh_title">Пользовательский ODoH</string>
+    <string name="dns_custom_odoh_body">Укажите независимых операторов прокси и целевого сервера, конфигурацию и IP-адреса начальной загрузки.</string>
+    <string name="dns_custom_odoh_proxy_url_label">HTTPS URL прокси</string>
+    <string name="dns_custom_odoh_proxy_operator_label">Идентификатор оператора прокси</string>
+    <string name="dns_custom_odoh_target_host_label">Хост целевого сервера</string>
+    <string name="dns_custom_odoh_target_path_label">Путь целевого сервера</string>
+    <string name="dns_custom_odoh_target_operator_label">Идентификатор оператора цели</string>
+    <string name="dns_custom_odoh_source_label">Источник конфигурации цели</string>
+    <string name="dns_custom_odoh_source_custom">Свои байты</string>
+    <string name="dns_custom_odoh_source_custom_body">Вставьте байты конфигурации, полученные от оператора целевого сервера.</string>
+    <string name="dns_custom_odoh_source_bundled">Встроенные байты</string>
+    <string name="dns_custom_odoh_source_bundled_body">Используйте байты конфигурации из профиля резолвера.</string>
+    <string name="dns_custom_odoh_configs_hex_label">Конфигурация цели в hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">Время получения (Unix, секунды)</string>
+    <string name="dns_custom_odoh_ttl_label">Срок действия (секунды)</string>
 </resources>

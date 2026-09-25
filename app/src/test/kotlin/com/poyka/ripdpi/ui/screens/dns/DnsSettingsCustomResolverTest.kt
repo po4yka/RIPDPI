@@ -5,10 +5,12 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -65,6 +67,19 @@ class DnsSettingsCustomResolverTest {
 
         assertEquals("https://dns.example/dns-query", activeEndpointSummary(dohState))
         assertEquals("resolver.example:853", activeEndpointSummary(dotFallbackState))
+        assertEquals(
+            "https://proxy.example/dns-query",
+            activeEndpointSummary(
+                SettingsUiState(
+                    dns =
+                        DnsUiState(
+                            dnsMode = DnsModeEncrypted,
+                            encryptedDnsProtocol = EncryptedDnsProtocolOdoh,
+                            odoh = OdohResolverFields(proxyUrl = "https://proxy.example/dns-query"),
+                        ),
+                ),
+            ),
+        )
     }
 
     @Test
@@ -114,6 +129,7 @@ class DnsSettingsCustomResolverTest {
                     onSaveCustomDoh = {},
                     onSaveCustomDot = {},
                     onSaveCustomDnsCrypt = {},
+                    onSaveCustomOdoh = {},
                 )
             }
         }
@@ -161,6 +177,7 @@ class DnsSettingsCustomResolverTest {
                     onSaveCustomDoh = {},
                     onSaveCustomDot = {},
                     onSaveCustomDnsCrypt = {},
+                    onSaveCustomOdoh = {},
                 )
             }
         }

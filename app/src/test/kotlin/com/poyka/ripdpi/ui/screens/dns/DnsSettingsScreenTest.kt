@@ -7,17 +7,24 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,8 +58,9 @@ class DnsSettingsScreenTest {
                     onProtocolSelected = {},
                     onResolverSelected = {},
                     onSaveCustomDoh = { _, _ -> },
-                    onSaveCustomDot = { _, _, _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
                     onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
                     onSavePlainDns = {},
                     onIpv6Changed = {},
                 )
@@ -92,8 +100,9 @@ class DnsSettingsScreenTest {
                     onProtocolSelected = {},
                     onResolverSelected = {},
                     onSaveCustomDoh = { _, _ -> },
-                    onSaveCustomDot = { _, _, _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
                     onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
                     onSavePlainDns = {},
                     onIpv6Changed = {},
                 )
@@ -108,5 +117,149 @@ class DnsSettingsScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomTlsServerName).performTextInput("resolver.example")
 
         composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
+    }
+
+    @Test
+    fun savedDoqShowsTlsEditorAndSavesAsDoq() {
+        var savedProtocol: String? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCustom,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolDoq,
+                                    encryptedDnsHost = "quic.example",
+                                    encryptedDnsPort = 853,
+                                    encryptedDnsTlsServerName = "quic.example",
+                                    encryptedDnsBootstrapIps = persistentListOf("1.1.1.1"),
+                                ),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { protocol, _, _, _, _ -> savedProtocol = protocol },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, _ -> },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomDohUrl).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomHost).performTextReplacement("new.example")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(EncryptedDnsProtocolDoq, savedProtocol) }
+    }
+
+    @Test
+    fun savedOdohShowsTargetFieldsAndRequiresValidHex() {
+        var saved: OdohResolverFields? = null
+        val current =
+            OdohResolverFields(
+                proxyUrl = "https://proxy.example/dns-query",
+                proxyOperatorId = "proxy",
+                targetHost = "target.example",
+                targetPath = "/dns-query",
+                targetOperatorId = "target",
+                configSource = "custom_bytes",
+                configsHex = "0",
+                configsRetrievedAtSecs = 1_700_000_000,
+                configsTtlSecs = 86_400,
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCustom,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolOdoh,
+                                    encryptedDnsBootstrapIps = persistentListOf("1.1.1.1"),
+                                    odoh = current,
+                                ),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { fields, _ -> saved = fields },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomDohUrl).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohTargetHost).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsOdohConfigsHex).performTextReplacement("0102")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals("0102", saved?.configsHex) }
+    }
+
+    @Test
+    fun odohBootstrapOnlyEditCanBeSaved() {
+        var savedBootstrap: List<String>? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                DnsSettingsScreen(
+                    uiState =
+                        SettingsUiState(
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCustom,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolOdoh,
+                                    encryptedDnsBootstrapIps = persistentListOf("1.1.1.1"),
+                                    odoh =
+                                        OdohResolverFields(
+                                            proxyUrl = "https://proxy.example/dns-query",
+                                            proxyOperatorId = "proxy",
+                                            targetHost = "target.example",
+                                            targetPath = "/dns-query",
+                                            targetOperatorId = "target",
+                                            configSource = "custom_bytes",
+                                            configsHex = "0102",
+                                            configsRetrievedAtSecs = 1_700_000_000,
+                                            configsTtlSecs = 86_400,
+                                        ),
+                                ),
+                        ),
+                    onBack = {},
+                    onModeSelected = {},
+                    onProtocolSelected = {},
+                    onResolverSelected = {},
+                    onSaveCustomDoh = { _, _ -> },
+                    onSaveCustomDot = { _, _, _, _, _ -> },
+                    onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+                    onSaveCustomOdoh = { _, bootstrap -> savedBootstrap = bootstrap },
+                    onSavePlainDns = {},
+                    onIpv6Changed = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomBootstrap).performTextReplacement("8.8.8.8")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.DnsCustomSave)
+            .assertIsEnabled()
+            .performScrollTo()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(listOf("8.8.8.8"), savedBootstrap) }
     }
 }

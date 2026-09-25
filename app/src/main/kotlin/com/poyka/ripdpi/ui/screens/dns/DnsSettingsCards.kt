@@ -55,6 +55,7 @@ internal fun DnsActiveConfigurationCard(
             uiState.dns.dnsMode,
             uiState.dns.encryptedDnsProtocol,
             uiState.dns.encryptedDnsDohUrl,
+            uiState.dns.odoh.proxyUrl,
             uiState.dns.encryptedDnsHost,
             uiState.dns.encryptedDnsPort,
             uiState.dns.dnsIp,

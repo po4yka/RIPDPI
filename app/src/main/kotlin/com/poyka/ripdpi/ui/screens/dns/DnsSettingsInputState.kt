@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.utility.checkNotLocalIp
 
@@ -64,6 +65,9 @@ internal data class DnsSettingsValidation(
 
 @Composable
 internal fun rememberDnsSettingsInputState(dns: DnsUiState): DnsSettingsInputState {
+    val isTlsResolver =
+        dns.encryptedDnsProtocol == EncryptedDnsProtocolDot ||
+            dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq
     var plainDnsInput by rememberSaveable(dns.dnsIp, dns.dnsMode) {
         mutableStateOf(if (dns.dnsMode == DnsModePlainUdp) dns.dnsIp else "")
     }
@@ -71,7 +75,7 @@ internal fun rememberDnsSettingsInputState(dns: DnsUiState): DnsSettingsInputSta
         mutableStateOf(if (dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh) dns.encryptedDnsDohUrl else "")
     }
     var customDotHost by rememberSaveable(dns.encryptedDnsHost, dns.encryptedDnsProtocol) {
-        mutableStateOf(if (dns.encryptedDnsProtocol == EncryptedDnsProtocolDot) dns.encryptedDnsHost else "")
+        mutableStateOf(if (isTlsResolver) dns.encryptedDnsHost else "")
     }
     var customDnsCryptHost by rememberSaveable(dns.encryptedDnsHost, dns.encryptedDnsProtocol) {
         mutableStateOf(if (dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) dns.encryptedDnsHost else "")
@@ -80,7 +84,7 @@ internal fun rememberDnsSettingsInputState(dns: DnsUiState): DnsSettingsInputSta
         mutableStateOf(encryptedPortInput(dns))
     }
     var tlsServerNameInput by rememberSaveable(dns.encryptedDnsTlsServerName, dns.encryptedDnsProtocol) {
-        mutableStateOf(if (dns.encryptedDnsProtocol == EncryptedDnsProtocolDot) dns.encryptedDnsTlsServerName else "")
+        mutableStateOf(if (isTlsResolver) dns.encryptedDnsTlsServerName else "")
     }
     var bootstrapInput by rememberSaveable(dns.encryptedDnsBootstrapIps, dns.encryptedDnsProtocol) {
         mutableStateOf(
@@ -155,6 +159,7 @@ internal fun selectedResolverOption(dns: DnsUiState): DnsResolverOption? =
 
 private fun encryptedPortInput(dns: DnsUiState): String =
     if (dns.encryptedDnsProtocol == EncryptedDnsProtocolDot ||
+        dns.encryptedDnsProtocol == EncryptedDnsProtocolDoq ||
         dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt
     ) {
         dns.encryptedDnsPort
@@ -244,7 +249,7 @@ private fun DnsUiState.isCustomDotDirty(
     bootstrapIps: List<String>,
 ): Boolean =
     dnsMode != DnsModeEncrypted ||
-        encryptedDnsProtocol != EncryptedDnsProtocolDot ||
+        (encryptedDnsProtocol != EncryptedDnsProtocolDot && encryptedDnsProtocol != EncryptedDnsProtocolDoq) ||
         dnsProviderId != DnsProviderCustom ||
         host != encryptedDnsHost ||
         port != encryptedDnsPort ||

@@ -685,7 +685,7 @@
     <string name="dns_custom_dot_title">自定义 DoT</string>
     <string name="dns_custom_port_label">端口</string>
     <string name="dns_custom_title">自定义 DNS</string>
-    <string name="dns_mode_encrypted_body">在 VPN 内拦截 DNS,并通过 DoH、DoT 或 DNSCrypt 进行解析。</string>
+    <string name="dns_mode_encrypted_body">在 VPN 内拦截 DNS，并通过所选加密协议进行解析。</string>
     <string name="dns_mode_section">模式</string>
     <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_custom_only">仅自定义</string>
@@ -4180,4 +4180,25 @@ fake_burst 3</string>
     <string name="config_relay_apps_script_proxy_only_body">切换到代理模式以使用此中继。VPN 无法保护其 HTTP 连接。</string>
     <string name="config_relay_apps_script_parallel">并行中继</string>
     <string name="config_relay_protocol_section_proxy">代理传输</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">通过 QUIC 使用 DNS。设置主机、TLS 名称、端口和引导 IP。</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">通过 HTTPS 使用匿名 DNS。配置代理、目标和目标密钥。</string>
+    <string name="dns_custom_doq_title">自定义 DoQ</string>
+    <string name="dns_custom_doq_body">设置 DNS over QUIC 的主机、端口、TLS 名称和引导 IP。</string>
+    <string name="dns_custom_odoh_title">自定义 ODoH</string>
+    <string name="dns_custom_odoh_body">设置独立的代理和目标运营方、配置字节及引导 IP。</string>
+    <string name="dns_custom_odoh_proxy_url_label">代理 HTTPS URL</string>
+    <string name="dns_custom_odoh_proxy_operator_label">代理运营方 ID</string>
+    <string name="dns_custom_odoh_target_host_label">目标主机</string>
+    <string name="dns_custom_odoh_target_path_label">目标路径</string>
+    <string name="dns_custom_odoh_target_operator_label">目标运营方 ID</string>
+    <string name="dns_custom_odoh_source_label">目标配置来源</string>
+    <string name="dns_custom_odoh_source_custom">自定义字节</string>
+    <string name="dns_custom_odoh_source_custom_body">粘贴从目标运营方获取的配置字节。</string>
+    <string name="dns_custom_odoh_source_bundled">内置字节</string>
+    <string name="dns_custom_odoh_source_bundled_body">使用解析器配置中附带的配置字节。</string>
+    <string name="dns_custom_odoh_configs_hex_label">目标配置十六进制</string>
+    <string name="dns_custom_odoh_retrieved_at_label">获取时间（Unix 秒）</string>
+    <string name="dns_custom_odoh_ttl_label">有效期（秒）</string>
 </resources>

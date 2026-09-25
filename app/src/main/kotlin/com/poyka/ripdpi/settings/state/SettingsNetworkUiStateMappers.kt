@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.settings.state
 
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
@@ -23,6 +24,18 @@ internal fun AppSettings.buildDnsUiState(
         encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
         encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
         encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
+        odoh =
+            OdohResolverFields(
+                proxyUrl = activeDns.encryptedDnsOdohProxyUrl,
+                proxyOperatorId = activeDns.encryptedDnsOdohProxyOperatorId,
+                targetHost = activeDns.encryptedDnsOdohTargetHost,
+                targetPath = activeDns.encryptedDnsOdohTargetPath,
+                targetOperatorId = activeDns.encryptedDnsOdohTargetOperatorId,
+                configSource = activeDns.encryptedDnsOdohConfigSource,
+                configsHex = activeDns.encryptedDnsOdohConfigsHex,
+                configsRetrievedAtSecs = activeDns.encryptedDnsOdohConfigsRetrievedAtSecs,
+                configsTtlSecs = activeDns.encryptedDnsOdohConfigsTtlSecs,
+            ),
         dnsSummary = activeDns.summary(),
         systemPrivateDnsStatus = systemPrivateDnsStatus.wireValue,
     )

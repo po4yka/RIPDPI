@@ -1491,7 +1491,7 @@ fakeddisorder endhost</string>
     <string name="dns_mode_doh">DNS criptografado</string>
     <string name="dns_mode_plain">DNS simples</string>
     <string name="dns_mode_helper">O DNS criptografado intercepta o DNS dentro da VPN e o resolve pelo protocolo criptografado selecionado. O DNS simples usa diretamente o endereço IP abaixo.</string>
-    <string name="dns_mode_encrypted_body">Intercepta o DNS dentro da VPN e o resolve por DoH, DoT ou DNSCrypt.</string>
+    <string name="dns_mode_encrypted_body">Intercepta o DNS dentro da VPN e o resolve pelo protocolo criptografado selecionado.</string>
     <string name="dns_mode_plain_body">Envia o DNS diretamente ao IP do resolvedor, sem intercepção criptografada nem configuração de bootstrap.</string>
     <string name="dns_protocol_section">Protocolo criptografado</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
@@ -4186,4 +4186,25 @@ Fonte: %2$s</string>
     <string name="config_relay_apps_script_proxy_only_body">Mude para o modo proxy para usar este relay. A VPN não pode proteger sua conexão HTTP.</string>
     <string name="config_relay_apps_script_parallel">Retransmissão paralela</string>
     <string name="config_relay_protocol_section_proxy">Transportes proxy</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS sobre QUIC. Informe host, nome TLS, porta e IPs de inicialização.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">DNS oculto sobre HTTPS. Configure proxy, destino e chave do destino.</string>
+    <string name="dns_custom_doq_title">DoQ personalizado</string>
+    <string name="dns_custom_doq_body">Use DNS sobre QUIC com host, porta, nome TLS e IPs de inicialização.</string>
+    <string name="dns_custom_odoh_title">ODoH personalizado</string>
+    <string name="dns_custom_odoh_body">Informe operadores distintos para proxy e destino, bytes de configuração e IPs de inicialização.</string>
+    <string name="dns_custom_odoh_proxy_url_label">URL HTTPS do proxy</string>
+    <string name="dns_custom_odoh_proxy_operator_label">ID do operador do proxy</string>
+    <string name="dns_custom_odoh_target_host_label">Host de destino</string>
+    <string name="dns_custom_odoh_target_path_label">Caminho de destino</string>
+    <string name="dns_custom_odoh_target_operator_label">ID do operador de destino</string>
+    <string name="dns_custom_odoh_source_label">Origem da configuração</string>
+    <string name="dns_custom_odoh_source_custom">Bytes personalizados</string>
+    <string name="dns_custom_odoh_source_custom_body">Cole os bytes de configuração fornecidos pelo operador de destino.</string>
+    <string name="dns_custom_odoh_source_bundled">Bytes incluídos</string>
+    <string name="dns_custom_odoh_source_bundled_body">Use os bytes de configuração do perfil do resolvedor.</string>
+    <string name="dns_custom_odoh_configs_hex_label">Configuração do destino em hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">Hora da obtenção (segundos Unix)</string>
+    <string name="dns_custom_odoh_ttl_label">Validade (segundos)</string>
 </resources>

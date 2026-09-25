@@ -154,11 +154,13 @@ class SettingsViewModel
         ) = dnsActions.setCustomDohResolver(dohUrl = dohUrl, bootstrapIps = bootstrapIps)
 
         fun setCustomDotResolver(
+            protocol: String,
             host: String,
             port: Int,
             tlsServerName: String,
             bootstrapIps: List<String>,
         ) = dnsActions.setCustomDotResolver(
+            protocol = protocol,
             host = host,
             port = port,
             tlsServerName = tlsServerName,
@@ -178,6 +180,11 @@ class SettingsViewModel
             publicKey = publicKey,
             bootstrapIps = bootstrapIps,
         )
+
+        fun setCustomOdohResolver(
+            fields: OdohResolverFields,
+            bootstrapIps: List<String>,
+        ) = dnsActions.setCustomOdohResolver(fields, bootstrapIps)
 
         fun setDnsIpv6Enabled(enabled: Boolean) = dnsActions.setIpv6Enabled(enabled)
 

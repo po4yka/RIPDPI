@@ -57,11 +57,14 @@ fun DnsSettingsRoute(
         onSaveCustomDoh = { dohUrl, bootstrapIps ->
             viewModel.setCustomDohResolver(dohUrl, bootstrapIps)
         },
-        onSaveCustomDot = { host, port, tlsServerName, bootstrapIps ->
-            viewModel.setCustomDotResolver(host, port, tlsServerName, bootstrapIps)
+        onSaveCustomDot = { protocol, host, port, tlsServerName, bootstrapIps ->
+            viewModel.setCustomDotResolver(protocol, host, port, tlsServerName, bootstrapIps)
         },
         onSaveCustomDnsCrypt = { host, port, providerName, publicKey, bootstrapIps ->
             viewModel.setCustomDnsCryptResolver(host, port, providerName, publicKey, bootstrapIps)
+        },
+        onSaveCustomOdoh = { fields, bootstrapIps ->
+            viewModel.setCustomOdohResolver(fields, bootstrapIps)
         },
         onSavePlainDns = { dnsAddress ->
             viewModel.setPlainDnsServer(dnsAddress)

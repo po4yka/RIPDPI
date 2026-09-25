@@ -816,7 +816,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="dns_custom_doh_url_label">URL DoH</string>
     <string name="dns_custom_host_label">Hôte</string>
     <string name="dns_custom_switch_hint">Enregistrez ce formulaire pour remplacer le profil intégré actuel par un point de terminaison personnalisé.</string>
-    <string name="dns_mode_encrypted_body">Intercepter le DNS dans le VPN et le résoudre via DoH, DoT ou DNSCrypt.</string>
+    <string name="dns_mode_encrypted_body">Intercepter le DNS dans le VPN et le résoudre avec le protocole chiffré sélectionné.</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_protocol_section">Protocole chiffré</string>
@@ -4191,4 +4191,25 @@ Source : %2$s</string>
     <string name="config_relay_apps_script_proxy_only_body">Passez en mode proxy pour utiliser ce relais. Le VPN ne peut pas protéger sa connexion HTTP.</string>
     <string name="config_relay_apps_script_parallel">Relais parallèle</string>
     <string name="config_relay_protocol_section_proxy">Transports proxy</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS sur QUIC. Indiquez un hôte, un nom TLS, un port et des IP de démarrage.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">DNS privé sur HTTPS. Configurez un proxy, une cible et sa clé.</string>
+    <string name="dns_custom_doq_title">DoQ personnalisé</string>
+    <string name="dns_custom_doq_body">Utilisez DNS sur QUIC avec un hôte, un port, un nom TLS et des IP de démarrage.</string>
+    <string name="dns_custom_odoh_title">ODoH personnalisé</string>
+    <string name="dns_custom_odoh_body">Indiquez des opérateurs distincts pour le proxy et la cible, les octets de configuration et les IP de démarrage.</string>
+    <string name="dns_custom_odoh_proxy_url_label">URL HTTPS du proxy</string>
+    <string name="dns_custom_odoh_proxy_operator_label">ID de l’opérateur du proxy</string>
+    <string name="dns_custom_odoh_target_host_label">Hôte cible</string>
+    <string name="dns_custom_odoh_target_path_label">Chemin cible</string>
+    <string name="dns_custom_odoh_target_operator_label">ID de l’opérateur cible</string>
+    <string name="dns_custom_odoh_source_label">Source de la configuration</string>
+    <string name="dns_custom_odoh_source_custom">Octets personnalisés</string>
+    <string name="dns_custom_odoh_source_custom_body">Collez les octets de configuration reçus de l’opérateur cible.</string>
+    <string name="dns_custom_odoh_source_bundled">Octets intégrés</string>
+    <string name="dns_custom_odoh_source_bundled_body">Utilisez les octets de configuration du profil du résolveur.</string>
+    <string name="dns_custom_odoh_configs_hex_label">Configuration cible en hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">Date de récupération (secondes Unix)</string>
+    <string name="dns_custom_odoh_ttl_label">Durée de vie (secondes)</string>
 </resources>

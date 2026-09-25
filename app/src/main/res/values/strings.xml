@@ -1514,7 +1514,7 @@ fakeddisorder endhost</string>
     <string name="dns_mode_doh">Encrypted DNS</string>
     <string name="dns_mode_plain">Plain DNS</string>
     <string name="dns_mode_helper">Encrypted DNS intercepts DNS inside the VPN and resolves it through the selected encrypted protocol. Plain DNS uses the IP address below directly.</string>
-    <string name="dns_mode_encrypted_body">Intercept DNS inside the VPN and resolve it through DoH, DoT, or DNSCrypt.</string>
+    <string name="dns_mode_encrypted_body">Intercept DNS inside the VPN and resolve it through the selected encrypted protocol.</string>
     <string name="dns_mode_plain_body">Send DNS directly to the resolver IP without encrypted interception or bootstrap setup.</string>
     <string name="dns_protocol_section">Encrypted protocol</string>
     <string name="dns_protocol_doh" translatable="false">DoH</string>
@@ -4322,4 +4322,25 @@ Source: %2$s</string>
     <string name="config_relay_apps_script_proxy_only_body">Switch to Proxy mode to use this relay. VPN cannot protect its HTTP connection.</string>
     <string name="config_relay_apps_script_parallel">Parallel relay</string>
     <string name="config_relay_protocol_section_proxy">Proxy transports</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS over QUIC. Use a custom host, TLS name, port, and bootstrap IPs.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">Oblivious DNS over HTTPS. Configure a proxy, target, and target key.</string>
+    <string name="dns_custom_doq_title">Custom DoQ</string>
+    <string name="dns_custom_doq_body">Use a DNS over QUIC endpoint with a host, port, TLS name, and bootstrap IPs.</string>
+    <string name="dns_custom_odoh_title">Custom ODoH</string>
+    <string name="dns_custom_odoh_body">Set separate proxy and target operators, target configuration bytes, and bootstrap IPs.</string>
+    <string name="dns_custom_odoh_proxy_url_label">Proxy HTTPS URL</string>
+    <string name="dns_custom_odoh_proxy_operator_label">Proxy operator ID</string>
+    <string name="dns_custom_odoh_target_host_label">Target host</string>
+    <string name="dns_custom_odoh_target_path_label">Target path</string>
+    <string name="dns_custom_odoh_target_operator_label">Target operator ID</string>
+    <string name="dns_custom_odoh_source_label">Target configuration source</string>
+    <string name="dns_custom_odoh_source_custom">Custom bytes</string>
+    <string name="dns_custom_odoh_source_custom_body">Paste target configuration bytes obtained from the target operator.</string>
+    <string name="dns_custom_odoh_source_bundled">Bundled bytes</string>
+    <string name="dns_custom_odoh_source_bundled_body">Use configuration bytes distributed with the resolver profile.</string>
+    <string name="dns_custom_odoh_configs_hex_label">Target configuration hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">Retrieved at (Unix seconds)</string>
+    <string name="dns_custom_odoh_ttl_label">Lifetime (seconds)</string>
 </resources>

@@ -8,6 +8,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -35,8 +36,9 @@ internal fun DnsSettingsScreen(
     onProtocolSelected: (String) -> Unit,
     onResolverSelected: (DnsResolverOption) -> Unit,
     onSaveCustomDoh: (String, List<String>) -> Unit,
-    onSaveCustomDot: (String, Int, String, List<String>) -> Unit,
+    onSaveCustomDot: (String, String, Int, String, List<String>) -> Unit,
     onSaveCustomDnsCrypt: (String, Int, String, String, List<String>) -> Unit,
+    onSaveCustomOdoh: (OdohResolverFields, List<String>) -> Unit,
     onSavePlainDns: (String) -> Unit,
     onIpv6Changed: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -69,6 +71,7 @@ internal fun DnsSettingsScreen(
             onSaveCustomDoh = onSaveCustomDoh,
             onSaveCustomDot = onSaveCustomDot,
             onSaveCustomDnsCrypt = onSaveCustomDnsCrypt,
+            onSaveCustomOdoh = onSaveCustomOdoh,
             onSavePlainDns = onSavePlainDns,
         )
         DnsIpv6Section(ipv6Enable = uiState.ipv6Enable, onIpv6Changed = onIpv6Changed)
@@ -113,8 +116,9 @@ private fun DnsSettingsEncryptedPreview() {
             onProtocolSelected = {},
             onResolverSelected = {},
             onSaveCustomDoh = { _, _ -> },
-            onSaveCustomDot = { _, _, _, _ -> },
+            onSaveCustomDot = { _, _, _, _, _ -> },
             onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+            onSaveCustomOdoh = { _, _ -> },
             onSavePlainDns = {},
             onIpv6Changed = {},
         )
@@ -143,8 +147,9 @@ private fun DnsSettingsPlainPreview() {
             onProtocolSelected = {},
             onResolverSelected = {},
             onSaveCustomDoh = { _, _ -> },
-            onSaveCustomDot = { _, _, _, _ -> },
+            onSaveCustomDot = { _, _, _, _, _ -> },
             onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
+            onSaveCustomOdoh = { _, _ -> },
             onSavePlainDns = {},
             onIpv6Changed = {},
         )

@@ -1487,7 +1487,7 @@ fakeddisorder endhost</string>
     <string name="dns_mode_doh">एन्क्रिप्टेड DNS</string>
     <string name="dns_mode_plain">सादा DNS</string>
     <string name="dns_mode_helper">एन्क्रिप्टेड DNS, VPN के भीतर DNS को इंटरसेप्ट करता है और चुने गए एन्क्रिप्टेड प्रोटोकॉल के माध्यम से उसे हल करता है। सादा DNS नीचे दिए गए IP पते का सीधे उपयोग करता है।</string>
-    <string name="dns_mode_encrypted_body">VPN के भीतर DNS को इंटरसेप्ट करें और उसे DoH, DoT, या DNSCrypt के माध्यम से हल करें।</string>
+    <string name="dns_mode_encrypted_body">VPN के भीतर DNS को इंटरसेप्ट करें और चयनित एन्क्रिप्टेड प्रोटोकॉल से हल करें।</string>
     <string name="dns_mode_plain_body">एन्क्रिप्टेड इंटरसेप्शन या बूटस्ट्रैप सेटअप के बिना DNS को सीधे रिज़ॉल्वर IP पर भेजें।</string>
     <string name="dns_protocol_section">एन्क्रिप्टेड प्रोटोकॉल</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
@@ -1961,4 +1961,25 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_body">इस रिले का उपयोग करने के लिए प्रॉक्सी मोड पर जाएँ। VPN इसके HTTP कनेक्शन की सुरक्षा नहीं कर सकता।</string>
     <string name="config_relay_apps_script_parallel">समानांतर रिले</string>
     <string name="config_relay_protocol_section_proxy">प्रॉक्सी ट्रांसपोर्ट</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">QUIC पर DNS। होस्ट, TLS नाम, पोर्ट और बूटस्ट्रैप IP दर्ज करें।</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">HTTPS पर निजी DNS। प्रॉक्सी, लक्ष्य और लक्ष्य कुंजी सेट करें।</string>
+    <string name="dns_custom_doq_title">कस्टम DoQ</string>
+    <string name="dns_custom_doq_body">QUIC पर DNS के लिए होस्ट, पोर्ट, TLS नाम और बूटस्ट्रैप IP सेट करें।</string>
+    <string name="dns_custom_odoh_title">कस्टम ODoH</string>
+    <string name="dns_custom_odoh_body">अलग प्रॉक्सी और लक्ष्य संचालक, कॉन्फ़िगरेशन बाइट और बूटस्ट्रैप IP सेट करें।</string>
+    <string name="dns_custom_odoh_proxy_url_label">प्रॉक्सी HTTPS URL</string>
+    <string name="dns_custom_odoh_proxy_operator_label">प्रॉक्सी संचालक ID</string>
+    <string name="dns_custom_odoh_target_host_label">लक्ष्य होस्ट</string>
+    <string name="dns_custom_odoh_target_path_label">लक्ष्य पथ</string>
+    <string name="dns_custom_odoh_target_operator_label">लक्ष्य संचालक ID</string>
+    <string name="dns_custom_odoh_source_label">लक्ष्य कॉन्फ़िगरेशन स्रोत</string>
+    <string name="dns_custom_odoh_source_custom">कस्टम बाइट</string>
+    <string name="dns_custom_odoh_source_custom_body">लक्ष्य संचालक से मिली कॉन्फ़िगरेशन बाइट चिपकाएँ।</string>
+    <string name="dns_custom_odoh_source_bundled">बंडल बाइट</string>
+    <string name="dns_custom_odoh_source_bundled_body">रिज़ॉल्वर प्रोफ़ाइल में दी गई कॉन्फ़िगरेशन बाइट इस्तेमाल करें।</string>
+    <string name="dns_custom_odoh_configs_hex_label">लक्ष्य कॉन्फ़िगरेशन hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">प्राप्ति समय (Unix सेकंड)</string>
+    <string name="dns_custom_odoh_ttl_label">वैधता अवधि (सेकंड)</string>
 </resources>

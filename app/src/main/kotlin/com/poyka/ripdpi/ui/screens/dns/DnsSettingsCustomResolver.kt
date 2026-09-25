@@ -12,8 +12,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -56,18 +59,48 @@ internal fun CustomEncryptedDnsSection(
     onSaveCustomDoh: () -> Unit,
     onSaveCustomDot: () -> Unit,
     onSaveCustomDnsCrypt: () -> Unit,
+    onSaveCustomOdoh: (OdohResolverFields) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     when (uiState.dns.encryptedDnsProtocol) {
-        EncryptedDnsProtocolDot -> {
+        EncryptedDnsProtocolOdoh -> {
+            OdohDnsEditor(
+                current = uiState.dns.odoh,
+                currentBootstrapIps = uiState.dns.encryptedDnsBootstrapIps,
+                bootstrapInput = bootstrapInput,
+                onBootstrapInputChange = onBootstrapInputChange,
+                bootstrapIpsValid = bootstrapIpsValid,
+                onSave = onSaveCustomOdoh,
+            )
+        }
+
+        EncryptedDnsProtocolDot, EncryptedDnsProtocolDoq -> {
             Text(
-                text = stringResource(R.string.dns_custom_dot_title),
+                text =
+                    stringResource(
+                        if (uiState.dns.encryptedDnsProtocol ==
+                            EncryptedDnsProtocolDoq
+                        ) {
+                            R.string.dns_custom_doq_title
+                        } else {
+                            R.string.dns_custom_dot_title
+                        },
+                    ),
                 style = type.bodyEmphasis,
                 color = colors.foreground,
             )
             Text(
-                text = stringResource(R.string.dns_custom_dot_body),
+                text =
+                    stringResource(
+                        if (uiState.dns.encryptedDnsProtocol ==
+                            EncryptedDnsProtocolDoq
+                        ) {
+                            R.string.dns_custom_doq_body
+                        } else {
+                            R.string.dns_custom_dot_body
+                        },
+                    ),
                 style = type.body,
                 color = colors.mutedForeground,
             )
@@ -409,6 +442,12 @@ internal fun activeEndpointSummary(uiState: SettingsUiState): String =
 
         uiState.dns.encryptedDnsProtocol == com.poyka.ripdpi.data.EncryptedDnsProtocolDoh -> {
             uiState.dns.encryptedDnsDohUrl.ifBlank {
+                "${uiState.dns.encryptedDnsHost}:${uiState.dns.encryptedDnsPort}"
+            }
+        }
+
+        uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolOdoh -> {
+            uiState.dns.odoh.proxyUrl.ifBlank {
                 "${uiState.dns.encryptedDnsHost}:${uiState.dns.encryptedDnsPort}"
             }
         }
