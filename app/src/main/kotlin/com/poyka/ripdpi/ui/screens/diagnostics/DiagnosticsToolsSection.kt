@@ -52,6 +52,19 @@ import java.util.Locale
 
 private const val timingBreakdownDisplayCount = 4
 
+internal fun diagnosticToolStateLabelRes(state: Enum<*>): Int =
+    when (state) {
+        DiagnosticsDnsIntegrityState.Idle, DiagnosticsDomainReachabilityState.Idle ->
+            R.string.diagnostics_tool_state_idle
+        DiagnosticsDnsIntegrityState.Running, DiagnosticsDomainReachabilityState.Running ->
+            R.string.diagnostics_tool_state_running
+        DiagnosticsDnsIntegrityState.Complete, DiagnosticsDomainReachabilityState.Complete ->
+            R.string.diagnostics_tool_state_complete
+        DiagnosticsDnsIntegrityState.Failed, DiagnosticsDomainReachabilityState.Failed ->
+            R.string.diagnostics_tool_state_failed
+        else -> error("Unexpected diagnostic tool state: $state")
+    }
+
 internal data class DiagnosticsDpiToolActions(
     val onRunDnsIntegrityCheck: () -> Unit = {},
     val onRunDnsAvailabilitySurvey: () -> Unit = {},
@@ -581,7 +594,7 @@ private fun DnsIntegrityToolCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )
@@ -623,7 +636,7 @@ private fun DomainReachabilityToolCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )

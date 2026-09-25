@@ -36,11 +36,11 @@
     <string name="onboarding_persona_simple_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
     <string name="onboarding_persona_advanced_body">يفتح سطح التشغيل الكامل مع التشخيصات والملفات الشخصية وعناصر التحكم منخفضة المستوى.</string>
     <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>
-    <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
+    <string name="settings_subscription_failover_body">اعرف خادم الاشتراك النشط وعمليات التبديل التلقائي الأخيرة.</string>
     <string name="diagnostics_open_logs_body">افتح بث السجلات الحي مع فلاتر للخدمة والوكيل والنفق والتشخيص.</string>
     <string name="diagnostics_title">التشخيصات</string>
     <string name="title_connection_health">صحة الاتصال</string>
-    <string name="title_subscription_failover">Subscription servers</string>
+    <string name="title_subscription_failover">خوادم الاشتراك</string>
     <string name="connection_health_open_action">فتح صحة الاتصال</string>
     <string name="connection_health_summary_title">هل تنجح الاستراتيجية الحالية الآن؟</string>
     <string name="connection_health_quality_format">جودة الوكيل: فقدان %1$d%%، p50 %2$d ms.</string>
@@ -48,11 +48,11 @@
     <string name="connection_health_quality_waiting">بانتظار عينات جودة الوكيل الحية.</string>
     <string name="connection_health_empty_title">بانتظار حركة مصنفة</string>
     <string name="connection_health_empty_body">تظهر المعدلات بعد رؤية وجهات VK أو YouTube أو Telegram أو TLS عام في الجلسة النشطة.</string>
-    <string name="subscription_failover_summary_title">Live server status</string>
-    <string name="subscription_failover_timeline_title">Recent switchovers</string>
-    <string name="subscription_failover_timeline_empty">No automatic switchovers have been observed in the current session.</string>
-    <string name="subscription_failover_empty_title">No subscription servers observed</string>
-    <string name="subscription_failover_empty_body">Add or import a subscription server, then start RIPDPI to see live health and switchovers here.</string>
+    <string name="subscription_failover_summary_title">حالة الخوادم المباشرة</string>
+    <string name="subscription_failover_timeline_title">عمليات التبديل الأخيرة</string>
+    <string name="subscription_failover_timeline_empty">لم تُرصد أي عمليات تبديل تلقائي في الجلسة الحالية.</string>
+    <string name="subscription_failover_empty_title">لم تُرصد خوادم اشتراك</string>
+    <string name="subscription_failover_empty_body">أضف خادم اشتراك أو استورده، ثم شغّل RIPDPI لرؤية حالته المباشرة وعمليات التبديل هنا.</string>
     <string name="connection_health_destination_vk">VK</string>
     <string name="connection_health_destination_youtube">YouTube</string>
     <string name="connection_health_destination_telegram">Telegram</string>
@@ -4200,4 +4200,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_device_gate_rerun">إعادة فحص القبول</string>
     <string name="diagnostics_device_gate_share">مشاركة التقرير المنقّح</string>
     <string name="detection_check_export_failed">تعذر تصدير التشخيص</string>
+    <string name="diagnostics_tool_state_idle">خامل</string>
+    <string name="diagnostics_tool_state_running">قيد التشغيل</string>
+    <string name="diagnostics_tool_state_complete">مكتمل</string>
+    <string name="diagnostics_tool_state_failed">فشل</string>
 </resources>

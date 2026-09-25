@@ -4167,4 +4167,8 @@ Fonte: %2$s</string>
     <string name="diagnostics_device_gate_rerun">Reiniciar verificação de aceitação</string>
     <string name="diagnostics_device_gate_share">Compartilhar relatório com dados removidos</string>
     <string name="detection_check_export_failed">Falha ao exportar diagnósticos</string>
+    <string name="diagnostics_tool_state_idle">Inativo</string>
+    <string name="diagnostics_tool_state_running">Em execução</string>
+    <string name="diagnostics_tool_state_complete">Concluído</string>
+    <string name="diagnostics_tool_state_failed">Falhou</string>
 </resources>

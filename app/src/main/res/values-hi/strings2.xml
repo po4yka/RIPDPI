@@ -2258,4 +2258,8 @@
     <string name="support_settings_restart_ask">लागू करने के बाद पुनरारंभ की आवश्यकता हो सकती है।</string>
     <string name="support_settings_restart_required">लागू करने के बाद पुनरारंभ आवश्यक है।</string>
     <string name="support_settings_restart_never">किसी पुनरारंभ की अपेक्षा नहीं है।</string>
+    <string name="diagnostics_tool_state_idle">निष्क्रिय</string>
+    <string name="diagnostics_tool_state_running">चल रहा है</string>
+    <string name="diagnostics_tool_state_complete">पूर्ण</string>
+    <string name="diagnostics_tool_state_failed">विफल</string>
 </resources>
