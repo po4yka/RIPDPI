@@ -1689,6 +1689,7 @@ Source : %2$s</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importer une identité PKCS#12</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass est indisponible car cette version n\'a pas d\'URL de fournisseur configurée.</string>
     <string name="config_relay_profile_id_helper">Utilisé pour lier les identifiants sécurisés au profil de relais enregistré.</string>
+    <string name="config_relay_profile_id_taken">Cet ID appartient à un autre profil enregistré.</string>
     <string name="config_relay_server_name">Nom du serveur TLS</string>
     <string name="config_save">Enregistrer</string>
     <string name="config_validation_banner_body">L\'éditeur valide en temps réel. Corrigez les champs marqués, puis enregistrez à nouveau.</string>

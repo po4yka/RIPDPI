@@ -65,10 +65,7 @@ class ConfigViewModel
         internal val editorHydrationFailures = ConfigEditorHydrationFailureHandler(editorSession)
         private val editorSessionIds = AtomicLong()
         private val invalidatedEditorRecoverySessionIds =
-            savedStateHandle
-                .get<ArrayList<String>>(ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey)
-                .orEmpty()
-                .filter(::isValidConfigEditorRecoverySessionId)
+            readInvalidatedConfigEditorRecoverySessionIds(savedStateHandle)
         private val editorRecoverySessionId =
             MutableStateFlow(
                 savedStateHandle
@@ -88,18 +85,8 @@ class ConfigViewModel
         private val updateEditorRecoverySessionId: (String) -> Unit = { value ->
             savedStateHandle[ConfigEditorRecoverySessionIdSavedStateKey] = value
         }
-        private val rememberInvalidatedEditorRecoverySessionId: (String) -> Unit = { value ->
-            val existing =
-                savedStateHandle
-                    .get<ArrayList<String>>(ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey)
-                    .orEmpty()
-                    .filter(::isValidConfigEditorRecoverySessionId)
-            val invalidated =
-                (existing + value)
-                    .distinct()
-                    .takeLast(ConfigEditorMaxInvalidatedSessionIds)
-            savedStateHandle[ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey] = ArrayList(invalidated)
-        }
+        private val rememberInvalidatedEditorRecoverySessionId =
+            configEditorRecoverySessionRecorder(savedStateHandle)
         private val activeSaveRequest = MutableStateFlow<ConfigSaveRequest?>(null)
         private val activeSaveJob = AtomicReference<Job?>()
         private val editorOperationLock = Any()
@@ -117,6 +104,16 @@ class ConfigViewModel
             MutableSharedFlow<ConfigEffect>(
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+        private val relayProfileSelector =
+            ConfigRelayProfileSelector(
+                dependencies = dependencies,
+                scope = viewModelScope,
+                stringResolver = stringResolver,
+                effects = _effects,
+                log = log,
+                activeSaveJob = activeSaveJob::get,
+                suppressSaveSuccess = { suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest) },
             )
         private val rotateEditorRecoverySession =
             configEditorRecoveryRotator(
@@ -336,29 +333,22 @@ class ConfigViewModel
                             hydrationPending = true,
                         )
                     editorSession.value = session
-                    viewModelScope.launch {
-                        val hydration = runCatching { relayArtifacts.hydrate(draft) }
-                        val error = hydration.exceptionOrNull()
-                        if (error == null) {
-                            val hydrated =
-                                session.completeHydration(sessionId, hydration.getOrThrow())
-                            if (editorSession.compareAndSet(
-                                    expect = session,
-                                    update = hydrated,
-                                )
-                            ) {
-                                masqueImports.rebindPendingSession(sessionId, editorRecoverySessionId.value)
-                            }
-                        } else if (error is CancellationException) {
-                            editorSession.compareAndSet(session, ConfigEditorSession())
-                            throw error
-                        } else if (editorSession.value == session) {
-                            log.e(error) { "Failed to hydrate mode editor relay artifacts" }
-                            _effects.emit(ConfigEffect.EditorHydrationFailed(sessionId))
-                        }
-                    }
+                    launchConfigEditorHydration(
+                        scope = viewModelScope,
+                        session = session,
+                        editorSession = editorSession,
+                        relayArtifacts = relayArtifacts,
+                        masqueImports = masqueImports,
+                        editorRecoverySessionId = editorRecoverySessionId,
+                        log = log,
+                        effects = _effects,
+                    )
                 }
             }
+        }
+
+        fun selectRelayProfile(profileId: String) {
+            relayProfileSelector.select(profileId)
         }
 
         fun updateDraft(

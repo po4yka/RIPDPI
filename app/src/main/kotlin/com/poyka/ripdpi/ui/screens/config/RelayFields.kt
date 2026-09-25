@@ -135,12 +135,14 @@ internal fun RowScope.RelayKindChip(
     labelRes: Int,
     onRelayKindChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     RipDpiChip(
         text = stringResource(labelRes),
         selected = selectedKind == kind,
         onClick = { onRelayKindChanged(kind) },
         modifier = modifier.weight(1f),
+        enabled = enabled,
     )
 }
 
@@ -151,11 +153,13 @@ internal fun RowScope.RelayKindChip(
     label: String,
     onRelayKindChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     RipDpiChip(
         text = label,
         selected = selectedKind == kind,
         onClick = { onRelayKindChanged(kind) },
         modifier = modifier.weight(1f),
+        enabled = enabled,
     )
 }

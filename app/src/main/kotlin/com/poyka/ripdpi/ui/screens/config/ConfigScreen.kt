@@ -56,6 +56,12 @@ enum class ConfigEditorTarget {
     Resolver,
 }
 
+data class ConfigProfileActions(
+    val share: (String) -> Unit = {},
+    val select: (String) -> Unit = {},
+    val edit: (String) -> Unit = {},
+)
+
 @Composable
 fun ConfigRoute(
     onOpenModeEditor: () -> Unit,
@@ -125,7 +131,15 @@ fun ConfigRoute(
         onRetestStrategies = onRetestStrategies,
         onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
         onScanServer = onScanServer,
-        onProfileShare = onProfileShare,
+        profileActions =
+            ConfigProfileActions(
+                share = onProfileShare,
+                select = remember(viewModel) { viewModel::selectRelayProfile },
+                edit = { profileId ->
+                    viewModel.startEditingPreset("relay-profile:$profileId")
+                    onOpenModeEditor()
+                },
+            ),
         initialModeSection = initialModeSection,
     )
 }
@@ -142,7 +156,7 @@ fun ConfigScreen(
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
-    onProfileShare: (String) -> Unit = {},
+    profileActions: ConfigProfileActions = ConfigProfileActions(),
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
@@ -209,7 +223,7 @@ fun ConfigScreen(
             onRetestStrategies = onRetestStrategies,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
-            onProfileShare = onProfileShare,
+            profileActions = profileActions,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -300,7 +314,7 @@ private fun ConfigSelectedModeSection(
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
-    onProfileShare: (String) -> Unit,
+    profileActions: ConfigProfileActions,
 ) {
     when (section) {
         ConfigModeSection.LocalBypass -> {
@@ -323,7 +337,9 @@ private fun ConfigSelectedModeSection(
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onPasteServerLink = onPasteServerLink,
                 onScanServer = onScanServer,
-                onProfileShare = onProfileShare,
+                onProfileShare = profileActions.share,
+                onProfileSelect = profileActions.select,
+                onProfileEdit = profileActions.edit,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
             )
         }

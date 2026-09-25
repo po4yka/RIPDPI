@@ -1689,6 +1689,7 @@ Origen: %2$s</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importar identidad PKCS#12</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass no está disponible porque esta compilación no tiene una URL de proveedor configurada.</string>
     <string name="config_relay_profile_id_helper">Se utiliza para vincular credenciales seguras al perfil de relé guardado.</string>
+    <string name="config_relay_profile_id_taken">Este ID pertenece a otro perfil guardado.</string>
     <string name="config_relay_server_name">Nombre de servidor TLS</string>
     <string name="config_save">Guardar</string>
     <string name="config_validation_banner_body">El editor está validando en tiempo real. Corrige los campos marcados y vuelve a guardar.</string>

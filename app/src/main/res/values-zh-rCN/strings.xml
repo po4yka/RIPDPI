@@ -564,6 +564,7 @@
     <string name="config_relay_masque_pkcs12_password_helper">如果 PKCS#12 包没有密码,请留空。</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass 不可用,因为此构建未配置提供方 URL。</string>
     <string name="config_relay_profile_id_helper">用于将安全凭据绑定到已保存的中继配置。</string>
+    <string name="config_relay_profile_id_taken">此配置文件 ID 已属于其他已保存的配置文件。</string>
     <string name="config_relay_section">中继</string>
     <string name="config_relay_title">出站中继协议</string>
     <string name="config_relay_vless_transport">VLESS 传输</string>

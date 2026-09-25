@@ -124,6 +124,35 @@ class ProfileMutationRecoveryCoordinatorTest {
         }
 
     @Test
+    fun `conditional relay upsert rejects a replaced profile and credentials`() =
+        runTest {
+            val fixture = Fixture()
+            val original = RelayProfileRecord(id = "relay-1", kind = RelayKindVlessReality, server = "old.example")
+            val replacement = original.copy(server = "imported.example")
+            val originalCredentials = RelayCredentialRecord(profileId = original.id, vlessUuid = "old-secret")
+            val importedCredentials = originalCredentials.copy(vlessUuid = "imported-secret")
+            fixture.relayProfiles.save(replacement)
+            fixture.relayCredentials.save(importedCredentials)
+
+            val failure =
+                runCatching {
+                    fixture.coordinator().upsertRelay(
+                        profile = original.copy(server = "edited.example"),
+                        credentials = originalCredentials,
+                        enabled = true,
+                        select = true,
+                        settingsAfterImage = fixture.settings.snapshot(),
+                        expectedState = ExpectedRelayProfileState(original, originalCredentials),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals(replacement, fixture.relayProfiles.load(original.id))
+            assertEquals(importedCredentials, fixture.relayCredentials.load(original.id))
+            assertNull(fixture.journal.pending())
+        }
+
+    @Test
     fun `native relay after-image recovers xray provider selection and mode after interrupted switch`() =
         runTest {
             val fixture = Fixture()

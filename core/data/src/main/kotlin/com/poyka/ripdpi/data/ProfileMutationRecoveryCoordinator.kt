@@ -41,6 +41,11 @@ class ProfileMutationStores
         val bootSession: BootSessionStateStore,
     )
 
+data class ExpectedRelayProfileState(
+    val profile: RelayProfileRecord?,
+    val credentials: RelayCredentialRecord?,
+)
+
 interface ProfileMutationCoordinator {
     suspend fun recover()
 
@@ -63,6 +68,7 @@ interface ProfileMutationCoordinator {
         settingsAfterImage: AppSettings? = null,
         modeAfterImage: String? = null,
         xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
+        expectedState: ExpectedRelayProfileState? = null,
     )
 
     suspend fun upsertWarp(
@@ -139,16 +145,48 @@ class ProfileMutationRecoveryCoordinator
             settingsAfterImage: AppSettings?,
             modeAfterImage: String?,
             xraySelectionAfterImage: XrayProviderSelectionRecord?,
-        ) = execute(
-            RelayUpsertIntent(
-                profile = profile,
-                credentials = credentials,
-                enabled = enabled,
-                select = select,
-                settingsAfterImageBase64 = settingsAfterImage?.toByteArray()?.let(Base64.getEncoder()::encodeToString),
-                modeAfterImage = modeAfterImage,
-                xraySelectionAfterImage = xraySelectionAfterImage,
-            ),
+            expectedState: ExpectedRelayProfileState?,
+        ) {
+            val intent =
+                relayUpsertIntent(
+                    profile = profile,
+                    credentials = credentials,
+                    enabled = enabled,
+                    select = select,
+                    settingsAfterImage = settingsAfterImage,
+                    modeAfterImage = modeAfterImage,
+                    xraySelectionAfterImage = xraySelectionAfterImage,
+                )
+            if (expectedState == null) {
+                execute(intent)
+            } else {
+                mutex.withLock {
+                    recoverLocked()
+                    require(
+                        stores.relayProfiles.load(profile.id) == expectedState.profile &&
+                            stores.relayCredentials.load(profile.id) == expectedState.credentials,
+                    ) { "Relay profile changed since editing began" }
+                    executeRecovered(intent)
+                }
+            }
+        }
+
+        private fun relayUpsertIntent(
+            profile: RelayProfileRecord,
+            credentials: RelayCredentialRecord,
+            enabled: Boolean,
+            select: Boolean,
+            settingsAfterImage: AppSettings?,
+            modeAfterImage: String?,
+            xraySelectionAfterImage: XrayProviderSelectionRecord?,
+        ) = RelayUpsertIntent(
+            profile = profile,
+            credentials = credentials,
+            enabled = enabled,
+            select = select,
+            settingsAfterImageBase64 = settingsAfterImage?.toByteArray()?.let(Base64.getEncoder()::encodeToString),
+            modeAfterImage = modeAfterImage,
+            xraySelectionAfterImage = xraySelectionAfterImage,
         )
 
         override suspend fun upsertXrayProvider(
@@ -215,11 +253,15 @@ class ProfileMutationRecoveryCoordinator
         private suspend fun execute(intent: ProfileMutationIntent) =
             mutex.withLock {
                 recoverLocked()
-                val pending = intent.toPendingMutation()
-                journal.prepare(pending)
-                replayWriter.replay(intent)
-                journal.complete(pending.mutationId)
+                executeRecovered(intent)
             }
+
+        private suspend fun executeRecovered(intent: ProfileMutationIntent) {
+            val pending = intent.toPendingMutation()
+            journal.prepare(pending)
+            replayWriter.replay(intent)
+            journal.complete(pending.mutationId)
+        }
 
         private suspend fun executeWithCompensation(
             target: ProfileMutationIntent,

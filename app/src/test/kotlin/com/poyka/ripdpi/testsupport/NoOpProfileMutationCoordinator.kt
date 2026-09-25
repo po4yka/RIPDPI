@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.testsupport
 
+import com.poyka.ripdpi.data.ExpectedRelayProfileState
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -34,6 +35,7 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
         settingsAfterImage: AppSettings?,
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
+        expectedState: ExpectedRelayProfileState?,
     ) = Unit
 
     override suspend fun upsertWarp(

@@ -18,6 +18,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
 import com.poyka.ripdpi.activities.ConfigFieldRelayLocalSocksPort
+import com.poyka.ripdpi.activities.ConfigFieldRelayProfileId
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayPresetUiState
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -59,6 +60,7 @@ internal fun ModeEditorRelaySection(
         SettingsCategoryHeader(title = stringResource(R.string.config_relay_section))
         RipDpiCard {
             ModeEditorRelayHeader(draft = draft, actions = actions)
+            ModeEditorRelayProfileIdField(draft = draft, uiState = uiState, actions = actions)
             if (draft.relayEnabled) {
                 ModeEditorRelayEnabledFields(draft = draft, uiState = uiState, actions = actions)
             }
@@ -108,15 +110,6 @@ private fun ModeEditorRelayEnabledFields(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
 ) {
-    RipDpiTextField(
-        value = draft.relayProfileId,
-        onValueChange = actions.onRelayProfileIdChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.config_relay_profile_id),
-                helperText = stringResource(R.string.config_relay_profile_id_helper),
-            ),
-    )
     uiState.relayPresetSuggestion?.let { suggestion ->
         WarningBanner(
             title = suggestion.title,
@@ -143,6 +136,26 @@ private fun ModeEditorRelayEnabledFields(
 }
 
 @Composable
+private fun ModeEditorRelayProfileIdField(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: ModeEditorActions,
+) {
+    RipDpiTextField(
+        value = draft.relayProfileId,
+        onValueChange = actions.onRelayProfileIdChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_profile_id),
+                helperText = stringResource(R.string.config_relay_profile_id_helper),
+                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayProfileId]),
+                testTag = RipDpiTestTags.ModeEditorRelayProfileId,
+            ),
+        behavior = RipDpiTextFieldBehavior(readOnly = draft.editingRelayProfileId.isNotBlank()),
+    )
+}
+
+@Composable
 private fun ModeEditorRelayPresetChips(
     uiState: ConfigUiState,
     draft: ConfigDraft,
@@ -158,6 +171,7 @@ private fun ModeEditorRelayPresetChips(
         chips = uiState.relayPresets.toRelayPresetChips(),
         selectedKind = draft.relayPresetId,
         onRelayKindChanged = actions.onRelayPresetSelected,
+        enabled = draft.editingRelayProfileId.isBlank(),
     )
 }
 
@@ -173,6 +187,7 @@ private fun ModeEditorRelayKindChips(
             chips = section.chips,
             selectedKind = draft.relayKind,
             onRelayKindChanged = actions.onRelayKindChanged,
+            enabled = draft.editingRelayProfileId.isBlank(),
         )
     }
 }
@@ -184,6 +199,7 @@ private fun RelayChipSection(
     chips: List<RelayChipOption>,
     selectedKind: String,
     onRelayKindChanged: (String) -> Unit,
+    enabled: Boolean,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -208,6 +224,7 @@ private fun RelayChipSection(
                         chip = chip,
                         selectedKind = selectedKind,
                         onRelayKindChanged = onRelayKindChanged,
+                        enabled = enabled,
                     )
                 }
                 repeat(relayChipColumns - rowChips.size) {
@@ -223,6 +240,7 @@ private fun RowScope.RelayChipOption(
     chip: RelayChipOption,
     selectedKind: String,
     onRelayKindChanged: (String) -> Unit,
+    enabled: Boolean,
 ) {
     val chipModifier =
         Modifier
@@ -235,6 +253,7 @@ private fun RowScope.RelayChipOption(
             labelRes = chip.labelRes,
             onRelayKindChanged = onRelayKindChanged,
             modifier = chipModifier,
+            enabled = enabled,
         )
     } else {
         RelayKindChip(
@@ -243,6 +262,7 @@ private fun RowScope.RelayChipOption(
             label = chip.label.orEmpty(),
             onRelayKindChanged = onRelayKindChanged,
             modifier = chipModifier,
+            enabled = enabled,
         )
     }
 }
@@ -303,6 +323,9 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
             chips = listOf(RelayChipOption(RelayKindTor, labelRes = R.string.config_relay_protocol_section_tor)),
         ),
     )
+
+internal fun isModeEditorRelayKindSupported(kind: String): Boolean =
+    relayProtocolSections().any { section -> section.chips.any { it.kind == kind } }
 
 @Composable
 private fun ModeEditorRelayUdpToggle(

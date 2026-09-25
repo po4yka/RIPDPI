@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.ExpectedRelayProfileState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -9,6 +10,7 @@ import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.proto.AppSettings
@@ -89,6 +91,136 @@ class ConfigRelayArtifactRepositoryTest {
         assertEquals(null, draft.toRelayCredentialRecord("another-profile").sshPrivateKey)
         assertEquals(null, draft.copy(relayKind = RelayKindMieru).toRelayCredentialRecord(source.id).sshPrivateKey)
     }
+
+    @Test
+    fun `saving a renamed draft cannot overwrite another saved profile`() =
+        runTest {
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            profiles.save(RelayProfileRecord(id = "first", server = "first.example"))
+            profiles.save(RelayProfileRecord(id = "second", server = "second.example"))
+            val draft =
+                repository
+                    .hydrate(ConfigDraft(relayProfileId = "first"))
+                    .applyRelayDraftEdit { copy(relayProfileId = "second", relayServer = "wrong.example") }
+
+            assertTrue(runCatching { repository.persist(draft) }.isFailure)
+            assertEquals("second.example", profiles.load("second")?.server)
+        }
+
+    @Test
+    fun `an existing profile ID is invalid even when relay is disabled`() {
+        val existing = RelayProfileRecord(id = "taken")
+        val draft = ConfigDraft(relayProfileId = existing.id, relayEnabled = false)
+
+        assertEquals("taken", validateConfigDraft(draft, relayProfiles = listOf(existing))[ConfigFieldRelayProfileId])
+    }
+
+    @Test
+    fun `an existing profile ID cannot be renamed through persistence`() =
+        runTest {
+            val profiles = FailingRelayProfileStore()
+            val repository =
+                ConfigRelayArtifactRepository(
+                    FailingSettingsRepository(),
+                    profiles,
+                    FailingRelayCredentialRepository(),
+                )
+            profiles.save(RelayProfileRecord(id = "original", server = "original.example"))
+            val draft = repository.hydrate(ConfigDraft(relayProfileId = "original"))
+
+            assertTrue(runCatching { repository.persist(draft.copy(relayProfileId = "renamed")) }.isFailure)
+            assertEquals("original.example", profiles.load("original")?.server)
+            assertEquals(null, profiles.load("renamed"))
+        }
+
+    @Test
+    fun `changing a saved profile kind cannot erase imported metadata`() =
+        runTest {
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            val profile =
+                RelayProfileRecord(
+                    id = "imported",
+                    kind = RelayKindSsh,
+                    server = "old.example",
+                    operatorName = "Imported operator",
+                )
+            val secret = RelayCredentialRecord(profileId = profile.id, sshPrivateKey = "imported-secret")
+            profiles.save(profile)
+            credentials.save(secret)
+            val draft =
+                repository
+                    .hydrate(ConfigDraft(relayProfileId = profile.id, relayKind = profile.kind))
+                    .applyRelayDraftEdit { copy(relayKind = RelayKindVlessReality) }
+
+            assertTrue(runCatching { repository.persist(draft) }.isFailure)
+            assertEquals(profile, profiles.load(profile.id))
+            assertEquals(secret, credentials.load(profile.id))
+        }
+
+    @Test
+    fun `stale editor cannot replace changed profile or credentials`() =
+        runTest {
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            val profile = RelayProfileRecord(id = "shared", kind = RelayKindAnyTls, server = "old.example")
+            val secret = RelayCredentialRecord(profileId = "shared", anyTlsPassword = "old-secret")
+            profiles.save(profile)
+            credentials.save(secret)
+            val draft = repository.hydrate(ConfigDraft(relayProfileId = "shared", relayKind = RelayKindAnyTls))
+            profiles.save(profile.copy(server = "new.example"))
+            credentials.save(secret.copy(anyTlsPassword = "new-secret"))
+
+            assertTrue(runCatching { repository.persist(draft.copy(relayServer = "stale.example")) }.isFailure)
+            assertEquals("new.example", profiles.load("shared")?.server)
+            assertEquals("new-secret", credentials.load("shared")?.anyTlsPassword)
+        }
+
+    @Test
+    fun `selecting a saved profile preserves its metadata and credentials`() =
+        runTest {
+            val settings = FailingSettingsRepository()
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val profile =
+                RelayProfileRecord(
+                    id = "selected",
+                    kind = RelayKindSsh,
+                    server = "selected.example",
+                    sshAuthType = "private_key",
+                )
+            val secret = RelayCredentialRecord(profileId = profile.id, sshPrivateKey = "secret-fixture")
+            profiles.save(profile)
+            credentials.save(secret)
+
+            repository.selectProfile(profile.id)
+
+            assertEquals(profile, profiles.load(profile.id))
+            assertEquals(secret, credentials.load(profile.id))
+            assertEquals(profile.id, settings.snapshot().relayProfileId)
+            assertTrue(settings.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `editing a saved profile hydrates that profile instead of the active one`() =
+        runTest {
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            profiles.save(RelayProfileRecord(id = "inactive", kind = RelayKindAnyTls, server = "inactive.example"))
+            credentials.save(RelayCredentialRecord(profileId = "inactive", anyTlsPassword = "secret-fixture"))
+
+            val draft = repository.hydrateProfile("inactive")
+
+            assertEquals("inactive.example", draft.relayServer)
+            assertEquals("secret-fixture", draft.relayAnyTlsPassword)
+            assertEquals("inactive", draft.relayProfileId)
+        }
 
     @Test
     fun `AnyTLS mode editor refuses an empty password`() {
@@ -199,11 +331,12 @@ class ConfigRelayArtifactRepositoryTest {
                 )
             profiles.save(previousDraft.toRelayProfileRecord(profileId))
             credentials.save(previousDraft.toRelayCredentialRecord(profileId))
+            val editingDraft = repository.hydrate(previousDraft)
             profiles.failNextSaveAfterWrite = true
 
             val error =
                 runCatching {
-                    repository.persist(previousDraft.copy(relayServer = "new.example"))
+                    repository.persist(editingDraft.copy(relayServer = "new.example"))
                 }.exceptionOrNull()
 
             assertNotNull(error)
@@ -229,12 +362,13 @@ class ConfigRelayArtifactRepositoryTest {
             profiles.save(previousDraft.toRelayProfileRecord(profileId))
             credentials.save(previousDraft.toRelayCredentialRecord(profileId))
             settings.update { applyConfigDraft(previousDraft) }
+            val editingDraft = repository.hydrate(previousDraft)
             settings.failNextUpdateAfterWrite = true
 
             val error =
                 runCatching {
                     repository.persist(
-                        previousDraft.copy(relayServer = "new.example", relayVlessUuid = "new-credential"),
+                        editingDraft.copy(relayServer = "new.example", relayVlessUuid = "new-credential"),
                     )
                 }.exceptionOrNull()
 
@@ -260,12 +394,13 @@ class ConfigRelayArtifactRepositoryTest {
                 )
             profiles.save(previousDraft.toRelayProfileRecord(profileId))
             credentials.save(previousDraft.toRelayCredentialRecord(profileId))
+            val editingDraft = repository.hydrate(previousDraft)
             credentials.failNextSaveAfterWrite = true
 
             val error =
                 runCatching {
                     repository.persist(
-                        previousDraft.copy(relayServer = "new.example", relayVlessUuid = "new-credential"),
+                        editingDraft.copy(relayServer = "new.example", relayVlessUuid = "new-credential"),
                     )
                 }.exceptionOrNull()
 
@@ -289,7 +424,14 @@ private class RecordingRelayMutationCoordinator(
         settingsAfterImage: AppSettings?,
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
+        expectedState: ExpectedRelayProfileState?,
     ) {
+        if (expectedState != null) {
+            require(
+                profiles.load(profile.id) == expectedState.profile &&
+                    this.credentials.load(profile.id) == expectedState.credentials,
+            )
+        }
         profiles.save(profile)
         this.credentials.save(credentials)
         check(modeAfterImage == null)

@@ -2257,6 +2257,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_finalmask_noise">Noise</string>
     <string name="config_relay_finalmask_noise_help">Send one random byte prelude from the configured range before the real payload.</string>
     <string name="config_relay_profile_id_helper">Используется для привязки защищённых учётных данных к сохранённому профилю реле.</string>
+    <string name="config_relay_profile_id_taken">Этот ID уже принадлежит другому сохранённому профилю.</string>
     <string name="config_relay_profile_id">ID профиля</string>
     <string name="config_relay_reality_public_key">Публичный ключ Reality</string>
     <string name="config_relay_reality_short_id">Короткий ID Reality</string>

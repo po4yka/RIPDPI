@@ -5,8 +5,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -16,9 +23,11 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -49,6 +58,8 @@ internal fun VpnConfigScreen(
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
     onProfileShare: (String) -> Unit = {},
+    onProfileSelect: (String) -> Unit = {},
+    onProfileEdit: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("VpnConfigScreen")
@@ -66,6 +77,8 @@ internal fun VpnConfigScreen(
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
             onProfileShare = onProfileShare,
+            onProfileSelect = onProfileSelect,
+            onProfileEdit = onProfileEdit,
         )
         AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
             VpnAdvancedRows(
@@ -84,6 +97,8 @@ private fun VpnSimpleCard(
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
     onProfileShare: (String) -> Unit,
+    onProfileSelect: (String) -> Unit,
+    onProfileEdit: (String) -> Unit,
 ) {
     val vpnEnabled = uiState.runningMode == Mode.VPN
 
@@ -119,7 +134,12 @@ private fun VpnSimpleCard(
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
         )
-        VpnProfileList(uiState = uiState, onProfileShare = onProfileShare)
+        VpnProfileList(
+            uiState = uiState,
+            onProfileShare = onProfileShare,
+            onProfileSelect = onProfileSelect,
+            onProfileEdit = onProfileEdit,
+        )
     }
 }
 
@@ -127,7 +147,10 @@ private fun VpnSimpleCard(
 private fun VpnProfileList(
     uiState: ConfigUiState,
     onProfileShare: (String) -> Unit,
+    onProfileSelect: (String) -> Unit,
+    onProfileEdit: (String) -> Unit,
 ) {
+    var showAll by rememberSaveable { mutableStateOf(false) }
     if (uiState.vpnProfiles.isEmpty()) {
         SettingsRow(
             title = stringResource(R.string.config_vpn_profiles_title),
@@ -140,36 +163,95 @@ private fun VpnProfileList(
         return
     }
 
-    uiState.vpnProfiles.take(VpnProfilePreviewLimit).forEachIndexed { index, profile ->
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
-            SettingsRow(
-                title = profile.selectorLabel,
-                subtitle = profile.trustLabel,
-                value = profile.kindLabel,
-                leadingIcon = RipDpiIcons.Public,
-                showDivider = false,
-                testTag = RipDpiTestTags.configVpnProfileRow(profile.id),
+    if (showAll && uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
+        LazyColumn(
+            modifier = Modifier.height(360.dp).ripDpiTestTag(RipDpiTestTags.ConfigVpnProfileList),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
+            items(uiState.vpnProfiles, key = { it.id }) { profile ->
+                VpnProfileItem(
+                    profile = profile,
+                    selected = profile.id == uiState.activeRelayProfileId && uiState.activeRelayEnabled,
+                    onProfileShare = onProfileShare,
+                    onProfileSelect = onProfileSelect,
+                    onProfileEdit = onProfileEdit,
+                )
+            }
+        }
+    } else {
+        uiState.vpnProfiles.take(VpnProfilePreviewLimit).forEach { profile ->
+            VpnProfileItem(
+                profile = profile,
+                selected = profile.id == uiState.activeRelayProfileId && uiState.activeRelayEnabled,
+                onProfileShare = onProfileShare,
+                onProfileSelect = onProfileSelect,
+                onProfileEdit = onProfileEdit,
+            )
+        }
+        if (uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
+            RipDpiButton(
+                text =
+                    stringResource(
+                        R.string.config_vpn_profiles_more,
+                        uiState.vpnProfiles.size - VpnProfilePreviewLimit,
+                    ),
+                onClick = { showAll = true },
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnProfilesMore),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+    }
+}
+
+@Composable
+private fun VpnProfileItem(
+    profile: RelayProfileUiState,
+    selected: Boolean,
+    onProfileShare: (String) -> Unit,
+    onProfileSelect: (String) -> Unit,
+    onProfileEdit: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+        SettingsRow(
+            title = profile.selectorLabel,
+            subtitle = profile.trustLabel,
+            value = profile.kindLabel,
+            leadingIcon = RipDpiIcons.Public,
+            onClick =
+                if (isModeEditorRelayKindSupported(profile.kind)) {
+                    { onProfileEdit(profile.id) }
+                } else {
+                    null
+                },
+            showDivider = false,
+            testTag = RipDpiTestTags.configVpnProfileRow(profile.id),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
+            RipDpiButton(
+                text =
+                    stringResource(
+                        if (selected) R.string.profile_variants_cta_selected else R.string.profile_variants_cta_select,
+                    ),
+                onClick = { onProfileSelect(profile.id) },
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.configVpnProfileSelect(profile.id)),
+                variant = RipDpiButtonVariant.Outline,
+                enabled = !selected,
             )
             RipDpiButton(
                 text = stringResource(R.string.profile_share_action),
                 onClick = { onProfileShare(profile.id) },
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.configVpnProfileShare(profile.id)),
                 variant = RipDpiButtonVariant.Outline,
                 leadingIcon = RipDpiIcons.Share,
-            )
-        }
-        if (index == VpnProfilePreviewLimit - 1 && uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
-            Text(
-                text =
-                    stringResource(
-                        R.string.config_vpn_profiles_more,
-                        uiState.vpnProfiles.size - VpnProfilePreviewLimit,
-                    ),
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
     }

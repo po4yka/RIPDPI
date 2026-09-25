@@ -689,6 +689,7 @@
     <string name="config_relay_enable">Ativar retransmissão upstream</string>
     <string name="config_relay_profile_id">ID do perfil</string>
     <string name="config_relay_profile_id_helper">Usado para vincular credenciais seguras ao perfil de retransmissão salvo.</string>
+    <string name="config_relay_profile_id_taken">Este ID pertence a outro perfil salvo.</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_kind_chain">Retransmissor em cadeia</string>
     <string name="config_relay_credentials_title">Credenciais do retransmissor ausentes</string>

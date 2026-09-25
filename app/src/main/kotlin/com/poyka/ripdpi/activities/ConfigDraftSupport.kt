@@ -88,6 +88,9 @@ data class ConfigDraft(
     val relayEnabled: Boolean = false,
     val relayKind: String = RelayKindOff,
     val relayProfileId: String = DefaultRelayProfileId,
+    val editingRelayProfileId: String = "",
+    val editingRelayProfileAtOpen: RelayProfileRecord? = null,
+    val editingRelayCredentialsAtOpen: RelayCredentialRecord? = null,
     val relayPresetId: String = "",
     val sourceRelayProfile: RelayProfileRecord? = null,
     val sourceRelayCredentials: RelayCredentialRecord? = null,
@@ -268,6 +271,8 @@ data class ConfigPreset(
 
 data class ConfigUiState(
     val activeMode: Mode = Mode.VPN,
+    val activeRelayProfileId: String = DefaultRelayProfileId,
+    val activeRelayEnabled: Boolean = false,
     val runningMode: Mode? = null,
     val uiPersona: String = "simple",
     val presets: ImmutableList<ConfigPreset> = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
@@ -391,6 +396,7 @@ internal const val ConfigFieldBufferSize = "bufferSize"
 internal const val ConfigFieldDefaultTtl = "defaultTtl"
 internal const val ConfigFieldStrategyChain = "strategyChain"
 internal const val ConfigFieldRelayServerPort = "relayServerPort"
+internal const val ConfigFieldRelayProfileId = "relayProfileId"
 internal const val ConfigFieldRelayLocalSocksPort = "relayLocalSocksPort"
 internal const val ConfigFieldRelayServer = "relayServer"
 internal const val ConfigFieldRelayChain = "relayChain"

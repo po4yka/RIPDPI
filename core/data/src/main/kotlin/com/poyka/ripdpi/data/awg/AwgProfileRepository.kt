@@ -222,6 +222,7 @@ private class DirectAwgProfileMutationCoordinator(
         settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
+        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
     ) = unsupported()
 
     override suspend fun upsertWarp(

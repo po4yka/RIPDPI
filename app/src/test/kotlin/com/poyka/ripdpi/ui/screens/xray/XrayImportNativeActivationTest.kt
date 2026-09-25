@@ -884,6 +884,7 @@ private class FakeXrayProfileMutationCoordinator(
         settingsAfterImage: AppSettings?,
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
+        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
     ) {
         failure?.let { throw it }
         relayProfileStore?.save(profile)

@@ -93,7 +93,10 @@ internal object RipDpiTestTags {
     const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
     const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
     const val ConfigVpnProfileList = "config-vpn-profile-list"
+    const val ConfigVpnProfilesMore = "config-vpn-profiles-more"
+    const val ModeEditorRelayProfileId = "mode-editor-relay-profile-id"
     val configVpnProfileRow: (String) -> String = { profileId -> "config-vpn-profile-row-${sanitize(profileId)}" }
+    val configVpnProfileSelect: (String) -> String = { profileId -> "config-vpn-profile-select-${sanitize(profileId)}" }
     const val ProfileShareQrCard = "profile-share-qr-card"
     const val ProfileShareQrImage = "profile-share-qr-image"
     const val ProfileShareLinkCard = "profile-share-link-card"

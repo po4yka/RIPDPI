@@ -684,6 +684,7 @@
     <string name="config_relay_enable">تفعيل الترحيل الصاعد</string>
     <string name="config_relay_profile_id">معرّف الملف الشخصي</string>
     <string name="config_relay_profile_id_helper">يُستخدم لربط بيانات الاعتماد الآمنة بملف الترحيل المحفوظ.</string>
+    <string name="config_relay_profile_id_taken">هذا المعرّف يخص ملفًا شخصيًا محفوظًا آخر.</string>
     <string name="config_relay_kind_cloudflare_tunnel">نفق Cloudflare</string>
     <string name="config_relay_kind_chain">ترحيل متسلسل</string>
     <string name="config_relay_credentials_title">بيانات اعتماد الترحيل مفقودة</string>

@@ -688,6 +688,7 @@
     <string name="config_relay_enable">فعال‌سازی رلهٔ بالادست</string>
     <string name="config_relay_profile_id">شناسهٔ پروفایل</string>
     <string name="config_relay_profile_id_helper">برای اتصال اعتبارنامه‌های امن به پروفایل رلهٔ ذخیره‌شده استفاده می‌شود.</string>
+    <string name="config_relay_profile_id_taken">این شناسه به نمایهٔ ذخیره‌شدهٔ دیگری تعلق دارد.</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_kind_chain">رلهٔ زنجیره‌ای</string>
     <string name="config_relay_credentials_title">اعتبارنامهٔ رله ناقص است</string>

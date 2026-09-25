@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -41,6 +42,14 @@ internal fun validateConfigDraft(
 ): ImmutableMap<String, String> =
     buildMap {
         putAll(validateBaseDraft(draft))
+        val profileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }
+        if (relayProfiles.any { profile ->
+                profile.id == profileId &&
+                    (draft.editingRelayProfileId != profileId || draft.editingRelayProfileAtOpen != profile)
+            }
+        ) {
+            put(ConfigFieldRelayProfileId, "taken")
+        }
         if (draft.relayEnabled && !draft.useCommandLineSettings) {
             putAll(validateRelayDraft(draft, supportsMasquePrivacyPass, relayProfiles))
         }

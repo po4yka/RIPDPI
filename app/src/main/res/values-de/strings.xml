@@ -1689,6 +1689,7 @@ Quelle: %2$s</string>
     <string name="config_relay_masque_pkcs12_dialog_title">PKCS#12-Identität importieren</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass ist nicht verfügbar, da dieser Build keine konfigurierte Provider-URL hat.</string>
     <string name="config_relay_profile_id_helper">Wird verwendet, um sichere Anmeldedaten an das gespeicherte Relay-Profil zu binden.</string>
+    <string name="config_relay_profile_id_taken">Diese Profil-ID gehört zu einem anderen gespeicherten Profil.</string>
     <string name="config_relay_server_name">TLS-Servername</string>
     <string name="config_save">Speichern</string>
     <string name="config_validation_banner_body">Der Editor validiert in Echtzeit. Korrigieren Sie die markierten Felder und speichern Sie erneut.</string>

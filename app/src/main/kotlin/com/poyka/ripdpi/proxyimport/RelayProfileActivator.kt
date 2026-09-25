@@ -331,7 +331,14 @@ private class DirectRelayProfileMutationCoordinator(
         settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
+        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
     ) {
+        if (expectedState != null) {
+            require(
+                profiles.load(profile.id) == expectedState.profile &&
+                    this.credentials.load(profile.id) == expectedState.credentials,
+            )
+        }
         profiles.save(profile)
         this.credentials.save(credentials)
         check(xraySelectionAfterImage == null) { "Direct relay activation cannot update Xray provider selection" }

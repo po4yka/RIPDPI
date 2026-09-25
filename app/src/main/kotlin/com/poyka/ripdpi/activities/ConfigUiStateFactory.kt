@@ -83,6 +83,8 @@ internal class ConfigUiStateFactory(
             ).toUiState(draft)
         return ConfigUiState(
             activeMode = projection.currentDraft.mode,
+            activeRelayProfileId = projection.currentDraft.relayProfileId,
+            activeRelayEnabled = projection.currentDraft.relayEnabled,
             runningMode =
                 projection.serviceStatus.second.takeIf {
                     projection.serviceStatus.first == AppStatus.Running

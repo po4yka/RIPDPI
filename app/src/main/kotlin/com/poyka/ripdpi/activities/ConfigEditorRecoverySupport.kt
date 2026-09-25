@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.lifecycle.SavedStateHandle
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +15,21 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private const val ConfigEditorRecoveryPersistenceRetryDelayMillis = 1_000L
+
+internal fun readInvalidatedConfigEditorRecoverySessionIds(savedStateHandle: SavedStateHandle): List<String> =
+    savedStateHandle
+        .get<ArrayList<String>>(ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey)
+        .orEmpty()
+        .filter(::isValidConfigEditorRecoverySessionId)
+
+internal fun configEditorRecoverySessionRecorder(savedStateHandle: SavedStateHandle): (String) -> Unit =
+    { value ->
+        val invalidated =
+            (readInvalidatedConfigEditorRecoverySessionIds(savedStateHandle) + value)
+                .distinct()
+                .takeLast(ConfigEditorMaxInvalidatedSessionIds)
+        savedStateHandle[ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey] = ArrayList(invalidated)
+    }
 
 internal fun observeConfigEditorDraftRecovery(
     scope: CoroutineScope,

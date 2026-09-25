@@ -7,7 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-internal fun AppSettings.Builder.applyRelayAfterImage(
+fun AppSettings.Builder.applyRelayAfterImage(
     profile: RelayProfileRecord,
     enabled: Boolean,
 ) {

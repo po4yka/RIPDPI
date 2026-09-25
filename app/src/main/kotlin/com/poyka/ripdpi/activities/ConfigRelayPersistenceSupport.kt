@@ -25,6 +25,9 @@ internal fun ConfigDraft.withRelayArtifacts(
     copy(
         sourceRelayProfile = profile,
         sourceRelayCredentials = credentials,
+        editingRelayProfileId = profile?.id.orEmpty(),
+        editingRelayProfileAtOpen = profile,
+        editingRelayCredentialsAtOpen = credentials,
         relayPresetId = profile?.presetId.orEmpty(),
         relayVlessUuid = credentials?.vlessUuid.orEmpty(),
         relayAnyTlsPassword = credentials?.anyTlsPassword.orEmpty(),

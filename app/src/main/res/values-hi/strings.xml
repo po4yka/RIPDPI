@@ -686,6 +686,7 @@
     <string name="config_relay_enable">अपस्ट्रीम relay सक्षम करें</string>
     <string name="config_relay_profile_id">प्रोफ़ाइल ID</string>
     <string name="config_relay_profile_id_helper">सहेजी गई relay प्रोफ़ाइल से सुरक्षित क्रेडेंशियल बाइंड करने के लिए उपयोग किया जाता है।</string>
+    <string name="config_relay_profile_id_taken">यह प्रोफ़ाइल ID किसी अन्य सहेजी गई प्रोफ़ाइल का है।</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_kind_chain">Chain relay</string>
     <string name="config_relay_credentials_title">रिले क्रेडेंशियल मौजूद नहीं हैं</string>

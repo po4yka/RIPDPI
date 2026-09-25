@@ -698,6 +698,7 @@
     <string name="config_relay_enable">Enable upstream relay</string>
     <string name="config_relay_profile_id">Profile ID</string>
     <string name="config_relay_profile_id_helper">Used to bind secure credentials to the saved relay profile.</string>
+    <string name="config_relay_profile_id_taken">This profile ID belongs to another saved profile.</string>
     <string name="config_relay_kind_vless" translatable="false">VLESS</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_kind_hysteria2" translatable="false">Hysteria2</string>

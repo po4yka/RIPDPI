@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -17,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -29,6 +33,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -419,7 +424,7 @@ class ConfigScreenTest {
             initialModeSection = ConfigModeSection.Vpn,
             onPasteServerLink = { pasteClicks += 1 },
             onScanServer = { scanClicks += 1 },
-            onProfileShare = { profileShareClicks += it },
+            profileActions = ConfigProfileActions(share = { profileShareClicks += it }),
             vpnProfiles =
                 persistentListOf(
                     RelayProfileUiState(
@@ -436,7 +441,7 @@ class ConfigScreenTest {
         composeRule.onNodeWithText("Add profile").assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("default"))
-            .assertHasNoClickAction()
+            .assertHasClickAction()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste)
             .assertHasClickAction()
@@ -459,6 +464,106 @@ class ConfigScreenTest {
         }
     }
 
+    @Test
+    fun `every saved vpn profile can be opened for editing`() {
+        val edited = mutableListOf<String>()
+        val profiles =
+            (1..4).map { id ->
+                RelayProfileUiState("relay-$id", "vless_reality", "VLESS", "", "")
+            }
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.Vpn,
+            vpnProfiles = profiles.toImmutableList(),
+            profileActions = ConfigProfileActions(edit = { edited += it }),
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfilesMore)
+            .performScrollTo()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList)
+            .performScrollToKey("relay-4")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-4"))
+            .assertHasClickAction()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(listOf("relay-4"), edited) }
+    }
+
+    @Test
+    fun `imported only relay can be selected without offering unsupported editing`() {
+        val selected = mutableListOf<String>()
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.Vpn,
+            vpnProfiles = persistentListOf(RelayProfileUiState("ssh-imported", "ssh", "SSH", "", "")),
+            profileActions = ConfigProfileActions(select = { selected += it }),
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("ssh-imported"))
+            .assertHasNoClickAction()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("ssh-imported"))
+            .performScrollTo()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(listOf("ssh-imported"), selected) }
+    }
+
+    @Test
+    fun `profile selection follows saved settings rather than an unsaved editor draft`() {
+        val state =
+            configUiState(
+                vpnProfiles =
+                    persistentListOf(
+                        RelayProfileUiState("active", "vless_reality", "VLESS", "", ""),
+                        RelayProfileUiState("draft", "vless_reality", "VLESS", "", ""),
+                    ),
+            ).copy(
+                activeRelayProfileId = "active",
+                activeRelayEnabled = true,
+                draft =
+                    AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                        relayProfileId = "draft",
+                        relayEnabled = true,
+                    ),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                VpnConfigScreen(state, { _, _ -> }, {}, {}, {}, {})
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("active"))
+            .assertIsNotEnabled()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("draft"))
+            .assertIsEnabled()
+    }
+
+    @Test
+    fun `saved relay profile ID is read only in mode editor`() {
+        val draft =
+            AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                relayEnabled = true,
+                relayProfileId = "saved",
+                editingRelayProfileId = "saved",
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                ModeEditorRelaySection(draft, configUiState(), NoOpModeEditorActions)
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ModeEditorRelayProfileId)
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.SetText))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.modeEditorRelayChip("vless_reality"))
+            .assertIsNotEnabled()
+    }
+
     private fun setConfigScreen(
         initialModeSection: ConfigModeSection,
         onModeSelected: (Mode) -> Unit = {},
@@ -469,7 +574,7 @@ class ConfigScreenTest {
         onRetestStrategies: () -> Unit = {},
         onPasteServerLink: () -> Unit = {},
         onScanServer: () -> Unit = {},
-        onProfileShare: (String) -> Unit = {},
+        profileActions: ConfigProfileActions = ConfigProfileActions(),
         uiPersona: String = "simple",
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
         activeMode: Mode = Mode.VPN,
@@ -498,7 +603,7 @@ class ConfigScreenTest {
                     onRetestStrategies = onRetestStrategies,
                     onPasteServerLink = onPasteServerLink,
                     onScanServer = onScanServer,
-                    onProfileShare = onProfileShare,
+                    profileActions = profileActions,
                     initialModeSection = initialModeSection,
                 )
             }
