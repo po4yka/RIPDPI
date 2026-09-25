@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-25
+goal: RLY-1790339260163788 Expose and edit every supported relay kind

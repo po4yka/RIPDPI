@@ -38,14 +38,18 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
+import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenu
+import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenuAction
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 
 private const val VpnProfilePreviewLimit = 3
 
@@ -60,6 +64,7 @@ internal fun VpnConfigScreen(
     onProfileShare: (String) -> Unit = {},
     onProfileSelect: (String) -> Unit = {},
     onProfileEdit: (String) -> Unit = {},
+    onCreateProfile: (Route) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("VpnConfigScreen")
@@ -79,6 +84,7 @@ internal fun VpnConfigScreen(
             onProfileShare = onProfileShare,
             onProfileSelect = onProfileSelect,
             onProfileEdit = onProfileEdit,
+            onCreateProfile = onCreateProfile,
         )
         AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
             VpnAdvancedRows(
@@ -99,6 +105,7 @@ private fun VpnSimpleCard(
     onProfileShare: (String) -> Unit,
     onProfileSelect: (String) -> Unit,
     onProfileEdit: (String) -> Unit,
+    onCreateProfile: (Route) -> Unit,
 ) {
     val vpnEnabled = uiState.runningMode == Mode.VPN
 
@@ -133,6 +140,7 @@ private fun VpnSimpleCard(
             onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
+            onCreateProfile = onCreateProfile,
         )
         VpnProfileList(
             uiState = uiState,
@@ -263,8 +271,10 @@ private fun VpnSimpleActions(
     onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onCreateProfile: (Route) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    var showProfileMenu by rememberSaveable { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         RipDpiButton(
@@ -284,11 +294,46 @@ private fun VpnSimpleActions(
             variant = RipDpiButtonVariant.Primary,
             leadingIcon = RipDpiIcons.Vpn,
         )
-        Text(
-            text = stringResource(R.string.config_vpn_add_profile_title),
-            style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
+        Box {
+            RipDpiButton(
+                text = stringResource(R.string.config_vpn_add_profile_title),
+                onClick = { showProfileMenu = true },
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddProfile),
+                variant = RipDpiButtonVariant.Outline,
+                leadingIcon = RipDpiIcons.Add,
+            )
+            RipDpiContextMenu(
+                visible = showProfileMenu,
+                actions =
+                    persistentListOf(
+                        RipDpiContextMenuAction(
+                            label = stringResource(R.string.anytls_editor_title),
+                            icon = RipDpiIcons.Public,
+                            testTag = RipDpiTestTags.configVpnCreateProfile(Route.AnyTlsProfile),
+                            onClick = { onCreateProfile(Route.AnyTlsProfile) },
+                        ),
+                        RipDpiContextMenuAction(
+                            label = stringResource(R.string.mieru_editor_title),
+                            icon = RipDpiIcons.Public,
+                            testTag = RipDpiTestTags.configVpnCreateProfile(Route.MieruProfile),
+                            onClick = { onCreateProfile(Route.MieruProfile) },
+                        ),
+                        RipDpiContextMenuAction(
+                            label = stringResource(R.string.ssh_editor_title),
+                            icon = RipDpiIcons.Public,
+                            testTag = RipDpiTestTags.configVpnCreateProfile(Route.SshProfile),
+                            onClick = { onCreateProfile(Route.SshProfile) },
+                        ),
+                        RipDpiContextMenuAction(
+                            label = stringResource(R.string.awg_editor_title),
+                            icon = RipDpiIcons.Vpn,
+                            testTag = RipDpiTestTags.configVpnCreateProfile(Route.AmneziaWgProfile),
+                            onClick = { onCreateProfile(Route.AmneziaWgProfile) },
+                        ),
+                    ),
+                onDismiss = { showProfileMenu = false },
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),

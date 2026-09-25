@@ -60,6 +60,7 @@ data class ConfigProfileActions(
     val share: (String) -> Unit = {},
     val select: (String) -> Unit = {},
     val edit: (String) -> Unit = {},
+    val create: (Route) -> Unit = {},
 )
 
 @Composable
@@ -69,6 +70,7 @@ fun ConfigRoute(
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     onScanServer: () -> Unit,
+    onOpenProfileEditor: (Route) -> Unit,
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
@@ -135,6 +137,7 @@ fun ConfigRoute(
             ConfigProfileActions(
                 share = onProfileShare,
                 select = remember(viewModel) { viewModel::selectRelayProfile },
+                create = onOpenProfileEditor,
                 edit = { profileId ->
                     viewModel.startEditingPreset("relay-profile:$profileId")
                     onOpenModeEditor()
@@ -340,6 +343,7 @@ private fun ConfigSelectedModeSection(
                 onProfileShare = profileActions.share,
                 onProfileSelect = profileActions.select,
                 onProfileEdit = profileActions.edit,
+                onCreateProfile = profileActions.create,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
             )
         }

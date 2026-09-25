@@ -29,6 +29,7 @@ import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -296,6 +297,29 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
+    }
+
+    @Test
+    fun `vpn add profile menu opens every dedicated editor`() {
+        val opened = mutableListOf<Route>()
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.Vpn,
+            profileActions = ConfigProfileActions(create = { opened += it }),
+        )
+
+        val editors =
+            listOf(
+                Route.AnyTlsProfile,
+                Route.MieruProfile,
+                Route.SshProfile,
+                Route.AmneziaWgProfile,
+            )
+        editors.forEach { route ->
+            composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).performScrollTo().performClick()
+            composeRule.onNodeWithTag(RipDpiTestTags.configVpnCreateProfile(route)).performClick()
+        }
+
+        composeRule.runOnIdle { assertEquals(editors, opened) }
     }
 
     @Test

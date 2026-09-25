@@ -92,6 +92,8 @@ internal object RipDpiTestTags {
     const val ConfigVpnToggleState = "config-vpn-toggle-state"
     const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
     const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
+    const val ConfigVpnAddProfile = "config-vpn-add-profile"
+    val configVpnCreateProfile: (Route) -> String = { route -> "config-vpn-create-${sanitize(route.stableRoute)}" }
     const val ConfigVpnProfileList = "config-vpn-profile-list"
     const val ConfigVpnProfilesMore = "config-vpn-profiles-more"
     const val ModeEditorRelayProfileId = "mode-editor-relay-profile-id"
