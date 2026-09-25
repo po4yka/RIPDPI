@@ -1910,6 +1910,10 @@ app:diagnostics_tool_probing
 app:diagnostics_tool_scanning
 app:diagnostics_tool_sni_compatibility_run
 app:diagnostics_tool_sni_compatibility_title
+app:diagnostics_tool_state_complete
+app:diagnostics_tool_state_failed
+app:diagnostics_tool_state_idle
+app:diagnostics_tool_state_running
 app:diagnostics_tool_surveying
 app:diagnostics_tool_tcp16_run
 app:diagnostics_tool_tcp16_title
@@ -3235,6 +3239,7 @@ app:root_mode_strategy_ipfrag2_body
 app:root_mode_strategy_ipfrag2_title
 app:root_mode_strategy_multidisorder_body
 app:root_mode_strategy_multidisorder_title
+app:root_mode_toggle_label
 app:route_stack_accessibility
 app:route_stack_node_separator
 app:route_stack_status_active
