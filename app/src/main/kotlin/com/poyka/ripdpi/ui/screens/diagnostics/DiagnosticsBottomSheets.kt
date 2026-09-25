@@ -181,7 +181,7 @@ internal fun DiagnosticsBottomSheetHost(
             detail.recentSessions.forEach { session ->
                 SessionRow(
                     session = session,
-                    onClick = {},
+                    onClick = null,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
                 )
             }
@@ -339,7 +339,7 @@ internal fun DiagnosticsBottomSheetHost(
                         color = colors.mutedForeground,
                     )
                     group.items.forEach { probe ->
-                        ProbeResultRow(probe = probe, onClick = {})
+                        ProbeResultRow(probe = probe, onClick = null)
                     }
                 }
             }

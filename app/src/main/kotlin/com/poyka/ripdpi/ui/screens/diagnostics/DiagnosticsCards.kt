@@ -170,7 +170,7 @@ internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
 @Composable
 internal fun SessionRow(
     session: DiagnosticsSessionRowUiModel,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("SessionRow")
@@ -241,7 +241,7 @@ internal fun SessionRow(
 @Composable
 internal fun ProbeResultRow(
     probe: DiagnosticsProbeResultUiModel,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("ProbeResultRow")
@@ -288,7 +288,7 @@ internal fun ProbeResultRow(
 @Composable
 internal fun EventRow(
     event: DiagnosticsEventUiModel,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("EventRow")

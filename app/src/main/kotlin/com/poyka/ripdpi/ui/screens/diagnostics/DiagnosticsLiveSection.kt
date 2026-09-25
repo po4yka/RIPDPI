@@ -121,7 +121,7 @@ private fun LiveSectionContent(live: DiagnosticsLiveUiModel) {
                 key = { it.id },
                 contentType = { "passive_event" },
             ) { event ->
-                EventRow(event = event, onClick = {})
+                EventRow(event = event, onClick = null)
             }
         }
     }

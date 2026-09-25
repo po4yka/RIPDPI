@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-25
+goal: DGN-1790339654179112 Remove inert diagnostic row actions

@@ -133,7 +133,7 @@ private fun DetailEvents(events: List<DiagnosticsEventUiModel>) {
     events.forEach { event ->
         EventRow(
             event = event,
-            onClick = {},
+            onClick = null,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(event.id)),
         )
     }

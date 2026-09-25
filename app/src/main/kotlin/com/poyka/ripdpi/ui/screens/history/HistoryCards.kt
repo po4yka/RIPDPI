@@ -144,7 +144,7 @@ internal fun DiagnosticsSessionCard(
 @Composable
 internal fun EventRow(
     event: DiagnosticsEventUiModel,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     occurrenceCount: Int = 1,
     lastTimestampLabel: String? = null,

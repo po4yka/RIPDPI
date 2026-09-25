@@ -250,7 +250,7 @@ internal fun OverviewSection(
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_attention_section))
                     overview.warnings.forEach { warning ->
-                        EventRow(event = warning, onClick = {})
+                        EventRow(event = warning, onClick = null)
                     }
                 }
             }

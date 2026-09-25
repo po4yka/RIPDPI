@@ -214,7 +214,7 @@ internal fun ScanSection(
                 )
                 SessionRow(
                     session = session,
-                    onClick = {},
+                    onClick = null,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
                 )
             }
