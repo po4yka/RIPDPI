@@ -187,7 +187,7 @@ class GenerateGuideTest(unittest.TestCase):
 
         spec = guide.load_spec(spec_path)
 
-        self.assertEqual(7, len(spec.route_exclusions))
+        self.assertEqual(9, len(spec.route_exclusions))
         self.assertIn("shared_diagnostic_result", [item.route for item in spec.route_exclusions])
         self.assertTrue(all(item.prerequisite and item.reason for item in spec.route_exclusions))
         section_ids = [page_id for section in spec.flow_sections for page_id in section.page_ids]
