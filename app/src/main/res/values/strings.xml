@@ -1413,6 +1413,7 @@ fakeddisorder endhost</string>
     <string name="title_strategy_config">Strategy Config</string>
     <string name="title_remembered_networks">Remembered networks</string>
     <string name="title_root_mode_strategies">Root-mode strategies</string>
+    <string name="root_mode_toggle_label">Root mode</string>
     <string name="settings_root_mode_strategies_body">Configure FakeRST, multi-disorder, and IP fragmentation.</string>
     <string name="root_mode_strategies_intro_title">Requires root</string>
     <string name="root_mode_strategies_intro_body">These desync strategies inject or fragment packets below the VPN socket and only work on rooted devices with root mode enabled.</string>

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
@@ -14,20 +15,17 @@ import com.poyka.ripdpi.utility.validateIntRange
 internal fun ConfigDraft.supportsUdpRelay(): Boolean = relayKind.supportsRelayUdpMode()
 
 internal fun ConfigDraft.supportsFinalmask(): Boolean =
-    relayKind == RelayKindVlessReality ||
-        relayKind == RelayKindCloudflareTunnel
+    when (relayKind) {
+        RelayKindCloudflareTunnel -> true
+        RelayKindVless, RelayKindVlessReality -> relayVlessTransport == RelayVlessTransportXhttp
+        else -> false
+    }
 
 @Suppress("ReturnCount")
 internal fun validateRelayFinalmaskDraft(draft: ConfigDraft): String? {
     val finalmaskType = normalizeRelayFinalmaskType(draft.relayFinalmaskType)
     if (finalmaskType == RelayFinalmaskTypeOff) {
         return null
-    }
-    if (
-        draft.relayKind == RelayKindVlessReality &&
-        draft.relayVlessTransport != RelayVlessTransportXhttp
-    ) {
-        return "unsupported"
     }
     if (!draft.supportsFinalmask()) {
         return "unsupported"

@@ -211,6 +211,7 @@ internal object RipDpiTestTags {
     const val SettingsRootModeStrategies = "settings-root-mode-strategies"
     const val RootModeStrategiesDisabled = "root-mode-strategies-disabled"
     const val RootModeStrategiesConfigure = "root-mode-strategies-configure"
+    const val RootModeToggle = "root-mode-toggle"
     const val SplitTunnelModeSelector = "split-tunnel-mode-selector"
     const val SplitTunnelEditApps = "split-tunnel-edit-apps"
     const val StrategyConfigSource = "strategy-config-source"

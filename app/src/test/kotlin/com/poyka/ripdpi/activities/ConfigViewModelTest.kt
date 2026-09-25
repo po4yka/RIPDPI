@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -484,6 +485,19 @@ class ConfigViewModelTest {
             )
 
         assertEquals(null, errors[ConfigFieldRelayFinalmask])
+    }
+
+    @Test
+    fun `relay validation accepts finalmask for plain VLESS xHTTP`() {
+        val draft =
+            defaultDraft.copy(
+                relayKind = RelayKindVless,
+                relayVlessTransport = RelayVlessTransportXhttp,
+                relayFinalmaskType = RelayFinalmaskTypeNoise,
+                relayFinalmaskRandRange = "8-12",
+            )
+
+        assertEquals(null, validateRelayFinalmaskDraft(draft))
     }
 
     @Test

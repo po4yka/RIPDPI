@@ -136,18 +136,16 @@ private fun SettingsAdvancedConnectivitySection(
             subtitle = stringResource(R.string.settings_split_tunnel_body),
             value = stringResource(R.string.settings_manage_action),
             onClick = actions.onOpenSplitTunnel,
-            showDivider = uiState.rootModeEnabled,
+            showDivider = true,
             testTag = RipDpiTestTags.SettingsSplitTunnel,
         )
-        if (uiState.rootModeEnabled) {
-            SettingsRow(
-                title = stringResource(R.string.title_root_mode_strategies),
-                subtitle = stringResource(R.string.settings_root_mode_strategies_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenRootModeStrategies,
-                testTag = RipDpiTestTags.SettingsRootModeStrategies,
-            )
-        }
+        SettingsRow(
+            title = stringResource(R.string.title_root_mode_strategies),
+            subtitle = stringResource(R.string.settings_root_mode_strategies_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenRootModeStrategies,
+            testTag = RipDpiTestTags.SettingsRootModeStrategies,
+        )
     }
 }
 

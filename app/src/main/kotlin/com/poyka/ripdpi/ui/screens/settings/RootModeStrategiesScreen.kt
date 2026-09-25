@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RootModeStrategiesUiState(
@@ -45,7 +47,7 @@ data class RootModeStrategiesUiState(
 class RootModeStrategiesViewModel
     @Inject
     constructor(
-        appSettingsRepository: AppSettingsRepository,
+        private val appSettingsRepository: AppSettingsRepository,
     ) : ViewModel() {
         val uiState: StateFlow<RootModeStrategiesUiState> =
             appSettingsRepository.settings
@@ -55,6 +57,10 @@ class RootModeStrategiesViewModel
                     started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
                     initialValue = RootModeStrategiesUiState(),
                 )
+
+        fun setRootModeEnabled(enabled: Boolean) {
+            viewModelScope.launch { appSettingsRepository.update { rootModeEnabled = enabled } }
+        }
 
         private companion object {
             const val STOP_TIMEOUT_MS = 5_000L
@@ -98,6 +104,7 @@ fun RootModeStrategiesRoute(
         uiState = uiState,
         onBack = onBack,
         onOpenStrategyConfig = onOpenStrategyConfig,
+        onRootModeEnabledChange = viewModel::setRootModeEnabled,
         modifier = modifier,
     )
 }
@@ -107,6 +114,7 @@ internal fun RootModeStrategiesScreen(
     uiState: RootModeStrategiesUiState,
     onBack: () -> Unit,
     onOpenStrategyConfig: () -> Unit,
+    onRootModeEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -126,6 +134,17 @@ internal fun RootModeStrategiesScreen(
                 message = stringResource(R.string.root_mode_strategies_intro_body),
                 tone = WarningBannerTone.Info,
             )
+        }
+
+        item(key = "root_mode_toggle") {
+            RipDpiCard {
+                RipDpiSwitch(
+                    checked = uiState.rootModeEnabled,
+                    onCheckedChange = onRootModeEnabledChange,
+                    label = stringResource(R.string.root_mode_toggle_label),
+                    testTag = RipDpiTestTags.RootModeToggle,
+                )
+            }
         }
 
         if (!uiState.rootModeEnabled) {

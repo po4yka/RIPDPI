@@ -2685,6 +2685,7 @@ fake_burst 3</string>
     <string name="title_strategy_config">策略配置</string>
     <string name="title_remembered_networks">已记住的网络</string>
     <string name="title_root_mode_strategies">Root 模式策略</string>
+    <string name="root_mode_toggle_label">Root 模式</string>
     <string name="settings_root_mode_strategies_body">配置 FakeRST、多重乱序和 IP 分片。</string>
     <string name="root_mode_strategies_intro_title">需要 Root</string>
     <string name="root_mode_strategies_intro_body">这些去同步策略在 VPN 套接字下方注入或分片数据包,仅在已启用 root 模式的已 root 设备上有效。</string>

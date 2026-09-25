@@ -1386,6 +1386,7 @@ fakeddisorder endhost</string>
     <string name="title_strategy_config">रणनीति कॉन्फ़िग</string>
     <string name="title_remembered_networks">याद रखे गए नेटवर्क</string>
     <string name="title_root_mode_strategies">Root-मोड रणनीतियाँ</string>
+    <string name="root_mode_toggle_label">रूट मोड</string>
     <string name="settings_root_mode_strategies_body">FakeRST, multi-disorder, और IP विखंडन कॉन्फ़िगर करें।</string>
     <string name="root_mode_strategies_intro_title">root आवश्यक है</string>
     <string name="root_mode_strategies_intro_body">ये desync रणनीतियाँ VPN सॉकेट के नीचे पैकेट इंजेक्ट या विखंडित करती हैं और केवल root मोड सक्षम किए गए rooted डिवाइस पर ही काम करती हैं।</string>

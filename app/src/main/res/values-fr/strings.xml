@@ -2161,6 +2161,7 @@ Source : %2$s</string>
     <string name="title_strategy_config">Config de stratégie</string>
     <string name="title_remembered_networks">Réseaux mémorisés</string>
     <string name="title_root_mode_strategies">Stratégies en mode root</string>
+    <string name="root_mode_toggle_label">Mode root</string>
     <string name="settings_root_mode_strategies_body">Configurez FakeRST, le multi-désordre et la fragmentation IP.</string>
     <string name="root_mode_strategies_intro_title">Nécessite le root</string>
     <string name="root_mode_strategies_intro_body">Ces stratégies de désynchronisation injectent ou fragmentent les paquets sous le socket du VPN et ne fonctionnent que sur les appareils rootés avec le mode root activé.</string>

@@ -28,6 +28,7 @@ internal fun RelayFinalmaskFields(
     draft: ConfigDraft,
     uiState: ConfigUiState,
     actions: RelayFinalmaskActions,
+    canConfigure: Boolean = true,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     Text(
@@ -36,7 +37,7 @@ internal fun RelayFinalmaskFields(
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        finalmaskOptions().forEach { option ->
+        finalmaskOptions().filter { canConfigure || it.kind == RelayFinalmaskTypeOff }.forEach { option ->
             FinalmaskOptionRow(
                 option = option,
                 selectedKind = draft.relayFinalmaskType,
@@ -44,6 +45,7 @@ internal fun RelayFinalmaskFields(
             )
         }
     }
+    if (!canConfigure) return
     when (draft.relayFinalmaskType) {
         RelayFinalmaskTypeHeaderCustom -> RelayFinalmaskHeaderFields(draft, uiState, actions)
         RelayFinalmaskTypeSudoku -> RelayFinalmaskSudokuFields(draft, uiState, actions)

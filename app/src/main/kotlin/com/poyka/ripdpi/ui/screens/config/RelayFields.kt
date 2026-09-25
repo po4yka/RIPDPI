@@ -6,6 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.supportsFinalmask
+import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
@@ -117,7 +119,14 @@ internal fun RelayFieldsContent(
         }
     }
 
-    RelayFinalmaskFields(draft = draft, uiState = uiState, actions = actions.finalmask)
+    if (draft.supportsFinalmask() || draft.relayFinalmaskType != RelayFinalmaskTypeOff) {
+        RelayFinalmaskFields(
+            draft = draft,
+            uiState = uiState,
+            actions = actions.finalmask,
+            canConfigure = draft.supportsFinalmask(),
+        )
+    }
 }
 
 private fun String.supportsStandardRelayEndpointFields(): Boolean =

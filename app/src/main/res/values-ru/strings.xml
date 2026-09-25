@@ -2647,6 +2647,7 @@ fakeddisorder endhost</string>
     <string name="title_strategy_config">Конфигурация стратегии</string>
     <string name="title_remembered_networks">Запомненные сети</string>
     <string name="title_root_mode_strategies">Стратегии root-режима</string>
+    <string name="root_mode_toggle_label">Root-режим</string>
     <string name="settings_root_mode_strategies_body">Настройте FakeRST, мульти-беспорядок и фрагментацию IP.</string>
     <string name="root_mode_strategies_intro_title">Требуется root</string>
     <string name="root_mode_strategies_intro_body">Эти стратегии десинхронизации вставляют или фрагментируют пакеты ниже VPN-сокета и работают только на устройствах с root и включённым root-режимом.</string>
