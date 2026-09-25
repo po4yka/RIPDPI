@@ -89,6 +89,7 @@ internal fun stopConfigRuntimeMode(
 internal data class ConfigSaveRequest(
     val sessionId: Long,
     val draftRevision: Long,
+    val relayBindingRevision: Long,
     val draft: ConfigDraft,
 )
 
@@ -106,10 +107,14 @@ internal data class ConfigEditorRecoverySnapshot(
     val ready: Boolean,
 )
 
-internal enum class ConfigSaveOutcome {
-    ValidationFailed,
-    Saved,
-    Stale,
+internal sealed interface ConfigSaveOutcome {
+    data object ValidationFailed : ConfigSaveOutcome
+
+    data class Saved(
+        val draft: ConfigDraft,
+    ) : ConfigSaveOutcome
+
+    data object Stale : ConfigSaveOutcome
 }
 
 internal fun beginConfigSave(
@@ -128,6 +133,7 @@ internal fun beginConfigSave(
                 ConfigSaveRequest(
                     sessionId = session.sessionId,
                     draftRevision = session.draftRevision,
+                    relayBindingRevision = session.relayBindingRevision,
                     draft = session.draft ?: fallbackDraft,
                 )
             }
@@ -174,6 +180,7 @@ internal fun clearConfigSavePending(
 internal fun completeSuccessfulConfigSave(
     editorSession: MutableStateFlow<ConfigEditorSession>,
     request: ConfigSaveRequest,
+    savedDraft: ConfigDraft,
 ): ConfigSaveCompletion {
     var result = ConfigSaveCompletion()
     var complete = false
@@ -188,7 +195,15 @@ internal fun completeSuccessfulConfigSave(
                     ConfigEditorSession()
                 } else {
                     current.copy(
-                        baselineDraft = request.draft,
+                        baselineDraft = savedDraft,
+                        draft =
+                            current.draft?.let { draft ->
+                                if (current.relayBindingRevision == request.relayBindingRevision) {
+                                    draft.withSavedRelayIdentityFrom(savedDraft)
+                                } else {
+                                    draft
+                                }
+                            },
                         savePending = false,
                     )
                 }
@@ -213,6 +228,7 @@ internal data class ConfigSaveCompletion(
 internal suspend fun finishSuccessfulConfigSave(
     editorSession: MutableStateFlow<ConfigEditorSession>,
     request: ConfigSaveRequest,
+    savedDraft: ConfigDraft,
     rotateRecoverySession: suspend (() -> Boolean) -> Boolean,
     notifySuccess: suspend () -> Unit,
 ) {
@@ -225,7 +241,7 @@ internal suspend fun finishSuccessfulConfigSave(
         var completion = ConfigSaveCompletion()
         val rotated =
             rotateRecoverySession {
-                completion = completeSuccessfulConfigSave(editorSession, request)
+                completion = completeSuccessfulConfigSave(editorSession, request, savedDraft)
                 true
             }
         if (!rotated) {
@@ -234,7 +250,7 @@ internal suspend fun finishSuccessfulConfigSave(
             notifySuccess()
         }
     } else {
-        completeSuccessfulConfigSave(editorSession, request)
+        completeSuccessfulConfigSave(editorSession, request, savedDraft)
     }
 }
 

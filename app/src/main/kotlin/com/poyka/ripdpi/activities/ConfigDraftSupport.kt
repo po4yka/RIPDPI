@@ -334,6 +334,7 @@ internal data class ConfigEditorSession(
     val draft: ConfigDraft? = null,
     val hydrationPending: Boolean = false,
     val draftRevision: Long = 0L,
+    val relayBindingRevision: Long = 0L,
     val savePending: Boolean = false,
     val suppressSaveSuccess: Boolean = false,
 ) {
@@ -353,6 +354,18 @@ internal data class ConfigEditorSession(
         } else {
             this
         }
+
+    fun withEditedDraft(updatedDraft: ConfigDraft): ConfigEditorSession {
+        val previousDraft = requireNotNull(draft)
+        val bindingChanged =
+            previousDraft.relayProfileId != updatedDraft.relayProfileId ||
+                previousDraft.relayKind != updatedDraft.relayKind
+        return copy(
+            draft = updatedDraft,
+            draftRevision = draftRevision + 1,
+            relayBindingRevision = relayBindingRevision + if (bindingChanged) 1 else 0,
+        )
+    }
 }
 
 internal fun MutableStateFlow<ConfigEditorSession>.updateDraftForSession(
@@ -368,11 +381,7 @@ internal fun MutableStateFlow<ConfigEditorSession>.updateDraftForSession(
         ) {
             return false
         }
-        val updated =
-            current.copy(
-                draft = requireNotNull(current.draft).applyRelayDraftEdit(transform),
-                draftRevision = current.draftRevision + 1,
-            )
+        val updated = current.withEditedDraft(requireNotNull(current.draft).applyRelayDraftEdit(transform))
         if (compareAndSet(current, updated)) return true
     }
 }

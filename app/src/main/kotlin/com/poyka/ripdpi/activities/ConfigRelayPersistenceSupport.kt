@@ -68,6 +68,36 @@ internal fun ConfigDraft.withRelayArtifacts(
         relayMasqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem.orEmpty(),
     )
 
+internal fun ConfigDraft.withSavedRelayIdentity(
+    profile: RelayProfileRecord,
+    credentials: RelayCredentialRecord,
+): ConfigDraft =
+    copy(
+        relayProfileId = profile.id,
+        sourceRelayProfile = profile,
+        sourceRelayCredentials = credentials,
+        editingRelayProfileId = profile.id,
+        editingRelayProfileAtOpen = profile,
+        editingRelayCredentialsAtOpen = credentials,
+    )
+
+internal fun ConfigDraft.withSavedRelayIdentityFrom(savedDraft: ConfigDraft): ConfigDraft =
+    if (
+        relayProfileId.ifBlank { DefaultRelayProfileId } == savedDraft.relayProfileId &&
+        relayKind == savedDraft.relayKind
+    ) {
+        copy(
+            relayProfileId = savedDraft.relayProfileId,
+            sourceRelayProfile = savedDraft.sourceRelayProfile,
+            sourceRelayCredentials = savedDraft.sourceRelayCredentials,
+            editingRelayProfileId = savedDraft.editingRelayProfileId,
+            editingRelayProfileAtOpen = savedDraft.editingRelayProfileAtOpen,
+            editingRelayCredentialsAtOpen = savedDraft.editingRelayCredentialsAtOpen,
+        )
+    } else {
+        this
+    }
+
 internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRecord =
     (matchingSourceRelayProfile(profileId) ?: RelayProfileRecord()).copy(
         id = profileId,

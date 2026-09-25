@@ -1537,6 +1537,8 @@ class ConfigViewModelEditorSessionConcurrencyTest {
             assertEquals(1, profileStore.saveCalls)
             assertEquals("1081", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
             assertEquals("1082", viewModel.uiState.value.draft.proxyPort)
+            assertEquals(DefaultRelayProfileId, viewModel.uiState.value.draft.relayProfileId)
+            assertEquals(DefaultRelayProfileId, viewModel.uiState.value.draft.editingRelayProfileId)
             assertTrue(viewModel.uiState.value.isEditorDirty)
             assertFalse(viewModel.uiState.value.isEditorSaving)
 
@@ -1545,6 +1547,53 @@ class ConfigViewModelEditorSessionConcurrencyTest {
 
             assertEquals(2, profileStore.saveCalls)
             assertEquals("1082", appSettingsRepository.snapshot().toConfigDraft().proxyPort)
+        }
+
+    @Test
+    fun `in flight relay rebinding never restores hidden source credentials`() =
+        runTest {
+            val saveGate = CompletableDeferred<Unit>()
+            val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
+            val viewModel = createConfigViewModel(relayProfileStore = profileStore)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+
+            viewModel.updateDraft { copy(relayProfileId = "other") }
+            viewModel.updateDraft { copy(relayProfileId = DefaultRelayProfileId) }
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+
+            val draft = viewModel.uiState.value.draft
+            assertEquals(null, draft.sourceRelayProfile)
+            assertEquals(null, draft.sourceRelayCredentials)
+            assertEquals("", draft.editingRelayProfileId)
+
+            viewModel.saveDraft()
+            advanceUntilIdle()
+            assertEquals(1, profileStore.saveCalls)
+        }
+
+    @Test
+    fun `saved default profile ID stays visible after an in flight edit`() =
+        runTest {
+            val saveGate = CompletableDeferred<Unit>()
+            val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
+            val viewModel = createConfigViewModel(relayProfileStore = profileStore)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081", relayProfileId = "") }
+            viewModel.saveDraft()
+            runCurrent()
+            viewModel.updateDraft { copy(proxyPort = "1082") }
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals("1082", viewModel.uiState.value.draft.proxyPort)
+            assertEquals(DefaultRelayProfileId, viewModel.uiState.value.draft.relayProfileId)
+            assertEquals(DefaultRelayProfileId, viewModel.uiState.value.draft.editingRelayProfileId)
         }
 
     @Test

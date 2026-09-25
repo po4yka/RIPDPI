@@ -22,9 +22,10 @@ class SensitiveSavedStateContractTest {
         assertTrue(dialogs.contains("PasswordVisualTransformation()"))
 
         val viewModel = source("activities/ConfigViewModel.kt").readText()
+        val recoverySupport = source("activities/ConfigEditorRecoverySupport.kt").readText()
         val recoveryStore = source("activities/ConfigEditorDraftStore.kt").readText()
         assertTrue(viewModel.contains("ConfigEditorRecoverySessionIdSavedStateKey"))
-        assertTrue(viewModel.contains("ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey"))
+        assertTrue(recoverySupport.contains("savedStateHandle[ConfigEditorInvalidatedRecoverySessionIdsSavedStateKey]"))
         assertFalse(viewModel.contains("savedStateHandle[ConfigEditorRecoverySessionIdSavedStateKey] = editorSession"))
         assertFalse(viewModel.contains("savedStateHandle[ConfigEditorRecoverySessionIdSavedStateKey] = uiState"))
         assertTrue(recoveryStore.contains("AndroidKeyStore"))

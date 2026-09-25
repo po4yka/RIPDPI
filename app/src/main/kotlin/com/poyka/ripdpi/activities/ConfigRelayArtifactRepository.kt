@@ -88,12 +88,13 @@ class ConfigRelayArtifactRepository private constructor(
 
     suspend fun listProfiles(): List<RelayProfileRecord> = readRecovered { relayProfileStore.list() }
 
-    suspend fun persist(draft: ConfigDraft) =
+    suspend fun persist(draft: ConfigDraft): ConfigDraft =
         mutationMutex.withLock {
             requireWritableProfileId(draft)
             val profileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }
             val profile = draft.toRelayProfileRecord(profileId)
             val credentials = draft.toRelayCredentialRecord(profileId)
+            val savedDraft = draft.withSavedRelayIdentity(profile, credentials)
             if (profileMutations != null) {
                 val settingsAfterImage =
                     appSettingsRepository
@@ -113,7 +114,7 @@ class ConfigRelayArtifactRepository private constructor(
                             draft.editingRelayCredentialsAtOpen,
                         ),
                 )
-                return@withLock
+                return@withLock savedDraft
             }
             val previousSettings = appSettingsRepository.snapshot()
             val previousProfile = relayProfileStore.load(profileId)
@@ -140,7 +141,7 @@ class ConfigRelayArtifactRepository private constructor(
                     },
                     { appSettingsRepository.replace(previousSettings) },
                 )
-            Unit
+            savedDraft
         }
 
     private suspend fun requireWritableProfileId(draft: ConfigDraft) {

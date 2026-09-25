@@ -365,10 +365,7 @@ class ConfigViewModel
                     }
 
                     current.presetId != null -> {
-                        current.copy(
-                            draft = requireNotNull(current.draft).applyRelayDraftEdit(transform),
-                            draftRevision = current.draftRevision + 1,
-                        )
+                        current.withEditedDraft(requireNotNull(current.draft).applyRelayDraftEdit(transform))
                     }
 
                     else -> {
@@ -542,7 +539,7 @@ class ConfigViewModel
                         if (editorSession.value.sessionId != request.sessionId) {
                             ConfigSaveOutcome.Stale
                         } else {
-                            relayArtifacts.persist(persistedDraft)
+                            val savedDraft = relayArtifacts.persist(persistedDraft)
                             if (persistedDraft.mode == Mode.Proxy) {
                                 xrayNativeProviderSelection.selectNativeMode(persistedDraft.mode)
                             }
@@ -558,7 +555,7 @@ class ConfigViewModel
                                         startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
                                     },
                                 )
-                                ConfigSaveOutcome.Saved
+                                ConfigSaveOutcome.Saved(savedDraft)
                             }
                         }
                     }
@@ -573,17 +570,18 @@ class ConfigViewModel
                     _effects.emit(ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
                 }
             } else {
-                when (save.getOrThrow()) {
+                when (val outcome = save.getOrThrow()) {
                     ConfigSaveOutcome.ValidationFailed -> {
                         if (clearConfigSavePending(editorSession, request)) {
                             _effects.emit(ConfigEffect.ValidationFailed)
                         }
                     }
 
-                    ConfigSaveOutcome.Saved -> {
+                    is ConfigSaveOutcome.Saved -> {
                         finishSuccessfulConfigSave(
                             editorSession = editorSession,
                             request = request,
+                            savedDraft = outcome.draft,
                             rotateRecoverySession = rotateEditorRecoverySessionAndClearMasqueState,
                             notifySuccess = { _effects.emit(ConfigEffect.SaveSuccess) },
                         )
