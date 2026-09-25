@@ -1316,6 +1316,10 @@
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">औसत %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">अभी तक कोई कैप्चर नहीं · Settings में सक्षम करें</string>
+    <string name="vpn_pcap_loading">पैकेट कैप्चर लोड हो रहे हैं…</string>
+    <string name="vpn_pcap_read_failed">PCAP डेटा पढ़ा नहीं जा सका।</string>
+    <string name="vpn_pcap_truncated">पहले 2,000 पैकेट दिखाए जा रहे हैं।</string>
+    <string name="vpn_pcap_no_packets">इस कैप्चर में कोई पैकेट नहीं है।</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d पैकेट</string>
     <string name="vpn_pcap_capture_drops_format">लोड के तहत %1$d पैकेट छोड़े गए</string>
 

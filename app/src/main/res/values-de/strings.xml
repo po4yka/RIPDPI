@@ -3082,6 +3082,10 @@ Quelle: %2$s</string>
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">Ø %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">Noch keine Aufnahmen · in Einstellungen aktivieren</string>
+    <string name="vpn_pcap_loading">Paketmitschnitte werden geladen…</string>
+    <string name="vpn_pcap_read_failed">PCAP-Daten konnten nicht gelesen werden.</string>
+    <string name="vpn_pcap_truncated">Die ersten 2.000 Pakete werden angezeigt.</string>
+    <string name="vpn_pcap_no_packets">Dieser Mitschnitt enthält keine Pakete.</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d Pakete</string>
     <string name="vpn_pcap_capture_drops_format">%1$d Pakete unter Last verworfen</string>
 

@@ -3079,6 +3079,10 @@ fake_burst 3</string>
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">平均 %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">尚无捕获 · 在设置中启用</string>
+    <string name="vpn_pcap_loading">正在加载数据包捕获…</string>
+    <string name="vpn_pcap_read_failed">无法读取 PCAP 数据。</string>
+    <string name="vpn_pcap_truncated">正在显示前 2000 个数据包。</string>
+    <string name="vpn_pcap_no_packets">此捕获没有数据包。</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d 个数据包</string>
     <string name="vpn_pcap_capture_drops_format">高负载下丢弃了 %1$d 个数据包</string>
 

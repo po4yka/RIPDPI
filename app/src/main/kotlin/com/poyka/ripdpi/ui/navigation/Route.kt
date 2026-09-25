@@ -266,9 +266,16 @@ sealed class Route {
     }
 
     @Serializable
-    data object PcapViewer : Route() {
+    data class PcapViewer(
+        val fileName: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
         override val stableRoute = "pcap_viewer"
+
+        @kotlinx.serialization.Transient
         override val titleRes = R.string.title_pcap_viewer
+
+        @kotlinx.serialization.Transient
         override val icon: ImageVector? = null
     }
 
@@ -451,7 +458,7 @@ sealed class Route {
                     DataTransparency,
                     DetectionCheck,
                     DetectionSettings,
-                    PcapViewer,
+                    PcapViewer(),
                     PcapCaptureList,
                     ReplayHistory,
                     SharedDiagnosticResult(),

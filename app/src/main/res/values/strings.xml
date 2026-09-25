@@ -3242,6 +3242,10 @@ Source: %2$s</string>
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">avg %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">No captures yet · enable in Settings</string>
+    <string name="vpn_pcap_loading">Loading packet captures…</string>
+    <string name="vpn_pcap_read_failed">Could not read PCAP data.</string>
+    <string name="vpn_pcap_truncated">Showing the first 2,000 packets.</string>
+    <string name="vpn_pcap_no_packets">This capture has no packets.</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d packets</string>
     <string name="vpn_pcap_capture_drops_format">%1$d packets dropped under load</string>
 

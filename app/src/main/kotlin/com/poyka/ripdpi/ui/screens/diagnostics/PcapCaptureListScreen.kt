@@ -40,6 +40,7 @@ fun PcapCaptureListScreen(
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    message: String? = null,
 ) {
     RipDpiScreenScaffold(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList)),
@@ -55,6 +56,7 @@ fun PcapCaptureListScreen(
         PcapCaptureListContent(
             captures = captures,
             onCaptureSelected = onCaptureSelected,
+            message = message,
             modifier = Modifier.padding(innerPadding),
         )
     }
@@ -64,12 +66,13 @@ fun PcapCaptureListScreen(
 private fun PcapCaptureListContent(
     captures: ImmutableList<PcapCaptureMetadata>,
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
+    message: String?,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    if (captures.isEmpty()) {
+    if (message != null || captures.isEmpty()) {
         Column(
             modifier =
                 modifier
@@ -77,7 +80,7 @@ private fun PcapCaptureListContent(
                     .padding(spacing.lg),
         ) {
             Text(
-                text = stringResource(R.string.vpn_pcap_capture_list_empty),
+                text = message ?: stringResource(R.string.vpn_pcap_capture_list_empty),
                 style = type.body,
                 color = colors.mutedForeground,
             )

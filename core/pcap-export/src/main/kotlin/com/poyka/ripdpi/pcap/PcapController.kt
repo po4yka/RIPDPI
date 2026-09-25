@@ -8,7 +8,9 @@ import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -101,12 +103,12 @@ class PcapController
 
             private val JSON = RipDpiJson
 
-            private fun decodeMetadataList(json: String?): List<PcapCaptureMetadata> {
-                if (json == null) return emptyList()
+            internal fun decodeMetadataList(json: String?): List<PcapCaptureMetadata> {
+                if (json == null) throw IOException("Native capture listing failed")
                 return try {
                     JSON.decodeFromString(json)
-                } catch (_: Throwable) {
-                    emptyList()
+                } catch (error: SerializationException) {
+                    throw IOException("Invalid native capture listing", error)
                 }
             }
 

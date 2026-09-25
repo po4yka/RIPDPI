@@ -3148,6 +3148,10 @@ Fonte: %2$s</string>
     <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
     <string name="vpn_quality_graph_avg_ms">média %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">Nenhuma captura ainda · ative nas Configurações</string>
+    <string name="vpn_pcap_loading">Carregando capturas de pacotes…</string>
+    <string name="vpn_pcap_read_failed">Não foi possível ler os dados PCAP.</string>
+    <string name="vpn_pcap_truncated">Mostrando os primeiros 2.000 pacotes.</string>
+    <string name="vpn_pcap_no_packets">Esta captura não contém pacotes.</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d pacotes</string>
     <string name="vpn_pcap_capture_drops_format">%1$d pacotes descartados sob carga</string>
     <string name="vpn_dev_pcap_section_title">Desenvolvedor</string>

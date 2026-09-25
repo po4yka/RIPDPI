@@ -89,6 +89,7 @@ import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.serialization.Serializable
+import java.io.File
 
 private const val DeepLinkScheme = "ripdpi"
 
@@ -746,13 +747,16 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     composable<Route.DetectionSettings> {
         DetectionSettingsRoute(onBack = { navController.popBackStack() })
     }
-    composable<Route.PcapViewer> {
-        PcapViewerRoute(onBack = { navController.popBackStack() })
+    composable<Route.PcapViewer> { backStackEntry ->
+        PcapViewerRoute(
+            fileName = backStackEntry.toRoute<Route.PcapViewer>().fileName,
+            onBack = { navController.popBackStack() },
+        )
     }
     composable<Route.PcapCaptureList> {
         PcapCaptureListRoute(
-            onCaptureSelected = { _ ->
-                navController.navigate(Route.PcapViewer) { launchSingleTop = true }
+            onCaptureSelected = { capture ->
+                navController.navigate(Route.PcapViewer(File(capture.path).name)) { launchSingleTop = true }
             },
             onBack = { navController.navigateUp() },
         )
@@ -933,7 +937,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
         Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
-        Route.PcapViewer.stableRoute to { hasRoute<Route.PcapViewer>() },
+        Route.PcapViewer().stableRoute to { hasRoute<Route.PcapViewer>() },
         Route.PcapCaptureList.stableRoute to { hasRoute<Route.PcapCaptureList>() },
         Route.ReplayHistory.stableRoute to { hasRoute<Route.ReplayHistory>() },
         Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },

@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ data class PcapPacket(
     val protocol: PcapPacketProtocol,
     val summary: String,
     val hexDump: String,
+    val rawBytes: ByteArray? = null,
     val capturedAtMicros: Long? = null,
     val tcpSequence: Long? = null,
     val payloadLength: Int = 0,
@@ -74,6 +76,7 @@ fun PcapViewerScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     initiallySelectedIndex: Int = 0,
+    message: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
@@ -82,7 +85,7 @@ fun PcapViewerScreen(
     val listState = rememberLazyListState()
 
     RipDpiScreenScaffold(
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapViewer)),
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapViewer())),
         topBar = {
             RipDpiTopAppBar(
                 title = stringResource(R.string.title_pcap_viewer),
@@ -112,9 +115,16 @@ fun PcapViewerScreen(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 item(key = "pcap-header") { PcapFileHeader(fileName, packetCount) }
-                item(key = "pcap-column-headers") { PcapColumnHeaders() }
-                items(packets, key = { it.index }) { packet ->
-                    PcapPacketItem(packet, selectedIndex) { selectedIndex = packet.index }
+                if (message != null) {
+                    item(key = "pcap-message") {
+                        Text(text = message, style = RipDpiThemeTokens.type.body, color = colors.mutedForeground)
+                    }
+                }
+                if (packets.isNotEmpty()) {
+                    item(key = "pcap-column-headers") { PcapColumnHeaders() }
+                    items(packets, key = { it.index }) { packet ->
+                        PcapPacketItem(packet, selectedIndex) { selectedIndex = packet.index }
+                    }
                 }
             }
         }
@@ -177,7 +187,8 @@ private fun PcapPacketItem(
                     style = type.smallLabel,
                     color = colors.mutedForeground,
                 )
-                Text(text = packet.hexDump, style = type.monoLog, color = colors.mutedForeground)
+                val hexDump = remember(packet) { packet.rawBytes?.let(::formatPcapHex) ?: packet.hexDump }
+                Text(text = hexDump, style = type.monoLog, color = colors.mutedForeground)
             }
         }
     }
