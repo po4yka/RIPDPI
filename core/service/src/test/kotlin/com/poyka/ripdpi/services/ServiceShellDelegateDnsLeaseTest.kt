@@ -133,6 +133,36 @@ class ServiceShellDelegateDnsLeaseTest {
         }
 
     @Test
+    fun `two accepted intents before service creation keep separate reservations`() =
+        runTest {
+            val arbiter = ServiceIntentArbiter()
+            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+            val firstGeneration = arbiter.captureVpnStartGeneration()
+            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+            val secondGeneration = arbiter.captureVpnStartGeneration()
+            val delegate =
+                ServiceShellDelegate(
+                    serviceIntentArbiter = arbiter,
+                    serviceScope = backgroundScope,
+                    serviceLabel = "vpn",
+                    onStart = {},
+                    onStop = { _, _ -> },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            delegate.onStartCommand(
+                startAction,
+                2,
+                explicitUserIntentGeneration = -1L,
+                vpnStartGeneration = secondGeneration,
+            )
+            assertNull(arbiter.tryReserveDoqSave { true })
+            delegate.onStartCommand(diagnosticsStartAction, 1, vpnStartGeneration = firstGeneration)
+            runCurrent()
+            assertNotNull(arbiter.tryReserveDoqSave { true }?.also(AutoCloseable::close))
+        }
+
+    @Test
     fun `stop cancels an active vpn start before releasing its reservation`() =
         runTest {
             val arbiter = ServiceIntentArbiter()

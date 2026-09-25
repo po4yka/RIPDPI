@@ -25,7 +25,7 @@ App DNS UI, mapper, actions, ViewModel, tests and DNS-specific locale keys belon
 
 - Manually supplied ODoH config bytes can expire while the editor is open. The settings action revalidates on Save.
 - Proxy runtime supports direct DoQ for hostnames resolved by the local proxy, including proxy target names when domain resolution is enabled. It does not intercept Android device DNS. The current VPN DNS plan selects SOCKS5 for split DNS, so DoQ cannot start in VPN mode. Service policy resolution rejects unsupported activation from non-home entry points before tunnel setup.
-- An accepted Android foreground-service dispatch without any corresponding service callback retains its VPN start reservation until a later service command completes or the process ends. This preserves the safe ordering if Android delays the callback.
+- An accepted Android foreground-service dispatch without any corresponding service callback retains its VPN start reservation until its own service command completes or the process ends. Service construction does not release a reservation because multiple intents may be accepted before `onCreate`, and it cannot identify which one constructed the service. This preserves the safe ordering if Android delays or never delivers a callback.
 
 ## Migration Plan
 
