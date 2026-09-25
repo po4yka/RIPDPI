@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
@@ -218,7 +219,8 @@ data class ConfigDraft(
                 relayKind == RelayKindSnowflake -> "Snowflake"
                 relayKind == RelayKindWebTunnel -> "WebTunnel"
                 relayKind == RelayKindObfs4 -> "obfs4"
-                else -> "VLESS + Reality"
+                relayKind == RelayKindTor -> "Tor"
+                else -> relayKind.relayKindLabel()
             }
 
     fun resolvedChainSet(): StrategyChainSet =
