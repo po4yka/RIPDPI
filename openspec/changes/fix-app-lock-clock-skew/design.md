@@ -15,7 +15,10 @@ deadlines can move when the user edits system time. See `proposal.md`.
   time as requiring relock.
 - Persist the PIN lockout monotonic deadline with a boot count. On a different
   or unknown boot, start a fresh configured delay from the retained failure
-  count. This may extend a lockout after reboot but does not shorten it.
+  count only while a deadline remains active. Clear the deadline when expiry
+  is observed. If no app code observed expiry before reboot, the new delay may
+  extend an already elapsed lockout; trusted elapsed time across boots is not
+  available offline.
 - Migrate an active legacy wall-clock lockout to a fresh monotonic delay once.
   The old deadline is not a safe basis for remaining time after clock changes.
 

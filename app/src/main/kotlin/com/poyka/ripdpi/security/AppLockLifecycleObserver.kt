@@ -33,7 +33,8 @@ class AppLockLifecycleObserver
         }
 
         override fun onStop(owner: LifecycleOwner) {
-            prefs.edit()
+            prefs
+                .edit()
                 .putLong(KEY_LAST_BACKGROUNDED, timeSource())
                 .putLong(KEY_LAST_BACKGROUNDED_ELAPSED, elapsedTimeSource())
                 .commit()

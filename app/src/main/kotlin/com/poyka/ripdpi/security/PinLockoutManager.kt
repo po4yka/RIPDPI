@@ -35,7 +35,13 @@ class PinLockoutManager
         fun isLockedOut(): Boolean {
             if (lockoutEndElapsedMs == 0L) return false
             if (bootCountSource() != lockoutBootCount) restartLockout()
-            return elapsedTimeSource() < lockoutEndElapsedMs
+            val lockedOut = elapsedTimeSource() < lockoutEndElapsedMs
+            if (!lockedOut) {
+                lockoutEndElapsedMs = 0L
+                lockoutEndEpochMs = 0L
+                persist()
+            }
+            return lockedOut
         }
 
         fun remainingLockoutMs(): Long {

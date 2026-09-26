@@ -106,6 +106,16 @@ class PinLockoutManagerTest {
     }
 
     @Test
+    fun `observed expiry stays expired after reboot`() {
+        repeat(3) { manager.recordFailure() }
+        currentTimeMs += 30_001L
+        assertFalse(manager.isLockedOut())
+
+        manager.bootCountSource = { 2 }
+        assertFalse(manager.isLockedOut())
+    }
+
+    @Test
     fun `legacy deadline migrates to monotonic lockout`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context.getSharedPreferences("pin_lockout", android.content.Context.MODE_PRIVATE)

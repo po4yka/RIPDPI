@@ -22,6 +22,12 @@ on the active boot, regardless of wall clock changes.
 - **WHEN** the device restarts or boot identity cannot be read
 - **THEN** the app retains at least the configured delay before another PIN attempt
 
+#### Scenario: Expiry was observed before restart
+
+- **GIVEN** the app observed that a PIN lockout expired
+- **WHEN** the device restarts before the next PIN attempt
+- **THEN** the app permits that attempt without a new lockout
+
 ### Requirement: REQ-APP-LOCK-RELOCK-MONOTONIC — Preserve background relock
 
 The app MUST relock an authenticated session after the background grace period
