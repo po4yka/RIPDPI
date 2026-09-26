@@ -11,9 +11,13 @@ import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLException
 import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CdnPullingCheckerTest {
@@ -80,7 +84,7 @@ class CdnPullingCheckerTest {
         }
 
     @Test
-    fun tlsErrorProducesDpiMitmFindingWithHighConfidence() =
+    fun certificateErrorNeedsReviewWithoutClaimingDpiMitm() =
         runTest {
             val endpoint = endpoint(family = CdnPullingAddressFamily.IPV4)
             val result =
@@ -89,24 +93,61 @@ class CdnPullingCheckerTest {
                     enabled = true,
                     endpointClient =
                         CdnTraceClient {
-                            throw SSLHandshakeException("certificate pinning failure")
+                            throw SSLPeerUnverifiedException("certificate pinning failure")
                         },
                     endpoints = listOf(endpoint),
                 )
 
-            assertTrue(result.category.detected)
+            assertFalse(result.category.detected)
+            assertTrue(result.category.needsReview)
             assertTrue(
                 result.category.evidence.any {
                     it.source == EvidenceSource.CDN_PULLING &&
-                        it.confidence == EvidenceConfidence.HIGH &&
+                        it.confidence == EvidenceConfidence.MEDIUM &&
                         it.detected
                 },
             )
-            assertTrue(result.category.findings.any { it.description.contains("DPI_MITM") })
+            assertFalse(result.category.findings.any { it.description.contains("DPI_MITM") })
         }
 
     @Test
-    fun ipv4Ipv6MismatchFlaggedAsBypassEvidence() =
+    fun genericTlsFailureIsNotMitmEvidence() =
+        runTest {
+            val result =
+                CdnPullingChecker.check(
+                    dispatchers = testDispatchers(),
+                    enabled = true,
+                    endpointClient = CdnTraceClient { throw SSLException("connection closed") },
+                    endpoints = listOf(endpoint(family = CdnPullingAddressFamily.IPV4)),
+                )
+
+            assertFalse(result.category.detected)
+            assertFalse(result.category.needsReview)
+            assertTrue(result.category.evidence.isEmpty())
+        }
+
+    @Test
+    fun handshakeWithCertificateCauseNeedsReview() =
+        runTest {
+            val result =
+                CdnPullingChecker.check(
+                    dispatchers = testDispatchers(),
+                    enabled = true,
+                    endpointClient =
+                        CdnTraceClient {
+                            throw SSLHandshakeException("handshake failed").apply {
+                                initCause(CertificateException("invalid certificate"))
+                            }
+                        },
+                    endpoints = listOf(endpoint(family = CdnPullingAddressFamily.IPV4)),
+                )
+
+            assertFalse(result.category.detected)
+            assertTrue(result.category.needsReview)
+        }
+
+    @Test
+    fun differentIpv4AndIpv6AddressesAreExpected() =
         runTest {
             val endpoints =
                 listOf(
@@ -136,14 +177,24 @@ class CdnPullingCheckerTest {
                     endpoints = endpoints,
                 )
 
+            assertFalse(result.category.needsReview)
+            assertTrue(result.actionableTargets.isEmpty())
+            assertTrue(result.category.evidence.isEmpty())
+        }
+
+    @Test
+    fun reflectedIpInWrongAddressFamilyNeedsReview() =
+        runTest {
+            val result =
+                CdnPullingChecker.check(
+                    dispatchers = testDispatchers(),
+                    enabled = true,
+                    endpointClient = CdnTraceClient { "ip=1.2.3.4" },
+                    endpoints = listOf(endpoint(family = CdnPullingAddressFamily.IPV6)),
+                )
+
             assertTrue(result.category.needsReview)
-            assertEquals(listOf("meduza.io"), result.actionableTargets)
-            assertTrue(
-                result.category.evidence.any {
-                    it.source == EvidenceSource.CDN_PULLING &&
-                        it.confidence == EvidenceConfidence.HIGH
-                },
-            )
+            assertEquals(listOf("cloudflare.com"), result.actionableTargets)
         }
 
     private fun endpoint(

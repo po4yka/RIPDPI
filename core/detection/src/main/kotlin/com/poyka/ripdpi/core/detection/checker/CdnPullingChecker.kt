@@ -24,9 +24,13 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.IOException
 import java.net.InetAddress
+import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 
 fun interface CdnTraceClient {
     suspend fun fetchTrace(endpoint: CdnPullingEndpointDescriptor): String
@@ -120,30 +124,30 @@ object CdnPullingChecker {
         }
 
     internal fun evaluate(endpointResults: List<CdnPullingEndpointResult>): CdnPullingResult {
-        val tlsMitmResults = endpointResults.filter { it.tlsMitm }
+        val certificateFailures = endpointResults.filter { it.tlsMitm }
         val mismatchedTargets = mismatchedTargets(endpointResults)
         val findings =
             buildList {
                 endpointResults.forEach { result -> add(result.toFinding()) }
-                if (tlsMitmResults.isNotEmpty()) {
+                if (certificateFailures.isNotEmpty()) {
                     add(
                         Finding(
                             description =
-                                "DPI_MITM: TLS certificate validation failed for " +
-                                    tlsMitmResults.joinToString { it.descriptor.targetHost },
-                            detected = true,
+                                "TLS certificate validation failed for " +
+                                    certificateFailures.joinToString { it.descriptor.targetHost },
+                            needsReview = true,
                             source = EvidenceSource.CDN_PULLING,
-                            confidence = EvidenceConfidence.HIGH,
+                            confidence = EvidenceConfidence.MEDIUM,
                         ),
                     )
                 }
                 if (mismatchedTargets.isNotEmpty()) {
                     add(
                         Finding(
-                            description = "CDN IPv4/IPv6 exit mismatch: ${mismatchedTargets.joinToString()}",
+                            description = "CDN reflected IP family differs from requested family: ${mismatchedTargets.joinToString()}",
                             needsReview = true,
                             source = EvidenceSource.CDN_PULLING,
-                            confidence = EvidenceConfidence.HIGH,
+                            confidence = EvidenceConfidence.MEDIUM,
                         ),
                     )
                 }
@@ -153,13 +157,13 @@ object CdnPullingChecker {
             }
         val evidence =
             buildList {
-                if (tlsMitmResults.isNotEmpty()) {
+                if (certificateFailures.isNotEmpty()) {
                     add(
                         EvidenceItem(
                             source = EvidenceSource.CDN_PULLING,
                             detected = true,
-                            confidence = EvidenceConfidence.HIGH,
-                            description = "CDN trace HTTPS endpoints reported TLS MITM evidence",
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = "CDN trace HTTPS endpoints reported certificate validation failures",
                         ),
                     )
                 }
@@ -168,8 +172,8 @@ object CdnPullingChecker {
                         EvidenceItem(
                             source = EvidenceSource.CDN_PULLING,
                             detected = true,
-                            confidence = EvidenceConfidence.HIGH,
-                            description = "CDN trace endpoints returned different IPv4 and IPv6 exit IPs",
+                            confidence = EvidenceConfidence.MEDIUM,
+                            description = "CDN trace endpoints returned an IP outside the requested address family",
                         ),
                     )
                 }
@@ -178,8 +182,8 @@ object CdnPullingChecker {
             category =
                 CategoryResult(
                     name = CATEGORY_NAME,
-                    detected = tlsMitmResults.isNotEmpty(),
-                    needsReview = mismatchedTargets.isNotEmpty(),
+                    detected = false,
+                    needsReview = certificateFailures.isNotEmpty() || mismatchedTargets.isNotEmpty(),
                     findings = findings,
                     evidence = evidence,
                 ),
@@ -208,7 +212,11 @@ object CdnPullingChecker {
                 reflectedIp = null,
                 status = CdnPullingEndpointStatus.ERROR,
                 errorMessage = e.safeMessage(),
-                tlsMitm = true,
+                tlsMitm = e is SSLPeerUnverifiedException ||
+                    (e is SSLHandshakeException &&
+                        generateSequence(e.cause) { it.cause }.any {
+                            it is CertificateException || it is CertPathValidatorException
+                        }),
             )
         } catch (e: Exception) {
             CdnPullingEndpointResult(
@@ -226,19 +234,14 @@ object CdnPullingChecker {
 
     private fun mismatchedTargets(results: List<CdnPullingEndpointResult>): List<String> =
         results
-            .filter { it.status == CdnPullingEndpointStatus.OK && it.reflectedIp != null }
-            .groupBy { it.descriptor.targetHost }
-            .filter { (_, targetResults) ->
-                val v4 = targetResults.ipsFor(CdnPullingAddressFamily.IPV4)
-                val v6 = targetResults.ipsFor(CdnPullingAddressFamily.IPV6)
-                v4.isNotEmpty() && v6.isNotEmpty() && v4 != v6
-            }.keys
+            .filter { result ->
+                result.status == CdnPullingEndpointStatus.OK &&
+                    result.reflectedIp?.let { ip ->
+                        ip.contains(':') != (result.descriptor.addressFamily == CdnPullingAddressFamily.IPV6)
+                    } == true
+            }.map { it.descriptor.targetHost }
+            .distinct()
             .sorted()
-
-    private fun List<CdnPullingEndpointResult>.ipsFor(family: CdnPullingAddressFamily): Set<String> =
-        filter { it.descriptor.addressFamily == family }
-            .mapNotNull { it.reflectedIp }
-            .toSet()
 
     private fun CdnPullingEndpointResult.toFinding(): Finding {
         val reflected = reflectedIp?.let { ", reflected=$it" }.orEmpty()
