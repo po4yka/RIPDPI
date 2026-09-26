@@ -12,6 +12,7 @@ private const val ProbeTypeQuicReachability = "quic_reachability"
 private const val OutcomeTcpReset = "tcp_reset"
 private const val OutcomeTcpTimeout = "tcp_timeout"
 private const val OutcomeTcp16kbBlocked = "tcp_16kb_blocked"
+private const val OutcomeTcpFreezeAfterThreshold = "tcp_freeze_after_threshold"
 private const val OutcomeTlsHandshakeFailed = "tls_handshake_failed"
 private const val OutcomeUnreachable = "unreachable"
 private const val OutcomeServiceBlocked = "service_blocked"
@@ -41,6 +42,7 @@ internal object StrategyRecommendationEngine {
         mapOf(
             (ProbeTypeTcpFatHeader to OutcomeTcpReset) to SignalCategory.TCP_RST,
             (ProbeTypeTcpFatHeader to OutcomeTcp16kbBlocked) to SignalCategory.THRESHOLD_BLOCK,
+            (ProbeTypeTcpFatHeader to OutcomeTcpFreezeAfterThreshold) to SignalCategory.THRESHOLD_BLOCK,
             (ProbeTypeTcpFatHeader to OutcomeTcpTimeout) to SignalCategory.SILENT_DROP,
             (ProbeTypeTcpFatHeader to OutcomeTlsHandshakeFailed) to SignalCategory.TLS_INTERFERENCE,
             (ProbeTypeDomainReachability to OutcomeUnreachable) to SignalCategory.DOMAIN_BLOCKED,

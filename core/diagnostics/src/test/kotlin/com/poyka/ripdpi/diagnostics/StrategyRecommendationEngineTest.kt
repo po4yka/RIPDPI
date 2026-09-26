@@ -42,6 +42,23 @@ class StrategyRecommendationEngineTest {
     }
 
     @Test
+    fun `tcp freeze after threshold can recommend disorder with real reachability failure`() {
+        val report =
+            strategyReport(
+                listOf(
+                    ProbeResult("tcp_fat_header", "203.0.113.10:443", "tcp_freeze_after_threshold"),
+                    ProbeResult("domain_reachability", "blocked.example", "unreachable"),
+                ),
+            )
+
+        val recommendation = StrategyRecommendationEngine.compute(report, currentTcpFamily = "fake")
+
+        assertNotNull(recommendation)
+        assertEquals("disorder", recommendation!!.recommendedFamily)
+        assertEquals("threshold_blocking", recommendation.blockingPattern)
+    }
+
+    @Test
     fun `confirm good verdict recommends transport pivot instead of fingerprint tuning`() {
         val report =
             strategyReport(emptyList()).copy(
