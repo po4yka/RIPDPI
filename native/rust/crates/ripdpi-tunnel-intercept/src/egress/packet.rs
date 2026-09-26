@@ -237,6 +237,9 @@ fn ipv4_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
     if ihl < IPV4_MIN_HEADER_LEN || packet.len() < ihl + 4 {
         return None;
     }
+    if u16::from_be_bytes([packet[6], packet[7]]) & 0x3fff != 0 {
+        return None;
+    }
     let transport = match packet[9] {
         TCP_PROTO => Transport::Tcp,
         UDP_PROTO => Transport::Udp,
@@ -244,6 +247,9 @@ fn ipv4_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
     };
     let payload_offset = match transport {
         Transport::Tcp => {
+            if packet.len() < ihl + 20 {
+                return None;
+            }
             let tcp_header_len = usize::from(packet[ihl + 12] >> 4) * 4;
             if tcp_header_len < 20 || packet.len() < ihl + tcp_header_len {
                 return None;
@@ -294,6 +300,9 @@ fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
                 if packet.len() < offset + 8 {
                     return None;
                 }
+                if u16::from_be_bytes([packet[offset + 2], packet[offset + 3]]) & 0xfff9 != 0 {
+                    return None;
+                }
                 next_header = packet[offset];
                 offset = offset.checked_add(8)?;
                 continue;
@@ -305,6 +314,9 @@ fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
         }
         let payload_offset = match transport {
             Transport::Tcp => {
+                if packet.len() < offset + 20 {
+                    return None;
+                }
                 let tcp_header_len = usize::from(packet[offset + 12] >> 4) * 4;
                 if tcp_header_len < 20 || packet.len() < offset + tcp_header_len {
                     return None;
@@ -385,4 +397,52 @@ fn finalize_checksum(mut sum: u32) -> u16 {
         sum = (sum & 0xffff) + (sum >> 16);
     }
     !(sum as u16)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PacketMeta;
+
+    #[test]
+    fn truncated_tcp_headers_are_rejected() {
+        let mut ipv4 = vec![0; 24];
+        ipv4[0] = 0x45;
+        ipv4[9] = 6;
+        assert!(PacketMeta::parse(&ipv4).is_none());
+
+        let mut ipv6 = vec![0; 44];
+        ipv6[0] = 0x60;
+        ipv6[6] = 6;
+        assert!(PacketMeta::parse(&ipv6).is_none());
+    }
+
+    #[test]
+    fn fragmented_packets_are_rejected() {
+        let mut ipv4 = vec![0; 40];
+        ipv4[0] = 0x45;
+        ipv4[2..4].copy_from_slice(&40u16.to_be_bytes());
+        ipv4[6..8].copy_from_slice(&1u16.to_be_bytes());
+        ipv4[9] = 6;
+        ipv4[20 + 12] = 0x50;
+        assert!(PacketMeta::parse(&ipv4).is_none());
+
+        let mut ipv6 = vec![0; 68];
+        ipv6[0] = 0x60;
+        ipv6[4..6].copy_from_slice(&28u16.to_be_bytes());
+        ipv6[6] = 44;
+        ipv6[40] = 6;
+        ipv6[42..44].copy_from_slice(&8u16.to_be_bytes());
+        ipv6[48 + 12] = 0x50;
+        assert!(PacketMeta::parse(&ipv6).is_none());
+
+        ipv4[6..8].copy_from_slice(&0x2000u16.to_be_bytes());
+        assert!(PacketMeta::parse(&ipv4).is_none());
+        ipv6[42..44].copy_from_slice(&1u16.to_be_bytes());
+        assert!(PacketMeta::parse(&ipv6).is_none());
+
+        ipv4[6..8].copy_from_slice(&0x4000u16.to_be_bytes());
+        assert!(PacketMeta::parse(&ipv4).is_some());
+        ipv6[42..44].copy_from_slice(&0u16.to_be_bytes());
+        assert!(PacketMeta::parse(&ipv6).is_some());
+    }
 }
