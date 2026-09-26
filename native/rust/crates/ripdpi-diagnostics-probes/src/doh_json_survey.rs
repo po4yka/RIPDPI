@@ -21,7 +21,9 @@
 //! dependency is pulled through this crate.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer;
+use ripdpi_diagnostics_contracts::util::{
+    DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, parse_doh_json_ip_answer,
+};
 
 use crate::probes::doh_survey::DohHttpClient;
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
@@ -88,7 +90,7 @@ impl DohJsonResolverStatus {
 #[derive(Debug, Clone)]
 pub struct DohJsonResolverResult {
     /// Short human-readable label for the resolver (e.g. `"google"`,
-    /// `"cloudflare"`, `"adguard"`, `"alibaba"`).
+    /// `"cloudflare"`, `"adguard"`).
     pub resolver_label: String,
     /// Reachability status observed for this resolver's JSON endpoint.
     pub status: DohJsonResolverStatus,
@@ -109,7 +111,7 @@ pub struct DohJsonResolverResult {
 /// |---|---|
 /// | At least one resolver returned `Ok` | `Pass` |
 /// | All resolvers returned `NxDomain` | `Fail { class: "doh-json-only-nxdomain" }` |
-/// | All resolvers non-`Ok`, not all `NxDomain` | `Fail { class: "doh-json-all-resolvers-blocked" }` |
+/// | All resolvers non-`Ok`, not all `NxDomain` | `Inconclusive { reason: "no resolver answered" }` |
 /// | No resolvers configured | `Inconclusive { reason: "no resolvers configured" }` |
 #[derive(Debug, Clone)]
 pub struct DohJsonSurveyProbe {
@@ -143,9 +145,8 @@ impl Probe for DohJsonSurveyProbe {
         } else if self.results.iter().all(|r| r.status.is_nxdomain()) {
             ProbeVerdict::Fail { class: "doh-json-only-nxdomain".to_string() }
         } else {
-            // Non-Ok and not all NxDomain — the JSON path itself looks blocked
-            // (MalformedJson, TlsError, NetworkError, HttpError, Timeout).
-            ProbeVerdict::Fail { class: "doh-json-all-resolvers-blocked".to_string() }
+            // Transport errors and HTTP failures do not prove censorship.
+            ProbeVerdict::Inconclusive { reason: "no resolver answered".to_string() }
         };
 
         ProbeOutcome { probe_id: self.id(), family: self.family(), verdict }
@@ -168,20 +169,16 @@ pub struct DohJsonResolverEndpoint {
 ///
 /// These endpoints offer vendor JSON APIs. The runner appends
 /// `ct=application/dns-json` to request JSON on shared paths such as
-/// Cloudflare's; dedicated `/resolve` endpoints ignore the parameter.
+/// Cloudflare's; dedicated `/resolve` endpoints ignore the parameter. Alibaba
+/// is omitted because its documented JSON API requires account credentials.
 pub fn default_json_resolvers() -> Vec<DohJsonResolverEndpoint> {
-    vec![
-        DohJsonResolverEndpoint { label: "google".to_string(), url: "https://dns.google/resolve".to_string() },
-        DohJsonResolverEndpoint {
-            label: "cloudflare".to_string(),
-            url: "https://cloudflare-dns.com/dns-query".to_string(),
-        },
-        DohJsonResolverEndpoint {
-            label: "adguard".to_string(),
-            url: "https://dns.adguard-dns.com/resolve".to_string(),
-        },
-        DohJsonResolverEndpoint { label: "alibaba".to_string(), url: "https://dns.alidns.com/resolve".to_string() },
-    ]
+    DEFAULT_DOH_JSON_RESOLVERS
+        .iter()
+        .map(|&(label, host, path)| DohJsonResolverEndpoint {
+            label: label.to_string(),
+            url: format!("https://{host}{path}"),
+        })
+        .collect()
 }
 
 /// Fires one JSON DoH query per configured resolver in parallel and returns a
@@ -206,12 +203,20 @@ pub struct DohJsonSurveyRunner<C> {
 impl<C: DohHttpClient> DohJsonSurveyRunner<C> {
     /// Survey all configured JSON resolvers in parallel and return a
     /// [`DohJsonSurveyProbe`] ready for verdict computation.
+    /// # Cancel safety:
+    /// conditionally cancel-safe: at `client.get(...).await` and
+    /// `join_all(...).await`, dropping the future discards only local results.
+    /// Each client GET future must release resources safely when dropped; a
+    /// resolver may already have received the request.
     pub async fn survey(&self, _ctx: &ProbeContext) -> DohJsonSurveyProbe {
+        let Some(query_name) = encode_doh_json_query_name(&self.query_host) else {
+            return DohJsonSurveyProbe::new(Vec::new());
+        };
         let futures: Vec<_> = self
             .resolvers
             .iter()
             .map(|ep| {
-                let url = format!("{}?name={}&type=A&ct=application/dns-json", ep.url, self.query_host);
+                let url = format!("{}?name={query_name}&type=A&ct=application/dns-json", ep.url);
                 let timeout = self.timeout;
                 let client = &self.client;
                 let label = ep.label.clone();
@@ -316,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn malformed_and_blocked_yield_fail_all_resolvers_blocked() {
+    fn malformed_and_http_errors_are_inconclusive() {
         let results = vec![
             malformed_result("google"),
             DohJsonResolverResult {
@@ -326,8 +331,8 @@ mod tests {
             },
         ];
         match DohJsonSurveyProbe::new(results).run(&ProbeContext::empty()).verdict {
-            ProbeVerdict::Fail { class } => assert_eq!(class, "doh-json-all-resolvers-blocked"),
-            other => panic!("expected Fail, got {other:?}"),
+            ProbeVerdict::Inconclusive { reason } => assert_eq!(reason, "no resolver answered"),
+            other => panic!("expected Inconclusive, got {other:?}"),
         }
     }
 
@@ -342,9 +347,10 @@ mod tests {
     #[test]
     fn default_panel_covers_required_operators() {
         let labels: Vec<_> = default_json_resolvers().into_iter().map(|r| r.label).collect();
-        for required in ["google", "cloudflare", "adguard", "alibaba"] {
+        for required in ["google", "cloudflare", "adguard"] {
             assert!(labels.iter().any(|l| l == required), "missing {required} in default JSON panel");
         }
+        assert_eq!(labels.len(), 3);
     }
 
     #[test]

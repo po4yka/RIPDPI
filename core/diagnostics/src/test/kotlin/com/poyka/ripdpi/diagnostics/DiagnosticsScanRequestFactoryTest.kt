@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
@@ -26,12 +27,35 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 class DiagnosticsScanRequestFactoryTest {
     private val json = diagnosticsTestJson()
     private val contextProvider = FakeDiagnosticsContextProvider()
+
+    @Test
+    fun `connectivity planner selects one JSON survey per requested DNS domain`() {
+        val settings = defaultDiagnosticsAppSettings()
+        val intent =
+            strategyProbeIntent(settings, null)
+                .copy(
+                    kind = ScanKind.CONNECTIVITY,
+                    strategyProbe = null,
+                    dnsTargets = listOf(DnsTarget("Selected.Example"), DnsTarget("selected.example")),
+                )
+        val context = strategyProbeContext(settings, null)
+        val encoder = DefaultEngineRequestEncoder()
+        val request = encoder.encode(DefaultDiagnosticsPlanner().plan(intent, context))
+
+        assertEquals(1, request.probeTasks.count { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY })
+        assertEquals("Selected.Example", request.probeTasks.first { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY }.targetId)
+        assertTrue(request.probeTasks.any { it.family == EngineProbeTaskFamily.DNS })
+
+        val noDnsRequest = encoder.encode(DefaultDiagnosticsPlanner().plan(intent.copy(dnsTargets = emptyList()), context))
+        assertTrue(noDnsRequest.probeTasks.none { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY })
+    }
 
     @Test
     fun `strategy probe injects canonical default runtime context when active dns is plain and no preference exists`() =

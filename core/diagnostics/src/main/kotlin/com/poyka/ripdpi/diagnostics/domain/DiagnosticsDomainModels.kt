@@ -34,6 +34,7 @@ internal enum class ProbeFamily {
     CIRCUMVENTION,
     TELEGRAM,
     THROUGHPUT,
+    DOH_JSON_SURVEY,
 }
 
 internal data class ProbeTask(

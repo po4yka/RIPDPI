@@ -233,6 +233,23 @@ mod tests {
     }
 
     #[test]
+    fn doh_json_survey_remains_in_default_and_selected_plans() {
+        let default_request = scan_request(ScanKind::Connectivity, Vec::new(), None);
+        assert!(connectivity_stage_order(&default_request).contains(&ExecutionStageId::DohJsonSurvey));
+
+        let selected_request = scan_request(
+            ScanKind::Connectivity,
+            vec![crate::types::ProbeTask {
+                family: ProbeTaskFamily::DohJsonSurvey,
+                target_id: "dns-1".to_string(),
+                label: "DoH JSON".to_string(),
+            }],
+            None,
+        );
+        assert!(connectivity_stage_order(&selected_request).contains(&ExecutionStageId::DohJsonSurvey));
+    }
+
+    #[test]
     fn confirm_good_candidate_runs_quic_before_tcp() {
         let mut request = scan_request(ScanKind::StrategyProbe, Vec::new(), None);
         request.confirm_good_dpi_evidence = Some(ConfirmGoodDpiEvidence {

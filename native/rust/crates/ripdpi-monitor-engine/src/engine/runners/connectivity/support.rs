@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -33,7 +34,7 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
     let targets = F::targets(plan);
     let mut steps = Vec::with_capacity(targets.len());
     for target in targets {
-        if cancel.load(Ordering::Acquire) {
+        if interrupted(cancel) {
             return CollectedStageOutcome::Cancelled(steps);
         }
         let message = F::message(&target);
@@ -47,11 +48,16 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
             latest_probe_outcome: Some(outcome),
             artifacts,
         });
-        if cancel.load(Ordering::Acquire) {
+        if interrupted(cancel) {
             return CollectedStageOutcome::Cancelled(steps);
         }
     }
     CollectedStageOutcome::Completed(steps)
+}
+
+fn interrupted(cancel: &AtomicBool) -> bool {
+    cancel.load(Ordering::Acquire)
+        || crate::util::active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline)
 }
 
 #[cfg(test)]
@@ -162,6 +168,18 @@ mod tests {
             "expected Cancelled with no steps when cancel is pre-set"
         );
         assert_eq!(PROBE_CALL_COUNT.load(Ordering::Relaxed), 0, "no probes should run when cancel is pre-set");
+    }
+
+    #[test]
+    fn expired_deadline_skips_remaining_family_targets() {
+        use std::time::{Duration, Instant};
+
+        PROBE_CALL_COUNT.store(0, Ordering::Relaxed);
+        let outcome = crate::util::with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
+            collect_family_steps::<CountingFamily>(&fixture_plan(), &AtomicBool::new(false), None)
+        });
+        assert!(matches!(outcome, CollectedStageOutcome::Cancelled(ref steps) if steps.is_empty()));
+        assert_eq!(PROBE_CALL_COUNT.load(Ordering::Relaxed), 0);
     }
 
     /// G3-b: cancel set after the first probe → `Cancelled` after exactly one probe call.

@@ -24,8 +24,9 @@ pub use defaults::{
     default_throughput_window_bytes,
 };
 pub use dns_helpers::{
-    DnsAnswerOverlap, classify_dns_answer_overlap, format_result_set, format_socket_result, ip_set, ipv4_prefix_24,
-    ipv6_prefix_48, is_suspected_dns_tampering_outcome, looks_like_sinkhole, parse_doh_json_ip_answer,
+    DEFAULT_DOH_JSON_RESOLVERS, DnsAnswerOverlap, classify_dns_answer_overlap, encode_doh_json_query_name,
+    format_result_set, format_socket_result, ip_set, ipv4_prefix_24, ipv6_prefix_48,
+    is_suspected_dns_tampering_outcome, looks_like_sinkhole, parse_doh_json_ip_answer,
 };
 pub use http_helpers::{fat_threshold_reached, find_headers_end, late_stage_cutoff, parse_content_length};
 pub use outcome_policy::{

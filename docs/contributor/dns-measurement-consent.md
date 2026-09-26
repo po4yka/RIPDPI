@@ -32,6 +32,7 @@ DNS probe, resolver survey, or background task that issues DNS queries.
 |---|---|
 | Kotlin scan launch | `DiagnosticsScanRequestFactory` projects targets from the user-selected profile / cohort into a `ScanRequest`; nothing else feeds targets. |
 | Rust DNS probes | `ProbeContext` carries an opaque `network_scope_key` and a `resolver_hint` — **never a target list**. The DoH survey runners (`doh_survey`, `doh_json_survey`) query exactly their single `query_host`, contacting only the configured *resolver endpoints*. |
+| Rust monitor engine | The `doh_json_survey` stage reads domains only from the explicit scan's `dns_targets`. It uses the scan's direct or proxied transport and stops new resolver requests on cancellation or deadline. |
 
 The regression guard
 `native/rust/crates/ripdpi-diagnostics-probes/tests/dns_measurement_consent.rs`

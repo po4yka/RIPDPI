@@ -1,6 +1,30 @@
 use std::collections::BTreeSet;
 use std::net::{IpAddr, SocketAddr};
 
+/// Resolver label, HTTPS host, and JSON API path. These are resolver
+/// infrastructure endpoints, not domains selected for measurement.
+pub const DEFAULT_DOH_JSON_RESOLVERS: &[(&str, &str, &str)] = &[
+    ("google", "dns.google", "/resolve"),
+    ("cloudflare", "cloudflare-dns.com", "/dns-query"),
+    ("adguard", "dns.adguard-dns.com", "/resolve"),
+];
+
+/// Encode a scan target as one JSON DoH `name` query value.
+pub fn encode_doh_json_query_name(domain: &str) -> Option<String> {
+    if domain.is_empty() || domain.len() > 253 {
+        return None;
+    }
+    let mut encoded = String::with_capacity(domain.len());
+    for byte in domain.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    Some(encoded)
+}
+
 /// Read a JSON DoH response without accepting nested Status or unrelated data fields.
 /// `Ok(None)` covers NXDOMAIN and successful responses without an IP answer.
 pub fn parse_doh_json_ip_answer(body: &[u8]) -> Result<Option<IpAddr>, &'static str> {
@@ -134,7 +158,14 @@ pub fn format_socket_result(result: &Result<Vec<SocketAddr>, String>) -> String 
 
 #[cfg(test)]
 mod doh_json_tests {
-    use super::parse_doh_json_ip_answer;
+    use super::{encode_doh_json_query_name, parse_doh_json_ip_answer};
+
+    #[test]
+    fn query_name_encoding_keeps_untrusted_characters_in_one_parameter() {
+        assert_eq!(encode_doh_json_query_name("a&b\r\n.example"), Some("a%26b%0D%0A.example".to_string()));
+        assert_eq!(encode_doh_json_query_name(""), None);
+        assert_eq!(encode_doh_json_query_name(&"x".repeat(254)), None);
+    }
 
     #[test]
     fn accepts_top_level_status_and_a_or_aaaa_answer() {

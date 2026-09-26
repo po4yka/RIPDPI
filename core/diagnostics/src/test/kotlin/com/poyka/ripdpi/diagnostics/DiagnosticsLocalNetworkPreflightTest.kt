@@ -69,11 +69,17 @@ class DiagnosticsLocalNetworkPreflightTest {
                 val publicTarget = TcpTarget(id = targetId, provider = "public", ip = "8.8.8.8")
                 val publicTask = EngineProbeTaskWire(EngineProbeTaskFamily.TCP, targetId, "Public TCP")
                 val localTask = EngineProbeTaskWire(family, targetId, "Local target")
+                val localTasks =
+                    if (family == EngineProbeTaskFamily.DNS) {
+                        listOf(localTask, EngineProbeTaskWire(EngineProbeTaskFamily.DOH_JSON_SURVEY, targetId, "JSON survey"))
+                    } else {
+                        listOf(localTask)
+                    }
                 val expected = base.copy(tcpTargets = listOf(publicTarget), probeTasks = listOf(publicTask))
                 val request =
                     localRequest.copy(
                         tcpTargets = listOf(publicTarget),
-                        probeTasks = listOf(publicTask, localTask),
+                        probeTasks = listOf(publicTask) + localTasks,
                     )
 
                 val admission = AndroidLocalNetworkAccess(context).prepareScanEndpoints(request)
@@ -87,6 +93,35 @@ class DiagnosticsLocalNetworkPreflightTest {
                 assertEquals(LocalNetworkPermission, details["permission"])
                 assertEquals("local_network_permission_required", details["reason"])
             }
+        }
+
+    @Test
+    fun `JSON survey remains when another DNS candidate for the domain is admitted`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<Application>()
+            shadowOf(context).denyPermissions(LocalNetworkPermission)
+            shadowOf(context.getSystemService(ConnectivityManager::class.java)).clearAllNetworks()
+            val request =
+                EngineScanRequestWire(
+                    profileId = "mixed-dns",
+                    displayName = "Mixed DNS candidates",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    dnsTargets =
+                        listOf(
+                            DnsTarget(domain = "Selected.Example", udpServer = "192.168.50.2"),
+                            DnsTarget(domain = "selected.example", udpServer = "8.8.8.8"),
+                        ),
+                    probeTasks =
+                        listOf(
+                            EngineProbeTaskWire(EngineProbeTaskFamily.DNS, "Selected.Example", "DNS"),
+                            EngineProbeTaskWire(EngineProbeTaskFamily.DOH_JSON_SURVEY, "Selected.Example", "JSON survey"),
+                        ),
+                )
+
+            val admission = AndroidLocalNetworkAccess(context).prepareScanEndpoints(request)
+
+            assertEquals(1, admission.request.dnsTargets.size)
+            assertEquals(EngineProbeTaskFamily.DOH_JSON_SURVEY, admission.request.probeTasks.single().family)
         }
 
     @Test

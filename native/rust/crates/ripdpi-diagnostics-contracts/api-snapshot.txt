@@ -864,6 +864,7 @@ pub const ripdpi_diagnostics_contracts::util::CONNECT_TIMEOUT: core::time::Durat
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DNS_SERVER: &str
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_BOOTSTRAP_IPS: &[&str]
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_HOST: &str
+pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_JSON_RESOLVERS: &[(&str, &str, &str)]
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_PORT: u16
 pub const ripdpi_diagnostics_contracts::util::DEFAULT_DOH_URL: &str
 pub const ripdpi_diagnostics_contracts::util::FAT_HEADER_REQUESTS: usize
@@ -895,6 +896,7 @@ pub fn ripdpi_diagnostics_contracts::util::default_telegram_total_timeout_ms() -
 pub fn ripdpi_diagnostics_contracts::util::default_telegram_upload_size() -> usize
 pub fn ripdpi_diagnostics_contracts::util::default_throughput_runs() -> usize
 pub fn ripdpi_diagnostics_contracts::util::default_throughput_window_bytes() -> usize
+pub fn ripdpi_diagnostics_contracts::util::encode_doh_json_query_name(&str) -> core::option::Option<alloc::string::String>
 pub fn ripdpi_diagnostics_contracts::util::event_level_for_outcome(&str, &ripdpi_diagnostics_contracts::types::ScanPathMode, &str) -> &'static str
 pub fn ripdpi_diagnostics_contracts::util::fat_threshold_reached(usize) -> bool
 pub fn ripdpi_diagnostics_contracts::util::find_headers_end(&[u8]) -> core::option::Option<usize>

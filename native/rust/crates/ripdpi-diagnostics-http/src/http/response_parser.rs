@@ -31,7 +31,7 @@ pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Re
         let body = buf[header_end + 4..].to_vec();
         let content_length = response_content_length(&header_bytes)?;
         let chunked = response.headers.get("transfer-encoding").is_some_and(|value| {
-            value.split(',').last().is_some_and(|token| token.trim().eq_ignore_ascii_case("chunked"))
+            value.split(',').next_back().is_some_and(|token| token.trim().eq_ignore_ascii_case("chunked"))
         });
         break (header_bytes, body, content_length, chunked);
     };

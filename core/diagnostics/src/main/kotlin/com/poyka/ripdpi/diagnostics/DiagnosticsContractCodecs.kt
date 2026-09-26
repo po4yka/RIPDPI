@@ -100,6 +100,7 @@ internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
         family =
             when (family) {
                 ProbeFamily.DNS -> EngineProbeTaskFamily.DNS
+                ProbeFamily.DOH_JSON_SURVEY -> EngineProbeTaskFamily.DOH_JSON_SURVEY
                 ProbeFamily.WEB -> EngineProbeTaskFamily.WEB
                 ProbeFamily.QUIC -> EngineProbeTaskFamily.QUIC
                 ProbeFamily.TCP -> EngineProbeTaskFamily.TCP
