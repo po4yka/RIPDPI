@@ -66,7 +66,7 @@ fn run_udp_associate_handshake(control: &mut TcpStream, state: &RuntimeState) ->
     if !RuntimeState::upstream_socks_connect_succeeded(&reply) {
         return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks udp associate failed"));
     }
-    parse_associate_relay_endpoint(&reply, state)
+    parse_associate_relay_endpoint(&reply, state, control.peer_addr()?.ip())
 }
 
 /// RFC 1928 UDP ASSOCIATE request: `VER=5, CMD=3, RSV=0, ATYP=IPv4, 0.0.0.0:0`.
@@ -75,7 +75,11 @@ fn encode_udp_associate_request() -> [u8; 10] {
 }
 
 /// Parse `BND.ADDR:BND.PORT` from a validated SOCKS5 reply (`VER REP RSV ATYP …`).
-fn parse_associate_relay_endpoint(reply: &[u8], state: &RuntimeState) -> io::Result<SocketAddr> {
+fn parse_associate_relay_endpoint(
+    reply: &[u8],
+    state: &RuntimeState,
+    control_peer_ip: IpAddr,
+) -> io::Result<SocketAddr> {
     let invalid = || io::Error::new(io::ErrorKind::InvalidData, "malformed udp associate reply");
     match reply.get(3).copied().ok_or_else(invalid)? {
         0x01 => {
@@ -95,10 +99,20 @@ fn parse_associate_relay_endpoint(reply: &[u8], state: &RuntimeState) -> io::Res
             }
             let host = std::str::from_utf8(reply.get(5..5 + len).ok_or_else(invalid)?).map_err(|_| invalid())?;
             let port = read_port(reply, 5 + len).ok_or_else(invalid)?;
-            let resolved = state.resolve_handshake_name(host).ok_or_else(|| {
-                io::Error::new(io::ErrorKind::AddrNotAvailable, "upstream socks udp relay domain could not be resolved")
-            })?;
-            Ok(SocketAddr::new(resolved.ip(), port))
+            let ip = if host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case("localhost.") {
+                control_peer_ip
+            } else {
+                state
+                    .resolve_handshake_name(host)
+                    .ok_or_else(|| {
+                        io::Error::new(
+                            io::ErrorKind::AddrNotAvailable,
+                            "upstream socks udp relay domain could not be resolved",
+                        )
+                    })?
+                    .ip()
+            };
+            Ok(SocketAddr::new(ip, port))
         }
         _ => Err(invalid()),
     }
@@ -112,7 +126,7 @@ fn read_port(reply: &[u8], offset: usize) -> Option<u16> {
 mod tests {
     use super::*;
     use std::io::{Read, Write};
-    use std::net::{Ipv4Addr, Ipv6Addr, TcpListener};
+    use std::net::{Ipv4Addr, Ipv6Addr, TcpListener, UdpSocket};
     use std::thread;
 
     fn test_state(ipv6: bool, resolve: bool) -> RuntimeState {
@@ -179,11 +193,20 @@ mod tests {
 
     #[test]
     fn udp_associate_resolves_domain_relay_and_keeps_port() {
-        let (upstream, server) = spawn_associate_server_with_reply(domain_reply(b"localhost", 5300));
-        let state = test_state(false, true);
+        let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind relay");
+        relay.set_read_timeout(Some(Duration::from_secs(1))).expect("relay timeout");
+        let relay_addr = relay.local_addr().expect("relay addr");
+        let (upstream, server) = spawn_associate_server_with_reply(domain_reply(b"localhost", relay_addr.port()));
+        let state = test_state(true, true);
         let session = open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state)
             .expect("associate domain relay");
-        assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
+        assert_eq!(session.relay_endpoint, relay_addr);
+        let socket =
+            super::super::sockets::build_udp_upstream_socket(session.relay_endpoint, None, false).expect("udp socket");
+        socket.send(b"ping").expect("send relay datagram");
+        let mut received = [0; 4];
+        let (n, _) = relay.recv_from(&mut received).expect("receive relay datagram");
+        assert_eq!(&received[..n], b"ping");
         drop(session);
         server.join().expect("join associate server");
     }
@@ -192,22 +215,35 @@ mod tests {
     fn domain_relay_supports_ipv6_and_rejects_invalid_or_disabled_resolution() {
         let ipv6_state = test_state(true, true);
         assert_eq!(
-            parse_associate_relay_endpoint(&domain_reply(b"localhost", 5300), &ipv6_state).expect("IPv6 relay"),
+            parse_associate_relay_endpoint(
+                &domain_reply(b"localhost", 5300),
+                &ipv6_state,
+                IpAddr::V6(Ipv6Addr::LOCALHOST)
+            )
+            .expect("IPv6 relay"),
             SocketAddr::from((Ipv6Addr::LOCALHOST, 5300)),
         );
 
         let disabled_state = test_state(false, false);
         assert_eq!(
-            parse_associate_relay_endpoint(&domain_reply(b"example.invalid", 5300), &disabled_state)
-                .expect_err("disabled resolution must fail")
-                .kind(),
+            parse_associate_relay_endpoint(
+                &domain_reply(b"example.invalid", 5300),
+                &disabled_state,
+                IpAddr::V4(Ipv4Addr::LOCALHOST)
+            )
+            .expect_err("disabled resolution must fail")
+            .kind(),
             io::ErrorKind::AddrNotAvailable,
         );
         for host in [&b""[..], &b"\xff"[..]] {
             assert_eq!(
-                parse_associate_relay_endpoint(&domain_reply(host, 5300), &disabled_state)
-                    .expect_err("invalid relay domain must fail")
-                    .kind(),
+                parse_associate_relay_endpoint(
+                    &domain_reply(host, 5300),
+                    &disabled_state,
+                    IpAddr::V4(Ipv4Addr::LOCALHOST)
+                )
+                .expect_err("invalid relay domain must fail")
+                .kind(),
                 io::ErrorKind::InvalidData,
             );
         }
@@ -216,7 +252,12 @@ mod tests {
     #[test]
     fn parse_relay_endpoint_rejects_truncated_reply() {
         assert!(
-            parse_associate_relay_endpoint(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0], &test_state(false, true)).is_err()
+            parse_associate_relay_endpoint(
+                &[0x05, 0x00, 0x00, 0x01, 127, 0, 0],
+                &test_state(false, true),
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+            )
+            .is_err()
         );
     }
 }
