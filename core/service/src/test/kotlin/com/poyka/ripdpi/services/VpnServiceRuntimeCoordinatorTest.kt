@@ -1523,6 +1523,25 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun vpnProtectFailureImmediatelyAfterStartIsObserved() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            env.vpnProtectFailureMonitor.report(
+                VpnProtectFailureEvent(
+                    fd = 42,
+                    reason = FailureReason.PermissionLost("VPN"),
+                    detail = "VpnService.protect() returned false",
+                    detectedAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
     fun handoverFailureInVpnModeRetainsFailClosedTunUntilExplicitStop() =
         runTest {
             val initialFingerprint = sampleFingerprint()

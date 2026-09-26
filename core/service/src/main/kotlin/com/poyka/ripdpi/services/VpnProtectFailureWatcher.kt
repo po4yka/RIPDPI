@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ServiceStatus
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -15,7 +16,7 @@ internal class VpnProtectFailureWatcher(
     fun start() {
         stop()
         job =
-            dependencies.host.serviceScope.launch(dependencies.ioDispatcher) {
+            dependencies.host.serviceScope.launch(dependencies.ioDispatcher, start = CoroutineStart.UNDISPATCHED) {
                 dependencies.vpnProtectFailureMonitor.events.collect { event ->
                     handle(event)
                 }
