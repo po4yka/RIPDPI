@@ -1,46 +1,53 @@
 package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
+import kotlinx.coroutines.sync.Mutex
 
 internal class DetectionProgressReporter(
     private val onProgress: (suspend (DetectionProgress) -> Unit)?,
 ) {
     private val completed = mutableSetOf<DetectionStage>()
+    private val progressMutex = Mutex()
 
     suspend fun started(stage: DetectionStage) {
-        val message = DetectionStageProgressMessages.messageFor(stage)
-        onProgress?.invoke(
-            DetectionProgress(
-                stage = stage,
-                label = message.label,
-                detail = message.startDetail,
-                completedStages = completed.toSet(),
-            ),
-        )
+        progressMutex.lock()
+        try {
+            val message = DetectionStageProgressMessages.messageFor(stage)
+            onProgress?.invoke(
+                DetectionProgress(stage, message.label, message.startDetail, completed.toSet()),
+            )
+        } finally {
+            progressMutex.unlock()
+        }
     }
 
     suspend fun completed(stage: DetectionStage) {
-        completed.add(stage)
-        val message = DetectionStageProgressMessages.messageFor(stage)
-        onProgress?.invoke(
-            DetectionProgress(
-                stage = stage,
-                label = message.label,
-                detail = "Done",
-                completedStages = completed.toSet(),
-            ),
-        )
+        progressMutex.lock()
+        try {
+            completed.add(stage)
+            val message = DetectionStageProgressMessages.messageFor(stage)
+            onProgress?.invoke(
+                DetectionProgress(stage, message.label, "Done", completed.toSet()),
+            )
+        } finally {
+            progressMutex.unlock()
+        }
     }
 
     suspend fun bypassProgress(progress: BypassChecker.Progress) {
-        onProgress?.invoke(
-            DetectionProgress(
-                stage = DetectionStage.BYPASS,
-                label = "Bypass: ${progress.phase}",
-                detail = progress.detail,
-                completedStages = completed.toSet(),
-            ),
-        )
+        progressMutex.lock()
+        try {
+            onProgress?.invoke(
+                DetectionProgress(
+                    DetectionStage.BYPASS,
+                    "Bypass: ${progress.phase}",
+                    progress.detail,
+                    completed.toSet(),
+                ),
+            )
+        } finally {
+            progressMutex.unlock()
+        }
     }
 }
 
