@@ -27,8 +27,9 @@ pub(crate) async fn relay_raw(
 ) -> io::Result<()> {
     telemetry.record_target(&format!("{host}:{port}"));
     let scheme = if port == 443 { "https" } else { "http" };
+    let mut pending = Vec::new();
     loop {
-        match handle_request(&mut stream, host, port, scheme, relay.as_ref()).await? {
+        match handle_request(&mut stream, &mut pending, host, port, scheme, relay.as_ref()).await? {
             true => continue,
             false => return Ok(()),
         }
@@ -40,6 +41,7 @@ pub(crate) async fn relay_raw(
 // bytes already consumed from the stream or leave a truncated response.
 pub(crate) async fn handle_request<S>(
     stream: &mut S,
+    pending: &mut Vec<u8>,
     host: &str,
     port: u16,
     scheme: &str,
@@ -48,13 +50,13 @@ pub(crate) async fn handle_request<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let Some((head, leftover)) = read_http_head(stream).await? else {
+    let Some(head) = read_http_head(stream, pending).await? else {
         return Ok(false);
     };
     let Some((method, path, _version, headers)) = parse_request_head(&head) else {
         return Ok(false);
     };
-    let body = read_body(stream, &leftover, &headers).await?;
+    let body = read_body(stream, pending, &headers).await?;
 
     if method.eq_ignore_ascii_case("OPTIONS") {
         let origin = header_value(&headers, "origin").unwrap_or("*");
@@ -91,33 +93,32 @@ pub(crate) fn looks_like_http(bytes: &[u8]) -> bool {
         .any(|method| bytes.starts_with(method.as_bytes()))
 }
 
-// NOT cancel-safe: accumulates header bytes into a local buffer across reads;
-// cancellation drops the buffer, permanently losing bytes already read off the
-// stream.
-async fn read_http_head<S>(stream: &mut S) -> io::Result<Option<(Vec<u8>, Vec<u8>)>>
+// NOT cancel-safe: the caller owns the pending bytes, but cancellation after a
+// read may still stop the connection with a partial HTTP request.
+async fn read_http_head<S>(stream: &mut S, pending: &mut Vec<u8>) -> io::Result<Option<Vec<u8>>>
 where
     S: AsyncRead + Unpin,
 {
-    let mut buffer = Vec::with_capacity(4_096);
     let mut scratch = [0u8; 4_096];
     loop {
+        if let Some(position) = find_headers_end(pending) {
+            if position > 1024 * 1024 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "headers too large"));
+            }
+            return Ok(Some(pending.drain(..position).collect()));
+        }
+        if pending.len() > 1024 * 1024 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "headers too large"));
+        }
         let read = stream.read(&mut scratch).await?;
         if read == 0 {
-            return if buffer.is_empty() {
+            return if pending.is_empty() {
                 Ok(None)
             } else {
                 Err(io::Error::new(io::ErrorKind::UnexpectedEof, "EOF mid-header"))
             };
         }
-        buffer.extend_from_slice(&scratch[..read]);
-        if let Some(position) = find_headers_end(&buffer) {
-            let head = buffer[..position].to_vec();
-            let leftover = buffer[position..].to_vec();
-            return Ok(Some((head, leftover)));
-        }
-        if buffer.len() > 1024 * 1024 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "headers too large"));
-        }
+        pending.extend_from_slice(&scratch[..read]);
     }
 }
 
@@ -145,7 +146,7 @@ fn parse_request_head(head: &[u8]) -> Option<(String, String, String, Vec<(Strin
 // NOT cancel-safe: may write a 100-continue line and then accumulates body
 // bytes into a local buffer across reads; cancellation loses the partial body
 // already consumed from the stream.
-async fn read_body<S>(stream: &mut S, leftover: &[u8], headers: &[(String, String)]) -> io::Result<Vec<u8>>
+async fn read_body<S>(stream: &mut S, pending: &mut Vec<u8>, headers: &[(String, String)]) -> io::Result<Vec<u8>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -173,7 +174,7 @@ where
     }
 
     if is_chunked {
-        return read_chunked_request_body(stream, leftover.to_vec()).await;
+        return read_chunked_request_body(stream, pending).await;
     }
 
     let Some(content_length) = content_length else {
@@ -183,7 +184,8 @@ where
         return Err(io::Error::new(io::ErrorKind::InvalidData, "Content-Length exceeds maximum request body size"));
     }
     let mut body = Vec::with_capacity(content_length);
-    body.extend_from_slice(&leftover[..leftover.len().min(content_length)]);
+    let buffered = pending.len().min(content_length);
+    body.extend(pending.drain(..buffered));
     let mut scratch = [0u8; 8_192];
     while body.len() < content_length {
         let read = stream.read(&mut scratch).await?;
@@ -192,13 +194,14 @@ where
         }
         let needed = content_length - body.len();
         body.extend_from_slice(&scratch[..read.min(needed)]);
+        pending.extend_from_slice(&scratch[read.min(needed)..read]);
     }
     Ok(body)
 }
 
 // NOT cancel-safe: decodes chunks into an output buffer across many reads;
 // cancellation discards partially decoded data already taken from the stream.
-async fn read_chunked_request_body<S>(stream: &mut S, mut buffer: Vec<u8>) -> io::Result<Vec<u8>>
+async fn read_chunked_request_body<S>(stream: &mut S, buffer: &mut Vec<u8>) -> io::Result<Vec<u8>>
 where
     S: AsyncRead + Unpin,
 {
@@ -206,7 +209,7 @@ where
     let mut scratch = [0u8; 8_192];
 
     loop {
-        let line = read_crlf_line(stream, &mut buffer, &mut scratch).await?;
+        let line = read_crlf_line(stream, buffer, &mut scratch).await?;
         if line.is_empty() {
             continue;
         }
@@ -218,12 +221,18 @@ where
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid chunk size"))?;
         if size == 0 {
             loop {
-                if read_crlf_line(stream, &mut buffer, &mut scratch).await?.is_empty() {
+                if read_crlf_line(stream, buffer, &mut scratch).await?.is_empty() {
                     return Ok(output);
                 }
             }
         }
-        fill_buffer(stream, &mut buffer, &mut scratch, size + 2).await?;
+        if size > MAX_REQUEST_BODY_BYTES - output.len() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "chunked request body exceeds maximum size"));
+        }
+        fill_buffer(stream, buffer, &mut scratch, size + 2).await?;
+        if &buffer[size..size + 2] != b"\r\n" {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "chunk is missing CRLF"));
+        }
         output.extend_from_slice(&buffer[..size]);
         buffer.drain(..size + 2);
     }
@@ -238,9 +247,15 @@ where
 {
     loop {
         if let Some(position) = buffer.windows(2).position(|window| window == b"\r\n") {
+            if position > 8_192 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "chunked request line too long"));
+            }
             let line = buffer[..position].to_vec();
             buffer.drain(..position + 2);
             return Ok(line);
+        }
+        if buffer.len() > 8_192 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "chunked request line too long"));
         }
         let read = stream.read(scratch).await?;
         if read == 0 {
@@ -287,15 +302,62 @@ mod tests {
     use super::*;
 
     #[tokio::test(flavor = "current_thread")]
+    // cancel-safe: the test owns both duplex endpoints and keeps no external state.
+    async fn pipelined_request_bytes_survive_body_read() {
+        let (mut writer, mut reader) = duplex(256);
+        writer
+            .write_all(b"POST /one HTTP/1.1\r\nContent-Length: 3\r\n\r\nabcGET /two HTTP/1.1\r\n\r\n")
+            .await
+            .expect("write pipelined requests");
+        drop(writer);
+        let mut pending = Vec::new();
+        let first = read_http_head(&mut reader, &mut pending).await.expect("first head").expect("first request");
+        assert!(first.starts_with(b"POST /one"));
+        let body = read_body(&mut reader, &mut pending, &[("Content-Length".to_owned(), "3".to_owned())])
+            .await
+            .expect("first body");
+        assert_eq!(body, b"abc");
+        let second = read_http_head(&mut reader, &mut pending).await.expect("second head").expect("second request");
+        assert!(second.starts_with(b"GET /two"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn read_chunked_request_body_decodes_chunks() {
         let (mut writer, mut reader) = duplex(256);
         let task = tokio::spawn(async move {
             writer.write_all(b"5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n").await.expect("write chunked body");
         });
 
-        let body = read_chunked_request_body(&mut reader, Vec::new()).await.expect("decode body");
+        let body = read_chunked_request_body(&mut reader, &mut Vec::new()).await.expect("decode body");
         task.await.expect("writer task");
         assert_eq!(body, b"hello world");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    // cancel-safe: the test owns only an in-memory duplex endpoint.
+    async fn chunked_body_rejects_missing_chunk_terminator() {
+        let (_writer, mut reader) = duplex(64);
+        let error = read_chunked_request_body(&mut reader, &mut b"1\r\nAx0\r\n\r\n".to_vec())
+            .await
+            .expect_err("chunk must end in CRLF");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    // cancel-safe: the test owns its socket and channel resources.
+    async fn chunked_body_rejects_oversized_chunk_and_line_before_reading_payload() {
+        let (_writer, mut reader) = duplex(64);
+        let error = read_chunked_request_body(&mut reader, &mut b"1000001\r\n".to_vec())
+            .await
+            .expect_err("oversized chunk must fail before allocation");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+
+        let mut long_line = vec![b'A'; 8_193];
+        long_line.extend_from_slice(b"\r\n");
+        let error = read_chunked_request_body(&mut reader, &mut long_line)
+            .await
+            .expect_err("oversized chunk line must fail before allocation");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -305,7 +367,8 @@ mod tests {
         let (_writer, mut reader) = duplex(64);
         let headers = vec![("Content-Length".to_string(), "9999999999".to_string())];
 
-        let error = read_body(&mut reader, b"", &headers).await.expect_err("oversized length must be rejected");
+        let error =
+            read_body(&mut reader, &mut Vec::new(), &headers).await.expect_err("oversized length must be rejected");
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
     }
 
@@ -318,7 +381,7 @@ mod tests {
         drop(writer);
         let headers = vec![("Content-Length".to_string(), MAX_REQUEST_BODY_BYTES.to_string())];
 
-        let error = read_body(&mut reader, b"", &headers).await.expect_err("EOF before full body");
+        let error = read_body(&mut reader, &mut Vec::new(), &headers).await.expect_err("EOF before full body");
         assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
     }
 }

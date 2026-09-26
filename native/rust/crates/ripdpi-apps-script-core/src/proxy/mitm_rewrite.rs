@@ -38,8 +38,11 @@ pub(crate) async fn mitm_then_relay(
         .await
         .map_err(|error| io::Error::other(format!("TLS accept failed: {error}")))?;
 
+    let mut pending = Vec::new();
     loop {
-        match http_relay::handle_request(&mut tls_stream, &effective_host, port, "https", relay.as_ref()).await? {
+        match http_relay::handle_request(&mut tls_stream, &mut pending, &effective_host, port, "https", relay.as_ref())
+            .await?
+        {
             true => continue,
             false => return Ok(()),
         }
