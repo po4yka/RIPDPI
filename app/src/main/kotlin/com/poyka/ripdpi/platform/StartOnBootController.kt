@@ -39,7 +39,7 @@ open class StartOnBootController
          * Ordered candidate intents to request a boot-reliability exemption. The screen
          * tries them in order and stops at the first that resolves: vendor autostart
          * screens first (where the real autostart kill happens), then the platform
-         * battery-optimization exemption, then the generic app-details fallback.
+         * battery-optimization settings, then the generic app-details fallback.
          */
         fun batteryOptimizationIntents(): List<Intent> {
             val packageUri = Uri.parse("package:${context.packageName}")
@@ -48,10 +48,6 @@ open class StartOnBootController
                     vendorAutoStartComponents(Build.MANUFACTURER).forEach { component ->
                         add(Intent().setComponent(component))
                     }
-                    add(
-                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                            .setData(packageUri),
-                    )
                     add(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                     add(
                         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
