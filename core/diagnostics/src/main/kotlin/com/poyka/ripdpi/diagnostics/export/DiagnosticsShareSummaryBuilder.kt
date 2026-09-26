@@ -100,7 +100,9 @@ internal object DiagnosticsShareSummaryBuilder {
     ): NetworkSnapshotModel? {
         val latestSnapshot =
             if (selectedSession != null) {
-                artifactQueryStore.getSnapshotsForSession(selectedSession.id, limit = SessionArtifactLimit).firstOrNull()
+                artifactQueryStore
+                    .getSnapshotsForSession(selectedSession.id, limit = SessionArtifactLimit)
+                    .firstOrNull()
             } else {
                 artifactReadStore.observeSnapshots(limit = 1).first().firstOrNull()
             }
