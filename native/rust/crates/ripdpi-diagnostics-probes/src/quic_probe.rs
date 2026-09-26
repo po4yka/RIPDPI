@@ -4,7 +4,7 @@
 //! [`Probe`] trait. The upstream classifier takes a string outcome
 //! tag (matching the diagnostics runner's QUIC-probe contract) and
 //! an optional error string; healthy outcomes return None, anything
-//! else becomes a [`ClassifiedFailure`] with class QuicBreakage.
+//! else becomes a [`ripdpi_failure_classifier::ClassifiedFailure`] with class QuicBreakage.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_failure_classifier::classify_quic_probe;
