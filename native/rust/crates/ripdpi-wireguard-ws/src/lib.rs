@@ -50,6 +50,7 @@
 
 use std::fmt;
 
+use futures::stream::{SplitSink, SplitStream};
 use tokio_tungstenite::tungstenite::Message;
 
 mod connect;
@@ -201,6 +202,43 @@ pub struct WsCarrier<S> {
     stream: S,
 }
 
+/// Sending half of a WireGuard WebSocket carrier.
+pub struct WsCarrierSender<S> {
+    sink: SplitSink<S, Message>,
+}
+
+/// Receiving half of a WireGuard WebSocket carrier.
+pub struct WsCarrierReceiver<S> {
+    stream: SplitStream<S>,
+}
+
+impl<S> WsCarrierSender<S>
+where
+    S: futures::Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
+{
+    // NOT cancel-safe: a dropped send may leave a buffered frame; a later send
+    // finishes it before sending a new frame.
+    pub async fn send_datagram(&mut self, datagram: &[u8]) -> Result<(), WsCarrierError> {
+        use futures::SinkExt;
+        self.sink.send(frame_datagram(datagram)).await?;
+        Ok(())
+    }
+}
+
+impl<S> WsCarrierReceiver<S>
+where
+    S: futures::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
+{
+    // cancel-safe: dropping a pending read preserves WebSocket framing state.
+    pub async fn recv_datagram(&mut self) -> Result<Vec<u8>, WsCarrierError> {
+        use futures::StreamExt;
+        match self.stream.next().await {
+            Some(message) => unframe_message(message?),
+            None => Err(WsCarrierError::Closed),
+        }
+    }
+}
+
 impl<S> WsCarrier<S>
 where
     S: futures::Sink<Message, Error = tokio_tungstenite::tungstenite::Error>
@@ -210,6 +248,13 @@ where
     /// Wrap an established WebSocket stream as a WireGuard carrier.
     pub fn new(stream: S) -> Self {
         Self { stream }
+    }
+
+    /// Split read and write so a pending receive does not block sending.
+    pub fn split(self) -> (WsCarrierSender<S>, WsCarrierReceiver<S>) {
+        use futures::StreamExt;
+        let (sink, stream) = self.stream.split();
+        (WsCarrierSender { sink }, WsCarrierReceiver { stream })
     }
 
     /// Send one WireGuard UDP datagram across the carrier as a binary frame.

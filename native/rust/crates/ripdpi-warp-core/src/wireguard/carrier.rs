@@ -5,11 +5,23 @@ use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
 
 use ripdpi_wireguard_ws::{
-    CarrierSocketProtector, WsCarrier, WsCarrierError, WssCarrierStream, WssEndpoint, connect_wss_carrier,
+    CarrierSocketProtector, WsCarrierError, WsCarrierReceiver, WsCarrierSender, WssCarrierStream, WssEndpoint,
+    connect_wss_carrier,
 };
 
 #[cfg(test)]
 type PlainTestWsStream = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
+
+pub(crate) struct SplitWsCarrier<S> {
+    sender: Mutex<WsCarrierSender<S>>,
+    receiver: Mutex<WsCarrierReceiver<S>>,
+}
+
+impl<S> SplitWsCarrier<S> {
+    fn new(sender: WsCarrierSender<S>, receiver: WsCarrierReceiver<S>) -> Self {
+        Self { sender: Mutex::new(sender), receiver: Mutex::new(receiver) }
+    }
+}
 
 /// The transport a [`WireGuardTunnel`](super::WireGuardTunnel) runs its WireGuard
 /// datagrams over.
@@ -27,11 +39,8 @@ type PlainTestWsStream = tokio_tungstenite::WebSocketStream<tokio::net::TcpStrea
 /// [`Self::send_to`] is honoured on the UDP arm and ignored on the WS arm (the
 /// carrier is already pointed at the single negotiated endpoint).
 ///
-/// The [`WsCarrier`] needs `&mut self` to drive its sink/stream; the tunnel
-/// holds the carrier behind `&self`, so the WS arm wraps it in a
-/// [`tokio::sync::Mutex`]. WireGuard's datagram loop is low-frequency relative
-/// to a TLS-framed stream, so the contention cost is negligible, and the mutex
-/// is async (never held across a blocking call).
+/// The WebSocket is split into independent read and write halves. Each half
+/// has its own async mutex, so a pending receive cannot block a handshake send.
 pub(crate) enum WgCarrier {
     /// The plain WireGuard-over-UDP transport (today's default).
     Udp(UdpSocket),
@@ -42,9 +51,9 @@ pub(crate) enum WgCarrier {
     /// (~360 B) relative to the `UdpSocket` variant, and there is exactly one
     /// carrier per tunnel, so the one-time heap indirection is free of any
     /// per-packet cost (`clippy::large_enum_variant`).
-    Ws(Box<Mutex<WsCarrier<WssCarrierStream>>>),
+    Ws(Box<SplitWsCarrier<WssCarrierStream>>),
     #[cfg(test)]
-    PlainTestWs(Box<Mutex<WsCarrier<PlainTestWsStream>>>),
+    PlainTestWs(Box<SplitWsCarrier<PlainTestWsStream>>),
 }
 
 impl WgCarrier {
@@ -56,20 +65,18 @@ impl WgCarrier {
     /// transport error is surfaced as an [`io::Error`] so the tunnel's existing
     /// `let _ = self.carrier.send_to(...)` call sites stay unchanged.
     ///
-    // cancel-safe: the UDP arm is a single `send_to`; the WS arm delegates to
-    // `WsCarrier::send_datagram`, which is cancel-safe (a dropped send leaves at
-    // most a partially-buffered frame the peer never sees as a truncated
-    // datagram). The async mutex guard is released on drop.
+    // NOT cancel-safe: the WS send can leave a buffered frame when cancelled.
+    // A subsequent send finishes it; the peer never sees a truncated datagram.
     pub(crate) async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> io::Result<usize> {
         match self {
             Self::Udp(socket) => socket.send_to(buf, addr).await,
             Self::Ws(carrier) => {
-                carrier.lock().await.send_datagram(buf).await.map_err(ws_error_to_io)?;
+                carrier.sender.lock().await.send_datagram(buf).await.map_err(ws_error_to_io)?;
                 Ok(buf.len())
             }
             #[cfg(test)]
             Self::PlainTestWs(carrier) => {
-                carrier.lock().await.send_datagram(buf).await.map_err(ws_error_to_io)?;
+                carrier.sender.lock().await.send_datagram(buf).await.map_err(ws_error_to_io)?;
                 Ok(buf.len())
             }
         }
@@ -90,7 +97,7 @@ impl WgCarrier {
         match self {
             Self::Udp(socket) => socket.recv(buf).await,
             Self::Ws(carrier) => {
-                let datagram = carrier.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
+                let datagram = carrier.receiver.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
                 if datagram.len() > buf.len() {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -102,7 +109,7 @@ impl WgCarrier {
             }
             #[cfg(test)]
             Self::PlainTestWs(carrier) => {
-                let datagram = carrier.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
+                let datagram = carrier.receiver.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
                 if datagram.len() > buf.len() {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -143,7 +150,8 @@ where
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid carrier WSS endpoint: {error}"))
     })?;
     let carrier = connect_wss_carrier(&wss_endpoint, protector).await?;
-    Ok(WgCarrier::Ws(Box::new(Mutex::new(carrier))))
+    let (sender, receiver) = carrier.split();
+    Ok(WgCarrier::Ws(Box::new(SplitWsCarrier::new(sender, receiver))))
 }
 
 fn ws_error_to_io(error: WsCarrierError) -> io::Error {
@@ -164,7 +172,7 @@ mod tests {
 
     use boringtun::noise::{Tunn, TunnResult};
     use boringtun::x25519::{PublicKey, StaticSecret};
-    use ripdpi_wireguard_ws::connect_protected_carrier;
+    use ripdpi_wireguard_ws::{WsCarrier, connect_protected_carrier};
     use tokio::net::{TcpListener, UdpSocket};
     use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
     use tokio_tungstenite::tungstenite::http::HeaderValue;
@@ -187,6 +195,37 @@ mod tests {
     fn accept_binary_subprotocol(_request: &Request, mut response: Response) -> Result<Response, ErrorResponse> {
         response.headers_mut().insert("Sec-WebSocket-Protocol", HeaderValue::from_static("binary"));
         Ok(response)
+    }
+
+    #[tokio::test]
+    // cancel-safe: test-owned tasks and sockets are dropped with the test runtime.
+    async fn ws_send_does_not_wait_for_pending_receive() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("loopback listener");
+        let addr = listener.local_addr().expect("listener address");
+        let server = tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.expect("accept");
+            let ws = accept_hdr_async(tcp, accept_binary_subprotocol).await.expect("upgrade");
+            WsCarrier::new(ws).recv_datagram().await.expect("client frame")
+        });
+        let stream = connect_protected_carrier(addr, &|_| Ok(())).await.expect("connect");
+        let endpoint = WssEndpoint::parse(&format!("wss://{addr}/wg")).expect("endpoint");
+        let (ws, _) = client_async(endpoint.build_client_request().expect("request"), stream).await.expect("upgrade");
+        let (sender, receiver) = WsCarrier::new(ws).split();
+        let carrier = Arc::new(WgCarrier::PlainTestWs(Box::new(SplitWsCarrier::new(sender, receiver))));
+        let receiving = Arc::clone(&carrier);
+        let read_task = tokio::spawn(async move { receiving.recv(&mut [0u8; MAX_WG]).await });
+        tokio::task::yield_now().await;
+
+        tokio::time::timeout(Duration::from_millis(250), carrier.send_to(b"hello", addr))
+            .await
+            .expect("send must progress while receive waits")
+            .expect("send frame");
+        assert_eq!(server.await.expect("server task"), b"hello");
+        let read_result = tokio::time::timeout(Duration::from_secs(1), read_task)
+            .await
+            .expect("receive must finish after peer disconnects")
+            .expect("read task joins");
+        assert!(read_result.is_err(), "closed peer must end the pending receive");
     }
 
     /// A LOCAL in-process WS relay terminating WS frames on `127.0.0.1` and
@@ -306,7 +345,8 @@ mod tests {
         let stream = connect_protected_carrier(ws_addr, &protector).await.expect("protected loopback connect");
         let request = endpoint.build_client_request().expect("loopback endpoint request");
         let (ws, _response) = client_async(request, stream).await.expect("plain loopback ws upgrade");
-        let carrier = WgCarrier::PlainTestWs(Box::new(Mutex::new(WsCarrier::new(ws))));
+        let (sender, receiver) = WsCarrier::new(ws).split();
+        let carrier = WgCarrier::PlainTestWs(Box::new(SplitWsCarrier::new(sender, receiver)));
         assert!(protect_ran.load(Ordering::SeqCst), "carrier socket was protect-ed before connect");
 
         // Initiator boringtun peer: emit the handshake initiation over the carrier.
