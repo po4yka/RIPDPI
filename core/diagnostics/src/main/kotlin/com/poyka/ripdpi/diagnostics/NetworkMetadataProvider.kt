@@ -229,7 +229,7 @@ class AndroidNetworkMetadataProvider
                 pathValidation = pathValidation,
                 pathSnapshots = pathSnapshots,
                 capturedAt = System.currentTimeMillis(),
-            )
+            ).toStoredNetworkSnapshot()
         }
 
         private fun captureActiveVpnObservation(
@@ -443,6 +443,40 @@ class AndroidNetworkMetadataProvider
             private const val RssiMaxDbm = 0
         }
     }
+
+internal fun NetworkSnapshotModel.toStoredNetworkSnapshot(): NetworkSnapshotModel =
+    copy(
+        dnsServers = dnsServers.map { "redacted" },
+        localAddresses = localAddresses.map { "redacted" },
+        privateDnsMode =
+            when (privateDnsMode.lowercase()) {
+                "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" ->
+                    privateDnsMode.lowercase()
+                else -> "strict"
+            },
+        wifiDetails =
+            wifiDetails?.copy(
+                ssid = wifiDetails.ssid.redactNetworkIdentity(),
+                bssid = wifiDetails.bssid.redactNetworkIdentity(),
+                networkId = null,
+                gateway = wifiDetails.gateway?.let { "redacted" },
+                dhcpServer = wifiDetails.dhcpServer?.let { "redacted" },
+                ipAddress = wifiDetails.ipAddress?.let { "redacted" },
+                subnetMask = wifiDetails.subnetMask?.let { "redacted" },
+            ),
+        cellularDetails =
+            cellularDetails?.copy(
+                carrierName = cellularDetails.carrierName.redactNetworkIdentity(),
+                simOperatorName = cellularDetails.simOperatorName.redactNetworkIdentity(),
+                networkOperatorName = cellularDetails.networkOperatorName.redactNetworkIdentity(),
+                operatorCode = cellularDetails.operatorCode.redactNetworkIdentity(),
+                simOperatorCode = cellularDetails.simOperatorCode.redactNetworkIdentity(),
+                carrierId = null,
+                simCarrierId = null,
+            ),
+    )
+
+private fun String.redactNetworkIdentity(): String = if (equals("unknown", ignoreCase = true)) "unknown" else "redacted"
 
 // WiFi frequency bands (MHz)
 private const val WifiBand24GhzMin = 2400
