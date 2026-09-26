@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
-use ripdpi_dns_resolver::{EncryptedDnsResolver, EncryptedDnsTransport, extract_ip_answers};
+use ripdpi_dns_resolver::{EncryptedDnsResolver, EncryptedDnsTransport, extract_ip_answers_for_query};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_ws_transport_port::{TelegramDc, ws_host};
 
@@ -127,7 +127,6 @@ fn resolve_first_ip(
 fn query_ip_answers(resolver: &EncryptedDnsResolver, host: &str, record_type: u16) -> io::Result<Vec<IpAddr>> {
     let query = build_dns_query(host, record_type, current_query_id())?;
     let response = resolver.exchange_blocking(&query).map_err(|err| io::Error::other(err.to_string()))?;
-    let answers =
-        extract_ip_answers(&response).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))?;
-    Ok(answers.into_iter().filter_map(|answer| answer.parse::<IpAddr>().ok()).collect())
+    extract_ip_answers_for_query(&query, &response)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))
 }
