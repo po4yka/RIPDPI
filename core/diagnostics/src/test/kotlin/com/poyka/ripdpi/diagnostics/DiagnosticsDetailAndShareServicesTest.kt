@@ -433,6 +433,44 @@ class DiagnosticsDetailAndShareServicesTest {
             assertFalse(summary.body.contains("proxy: newer warning"))
         }
 
+    @Test
+    fun `share summary does not borrow artifacts when selected session has none`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val selectedSession =
+                diagnosticsSession(
+                    id = "session-empty",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH.name,
+                    summary = "No artifacts",
+                )
+            val newerSession =
+                diagnosticsSession(
+                    id = "session-newer",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Newer session",
+                )
+            seedScopedSessionStores(stores, newerSession, selectedSession)
+            stores.telemetryState.value = stores.telemetryState.value.filter { it.sessionId == newerSession.id }
+            val shareService =
+                DefaultDiagnosticsShareService(
+                    scanRecordStore = stores,
+                    artifactReadStore = stores,
+                    artifactQueryStore = stores,
+                    archiveExporter = RecordingDiagnosticsArchiveExporter(unusedArchive(selectedSession.id)),
+                    json = json,
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val summary = shareService.buildShareSummary(selectedSession.id)
+
+            assertTrue(summary.body.contains("session=${selectedSession.id}"))
+            assertFalse(summary.body.contains("Environment:"))
+            assertFalse(summary.body.contains("Telemetry:"))
+            assertTrue(summary.compactMetrics.none { it.label in setOf("Transport", "Mode", "App", "TX", "RX") })
+        }
+
     private suspend fun seedScopedSessionStores(
         stores: FakeDiagnosticsHistoryStores,
         selectedSession: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,

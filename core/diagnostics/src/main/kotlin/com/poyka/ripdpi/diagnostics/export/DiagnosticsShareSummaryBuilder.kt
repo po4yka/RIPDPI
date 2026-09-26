@@ -99,12 +99,11 @@ internal object DiagnosticsShareSummaryBuilder {
         json: Json,
     ): NetworkSnapshotModel? {
         val latestSnapshot =
-            selectedSession
-                ?.id
-                ?.let { id ->
-                    artifactQueryStore.getSnapshotsForSession(id, limit = SessionArtifactLimit).firstOrNull()
-                }
-                ?: artifactReadStore.observeSnapshots(limit = 1).first().firstOrNull()
+            if (selectedSession != null) {
+                artifactQueryStore.getSnapshotsForSession(selectedSession.id, limit = SessionArtifactLimit).firstOrNull()
+            } else {
+                artifactReadStore.observeSnapshots(limit = 1).first().firstOrNull()
+            }
         return latestSnapshot
             ?.payloadJson
             ?.let { payload ->
@@ -119,12 +118,11 @@ internal object DiagnosticsShareSummaryBuilder {
         json: Json,
     ): DiagnosticContextModel? {
         val latestContext =
-            selectedSession
-                ?.id
-                ?.let { id ->
-                    artifactQueryStore.getContextsForSession(id, limit = SessionArtifactLimit).firstOrNull()
-                }
-                ?: artifactReadStore.observeContexts(limit = 1).first().firstOrNull()
+            if (selectedSession != null) {
+                artifactQueryStore.getContextsForSession(selectedSession.id, limit = SessionArtifactLimit).firstOrNull()
+            } else {
+                artifactReadStore.observeContexts(limit = 1).first().firstOrNull()
+            }
         return latestContext
             ?.payloadJson
             ?.let { payload ->
@@ -135,14 +133,13 @@ internal object DiagnosticsShareSummaryBuilder {
     private suspend fun loadLatestTelemetry(
         selectedSession: ScanSessionEntity?,
         artifactReadStore: DiagnosticsArtifactReadStore,
-    ) = selectedSession
-        ?.id
-        ?.let { id ->
-            artifactReadStore.observeTelemetry(limit = SessionArtifactLimit).first().firstOrNull {
-                it.sessionId == id
-            }
+    ) = if (selectedSession != null) {
+        artifactReadStore.observeTelemetry(limit = SessionArtifactLimit).first().firstOrNull {
+            it.sessionId == selectedSession.id
         }
-        ?: artifactReadStore.observeTelemetry(limit = 1).first().firstOrNull()
+    } else {
+        artifactReadStore.observeTelemetry(limit = 1).first().firstOrNull()
+    }
 
     private suspend fun loadLatestWarnings(
         selectedSession: ScanSessionEntity?,
