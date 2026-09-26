@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::transport::ConnectionStream;
+
 use super::response_parser::response_content_length;
 use super::*;
 
@@ -212,6 +214,47 @@ fn read_http_response_skips_interim_response() {
     let response = read_http_response(&mut stream, 1024).expect("final response after early hints");
     assert_eq!(response.status_code, 200);
     assert_eq!(response.body, b"OK");
+    server.join().unwrap();
+}
+
+#[test]
+fn read_http_response_decodes_chunked_body() {
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        thread,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nblo\r\n4\r\ncked\r\n0\r\n\r\n")
+            .unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let response = read_http_response(&mut stream, 1024).expect("complete chunked response");
+    assert_eq!(response.body, b"blocked");
+    server.join().unwrap();
+}
+
+#[test]
+fn read_http_response_rejects_truncated_chunked_body() {
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        thread,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nabc").unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    assert_eq!(read_http_response(&mut stream, 1024).unwrap_err(), "response_truncated");
     server.join().unwrap();
 }
 

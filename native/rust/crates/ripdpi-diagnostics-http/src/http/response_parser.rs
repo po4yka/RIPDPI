@@ -9,7 +9,7 @@ use super::types::HttpResponse;
 pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Result<HttpResponse, String> {
     let mut buf = read_http_headers(stream, max_bytes)?;
     let mut consumed = 0;
-    let (header_bytes, mut body, content_length) = loop {
+    let (header_bytes, mut body, content_length, chunked) = loop {
         let header_end = find_headers_end(&buf).ok_or_else(|| "response_missing_headers".to_string())?;
         let header_bytes = buf[..header_end].to_vec();
         let response = parse_http_response(&header_bytes, Vec::new())?;
@@ -30,7 +30,10 @@ pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Re
         }
         let body = buf[header_end + 4..].to_vec();
         let content_length = response_content_length(&header_bytes)?;
-        break (header_bytes, body, content_length);
+        let chunked = response.headers.get("transfer-encoding").is_some_and(|value| {
+            value.split(',').last().is_some_and(|token| token.trim().eq_ignore_ascii_case("chunked"))
+        });
+        break (header_bytes, body, content_length, chunked);
     };
     if let Some(expected_length) = content_length {
         if expected_length > max_bytes {
@@ -46,6 +49,8 @@ pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Re
             body.extend_from_slice(&chunk[..read]);
         }
         body.truncate(expected_length);
+    } else if chunked {
+        body = read_chunked_body(stream, body, max_bytes)?;
     } else {
         loop {
             let mut chunk = [0u8; 4096];
@@ -66,6 +71,97 @@ pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Re
     }
 
     parse_http_response(&header_bytes, body)
+}
+
+fn read_chunked_body(stream: &mut ConnectionStream, mut encoded: Vec<u8>, max_bytes: usize) -> Result<Vec<u8>, String> {
+    #[derive(Clone, Copy)]
+    enum State {
+        Size,
+        Data(usize),
+        Trailers,
+    }
+
+    let mut decoded = Vec::new();
+    let mut pos = 0;
+    let mut scan_from = 0;
+    let mut state = State::Size;
+    loop {
+        if encoded.len() > max_bytes {
+            return Err("response_too_large".to_string());
+        }
+        loop {
+            match state {
+                State::Size => {
+                    let Some(line_end) = find_crlf(&encoded, scan_from) else {
+                        scan_from = pos.max(encoded.len().saturating_sub(1));
+                        break;
+                    };
+                    let size = std::str::from_utf8(
+                        encoded[pos..line_end].split(|byte| *byte == b';').next().unwrap_or_default(),
+                    )
+                    .ok()
+                    .and_then(|value| usize::from_str_radix(value.trim(), 16).ok())
+                    .ok_or_else(|| "invalid_chunk_size".to_string())?;
+                    pos = line_end + 2;
+                    scan_from = pos;
+                    if size == 0 {
+                        state = State::Trailers;
+                    } else {
+                        if size > max_bytes.saturating_sub(decoded.len()) {
+                            return Err("response_too_large".to_string());
+                        }
+                        state = State::Data(size);
+                    }
+                }
+                State::Data(size) => {
+                    let end = pos
+                        .checked_add(size)
+                        .and_then(|value| value.checked_add(2))
+                        .ok_or_else(|| "response_too_large".to_string())?;
+                    if encoded.len() < end {
+                        break;
+                    }
+                    if &encoded[end - 2..end] != b"\r\n" {
+                        return Err("invalid_chunk_terminator".to_string());
+                    }
+                    decoded.extend_from_slice(&encoded[pos..end - 2]);
+                    pos = end;
+                    scan_from = pos;
+                    state = State::Size;
+                }
+                State::Trailers => {
+                    let Some(line_end) = find_crlf(&encoded, scan_from) else {
+                        scan_from = pos.max(encoded.len().saturating_sub(1));
+                        break;
+                    };
+                    if line_end == pos {
+                        return Ok(decoded);
+                    }
+                    pos = line_end + 2;
+                    scan_from = pos;
+                }
+            }
+        }
+        let remaining = max_bytes - encoded.len();
+        if remaining == 0 {
+            return Err("response_too_large".to_string());
+        }
+        let mut chunk = [0u8; 4096];
+        let read_len = remaining.min(chunk.len());
+        let read = match stream.read(&mut chunk[..read_len]) {
+            Ok(0) => return Err("response_truncated".to_string()),
+            Ok(read) => read,
+            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                return Err("response_truncated".to_string());
+            }
+            Err(err) => return Err(err.to_string()),
+        };
+        encoded.extend_from_slice(&chunk[..read]);
+    }
+}
+
+fn find_crlf(bytes: &[u8], from: usize) -> Option<usize> {
+    bytes.get(from..)?.windows(2).position(|window| window == b"\r\n").map(|offset| from + offset)
 }
 
 pub(super) fn response_content_length(headers: &[u8]) -> Result<Option<usize>, String> {
