@@ -147,6 +147,18 @@ class StealthScoreTest {
     }
 
     @Test
+    fun `unscored diagnostic signal does not get clean exposure copy`() {
+        val result =
+            cleanResult().copy(
+                tlsFingerprint = emptyCategory("TLS").copy(needsReview = true),
+            )
+
+        val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
+
+        assertEquals("Additional diagnostic signals need review", verdict.headline)
+    }
+
+    @Test
     fun `exposure verdict prioritizes detection outcome over good stealth score`() {
         val result =
             cleanResult().copy(

@@ -169,6 +169,14 @@ object ExposureVerdictBuilder {
     ): ExposureVerdict {
         val signal = result.dominantExposureSignal()
         if (result.verdict == Verdict.NOT_DETECTED) {
+            if (signal != null) {
+                return ExposureVerdict(
+                    headline = "Additional diagnostic signals need review",
+                    reason = signal.reason,
+                    adjustmentHint = signal.hint,
+                    dominantSignal = signal.label,
+                )
+            }
             return ExposureVerdict(
                 headline = "You look like ordinary HTTPS traffic",
                 reason = cleanReason(stealthScore),
