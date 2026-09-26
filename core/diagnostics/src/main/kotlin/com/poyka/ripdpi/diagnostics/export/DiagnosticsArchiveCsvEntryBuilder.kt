@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 internal class DiagnosticsArchiveCsvEntryBuilder(
     private val json: Json,
@@ -141,13 +142,15 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
             events.mapNotNull { it.runtimeId?.takeIf(String::isNotBlank) }.distinct().withIndex().associate {
                 it.value to "runtime-${it.index + 1}"
             }
+        val profileAliases = mutableMapOf<String, String>()
+        val attemptAliases = mutableMapOf<String, String>()
         return buildString {
             events.forEach { event ->
                 appendLine(
                     jsonLines.encodeToString(
                         DiagnosticsArchiveRelayHealthDecisionRecord(
-                            attemptId = event.healthAttemptId.safeRelayDecisionToken(),
-                            opaqueProfileId = event.relayProfileToken.safeRelayDecisionToken(),
+                            attemptId = event.healthAttemptId.archiveLocalAlias(attemptAliases, "attempt"),
+                            opaqueProfileId = event.relayProfileToken.archiveLocalAlias(profileAliases, "profile"),
                             transport = event.relayTransport.safeRelayDecisionToken(),
                             failureStage = event.failureStage?.takeIf(RelayTraceStages::contains) ?: "unavailable",
                             targetCategory = event.relayTargetCategory.safeRelayDecisionToken(),
@@ -172,6 +175,13 @@ private val RelayDecisionToken = Regex("[a-zA-Z0-9_-]{1,128}")
 private fun isSafeRelayTraceToken(value: String): Boolean = value.matches(RelayTraceToken)
 
 private fun String?.safeRelayDecisionToken(): String = this?.takeIf(RelayDecisionToken::matches) ?: "unavailable"
+
+private fun String?.archiveLocalAlias(
+    aliases: MutableMap<String, String>,
+    prefix: String,
+): String = this?.takeIf(RelayDecisionToken::matches)?.let {
+    aliases.getOrPut(it) { "$prefix-${UUID.randomUUID().toString().replace("-", "")}" }
+} ?: "unavailable"
 
 private fun isRelayHealthDecisionEvent(event: com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity): Boolean =
     event.subsystem == "relay_health_decision"

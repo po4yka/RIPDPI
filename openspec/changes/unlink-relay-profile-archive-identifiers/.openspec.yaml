@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-09-26
+goal: DGN-1790430871310010 Remove stable relay profile identifiers from
+  diagnostics archives

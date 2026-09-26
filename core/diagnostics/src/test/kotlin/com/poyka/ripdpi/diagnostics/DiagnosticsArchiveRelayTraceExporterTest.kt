@@ -466,10 +466,10 @@ internal class DiagnosticsArchiveRelayTraceExporterTest : DiagnosticsArchiveExpo
                         .bufferedReader()
                         .readText()
                 val record = json.parseToJsonElement(trace.trim()).jsonObject
+                assertTrue(record.getValue("attemptId").jsonPrimitive.content.startsWith("attempt-"))
+                assertTrue(record.getValue("opaqueProfileId").jsonPrimitive.content.startsWith("profile-"))
                 assertEquals(
                     listOf(
-                        "attempt-1",
-                        "fixture-opaque-profile-token",
                         "vless_reality",
                         "vless_auth",
                         "application_http",
@@ -482,8 +482,6 @@ internal class DiagnosticsArchiveRelayTraceExporterTest : DiagnosticsArchiveExpo
                         "not_established",
                     ),
                     listOf(
-                        record.getValue("attemptId").jsonPrimitive.content,
-                        record.getValue("opaqueProfileId").jsonPrimitive.content,
                         record.getValue("transport").jsonPrimitive.content,
                         record.getValue("failureStage").jsonPrimitive.content,
                         record.getValue("targetCategory").jsonPrimitive.content,
@@ -497,9 +495,66 @@ internal class DiagnosticsArchiveRelayTraceExporterTest : DiagnosticsArchiveExpo
                     ),
                 )
                 assertTrue(
-                    listOf("dad-phone", "203.0.113.9:443", "super-secret-token").none(trace::contains),
+                    listOf("dad-phone", "203.0.113.9:443", "super-secret-token", "fixture-opaque-profile-token")
+                        .none(trace::contains),
                 )
             }
+        }
+
+    @Test
+    fun `relay health identifiers correlate only within one archive`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-relay-unlinkable",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Relay health decisions",
+                )
+            seedSingleSessionStore(stores, session)
+            stores.nativeEventsState.value =
+                listOf(
+                    relayHealthDecisionEvent(),
+                    relayHealthDecisionEvent().copy(
+                        id = "relay-health-decision-attempt-2",
+                        healthAttemptId = "attempt-2",
+                        createdAt = 16L,
+                    ),
+                )
+            val exporter = createArchiveExporter(stores)
+            val request =
+                DiagnosticsArchiveRequest(
+                    requestedSessionId = session.id,
+                    reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                    requestedAt = 17L,
+                )
+            val archives = listOf(exporter.createArchive(request), exporter.createArchive(request))
+            val profileAliases =
+                archives.map { archive ->
+                    ZipFile(archive.absolutePath).use { zip ->
+                        val decisions =
+                            zip.getInputStream(zip.getEntry("relay-health-decisions.jsonl"))
+                                .bufferedReader().readLines().map { json.parseToJsonElement(it).jsonObject }
+                        val report = zip.getInputStream(zip.getEntry("report.json")).bufferedReader().readText()
+                        assertEquals(2, decisions.size)
+                        assertEquals(
+                            decisions[0].getValue("opaqueProfileId"),
+                            decisions[1].getValue("opaqueProfileId"),
+                        )
+                        assertFalse(decisions[0].getValue("attemptId") == decisions[1].getValue("attemptId"))
+                        assertTrue(
+                            listOf(
+                                "fixture-opaque-profile-token",
+                                "attempt-1",
+                                "attempt-2",
+                                "relay-health-decision-attempt-1",
+                            ).none { it in report },
+                        )
+                        decisions[0].getValue("opaqueProfileId").jsonPrimitive.content
+                    }
+                }
+            assertFalse(profileAliases[0] == profileAliases[1])
         }
 
     private fun relayHealthDecisionEvent() =

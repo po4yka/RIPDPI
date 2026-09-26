@@ -150,10 +150,13 @@ class DiagnosticsArchiveRedactor
 
         fun redact(entity: NativeSessionEventEntity): NativeSessionEventEntity =
             entity.copy(
+                id = if (entity.subsystem == "relay_health_decision") "redacted" else entity.id,
                 message = redactDiagnosticsArchiveText(entity.message),
                 runtimeId = entity.runtimeId?.let(::redactDiagnosticsArchiveText),
                 policySignature = archiveStableCorrelatorProjection(entity.policySignature),
                 fingerprintHash = archiveFingerprintProjection(entity.fingerprintHash),
+                healthAttemptId = archiveStableCorrelatorProjection(entity.healthAttemptId),
+                relayProfileToken = archiveStableCorrelatorProjection(entity.relayProfileToken),
             )
 
         fun redact(entity: ProbeResultEntity): ProbeResultEntity =
