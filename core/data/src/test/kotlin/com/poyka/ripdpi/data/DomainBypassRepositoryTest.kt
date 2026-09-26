@@ -79,6 +79,31 @@ class DomainBypassRepositoryTest {
         }
 
     @Test
+    fun `invalid-only draft preserves the managed rule`() =
+        runTest {
+            repository.saveDomainBypassList("a.com")
+            val before = repository.domainBypassRule().first()
+
+            val result = repository.saveDomainBypassList("bad domain")
+
+            assertTrue(result.cleanLines.isEmpty())
+            assertEquals(1, result.errors.size)
+            assertEquals(before, repository.domainBypassRule().first())
+        }
+
+    @Test
+    fun `mixed draft saves valid entries and returns invalid entry errors`() =
+        runTest {
+            repository.saveDomainBypassList("old.com")
+
+            val result = repository.saveDomainBypassList("new.com\nbad domain")
+
+            assertEquals(listOf("new.com"), result.cleanLines)
+            assertEquals(1, result.errors.size)
+            assertEquals("new.com", repository.domainBypassRule().first()?.domains)
+        }
+
+    @Test
     fun `managed rule is excluded from userRules but other rules appear`() =
         runTest {
             dao.insert(RuleEntity(name = "user-rule", userOrder = 0, outboundTag = OutboundTag.Proxy))

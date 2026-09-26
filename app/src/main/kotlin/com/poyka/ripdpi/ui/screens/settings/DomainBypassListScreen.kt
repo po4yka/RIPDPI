@@ -237,6 +237,7 @@ private fun DomainBypassEditorCard(
                     text = stringResource(R.string.config_save),
                     onClick = onSave,
                     modifier = Modifier.weight(1f),
+                    enabled = state.cleanCount > 0 || state.errors.isEmpty(),
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Check,
                 )

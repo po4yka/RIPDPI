@@ -34,6 +34,20 @@ class DomainBypassListViewModelTest {
             assertEquals("example.com", viewModel.uiState.value.text)
         }
 
+    @Test
+    fun `invalid-only draft does not report saved or cleared`() =
+        runTest {
+            val viewModel = DomainBypassListViewModel(RuleRepository(FakeRuleDao()))
+            runCurrent()
+            viewModel.updateDraft("bad domain")
+            var confirmations = 0
+
+            viewModel.save { confirmations++ }
+            runCurrent()
+
+            assertEquals(0, confirmations)
+        }
+
     private class FakeRuleDao : RuleDao() {
         private val managedRules = MutableSharedFlow<List<RuleEntity>>(replay = 1).apply { tryEmit(emptyList()) }
 

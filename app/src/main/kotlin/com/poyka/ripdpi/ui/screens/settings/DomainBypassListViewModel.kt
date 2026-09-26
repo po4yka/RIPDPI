@@ -70,7 +70,9 @@ class DomainBypassListViewModel
         fun save(onSaved: (savedCount: Int) -> Unit) {
             viewModelScope.launch {
                 val result = ruleRepository.saveDomainBypassList(_uiState.value.text)
-                onSaved(result.cleanLines.size)
+                if (result.cleanLines.isNotEmpty() || result.errors.isEmpty()) {
+                    onSaved(result.cleanLines.size)
+                }
             }
         }
 

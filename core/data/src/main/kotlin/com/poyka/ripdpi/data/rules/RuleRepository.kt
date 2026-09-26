@@ -40,12 +40,13 @@ class RuleRepository
 
         /**
          * Upserts the managed domain-bypass rule from raw editor [rawText]. When [rawText] yields no
-         * clean entries, any existing managed rule is deleted (an empty list means "no rule"). User
-         * rules are never reordered. Returns the [DomainBypassList.CompileResult] so callers can
-         * surface per-line validation errors.
+         * clean entries and no errors, any existing managed rule is deleted (an empty list means
+         * "no rule"). An invalid-only draft leaves the rule unchanged. User rules are never
+         * reordered. Returns the [DomainBypassList.CompileResult] for per-line validation errors.
          */
         suspend fun saveDomainBypassList(rawText: String): DomainBypassList.CompileResult {
             val result = DomainBypassList.compile(rawText)
+            if (result.cleanLines.isEmpty() && result.errors.isNotEmpty()) return result
             val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName)
             val compiled = DomainBypassList.compileToRule(rawText, existingId = existing?.id ?: 0L)
             when {
