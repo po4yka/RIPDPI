@@ -59,6 +59,8 @@ pub enum TrojanError {
     PayloadTooLong(usize),
     #[error("invalid address type byte 0x{0:02x}")]
     InvalidAddressType(u8),
+    #[error("Trojan UDP domain is not valid UTF-8")]
+    InvalidDomainUtf8,
     #[error("invalid CRLF delimiter")]
     InvalidCrlf,
     #[error("truncated Trojan UDP packet while reading {0}")]
@@ -198,8 +200,8 @@ fn decode_addr(packet: &[u8], cursor: &mut usize) -> Result<TrojanAddr, TrojanEr
         0x03 => {
             let len = usize::from(read_u8(packet, cursor, "domain length")?);
             let bytes = read_exact(packet, cursor, len, "domain address")?;
-            let domain = String::from_utf8_lossy(bytes).into_owned();
-            Ok(TrojanAddr::Domain(domain))
+            let domain = std::str::from_utf8(bytes).map_err(|_| TrojanError::InvalidDomainUtf8)?;
+            Ok(TrojanAddr::Domain(domain.to_owned()))
         }
         0x04 => {
             let bytes = read_exact(packet, cursor, 16, "IPv6 address")?;
@@ -409,6 +411,7 @@ where
 }
 
 /// Read one Trojan UDP ASSOCIATE packet from a stream.
+// NOT cancel-safe: partial reads consume a frame prefix; callers must discard the stream on cancellation.
 pub async fn read_udp_packet<S>(stream: &mut S) -> Result<TrojanUdpPacket, TrojanError>
 where
     S: AsyncRead + Unpin,
@@ -424,7 +427,7 @@ where
             let len = usize::from(read_stream_u8(stream).await?);
             let mut bytes = vec![0_u8; len];
             stream.read_exact(&mut bytes).await?;
-            TrojanAddr::Domain(String::from_utf8_lossy(&bytes).into_owned())
+            TrojanAddr::Domain(String::from_utf8(bytes).map_err(|_| TrojanError::InvalidDomainUtf8)?)
         }
         0x04 => {
             let mut octets = [0_u8; 16];
@@ -610,6 +613,20 @@ mod tests {
         let error = decode_udp_packet(&packet).unwrap_err();
 
         assert!(matches!(error, TrojanError::InvalidCrlf));
+    }
+
+    #[test]
+    fn udp_packet_rejects_invalid_domain_utf8() {
+        let packet = [0x03, 1, 0xff, 0, 53, 0, 0, 0x0d, 0x0a];
+        assert!(decode_udp_packet(&packet).is_err());
+    }
+
+    // cancel-safe: the in-memory reader is dropped with the test on cancellation.
+    #[tokio::test]
+    async fn udp_stream_rejects_invalid_domain_utf8() {
+        let (mut writer, mut reader) = duplex(64);
+        writer.write_all(&[0x03, 1, 0xff, 0, 53, 0, 0, 0x0d, 0x0a]).await.unwrap();
+        assert!(read_udp_packet(&mut reader).await.is_err());
     }
 
     #[test]
