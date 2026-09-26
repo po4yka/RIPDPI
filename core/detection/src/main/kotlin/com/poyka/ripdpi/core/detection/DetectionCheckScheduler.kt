@@ -15,6 +15,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharedFlow
@@ -98,20 +99,10 @@ class DetectionCheckScheduler
             handoverJob = null
         }
 
-        private fun currentNetworkFingerprint(): String {
-            val fingerprint = networkFingerprintProvider.capture()
-            return fingerprint?.scopeKey() ?: "unknown"
-        }
-
-        private fun currentNetworkSummary(): String {
-            val fingerprint = networkFingerprintProvider.capture()
-            return fingerprint?.summary()?.let { summary ->
-                "${summary.transport}/${summary.identityKind}"
-            } ?: "Unknown network"
-        }
-
         private suspend fun runQuickCheck(context: Context) {
             try {
+                val network = networkFingerprintProvider.capture()
+                val networkKey = network?.scopeKey() ?: "unknown"
                 val config =
                     DetectionRunnerConfig(
                         ownPackageName = context.packageName,
@@ -123,6 +114,12 @@ class DetectionCheckScheduler
                         includeTimingAnalysis = false,
                     )
                 val result = detectionCheckRunner.run(context = context, config = config)
+                if (
+                    networkFingerprintProvider.capture() != network ||
+                    serviceStateStore.status.value.first != AppStatus.Running
+                ) {
+                    return
+                }
                 val score = StealthScore.compute(result)
 
                 if (result.verdict == Verdict.DETECTED || score < 50) {
@@ -131,8 +128,9 @@ class DetectionCheckScheduler
 
                 detectionHistoryStore.save(
                     DetectionHistoryEntry(
-                        networkFingerprint = currentNetworkFingerprint(),
-                        networkSummary = currentNetworkSummary(),
+                        networkFingerprint = networkKey,
+                        networkSummary =
+                            network?.summary()?.let { "${it.transport}/${it.identityKind}" } ?: "Unknown network",
                         timestamp = System.currentTimeMillis(),
                         verdict = result.verdict.name,
                         stealthScore = score,
@@ -142,6 +140,8 @@ class DetectionCheckScheduler
                                 result.indirectSigns.evidence.size,
                     ),
                 )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Exception) {
                 // Silent failure for background check
             }
