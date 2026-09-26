@@ -23,7 +23,7 @@ use crate::session::run_session;
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|cloudflare-origin|";
 const SESSION_ATTACH_TIMEOUT: Duration = Duration::from_secs(30);
-const MAX_PENDING_SESSIONS: usize = 1_024;
+const MAX_LIVE_SESSIONS: usize = 1_024;
 
 struct SessionState {
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
@@ -131,16 +131,8 @@ impl OriginServer {
         if let Some(session) = sessions.get(&session_id) {
             return Some(Arc::clone(session));
         }
-        // ponytail: linear scan is bounded by expected session volume; track a
-        // separate counter only if active sessions make admission measurable.
-        let mut pending = 0;
-        for session in sessions.values() {
-            if !session.binding.lock().await.started {
-                pending += 1;
-                if pending >= MAX_PENDING_SESSIONS {
-                    return None;
-                }
-            }
+        if sessions.len() >= MAX_LIVE_SESSIONS {
+            return None;
         }
         let session = new_session();
         sessions.insert(session_id.clone(), Arc::clone(&session));
@@ -241,7 +233,7 @@ mod tests {
 
     use tokio::sync::Mutex;
 
-    use super::{MAX_PENDING_SESSIONS, OriginConfig, OriginServer, expire_unstarted_session, new_session};
+    use super::{MAX_LIVE_SESSIONS, OriginConfig, OriginServer, expire_unstarted_session, new_session};
 
     fn server() -> OriginServer {
         OriginServer {
@@ -287,15 +279,16 @@ mod tests {
 
     #[tokio::test]
     // cancel-safe: this test owns only in-memory session entries.
-    async fn pending_limit_returns_service_unavailable_without_counting_active_sessions() {
+    async fn live_limit_rejects_new_ids_even_when_existing_sessions_started() {
         let server = server();
-        for index in 0..MAX_PENDING_SESSIONS {
+        for index in 0..MAX_LIVE_SESSIONS {
             assert!(server.session_for(format!("session-{index}")).await.is_some());
         }
         assert!(server.session_for("overflow".to_owned()).await.is_none());
 
         let active = server.sessions.lock().await.get("session-0").cloned().expect("first session");
         active.binding.lock().await.started = true;
-        assert!(server.session_for("new-pending".to_owned()).await.is_some());
+        assert!(server.session_for("new-pending".to_owned()).await.is_none());
+        assert!(server.session_for("session-0".to_owned()).await.is_some());
     }
 }

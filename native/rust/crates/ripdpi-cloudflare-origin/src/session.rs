@@ -1,12 +1,15 @@
 use std::io;
+use std::time::Duration;
 
 use bytes::Bytes;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
+use tokio::time::timeout;
 
 use crate::errors::join_error_to_io;
 
 const STREAM_BUFFER_SIZE: usize = 16 * 1024;
+const VLESS_HEADER_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub(crate) async fn run_session(
     mut inbound_rx: mpsc::Receiver<Bytes>,
@@ -14,7 +17,7 @@ pub(crate) async fn run_session(
     expected_uuid: [u8; 16],
     protect_path: Option<&str>,
 ) -> io::Result<()> {
-    let (decoded, buffered_payload) = read_request_header(&mut inbound_rx).await?;
+    let (decoded, buffered_payload) = read_request_header_with_timeout(&mut inbound_rx, VLESS_HEADER_TIMEOUT).await?;
     if decoded.uuid != expected_uuid {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -63,6 +66,17 @@ fn redact_upstream_connect_error(error: io::Error) -> io::Error {
     io::Error::new(error.kind(), "upstream connect failed")
 }
 
+// NOT cancel-safe: a timeout drops any partial header already consumed from the
+// channel; the whole unauthenticated session is discarded on expiry.
+async fn read_request_header_with_timeout(
+    inbound_rx: &mut mpsc::Receiver<Bytes>,
+    deadline: Duration,
+) -> io::Result<(ripdpi_vless::wire::DecodedRequestHeader, Vec<u8>)> {
+    timeout(deadline, read_request_header(inbound_rx))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "VLESS request header timed out"))?
+}
+
 async fn read_request_header(
     inbound_rx: &mut mpsc::Receiver<Bytes>,
 ) -> io::Result<(ripdpi_vless::wire::DecodedRequestHeader, Vec<u8>)> {
@@ -91,7 +105,7 @@ async fn read_request_header(
 
 #[cfg(test)]
 mod tests {
-    use super::redact_upstream_connect_error;
+    use super::{read_request_header_with_timeout, redact_upstream_connect_error};
 
     #[test]
     fn upstream_connect_error_does_not_export_destination_or_provider_text() {
@@ -104,5 +118,14 @@ mod tests {
 
         assert_eq!(redacted.kind(), std::io::ErrorKind::ConnectionRefused);
         assert_eq!(redacted.to_string(), "upstream connect failed");
+    }
+    #[tokio::test]
+    // cancel-safe: the test owns only an in-memory channel.
+    async fn incomplete_vless_header_times_out_without_closing_post_body() {
+        let (_sender, mut receiver) = tokio::sync::mpsc::channel(1);
+        let error = read_request_header_with_timeout(&mut receiver, std::time::Duration::from_millis(10))
+            .await
+            .expect_err("incomplete header must have a deadline");
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
     }
 }
