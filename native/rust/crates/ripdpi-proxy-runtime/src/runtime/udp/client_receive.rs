@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use super::flow::{UdpFlowActivationState, UdpFlowKey};
@@ -34,6 +34,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
     client_relay: &UdpSocket,
     client_buffer: &mut [u8],
     udp_client_addr: &mut Option<SocketAddr>,
+    control_peer_ip: IpAddr,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     flow_limit: usize,
     state: &RuntimeState,
@@ -43,7 +44,9 @@ pub(super) fn receive_and_forward_udp_client_packet(
     match client_relay.recv_from(client_buffer) {
         Ok((n, sender)) => {
             let now = Instant::now();
-            let Some(packet) = decode_udp_client_packet(&client_buffer[..n], sender, udp_client_addr, state) else {
+            let Some(packet) =
+                decode_udp_client_packet(&client_buffer[..n], sender, control_peer_ip, udp_client_addr, state)
+            else {
                 return Ok(true);
             };
             if !ensure_udp_flow_selected(state, protect_path, flow_state, flow_limit, &packet, now, attempt_token)? {
@@ -63,14 +66,16 @@ pub(super) fn receive_and_forward_udp_client_packet(
 fn decode_udp_client_packet<'a>(
     packet: &'a [u8],
     sender: SocketAddr,
+    control_peer_ip: IpAddr,
     udp_client_addr: &mut Option<SocketAddr>,
     state: &RuntimeState,
 ) -> Option<UdpClientPacket<'a>> {
-    if !accept_udp_client_sender(udp_client_addr, sender) {
+    if sender.ip() != control_peer_ip || udp_client_addr.is_some_and(|known| known != sender) {
         return None;
     }
 
     let parsed = parse_socks5_udp_packet_with_host(packet, state)?;
+    *udp_client_addr = Some(sender);
     let udp_payload = state.classify_udp_payload(parsed.payload);
     let authoritative_host = parsed.host.is_some();
     Some(UdpClientPacket {
@@ -83,12 +88,25 @@ fn decode_udp_client_packet<'a>(
     })
 }
 
-fn accept_udp_client_sender(udp_client_addr: &mut Option<SocketAddr>, sender: SocketAddr) -> bool {
-    let known_client = *udp_client_addr;
-    if known_client.is_none() || known_client == Some(sender) {
-        *udp_client_addr = Some(sender);
-        true
-    } else {
-        false
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    #[test]
+    fn udp_client_pins_only_valid_packet_from_control_peer() {
+        let state = RuntimeState::test_with_context(Default::default(), None);
+        let target = SocketAddr::from(([127, 0, 0, 1], 53));
+        let valid = RuntimeState::encode_socks5_udp_packet(target, b"dns");
+        let peer_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let legitimate = SocketAddr::from(([127, 0, 0, 1], 4000));
+        let spoofed = SocketAddr::from(([127, 0, 0, 2], 4001));
+        let mut pinned = None;
+        assert!(decode_udp_client_packet(b"bad", legitimate, peer_ip, &mut pinned, &state).is_none());
+        assert_eq!(pinned, None);
+        assert!(decode_udp_client_packet(&valid, spoofed, peer_ip, &mut pinned, &state).is_none());
+        assert_eq!(pinned, None);
+        assert!(decode_udp_client_packet(&valid, legitimate, peer_ip, &mut pinned, &state).is_some());
+        assert_eq!(pinned, Some(legitimate));
     }
 }

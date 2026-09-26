@@ -228,6 +228,7 @@ fn handle_socks5_udp_associate(
     attempt_token: Option<AttemptCorrelationId>,
 ) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
+    let control_peer_ip = client.peer_addr()?.ip();
     let protect_path = state.handshake_protect_path();
     let relay = super::udp::build_udp_relay_sockets(local_ip)?;
     let reply_addr = relay.client.local_addr()?;
@@ -242,6 +243,7 @@ fn handle_socks5_udp_associate(
         .spawn(move || {
             super::udp::udp_associate_loop(
                 relay.client,
+                control_peer_ip,
                 worker_protect_path,
                 worker_state,
                 worker_running,

@@ -14,7 +14,7 @@ mod tests;
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -60,6 +60,7 @@ fn parse_socks5_udp_packet_with_host<'a>(
 
 pub(super) fn udp_associate_loop(
     client_relay: UdpSocket,
+    control_peer_ip: IpAddr,
     protect_path: Option<String>,
     state: RuntimeState,
     running: Arc<AtomicBool>,
@@ -86,6 +87,7 @@ pub(super) fn udp_associate_loop(
             &client_relay,
             &mut client_buffer,
             &mut udp_client_addr,
+            control_peer_ip,
             &mut flow_state,
             flow_limit,
             &state,
