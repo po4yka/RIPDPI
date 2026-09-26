@@ -35,7 +35,8 @@ pub(crate) fn build_doh_client(
     network_scope: &ResolverNetworkScope,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Client, EncryptedDnsError> {
-    let mut builder = Client::builder().timeout(timeout).connect_timeout(timeout);
+    let mut builder =
+        Client::builder().timeout(timeout).connect_timeout(timeout).redirect(reqwest::redirect::Policy::none());
 
     if doh_uses_tls(endpoint) {
         builder = builder.use_preconfigured_tls(doh_tls_config(tls_roots, tls_verifier)?);
@@ -159,6 +160,54 @@ fn configure_socks5_transport(
 mod tests {
     use super::*;
     use ripdpi_tls_profiles::EchSetup;
+
+    #[tokio::test]
+    // cancel-safe: cancellation drops the local request and fixture listener.
+    async fn doh_client_does_not_follow_redirects() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind fixture");
+        let port = listener.local_addr().expect("fixture address").port();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept request");
+            let mut request = [0u8; 1024];
+            let _ = socket.read(&mut request).await.expect("read request");
+            socket
+                .write_all(b"HTTP/1.1 307 Temporary Redirect\r\nLocation: http://127.0.0.1:9/other\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                .await
+                .expect("write redirect");
+        });
+        let endpoint = EncryptedDnsEndpoint {
+            protocol: crate::types::EncryptedDnsProtocol::Doh,
+            resolver_id: None,
+            host: "127.0.0.1".into(),
+            port,
+            tls_server_name: None,
+            bootstrap_ips: vec!["127.0.0.1".parse().expect("loopback")],
+            doh_url: Some(format!("http://127.0.0.1:{port}/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        };
+        let client = build_doh_client(
+            &endpoint,
+            &EncryptedDnsTransport::Direct,
+            Duration::from_secs(2),
+            &[],
+            None,
+            &ResolverNetworkScope::global(),
+            None,
+        )
+        .expect("build client");
+        let response = client
+            .post(endpoint.doh_url.as_deref().expect("url"))
+            .body(vec![0u8; 12])
+            .send()
+            .await
+            .expect("redirect response");
+        assert_eq!(response.status(), reqwest::StatusCode::TEMPORARY_REDIRECT);
+        server.await.expect("fixture completed");
+    }
 
     #[test]
     fn doh_tls_config_uses_ech_facade_grease_for_https_resolver() {
