@@ -216,8 +216,9 @@ async fn handle_udp_responses(inbound: &UdpSocket, outbound: &UdpSocket) -> Resu
 /// Run a bidirectional UDP SOCKS proxy for a given pair of inbound (SOCKS client) and outbound sockets.
 /// `control_peer_ip` must come from the authenticated TCP control connection.
 /// A nonzero association DST.PORT restricts the UDP source port. A concrete
-/// DST.ADDR restricts its source IP. With DST.PORT=0, clients sharing one IP
-/// (for example behind one NAT) cannot be distinguished before the first packet.
+/// DST.ADDR restricts its source IP. Each association has its own relay port,
+/// so clients sharing an IP remain separate. With DST.PORT=0, a sender from
+/// the same IP that knows the relay port can claim the association first.
 // NOT cancel-safe: cancellation drops the relay sockets and ends the association.
 pub async fn transfer_udp(inbound: Socket, outbound: Socket, control_peer_ip: IpAddr, declared: &TargetAddr) -> Result<(), SocksServerError> {
     transfer_udp_with_source(inbound, outbound, UdpSourceConstraint::new(control_peer_ip, declared)).await
