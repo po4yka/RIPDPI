@@ -450,9 +450,13 @@ internal fun NetworkSnapshotModel.toStoredNetworkSnapshot(): NetworkSnapshotMode
         localAddresses = localAddresses.map { "redacted" },
         privateDnsMode =
             when (privateDnsMode.lowercase()) {
-                "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" ->
+                "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" -> {
                     privateDnsMode.lowercase()
-                else -> "strict"
+                }
+
+                else -> {
+                    "strict"
+                }
             },
         wifiDetails =
             wifiDetails?.copy(
