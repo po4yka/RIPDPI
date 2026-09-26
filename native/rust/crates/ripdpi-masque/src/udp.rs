@@ -72,8 +72,8 @@ pub(crate) struct MasqueUdpFlow {
 impl MasqueUdpRelay {
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
         if !self.flows.contains_key(target) {
-            make_room_for_flow(&mut self.flows, Instant::now(), MAX_UDP_FLOWS);
             let flow = self.open_flow(target).await?;
+            make_room_for_flow(&mut self.flows, Instant::now(), MAX_UDP_FLOWS);
             self.flows.insert(target.to_string(), flow);
         }
 
