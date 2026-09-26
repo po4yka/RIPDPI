@@ -130,7 +130,7 @@ object VerdictNarrativeBuilder {
                     add(row("Split tunnel", "Direct and proxied network paths disagree.", exposureStatus))
                 }
                 if (result.bypassResult.directIp != null && result.bypassResult.proxyIp != null) {
-                    add(row("VPN gateway leak", "Direct and proxy IP observations were both visible.", exposureStatus))
+                    add(row("Network paths", "Direct and proxy IP observations were collected.", exposureStatus))
                 }
                 if (result.hasEvidence(EvidenceSource.NETWORK_CAPABILITIES)) {
                     add(row("VPN network binding", "Android network capabilities expose VPN routing.", exposureStatus))

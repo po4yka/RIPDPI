@@ -4,6 +4,8 @@ import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,6 +79,18 @@ class IpConsensusBuilderTest {
             )
 
         assertTrue(result.warpIndicator)
+        assertFalse(result.toCategoryResult().detected)
+        val empty = CategoryResult(name = "empty", detected = false, findings = emptyList())
+        val bypass =
+            BypassResult(
+                proxyEndpoint = null,
+                directIp = "1.1.1.1",
+                proxyIp = "203.0.113.10",
+                xrayApiScanResult = null,
+                findings = emptyList(),
+                detected = false,
+            )
+        assertEquals(Verdict.NEEDS_REVIEW, VerdictEngine.evaluate(empty, empty, empty, empty, bypass, ipConsensus = result))
     }
 
     @Test

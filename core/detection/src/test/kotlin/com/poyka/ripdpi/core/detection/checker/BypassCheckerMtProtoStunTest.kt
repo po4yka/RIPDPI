@@ -1,7 +1,8 @@
 package com.poyka.ripdpi.core.detection.checker
 
-import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyType
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
@@ -22,7 +23,7 @@ class BypassCheckerMtProtoStunTest {
         )
 
     @Test
-    fun mtprotoSuccessViaProxyRecordedAsMediumConfidence() =
+    fun mtprotoSuccessViaProxyRecordedAsObservation() =
         runTest(dispatcher) {
             val result =
                 BypassChecker.check(
@@ -38,16 +39,10 @@ class BypassCheckerMtProtoStunTest {
             assertTrue(result.mtProtoReachable)
             assertTrue(
                 result.findings.any { finding ->
-                    finding.description.contains("MTProto") &&
-                        finding.confidence == EvidenceConfidence.MEDIUM
+                    finding.description.contains("MTProto") && !finding.detected
                 },
             )
-            assertTrue(
-                result.evidence.any { evidence ->
-                    evidence.source == EvidenceSource.SPLIT_TUNNEL_BYPASS &&
-                        evidence.description.contains("MTProto")
-                },
-            )
+            assertFalse(result.evidence.any { it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS })
         }
 
     @Test
@@ -83,8 +78,15 @@ class BypassCheckerMtProtoStunTest {
                 )
 
             assertFalse(result.mtProtoReachable)
-            assertTrue(result.detected)
-            assertTrue(result.findings.any { it.description == "Per-app split bypass: confirmed (IPs differ)" })
+            assertFalse(result.detected)
+            assertTrue(result.needsReview)
+            assertFalse(result.evidence.any { it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS })
+            assertTrue(result.findings.any { it.description == "Direct and proxy IPs differ" })
+            val empty = CategoryResult(name = "empty", detected = false, findings = emptyList())
+            assertEquals(
+                Verdict.NEEDS_REVIEW,
+                VerdictEngine.evaluate(empty, empty, empty, empty, result),
+            )
         }
 
     private companion object {

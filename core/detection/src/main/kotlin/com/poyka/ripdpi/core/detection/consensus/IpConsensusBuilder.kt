@@ -127,7 +127,7 @@ data class IpConsensusResult(
                 listOf(
                     EvidenceItem(
                         source = EvidenceSource.IP_CONSENSUS,
-                        detected = warpIndicator,
+                        detected = false,
                         confidence = EvidenceConfidence.HIGH,
                         description = "IP consensus found channel divergence or Warp-like path signals",
                     ),
@@ -137,9 +137,9 @@ data class IpConsensusResult(
             }
         return CategoryResult(
             name = "IP consensus",
-            detected = warpIndicator,
+            detected = false,
             findings = findings,
-            needsReview = needsReview && !warpIndicator,
+            needsReview = needsReview,
             evidence = evidence,
         )
     }

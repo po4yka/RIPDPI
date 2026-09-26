@@ -96,7 +96,7 @@ object VerdictEngine {
             )
         }
 
-        if (ipConsensus?.crossChannelMismatches?.isNotEmpty() == true || ipConsensus?.warpIndicator == true) {
+        if (ipConsensus?.crossChannelMismatches?.isNotEmpty() == true) {
             return explanation(
                 Verdict.DETECTED,
                 "R3",
@@ -104,11 +104,11 @@ object VerdictEngine {
                 EvidenceSummary.from(ipConsensusDecisionEvidence()),
             )
         }
-        if (ipConsensus?.channelConflicts?.isNotEmpty() == true) {
+        if (ipConsensus?.channelConflicts?.isNotEmpty() == true || ipConsensus?.warpIndicator == true) {
             return explanation(
                 Verdict.NEEDS_REVIEW,
                 "R3",
-                "IP consensus found a single-channel conflict",
+                "IP consensus observations need review",
                 EvidenceSummary.from(ipConsensusDecisionEvidence()),
             )
         }

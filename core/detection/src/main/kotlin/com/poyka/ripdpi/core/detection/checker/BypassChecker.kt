@@ -127,7 +127,6 @@ object BypassChecker {
 
             var directIp: String? = null
             var proxyIp: String? = null
-            var confirmedBypass = false
 
             if (proxyEndpoint != null) {
                 onProgress?.invoke(Progress("IP check", "Fetching direct IP and IP via proxy..."))
@@ -174,31 +173,15 @@ object BypassChecker {
 
                 findings.add(Finding("Direct IP: ${directIp ?: "failed to fetch"}"))
                 findings.add(Finding("IP via proxy: ${proxyIp ?: "failed to fetch"}"))
-                reportProxyTransportProbes(mtProtoReachable, stunReflexiveAddresses, findings, evidence)
+                reportProxyTransportProbes(mtProtoReachable, stunReflexiveAddresses, findings)
 
                 if (directIp != null && proxyIp != null && directIp != proxyIp) {
-                    confirmedBypass = true
-                    findings.add(
-                        Finding(
-                            description = "Per-app split bypass: confirmed (IPs differ)",
-                            detected = true,
-                            source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
-                            confidence = EvidenceConfidence.HIGH,
-                        ),
-                    )
-                    evidence.add(
-                        EvidenceItem(
-                            source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
-                            detected = true,
-                            confidence = EvidenceConfidence.HIGH,
-                            description = "Direct IP differs from proxy IP",
-                        ),
-                    )
+                    findings.add(Finding("Direct and proxy IPs differ"))
                 } else if (directIp != null && proxyIp != null) {
-                    findings.add(Finding("Per-app split disabled: IPs match"))
+                    findings.add(Finding("Direct and proxy IPs match"))
                 }
 
-                val detected = confirmedBypass || xrayApiScanResult != null
+                val detected = xrayApiScanResult != null
                 return@coroutineScope BypassResult(
                     proxyEndpoint = proxyEndpoint,
                     directIp = directIp,
@@ -213,7 +196,7 @@ object BypassChecker {
                 )
             }
 
-            val detected = confirmedBypass || xrayApiScanResult != null
+            val detected = xrayApiScanResult != null
 
             BypassResult(
                 proxyEndpoint = proxyEndpoint,
@@ -239,26 +222,9 @@ object BypassChecker {
         mtProtoReachable: Boolean,
         stunReflexiveAddresses: List<String>,
         findings: MutableList<Finding>,
-        evidence: MutableList<EvidenceItem>,
     ) {
         if (mtProtoReachable) {
-            findings.add(
-                Finding(
-                    description = "MTProto reachable via SOCKS5 proxy",
-                    detected = true,
-                    needsReview = true,
-                    source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
-                    confidence = EvidenceConfidence.MEDIUM,
-                ),
-            )
-            evidence.add(
-                EvidenceItem(
-                    source = EvidenceSource.SPLIT_TUNNEL_BYPASS,
-                    detected = true,
-                    confidence = EvidenceConfidence.MEDIUM,
-                    description = "MTProto DC2 accepts a connection through the local SOCKS5 proxy",
-                ),
-            )
+            findings.add(Finding("MTProto reachable via SOCKS5 proxy"))
         }
         for (address in stunReflexiveAddresses) {
             findings.add(Finding("STUN reflexive address via SOCKS5: $address"))
@@ -288,7 +254,7 @@ object BypassChecker {
                     append(familySuffix)
                     append("]")
                 }
-                append(" (needs bypass confirmation)")
+                append(" (local observation)")
             }
 
         findings.add(
