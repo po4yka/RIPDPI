@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -103,31 +104,35 @@ internal fun RuleEditorScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {
-        if (state.isEmpty) {
-            item(key = "rule_editor_empty_warning") {
-                WarningBanner(
-                    title = stringResource(R.string.rule_editor_empty_error_title),
-                    message = stringResource(R.string.rule_editor_empty_error_body),
-                    tone = WarningBannerTone.Warning,
-                )
+        if (!state.loaded) {
+            item(key = "rule_editor_loading") { RipDpiSpinner() }
+        } else {
+            if (state.isEmpty) {
+                item(key = "rule_editor_empty_warning") {
+                    WarningBanner(
+                        title = stringResource(R.string.rule_editor_empty_error_title),
+                        message = stringResource(R.string.rule_editor_empty_error_body),
+                        tone = WarningBannerTone.Warning,
+                    )
+                }
             }
+            identitySection(state = state, onNameChange = onNameChange, onEnabledChange = onEnabledChange)
+            matchersSection(
+                state = state,
+                onDomainsChange = onDomainsChange,
+                onIpCidrsChange = onIpCidrsChange,
+                onPortsChange = onPortsChange,
+                onSourcePortsChange = onSourcePortsChange,
+            )
+            advancedSection(
+                state = state,
+                onNetworkChange = onNetworkChange,
+                onProcessNameChange = onProcessNameChange,
+                onOpenAppPicker = { showAppPicker = true },
+            )
+            outboundSection(state = state, onOutboundChange = onOutboundChange)
+            actionsSection(state = state, onBack = onBack, onSave = onSave)
         }
-        identitySection(state = state, onNameChange = onNameChange, onEnabledChange = onEnabledChange)
-        matchersSection(
-            state = state,
-            onDomainsChange = onDomainsChange,
-            onIpCidrsChange = onIpCidrsChange,
-            onPortsChange = onPortsChange,
-            onSourcePortsChange = onSourcePortsChange,
-        )
-        advancedSection(
-            state = state,
-            onNetworkChange = onNetworkChange,
-            onProcessNameChange = onProcessNameChange,
-            onOpenAppPicker = { showAppPicker = true },
-        )
-        outboundSection(state = state, onOutboundChange = onOutboundChange)
-        actionsSection(state = state, onBack = onBack, onSave = onSave)
     }
 
     if (showAppPicker) {
@@ -287,7 +292,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.actionsSection(
                 text = stringResource(R.string.rule_editor_save),
                 onClick = onSave,
                 modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
-                enabled = !state.isEmpty,
+                enabled = state.loaded && !state.saving && !state.isEmpty,
                 leadingIcon = RipDpiIcons.Check,
             )
         }

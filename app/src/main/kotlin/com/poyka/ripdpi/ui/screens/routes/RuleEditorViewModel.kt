@@ -47,6 +47,7 @@ data class RuleEditorUiState(
     val outboundTargets: ImmutableList<OutboundTarget> = persistentListOf(),
     val installedApps: ImmutableList<InstalledAppItem> = persistentListOf(),
     val loaded: Boolean = false,
+    val saving: Boolean = false,
 ) {
     /**
      * True when every matcher field is empty. An empty rule cannot be saved even when it has a name
@@ -152,30 +153,40 @@ class RuleEditorViewModel
          * this is the authoritative gate. Invokes [onSaved] on success.
          */
         fun save(onSaved: () -> Unit) {
-            val snapshot = state.value
-            if (snapshot.isEmpty) return
+            var snapshot = state.value
+            while (true) {
+                if (!snapshot.loaded || snapshot.saving || snapshot.isEmpty) return
+                if (state.compareAndSet(snapshot, snapshot.copy(saving = true))) break
+                snapshot = state.value
+            }
             viewModelScope.launch {
-                val rule =
-                    RuleEntity(
-                        id = snapshot.ruleId,
-                        name = snapshot.name,
-                        userOrder = snapshot.userOrder,
-                        enabled = snapshot.enabled,
-                        domains = snapshot.domains,
-                        ipCidrs = snapshot.ipCidrs,
-                        ports = snapshot.ports,
-                        sourcePorts = snapshot.sourcePorts,
-                        network = snapshot.network,
-                        processName = snapshot.processName,
-                        packages = snapshot.packages,
-                        outboundTag = snapshot.outboundTag,
-                    )
-                if (snapshot.ruleId == 0L) {
-                    ruleRepository.insert(rule)
-                } else {
-                    ruleRepository.update(rule)
+                var persisted = false
+                try {
+                    val rule =
+                        RuleEntity(
+                            id = snapshot.ruleId,
+                            name = snapshot.name,
+                            userOrder = snapshot.userOrder,
+                            enabled = snapshot.enabled,
+                            domains = snapshot.domains,
+                            ipCidrs = snapshot.ipCidrs,
+                            ports = snapshot.ports,
+                            sourcePorts = snapshot.sourcePorts,
+                            network = snapshot.network,
+                            processName = snapshot.processName,
+                            packages = snapshot.packages,
+                            outboundTag = snapshot.outboundTag,
+                        )
+                    if (snapshot.ruleId == 0L) {
+                        ruleRepository.insert(rule)
+                    } else {
+                        ruleRepository.update(rule)
+                    }
+                    persisted = true
+                    onSaved()
+                } finally {
+                    if (!persisted) state.update { it.copy(saving = false) }
                 }
-                onSaved()
             }
         }
     }
