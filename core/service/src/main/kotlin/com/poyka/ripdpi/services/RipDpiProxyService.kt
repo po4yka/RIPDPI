@@ -1,13 +1,10 @@
 package com.poyka.ripdpi.services
 
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
@@ -29,19 +26,6 @@ import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
-
-internal enum class StickyRestartDecision { ABORT, PROCEED }
-
-internal fun stickyRestartDecision(
-    intentIsNull: Boolean,
-    sdkAtLeastTiramisu: Boolean,
-    notificationsGranted: Boolean,
-): StickyRestartDecision =
-    if (intentIsNull && sdkAtLeastTiramisu && !notificationsGranted) {
-        StickyRestartDecision.ABORT
-    } else {
-        StickyRestartDecision.PROCEED
-    }
 
 /**
  * Proxy-mode foreground `Service` — the Android entry point for proxy mode.
@@ -156,22 +140,8 @@ class RipDpiProxyService :
         ) {
             startForegroundService()
         }
-        if (stickyRestartDecision(
-                intentIsNull = intent == null,
-                sdkAtLeastTiramisu = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
-                notificationsGranted =
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-                        PackageManager.PERMISSION_GRANTED,
-            ) == StickyRestartDecision.ABORT
-        ) {
-            Logger.w { "Sticky restart aborted: notification permission revoked" }
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf(startId)
-            return START_NOT_STICKY
-        }
         // A null action is a START_STICKY re-delivery after a process kill (LMK /
-        // memory limiter) — and we are past the abort guard, so the restart will
-        // proceed. Publish Reconnecting ONLY from a Halted baseline (a genuinely
+        // memory limiter). Publish Reconnecting ONLY from a Halted baseline (a genuinely
         // fresh process): a null re-delivery to a still-Running service must not be
         // demoted to Reconnecting, since the follow-up start is rejected as
         // already-running and would never restore Running, leaving it stuck.
