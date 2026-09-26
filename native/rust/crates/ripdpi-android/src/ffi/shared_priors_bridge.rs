@@ -12,8 +12,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindin
     _thiz: JObject<'_>,
     manifest_json: JString<'_>,
     priors_base64: JString<'_>,
+    watermark_path: JString<'_>,
 ) -> jstring {
     ffi_boundary(core::ptr::null_mut(), move || {
-        ripdpi_android_platform_adapter::apply_entry(env, manifest_json, priors_base64)
+        ripdpi_android_platform_adapter::apply_entry(env, manifest_json, priors_base64, watermark_path)
     })
 }

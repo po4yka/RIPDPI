@@ -7,8 +7,10 @@ pub mod jitter;
 pub mod manifest;
 pub mod parser;
 pub mod uploader;
+mod watermark;
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{OnceLock, RwLock};
 
 pub use {
@@ -69,6 +71,9 @@ pub enum ApplyError {
     Manifest(ManifestError),
     Parse(SharedPriorsError),
     InvalidUtf8,
+    Watermark(std::io::Error),
+    Rollback { accepted: i64, incoming: i64 },
+    ConflictingRelease(i64),
 }
 
 impl std::fmt::Display for ApplyError {
@@ -77,6 +82,13 @@ impl std::fmt::Display for ApplyError {
             Self::Manifest(err) => write!(f, "manifest verification failed: {err}"),
             Self::Parse(err) => write!(f, "priors payload parse failed: {err}"),
             Self::InvalidUtf8 => write!(f, "priors payload was not valid utf-8"),
+            Self::Watermark(err) => write!(f, "shared-priors release marker failed: {err}"),
+            Self::Rollback { accepted, incoming } => {
+                write!(f, "shared-priors release {incoming} is older than accepted release {accepted}")
+            }
+            Self::ConflictingRelease(issued_at) => {
+                write!(f, "shared-priors release {issued_at} has a conflicting payload")
+            }
         }
     }
 }
@@ -127,10 +139,20 @@ pub fn apply_global_shared_priors(
     manifest_bytes: &[u8],
     priors_bytes: &[u8],
     public_key: &[u8; 32],
+    watermark_path: &Path,
 ) -> Result<usize, ApplyError> {
     let applied = apply_priors(manifest_bytes, priors_bytes, public_key)?;
-    let count = applied.priors.len();
     let mut guard = registry().write().expect("shared priors registry poisoned");
+    publish_verified(applied, watermark_path, &mut guard)
+}
+
+fn publish_verified(
+    applied: AppliedPriors,
+    watermark_path: &Path,
+    guard: &mut RegistryState,
+) -> Result<usize, ApplyError> {
+    let count = applied.priors.len();
+    watermark::check_and_store(watermark_path, &applied.manifest)?;
     *guard = RegistryState { priors: applied.priors, protocol_threats: applied.protocol_threats };
     Ok(count)
 }
@@ -138,8 +160,9 @@ pub fn apply_global_shared_priors(
 pub fn apply_global_shared_priors_with_embedded_key(
     manifest_bytes: &[u8],
     priors_bytes: &[u8],
+    watermark_path: &Path,
 ) -> Result<usize, ApplyError> {
-    apply_global_shared_priors(manifest_bytes, priors_bytes, &SHARED_PRIORS_PUB_KEY)
+    apply_global_shared_priors(manifest_bytes, priors_bytes, &SHARED_PRIORS_PUB_KEY, watermark_path)
 }
 
 pub fn latest_shared_priors() -> HashMap<u64, PriorParams> {
@@ -181,13 +204,15 @@ mod tests {
 
     #[test]
     fn registry_atomically_replaces_both_stores_and_preserves_them_on_failure() {
+        let temp = tempfile::tempdir().expect("marker directory");
+        let marker = temp.path().join("release.json");
         let key = generate_test_key();
         let priors = format!(
             "{{\"combo_hash\":1,\"alpha\":12.0,\"beta\":4.0}}\n{{\"record_type\":\"protocol_threat\",\"protocol_class\":\"vless\",\"network_scope_key\":\"{SCOPE_KEY}\",\"state\":\"active_broad\",\"expires_at_unix\":2000}}\n"
         );
         let manifest = sign_manifest_bytes(&key, priors.as_bytes(), 1, "https://example/p.ndjson");
 
-        let count = apply_global_shared_priors(manifest.as_bytes(), priors.as_bytes(), &key.public_bytes)
+        let count = apply_global_shared_priors(manifest.as_bytes(), priors.as_bytes(), &key.public_bytes, &marker)
             .expect("first apply must succeed");
         assert_eq!(count, 1);
         assert_eq!(global_shared_priors_len(), 1);
@@ -201,21 +226,22 @@ mod tests {
             "{{\"record_type\":\"protocol_threat\",\"protocol_class\":\"VLESS\",\"network_scope_key\":\"{SCOPE_KEY}\",\"state\":\"active_broad\",\"expires_at_unix\":2000}}\n"
         );
         let invalid_manifest = sign_manifest_bytes(&key, invalid.as_bytes(), 2, "https://example/invalid.ndjson");
-        let err = apply_global_shared_priors(invalid_manifest.as_bytes(), invalid.as_bytes(), &key.public_bytes)
-            .expect_err("signed invalid threat update must fail");
+        let err =
+            apply_global_shared_priors(invalid_manifest.as_bytes(), invalid.as_bytes(), &key.public_bytes, &marker)
+                .expect_err("signed invalid threat update must fail");
         assert!(matches!(err, ApplyError::Parse(SharedPriorsError::InvalidThreatRecord { .. })));
         assert_eq!(global_shared_priors_len(), 1);
         assert_eq!(global_protocol_threat_priors_len(), 1);
 
         let combo_only = b"{\"combo_hash\": 7, \"alpha\": 2.0, \"beta\": 1.0}\n";
         let combo_only_manifest = sign_manifest_bytes(&key, combo_only, 3, "https://example/combo-only.ndjson");
-        apply_global_shared_priors(combo_only_manifest.as_bytes(), combo_only, &key.public_bytes)
+        apply_global_shared_priors(combo_only_manifest.as_bytes(), combo_only, &key.public_bytes, &marker)
             .expect("valid combo-only update must replace both stores");
         assert_eq!(global_shared_priors_len(), 1);
         assert_eq!(global_protocol_threat_priors_len(), 0);
 
         let tampered = b"{\"combo_hash\": 1, \"alpha\": 99.0, \"beta\": 4.0}\n";
-        let err = apply_global_shared_priors(manifest.as_bytes(), tampered, &key.public_bytes)
+        let err = apply_global_shared_priors(manifest.as_bytes(), tampered, &key.public_bytes, &marker)
             .expect_err("tampered apply must fail");
         assert!(matches!(err, ApplyError::Manifest(ManifestError::HashMismatch)));
         assert_eq!(global_shared_priors_len(), 1, "fail-secure: registry must keep the previously-applied entry");
@@ -224,5 +250,76 @@ mod tests {
             0,
             "fail-secure: registry must keep the previously-applied threat state"
         );
+    }
+
+    #[test]
+    fn persisted_marker_rejects_older_signed_bundle_after_restart() {
+        let temp = tempfile::tempdir().expect("marker directory");
+        let marker = temp.path().join("release.json");
+        let key = generate_test_key();
+        let newer = b"{\"combo_hash\": 80, \"alpha\": 2.0, \"beta\": 1.0}\n";
+        let older = b"{\"combo_hash\": 81, \"alpha\": 2.0, \"beta\": 1.0}\n";
+        let newer_manifest = sign_manifest_bytes(&key, newer, 80, "https://example/new.ndjson");
+        let older_manifest = sign_manifest_bytes(&key, older, 79, "https://example/old.ndjson");
+
+        let mut first = RegistryState::default();
+        publish_verified(
+            apply_priors(newer_manifest.as_bytes(), newer, &key.public_bytes).expect("valid newer bundle"),
+            &marker,
+            &mut first,
+        )
+        .expect("newer signed bundle must apply");
+        let mut restarted = RegistryState::default();
+        let older_applied =
+            apply_priors(older_manifest.as_bytes(), older, &key.public_bytes).expect("valid old signature");
+        assert!(matches!(
+            publish_verified(older_applied, &marker, &mut restarted),
+            Err(ApplyError::Rollback { accepted: 80, incoming: 79 })
+        ));
+        assert!(restarted.priors.is_empty());
+
+        publish_verified(
+            apply_priors(newer_manifest.as_bytes(), newer, &key.public_bytes).expect("valid newer bundle"),
+            &marker,
+            &mut restarted,
+        )
+        .expect("same bundle can restore registry after restart");
+        assert!(restarted.priors.contains_key(&80));
+
+        let conflicting = sign_manifest_bytes(&key, older, 80, "https://example/conflict.ndjson");
+        assert!(matches!(
+            publish_verified(
+                apply_priors(conflicting.as_bytes(), older, &key.public_bytes).expect("valid conflicting bundle"),
+                &marker,
+                &mut restarted,
+            ),
+            Err(ApplyError::ConflictingRelease(80))
+        ));
+        assert!(restarted.priors.contains_key(&80));
+    }
+
+    #[test]
+    fn invalid_or_unwritable_marker_does_not_publish_priors() {
+        let temp = tempfile::tempdir().expect("marker directory");
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, SAMPLE_PRIORS, 100, "https://example/priors.ndjson");
+        let mut registry =
+            RegistryState { priors: HashMap::from([(7, PriorParams { alpha: 2.0, beta: 1.0 })]), ..Default::default() };
+
+        let corrupt = temp.path().join("corrupt.json");
+        std::fs::write(&corrupt, b"not-json").expect("write invalid marker");
+        let applied = apply_priors(manifest.as_bytes(), SAMPLE_PRIORS, &key.public_bytes).expect("valid bundle");
+        assert!(matches!(publish_verified(applied, &corrupt, &mut registry), Err(ApplyError::Watermark(_))));
+        assert!(registry.priors.contains_key(&7));
+        assert_eq!(std::fs::read(&corrupt).expect("read invalid marker"), b"not-json");
+
+        let blocker = temp.path().join("file");
+        std::fs::write(&blocker, b"not a directory").expect("write blocker");
+        let applied = apply_priors(manifest.as_bytes(), SAMPLE_PRIORS, &key.public_bytes).expect("valid bundle");
+        assert!(matches!(
+            publish_verified(applied, &blocker.join("marker.json"), &mut registry),
+            Err(ApplyError::Watermark(_))
+        ));
+        assert!(registry.priors.contains_key(&7));
     }
 }

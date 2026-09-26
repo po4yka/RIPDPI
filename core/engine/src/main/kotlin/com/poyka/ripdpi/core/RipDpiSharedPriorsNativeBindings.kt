@@ -20,9 +20,11 @@ object RipDpiSharedPriorsNativeBindings {
     fun applySharedPriors(
         manifestJson: String,
         priorsBytes: ByteArray,
+        watermarkPath: String,
     ): String {
         val priorsBase64 = Base64.encodeToString(priorsBytes, Base64.NO_WRAP)
-        return jniApplySharedPriors(manifestJson, priorsBase64) ?: "{\"ok\":false,\"error\":\"native_returned_null\"}"
+        return jniApplySharedPriors(manifestJson, priorsBase64, watermarkPath)
+            ?: "{\"ok\":false,\"error\":\"native_returned_null\"}"
     }
 
     @Suppress("LongParameterList")
@@ -30,5 +32,6 @@ object RipDpiSharedPriorsNativeBindings {
     private external fun jniApplySharedPriors(
         manifestJson: String,
         priorsBase64: String,
+        watermarkPath: String,
     ): String?
 }

@@ -16,7 +16,9 @@ import com.poyka.ripdpi.data.SharedPriorsRefreshCache
 import com.poyka.ripdpi.data.SharedPriorsRefreshState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.io.File
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 // 24-hour periodic worker that fetches the signed shared-priors bundle
 // from the GitHub release channel, hands it to the native verifier, and
@@ -24,7 +26,7 @@ import java.util.concurrent.TimeUnit
 //
 // The worker is fail-secure end-to-end:
 //   1. HEAD probe on the manifest URL; skip the body fetch when
-//      Last-Modified matches the previously-applied value.
+//      Last-Modified matches a value applied in this process.
 //   2. GET manifest + GET priors. Either failure short-circuits with a
 //      Result.retry() so WorkManager backs off and tries later.
 //   3. Hand both blobs to RipDpiSharedPriorsNativeBindings.applySharedPriors;
@@ -83,7 +85,7 @@ class SharedPriorsRefreshWorker
 
             val previous = refreshCache.load()
             val now = System.currentTimeMillis()
-            if (previous != null && now - previous.lastRefreshUnixMs < minRefreshIntervalMs) {
+            if (appliedInProcess && previous != null && now - previous.lastRefreshUnixMs < minRefreshIntervalMs) {
                 log.d {
                     "shared-priors cooldown active; " +
                         "${(now - previous.lastRefreshUnixMs) / MillisPerSecond} s since last refresh"
@@ -93,7 +95,7 @@ class SharedPriorsRefreshWorker
 
             val lastModified =
                 runCatching { downloadService.headManifestLastModified(manifestUrl) }.getOrNull()
-            if (lastModified != null && lastModified == previous?.lastModifiedHeader) {
+            if (appliedInProcess && lastModified != null && lastModified == previous?.lastModifiedHeader) {
                 refreshCache.save(SharedPriorsRefreshState(lastRefreshUnixMs = now, lastModifiedHeader = lastModified))
                 log.d { "shared-priors manifest unchanged since last refresh; skipping body fetch" }
                 return Result.success()
@@ -110,15 +112,22 @@ class SharedPriorsRefreshWorker
                     return Result.retry()
                 }
 
-            val nativeStatus = RipDpiSharedPriorsNativeBindings.applySharedPriors(manifestJson, priorsBytes)
+            val markerPath = File(applicationContext.noBackupFilesDir, "shared-priors-release-v1.json").absolutePath
+            val nativeStatus = RipDpiSharedPriorsNativeBindings.applySharedPriors(manifestJson, priorsBytes, markerPath)
             log.i { "shared-priors apply result: $nativeStatus" }
 
-            refreshCache.save(SharedPriorsRefreshState(lastRefreshUnixMs = now, lastModifiedHeader = lastModified))
+            if (runCatching { JSONObject(nativeStatus).optBoolean("ok") }.getOrDefault(false)) {
+                refreshCache.save(SharedPriorsRefreshState(lastRefreshUnixMs = now, lastModifiedHeader = lastModified))
+                appliedInProcess = true
+            }
             return Result.success()
         }
 
         companion object {
             const val UNIQUE_WORK_NAME = "ripdpi.shared-priors.refresh"
+
+            @Volatile
+            private var appliedInProcess = false
 
             fun enqueuePeriodic(context: Context): Boolean {
                 val releaseConfig = sharedPriorsReleaseConfigFromBuildConfig()

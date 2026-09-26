@@ -1,8 +1,13 @@
 use base64::Engine;
+use std::path::Path;
 
-pub(super) fn from_inputs(manifest_bytes: &[u8], priors_b64: &str) -> String {
+pub(super) fn from_inputs(manifest_bytes: &[u8], priors_b64: &str, watermark_path: &Path) -> String {
     match base64::engine::general_purpose::STANDARD.decode(priors_b64.trim()) {
-        Ok(bytes) => match ripdpi_shared_priors::apply_global_shared_priors_with_embedded_key(manifest_bytes, &bytes) {
+        Ok(bytes) => match ripdpi_shared_priors::apply_global_shared_priors_with_embedded_key(
+            manifest_bytes,
+            &bytes,
+            watermark_path,
+        ) {
             Ok(count) => serde_json::json!({
                 "ok": true,
                 "count": count,
