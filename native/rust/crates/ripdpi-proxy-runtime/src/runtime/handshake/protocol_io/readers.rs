@@ -87,21 +87,27 @@ pub(in crate::runtime::handshake) fn read_socks4_request(client: &mut TcpStream,
 }
 
 pub(in crate::runtime::handshake) fn read_http_connect_request(client: &mut TcpStream) -> io::Result<Vec<u8>> {
+    const MAX_HEADER: usize = 64 * 1024;
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];
-    let mut delimiter_search_start = 0usize;
     loop {
-        let n = client.read(&mut chunk)?;
+        let n = client.peek(&mut chunk)?;
         if n == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during http connect request"));
         }
+        let consumed = out.len();
         out.extend_from_slice(&chunk[..n]);
-        if out[delimiter_search_start..].windows(4).any(|window| window == b"\r\n\r\n") {
-            return Ok(out);
-        }
-        delimiter_search_start = out.len().saturating_sub(3);
-        if out.len() > 64 * 1024 {
+        let end = out[consumed.saturating_sub(3)..]
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .map(|offset| consumed.saturating_sub(3) + offset + 4);
+        if end.is_some_and(|end| end > MAX_HEADER) || (end.is_none() && out.len() >= MAX_HEADER) {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "http connect request too large"));
+        }
+        out.truncate(end.unwrap_or(out.len()));
+        client.read_exact(&mut out[consumed..])?;
+        if end.is_some() {
+            return Ok(out);
         }
     }
 }

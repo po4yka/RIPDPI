@@ -153,6 +153,18 @@ fn read_http_connect_request_reads_delimiter_split_across_chunks() {
 }
 
 #[test]
+fn read_http_connect_request_preserves_early_tunnel_data() {
+    let (mut reader, mut writer) = connected_pair();
+    reader.set_read_timeout(Some(Duration::from_secs(1))).expect("read timeout");
+    let request = b"CONNECT example.com:443 HTTP/1.1\r\n\r\n";
+    writer.write_all(&[request.as_slice(), b"early-data"].concat()).expect("write request and data");
+    assert_eq!(read_http_connect_request(&mut reader).expect("read request"), request);
+    let mut data = [0; 10];
+    reader.read_exact(&mut data).expect("read early data");
+    assert_eq!(&data, b"early-data");
+}
+
+#[test]
 fn parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets() {
     let config = RuntimeConfig::default();
     let state = runtime_state(config);
