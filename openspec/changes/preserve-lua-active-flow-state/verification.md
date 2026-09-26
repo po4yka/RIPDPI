@@ -1,7 +1,7 @@
 ---
 task_id: RST-1790431269626912
 change: preserve-lua-active-flow-state
-commit_sha: a30aabb71270e821499862c9d281a066d27ce505
+commit_sha: 5ac09d7bee100b8c43ea1e7ceeb7e1edc9fcc172
 local: required
 local_evidence: Four affected Rust crates passed their complete Cargo test suites with lua-strategies enabled; cargo fmt, API snapshot, architecture health, native contracts, and cargo metadata passed.
 remote_ci: blocked
