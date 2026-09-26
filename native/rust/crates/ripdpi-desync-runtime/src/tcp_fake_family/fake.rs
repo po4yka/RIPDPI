@@ -36,7 +36,7 @@ pub(crate) fn execute(
             ordering.order,
             chunk,
             &fake_refs,
-            ctx.config.network.default_ttl,
+            ctx.lowering.restore_ttl,
             opts.fake_ttl,
             opts.fake_flags,
             opts.original_flags,

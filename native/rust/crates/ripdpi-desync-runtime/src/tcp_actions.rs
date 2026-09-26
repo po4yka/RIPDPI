@@ -38,7 +38,7 @@ pub(crate) fn execute_tcp_actions(
 ) -> Result<usize, OutboundSendError> {
     // Snapshot the per-connection TTL lowering capabilities once so action
     // execution and plan execution share the same degradation behavior.
-    let mut lowering_caps = TcpLoweringCapabilities::snapshot(default_ttl, session_ttl_unavailable);
+    let mut lowering_caps = TcpLoweringCapabilities::snapshot(writer, default_ttl, session_ttl_unavailable);
     let cached_restore_ttl: Option<u8> = Some(lowering_caps.restore_ttl);
     let mut ttl_modified = false;
     let mut accounting = FallbackAccounting::new(strategy_family.and_then(strategy_fallback_family));

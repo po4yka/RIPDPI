@@ -12,7 +12,7 @@ pub(crate) use progress::WriteProgressError;
 pub(crate) use progress::{write_payload_progress, write_strategy_payload_named, write_transport_payload};
 #[allow(unused_imports)]
 pub(crate) use socket_options::send_out_of_band;
-pub(crate) use socket_options::{send_transport_oob_payload, set_stream_ttl};
+pub(crate) use socket_options::{get_stream_ttl, send_transport_oob_payload, set_stream_ttl};
 #[allow(unused_imports)]
 pub(crate) use strategy_actions::send_flagged_tcp_payload_action_named;
 pub(crate) use strategy_actions::{

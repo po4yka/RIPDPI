@@ -4,7 +4,7 @@ use std::net::TcpStream;
 use crate::platform;
 use crate::sync::{AtomicBool, Ordering};
 use crate::transport_io::{
-    log_android_desync_fallback, send_oob_action_named, set_stream_ttl, strategy_execution_error,
+    get_stream_ttl, log_android_desync_fallback, send_oob_action_named, set_stream_ttl, strategy_execution_error,
     write_payload_progress, write_strategy_payload_named,
 };
 
@@ -23,8 +23,12 @@ pub(crate) struct TcpLoweringCapabilities {
 }
 
 impl TcpLoweringCapabilities {
-    pub(crate) fn snapshot(default_ttl: u8, session_ttl_unavailable: &AtomicBool) -> Self {
-        let restore_ttl = if default_ttl != 0 { default_ttl } else { platform::detect_default_ttl().unwrap_or(64) };
+    pub(crate) fn snapshot(stream: &TcpStream, default_ttl: u8, session_ttl_unavailable: &AtomicBool) -> Self {
+        let restore_ttl = if default_ttl != 0 {
+            default_ttl
+        } else {
+            get_stream_ttl(stream).unwrap_or_else(|_| platform::detect_default_ttl().unwrap_or(64))
+        };
         // Ordering: the flag is only a sticky capability cache. Missing a
         // concurrent write can at worst retry a TTL operation once; no memory is
         // published through the flag.
@@ -203,10 +207,25 @@ mod tests {
     #[test]
     fn snapshot_uses_configured_default_ttl_and_session_seed() {
         let session = AtomicBool::new(true);
-        let caps = TcpLoweringCapabilities::snapshot(42, &session);
+        let caps = TcpLoweringCapabilities::snapshot(&connected_pair().0, 42, &session);
 
         assert_eq!(caps.restore_ttl, 42);
         assert!(caps.ttl_actions_unavailable());
+    }
+
+    #[test]
+    fn snapshot_uses_active_socket_ttl_when_config_default_is_zero() {
+        let (client, _server) = connected_pair();
+        client.set_ttl(37).expect("set socket TTL");
+        let mut caps = TcpLoweringCapabilities::snapshot(&client, 0, &AtomicBool::new(false));
+        assert_eq!(caps.restore_ttl, 37);
+        assert!(caps.set_ttl_named(&client, 8, "set_ttl", "fake", None, 0).expect("set fake TTL"));
+        assert_eq!(client.ttl().expect("fake TTL"), 8);
+        assert!(
+            caps.restore_default_ttl_named(&client, caps.restore_ttl, "restore_ttl", "fake", None, 0)
+                .expect("restore TTL")
+        );
+        assert_eq!(client.ttl().expect("restored TTL"), 37);
     }
 
     #[test]
@@ -236,7 +255,7 @@ mod tests {
     #[test]
     fn write_with_android_fallback_success() {
         let (mut client, _server) = connected_pair();
-        let mut caps = TcpLoweringCapabilities::snapshot(64, &AtomicBool::new(false));
+        let mut caps = TcpLoweringCapabilities::snapshot(&client, 64, &AtomicBool::new(false));
         let (ttl_modified, committed) = write_payload_with_android_ttl_fallback(
             &mut caps,
             &mut client,
@@ -257,7 +276,7 @@ mod tests {
     #[test]
     fn send_oob_with_android_fallback_success() {
         let (client, _server) = connected_pair();
-        let mut caps = TcpLoweringCapabilities::snapshot(64, &AtomicBool::new(false));
+        let mut caps = TcpLoweringCapabilities::snapshot(&client, 64, &AtomicBool::new(false));
         let (ttl_modified, committed) = send_oob_with_android_ttl_fallback(
             &mut caps,
             &client,

@@ -106,7 +106,8 @@ pub(crate) fn execute_tcp_plan(
     } else {
         None
     };
-    let mut lowering_caps = TcpLoweringCapabilities::snapshot(config.network.default_ttl, session_ttl_unavailable);
+    let mut lowering_caps =
+        TcpLoweringCapabilities::snapshot(writer, config.network.default_ttl, session_ttl_unavailable);
     let md5sig = group.actions.md5sig;
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).collect::<Vec<_>>();

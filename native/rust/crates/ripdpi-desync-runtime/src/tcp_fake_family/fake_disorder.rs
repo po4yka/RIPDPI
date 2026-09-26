@@ -44,7 +44,7 @@ pub(crate) fn execute(
             &first_fake,
             second,
             &second_fake,
-            ctx.config.network.default_ttl,
+            ctx.lowering.restore_ttl,
             opts,
         );
         let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);

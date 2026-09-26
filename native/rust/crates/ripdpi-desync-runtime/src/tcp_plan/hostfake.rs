@@ -24,6 +24,7 @@ pub(crate) struct TcpHostFakeExecContext<'a> {
     pub(crate) plan: &'a DesyncPlan,
     pub(crate) seed: u32,
     pub(crate) resolved_fake_ttl: Option<u8>,
+    pub(crate) real_ttl: u8,
     pub(crate) md5sig: bool,
 }
 
@@ -68,14 +69,12 @@ pub(crate) fn execute_tcp_hostfake_step(
     let original_flags = step_original_tcp_flags(configured_step);
 
     if needs_custom_ordering(configured_step, span.midhost) {
-        let ordering = configured_step.fake_ordering();
         let ordered_segments = build_custom_ordered_segments(
-            ordering.order,
-            ordering.seq_mode,
+            configured_step,
             real_host,
             host_payload.fake_host(),
             span.midhost.map(|midhost| midhost - span.host_start),
-            ctx.config.network.default_ttl,
+            ctx.real_ttl,
             fake_ttl,
             fake_flags,
             original_flags,

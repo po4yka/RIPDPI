@@ -65,7 +65,7 @@ pub(crate) fn execute(
             &first_fake,
             second,
             &second_fake,
-            ctx.config.network.default_ttl,
+            ctx.lowering.restore_ttl,
             opts.fake_ttl,
             opts.fake_flags,
             opts.original_flags,

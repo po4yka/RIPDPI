@@ -16,6 +16,12 @@ pub(crate) fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u
     Ok(())
 }
 
+pub(crate) fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
+    let socket = SockRef::from(stream);
+    let ttl = socket.ttl_v4().or_else(|_| socket.unicast_hops_v6())?;
+    u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket TTL exceeds u8"))
+}
+
 pub(crate) fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     let socket = SockRef::from(stream);
     let ipv4 = socket.set_ttl_v4(ttl as u32);

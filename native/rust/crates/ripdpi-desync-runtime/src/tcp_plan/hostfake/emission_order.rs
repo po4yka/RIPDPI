@@ -9,8 +9,7 @@ pub(super) fn needs_custom_ordering(configured_step: &TcpChainStep, midhost: Opt
 }
 
 pub(super) fn build_custom_ordered_segments<'a>(
-    fake_order: FakeOrder,
-    fake_seq_mode: FakeSeqMode,
+    configured_step: &TcpChainStep,
     real_host: &'a [u8],
     fake_host: &'a [u8],
     midhost_split: Option<usize>,
@@ -19,8 +18,9 @@ pub(super) fn build_custom_ordered_segments<'a>(
     fake_flags: platform::TcpFlagOverrides,
     original_flags: platform::TcpFlagOverrides,
 ) -> Vec<platform::OrderedTcpSegment<'a>> {
+    let ordering = configured_step.fake_ordering();
     let emissions = build_hostfake_emissions(
-        fake_order,
+        ordering.order,
         real_host,
         fake_host,
         midhost_split,
@@ -29,7 +29,7 @@ pub(super) fn build_custom_ordered_segments<'a>(
         fake_flags,
         original_flags,
     );
-    ordered_segments_from_hostfake_emissions(emissions, fake_seq_mode)
+    ordered_segments_from_hostfake_emissions(emissions, ordering.seq_mode)
 }
 
 fn build_hostfake_emissions<'a>(
