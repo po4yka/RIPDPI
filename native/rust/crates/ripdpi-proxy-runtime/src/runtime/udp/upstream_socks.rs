@@ -42,7 +42,10 @@ pub(super) fn open_upstream_udp_associate(
     control.set_read_timeout(connect_timeout)?;
     control.set_write_timeout(connect_timeout)?;
 
-    let relay_endpoint = run_udp_associate_handshake(&mut control)?;
+    let mut relay_endpoint = run_udp_associate_handshake(&mut control)?;
+    if relay_endpoint.ip().is_unspecified() {
+        relay_endpoint.set_ip(control.peer_addr()?.ip());
+    }
 
     control.set_read_timeout(None)?;
     control.set_write_timeout(None)?;
@@ -124,6 +127,15 @@ mod tests {
     #[test]
     fn udp_associate_returns_ipv4_relay_endpoint() {
         let (upstream, server) = spawn_associate_server([127, 0, 0, 1], 5300);
+        let session = open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2))).expect("associate ok");
+        assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
+        drop(session);
+        server.join().expect("join associate server");
+    }
+
+    #[test]
+    fn udp_associate_replaces_wildcard_relay_address_with_tcp_peer() {
+        let (upstream, server) = spawn_associate_server([0, 0, 0, 0], 5300);
         let session = open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2))).expect("associate ok");
         assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
         drop(session);
