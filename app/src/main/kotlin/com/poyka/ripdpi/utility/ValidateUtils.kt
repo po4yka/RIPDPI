@@ -1,24 +1,29 @@
 package com.poyka.ripdpi.utility
 
-import android.net.InetAddresses
-import android.os.Build
+import java.net.InetAddress
 
-fun checkIp(ip: String): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        InetAddresses.isNumericAddress(ip)
+fun checkIp(ip: String): Boolean = parseIp(ip) != null
+
+fun checkNotLocalIp(ip: String): Boolean = parseIp(ip)?.let { !it.isAnyLocalAddress && !it.isLoopbackAddress } ?: false
+
+private fun parseIp(ip: String): InetAddress? =
+    if (':' in ip) {
+        if (ip.all { it in "0123456789abcdefABCDEF:." }) runCatching { InetAddress.getByName(ip) }.getOrNull() else null
     } else {
-        true
+        val octets = ip.split('.')
+        if (octets.size == Ipv4OctetCount && octets.all(::isIpv4Octet)) {
+            InetAddress.getByAddress(octets.map { it.toInt().toByte() }.toByteArray())
+        } else {
+            null
+        }
     }
 
-fun checkNotLocalIp(ip: String): Boolean =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        InetAddresses.isNumericAddress(ip) &&
-            InetAddresses.parseNumericAddress(ip).let {
-                !it.isAnyLocalAddress && !it.isLoopbackAddress
-            }
-    } else {
-        true
-    }
+private fun isIpv4Octet(value: String): Boolean =
+    value.length in 1..MaxIpv4Digits && value.all { it in '0'..'9' } && value.toIntOrNull() in 0..MaxIpv4Octet
+
+private const val Ipv4OctetCount = 4
+private const val MaxIpv4Digits = 3
+private const val MaxIpv4Octet = 255
 
 private const val MaxPortNumber = 65535
 
