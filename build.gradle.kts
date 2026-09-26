@@ -220,7 +220,7 @@ val lintTaskPaths =
         } else {
             listOf("$modulePath:lintDebug")
         }
-    }
+    } + ":xray-protos:lint"
 
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
 
