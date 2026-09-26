@@ -63,7 +63,8 @@ class Tun2SocksTunnelTest {
     @Test
     fun stopStillStopsNativeTunnelWhenAttributionUnregisterFails() =
         runTest {
-            val bindings = FakeTun2SocksBindings().apply { flowAttributionUnregisterFailure = IOException("unregister") }
+            val bindings =
+                FakeTun2SocksBindings().apply { flowAttributionUnregisterFailure = IOException("unregister") }
             val tunnel = Tun2SocksTunnel(bindings)
             tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7, flowAttributionBridge = Any())
 

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -36,7 +37,7 @@ class RipDpiProxyJsonCodecTest {
                 .build()
         val current = RipDpiProxyUIPreferences.fromSettings(settings)
         val runtimeJson = current.toNativeConfigJson()
-        val runtimeListen = kotlinx.serialization.json.Json.parseToJsonElement(runtimeJson).jsonObject["listen"]!!.jsonObject
+        val runtimeListen = Json.parseToJsonElement(runtimeJson).jsonObject["listen"]!!.jsonObject
         assertEquals("0.0.0.0", runtimeListen["ip"]?.jsonPrimitive?.content)
         assertEquals("lan-secret", runtimeListen["authToken"]?.jsonPrimitive?.content)
 
@@ -44,12 +45,12 @@ class RipDpiProxyJsonCodecTest {
         assertFalse(storedJson.contains("lan-secret"))
         val remembered = decodeRipDpiProxyUiPreferences(storedJson)!!
         val replay = remembered.withSessionOverrides(listen = current.listen).toNativeConfigJson()
-        val replayListen = kotlinx.serialization.json.Json.parseToJsonElement(replay).jsonObject["listen"]!!.jsonObject
+        val replayListen = Json.parseToJsonElement(replay).jsonObject["listen"]!!.jsonObject
         assertEquals("lan-secret", replayListen["authToken"]?.jsonPrimitive?.content)
 
         val disabledListen = RipDpiProxyUIPreferences.fromSettings(AppSettings.getDefaultInstance()).listen
         val disabledReplay = remembered.withSessionOverrides(listen = disabledListen).toNativeConfigJson()
-        val disabled = kotlinx.serialization.json.Json.parseToJsonElement(disabledReplay).jsonObject["listen"]!!.jsonObject
+        val disabled = Json.parseToJsonElement(disabledReplay).jsonObject["listen"]!!.jsonObject
         assertEquals("127.0.0.1", disabled["ip"]?.jsonPrimitive?.content)
         assertNull(disabled["authToken"]?.jsonPrimitive?.contentOrNull)
     }
