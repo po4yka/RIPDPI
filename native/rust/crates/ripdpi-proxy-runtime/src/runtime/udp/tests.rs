@@ -498,6 +498,13 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     assert_eq!(decoded_target, target);
     assert_eq!(payload, b"relayed");
 
+    let entry = flow_state.get_mut(&flow_key).expect("flow entry");
+    entry.source_rebind_policy = RuntimeUdpSourceRebindPolicy::after_handshake(true);
+    entry.session.observe_datagram_outbound(b"first");
+    entry.session.observe_datagram_outbound(b"second");
+    super::migration::maybe_rebind_udp_source_port(&state, entry, b"\x40reply", None).expect("rebind");
+    assert_eq!(entry.upstream.peer_addr().expect("rebound peer"), relay_addr);
+
     relay_echo.join().expect("join relay echo");
     // Drop the flow (and with it the ASSOCIATE control TCP) so the stub server's
     // blocking read returns; otherwise joining it would deadlock.

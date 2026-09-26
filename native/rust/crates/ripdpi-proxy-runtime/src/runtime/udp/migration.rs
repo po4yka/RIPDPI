@@ -40,7 +40,8 @@ pub(super) fn maybe_rebind_udp_source_port(
     // application.  Packets already in flight on the old socket are
     // not replayed on the new socket; the QUIC stack in the client
     // application is responsible for retransmission.
-    match build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port) {
+    let endpoint = entry.upstream_socks.as_ref().map_or(entry.current_target, |socks| socks.relay_endpoint);
+    match build_udp_upstream_socket(endpoint, protect_path, entry.socket_settings.bind_low_port) {
         Ok(new_socket) => {
             entry.upstream = new_socket;
             entry.quic_migrated = true;
