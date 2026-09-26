@@ -18,7 +18,7 @@ pub(crate) fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u
 
 pub(crate) fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
     let socket = SockRef::from(stream);
-    let ttl = socket.ttl_v4().or_else(|_| socket.unicast_hops_v6())?;
+    let ttl = if stream.peer_addr()?.is_ipv4() { socket.ttl_v4()? } else { socket.unicast_hops_v6()? };
     u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket TTL exceeds u8"))
 }
 

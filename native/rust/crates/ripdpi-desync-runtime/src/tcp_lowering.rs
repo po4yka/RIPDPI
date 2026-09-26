@@ -195,6 +195,8 @@ mod tests {
     use std::net::{TcpListener, TcpStream};
     use std::thread;
 
+    use socket2::SockRef;
+
     fn connected_pair() -> (TcpStream, TcpStream) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
         let addr = listener.local_addr().expect("listener addr");
@@ -226,6 +228,25 @@ mod tests {
                 .expect("restore TTL")
         );
         assert_eq!(client.ttl().expect("restored TTL"), 37);
+    }
+
+    #[test]
+    fn snapshot_uses_ipv6_socket_hop_limit_when_available() {
+        let listener = match TcpListener::bind("[::1]:0") {
+            Ok(listener) => listener,
+            Err(error) if matches!(error.kind(), io::ErrorKind::AddrNotAvailable | io::ErrorKind::Unsupported) => {
+                return;
+            }
+            Err(error) => panic!("bind IPv6 loopback: {error}"),
+        };
+        let addr = listener.local_addr().expect("listener addr");
+        let handle = thread::spawn(move || TcpStream::connect(addr).expect("IPv6 client connect"));
+        let (_server, _) = listener.accept().expect("IPv6 accept");
+        let client = handle.join().expect("IPv6 client");
+        SockRef::from(&client).set_unicast_hops_v6(37).expect("set hop limit");
+
+        let caps = TcpLoweringCapabilities::snapshot(&client, 0, &AtomicBool::new(false));
+        assert_eq!(caps.restore_ttl, 37);
     }
 
     #[test]
