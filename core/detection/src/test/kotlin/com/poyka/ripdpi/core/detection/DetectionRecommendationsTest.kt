@@ -41,7 +41,7 @@ class DetectionRecommendationsTest {
     }
 
     @Test
-    fun `transport VPN generates fingerprint recommendation`() {
+    fun `transport VPN recommends a mode change instead of TLS changes`() {
         val result =
             emptyResult().copy(
                 directSigns =
@@ -60,7 +60,8 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("VPN transport") })
-        assertTrue(recs.any { it.actionRoute == "advanced_settings" })
+        assertTrue(recs.any { it.actionRoute == "settings" })
+        assertTrue(recs.none { it.description.contains("TLS") || it.description.contains("padding") })
     }
 
     @Test
@@ -86,7 +87,7 @@ class DetectionRecommendationsTest {
     }
 
     @Test
-    fun `local proxy generates full tunnel recommendation`() {
+    fun `local proxy recommendation addresses the listener`() {
         val result =
             emptyResult().copy(
                 bypassResult =
@@ -105,10 +106,11 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("localhost proxy") })
+        assertTrue(recs.none { it.description.contains("full tunnel") })
     }
 
     @Test
-    fun `DNS loopback generates encrypted DNS recommendation`() {
+    fun `DNS loopback recommendation does not claim encrypted DNS hides it`() {
         val result =
             emptyResult().copy(
                 indirectSigns =
@@ -127,7 +129,7 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("DNS") })
-        assertTrue(recs.any { it.actionRoute == "dns_settings" })
+        assertTrue(recs.none { it.description.contains("encrypted DNS") })
     }
 
     @Test

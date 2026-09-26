@@ -20,9 +20,9 @@ object DetectionRecommendations {
                     Recommendation(
                         title = "VPN transport is visible",
                         description =
-                            "TRANSPORT_VPN flag is detectable. Consider enabling TLS fingerprint " +
-                                "randomization and entropy padding in Detection Resistance settings.",
-                        actionRoute = "advanced_settings",
+                            "Android reports VPN routing on the active network. " +
+                                "Use a non-VPN mode if this local signal must be absent.",
+                        actionRoute = "settings",
                     ),
                 )
             }
@@ -36,9 +36,7 @@ object DetectionRecommendations {
                     Recommendation(
                         title = "Open localhost proxy detected",
                         description =
-                            "An unauthenticated proxy was found on localhost. " +
-                                "Enable full tunnel mode to route all traffic through VPN.",
-                        actionRoute = "settings",
+                            "A proxy responds on localhost. Disable its listener when it is not needed.",
                     ),
                 )
             }
@@ -59,33 +57,17 @@ object DetectionRecommendations {
                 )
             }
 
-            val hasSplitBypass =
-                result.bypassResult.evidence.any {
-                    it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS && it.detected
-                }
-            if (hasSplitBypass) {
-                add(
-                    Recommendation(
-                        title = "Per-app split tunnel bypass confirmed",
-                        description =
-                            "Direct IP differs from proxy IP, proving the proxy tunnels " +
-                                "traffic to a different exit. This is a HIGH confidence detection signal.",
-                    ),
-                )
-            }
-
-            val hasDnsLeak =
+            val hasLoopbackDns =
                 result.indirectSigns.evidence.any {
                     it.source == EvidenceSource.DNS && it.confidence == EvidenceConfidence.HIGH
                 }
-            if (hasDnsLeak) {
+            if (hasLoopbackDns) {
                 add(
                     Recommendation(
                         title = "DNS points to localhost",
                         description =
-                            "DNS resolver uses a loopback address, which is typical for " +
-                                "VPN configurations. Consider using encrypted DNS to reduce this signal.",
-                        actionRoute = "dns_settings",
+                            "The active network lists a loopback DNS resolver. " +
+                                "Check the DNS configuration if this is unexpected.",
                     ),
                 )
             }

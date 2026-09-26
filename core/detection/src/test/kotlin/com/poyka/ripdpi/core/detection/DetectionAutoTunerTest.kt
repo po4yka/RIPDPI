@@ -47,7 +47,7 @@ class DetectionAutoTunerTest {
     }
 
     @Test
-    fun `transport VPN with no fingerprint suggests tls and entropy`() {
+    fun `transport VPN does not suggest unrelated traffic settings`() {
         val result =
             cleanResult().copy(
                 directSigns =
@@ -65,12 +65,11 @@ class DetectionAutoTunerTest {
                 verdict = Verdict.DETECTED,
             )
         val fixes = DetectionAutoTuner.suggestFixes(result = result)
-        assertTrue(fixes.any { it.id == "tls_fingerprint" })
-        assertTrue(fixes.any { it.id == "entropy_padding" })
+        assertTrue(fixes.isEmpty())
     }
 
     @Test
-    fun `dns loopback suggests encrypted dns`() {
+    fun `dns loopback does not suggest changing encrypted dns`() {
         val result =
             cleanResult().copy(
                 indirectSigns =
@@ -88,11 +87,11 @@ class DetectionAutoTunerTest {
                 verdict = Verdict.NEEDS_REVIEW,
             )
         val fixes = DetectionAutoTuner.suggestFixes(result = result)
-        assertTrue(fixes.any { it.id == "encrypted_dns" })
+        assertTrue(fixes.isEmpty())
     }
 
     @Test
-    fun `local proxy suggests full tunnel`() {
+    fun `local proxy does not suggest unrelated full tunnel mode`() {
         val result =
             cleanResult().copy(
                 bypassResult =
@@ -110,7 +109,7 @@ class DetectionAutoTunerTest {
                 verdict = Verdict.NEEDS_REVIEW,
             )
         val fixes = DetectionAutoTuner.suggestFixes(result = result)
-        assertTrue(fixes.any { it.id == "full_tunnel" })
+        assertTrue(fixes.isEmpty())
     }
 
     @Test
