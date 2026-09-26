@@ -4,17 +4,21 @@ use crate::recorder::registration::RecorderProxy;
 use crate::recorder::state::InMemoryRecorder;
 
 static RECORDER: OnceLock<InMemoryRecorder> = OnceLock::new();
+static INSTALLED: OnceLock<bool> = OnceLock::new();
 
 /// Installs the global in-memory metrics recorder.
 ///
-/// Safe to call multiple times: only the first call takes effect.
-/// Subsequent calls are silently ignored.
-pub fn install() {
+/// Returns `false` if another global recorder was already installed.
+/// Repeated calls return the original result.
+pub fn install() -> bool {
     RECORDER.get_or_init(InMemoryRecorder::new);
-    // set_global_recorder returns Err if already set -- that is fine.
-    let _ = metrics::set_global_recorder(RecorderProxy);
+    *INSTALLED.get_or_init(|| metrics::set_global_recorder(RecorderProxy).is_ok())
 }
 
 pub(crate) fn recorder() -> Option<&'static InMemoryRecorder> {
     RECORDER.get()
+}
+
+pub(crate) fn is_installed() -> bool {
+    INSTALLED.get().copied().unwrap_or(false)
 }

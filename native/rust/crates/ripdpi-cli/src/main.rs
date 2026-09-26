@@ -38,7 +38,9 @@ fn main() -> ExitCode {
 
 fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
     init_logging(config.process.debug);
-    ripdpi_telemetry::recorder::install();
+    if !ripdpi_telemetry::recorder::install() {
+        tracing::warn!("telemetry recorder was not installed");
+    }
 
     let sink = Arc::new(TracingTelemetrySink::new());
     install_runtime_telemetry(sink.clone());

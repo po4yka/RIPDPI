@@ -18,5 +18,7 @@ pub use observer::ProxyTelemetryObserver;
 pub use state::ProxyTelemetryState;
 
 pub fn install_recorder() {
-    ripdpi_telemetry::recorder::install();
+    if !ripdpi_telemetry::recorder::install() {
+        tracing::warn!("telemetry recorder was not installed");
+    }
 }

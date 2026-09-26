@@ -3,14 +3,14 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::LatencyPercentiles;
-use crate::recorder::global_install::recorder;
+use crate::recorder::global_install::{is_installed, recorder};
 
 /// Serializable snapshot of all recorded metrics at a point in time.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecorderSnapshot {
     pub counters: BTreeMap<String, u64>,
-    pub gauges: BTreeMap<String, u64>,
+    pub gauges: BTreeMap<String, f64>,
     pub histograms: BTreeMap<String, LatencyPercentiles>,
     pub captured_at: u64,
 }
@@ -20,6 +20,9 @@ pub struct RecorderSnapshot {
 /// Safe to call from any thread. Returns `None` if the recorder has not
 /// been installed.
 pub fn snapshot() -> Option<RecorderSnapshot> {
+    if !is_installed() {
+        return None;
+    }
     let rec = recorder()?;
     let captured_at = captured_at_ms();
 

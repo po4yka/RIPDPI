@@ -135,8 +135,18 @@ impl InMemoryRecorder {
         )
     }
 
-    pub(crate) fn gauge_values(&self) -> Option<Vec<(String, u64)>> {
-        Some(self.gauges.read().ok()?.iter().map(|(key, value)| (key.clone(), value.load(Ordering::Relaxed))).collect())
+    pub(crate) fn gauge_values(&self) -> Option<Vec<(String, f64)>> {
+        Some(
+            self.gauges
+                .read()
+                .ok()?
+                .iter()
+                .filter_map(|(key, value)| {
+                    let value = f64::from_bits(value.load(Ordering::Relaxed));
+                    value.is_finite().then(|| (key.clone(), value))
+                })
+                .collect(),
+        )
     }
 
     pub(crate) fn histogram_values(&self) -> Option<Vec<(String, LatencyPercentiles)>> {

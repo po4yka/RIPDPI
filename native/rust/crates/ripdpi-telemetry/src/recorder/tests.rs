@@ -58,55 +58,58 @@ fn histogram_handle_converts_seconds_to_ms() {
 #[test]
 fn install_is_idempotent() {
     with_global_recorder_test(|| {
-        install();
-        install(); // second call must not panic
+        assert!(install());
+        assert!(install()); // second call must not panic
     });
 }
 
 #[test]
 fn counter_increment_via_recorder() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::counter!("test_counter_inc").increment(1);
         metrics::counter!("test_counter_inc").increment(2);
-        if let Some(snap) = snapshot()
-            && let Some(&val) = snap.counters.get("test_counter_inc")
-        {
-            assert!(val >= 3, "expected >= 3, got {val}");
-        }
+        let snap = snapshot().expect("installed recorder snapshot");
+        let val = snap.counters.get("test_counter_inc").expect("recorded counter");
+        assert!(*val >= 3, "expected >= 3, got {val}");
     });
 }
 
 #[test]
 fn gauge_set_via_recorder() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::gauge!("test_gauge_set").set(42.0);
-        if let Some(snap) = snapshot()
-            && let Some(&val) = snap.gauges.get("test_gauge_set")
-        {
-            assert_eq!(val, 42.0_f64.to_bits());
-        }
+        let snap = snapshot().expect("installed recorder snapshot");
+        assert_eq!(snap.gauges.get("test_gauge_set"), Some(&42.0));
     });
+}
+
+#[test]
+fn gauge_snapshot_exports_numeric_value() {
+    let recorder = InMemoryRecorder::new();
+    let gauge = recorder.register_gauge("test_gauge".to_string()).expect("register gauge");
+    gauge.store(42.0_f64.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(recorder.gauge_values(), Some(vec![("test_gauge".to_string(), 42.0)]));
+    gauge.store(f64::NAN.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(recorder.gauge_values(), Some(Vec::new()));
 }
 
 #[test]
 fn histogram_record_via_recorder() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::histogram!("test_hist_rec").record(0.050);
-        if let Some(snap) = snapshot()
-            && let Some(perc) = snap.histograms.get("test_hist_rec")
-        {
-            assert!(perc.p50 >= 45 && perc.p50 <= 55, "p50={}", perc.p50);
-        }
+        let snap = snapshot().expect("installed recorder snapshot");
+        let perc = snap.histograms.get("test_hist_rec").expect("recorded histogram");
+        assert!(perc.p50 >= 45 && perc.p50 <= 55, "p50={}", perc.p50);
     });
 }
 
 #[test]
 fn reset_histograms_clears_data() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::histogram!("test_reset_h").record(0.100);
         reset_histograms();
         if let Some(snap) = snapshot() {
@@ -137,7 +140,7 @@ fn register_histogram_does_not_deadlock() {
         // while holding a write lock on histograms, causing a same-thread
         // RwLock deadlock. This test would hang (and be killed by the test
         // runner timeout) if the deadlock regresses.
-        install();
+        assert!(install());
 
         // This call deadlocked before the fix -- it must return within ms.
         metrics::histogram!("deadlock_regression_test").record(1.0);
@@ -154,7 +157,7 @@ fn register_histogram_does_not_deadlock() {
 #[test]
 fn register_counter_does_not_deadlock() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::counter!("counter_deadlock_regression").increment(1);
         if let Some(snap) = snapshot() {
             assert!(snap.counters.contains_key("counter_deadlock_regression"));
@@ -165,7 +168,7 @@ fn register_counter_does_not_deadlock() {
 #[test]
 fn register_gauge_does_not_deadlock() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::gauge!("gauge_deadlock_regression").set(1.0);
         if let Some(snap) = snapshot() {
             assert!(snap.gauges.contains_key("gauge_deadlock_regression"));
@@ -178,7 +181,7 @@ fn recorder_snapshot_serde_round_trip() {
     let mut counters = BTreeMap::new();
     counters.insert("requests".to_string(), 42);
     let mut gauges = BTreeMap::new();
-    gauges.insert("active_conns".to_string(), 5);
+    gauges.insert("active_conns".to_string(), 5.0);
     let mut histograms = BTreeMap::new();
     histograms.insert(
         "latency".to_string(),
@@ -190,7 +193,7 @@ fn recorder_snapshot_serde_round_trip() {
     let deserialized: RecorderSnapshot = serde_json::from_str(&json).expect("deserialize");
 
     assert_eq!(deserialized.counters.get("requests"), Some(&42));
-    assert_eq!(deserialized.gauges.get("active_conns"), Some(&5));
+    assert_eq!(deserialized.gauges.get("active_conns"), Some(&5.0));
     assert!(deserialized.histograms.contains_key("latency"));
     assert_eq!(deserialized.captured_at, 1700000000000);
 }
@@ -232,7 +235,7 @@ fn histogram_handle_large_seconds_value() {
 #[test]
 fn counter_same_key_returns_shared_atomic() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         metrics::counter!("shared_counter_test").increment(5);
         metrics::counter!("shared_counter_test").increment(3);
         if let Some(snap) = snapshot()
@@ -246,7 +249,7 @@ fn counter_same_key_returns_shared_atomic() {
 #[test]
 fn snapshot_captured_at_is_nonzero() {
     with_global_recorder_test(|| {
-        install();
+        assert!(install());
         if let Some(snap) = snapshot() {
             assert!(snap.captured_at > 0, "captured_at should be a valid timestamp");
         }
