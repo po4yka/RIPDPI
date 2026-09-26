@@ -175,8 +175,8 @@ object DetectionMarkdownExportFormatter {
                 "address: ${outbound.address ?: "-"}, port: ${outbound.port ?: "-"}, sni: ${outbound.sni ?: "-"}, " +
                 "senderSettingsType: ${outbound.senderSettingsType ?: "-"}, " +
                 "proxySettingsType: ${outbound.proxySettingsType ?: "-"}, " +
-                "uuidPresent: ${!outbound.uuid.isNullOrBlank()}, " +
-                "publicKeyPresent: ${!outbound.publicKey.isNullOrBlank()}",
+                "uuidPresent: ${outbound.uuidPresent}, " +
+                "publicKeyPresent: ${outbound.publicKeyPresent}",
         )
     }
 

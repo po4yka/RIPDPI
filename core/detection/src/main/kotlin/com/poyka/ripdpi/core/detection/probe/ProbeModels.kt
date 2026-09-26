@@ -38,9 +38,9 @@ data class XrayOutboundSummary(
     val protocolName: String?,
     val address: String?,
     val port: Int?,
-    val uuid: String?,
+    val uuidPresent: Boolean,
     val sni: String?,
-    val publicKey: String?,
+    val publicKeyPresent: Boolean,
     val senderSettingsType: String?,
     val proxySettingsType: String?,
 )

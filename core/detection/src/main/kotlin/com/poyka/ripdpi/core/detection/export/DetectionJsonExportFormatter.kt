@@ -222,8 +222,8 @@ object DetectionJsonExportFormatter {
                 "sni" to context.string(sni),
                 "senderSettingsType" to context.string(senderSettingsType),
                 "proxySettingsType" to context.string(proxySettingsType),
-                "uuidPresent" to JsonPrimitive(!uuid.isNullOrBlank()),
-                "publicKeyPresent" to JsonPrimitive(!publicKey.isNullOrBlank()),
+                "uuidPresent" to JsonPrimitive(uuidPresent),
+                "publicKeyPresent" to JsonPrimitive(publicKeyPresent),
             ),
         )
 

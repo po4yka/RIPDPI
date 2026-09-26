@@ -39,8 +39,6 @@ import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 
 internal const val FixturePublicIp = "5.6.7.8"
-internal const val FixtureUuid = "11111111-2222-3333-4444-555555555555"
-internal const val FixturePublicKey = "public-key-secret"
 
 internal fun detectionExportFixture(): DetectionCheckResult {
     val geoIp =
@@ -68,9 +66,9 @@ internal fun detectionExportFixture(): DetectionCheckResult {
                                 protocolName = "vless",
                                 address = "203.0.113.20",
                                 port = 443,
-                                uuid = FixtureUuid,
+                                uuidPresent = true,
                                 sni = "example.test",
-                                publicKey = FixturePublicKey,
+                                publicKeyPresent = true,
                                 senderSettingsType = "tcp",
                                 proxySettingsType = "reality",
                             ),

@@ -2,11 +2,13 @@
 
 package com.poyka.ripdpi.core.detection.probe
 
-import android.util.Base64
+import com.google.protobuf.InvalidProtocolBufferException
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.xray.app.proxyman.command.HandlerServiceGrpc
 import com.xray.app.proxyman.command.ListOutboundsRequest
 import com.xray.common.net.IPOrDomain
+import com.xray.common.serial.TypedMessage
+import com.xray.transport.internet.StreamConfig
 import io.grpc.okhttp.OkHttpChannelBuilder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
@@ -65,9 +67,9 @@ class XrayApiClient(
                                 protocolName = senderParsed.protocolName,
                                 address = vlessParsed.address,
                                 port = vlessParsed.port,
-                                uuid = vlessParsed.uuid,
+                                uuidPresent = vlessParsed.uuidPresent,
                                 sni = senderParsed.sni,
-                                publicKey = senderParsed.publicKey,
+                                publicKeyPresent = senderParsed.publicKeyPresent,
                                 senderSettingsType = senderType,
                                 proxySettingsType = proxyType,
                             )
@@ -89,56 +91,68 @@ class XrayApiClient(
             }
         }
 
-    private data class SenderParsed(
+    internal data class SenderParsed(
         val protocolName: String?,
         val sni: String?,
-        val publicKey: String?,
+        val publicKeyPresent: Boolean,
     )
 
-    private data class VlessParsed(
+    internal data class VlessParsed(
         val address: String?,
         val port: Int?,
-        val uuid: String?,
+        val uuidPresent: Boolean,
     )
 
     @Suppress("TooGenericExceptionCaught")
-    private fun parseSenderSettings(
+    internal fun parseSenderSettings(
         type: String,
         value: com.google.protobuf.ByteString,
     ): SenderParsed {
         if (type != "xray.app.proxyman.SenderConfig") {
-            return SenderParsed(protocolName = null, sni = null, publicKey = null)
+            return SenderParsed(protocolName = null, sni = null, publicKeyPresent = false)
         }
 
         return try {
             val sender = ProxymanSenderConfig.parseFrom(value)
-            val stream = sender.streamSettings
-            val protocolName = stream.protocolName.takeIf { it.isNotBlank() }
-
-            var sni: String? = null
-            var publicKey: String? = null
-            for (security in stream.securitySettingsList) {
-                if (security.type != "xray.transport.internet.reality.Config") continue
-                val reality = RealityConfig.parseFrom(security.value)
-                if (sni == null) sni = reality.serverName.takeIf { it.isNotBlank() }
-                if (publicKey == null && reality.publicKey.size() > 0) {
-                    publicKey = Base64.encodeToString(reality.publicKey.toByteArray(), Base64.NO_WRAP)
-                }
-            }
-
-            SenderParsed(protocolName = protocolName, sni = sni, publicKey = publicKey)
+            parseSenderDetails(sender.streamSettings)
         } catch (_: Exception) {
-            SenderParsed(protocolName = null, sni = null, publicKey = null)
+            SenderParsed(protocolName = null, sni = null, publicKeyPresent = false)
+        }
+    }
+
+    private fun parseSenderDetails(stream: StreamConfig): SenderParsed {
+        var sni: String? = null
+        var publicKeyPresent = false
+        for (security in stream.securitySettingsList) {
+            val reality = parseRealitySettings(security)
+            if (reality != null) {
+                if (sni == null) sni = reality.serverName.takeIf { it.isNotBlank() }
+                publicKeyPresent = publicKeyPresent || reality.publicKey.size() > 0
+            }
+        }
+        return SenderParsed(
+            protocolName = stream.protocolName.takeIf { it.isNotBlank() },
+            sni = sni,
+            publicKeyPresent = publicKeyPresent,
+        )
+    }
+
+    private fun parseRealitySettings(security: TypedMessage): RealityConfig? {
+        if (security.type != "xray.transport.internet.reality.Config") return null
+        return try {
+            RealityConfig.parseFrom(security.value)
+        } catch (_: InvalidProtocolBufferException) {
+            null
         }
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private fun parseVlessProxySettings(
+    internal fun parseVlessProxySettings(
         type: String,
         value: com.google.protobuf.ByteString,
     ): VlessParsed {
         if (type != "xray.proxy.vless.outbound.Config") {
-            return VlessParsed(address = null, port = null, uuid = null)
+            return VlessParsed(address = null, port = null, uuidPresent = false)
         }
 
         return try {
@@ -148,15 +162,20 @@ class XrayApiClient(
             val port = vnext.port
             val user = vnext.user
 
-            var uuid: String? = null
+            var uuidPresent = false
             val account = user.account
             if (account.type == "xray.proxy.vless.Account") {
-                uuid = VlessAccount.parseFrom(account.value).id.takeIf { it.isNotBlank() }
+                uuidPresent =
+                    try {
+                        VlessAccount.parseFrom(account.value).id.isNotBlank()
+                    } catch (_: InvalidProtocolBufferException) {
+                        false
+                    }
             }
 
-            VlessParsed(address = address, port = port, uuid = uuid)
+            VlessParsed(address = address, port = port, uuidPresent = uuidPresent)
         } catch (_: Exception) {
-            VlessParsed(address = null, port = null, uuid = null)
+            VlessParsed(address = null, port = null, uuidPresent = false)
         }
     }
 

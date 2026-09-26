@@ -52,15 +52,15 @@ class DetectionMarkdownExportFormatterTest {
     }
 
     @Test
-    fun `xray uuid not present in output`() {
+    fun `xray uuid is exported as a presence flag`() {
         val output =
             DetectionMarkdownExportFormatter.format(
                 result = detectionExportFixture(),
                 metadata = exportMetadata(),
             )
 
-        assertFalse(output.contains(FixtureUuid))
         assertTrue(output.contains("uuidPresent: true"))
+        assertFalse(output.contains("uuid: "))
     }
 
     @Test

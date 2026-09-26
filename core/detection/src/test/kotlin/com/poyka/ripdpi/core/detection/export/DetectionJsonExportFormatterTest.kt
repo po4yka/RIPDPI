@@ -40,13 +40,13 @@ class DetectionJsonExportFormatterTest {
     }
 
     @Test
-    fun `xray public key not exposed`() {
+    fun `xray credentials are exported as presence flags`() {
         val output = DetectionJsonExportFormatter.format(detectionExportFixture(), exportMetadata())
 
-        assertFalse(output.contains(FixturePublicKey))
         assertTrue(output.contains("\"publicKeyPresent\": true"))
-        assertFalse(output.contains(FixtureUuid))
         assertTrue(output.contains("\"uuidPresent\": true"))
+        assertFalse(output.contains("\"publicKey\":"))
+        assertFalse(output.contains("\"uuid\":"))
     }
 
     @Test
