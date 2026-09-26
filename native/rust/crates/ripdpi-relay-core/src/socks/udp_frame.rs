@@ -34,6 +34,9 @@ pub fn decode_udp_frame(frame: &[u8]) -> io::Result<(RelayTargetAddr, &[u8])> {
     if frame.len() < 4 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP frame too short"));
     }
+    if frame[0] != 0 || frame[1] != 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP reserved bytes must be zero"));
+    }
     if frame[2] != 0 {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "fragmented SOCKS5 UDP frames are not supported"));
     }
@@ -93,5 +96,11 @@ mod tests {
         let (decoded_target, decoded_payload) = decode_udp_frame(&frame).expect("decode");
         assert_eq!(decoded_target, target);
         assert_eq!(decoded_payload, payload);
+    }
+
+    #[test]
+    fn socks5_udp_rejects_nonzero_reserved_bytes() {
+        let frame = [0x01, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0, 53];
+        assert!(decode_udp_frame(&frame).is_err());
     }
 }
