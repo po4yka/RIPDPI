@@ -397,7 +397,7 @@ async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStrea
 
 // cancel-safe: cancellation drops the unconnected UDP socket.
 async fn bind_udp(bind_ip: Option<IpAddr>, server_addr: SocketAddr) -> io::Result<UdpSocket> {
-    let ip = bind_ip.unwrap_or_else(|| match server_addr {
+    let ip = bind_ip.unwrap_or(match server_addr {
         SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
     });
