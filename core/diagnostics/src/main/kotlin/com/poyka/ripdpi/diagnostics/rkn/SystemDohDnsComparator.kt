@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
@@ -73,6 +77,9 @@ class SystemDohDnsComparator(
                     .filter(String::isNotBlank)
                     .toCollection(linkedSetOf())
             }
+        }.onFailure { error ->
+            currentCoroutineContext().ensureActive()
+            if (error is CancellationException && error !is TimeoutCancellationException) throw error
         }.getOrDefault(emptySet())
 
     private fun evaluate(

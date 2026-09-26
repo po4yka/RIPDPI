@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -139,7 +140,7 @@ class RknLayeredProbePipeline(
         host: String,
         base: RknResultBuilder,
     ): RknStageResult {
-        val dns = runCatching { dnsProbe.compare(host) }
+        val dns = captureProbe { dnsProbe.compare(host) }
         val result =
             dns.fold(
                 onSuccess = { comparison -> comparison.toTerminalDnsResult(base) },
@@ -175,9 +176,9 @@ class RknLayeredProbePipeline(
         host: String,
         afterDns: RknResultBuilder,
     ): RknCheckResult {
-        val tcp = runCatching { tcpProbe.connect(host, HttpsPort, timeoutMs) }
+        val tcp = captureProbe { tcpProbe.connect(host, HttpsPort, timeoutMs) }
         val afterTcp = tcp.getOrNull()?.let(afterDns::withTcp)
-        val tls = afterTcp?.let { runCatching { tlsProbe.handshake(host, HttpsPort, timeoutMs) } }
+        val tls = afterTcp?.let { captureProbe { tlsProbe.handshake(host, HttpsPort, timeoutMs) } }
         val afterTls = tls?.getOrNull()?.let { result -> afterTcp.withTls(result) }
         val http = afterTls?.let { runHttpProbe(target) }
         return when {
@@ -189,12 +190,17 @@ class RknLayeredProbePipeline(
     }
 
     private suspend fun runHttpProbe(target: RknProbeTarget): Result<RknHttpProbeResult> =
-        runCatching {
+        captureProbe {
             httpProbe.get(
                 url = target.url,
                 headers = RknProbeHeaders.build(identify = identifyProbeHeaders),
                 timeoutMs = timeoutMs,
             )
+        }
+
+    private suspend fun <T> captureProbe(block: suspend () -> T): Result<T> =
+        runCatching { block() }.onFailure { error ->
+            if (error is CancellationException) throw error
         }
 
     private fun buildHttpResult(

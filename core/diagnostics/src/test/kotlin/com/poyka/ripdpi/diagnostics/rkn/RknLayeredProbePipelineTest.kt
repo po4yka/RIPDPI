@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -40,6 +41,13 @@ class RknLayeredProbePipelineTest {
             assertEquals(0, tcp.calls)
             assertEquals(setOf("1.1.1.1"), result.dohIps)
             assertEquals("System resolver failed while DoH returned A records", result.notes.single())
+        }
+
+    @Test(expected = CancellationException::class)
+    fun `cancelled dns probe cancels diagnosis`() =
+        runTest {
+            pipeline(dns = RknDnsProbe { throw CancellationException("cancelled") })
+                .checkUrl(target("cancelled", "https://example.org/"))
         }
 
     @Test

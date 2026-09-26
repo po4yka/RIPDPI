@@ -1,12 +1,36 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.UnknownHostException
 
 class SystemDohDnsComparatorTest {
+    @Test(expected = CancellationException::class)
+    fun cancelledLookupCancelsComparison() =
+        runTest {
+            comparator(
+                system = { throw CancellationException("cancelled") },
+                doh = { setOf("1.2.3.4") },
+            ).compare("example.org")
+        }
+
+    @Test(expected = TimeoutCancellationException::class)
+    fun parentTimeoutCancelsComparison() =
+        runTest {
+            withTimeout(1) {
+                comparator(
+                    system = { delay(100); setOf("1.2.3.4") },
+                    doh = { setOf("1.2.3.4") },
+                ).compare("example.org")
+            }
+        }
+
     @Test
     fun systemFailsDohSucceedsReturnsDnsBlockHigh() =
         runTest {
