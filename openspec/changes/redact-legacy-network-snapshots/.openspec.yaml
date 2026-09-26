@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-09-26
+goal: DGN-1790436692670903 Redact legacy network snapshot history during
+  database upgrade

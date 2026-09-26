@@ -15,6 +15,7 @@ internal object DiagnosticsDatabaseMigrations {
             migration10To11,
             migration11To12,
             migration12To13,
+            migration13To14,
         )
 }
 
@@ -152,5 +153,36 @@ private val migration12To13 =
                 )
                 """.trimIndent(),
             )
+        }
+    }
+
+/** v13 -> v14: remove raw network identifiers from existing snapshot payloads. */
+private val migration13To14 =
+    object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            var afterId: String? = null
+            while (true) {
+                val rows =
+                    db
+                        .query(
+                            "SELECT id, payloadJson FROM network_snapshots " +
+                                "WHERE (? IS NULL OR id > ?) ORDER BY id LIMIT 128",
+                            arrayOf(afterId, afterId),
+                        ).use { cursor ->
+                            buildList {
+                                while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1))
+                            }
+                        }
+                if (rows.isEmpty()) break
+                rows.forEach { (id, payloadJson) ->
+                    val redacted = redactLegacyNetworkSnapshot(payloadJson)
+                    if (redacted == null) {
+                        db.execSQL("DELETE FROM network_snapshots WHERE id = ?", arrayOf(id))
+                    } else {
+                        db.execSQL("UPDATE network_snapshots SET payloadJson = ? WHERE id = ?", arrayOf(redacted, id))
+                    }
+                }
+                afterId = rows.last().first
+            }
         }
     }
