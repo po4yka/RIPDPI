@@ -17,8 +17,8 @@ deletes every file in the share cache directory.
   FileProvider URI remains backed by a private cache file even if the screen
   closes or the chooser returns.
 - Create unique filenames. Prune only regular files older than 24 hours from
-  the dedicated `backup-share` cache directory when the screen opens or a new
-  share starts. Keep newer files for in-flight delayed reads.
+  the dedicated `backup-share` cache directory when the app starts, the screen
+  opens, or a new share starts. Keep newer files for delayed reads.
 - Continue to grant read-only URI access through the existing FileProvider.
   Do not treat chooser cancellation or result delivery as recipient completion.
 

@@ -28,5 +28,5 @@ files change.
 
 - [ ] A recipient can open the shared URI after chooser return and route closure.
 - [ ] Failed or unlaunched shares delete partial files immediately.
-- [ ] Old share files are pruned while recent shared files stay readable.
+- [ ] Old share files are pruned on the next app start, screen visit, or share while recent files stay readable.
 - [ ] Focused tests, app unit tests, and app lint pass.

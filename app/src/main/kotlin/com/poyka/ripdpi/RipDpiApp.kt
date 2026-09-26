@@ -8,6 +8,7 @@ import androidx.work.Configuration
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.platformLogWriter
+import com.poyka.ripdpi.backup.BackupShareTempFileOwner
 import com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator
 import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
 import com.poyka.ripdpi.diagnostics.FileLogWriter
@@ -61,6 +62,7 @@ class RipDpiApp :
             breadcrumbProvider = breadcrumbWriter::snapshot,
         )
         super.onCreate()
+        BackupShareTempFileOwner().pruneExpired(cacheDir)
         Logger.setLogWriters(platformLogWriter(), fileLogWriter, breadcrumbWriter)
         Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Warn)
         startupInitializer.initialize()

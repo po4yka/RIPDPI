@@ -283,8 +283,9 @@ private fun rememberBackupExportController(
  * generation. Generation writes a FRESH [BackupVariant.SHARE] backup into a private
  * cache subdirectory (`cacheDir/backup-share/`), then hands it to the share sheet via
  * the `${applicationId}.backup.fileprovider` FileProvider using [ShareCompat]. The
- * temp file is retained for delayed recipient reads after launch and removed by
- * bounded cache cleanup. Generation and launch failures delete it immediately.
+ * temp file is retained for delayed recipient reads after launch. Files older
+ * than 24 hours are removed on the next app start, screen visit, or share.
+ * Generation and launch failures delete the file immediately.
  */
 @Composable
 private fun rememberBackupShareController(

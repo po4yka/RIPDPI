@@ -2,8 +2,8 @@
 <!--
     FileProvider paths for the optional "share backup" follow-up. A backup copied
     into this dedicated cache subdirectory is granted read access per share intent;
-    the host cleans old files up after bounded cache retention. The primary export path
-    writes directly to a user-chosen SAF location and does not use this provider.
+    the host cleans old files on the next app start or backup-screen visit after 24 hours.
+    The primary export path writes to a user-chosen SAF location and does not use this provider.
 -->
 <paths>
     <cache-path

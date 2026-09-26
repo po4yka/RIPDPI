@@ -21,8 +21,8 @@ until the bounded cache retention expires or Android evicts cache.
 ### Requirement: REQ-BACKUP-SHARE-RETENTION — Bound cache lifetime
 
 The app MUST keep distinct filenames for successful shares and MUST remove
-share files older than 24 hours when the backup screen opens or a new share
-starts, without deleting more recent files.
+share files older than 24 hours when the app starts, the backup screen opens,
+or a new share starts, without deleting more recent files.
 
 #### Scenario: New share while an earlier recipient is still reading
 
