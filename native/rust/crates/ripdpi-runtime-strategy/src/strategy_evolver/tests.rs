@@ -589,10 +589,66 @@ fn evict_preserves_keep_combo() {
     e.combos.insert(keep.clone(), ComboStats::new());
     e.combos.insert(other.clone(), ComboStats::new());
 
-    // Evict should remove `other` (or any combo != keep), not `keep`
+    // Recording an existing arm does not need another slot.
     e.evict_if_needed(&keep, 0);
     assert!(e.combos.contains_key(&keep), "keep combo should survive eviction");
-    assert_eq!(e.combos.len(), 1);
+    assert!(e.combos.contains_key(&other), "unrelated combo should survive feedback for keep");
+    assert_eq!(e.combos.len(), 2);
+}
+
+#[test]
+fn contextual_feedback_for_existing_combo_preserves_full_pool() {
+    let mut evolver = StrategyEvolver::new(true, 0.0);
+    evolver.max_combos = 2;
+    let context = LearningContext::default();
+    let keep = StrategyCombo::default_combo();
+    let other = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+    let state = evolver.contexts.entry(context.clone()).or_default();
+    state.combos.insert(keep.clone(), ComboStats::new());
+    state.combos.insert(other.clone(), ComboStats::new());
+
+    evolver.record_contextual_feedback(&context, keep.family(), &keep, true, 10, None, 1);
+
+    let state = &evolver.contexts[&context];
+    assert_eq!(state.combos.len(), 2);
+    assert!(state.combos.contains_key(&other));
+}
+
+#[test]
+fn evicted_niche_winner_is_not_selected() {
+    let mut evolver = StrategyEvolver::new(true, 0.0);
+    evolver.max_combos = 1;
+    let context = LearningContext::default();
+    let old = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+    let new = StrategyCombo::default_combo();
+    evolver.combos.insert(new.clone(), ComboStats::new());
+    let state = evolver.contexts.entry(context.clone()).or_default();
+    state.piloted_buckets.insert(context.target_bucket);
+    state.combos.insert(old.clone(), ComboStats::new());
+    state.niche_winners.insert(context.target_bucket, old.clone());
+
+    selection::evict_context_if_needed(state, &new, 1, 1, evolver.decay_half_life_ms);
+    state.combos.insert(new.clone(), ComboStats::new());
+
+    let state = &evolver.contexts[&context];
+    assert!(!state.combos.contains_key(&old));
+    assert_ne!(state.niche_winners.get(&context.target_bucket), Some(&old));
+    assert_eq!(evolver.select_next_combo(), new);
+}
+
+#[test]
+fn selection_ignores_niche_without_stats() {
+    let mut evolver = StrategyEvolver::new(true, 0.0);
+    let context = LearningContext::default();
+    let live = StrategyCombo::default_combo();
+    let stale = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+    evolver.combos.insert(live.clone(), ComboStats::new());
+    let state = evolver.contexts.entry(context.clone()).or_default();
+    state.piloted_buckets.insert(context.target_bucket);
+    state.combos.insert(live.clone(), ComboStats::new());
+    state.niche_winners.insert(context.target_bucket, stale);
+
+    assert_eq!(evolver.select_next_combo(), live);
 }
 
 #[test]

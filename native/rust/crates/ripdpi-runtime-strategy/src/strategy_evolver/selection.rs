@@ -27,7 +27,7 @@ impl StrategyEvolver {
             return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
         };
         if let Some(niche) = state.niche_winners.get(&bucket)
-            && !state.combos.get(niche).is_some_and(|stats| stats.is_cooled(now_ms))
+            && state.combos.get(niche).is_some_and(|stats| !stats.is_cooled(now_ms))
         {
             return niche.clone();
         }
@@ -177,7 +177,7 @@ pub(super) fn evict_context_if_needed(
     now_ms: u64,
     half_life_ms: u64,
 ) {
-    if state.combos.len() < max_combos {
+    if state.combos.contains_key(keep) || state.combos.len() < max_combos {
         return;
     }
     let worst = state
@@ -192,5 +192,6 @@ pub(super) fn evict_context_if_needed(
         .map(|(combo, _)| combo.clone());
     if let Some(worst_combo) = worst {
         state.combos.remove(&worst_combo);
+        state.niche_winners.retain(|_, winner| winner != &worst_combo);
     }
 }

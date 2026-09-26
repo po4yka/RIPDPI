@@ -8,7 +8,7 @@ use super::types::{
 
 impl StrategyEvolver {
     pub(super) fn evict_if_needed(&mut self, keep: &StrategyCombo, now_ms: u64) {
-        if self.combos.len() < self.max_combos {
+        if self.combos.contains_key(keep) || self.combos.len() < self.max_combos {
             return;
         }
         let half_life = self.decay_half_life_ms;
