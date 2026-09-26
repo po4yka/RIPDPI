@@ -50,6 +50,7 @@ pub(super) struct UdpFlowSelectionWithCandidates {
 /// connects to that relay endpoint (NOT `target`). Both sockets are protected by
 /// their respective platform constructors before any connect/bind.
 fn build_udp_flow_upstream(
+    state: &RuntimeState,
     target: SocketAddr,
     protect_path: Option<&str>,
     group_policy: &UdpFlowGroupPolicy,
@@ -58,7 +59,7 @@ fn build_udp_flow_upstream(
         let socket = build_udp_upstream_socket(target, protect_path, group_policy.socket.bind_low_port)?;
         return Ok((socket, None));
     };
-    let session = open_upstream_udp_associate(upstream_socks_addr, protect_path, group_policy.connect_timeout)?;
+    let session = open_upstream_udp_associate(upstream_socks_addr, protect_path, group_policy.connect_timeout, state)?;
     let socket = build_udp_upstream_socket(session.relay_endpoint, protect_path, group_policy.socket.bind_low_port)?;
     Ok((socket, Some(session)))
 }
@@ -125,7 +126,7 @@ pub(super) fn select_udp_flow_target(
         let packet_settings = group_policy.packet;
         let source_rebind_policy = group_policy.source_rebind;
         let execution_family = group_policy.execution_family;
-        let Ok((upstream, upstream_socks)) = build_udp_flow_upstream(target, protect_path, &group_policy) else {
+        let Ok((upstream, upstream_socks)) = build_udp_flow_upstream(state, target, protect_path, &group_policy) else {
             continue;
         };
         return Ok(Some(UdpFlowSelection {

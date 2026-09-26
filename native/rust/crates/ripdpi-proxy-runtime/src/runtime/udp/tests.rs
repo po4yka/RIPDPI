@@ -414,13 +414,13 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
         relay.send_to(&echo, peer).expect("relay echo");
     });
 
+    let state = test_runtime_state(RuntimeConfig::default());
     let session =
-        super::upstream_socks::open_upstream_udp_associate(upstream_socks, None, Some(Duration::from_secs(2)))
+        super::upstream_socks::open_upstream_udp_associate(upstream_socks, None, Some(Duration::from_secs(2)), &state)
             .expect("udp associate");
     assert_eq!(session.relay_endpoint, relay_addr);
     let upstream = sockets::build_udp_upstream_socket(session.relay_endpoint, None, false).expect("relay socket");
 
-    let state = test_runtime_state(RuntimeConfig::default());
     let client_receiver = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client receiver");
     client_receiver.set_read_timeout(Some(Duration::from_secs(1))).expect("client receiver timeout");
     let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
