@@ -88,6 +88,12 @@ where
                 match read_result {
                     Poll::Ready(Ok(read)) => {
                         if read == 0 {
+                            if this.read_frame_offset != 0 || this.read_frame.len() != TLS_HEADER_LEN {
+                                return Poll::Ready(Err(io::Error::new(
+                                    io::ErrorKind::UnexpectedEof,
+                                    "ShadowTLS TLS frame ended mid-record",
+                                )));
+                            }
                             this.eof = true;
                             return Poll::Ready(Ok(()));
                         }
@@ -100,6 +106,12 @@ where
 
             if this.read_frame.len() == TLS_HEADER_LEN {
                 let payload_len = u16::from_be_bytes([this.read_frame[3], this.read_frame[4]]) as usize;
+                if payload_len == 0 {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "ShadowTLS TLS frame has empty payload",
+                    )));
+                }
                 if payload_len > TLS_FRAME_MAX_LEN - TLS_HEADER_LEN {
                     return Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::InvalidData,

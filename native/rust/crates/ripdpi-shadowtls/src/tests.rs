@@ -3,6 +3,41 @@ use ring::digest::{Context as DigestContext, SHA256};
 use super::frames::{FrameDecode, TLS_APPLICATION_DATA, TLS_HANDSHAKE, TLS_HEADER_LEN, deframe_payload, frame_payload};
 use super::handshake::{modify_client_hello, session_id_len};
 use super::hmac::{HMAC_LEN, ShadowTlsHmac};
+use super::stream::ShadowTlsStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+// cancel-safe: the in-memory writer owns its half of the duplex stream.
+#[tokio::test]
+async fn truncated_tls_record_returns_unexpected_eof() {
+    for bytes in [&[0x17, 0x03][..], &[0x17, 0x03, 0x03, 0, 10, 1, 2][..]] {
+        let (mut peer, carrier) = tokio::io::duplex(64);
+        let mut stream =
+            ShadowTlsStream::new(carrier, ShadowTlsHmac::new(b"secret"), ShadowTlsHmac::new(b"secret"), None);
+        peer.write_all(bytes).await.unwrap();
+        peer.shutdown().await.unwrap();
+        let error = stream.read(&mut [0u8; 1]).await.expect_err("partial TLS record must not look like clean EOF");
+        assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+    }
+}
+
+// cancel-safe: the in-memory writer owns its half of the duplex stream.
+#[tokio::test]
+async fn empty_tls_record_is_rejected_without_spinning() {
+    let (mut peer, carrier) = tokio::io::duplex(64);
+    let mut stream = ShadowTlsStream::new(carrier, ShadowTlsHmac::new(b"secret"), ShadowTlsHmac::new(b"secret"), None);
+    peer.write_all(&[0x17, 0x03, 0x03, 0, 0]).await.unwrap();
+    let error = stream.read(&mut [0u8; 1]).await.expect_err("empty TLS frame must be rejected");
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+}
+
+// cancel-safe: the test owns its in-memory stream and does no partial write.
+#[tokio::test]
+async fn clean_record_boundary_eof_stays_clean() {
+    let (peer, carrier) = tokio::io::duplex(64);
+    let mut stream = ShadowTlsStream::new(carrier, ShadowTlsHmac::new(b"secret"), ShadowTlsHmac::new(b"secret"), None);
+    drop(peer);
+    assert_eq!(stream.read(&mut [0u8; 1]).await.unwrap(), 0);
+}
 
 #[test]
 fn client_hello_modification_signs_session_id() {
