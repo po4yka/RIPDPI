@@ -67,16 +67,29 @@ fn http_redirect_detection_uses_host_suffix() {
     let same_site = b"HTTP/1.1 302 Found\r\nLocation: https://cdn.example.com/path\r\n\r\n";
 
     assert!(is_http_redirect(request, redirect));
-    assert!(!is_http_redirect(request, same_site));
+    assert!(is_http_redirect(request, same_site));
 }
 
 #[test]
-fn is_http_redirect_same_suffix_not_redirect() {
+fn is_http_redirect_detects_sibling_host() {
     let req = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
     let same = b"HTTP/1.1 302 Found\r\nLocation: https://other.example.com/page\r\n\r\n";
-    assert!(!is_http_redirect(req, same));
+    assert!(is_http_redirect(req, same));
     let diff = b"HTTP/1.1 302 Found\r\nLocation: https://sub.other.net/page\r\n\r\n";
     assert!(is_http_redirect(req, diff));
+}
+
+#[test]
+fn redirect_requires_a_different_dns_site() {
+    let req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let response = |location: &str| format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\n\r\n");
+    assert!(!is_http_redirect(req, response("/login").as_bytes()));
+    assert!(!is_http_redirect(req, response("HTTPS://CDN.Example.Com:443/login").as_bytes()));
+    assert!(is_http_redirect(req, response("https://notexample.com/login").as_bytes()));
+    assert!(is_http_redirect(req, response("//other.net/login").as_bytes()));
+    assert!(!is_http_redirect(req, response("https://cdn.example.com/login").as_bytes()));
+    let uk_req = b"GET / HTTP/1.1\r\nHost: bank.co.uk\r\n\r\n";
+    assert!(is_http_redirect(uk_req, response("https://evil.co.uk/login").as_bytes()));
 }
 
 #[test]
