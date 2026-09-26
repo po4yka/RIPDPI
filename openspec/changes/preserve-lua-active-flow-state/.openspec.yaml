@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-26
+goal: RST-1790431269626912 Preserve Lua state across active tunnel flows

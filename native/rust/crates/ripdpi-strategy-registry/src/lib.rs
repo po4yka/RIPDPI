@@ -207,6 +207,22 @@ impl StrategyRegistry {
         StrategyVerdict::FallbackPlain
     }
 
+    /// Releases state for a completed flow in every registered strategy.
+    pub fn close_flow(
+        &self,
+        flow_id: ripdpi_strategy_trait::FlowId,
+    ) -> Result<(), ripdpi_strategy_trait::StrategyError> {
+        for entry in &self.entries {
+            entry.strategy.close_flow(flow_id)?;
+        }
+        Ok(())
+    }
+
+    /// Reports whether any registered strategy owns state for a flow.
+    pub fn has_flow(&self, flow_id: ripdpi_strategy_trait::FlowId) -> bool {
+        self.entries.iter().any(|entry| entry.strategy.has_flow(flow_id))
+    }
+
     /// Returns descriptors for diagnostics and UI surfaces.
     pub fn list(&self) -> impl Iterator<Item = &StrategyDescriptor> {
         self.entries.iter().map(|entry| &entry.descriptor)

@@ -29,6 +29,7 @@ pub(super) fn ensure_udp_association(
     resolved_dst: SocketAddr,
     payload: &[u8],
     dns_cache: &mut Option<DnsCache>,
+    closed_sources: &mut Vec<SocketAddr>,
     idle_timeout: Duration,
     protect_path: Option<&str>,
     cancel: &CancellationToken,
@@ -41,7 +42,7 @@ pub(super) fn ensure_udp_association(
     }
 
     record_quic_sni_if_present(stats, payload);
-    evict_if_over_capacity(associations, eviction_heap, dns_cache);
+    evict_if_over_capacity(associations, eviction_heap, dns_cache, closed_sources);
     let association = alloc_association(
         next_id,
         memory_budget,

@@ -70,6 +70,7 @@ pub(super) fn handle_wait_event(state: &mut LoopState, event: WaitEvent) -> Wait
                 &mut state.udp_associations,
                 &mut state.udp_eviction_heap,
                 &mut state.dns_cache,
+                &mut state.closed_udp_sources,
                 event,
             );
             WaitOutcome::Continue

@@ -162,7 +162,9 @@ pub struct ripdpi_strategy_trait::XmppDissect
 pub static ripdpi_strategy_trait::STRATEGY_DESCRIPTOR_REGISTRATIONS: linkme::distributed_slice::DistributedSlice<[ripdpi_strategy_trait::StrategyDescriptorRegistration]>
 pub static ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS: linkme::distributed_slice::DistributedSlice<[ripdpi_strategy_trait::StrategyStepRegistration]>
 pub trait ripdpi_strategy_trait::DesyncStrategy: core::marker::Send + core::marker::Sync
+pub fn ripdpi_strategy_trait::DesyncStrategy::close_flow(&self, ripdpi_strategy_trait::FlowId) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>
 pub fn ripdpi_strategy_trait::DesyncStrategy::describe(&self) -> ripdpi_strategy_trait::StrategyDescriptor
+pub fn ripdpi_strategy_trait::DesyncStrategy::has_flow(&self, ripdpi_strategy_trait::FlowId) -> bool
 pub fn ripdpi_strategy_trait::DesyncStrategy::id(&self) -> &str
 pub fn ripdpi_strategy_trait::DesyncStrategy::matches(&self, &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
 pub fn ripdpi_strategy_trait::DesyncStrategy::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<ripdpi_strategy_trait::StrategyPlanOutcome, ripdpi_strategy_trait::StrategyError>

@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::io;
-use std::path::Path;
-
-#[cfg(test)]
 use std::net::SocketAddr;
+use std::path::Path;
+use std::time::{Duration, Instant};
 
 use ripdpi_packets::{
     QuicInitialLayout, http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls,
@@ -23,7 +22,7 @@ use tracing::{debug, warn};
 mod packet;
 
 use self::packet::{
-    PacketMeta, Transport, low_ttl_tcp_copy, packet_destination, packet_with_payload, set_packet_hop_limit,
+    PacketMeta, Transport, flow_id, low_ttl_tcp_copy, packet_destination, packet_with_payload, set_packet_hop_limit,
     transport_endpoint,
 };
 
@@ -36,6 +35,18 @@ pub trait TunPacketInjector {
 
 pub trait TunEgressPacketHandler: Send {
     fn handle_packet(&mut self, packet: &[u8]) -> bool;
+
+    /// Releases state when the tunnel closes an exact transport flow.
+    fn close_flow(&mut self, _protocol: u8, _src: SocketAddr, _dst: SocketAddr) {}
+
+    /// Releases every UDP flow owned by a closed source association.
+    fn close_udp_source(&mut self, _src: SocketAddr) {}
+
+    /// Marks a flow that reached a live UDP association.
+    fn mark_udp_associated(&mut self, _src: SocketAddr, _dst: SocketAddr) {}
+
+    /// Expires idle UDP flows without a live owning association.
+    fn expire_idle_udp_flows(&mut self, _timeout: Duration, _has_association: &dyn Fn(SocketAddr) -> bool) {}
 }
 
 pub struct RawTunPacketInjector {
@@ -93,21 +104,103 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             .any(|rule| !rule.matcher.hosts.is_empty())
             .then(|| packet_host(meta.transport, meta.payload(packet)))
             .flatten();
-        for rule in &self.rules {
+        let mut consumed = false;
+        for rule in &mut self.rules {
             if !rule.matcher.matches(meta, host.as_ref().map(|(protocol, host)| (*protocol, host.as_str()))) {
                 continue;
             }
             if rule.action.apply(packet, meta, &mut self.injector) {
-                return true;
+                consumed = true;
+                break;
             }
         }
-        false
+        if meta.is_tcp_terminal(packet) {
+            self.close_flow(6, meta.src_addr(), meta.dst_addr());
+        }
+        consumed
+    }
+
+    pub fn close_flow(&mut self, protocol: u8, src: SocketAddr, dst: SocketAddr) {
+        let transport = match protocol {
+            6 => Transport::Tcp,
+            17 => Transport::Udp,
+            _ => return,
+        };
+        let flow_id = FlowId(flow_id(transport, src, dst));
+        for rule in &mut self.rules {
+            if let EgressRuleAction::Strategy { registry, udp_flows, .. } = &mut rule.action {
+                udp_flows.remove(&flow_id);
+                if let Err(error) = registry.close_flow(flow_id) {
+                    warn!("failed to close TUN Lua flow state: {error:?}");
+                }
+            }
+        }
+    }
+
+    pub fn close_udp_source(&mut self, src: SocketAddr) {
+        for rule in &mut self.rules {
+            if let EgressRuleAction::Strategy { registry, udp_flows, .. } = &mut rule.action {
+                udp_flows.retain(|&flow_id, flow| {
+                    if flow.src != src || !flow.associated {
+                        return true;
+                    }
+                    if let Err(error) = registry.close_flow(flow_id) {
+                        warn!("failed to close TUN Lua UDP state: {error:?}");
+                    }
+                    false
+                });
+            }
+        }
+    }
+
+    pub fn mark_udp_associated(&mut self, src: SocketAddr, dst: SocketAddr) {
+        let flow_id = FlowId(flow_id(Transport::Udp, src, dst));
+        for rule in &mut self.rules {
+            if let EgressRuleAction::Strategy { udp_flows, .. } = &mut rule.action
+                && let Some(flow) = udp_flows.get_mut(&flow_id)
+            {
+                flow.associated = true;
+            }
+        }
+    }
+
+    pub fn expire_idle_udp_flows(&mut self, timeout: Duration, has_association: &dyn Fn(SocketAddr) -> bool) {
+        let now = Instant::now();
+        for rule in &mut self.rules {
+            if let EgressRuleAction::Strategy { registry, udp_flows, .. } = &mut rule.action {
+                udp_flows.retain(|&flow_id, flow| {
+                    if (flow.associated && has_association(flow.src)) || now.duration_since(flow.last_seen) < timeout {
+                        return true;
+                    }
+                    if let Err(error) = registry.close_flow(flow_id) {
+                        warn!("failed to expire TUN Lua UDP state: {error:?}");
+                    }
+                    false
+                });
+            }
+        }
     }
 }
 
 impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressInterceptor<I> {
     fn handle_packet(&mut self, packet: &[u8]) -> bool {
         TunEgressInterceptor::handle_packet(self, packet)
+    }
+
+    fn close_flow(&mut self, protocol: u8, src: SocketAddr, dst: SocketAddr) {
+        TunEgressInterceptor::close_flow(self, protocol, src, dst);
+    }
+
+    fn close_udp_source(&mut self, src: SocketAddr) {
+        TunEgressInterceptor::close_udp_source(self, src);
+    }
+
+    fn mark_udp_associated(&mut self, src: SocketAddr, dst: SocketAddr) {
+        TunEgressInterceptor::mark_udp_associated(self, src, dst);
+    }
+
+    fn expire_idle_udp_flows(&mut self, timeout: Duration, has_association: &dyn Fn(SocketAddr) -> bool) {
+        TunEgressInterceptor::expire_idle_udp_flows(self, timeout, has_association);
     }
 }
 
@@ -128,7 +221,7 @@ fn rules_for_strategy(strategy: &LoadedStrategy, base_dir: &Path) -> Vec<EgressR
         .steps
         .iter()
         .filter_map(|step| {
-            EgressRuleAction::from_step(step, base_dir)
+            EgressRuleAction::from_step(step, base_dir, strategy.on_fail)
                 .map(|action| EgressRule { matcher: PacketMatcher::from_strategy(strategy), action })
         })
         .collect()
@@ -141,7 +234,13 @@ struct EgressRule {
 
 enum EgressRuleAction {
     Direct(EgressAction),
-    Strategy { registry: StrategyRegistry, forward_original: bool },
+    Strategy { registry: StrategyRegistry, forward_original: bool, udp_flows: HashMap<FlowId, UdpFlowState> },
+}
+
+struct UdpFlowState {
+    src: SocketAddr,
+    last_seen: Instant,
+    associated: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -180,14 +279,14 @@ impl EgressAction {
 }
 
 impl EgressRuleAction {
-    fn from_step(step: &StrategyStep, base_dir: &Path) -> Option<Self> {
+    fn from_step(step: &StrategyStep, base_dir: &Path, on_fail: OnFail) -> Option<Self> {
         if step.kind == StepType::Lua {
-            return Self::lua_strategy(step, base_dir);
+            return Self::lua_strategy(step, base_dir, on_fail);
         }
         EgressAction::from_step(step).map(Self::Direct)
     }
 
-    fn lua_strategy(step: &StrategyStep, base_dir: &Path) -> Option<Self> {
+    fn lua_strategy(step: &StrategyStep, base_dir: &Path, on_fail: OnFail) -> Option<Self> {
         let config = LoadedStrategyConfig {
             version: 1,
             base_dir: base_dir.to_path_buf(),
@@ -195,11 +294,15 @@ impl EgressRuleAction {
                 id: step.function.clone().unwrap_or_else(|| "lua".to_owned()),
                 matcher: StrategyMatch::default(),
                 steps: vec![step.clone()],
-                on_fail: OnFail::default(),
+                on_fail,
             }],
         };
         match StrategyRegistry::from_loaded_config(&config) {
-            Ok(registry) => Some(Self::Strategy { registry, forward_original: step.forward_original.unwrap_or(false) }),
+            Ok(registry) => Some(Self::Strategy {
+                registry,
+                forward_original: step.forward_original.unwrap_or(false),
+                udp_flows: HashMap::new(),
+            }),
             Err(error) => {
                 warn!("failed to materialize Lua TUN egress strategy: {error}");
                 None
@@ -207,11 +310,25 @@ impl EgressRuleAction {
         }
     }
 
-    fn apply<I: TunPacketInjector>(&self, packet: &[u8], meta: PacketMeta, injector: &mut I) -> bool {
+    fn apply<I: TunPacketInjector>(&mut self, packet: &[u8], meta: PacketMeta, injector: &mut I) -> bool {
         match self {
             Self::Direct(action) => inject_direct_action(*action, packet, injector),
-            Self::Strategy { registry, forward_original } => {
-                execute_registry_action(registry, *forward_original, packet, meta, injector)
+            Self::Strategy { registry, forward_original, udp_flows } => {
+                let consumed = execute_registry_action(registry, *forward_original, packet, meta, injector);
+                if meta.transport == Transport::Udp {
+                    let flow_id = FlowId(meta.flow_id());
+                    if registry.has_flow(flow_id) {
+                        udp_flows.entry(flow_id).or_insert(UdpFlowState {
+                            src: meta.src_addr(),
+                            last_seen: Instant::now(),
+                            associated: false,
+                        });
+                        if let Some(flow) = udp_flows.get_mut(&flow_id) {
+                            flow.last_seen = Instant::now();
+                        }
+                    }
+                }
+                consumed
             }
         }
     }
@@ -768,6 +885,117 @@ strategies:
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-raw");
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
+    }
+
+    #[test]
+    fn lua_keeps_active_state_at_capacity_and_reuses_closed_flow_slot() {
+        let script = write_lua_script(
+            "lua-egress-active-capacity",
+            r#"
+function candidate(desync)
+    desync.conn.count = (desync.conn.count or 0) + 1
+    desync.rawsend(tostring(desync.conn.count))
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: lua-egress\n    steps:\n      - type: lua\n        function: candidate\n        script_paths:\n          - \"{}\"\n",
+            script.display()
+        );
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+
+        for port in 10_000..11_024 {
+            assert!(interceptor.handle_packet(&ipv4_tcp_packet(port, 443, b"abc")));
+        }
+        assert_eq!(interceptor.injector.packets.len(), 1024);
+        assert!(!interceptor.handle_packet(&ipv4_tcp_packet(11_024, 443, b"abc")));
+        assert_eq!(interceptor.injector.packets.len(), 1024);
+
+        assert!(interceptor.handle_packet(&ipv4_tcp_packet(10_000, 443, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("first flow packet")), b"2");
+
+        let src = SocketAddr::new([10, 0, 0, 2].into(), 10_000);
+        let dst = SocketAddr::new([93, 184, 216, 34].into(), 443);
+        interceptor.close_flow(TCP_PROTO, src, dst);
+        assert!(interceptor.handle_packet(&ipv4_tcp_packet(11_024, 443, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("new flow packet")), b"1");
+    }
+
+    #[test]
+    fn lua_udp_source_close_releases_all_destinations_and_idle_orphans() {
+        let script = write_lua_script(
+            "lua-egress-udp-source-close",
+            r#"
+function candidate(desync)
+    desync.conn.count = (desync.conn.count or 0) + 1
+    desync.rawsend(tostring(desync.conn.count))
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: lua-egress\n    steps:\n      - type: lua\n        function: candidate\n        script_paths:\n          - \"{}\"\n",
+            script.display()
+        );
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        let source = SocketAddr::new([10, 0, 0, 2].into(), 20_000);
+        for port in 10_000..10_070 {
+            assert!(interceptor.handle_packet(&ipv4_udp_packet(20_000, port, b"abc")));
+            interceptor.mark_udp_associated(source, SocketAddr::new([93, 184, 216, 34].into(), port));
+        }
+        interceptor.expire_idle_udp_flows(Duration::ZERO, &|src| src == source);
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_000, 10_000, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("active source packet")), b"2");
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_000, 11_000, b"abc")));
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_001, 443, b"abc")));
+        interceptor.close_udp_source(source);
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_000, 10_000, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("closed source packet")), b"1");
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_000, 11_000, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("consumed flow packet")), b"2");
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_001, 443, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("unrelated source packet")), b"2");
+
+        interceptor.expire_idle_udp_flows(Duration::ZERO, &|_| false);
+        assert!(interceptor.handle_packet(&ipv4_udp_packet(20_001, 443, b"abc")));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("expired source packet")), b"1");
+    }
+
+    #[test]
+    fn lua_consumed_tcp_fin_releases_state() {
+        let script = write_lua_script(
+            "lua-egress-tcp-fin",
+            "function candidate(desync) desync.conn.count = (desync.conn.count or 0) + 1; desync.rawsend(tostring(desync.conn.count)); return VERDICT_MODIFY end",
+        );
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: lua-egress\n    steps:\n      - type: lua\n        function: candidate\n        script_paths:\n          - \"{}\"\n",
+            script.display()
+        );
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        let packet = ipv4_tcp_packet(20_000, 443, b"abc");
+        assert!(interceptor.handle_packet(&packet));
+        let mut fin = ipv4_tcp_packet(20_000, 443, b"");
+        fin[33] = 0x11;
+        assert!(interceptor.handle_packet(&fin));
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(packet_payload(interceptor.injector.packets.last().expect("reused flow packet")), b"1");
+    }
+
+    #[test]
+    fn lua_tun_failure_uses_configured_drop_policy() {
+        let script = write_lua_script("lua-egress-on-fail", "function candidate(desync) return {} end");
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: lua-egress\n    on_fail: drop\n    steps:\n      - type: lua\n        function: candidate\n        script_paths:\n          - \"{}\"\n",
+            script.display()
+        );
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        assert!(interceptor.handle_packet(&ipv4_tcp_packet(20_000, 443, b"abc")));
+        assert!(interceptor.injector.packets.is_empty());
     }
 
     #[test]

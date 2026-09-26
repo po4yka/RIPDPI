@@ -254,6 +254,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         &mut associations,
         &mut eviction_heap,
         &mut None,
+        &mut Vec::new(),
         UdpEvent::Packet { src, association_id: 7, raw: vec![1, 2, 3, 4] },
     );
 
@@ -295,6 +296,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         &mut associations,
         &mut eviction_heap,
         &mut None,
+        &mut Vec::new(),
         UdpEvent::Packet { src, association_id: 99, raw: vec![5, 6, 7] },
     );
 
@@ -328,6 +330,7 @@ async fn handle_udp_event_removes_closed_association() {
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BoundedHeap::new(4);
+    let mut closed_sources = Vec::new();
 
     handle_udp_event(
         &mut device,
@@ -335,10 +338,12 @@ async fn handle_udp_event_removes_closed_association() {
         &mut associations,
         &mut eviction_heap,
         &mut None,
+        &mut closed_sources,
         UdpEvent::Closed { src, association_id: 20 },
     );
 
     assert!(associations.is_empty(), "closed event should remove association");
+    assert_eq!(closed_sources, vec![src]);
     worker.abort();
 }
 
@@ -372,6 +377,7 @@ async fn handle_udp_event_ignores_stale_close() {
         &mut associations,
         &mut eviction_heap,
         &mut None,
+        &mut Vec::new(),
         UdpEvent::Closed { src, association_id: 999 },
     );
 
@@ -415,6 +421,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         None,
         b"drop",
         &mut None,
+        &mut Vec::new(),
         &mut associations,
         &mut eviction_heap,
         &memory_budget,
@@ -469,6 +476,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         None,
         b"second",
         &mut None,
+        &mut Vec::new(),
         &mut associations,
         &mut eviction_heap,
         &memory_budget,
@@ -483,6 +491,63 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
 
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
     associations.remove(&src).expect("association").worker.abort();
+}
+
+/// # Cancel safety
+///
+/// Cancel-safe: the test body has no suspension point.
+#[tokio::test]
+async fn udp_association_replacement_keeps_source_strategy_state() {
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53112);
+    let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 22)), 443);
+    let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
+    let (outbound, receiver) = tokio::sync::mpsc::channel(1);
+    drop(receiver);
+    let association = UdpAssociation {
+        id: 12,
+        activity_generation: 0,
+        outbound,
+        cancel: CancellationToken::new(),
+        last_activity: Arc::new(AtomicU64::new(now_millis())),
+        worker: tokio::spawn(std::future::pending()),
+        leased_synthetic_ips: std::collections::HashSet::new(),
+        attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
+    };
+    let mut associations = HashMap::from([(src, association)]);
+    let mut eviction_heap = BoundedHeap::new(4);
+    let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
+    let stats = Arc::new(Stats::new());
+    let mut next_id = 13;
+    let mut closed_sources = Vec::new();
+
+    super::forward_udp_payload(
+        "127.0.0.1:1080".parse().expect("proxy"),
+        &Auth::NoAuth,
+        src,
+        dst,
+        dst,
+        None,
+        None,
+        b"retry",
+        &mut None,
+        &mut closed_sources,
+        &mut associations,
+        &mut eviction_heap,
+        &memory_budget,
+        &mut next_id,
+        Duration::from_secs(1),
+        None,
+        &CancellationToken::new(),
+        &udp_tx,
+        &stats,
+        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id,
+    );
+
+    assert_eq!(associations.get(&src).expect("replacement association").id, 13);
+    assert!(closed_sources.is_empty(), "replacing transport must preserve the app flow");
+    let association = associations.remove(&src).expect("replacement association");
+    association.cancel.cancel();
+    association.worker.abort();
 }
 
 #[test]
@@ -527,6 +592,7 @@ async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
         &mut associations,
         &mut eviction_heap,
         &mut dns_cache,
+        &mut Vec::new(),
         UdpEvent::Closed { src, association_id: 41 },
     );
     assert_eq!(dns_cache.as_ref().expect("cache").lease_count(synthetic_ip), 0);
@@ -569,10 +635,12 @@ async fn capacity_eviction_skips_stale_activity_generations() {
         addr: older,
     }));
 
-    evict_if_at_capacity(&mut associations, &mut eviction_heap, &mut None, 2);
+    let mut closed_sources = Vec::new();
+    evict_if_at_capacity(&mut associations, &mut eviction_heap, &mut None, &mut closed_sources, 2);
 
     assert!(associations.contains_key(&older), "refreshed association must survive its stale heap entry");
     assert!(!associations.contains_key(&newer), "least-recent current association should be evicted");
+    assert_eq!(closed_sources, vec![newer]);
     if let Some(association) = associations.remove(&older) {
         association.cancel.cancel();
         association.worker.abort();

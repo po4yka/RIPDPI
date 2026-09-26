@@ -77,6 +77,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         udp_tx,
         udp_rx,
         udp_associations: HashMap::new(),
+        closed_udp_sources: Vec::new(),
         udp_eviction_heap: BoundedHeap::new(UDP_EVICTION_HEAP_CAPACITY),
         udp_memory_budget: UdpMemoryBudget::for_tunnel_mtu(mtu),
         next_udp_association_id: 1,

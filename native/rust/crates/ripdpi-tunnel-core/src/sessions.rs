@@ -51,6 +51,8 @@ pub struct ActiveSessions {
     next_sequence: u64,
     /// Maximum number of concurrent sessions; 0 = unlimited.
     max: usize,
+    /// Exact flows removed since the tunnel last released strategy state.
+    closed_flows: Vec<ripdpi_flow_app_attribution::FlowResolveRequest>,
 }
 
 impl ActiveSessions {
@@ -62,6 +64,7 @@ impl ActiveSessions {
             work_order: VecDeque::new(),
             next_sequence: 0,
             max,
+            closed_flows: Vec::new(),
         }
     }
 
@@ -84,6 +87,7 @@ impl ActiveSessions {
                 self.entries.remove(&evicted.handle).map(|oldest| {
                     oldest.cancel.cancel();
                     if let Some(registration_id) = oldest.attribution_id {
+                        self.closed_flows.push(registration_id.request());
                         ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
                     }
                     drop(oldest.smoltcp_side);
@@ -112,7 +116,15 @@ impl ActiveSessions {
     pub fn remove(&mut self, handle: SocketHandle) -> Option<SessionEntry> {
         let entry = self.entries.remove(&handle)?;
         self.sequences.remove(&handle);
+        if let Some(registration_id) = entry.attribution_id {
+            self.closed_flows.push(registration_id.request());
+        }
         Some(entry)
+    }
+
+    /// Takes completed flow identities for strategy-state cleanup.
+    pub fn take_closed_flows(&mut self) -> Vec<ripdpi_flow_app_attribution::FlowResolveRequest> {
+        std::mem::take(&mut self.closed_flows)
     }
 
     /// Number of active sessions.
@@ -229,6 +241,31 @@ mod tests {
         assert!(sessions.contains(h2), "h2 must still be present");
         assert!(sessions.contains(h3), "h3 must still be present");
         assert!(sessions.contains(h4), "h4 must be present as the new session");
+    }
+
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the test body has no suspension point.
+    #[tokio::test]
+    async fn closed_and_capacity_evicted_sessions_release_exact_flows() {
+        let mut socket_set = SocketSet::new(vec![]);
+        let handles: Vec<_> = (0..2).map(|_| socket_set.add(make_tcp_socket())).collect();
+        let mut sessions = ActiveSessions::new(1);
+        let local = "10.0.0.2:50000".parse().expect("local address");
+        let remote = "93.184.216.34:443".parse().expect("remote address");
+        let first = ripdpi_flow_app_attribution::note_flow(6, local, remote).registration_id;
+        let second = ripdpi_flow_app_attribution::note_flow(6, "10.0.0.2:50001".parse().expect("second local"), remote)
+            .registration_id;
+        let (mut entry, _) = make_entry();
+        entry.attribution_id = Some(first);
+        sessions.insert(handles[0], entry);
+        let (mut entry, _) = make_entry();
+        entry.attribution_id = Some(second);
+        sessions.insert(handles[1], entry);
+        assert_eq!(sessions.take_closed_flows(), vec![first.request()]);
+        assert!(sessions.take_closed_flows().is_empty());
+        sessions.remove(handles[1]).expect("close second session");
+        assert_eq!(sessions.take_closed_flows(), vec![second.request()]);
     }
 
     /// U-05: ActiveSessions::insert with max=0 — no eviction; 100 inserts all present.

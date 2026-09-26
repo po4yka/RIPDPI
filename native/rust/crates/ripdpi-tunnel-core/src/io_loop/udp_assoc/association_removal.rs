@@ -8,9 +8,11 @@ use super::association_state::UdpAssociation;
 pub(super) fn remove_association(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     dns_cache: &mut Option<DnsCache>,
+    closed_sources: &mut Vec<SocketAddr>,
     src: SocketAddr,
 ) {
     if let Some(association) = associations.remove(&src) {
+        closed_sources.push(src);
         association.cancel.cancel();
         if let Some(cache) = dns_cache.as_mut() {
             for ip in association.leased_synthetic_ips {

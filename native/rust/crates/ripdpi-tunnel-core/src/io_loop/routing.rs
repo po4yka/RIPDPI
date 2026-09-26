@@ -63,6 +63,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     }
                     Verdict::ResetTcp | Verdict::DropUdp => {
                         retire_denied_tcp_flow(state, key);
+                        state.runtime.tun_egress_interceptor.close_flow(PROTO_TCP, src, dst);
                         ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
                         state.stats.record_tun_policy_drop();
                         if let Some(reset) = build_tcp_reset(packet) {
@@ -186,6 +187,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     synthetic_ip,
                     payload,
                     &mut state.dns_cache,
+                    &mut state.closed_udp_sources,
                     &mut state.udp_associations,
                     &mut state.udp_eviction_heap,
                     &state.udp_memory_budget,
@@ -197,6 +199,9 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     &state.stats,
                     registration_id,
                 );
+                if state.udp_associations.contains_key(&src) {
+                    state.runtime.tun_egress_interceptor.mark_udp_associated(src, dst);
+                }
             }
         }
     }

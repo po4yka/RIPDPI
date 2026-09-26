@@ -14,6 +14,7 @@ pub(super) fn drain_udp_events(state: &mut LoopState) {
                 &mut state.udp_associations,
                 &mut state.udp_eviction_heap,
                 &mut state.dns_cache,
+                &mut state.closed_udp_sources,
                 event,
             );
         },

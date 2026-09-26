@@ -380,6 +380,16 @@ pub trait DesyncStrategy: Send + Sync {
     /// Plans a handled step or reports that the current packet was skipped.
     fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError>;
 
+    /// Releases state held for a completed flow. Stateless strategies use the default.
+    fn close_flow(&self, _flow_id: FlowId) -> Result<(), StrategyError> {
+        Ok(())
+    }
+
+    /// Reports whether this strategy owns state for a flow.
+    fn has_flow(&self, _flow_id: FlowId) -> bool {
+        false
+    }
+
     /// Returns public strategy metadata.
     fn describe(&self) -> StrategyDescriptor;
 }

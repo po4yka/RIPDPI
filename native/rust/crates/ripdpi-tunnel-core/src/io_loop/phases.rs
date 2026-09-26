@@ -14,6 +14,11 @@ use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL
 /// Keep one busy TUN producer from monopolising the single-owner io loop. The
 /// cap matches the existing maximum TUN write batch, keeping packet work
 /// symmetric while guaranteeing every tick reaches timers and cancellation.
+///
+/// # Cancel safety
+///
+/// Cancel-safe: this function has no suspension point and finishes routing
+/// each packet before it returns.
 pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopState) {
     drain_tun_with(state, |buffer| tun.try_recv(buffer));
 }
@@ -47,6 +52,7 @@ fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::
         // O(1) amortised; no logging on the hot path.
         state.retransmit_tracker.observe(packet);
         route_tun_packet(packet, state);
+        state.release_closed_strategy_flows();
     }
 
     state.tun_read_buf = tun_read_buf;
@@ -80,6 +86,10 @@ pub(in crate::io_loop) fn gc_pending_listens(state: &mut LoopState) {
     state.loop_iteration = state.loop_iteration.wrapping_add(1);
     if state.loop_iteration.is_multiple_of(PENDING_LISTEN_GC_INTERVAL) {
         gc_stale_pending_listens(&mut state.pending_listens, &mut state.socket_set, PENDING_LISTEN_TIMEOUT);
+        state
+            .runtime
+            .tun_egress_interceptor
+            .expire_idle_udp_flows(state.runtime.udp_idle_timeout, &|src| state.udp_associations.contains_key(&src));
     }
 }
 
@@ -129,10 +139,17 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
     }
 }
 
+/// # Cancel safety
+///
+/// Cancel-safe: the delegated bridge pump has no suspension point.
 pub(in crate::io_loop) async fn pump_bridges(state: &mut LoopState) {
     pump_active_sessions(&mut state.socket_set, &mut state.sessions, &mut state.dns_cache).await;
 }
 
+/// # Cancel safety
+///
+/// NOT cancel-safe: the delegated flush can remove a packet from the TX queue
+/// before awaiting TUN write readiness.
 pub(in crate::io_loop) async fn flush_tun(tun: &AsyncDevice, state: &mut LoopState) -> io::Result<TunFlushOutcome> {
     flush_device_tx_queue(
         tun,
@@ -798,6 +815,28 @@ mod tests {
         }
     }
 
+    #[test]
+    fn closed_udp_source_reaches_tun_egress_handler_once() {
+        struct CloseRecorder(Arc<Mutex<Vec<std::net::SocketAddr>>>);
+        impl TunEgressPacketHandler for CloseRecorder {
+            fn handle_packet(&mut self, _packet: &[u8]) -> bool {
+                false
+            }
+
+            fn close_udp_source(&mut self, src: std::net::SocketAddr) {
+                self.0.lock().expect("close records").push(src);
+            }
+        }
+
+        let closed = Arc::new(Mutex::new(Vec::new()));
+        let mut state = test_loop_state(Box::new(CloseRecorder(Arc::clone(&closed))));
+        let src = "10.0.0.2:50000".parse().expect("source address");
+        state.closed_udp_sources.push(src);
+        state.release_closed_strategy_flows();
+        state.release_closed_strategy_flows();
+        assert_eq!(*closed.lock().expect("close records"), vec![src]);
+    }
+
     fn test_loop_state(tun_egress_interceptor: Box<dyn TunEgressPacketHandler>) -> LoopState {
         let mut device = TunDevice::new(1500);
         let iface_cfg = IfaceConfig::new(HardwareAddress::Ip);
@@ -837,6 +876,7 @@ mod tests {
             udp_tx,
             udp_rx,
             udp_associations: HashMap::new(),
+            closed_udp_sources: Vec::new(),
             udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,

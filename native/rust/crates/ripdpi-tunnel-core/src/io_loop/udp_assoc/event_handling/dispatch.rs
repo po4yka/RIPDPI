@@ -18,6 +18,7 @@ pub(in crate::io_loop) fn handle_udp_event(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     dns_cache: &mut Option<DnsCache>,
+    closed_sources: &mut Vec<SocketAddr>,
     event: UdpEvent,
 ) {
     match event {
@@ -29,7 +30,7 @@ pub(in crate::io_loop) fn handle_udp_event(
         }
         UdpEvent::Closed { src, association_id } => {
             if associations.get(&src).is_some_and(|association| association.id == association_id) {
-                remove_association(associations, dns_cache, src);
+                remove_association(associations, dns_cache, closed_sources, src);
             }
         }
     }

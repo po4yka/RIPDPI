@@ -66,14 +66,16 @@ pub(super) fn evict_if_over_capacity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     dns_cache: &mut Option<DnsCache>,
+    closed_sources: &mut Vec<SocketAddr>,
 ) {
-    evict_if_at_capacity(associations, eviction_heap, dns_cache, DEFAULT_MAX_UDP_ASSOCIATIONS);
+    evict_if_at_capacity(associations, eviction_heap, dns_cache, closed_sources, DEFAULT_MAX_UDP_ASSOCIATIONS);
 }
 
 pub(super) fn evict_if_at_capacity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     dns_cache: &mut Option<DnsCache>,
+    closed_sources: &mut Vec<SocketAddr>,
     capacity: usize,
 ) {
     if associations.len() < capacity {
@@ -84,7 +86,7 @@ pub(super) fn evict_if_at_capacity(
             association.id == entry.association_id && association.activity_generation == entry.activity_generation
         });
         if is_current {
-            remove_association(associations, dns_cache, entry.addr);
+            remove_association(associations, dns_cache, closed_sources, entry.addr);
             return;
         }
     }
@@ -94,6 +96,6 @@ pub(super) fn evict_if_at_capacity(
         .min_by_key(|(_, association)| association.last_activity.load(Ordering::Relaxed))
         .map(|(&addr, _)| addr)
     {
-        remove_association(associations, dns_cache, addr);
+        remove_association(associations, dns_cache, closed_sources, addr);
     }
 }

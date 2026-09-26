@@ -187,6 +187,7 @@ where
         if state.cancel.is_cancelled() {
             break;
         }
+        state.release_closed_strategy_flows();
         phases::drain_tun(tun, &mut state).await;
         phases::retry_pending_udp_admission(&mut state);
         phases::drain_dns(&mut state);
@@ -195,6 +196,7 @@ where
         phases::emit_loss_sample(&mut state);
         phases::admit_tcp_sessions(&mut state);
         phases::pump_bridges(&mut state).await;
+        state.release_closed_strategy_flows();
         let tx_pending = match phases::flush_tun(tun, &mut state).await? {
             bridge::TunFlushOutcome::Drained => false,
             bridge::TunFlushOutcome::Pending => true,

@@ -40,8 +40,20 @@ impl PacketMeta {
     }
 
     pub(crate) fn flow_id(self) -> u64 {
-        let ports = (u64::from(self.src_port) << 16) | u64::from(self.dst_port);
-        ports ^ ip_hash(self.src_ip).rotate_left(13) ^ ip_hash(self.dst_ip).rotate_left(29)
+        flow_id(self.transport, self.src_addr(), self.dst_addr())
+    }
+
+    pub(crate) fn src_addr(self) -> SocketAddr {
+        SocketAddr::new(self.src_ip, self.src_port)
+    }
+
+    pub(crate) fn dst_addr(self) -> SocketAddr {
+        SocketAddr::new(self.dst_ip, self.dst_port)
+    }
+
+    pub(crate) fn is_tcp_terminal(self, packet: &[u8]) -> bool {
+        self.transport == Transport::Tcp
+            && packet.get(self.transport_offset + 13).is_some_and(|flags| flags & 0x05 != 0)
     }
 
     pub(crate) fn payload(self, packet: &[u8]) -> &[u8] {
@@ -53,6 +65,15 @@ impl PacketMeta {
 pub(crate) enum Transport {
     Tcp,
     Udp,
+}
+
+pub(crate) fn flow_id(transport: Transport, src: SocketAddr, dst: SocketAddr) -> u64 {
+    let ports = (u64::from(src.port()) << 16) | u64::from(dst.port());
+    let protocol = match transport {
+        Transport::Tcp => u64::from(TCP_PROTO),
+        Transport::Udp => u64::from(UDP_PROTO),
+    };
+    ports ^ ip_hash(src.ip()).rotate_left(13) ^ ip_hash(dst.ip()).rotate_left(29) ^ protocol.rotate_left(47)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

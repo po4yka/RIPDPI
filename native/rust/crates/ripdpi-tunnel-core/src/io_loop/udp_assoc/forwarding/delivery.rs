@@ -33,6 +33,7 @@ pub(super) fn deliver_udp_datagram(
     synthetic_ip: Option<u32>,
     payload: &[u8],
     dns_cache: &mut Option<DnsCache>,
+    closed_sources: &mut Vec<SocketAddr>,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     memory_budget: &UdpMemoryBudget,
@@ -62,7 +63,8 @@ pub(super) fn deliver_udp_datagram(
             stats.record_tun_queue_drop();
         }
         Err(TrySendError::Closed(datagram)) => {
-            remove_association(associations, dns_cache, src);
+            // The app's UDP source remains live while its transport association is replaced.
+            remove_association(associations, dns_cache, &mut Vec::new(), src);
             let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, attribution_dst);
             ensure_udp_association(
                 associations,
@@ -75,6 +77,7 @@ pub(super) fn deliver_udp_datagram(
                 datagram.resolved_dest,
                 &datagram.payload,
                 dns_cache,
+                closed_sources,
                 idle_timeout,
                 protect_path,
                 cancel,

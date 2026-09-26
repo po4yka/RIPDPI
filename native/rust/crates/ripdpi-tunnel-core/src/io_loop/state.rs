@@ -40,6 +40,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) udp_tx: Sender<UdpEvent>,
     pub(in crate::io_loop) udp_rx: Receiver<UdpEvent>,
     pub(in crate::io_loop) udp_associations: HashMap<SocketAddr, UdpAssociation>,
+    pub(in crate::io_loop) closed_udp_sources: Vec<SocketAddr>,
     pub(in crate::io_loop) udp_eviction_heap: BoundedHeap<UdpEvictionEntry>,
     pub(in crate::io_loop) udp_memory_budget: UdpMemoryBudget,
     pub(in crate::io_loop) next_udp_association_id: u64,
@@ -50,4 +51,15 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) tun_read_buf: Vec<u8>,
     pub(in crate::io_loop) retransmit_tracker: RetransmitTracker,
     pub(in crate::io_loop) last_loss_emit_iteration: u32,
+}
+
+impl LoopState {
+    pub(in crate::io_loop) fn release_closed_strategy_flows(&mut self) {
+        for flow in self.sessions.take_closed_flows() {
+            self.runtime.tun_egress_interceptor.close_flow(flow.protocol, flow.local, flow.remote);
+        }
+        for src in self.closed_udp_sources.drain(..) {
+            self.runtime.tun_egress_interceptor.close_udp_source(src);
+        }
+    }
 }
