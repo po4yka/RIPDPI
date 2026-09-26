@@ -264,8 +264,9 @@ where
     std::thread::Builder::new()
         .name("diagnostics-dns-resolution".to_string())
         .spawn(move || {
-            let _permit = permit;
-            let _ = result_tx.send(resolver(host, port));
+            let result = resolver(host, port);
+            drop(permit);
+            let _ = result_tx.send(result);
         })
         .map_err(|error| io::Error::other(format!("failed to start bounded target resolution: {error}")))?;
 
@@ -849,6 +850,25 @@ mod tests {
         assert_eq!(second.expect_err("second resolver must be rejected").kind(), io::ErrorKind::WouldBlock);
         release_tx.send(()).expect("release first resolver");
         assert!(first.join().expect("join first resolver").is_ok());
+    }
+
+    #[test]
+    fn completed_resolution_frees_capacity_before_next_lookup() {
+        let limiter = Arc::new(ResolutionLimiter::new(1));
+        let address = "127.0.0.1:443".parse().expect("address");
+        for _ in 0..128 {
+            let resolved = resolve_host_with_limiter(
+                "completed.example.test".to_string(),
+                443,
+                Some(Instant::now() + Duration::from_secs(1)),
+                || false,
+                move |_, _| Ok(address),
+                Arc::clone(&limiter),
+            )
+            .expect("next lookup must have capacity immediately");
+            assert_eq!(resolved, address);
+            assert_eq!(limiter.active.load(Ordering::Acquire), 0, "returned result must release capacity");
+        }
     }
 
     #[test]
