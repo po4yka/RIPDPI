@@ -150,7 +150,8 @@ impl ThroughputRunner {
             if remaining_budget.is_zero() || total >= self.max_bytes {
                 break;
             }
-            match tokio::time::timeout(remaining_budget, stream.read(&mut buf)).await {
+            let read_len = (self.max_bytes - total).min(buf.len() as u64) as usize;
+            match tokio::time::timeout(remaining_budget, stream.read(&mut buf[..read_len])).await {
                 Ok(Ok(0)) => break,
                 Ok(Ok(n)) => total = total.saturating_add(n as u64),
                 Ok(Err(_)) => break,
@@ -188,5 +189,36 @@ fn classify_verdict(m: ThroughputMeasurement, b: ThroughputBaseline) -> ProbeVer
         ProbeVerdict::Fail { class: "throughput-degraded".to_string() }
     } else {
         ProbeVerdict::Fail { class: "throughput-severely-degraded".to_string() }
+    }
+}
+
+#[cfg(test)]
+mod runner_tests {
+    use std::io::Write;
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::Duration;
+
+    use super::*;
+
+    #[test]
+    fn runner_never_counts_beyond_max_bytes() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = stream.write_all(&[42; 64 * 1024]);
+        });
+        let runner = ThroughputRunner {
+            target_host: "127.0.0.1".to_string(),
+            target_port: port,
+            max_bytes: 7,
+            window: Duration::from_secs(1),
+            baseline: ThroughputBaseline { expected_bps: 1, degraded_threshold_pct: 80, severe_threshold_pct: 25 },
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let probe = runtime.block_on(runner.measure(&ProbeContext::empty()));
+        assert_eq!(probe.measurement.total_bytes, 7);
+        server.join().unwrap();
     }
 }
