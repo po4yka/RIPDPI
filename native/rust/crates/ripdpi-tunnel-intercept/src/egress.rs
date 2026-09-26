@@ -87,8 +87,14 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             return false;
         };
 
+        let host = self
+            .rules
+            .iter()
+            .any(|rule| !rule.matcher.hosts.is_empty())
+            .then(|| packet_host(meta.transport, meta.payload(packet)))
+            .flatten();
         for rule in &self.rules {
-            if !rule.matcher.matches(meta) {
+            if !rule.matcher.matches(meta, host.as_ref().map(|(protocol, host)| (*protocol, host.as_str()))) {
                 continue;
             }
             if rule.action.apply(packet, meta, &mut self.injector) {
@@ -351,6 +357,25 @@ fn classify_l7(transport: Transport, payload: &[u8]) -> L7Protocol {
     }
 }
 
+fn packet_host(transport: Transport, payload: &[u8]) -> Option<(ProtocolName, String)> {
+    match transport {
+        Transport::Tcp => parse_tls(payload)
+            .map(|host| (ProtocolName::Tls, String::from_utf8_lossy(host).trim_end_matches('.').to_ascii_lowercase()))
+            .or_else(|| {
+                http_marker_info(payload).and_then(|markers| payload.get(markers.host_start..markers.host_end)).map(
+                    |host| {
+                        (ProtocolName::Http, String::from_utf8_lossy(host).trim_end_matches('.').to_ascii_lowercase())
+                    },
+                )
+            }),
+        Transport::Udp => parse_quic_initial_layout(payload).and_then(|layout| {
+            layout.info.client_hello.get(layout.info.tls_info.host_start..layout.info.tls_info.host_end).map(|host| {
+                (ProtocolName::Quic, String::from_utf8_lossy(host).trim_end_matches('.').to_ascii_lowercase())
+            })
+        }),
+    }
+}
+
 fn populate_markers(dissect: &mut Dissect, payload: &[u8]) {
     dissect.markers.insert(MarkerName::Data, 0);
     dissect.markers.insert(MarkerName::End, payload.len());
@@ -505,15 +530,33 @@ fn inject_strategy_output<I: TunPacketInjector>(
 struct PacketMatcher {
     proto: Vec<ProtocolName>,
     ports: Vec<u16>,
+    hosts: Vec<String>,
 }
 
 impl PacketMatcher {
     fn from_strategy(strategy: &LoadedStrategy) -> Self {
-        Self { proto: strategy.matcher.proto.clone(), ports: strategy.matcher.port.clone() }
+        Self {
+            proto: strategy.matcher.proto.clone(),
+            ports: strategy.matcher.port.clone(),
+            hosts: strategy.matcher.hosts.iter().map(|host| host.trim_end_matches('.').to_ascii_lowercase()).collect(),
+        }
     }
 
-    fn matches(&self, meta: PacketMeta) -> bool {
-        self.matches_port(meta) && self.matches_proto(meta)
+    fn matches(&self, meta: PacketMeta, host: Option<(ProtocolName, &str)>) -> bool {
+        self.matches_port(meta) && self.matches_proto(meta) && self.matches_host(host)
+    }
+
+    fn matches_host(&self, host: Option<(ProtocolName, &str)>) -> bool {
+        if self.hosts.is_empty() {
+            return true;
+        }
+        let Some((protocol, host)) = host else { return false };
+        if !self.proto.is_empty() && !self.proto.contains(&ProtocolName::Any) && !self.proto.contains(&protocol) {
+            return false;
+        }
+        self.hosts
+            .iter()
+            .any(|rule| host == rule || host.strip_suffix(rule).is_some_and(|prefix| prefix.ends_with('.')))
     }
 
     fn matches_port(&self, meta: PacketMeta) -> bool {
@@ -571,6 +614,61 @@ strategies:
         let udp_len_offset = IPV4_MIN_HEADER_LEN + 4;
         assert_eq!(u16::from_be_bytes([injected[udp_len_offset], injected[udp_len_offset + 1]]), 15);
         assert_eq!(&injected[2..4], &packet[2..4], "IP total length must stay unchanged");
+    }
+
+    #[test]
+    fn host_rule_only_injects_for_matching_host() {
+        let yaml = r#"
+version: 1
+strategies:
+  - id: host-scoped
+    match:
+      proto: [http]
+      port: [80]
+      hosts: [example.com]
+    steps:
+      - type: fake
+        ttl: 5
+"#;
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+        let other = ipv4_tcp_packet(49152, 80, b"GET / HTTP/1.1\r\nHost: notexample.com\r\n\r\n");
+        let matching = ipv4_tcp_packet(49152, 80, b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n");
+        let unknown = ipv4_tcp_packet(49152, 80, b"raw tcp payload");
+
+        assert!(!interceptor.handle_packet(&other));
+        assert!(!interceptor.handle_packet(&unknown));
+        assert!(interceptor.injector.packets.is_empty());
+        assert!(!interceptor.handle_packet(&matching));
+        assert_eq!(interceptor.injector.packets.len(), 1);
+
+        let tls_rule = yaml.replace("proto: [http]", "proto: [tls]");
+        let mut tls_interceptor = TunEgressInterceptor::new(Some(&tls_rule), RecordingInjector::default());
+        assert!(!tls_interceptor.handle_packet(&matching));
+        assert!(tls_interceptor.injector.packets.is_empty());
+    }
+
+    #[test]
+    fn quic_host_rule_only_injects_for_matching_sni() {
+        let yaml = r#"
+version: 1
+strategies:
+  - id: quic-host-scoped
+    match:
+      proto: [quic]
+      port: [443]
+      hosts: [example.com]
+    steps:
+      - type: udplen
+        delta: 4
+"#;
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+        let other = build_realistic_quic_initial(QUIC_V1_VERSION, Some("other.example.test")).expect("QUIC initial");
+        let matching = build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.com")).expect("QUIC initial");
+
+        assert!(!interceptor.handle_packet(&ipv4_udp_packet(49152, 443, &other)));
+        assert!(interceptor.injector.packets.is_empty());
+        assert!(!interceptor.handle_packet(&ipv4_udp_packet(49152, 443, &matching)));
+        assert_eq!(interceptor.injector.packets.len(), 1);
     }
 
     #[test]
