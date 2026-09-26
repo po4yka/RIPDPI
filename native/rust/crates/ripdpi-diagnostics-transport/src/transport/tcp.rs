@@ -195,10 +195,22 @@ where
 
     let mut last_error = None;
     for _ in 0..attempt_count {
-        match result_rx.recv() {
-            Ok((address, Ok(stream))) => return Ok((stream, address)),
-            Ok((_, Err(error))) => last_error = Some(error),
-            Err(_) => return Err(TransportError::ConnectRacePanicked),
+        let result = match scan_deadline {
+            Some(deadline) => {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                if remaining.is_zero() {
+                    return Err(TransportError::ScanDeadlineExceeded);
+                }
+                result_rx.recv_timeout(remaining).map_err(|error| match error {
+                    mpsc::RecvTimeoutError::Timeout => TransportError::ScanDeadlineExceeded,
+                    mpsc::RecvTimeoutError::Disconnected => TransportError::ConnectRacePanicked,
+                })?
+            }
+            None => result_rx.recv().map_err(|_| TransportError::ConnectRacePanicked)?,
+        };
+        match result {
+            (address, Ok(stream)) => return Ok((stream, address)),
+            (_, Err(error)) => last_error = Some(error),
         }
     }
     Err(last_error.unwrap_or(TransportError::NoAddresses))
@@ -206,11 +218,16 @@ where
 
 pub fn wait_for_listener(addr: SocketAddr) -> Result<(), TransportError> {
     for _ in 0..40 {
-        if super::protect::protected_tcp_connect(addr, Duration::from_millis(50)).is_ok() {
+        let timeout =
+            bounded_scan_io_timeout(Duration::from_millis(50)).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+        if super::protect::protected_tcp_connect(addr, timeout).is_ok() {
             return Ok(());
         }
-        thread::sleep(Duration::from_millis(25));
+        let delay =
+            bounded_scan_io_timeout(Duration::from_millis(25)).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+        thread::sleep(delay);
     }
+    bounded_scan_io_timeout(Duration::from_millis(1)).map_err(|_| TransportError::ScanDeadlineExceeded)?;
     Err(TransportError::ListenerNotReady(addr))
 }
 
@@ -254,6 +271,30 @@ mod tests {
         });
 
         assert!(matches!(result, Err(error) if error.to_string() == "scan_deadline_exceeded"));
+    }
+
+    #[test]
+    fn address_race_stops_waiting_at_scan_deadline() {
+        let addresses = vec!["192.0.2.1:443".parse().unwrap(), "192.0.2.2:443".parse().unwrap()];
+        let started = Instant::now();
+        let result = with_scan_io_deadline(Some(started + Duration::from_millis(30)), || {
+            race_initial_addresses(
+                addresses,
+                Arc::new(|_| {
+                    thread::sleep(Duration::from_millis(300));
+                    Err::<(), _>(TransportError::NoAddresses)
+                }),
+            )
+        });
+        assert!(matches!(result, Err(TransportError::ScanDeadlineExceeded)));
+    }
+
+    #[test]
+    fn listener_wait_stops_at_scan_deadline() {
+        let address = "127.0.0.1:0".parse().unwrap();
+        let started = Instant::now();
+        let result = with_scan_io_deadline(Some(started + Duration::from_millis(30)), || wait_for_listener(address));
+        assert!(matches!(result, Err(TransportError::ScanDeadlineExceeded)));
     }
 
     #[test]
