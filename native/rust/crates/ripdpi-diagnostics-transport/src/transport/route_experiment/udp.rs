@@ -56,10 +56,10 @@ fn relay_udp_bucket(
     route_identity: &str,
     bucket: usize,
 ) -> Result<(Vec<u8>, SocketAddr, SocketAddr), String> {
-    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let mut last_error = None;
     for destination in destinations.iter().copied() {
-        match relay_udp_direct_with_bucket(destination, payload, config, route_identity, bucket, timeout) {
+        bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+        match relay_udp_direct_with_bucket(destination, payload, config, route_identity, bucket) {
             Ok(result) => return Ok(result),
             Err(err) => last_error = Some(err),
         }
@@ -73,7 +73,6 @@ fn relay_udp_direct_with_bucket(
     config: &RouteExperimentConfig,
     route_identity: &str,
     bucket: usize,
-    timeout: std::time::Duration,
 ) -> Result<(Vec<u8>, SocketAddr, SocketAddr), String> {
     let domain = socket_domain_for(server);
     let kind_seed = stable_probe_hash(config.session_seed, route_identity);
@@ -84,12 +83,48 @@ fn relay_udp_direct_with_bucket(
     let _ = socket.set_reuse_address(true);
     socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
     let udp: UdpSocket = socket.into();
-    udp.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
-    udp.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())?;
+    let write_timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+    udp.set_write_timeout(Some(write_timeout)).map_err(|err| err.to_string())?;
     udp.connect(server).map_err(|err| err.to_string())?;
     udp.send(payload).map_err(|err| err.to_string())?;
+    let read_timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+    udp.set_read_timeout(Some(read_timeout)).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
     let size = udp.recv(&mut buf).map_err(|err| err.to_string())?;
     let local_addr = udp.local_addr().map_err(|err| err.to_string())?;
     Ok((buf[..size].to_vec(), server, local_addr))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::UdpSocket;
+    use std::time::{Duration, Instant};
+
+    use crate::transport::types::RouteExperimentConfig;
+    use crate::util::{stable_probe_hash, with_scan_io_deadline};
+
+    use super::super::common::route_bucket_port;
+    use super::relay_udp_bucket;
+
+    #[test]
+    fn route_attempt_does_not_try_next_destination_after_deadline() {
+        let silent = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let addresses = [silent.local_addr().unwrap(); 2];
+        let session_seed = (0..256)
+            .find(|seed| {
+                let port = route_bucket_port(stable_probe_hash(*seed, "deadline-test"), 0);
+                UdpSocket::bind(("0.0.0.0", port)).is_ok()
+            })
+            .expect("available route bucket port");
+        let config = RouteExperimentConfig {
+            stable_flow_attempts: 1,
+            diversity_buckets: 1,
+            diversity_on_failure_only: false,
+            session_seed,
+        };
+        let result = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(40)), || {
+            relay_udp_bucket(&addresses, b"ping", &config, "deadline-test", 0)
+        });
+        assert_eq!(result.unwrap_err(), "scan_deadline_exceeded");
+    }
 }
