@@ -27,9 +27,8 @@ impl CandidateRuntimeSupervisor {
         self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).record(receipt);
     }
 
-    /// Returns the aggregate only after every registered candidate has been
-    /// shut down and joined.  A terminal event must not be published before
-    /// this barrier succeeds.
+    /// Returns the aggregate after every candidate has stopped and each worker
+    /// has either joined or has a recorded forced-detach receipt.
     pub(crate) fn terminal_receipt(&self) -> Option<CandidateRuntimeTerminalReceipt> {
         self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).terminal_receipt()
     }

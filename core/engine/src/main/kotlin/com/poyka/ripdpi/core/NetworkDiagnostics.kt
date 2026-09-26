@@ -22,7 +22,7 @@ import javax.inject.Inject
  *
  * ## Idempotency
  * [startScan] is **not** idempotent: starting a second scan while one is
- * running throws `IllegalStateException` ("diagnostics scan already running").
+ * running or before consuming its finished report throws `IllegalStateException`.
  * [cancelScan] **is** idempotent — it is a no-op when no scan is active.
  * [takeReport] has take semantics: it consumes the finished report, so a second
  * call returns `null` until the next scan completes.
@@ -34,7 +34,7 @@ import javax.inject.Inject
  * ## Error mapping
  * Native failures throw Java exceptions from the JNI frame:
  * `IllegalArgumentException` (invalid/unknown handle, malformed request JSON or
- * session id), `IllegalStateException` (scan already running), and
+ * session id), `IllegalStateException` (scan already running or unread report), and
  * `RuntimeException` (session-creation failure or a contained Rust panic). The
  * `String?`-returning polls yield `null` on a contained panic.
  *
@@ -53,7 +53,7 @@ interface NetworkDiagnosticsBindings {
 
     /**
      * Spawns a scan for [requestJson] tagged [sessionId] and returns immediately.
-     * Throws `IllegalStateException` if a scan is already running on [handle].
+     * Throws `IllegalStateException` if a scan is running or its report is unread.
      */
     fun startScan(
         handle: Long,

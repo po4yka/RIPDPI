@@ -96,7 +96,7 @@ pub fn run_engine_scan(
     }))
     .unwrap_or_else(|payload| RunnerOutcome::Failed(crate::engine::panic_payload_message(&*payload)));
     let Some(terminal_receipt) = supervisor.terminal_receipt() else {
-        let message = "candidate runtime cleanup barrier did not join every runtime".to_string();
+        let message = "candidate runtime cleanup barrier did not settle every runtime".to_string();
         let mut report = build_report(
             ReportBuildContext {
                 session_id: plan.session_id.clone(),
