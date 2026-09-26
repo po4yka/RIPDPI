@@ -202,12 +202,13 @@ fn telegram_download_transfer_loop(
     total_timeout: Duration,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramTransferResult {
-    let header_buf = match read_telegram_http_headers(stream, MAX_HTTP_BYTES, should_abort) {
+    let start = std::time::Instant::now();
+    let header_buf = match read_telegram_http_headers(stream, MAX_HTTP_BYTES, start, total_timeout, should_abort) {
         Ok(h) => h,
         Err(err) => {
             stream.shutdown();
             let status = abort_status_from_error(&err).unwrap_or("blocked");
-            return TelegramTransferResult::from_transfer(status, 0, 0, std::time::Instant::now(), Some(err));
+            return TelegramTransferResult::from_transfer(status, 0, 0, start, Some(err));
         }
     };
     let body_start = match telegram_response_body_start(&header_buf) {
@@ -219,12 +220,11 @@ fn telegram_download_transfer_loop(
     };
     let body_prefix_len = header_buf.len() - body_start;
 
-    let start = std::time::Instant::now();
-    let mut last_data_at = start;
+    let mut last_data_at = std::time::Instant::now();
     let mut bytes_total = body_prefix_len;
     let mut peak_bps = 0u64;
     let mut sample_bytes = 0usize;
-    let mut sample_start = start;
+    let mut sample_start = last_data_at;
     let mut buf = [0u8; TELEGRAM_CHUNK_SIZE];
     if let Some(reason) = should_abort() {
         stream.shutdown();
@@ -323,6 +323,8 @@ fn telegram_response_body_start(headers: &[u8]) -> Result<usize, String> {
 fn read_telegram_http_headers(
     stream: &mut dyn TelegramIo,
     max_bytes: usize,
+    start: std::time::Instant,
+    total_timeout: Duration,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> Result<Vec<u8>, String> {
     let mut buffer = Vec::new();
@@ -331,7 +333,12 @@ fn read_telegram_http_headers(
         if let Some(reason) = should_abort() {
             return Err(format!("probe_aborted:{reason}"));
         }
-        clamp_transfer_io_timeout(stream)?;
+        let remaining = total_timeout.saturating_sub(start.elapsed());
+        if remaining.is_zero() {
+            return Err("deadline_exceeded".to_string());
+        }
+        let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+        stream.set_io_timeout(timeout.min(remaining)).map_err(|err| err.to_string())?;
         match stream.read(&mut chunk) {
             Ok(0) => break,
             Ok(n) => {
@@ -520,9 +527,7 @@ fn telegram_upload_transfer_loop(
     }
 
     if bytes_total == content_length {
-        let response_abort =
-            || should_abort().or_else(|| (start.elapsed() >= total_timeout).then_some("deadline_exceeded"));
-        let response = read_telegram_http_headers(stream, MAX_HTTP_BYTES, &response_abort)
+        let response = read_telegram_http_headers(stream, MAX_HTTP_BYTES, start, total_timeout, should_abort)
             .and_then(|headers| telegram_response_body_start(&headers));
         if let Err(err) = response {
             stream.shutdown();
@@ -532,7 +537,7 @@ fn telegram_upload_transfer_loop(
     }
 
     stream.shutdown();
-    let status = if bytes_total >= content_length * 98 / 100 {
+    let status = if bytes_total == content_length {
         "ok"
     } else if bytes_total > 0 {
         "slow"
@@ -554,17 +559,27 @@ mod tests {
     struct TestIo {
         response: std::io::Cursor<Vec<u8>>,
         written: Vec<u8>,
+        timeout_reads: usize,
+        write_delay: Duration,
+        configured_timeout: Option<Duration>,
     }
 
     impl Read for TestIo {
         fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-            self.response.read(buf)
+            if self.timeout_reads > 0 {
+                self.timeout_reads -= 1;
+                std::thread::sleep(Duration::from_millis(2));
+                Err(std::io::Error::from(ErrorKind::TimedOut))
+            } else {
+                self.response.read(buf)
+            }
         }
     }
 
     impl Write for TestIo {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
             self.written.extend_from_slice(buf);
+            std::thread::sleep(self.write_delay);
             Ok(buf.len())
         }
 
@@ -576,7 +591,8 @@ mod tests {
     impl TelegramIo for TestIo {
         fn shutdown(&mut self) {}
 
-        fn set_io_timeout(&mut self, _timeout: Duration) -> std::io::Result<()> {
+        fn set_io_timeout(&mut self, timeout: Duration) -> std::io::Result<()> {
+            self.configured_timeout = Some(timeout);
             Ok(())
         }
     }
@@ -586,6 +602,9 @@ mod tests {
         let mut stream = TestIo {
             response: std::io::Cursor::new(b"HTTP/1.1 404 Not Found\r\nContent-Length: 2\r\n\r\nno".to_vec()),
             written: Vec::new(),
+            timeout_reads: 0,
+            write_delay: Duration::ZERO,
+            configured_timeout: None,
         };
 
         let result =
@@ -599,6 +618,9 @@ mod tests {
         let mut stream = TestIo {
             response: std::io::Cursor::new(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n".to_vec()),
             written: Vec::new(),
+            timeout_reads: 0,
+            write_delay: Duration::ZERO,
+            configured_timeout: None,
         };
 
         let result =
@@ -606,6 +628,43 @@ mod tests {
         assert_eq!(stream.written.len(), 5);
         assert_eq!(result.status, "blocked");
         assert_eq!(result.error.as_deref(), Some("http_status_403"));
+    }
+
+    #[test]
+    fn download_header_timeout_obeys_total_timeout() {
+        let mut stream = TestIo {
+            response: std::io::Cursor::new(Vec::new()),
+            written: Vec::new(),
+            timeout_reads: 1,
+            write_delay: Duration::ZERO,
+            configured_timeout: None,
+        };
+
+        let result =
+            telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_millis(1), &|| None);
+        assert_eq!(result.status, "deadline_exceeded");
+        assert!(stream.configured_timeout.unwrap() <= Duration::from_millis(1));
+    }
+
+    #[test]
+    fn upload_near_complete_without_response_is_not_ok() {
+        let mut stream = TestIo {
+            response: std::io::Cursor::new(Vec::new()),
+            written: Vec::new(),
+            timeout_reads: 0,
+            write_delay: Duration::from_millis(5),
+            configured_timeout: None,
+        };
+
+        let result = telegram_upload_transfer_loop(
+            &mut stream,
+            TELEGRAM_CHUNK_SIZE + 1,
+            Duration::from_secs(1),
+            Duration::from_millis(1),
+            &|| None,
+        );
+        assert_eq!(result.bytes_total, TELEGRAM_CHUNK_SIZE);
+        assert_eq!(result.status, "slow");
     }
 
     #[test]
