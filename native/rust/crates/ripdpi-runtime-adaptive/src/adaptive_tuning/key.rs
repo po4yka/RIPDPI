@@ -5,6 +5,7 @@ use ripdpi_packets::is_quic_initial;
 
 use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
 
+use super::MAX_ADAPTIVE_KEY_BYTES;
 use super::types::{AdaptiveFlowKind, AdaptivePlannerKey, AdaptivePlannerTarget};
 
 const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
@@ -24,6 +25,14 @@ pub(super) fn adaptive_key(
         flow_kind,
         target: normalized_host(host).map_or(AdaptivePlannerTarget::Address(dest), AdaptivePlannerTarget::Host),
     }
+}
+
+pub(super) fn cacheable_key(key: &AdaptivePlannerKey) -> bool {
+    key.network_scope_key.len() <= MAX_ADAPTIVE_KEY_BYTES
+        && match &key.target {
+            AdaptivePlannerTarget::Host(host) => host.len() <= MAX_ADAPTIVE_KEY_BYTES,
+            AdaptivePlannerTarget::Address(_) => true,
+        }
 }
 
 pub(super) fn tcp_flow_kind(payload: &[u8]) -> AdaptiveFlowKind {

@@ -1,12 +1,18 @@
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 use super::schema::StoredAdaptivePlannerStore;
 use crate::adaptive_tuning::key::now_millis;
 
+const MAX_ADAPTIVE_STORE_BYTES: u64 = 8 * 1024 * 1024;
+
 pub(super) fn read_store(path: &Path) -> Result<StoredAdaptivePlannerStore, io::Error> {
-    let payload = fs::read(path)?;
+    let mut payload = Vec::new();
+    fs::File::open(path)?.take(MAX_ADAPTIVE_STORE_BYTES + 1).read_to_end(&mut payload)?;
+    if payload.len() as u64 > MAX_ADAPTIVE_STORE_BYTES {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "adaptive tuning store exceeds size limit"));
+    }
     serde_json::from_slice::<StoredAdaptivePlannerStore>(&payload)
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, format!("invalid adaptive tuning store: {err}")))
 }
@@ -14,6 +20,9 @@ pub(super) fn read_store(path: &Path) -> Result<StoredAdaptivePlannerStore, io::
 pub(super) fn write_store(path: &Path, store: &StoredAdaptivePlannerStore) -> io::Result<()> {
     let payload = serde_json::to_vec_pretty(store)
         .map_err(|err| io::Error::other(format!("failed to serialize adaptive tuning store: {err}")))?;
+    if payload.len() as u64 > MAX_ADAPTIVE_STORE_BYTES {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "adaptive tuning store exceeds size limit"));
+    }
     atomic_write(path, &payload)
 }
 
@@ -53,7 +62,7 @@ fn next_temp_file_nonce() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::atomic_write;
+    use super::{MAX_ADAPTIVE_STORE_BYTES, atomic_write, read_store};
     use std::fs;
 
     #[test]
@@ -65,5 +74,13 @@ mod tests {
         assert!(atomic_write(&destination, b"new state").is_err());
         assert!(destination.is_dir());
         assert_eq!(fs::read_dir(temp.path()).expect("list parent").count(), 1);
+    }
+
+    #[test]
+    fn oversized_store_is_rejected_before_json_parsing() {
+        let temp = tempfile::tempdir().expect("temp directory");
+        let path = temp.path().join("store.json");
+        fs::File::create(&path).expect("create store").set_len(MAX_ADAPTIVE_STORE_BYTES + 1).expect("size store");
+        assert_eq!(read_store(&path).expect_err("oversized store must fail").kind(), std::io::ErrorKind::InvalidData);
     }
 }

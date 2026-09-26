@@ -37,6 +37,9 @@
 //! the adaptive store is written next to it; otherwise the current working
 //! directory is used as a CLI/native fallback. Persisted state is versioned and
 //! invalidated whenever the configured group layout changes.
+//! The resolver keeps at most 1024 targets with adaptive candidates; least
+//! recently used state is evicted when the limit is reached. Recency is local
+//! to the process; loaded entries start in deterministic store order.
 
 mod candidates;
 mod feedback;
@@ -45,6 +48,9 @@ mod persistence;
 mod resolver;
 mod state;
 mod types;
+
+const MAX_ADAPTIVE_STATES: usize = 1024;
+const MAX_ADAPTIVE_KEY_BYTES: usize = 1024;
 
 pub use resolver::AdaptivePlannerResolver;
 

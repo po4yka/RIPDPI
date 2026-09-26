@@ -469,8 +469,125 @@ fn adaptive_store_round_trips_full_state() {
     resolver.note_tcp_success(Some("scope-a"), 0, target, Some("persist.example.test"), payload);
     resolver.flush_store(&config);
 
-    let reloaded = AdaptivePlannerResolver::load(&config);
+    let mut reloaded = AdaptivePlannerResolver::load(&config);
+    for state in resolver.states.values_mut() {
+        state.last_used_seq = 0;
+    }
+    for state in reloaded.states.values_mut() {
+        state.last_used_seq = 0;
+    }
     assert_eq!(reloaded.states, resolver.states);
+}
+
+#[test]
+fn resolver_does_not_cache_targets_without_adaptive_candidates() {
+    let mut resolver = AdaptivePlannerResolver::default();
+    let group = DesyncGroup::new(0);
+    for index in 0..1025 {
+        resolver.resolve_tcp_hints(None, 0, addr(80), Some(&format!("host-{index}.test")), &group, b"GET /");
+    }
+    assert!(resolver.states.is_empty());
+}
+
+#[test]
+fn resolver_evicts_least_recent_state_and_persists_the_limit() {
+    let payload = b"GET / HTTP/1.1\r\n\r\n";
+    let group = tcp_group_with_adaptive_split();
+    let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
+    let mut resolver = AdaptivePlannerResolver::default();
+    for index in 0..1024 {
+        resolver.resolve_tcp_hints(None, 0, addr(80), Some(&format!("host-{index}.test")), &group, payload);
+    }
+    resolver.resolve_tcp_hints(None, 0, addr(80), Some("host-0.test"), &group, payload);
+    resolver.note_tcp_success(None, 0, addr(80), Some("host-1.test"), payload);
+    resolver.resolve_tcp_hints(None, 0, addr(80), Some("overflow.test"), &group, payload);
+
+    let touched_by_resolve = adaptive_key(None, 0, tcp_flow_kind(payload), addr(80), Some("host-0.test"));
+    let touched_by_feedback = adaptive_key(None, 0, tcp_flow_kind(payload), addr(80), Some("host-1.test"));
+    let oldest = adaptive_key(None, 0, tcp_flow_kind(payload), addr(80), Some("host-2.test"));
+    assert_eq!(resolver.states.len(), 1024);
+    assert!(resolver.states.contains_key(&touched_by_resolve));
+    assert!(resolver.states.contains_key(&touched_by_feedback));
+    assert!(!resolver.states.contains_key(&oldest));
+
+    resolver.flush_store(&config);
+    let reloaded = AdaptivePlannerResolver::load(&config);
+    assert_eq!(reloaded.states.len(), 1024);
+    assert!(!reloaded.states.contains_key(&oldest));
+}
+
+#[test]
+fn resolver_trims_oversized_legacy_store_on_load() {
+    let group = tcp_group_with_adaptive_split();
+    let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
+    let mut states = std::collections::HashMap::new();
+    for index in 0..1025 {
+        let key = adaptive_key(None, 0, tcp_flow_kind(b"GET /"), addr(80), Some(&format!("host-{index}.test")));
+        let mut state = AdaptivePlannerState::new(adaptive_seed(&key));
+        state.sync_tcp_candidates(&group, b"GET /");
+        states.insert(key, state);
+    }
+    write_adaptive_store(&config, &states).expect("write old unbounded store");
+
+    let mut resolver = AdaptivePlannerResolver::load(&config);
+    assert_eq!(resolver.states.len(), 1024);
+    resolver.flush_store(&config);
+    assert_eq!(load_adaptive_store(&config).expect("read trimmed store").0.len(), 1024);
+}
+
+#[test]
+fn resolver_replaces_oversized_store_on_flush() {
+    let (config, _tmp) = config_with_adaptive_store(vec![DesyncGroup::new(0)]);
+    let path = adaptive_store_path(&config).expect("store path");
+    fs::File::create(&path).expect("create store").set_len(8 * 1024 * 1024 + 1).expect("size store");
+
+    let mut resolver = AdaptivePlannerResolver::load(&config);
+    assert!(resolver.states.is_empty());
+    resolver.flush_store(&config);
+    assert_eq!(load_adaptive_store(&config).expect("read replacement").0.len(), 0);
+    assert!(fs::metadata(&path).expect("store metadata").len() < 8 * 1024 * 1024);
+}
+
+#[test]
+fn resolver_preserves_store_after_io_load_error() {
+    let (config, _tmp) = config_with_adaptive_store(vec![DesyncGroup::new(0)]);
+    let path = adaptive_store_path(&config).expect("store path");
+    fs::create_dir(&path).expect("make path unreadable as a file");
+
+    let mut resolver = AdaptivePlannerResolver::load(&config);
+    assert!(!resolver.dirty);
+    resolver.flush_store(&config);
+    assert!(path.is_dir());
+}
+
+#[test]
+fn oversized_write_preserves_previous_store() {
+    let group = tcp_group_with_adaptive_split();
+    let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
+    let path = adaptive_store_path(&config).expect("store path");
+    let mut resolver = AdaptivePlannerResolver::default();
+    resolver.resolve_tcp_hints(None, 0, addr(80), Some("small.test"), &group, b"GET /");
+    resolver.note_tcp_success(None, 0, addr(80), Some("small.test"), b"GET /");
+    resolver.flush_store(&config);
+    let previous = fs::read(&path).expect("read initial store");
+
+    let huge_host = "a".repeat(8 * 1024 * 1024);
+    let key = adaptive_key(None, 0, tcp_flow_kind(b"GET /"), addr(80), Some(&huge_host));
+    let mut state = AdaptivePlannerState::new(adaptive_seed(&key));
+    state.sync_tcp_candidates(&group, b"GET /");
+    let states = std::collections::HashMap::from([(key, state)]);
+    assert!(write_adaptive_store(&config, &states).is_err());
+    assert_eq!(fs::read(&path).expect("read preserved store"), previous);
+}
+
+#[test]
+fn resolver_does_not_cache_oversized_keys() {
+    let group = tcp_group_with_adaptive_split();
+    let mut resolver = AdaptivePlannerResolver::default();
+    let host = "a".repeat(1025);
+    let hints = resolver.resolve_tcp_hints(None, 0, addr(80), Some(&host), &group, b"GET /");
+    assert_eq!(hints.split_offset_base, Some(OffsetBase::Host));
+    assert!(resolver.states.is_empty());
 }
 
 #[test]

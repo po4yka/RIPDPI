@@ -56,6 +56,7 @@ impl AdaptivePlannerState {
         };
         let dimension_cursor = if state.dimension_cursor < dimension_order.len() { state.dimension_cursor } else { 0 };
         Self {
+            last_used_seq: 0,
             split_offset_base: state.split_offset_base.and_then(|choice| load_choice(choice, restore_offset_base)),
             tls_record_offset_base: state
                 .tls_record_offset_base

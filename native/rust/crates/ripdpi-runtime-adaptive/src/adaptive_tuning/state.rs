@@ -20,6 +20,7 @@ pub(super) struct ChoiceState<T> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct AdaptivePlannerState {
+    pub(super) last_used_seq: u64,
     pub(super) split_offset_base: Option<ChoiceState<OffsetBase>>,
     pub(super) tls_record_offset_base: Option<ChoiceState<OffsetBase>>,
     pub(super) tlsrandrec_profile: Option<ChoiceState<AdaptiveTlsRandRecProfile>>,
@@ -32,6 +33,7 @@ pub(super) struct AdaptivePlannerState {
 impl AdaptivePlannerState {
     pub(super) fn new(seed: u64) -> Self {
         Self {
+            last_used_seq: 0,
             split_offset_base: None,
             tls_record_offset_base: None,
             tlsrandrec_profile: None,
@@ -70,6 +72,14 @@ impl AdaptivePlannerState {
             timing_jitter_profile: None,
             oob_byte_placement: None,
         }
+    }
+
+    pub(super) fn has_candidates(&self) -> bool {
+        self.split_offset_base.is_some()
+            || self.tls_record_offset_base.is_some()
+            || self.tlsrandrec_profile.is_some()
+            || self.udp_burst_profile.is_some()
+            || self.quic_fake_profile.is_some()
     }
 
     pub(super) fn note_success(&mut self) {

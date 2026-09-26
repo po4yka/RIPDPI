@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::io;
 
-use super::key::{adaptive_seed, normalize_scope_key};
+use super::MAX_ADAPTIVE_STATES;
+use super::key::{adaptive_seed, cacheable_key, normalize_scope_key};
 use super::state::AdaptivePlannerState;
 use super::types::AdaptivePlannerKey;
 
@@ -23,18 +24,19 @@ use schema::{
 
 pub(super) fn load_adaptive_store(
     config: &ripdpi_config::RuntimeConfig,
-) -> Result<HashMap<AdaptivePlannerKey, AdaptivePlannerState>, io::Error> {
+) -> Result<(HashMap<AdaptivePlannerKey, AdaptivePlannerState>, bool), io::Error> {
     let Some(path) = adaptive_store_path(config) else {
-        return Ok(HashMap::new());
+        return Ok((HashMap::new(), false));
     };
     if !path.exists() {
-        return Ok(HashMap::new());
+        return Ok((HashMap::new(), false));
     }
     let store = read_store(&path)?;
     if store.version != ADAPTIVE_TUNING_STORE_VERSION || store.fingerprint != adaptive_store_fingerprint(config) {
-        return Ok(HashMap::new());
+        return Ok((HashMap::new(), false));
     }
     let mut states = HashMap::new();
+    let mut trimmed = false;
     for (network_scope_key, scope) in store.scopes {
         let scope_key = normalize_scope_key(Some(&network_scope_key)).to_string();
         for entry in scope.entries {
@@ -48,10 +50,19 @@ pub(super) fn load_adaptive_store(
                 target: entry.target,
             };
             let seed = adaptive_seed(&key);
-            states.insert(key, AdaptivePlannerState::from_persisted(entry.state, seed));
+            let mut state = AdaptivePlannerState::from_persisted(entry.state, seed);
+            if !cacheable_key(&key)
+                || !state.has_candidates()
+                || (states.len() == MAX_ADAPTIVE_STATES && !states.contains_key(&key))
+            {
+                trimmed = true;
+                continue;
+            }
+            state.last_used_seq = states.len() as u64 + 1;
+            states.insert(key, state);
         }
     }
-    Ok(states)
+    Ok((states, trimmed))
 }
 
 pub(super) fn write_adaptive_store(
