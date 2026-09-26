@@ -1,7 +1,8 @@
 use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage, classify_quic_probe};
 
 use crate::types::{
-    ObservationKind, ProbeDetail, ProbeObservation, ProbeResult, StrategyProbeProtocol, TransportFailureKind,
+    ObservationKind, ProbeDetail, ProbeObservation, ProbeResult, StrategyProbeProtocol, StrategyProbeStatus,
+    TransportFailureKind,
 };
 
 pub fn strategy_probe_failure_priority(class: FailureClass) -> usize {
@@ -18,7 +19,7 @@ pub fn strategy_probe_failure_priority(class: FailureClass) -> usize {
 
 pub fn classify_strategy_probe_observation(observation: &ProbeObservation) -> Option<ClassifiedFailure> {
     let strategy = observation.strategy.as_ref()?;
-    if observation.kind != ObservationKind::Strategy {
+    if observation.kind != ObservationKind::Strategy || strategy.status != StrategyProbeStatus::Failed {
         return None;
     }
     match strategy.protocol {

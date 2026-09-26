@@ -77,6 +77,17 @@ fn strategy_probe_failure_weight_http_is_1() {
     assert_eq!(strategy_probe_failure_weight(&result), 1);
 }
 
+#[test]
+fn successful_https_baseline_has_no_failure_class() {
+    let result = ProbeResult {
+        probe_type: "strategy_https".to_string(),
+        target: "example.com".to_string(),
+        outcome: "tls_ok".to_string(),
+        details: vec![],
+    };
+    assert!(classify_strategy_probe_baseline_results(&[result]).is_none());
+}
+
 fn connectivity_request() -> ScanRequest {
     ScanRequest {
         profile_id: "ru-dpi-full".to_string(),
