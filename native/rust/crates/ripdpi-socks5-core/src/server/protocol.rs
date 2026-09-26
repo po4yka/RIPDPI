@@ -434,7 +434,10 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
         let (proto, cmd, target_addr) = {
             let triple = proto.read_command().await?;
 
-            if self.config.dns_resolve {
+            // UDP ASSOCIATE describes the client's expected UDP source.
+            // Resolving it here is unnecessary and can cause DNS I/O before
+            // we validate the source of any datagram.
+            if self.config.dns_resolve && triple.1 != Socks5Command::UDPAssociate {
                 triple.resolve_dns().await?
             } else {
                 debug!("Domain won't be resolved because `dns_resolve`'s config has been turned off.");
@@ -452,11 +455,15 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
                     run_tcp_proxy(proto, &target_addr, self.config.request_timeout, self.config.nodelay).await?;
             }
             Socks5Command::UDPAssociate if self.config.allow_udp => {
+                let Some(control_peer_ip) = self.control_peer_ip else {
+                    proto.reply_error(&ReplyError::GeneralFailure).await?;
+                    return Err(SocksServerError::Bug("missing control peer ip").into());
+                };
                 self.inner =
                     run_udp_proxy(
                         proto,
                         &target_addr,
-                        self.control_peer_ip.context("missing control peer ip")?,
+                        control_peer_ip,
                         None,
                         self.reply_ip.context("invalid reply ip")?,
                         None,
