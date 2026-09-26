@@ -12,7 +12,9 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Streaming
 import retrofit2.http.Url
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -105,7 +107,30 @@ private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.
 
 private fun Response<ResponseBody>.requireBodyText(): String = requireSuccessfulBody().use(ResponseBody::string)
 
-private fun Response<ResponseBody>.requireBodyBytes(): ByteArray = requireSuccessfulBody().use(ResponseBody::bytes)
+private fun Response<ResponseBody>.requireBodyBytes(): ByteArray =
+    requireSuccessfulBody().use { body ->
+        if (body.contentLength() > GeoAssetMaxLocalImportBytes) {
+            throw IOException("Geo asset exceeds the 64 MiB download limit")
+        }
+        readBoundedGeoAssetBytes(body.byteStream())
+    }
+
+internal fun readBoundedGeoAssetBytes(
+    input: InputStream,
+    maxBytes: Long = GeoAssetMaxLocalImportBytes,
+): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(8 * 1024)
+    var total = 0L
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        total += read
+        if (total > maxBytes) throw IOException("Geo asset exceeds the download limit")
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
+}
 
 private fun Response<ResponseBody>.requireSuccessfulBody(): ResponseBody {
     if (isSuccessful) {
