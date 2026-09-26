@@ -39,11 +39,6 @@ internal class DiagnosticsScanExecutionCoordinator
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
-        private companion object {
-            const val ServiceResumeWaitAttempts = 50
-            const val ServiceResumeWaitDelayMs = 200L
-        }
-
         internal suspend fun execute(
             prepared: PreparedDiagnosticsScan,
             handle: BridgeSessionHandle,
@@ -94,18 +89,19 @@ internal class DiagnosticsScanExecutionCoordinator
                 activeScanRegistry.cancelledSessionFailures.putIfAbsent(prepared.sessionId, outcome.failure)
             }
             var primaryCleaned = false
-            val cleanupPrimary = suspend {
-                if (!primaryCleaned) {
-                    primaryCleaned = true
-                    cleanupPrimaryScan(
-                        prepared = prepared,
-                        handle = handle,
-                        failure = outcome.failure ?: outcome.externalCancellation,
-                        persistFailure = !outcome.rawPathTerminalBarrierIncomplete,
-                        pollingState = pollingState,
-                    )
+            val cleanupPrimary =
+                suspend {
+                    if (!primaryCleaned) {
+                        primaryCleaned = true
+                        cleanupPrimaryScan(
+                            prepared = prepared,
+                            handle = handle,
+                            failure = outcome.failure ?: outcome.externalCancellation,
+                            persistFailure = !outcome.rawPathTerminalBarrierIncomplete,
+                            pollingState = pollingState,
+                        )
+                    }
                 }
-            }
             try {
                 if (
                     outcome.failure == null &&
@@ -473,8 +469,9 @@ internal class DiagnosticsScanExecutionCoordinator
                                 runningSession.copy(
                                     status = "failed",
                                     summary = finalizeFailure.message ?: "Diagnostics scan finalization failed",
-                                    reportJson = runningSession.reportJson
-                                        ?: outcome.reportJson.withLocalNetworkDeferrals(prepared, json),
+                                    reportJson =
+                                        runningSession.reportJson
+                                            ?: outcome.reportJson.withLocalNetworkDeferrals(prepared, json),
                                     finishedAt = System.currentTimeMillis(),
                                 ),
                             )
@@ -563,7 +560,7 @@ internal class DiagnosticsScanExecutionCoordinator
                         ),
                     ) { "DNS-corrected re-probe was cancelled before startup" }
                     onReserved()
-                    waitForVpnServiceResume()
+                    waitForVpnServiceResume(serviceStateStore)
                     reprobe =
                         preparedReprobe.bindCurrentInPathRoute(
                             serviceStateStore = serviceStateStore,
@@ -655,17 +652,18 @@ internal class DiagnosticsScanExecutionCoordinator
                 runCatching { bridgeExecutionService.destroy(handle) }
             }
         }
-
-        private suspend fun waitForVpnServiceResume() {
-            repeat(ServiceResumeWaitAttempts) {
-                if (serviceStateStore.status.value == AppStatus.Running to Mode.VPN) {
-                    return
-                }
-                delay(ServiceResumeWaitDelayMs)
-            }
-            error("Timed out waiting for VPN service to resume before DNS-corrected re-probe")
-        }
     }
+
+private const val ServiceResumeWaitAttempts = 50
+private const val ServiceResumeWaitDelayMs = 200L
+
+private suspend fun waitForVpnServiceResume(serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore) {
+    repeat(ServiceResumeWaitAttempts) {
+        if (serviceStateStore.status.value == AppStatus.Running to Mode.VPN) return
+        delay(ServiceResumeWaitDelayMs)
+    }
+    error("Timed out waiting for VPN service to resume before DNS-corrected re-probe")
+}
 
 private fun Throwable.summaryForScan(
     sessionId: String,
