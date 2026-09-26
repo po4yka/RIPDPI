@@ -9,7 +9,7 @@ import java.util.Locale
 
 object DetectionPrivacyMask {
     private val ipv4Regex = Regex("""\b(?:\d{1,3}\.){3}\d{1,3}\b""")
-    private val ipv6Regex = Regex("""(?i)\b(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{0,4}\b""")
+    private val ipv6Regex = Regex("""(?i)(?<![0-9a-z_.:])(?:[0-9a-f]*:){2,}[0-9a-f]*(?![0-9a-z_.:])""")
 
     fun maskIp(
         ip: String,

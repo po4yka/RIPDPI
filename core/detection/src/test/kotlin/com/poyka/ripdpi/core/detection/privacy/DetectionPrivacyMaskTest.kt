@@ -49,4 +49,12 @@ class DetectionPrivacyMaskTest {
             DetectionPrivacyMask.maskIpsInText(text, enabled = true),
         )
     }
+
+    @Test
+    fun `compressed public ipv6 is masked in text`() {
+        assertEquals(
+            "proxy=[2001:db8:0:0:****:****:****:****]",
+            DetectionPrivacyMask.maskIpsInText("proxy=[2001:db8::1]", enabled = true),
+        )
+    }
 }
