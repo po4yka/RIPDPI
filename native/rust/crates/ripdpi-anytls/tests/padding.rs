@@ -51,6 +51,19 @@ fn parser_rejects_invalid_or_missing_stop() {
 }
 
 #[test]
+fn parser_rejects_padding_larger_than_wire_frame() {
+    for size in [usize::from(u16::MAX) + 1, usize::MAX] {
+        let scheme = format!("stop=2\n1=1-{size}");
+        assert!(PaddingScheme::parse(scheme.as_bytes()).is_err());
+    }
+}
+
+#[test]
+fn parser_rejects_aggregate_padding_larger_than_wire_frame() {
+    assert!(PaddingScheme::parse(b"stop=2\n1=65535-65535,65535-65535").is_err());
+}
+
+#[test]
 fn range_bounds_are_normalized_and_deterministic_for_tests() {
     let scheme = PaddingScheme::parse(b"stop=2\n0=30-10\n1=100-101").expect("scheme parses");
 

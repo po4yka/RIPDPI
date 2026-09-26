@@ -191,6 +191,7 @@ impl PaddingScheme {
 
 fn parse_packet_rule(value: &str) -> Result<Vec<SizeRule>, PaddingError> {
     let mut rules = Vec::new();
+    let mut total_size: usize = 0;
     for part in value.split(',').map(str::trim).filter(|part| !part.is_empty()) {
         if part == "c" {
             rules.push(SizeRule::CheckIfNoMoreData);
@@ -202,10 +203,14 @@ fn parse_packet_rule(value: &str) -> Result<Vec<SizeRule>, PaddingError> {
         };
         let min = min.trim().parse::<usize>().map_err(|_| PaddingError::InvalidRange(part.to_owned()))?;
         let max = max.trim().parse::<usize>().map_err(|_| PaddingError::InvalidRange(part.to_owned()))?;
-        if min == 0 || max == 0 {
+        if min == 0 || max == 0 || min > usize::from(u16::MAX) || max > usize::from(u16::MAX) {
             return Err(PaddingError::InvalidRange(part.to_owned()));
         }
         let (min, max) = if min <= max { (min, max) } else { (max, min) };
+        total_size = total_size.checked_add(max).ok_or_else(|| PaddingError::InvalidRange(part.to_owned()))?;
+        if total_size > usize::from(u16::MAX) {
+            return Err(PaddingError::InvalidRange(part.to_owned()));
+        }
         if min == max {
             rules.push(SizeRule::Fixed(min));
         } else {
