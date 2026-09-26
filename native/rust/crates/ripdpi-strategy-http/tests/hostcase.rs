@@ -11,3 +11,9 @@ fn hostcase_is_deterministic_for_the_same_flow_id() {
     assert_eq!(first, second);
     assert_ne!(first, payload);
 }
+
+#[test]
+fn hostcase_changes_an_already_uppercase_single_letter_host() {
+    let payload = b"GET / HTTP/1.1\r\nHost: A\r\n\r\n";
+    assert_ne!(apply_hostcase(payload, FlowId(0)), payload);
+}

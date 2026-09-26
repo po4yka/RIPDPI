@@ -33,7 +33,7 @@ pub fn apply_hostcase(input: &[u8], flow_id: FlowId) -> Vec<u8> {
     let mut output = input.to_vec();
     let mut state = flow_id.0 ^ 0x9e37_79b9_7f4a_7c15;
     let mut changed = false;
-    for byte in &mut output[host] {
+    for byte in &mut output[host.clone()] {
         if byte.is_ascii_alphabetic() {
             state = xorshift64(state);
             let next = if state & 1 == 0 { byte.to_ascii_lowercase() } else { byte.to_ascii_uppercase() };
@@ -41,15 +41,10 @@ pub fn apply_hostcase(input: &[u8], flow_id: FlowId) -> Vec<u8> {
             *byte = next;
         }
     }
-    if changed {
-        output
-    } else {
-        let Some(host) = find_host_value(input) else {
-            return input.to_vec();
-        };
-        output[host.start] = output[host.start].to_ascii_uppercase();
-        output
+    if !changed && let Some(byte) = output[host].iter_mut().find(|byte| byte.is_ascii_alphabetic()) {
+        *byte = if byte.is_ascii_lowercase() { byte.to_ascii_uppercase() } else { byte.to_ascii_lowercase() };
     }
+    output
 }
 
 /// Inserts an extra CR after the HTTP/1.x request line.
