@@ -173,9 +173,10 @@ class QuicH3FingerprintProbeTest {
     private fun probe(socket: QuicUdpProbe): QuicH3FingerprintProbe =
         QuicH3FingerprintProbe(
             socket = socket,
-            packetFactory = QuicInitialPacketFactory { fingerprint, target ->
-                QuicFingerprintFactory.createSynthetic(fingerprint, target)
-            },
+            packetFactory =
+                QuicInitialPacketFactory { fingerprint, target ->
+                    QuicFingerprintFactory.createSynthetic(fingerprint, target)
+                },
         )
 }
 

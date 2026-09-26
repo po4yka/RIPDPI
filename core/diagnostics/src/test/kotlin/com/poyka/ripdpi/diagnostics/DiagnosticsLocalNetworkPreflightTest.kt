@@ -128,7 +128,12 @@ class DiagnosticsLocalNetworkPreflightTest {
             val admission = AndroidLocalNetworkAccess(context).prepareScanEndpoints(request)
 
             assertEquals(1, admission.request.dnsTargets.size)
-            assertEquals(EngineProbeTaskFamily.DOH_JSON_SURVEY, admission.request.probeTasks.single().family)
+            assertEquals(
+                EngineProbeTaskFamily.DOH_JSON_SURVEY,
+                admission.request.probeTasks
+                    .single()
+                    .family,
+            )
         }
 
     @Test

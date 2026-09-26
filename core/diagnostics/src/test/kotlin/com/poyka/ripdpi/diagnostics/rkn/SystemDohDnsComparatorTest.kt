@@ -25,7 +25,10 @@ class SystemDohDnsComparatorTest {
         runTest {
             withTimeout(1) {
                 comparator(
-                    system = { delay(100); setOf("1.2.3.4") },
+                    system = {
+                        delay(100)
+                        setOf("1.2.3.4")
+                    },
                     doh = { setOf("1.2.3.4") },
                 ).compare("example.org")
             }

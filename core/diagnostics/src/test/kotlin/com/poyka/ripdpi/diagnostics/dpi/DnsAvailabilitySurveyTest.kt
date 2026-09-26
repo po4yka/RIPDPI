@@ -21,10 +21,11 @@ class DnsAvailabilitySurveyTest {
                 DnsAvailabilitySurvey(
                     servers = listOf(DnsServer("cancelled", DnsServerType.UDP, "192.0.2.53")),
                     domains = listOf("first.example", "second.example"),
-                    udpProbe = UdpAvailabilityProbe { _, _ ->
-                        attempts++
-                        throw CancellationException("cancelled")
-                    },
+                    udpProbe =
+                        UdpAvailabilityProbe { _, _ ->
+                            attempts++
+                            throw CancellationException("cancelled")
+                        },
                 )
 
             try {
@@ -44,10 +45,11 @@ class DnsAvailabilitySurveyTest {
                 DnsAvailabilitySurvey(
                     servers = listOf(DnsServer("timed", DnsServerType.UDP, "192.0.2.53")),
                     domains = listOf("first.example", "second.example"),
-                    udpProbe = UdpAvailabilityProbe { _, _ ->
-                        attempts++
-                        awaitCancellation()
-                    },
+                    udpProbe =
+                        UdpAvailabilityProbe { _, _ ->
+                            attempts++
+                            awaitCancellation()
+                        },
                 )
 
             try {
@@ -69,7 +71,11 @@ class DnsAvailabilitySurveyTest {
                     domains = listOf("first.example"),
                     dohProbe =
                         object : DohWireAvailabilityProbe {
-                            override suspend fun warmup(server: DnsServer, domain: String, timeoutMs: Long) {
+                            override suspend fun warmup(
+                                server: DnsServer,
+                                domain: String,
+                                timeoutMs: Long,
+                            ) {
                                 awaitCancellation()
                             }
 

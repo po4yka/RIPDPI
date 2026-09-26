@@ -65,7 +65,14 @@ class DiagnosticsShareWarningSummaryTest {
                 )
 
             assertEquals("newer-error", stores.getWarningNativeEventsForSession("scan-1", 1).single().id)
-            assertEquals("newer-error", stores.observeWarningNativeEvents(1).first().single().id)
+            assertEquals(
+                "newer-error",
+                stores
+                    .observeWarningNativeEvents(1)
+                    .first()
+                    .single()
+                    .id,
+            )
         }
 
     private fun seedWarningBehindInformation(

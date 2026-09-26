@@ -90,5 +90,4 @@ class QuicFingerprintFactoryTest {
     ) : QuicInitialPacketNativeBindings {
         override fun create(requestJson: String): String? = response()
     }
-
 }

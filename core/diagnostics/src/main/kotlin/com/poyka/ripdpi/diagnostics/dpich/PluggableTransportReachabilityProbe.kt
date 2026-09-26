@@ -291,9 +291,11 @@ class SnowflakeStunReachabilityProbe(
             data[1] == 0x01.toByte() &&
             messageLength % StunAttributeAlignment == 0 &&
             length == StunHeaderBytes + messageLength &&
-            data.copyOfRange(StunCookieOffset, StunTransactionIdOffset)
+            data
+                .copyOfRange(StunCookieOffset, StunTransactionIdOffset)
                 .contentEquals(StunBindingRequestPrefix.copyOfRange(StunCookieOffset, StunTransactionIdOffset)) &&
-            data.copyOfRange(StunTransactionIdOffset, StunHeaderBytes)
+            data
+                .copyOfRange(StunTransactionIdOffset, StunHeaderBytes)
                 .contentEquals(request.copyOfRange(StunTransactionIdOffset, StunHeaderBytes))
     }
 

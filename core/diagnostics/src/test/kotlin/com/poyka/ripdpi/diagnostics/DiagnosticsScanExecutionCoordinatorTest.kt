@@ -682,7 +682,9 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
             assertEquals(false, fixtures.activeScanRegistry.hasHiddenActiveScan)
             assertEquals(
                 "failed",
-                stores.sessionsState.value.first { it.pathMode == ScanPathMode.IN_PATH.name }.status,
+                stores.sessionsState.value
+                    .first { it.pathMode == ScanPathMode.IN_PATH.name }
+                    .status,
             )
         }
 

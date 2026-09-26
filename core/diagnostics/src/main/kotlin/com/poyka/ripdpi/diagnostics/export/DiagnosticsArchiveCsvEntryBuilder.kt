@@ -179,9 +179,10 @@ private fun String?.safeRelayDecisionToken(): String = this?.takeIf(RelayDecisio
 private fun String?.archiveLocalAlias(
     aliases: MutableMap<String, String>,
     prefix: String,
-): String = this?.takeIf(RelayDecisionToken::matches)?.let {
-    aliases.getOrPut(it) { "$prefix-${UUID.randomUUID().toString().replace("-", "")}" }
-} ?: "unavailable"
+): String =
+    this?.takeIf(RelayDecisionToken::matches)?.let {
+        aliases.getOrPut(it) { "$prefix-${UUID.randomUUID().toString().replace("-", "")}" }
+    } ?: "unavailable"
 
 private fun isRelayHealthDecisionEvent(event: com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity): Boolean =
     event.subsystem == "relay_health_decision"

@@ -30,11 +30,14 @@ internal suspend fun AndroidLocalNetworkAccess.prepareScanEndpoints(
     val admittedDnsDomains = admitted.dnsTargets.map { it.domain.lowercase() }.toSet()
     return LocalNetworkScanAdmission(
         admitted.copy(
-            probeTasks = admitted.probeTasks.filterNot { task ->
-                (task.family to task.targetId) in filter.deniedTasks ||
-                    (task.family == EngineProbeTaskFamily.DOH_JSON_SURVEY &&
-                        task.targetId.lowercase() !in admittedDnsDomains)
-            },
+            probeTasks =
+                admitted.probeTasks.filterNot { task ->
+                    (task.family to task.targetId) in filter.deniedTasks ||
+                        (
+                            task.family == EngineProbeTaskFamily.DOH_JSON_SURVEY &&
+                                task.targetId.lowercase() !in admittedDnsDomains
+                        )
+                },
         ),
         filter.deferred,
     )

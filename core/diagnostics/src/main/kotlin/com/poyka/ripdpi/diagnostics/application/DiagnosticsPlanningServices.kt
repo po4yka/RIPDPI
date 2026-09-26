@@ -224,7 +224,8 @@ internal class DefaultDiagnosticsPlanner
             val probeTasks =
                 buildList {
                     dnsTargets.forEach { add(ProbeTask(ProbeFamily.DNS, it.domain, it.domain)) }
-                    dnsTargets.distinctBy { it.domain.lowercase() }
+                    dnsTargets
+                        .distinctBy { it.domain.lowercase() }
                         .forEach { add(ProbeTask(ProbeFamily.DOH_JSON_SURVEY, it.domain, it.domain)) }
                     domainTargets.forEach { add(ProbeTask(ProbeFamily.WEB, it.host, it.host)) }
                     quicTargets.forEach { add(ProbeTask(ProbeFamily.QUIC, it.host, it.host)) }
