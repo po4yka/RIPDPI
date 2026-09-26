@@ -25,7 +25,8 @@ pub trait CandidateProbeRuntime: Send {
     /// Requests cooperative cancellation of listener and connection work.
     fn request_shutdown(&mut self);
 
-    /// Forces tracked I/O closed and joins every owned runtime thread.
+    /// Forces tracked I/O closed and waits a bounded time for worker exit.
+    /// The receipt records a detached worker if the wait expires.
     fn force_abort_and_join(&mut self) -> CandidateRuntimeTerminalReceipt;
 
     /// Completes cooperative shutdown and joins every owned worker.
