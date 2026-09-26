@@ -141,11 +141,12 @@ internal class DetectionAuxStateOwner(
         result: DetectionCheckResult,
         score: Int,
     ) {
+        val network = networkFingerprintProvider.capture()
         val entry =
             DetectionHistoryEntry(
-                networkFingerprint = networkFingerprintProvider.capture()?.scopeKey() ?: "unknown",
+                networkFingerprint = network?.scopeKey() ?: "unknown",
                 networkSummary =
-                    networkFingerprintProvider.capture()?.summary()?.let {
+                    network?.summary()?.let {
                         "${it.transport}/${it.identityKind}"
                     } ?: result.geoIp.findings
                         .firstOrNull { it.description.startsWith("ISP:") }

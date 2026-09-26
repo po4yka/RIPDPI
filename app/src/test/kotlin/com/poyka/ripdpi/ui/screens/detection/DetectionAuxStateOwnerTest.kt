@@ -268,12 +268,13 @@ class DetectionAuxStateOwnerTest {
         runTest {
             val (_, red) = reducer()
             val history = FakeDetectionHistoryRepository()
+            val networkProvider = FakeNetworkFingerprintProvider(wifiFingerprint())
             val owner =
                 DetectionAuxStateOwner(
                     scope = testScope,
                     reducer = red,
                     appSettingsRepository = FakeDetectionAppSettingsRepository(),
-                    networkFingerprintProvider = FakeNetworkFingerprintProvider(wifiFingerprint()),
+                    networkFingerprintProvider = networkProvider,
                     historyStore = history,
                     communityStatsRepository = FakeCommunityStatsRepository(),
                     detectionCheckPreferences = FakeDetectionCheckPreferenceStore(),
@@ -285,6 +286,7 @@ class DetectionAuxStateOwnerTest {
             assertEquals(1, history.saved.size)
             assertEquals("wifi/wifi", history.saved.first().networkSummary)
             assertEquals(80, history.saved.first().stealthScore)
+            assertEquals(1, networkProvider.captureCount)
             assertTrue(history.loadLatestCount >= 1)
         }
 
