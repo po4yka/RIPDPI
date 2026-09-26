@@ -123,19 +123,18 @@ impl RelaySession for ShadowsocksSession {
         connect_tcp(Arc::clone(&self.config), target).await
     }
 
+    // cancel-safe: a cancelled open drops its owned UDP socket before use.
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         let config = Arc::clone(&self.config);
-        let socket = bind_udp(config.outbound_bind_ip).await?;
-        let want_v4 = socket.local_addr()?.is_ipv4();
-        let server_addr = config
-            .socket_protection
-            .resolve_host(&config.server_host, config.server_port)
-            .await?
-            .into_iter()
-            .find(|addr| addr.is_ipv4() == want_v4)
-            .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
-            })?;
+        let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
+        let server_addr = match config.outbound_bind_ip {
+            Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()),
+            None => addrs.iter().copied().find(SocketAddr::is_ipv4).or_else(|| addrs.into_iter().next()),
+        }
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
+        })?;
+        let socket = bind_udp(config.outbound_bind_ip, server_addr).await?;
         // VpnService.protect() invariant: protect the bound UDP carrier fd before
         // the first send so it bypasses the app's own TUN route. REL-1.
         crate::protect::protect_carrier_socket(&socket, server_addr, config.socket_protection)?;
@@ -396,11 +395,13 @@ async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStrea
     socket.connect(server_addr).await
 }
 
-async fn bind_udp(bind_ip: Option<IpAddr>) -> io::Result<UdpSocket> {
-    match bind_ip {
-        Some(ip) => UdpSocket::bind(SocketAddr::new(ip, 0)).await,
-        None => UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).await,
-    }
+// cancel-safe: cancellation drops the unconnected UDP socket.
+async fn bind_udp(bind_ip: Option<IpAddr>, server_addr: SocketAddr) -> io::Result<UdpSocket> {
+    let ip = bind_ip.unwrap_or_else(|| match server_addr {
+        SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+        SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+    });
+    UdpSocket::bind(SocketAddr::new(ip, 0)).await
 }
 
 fn encode_address(target: &str, payload: &[u8]) -> io::Result<Vec<u8>> {
@@ -487,6 +488,23 @@ mod tests {
     use std::task::{Context, Poll};
     use tokio::io::ReadBuf;
     use tokio::sync::Notify;
+
+    // cancel-safe: cancellation drops the unconnected UDP socket.
+    #[tokio::test]
+    async fn udp_session_supports_ipv6_only_server_without_bind_ip() {
+        let factory = ShadowsocksSessionFactory::new(
+            "::1".into(),
+            443,
+            "aes-128-gcm".into(),
+            "test-credential".into(),
+            None,
+            ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        )
+        .expect("factory");
+        let session = factory.create_session().await.expect("session");
+        let datagram = session.open_datagram().await.expect("IPv6 UDP carrier");
+        assert!(datagram.socket.local_addr().unwrap().is_ipv6());
+    }
 
     // cancel-safe: cancellation drops the local streams; the test runtime owns the server task.
     #[tokio::test(flavor = "current_thread")]
