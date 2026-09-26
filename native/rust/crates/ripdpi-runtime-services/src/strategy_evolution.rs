@@ -79,7 +79,17 @@ impl StrategyEvolutionResolver {
     }
 
     pub(crate) fn reset(&mut self) {
-        self.evolver = StrategyEvolver::new(self.evolver.is_enabled(), self.evolver.epsilon());
+        let previous = &self.evolver;
+        let mut evolver = StrategyEvolver::new(previous.is_enabled(), previous.epsilon())
+            .with_time_knobs(
+                previous.experiment_ttl_ms,
+                previous.decay_half_life_ms,
+                previous.cooldown_after_failures,
+                previous.cooldown_ms,
+            )
+            .with_learning_hardening(previous.max_arm_attempts, previous.penalties_enabled);
+        evolver.max_combos = previous.max_combos;
+        self.evolver = evolver;
         self.current_probe_generation = 0;
         self.consumed_probe_domains.clear();
     }
@@ -284,6 +294,30 @@ mod tests {
         assert_eq!(reachability_set_context(Some("service.gov.ru")), LearningReachabilitySet::Domestic);
         assert_eq!(reachability_set_context(Some("example.com")), LearningReachabilitySet::Foreign);
         assert_eq!(reachability_set_context(None), LearningReachabilitySet::Unknown);
+    }
+
+    #[test]
+    fn reset_preserves_evolver_configuration() {
+        let mut config = RuntimeConfig::default();
+        config.adaptive.strategy_evolution = true;
+        config.adaptive.evolution_experiment_ttl_ms = 12_345;
+        config.adaptive.evolution_decay_half_life_ms = 23_456;
+        config.adaptive.evolution_cooldown_after_failures = 7;
+        config.adaptive.evolution_cooldown_ms = 34_567;
+        let mut resolver = StrategyEvolutionResolver::from_config(&config);
+        resolver.evolver.max_combos = 11;
+        resolver.evolver.max_arm_attempts = 13;
+        resolver.evolver.penalties_enabled = true;
+
+        resolver.reset();
+
+        assert_eq!(resolver.evolver.max_combos, 11);
+        assert_eq!(resolver.evolver.max_arm_attempts, 13);
+        assert!(resolver.evolver.penalties_enabled);
+        assert_eq!(resolver.evolver.experiment_ttl_ms, config.adaptive.evolution_experiment_ttl_ms);
+        assert_eq!(resolver.evolver.decay_half_life_ms, config.adaptive.evolution_decay_half_life_ms);
+        assert_eq!(resolver.evolver.cooldown_after_failures, config.adaptive.evolution_cooldown_after_failures);
+        assert_eq!(resolver.evolver.cooldown_ms, config.adaptive.evolution_cooldown_ms);
     }
 
     #[test]
