@@ -12,11 +12,12 @@
 - Copy inbound route requests into the existing Activity shell, then replace the Activity intent before Compose creates the navigation graph. This prevents Navigation's direct deep-link handling, including internal deep-link extras supplied by an exported caller.
 - Parse the five existing `ripdpi://` navigation hosts into stable routes. Keep unsupported hosts inert, including public `disconnect`.
 - Apply one gate predicate to every shell navigation request. Leave pending requests unconsumed until navigation reaches an authorized route.
+- Give gated navigation a key owned by the ViewModel instance. The same ViewModel retains it across Activity configuration changes; a new process creates a new key so Navigation cannot restore an unlocked back stack before the gate.
 
 ## Contracts and ownership
 
 - Affected module: `:app`. No Rust crates, wire or persistence contracts, migration, or serialized shared files change.
-- One writer owns `MainActivity`, `MainActivityShellController`, `RipDpiNavHost`, and their direct tests.
+- One writer owns `MainActivity`, `MainActivityContent`, `MainActivityShellController`, `MainViewModel`, `RipDpiNavHost`, and their direct tests.
 
 ## Risks / Trade-offs
 

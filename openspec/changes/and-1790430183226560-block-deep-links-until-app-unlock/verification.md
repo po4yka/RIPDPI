@@ -3,7 +3,7 @@ task_id: AND-1790430183226560
 change: and-1790430183226560-block-deep-links-until-app-unlock
 commit_sha: null
 local: passed
-local_evidence: Targeted :app:testGithubFullDebugUnitTest passed 50 tests; :app:detekt and app main/test ktlint checks passed with native build skipped.
+local_evidence: Targeted :app:testGithubFullDebugUnitTest passed 52 tests; :app:detekt and app main/test ktlint checks passed with native build skipped.
 remote_ci: required
 remote_ci_evidence: null
 device: required

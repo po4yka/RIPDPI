@@ -23,9 +23,10 @@ Keep an app with onboarding or local authentication enabled behind its gate when
 - A cold or warm deep link cannot show a destination behind onboarding or the biometric gate.
 - Supported deep links open the requested destination after the gate clears.
 - Navigation's direct Activity-intent handling cannot bypass the gate.
+- A restored navigation stack after process death cannot bypass the gate.
 - Targeted Android unit tests cover these paths.
 
 ## Ownership
 
-- Android UI writer: `MainActivity`, `MainActivityShellController`, `RipDpiNavHost`, and their direct tests.
+- Android UI writer: `MainActivity`, `MainActivityContent`, `MainActivityShellController`, `MainViewModel`, `RipDpiNavHost`, and their direct tests.
 - No serialized shared files or parallel writers are involved.

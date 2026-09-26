@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.debug.RecompositionReportEffect
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -131,7 +132,10 @@ private fun ReadyMainActivityContent(
                 .fillMaxSize()
                 .ripDpiAutomationTreeRoot(),
     ) {
-        key(startupState.startDestination) {
+        key(
+            startupState.startDestination,
+            navigationStateKey(startupState.startDestination, viewModel.navigationSessionKey),
+        ) {
             // Flavor seam: the "full" source set renders the full nav host;
             // the "simple" source set renders the two-action SimpleHomeScreen.
             AppExperienceContent(
@@ -150,6 +154,11 @@ private fun ReadyMainActivityContent(
         )
     }
 }
+
+internal fun navigationStateKey(
+    startDestination: Route,
+    sessionKey: String,
+): String = if (startDestination == Route.BiometricPrompt || startDestination == Route.Onboarding) sessionKey else ""
 
 @Composable
 private fun MainActivityEffects(

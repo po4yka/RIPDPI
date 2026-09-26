@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Optional
+import java.util.UUID
 import javax.inject.Inject
 
 private const val HomeModesExpandedKey = "home.modesExpanded"
@@ -66,6 +67,7 @@ class MainViewModel
         private val pcapCaptureRuntimeController: PcapCaptureRuntimeController?,
         private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
+        val navigationSessionKey: String = UUID.randomUUID().toString()
         val homeModesDisclosure = HomeModesDisclosure(savedStateHandle)
 
         private var initialized = false

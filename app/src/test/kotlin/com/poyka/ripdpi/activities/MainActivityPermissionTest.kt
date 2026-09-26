@@ -132,6 +132,14 @@ class MainActivityPermissionTest {
     }
 
     @Test
+    fun `process death gets a new navigation state key for gated startup`() {
+        assertEquals("first", navigationStateKey(Route.BiometricPrompt, "first"))
+        assertEquals("second", navigationStateKey(Route.BiometricPrompt, "second"))
+        assertEquals("first", navigationStateKey(Route.Onboarding, "first"))
+        assertEquals("", navigationStateKey(Route.Home, "first"))
+    }
+
+    @Test
     fun `forged main activity selector extras cannot mutate selection`() {
         val context: Context = RuntimeEnvironment.getApplication()
         val forgedIntent =

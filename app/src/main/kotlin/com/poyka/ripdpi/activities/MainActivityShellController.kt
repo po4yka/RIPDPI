@@ -89,7 +89,7 @@ internal class MainActivityShellController(
         }
 
     fun setLaunchRouteRequest(route: String?) {
-        if (route != null) _state.update { it.copy(launchRouteRequested = route) }
+        _state.update { it.copy(launchRouteRequested = route) }
     }
 
     fun onEffect(effect: MainEffect) {

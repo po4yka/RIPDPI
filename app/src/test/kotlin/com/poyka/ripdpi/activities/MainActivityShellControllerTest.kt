@@ -285,14 +285,27 @@ class MainActivityShellControllerTest {
 
     @Test
     fun `public navigation link remains pending across launch routing`() {
-        val controller = MainActivityShellController(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings")))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings"))
+        val controller = MainActivityShellController(intent)
 
-        controller.setLaunchRouteRequest(null)
+        controller.setLaunchRouteRequest(navigationRouteFrom(intent)?.stableRoute)
 
         assertEquals(Route.Settings.stableRoute, controller.state.value.launchRouteRequested)
         controller.consumeLaunchRouteRequest()
         controller.onNewIntent(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config")))
         assertEquals(Route.Config.stableRoute, controller.state.value.launchRouteRequested)
+    }
+
+    @Test
+    fun `unrelated new intent clears stale automation route`() {
+        val controller = MainActivityShellController()
+        controller.setLaunchRouteRequest(Route.Settings.stableRoute)
+
+        val unrelatedIntent = Intent("unrelated")
+        controller.onNewIntent(unrelatedIntent)
+        controller.setLaunchRouteRequest(navigationRouteFrom(unrelatedIntent)?.stableRoute)
+
+        assertNull(controller.state.value.launchRouteRequested)
     }
 
     @Test

@@ -18,6 +18,11 @@ The app MUST keep onboarding and local authentication screens in front of every 
 - **WHEN** a supported deep link starts or resumes the app before onboarding is complete
 - **THEN** the app shows onboarding and does not show the linked content
 
+#### Scenario: Process is recreated with a saved unlocked stack
+
+- **WHEN** Android recreates the process while local authentication is enabled and navigation state was saved after an earlier unlock
+- **THEN** the app shows the authentication gate before any saved content
+
 ### Requirement: REQ-APP-LOCK-NAVIGATION-RESUME — Preserve link intent
 
 The app MUST open a supported pending deep-link destination after the gate clears, without executing connection start or stop actions from a public link.

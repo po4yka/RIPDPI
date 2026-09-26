@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
             automationController
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
-        shellController.setLaunchRouteRequest(automationConfig?.startRoute)
+        shellController.setLaunchRouteRequest(automationConfig?.startRoute ?: navigationRouteFrom(intent)?.stableRoute)
         // NavController handles Activity.intent when its graph is created. Keep inbound
         // links in the shell so the onboarding and app-lock gates can defer them.
         setIntent(safeMainActivityIntent(this))
@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
         shellController.onNewIntent(intent)
-        shellController.setLaunchRouteRequest(automationConfig?.startRoute)
+        shellController.setLaunchRouteRequest(automationConfig?.startRoute ?: navigationRouteFrom(intent)?.stableRoute)
     }
 
     private fun applySelectorSelection(intent: Intent?) {
