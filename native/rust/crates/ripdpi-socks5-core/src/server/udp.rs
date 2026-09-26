@@ -19,9 +19,11 @@ fn udp_bind_random_port(addr: Option<IpAddr>) -> io::Result<Socket> {
 }
 
 /// Handle the associate command by running a UDP proxy until the connection is done.
+/// `control_peer_ip` must come from the authenticated TCP control connection.
 pub async fn run_udp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
     proto: Socks5ServerProtocol<T, states::CommandRead>,
     addr: &TargetAddr,
+    control_peer_ip: IpAddr,
     peer_bind_ip: Option<IpAddr>,
     reply_ip: IpAddr,
     outbound_bind_ip: Option<IpAddr>,
@@ -29,7 +31,7 @@ pub async fn run_udp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
     run_udp_proxy_custom(proto, addr, peer_bind_ip, reply_ip, move |inbound| async move {
         let outbound = udp_bind_random_port(outbound_bind_ip).err_when("binding outbound udp socket")?;
 
-        transfer_udp(inbound, outbound).await
+        transfer_udp(inbound, outbound, control_peer_ip).await
     })
     .await
 }
@@ -37,7 +39,7 @@ pub async fn run_udp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
 /// Handle the associate command by running a UDP proxy until the connection is done.
 ///
 /// This version allows passing in a custom transfer function while reusing the initialization code.
-pub async fn run_udp_proxy_custom<T, F, R>(
+pub(crate) async fn run_udp_proxy_custom<T, F, R>(
     proto: Socks5ServerProtocol<T, states::CommandRead>,
     _addr: &TargetAddr,
     peer_bind_ip: Option<IpAddr>,
@@ -97,11 +99,14 @@ async fn handle_udp_request(
     inbound: &UdpSocket,
     outbound: &UdpSocket,
     outbound_v6: bool,
+    control_peer_ip: IpAddr,
     buf: &mut [u8],
 ) -> Result<(), SocksServerError> {
     let (size, client_addr) = inbound.recv_from(buf).await.err_when("udp receiving from")?;
     debug!("SOCKS UDP request received");
-    inbound.connect(client_addr).await.err_when("connecting udp inbound")?;
+    if !same_peer_ip(client_addr.ip(), control_peer_ip) {
+        return Ok(());
+    }
 
     let (frag, target_addr, data) = parse_udp_request(&buf[..size]).await?;
 
@@ -123,15 +128,31 @@ async fn handle_udp_request(
             v6 @ std::net::IpAddr::V6(_) => v6,
         });
     }
+    // Lock the relay to the first valid UDP source only after parsing.
+    match inbound.peer_addr() {
+        Ok(peer) if peer != client_addr => return Ok(()),
+        Ok(_) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotConnected => {
+            inbound.connect(client_addr).await.err_when("connecting udp inbound")?;
+        }
+        Err(error) => return Err(error).err_when("reading UDP association peer"),
+    }
     outbound.send_to(data, target_addr).await.err_when("udp sending to")?;
     Ok(())
 }
 
-async fn handle_udp_requests(inbound: &UdpSocket, outbound: &UdpSocket) -> Result<(), SocksServerError> {
+fn same_peer_ip(source: IpAddr, control: IpAddr) -> bool {
+    match (source, control) {
+        (IpAddr::V4(v4), IpAddr::V6(v6)) | (IpAddr::V6(v6), IpAddr::V4(v4)) => v6.to_ipv4_mapped() == Some(v4),
+        _ => source == control,
+    }
+}
+
+async fn handle_udp_requests(inbound: &UdpSocket, outbound: &UdpSocket, control_peer_ip: IpAddr) -> Result<(), SocksServerError> {
     let mut buf = vec![0u8; 8192];
     let outbound_v6 = outbound.local_addr().err_when("udp outbound local addr")?.is_ipv6();
     loop {
-        match handle_udp_request(inbound, outbound, outbound_v6, &mut buf).await {
+        match handle_udp_request(inbound, outbound, outbound_v6, control_peer_ip, &mut buf).await {
             Ok(_) => trace!("handled udp response"),
             Err(_) => debug!("SOCKS UDP request handling failed"),
         }
@@ -170,10 +191,53 @@ async fn handle_udp_responses(inbound: &UdpSocket, outbound: &UdpSocket) -> Resu
 }
 
 /// Run a bidirectional UDP SOCKS proxy for a given pair of inbound (SOCKS client) and outbound sockets.
-pub async fn transfer_udp(inbound: Socket, outbound: Socket) -> Result<(), SocksServerError> {
+/// `control_peer_ip` must come from the authenticated TCP control connection.
+pub async fn transfer_udp(inbound: Socket, outbound: Socket, control_peer_ip: IpAddr) -> Result<(), SocksServerError> {
     let inbound = UdpSocket::from_std(inbound.into()).err_when("wrapping inbound socket")?;
     let outbound = UdpSocket::from_std(outbound.into()).err_when("wrapping outbound socket")?;
-    let req_fut = handle_udp_requests(&inbound, &outbound);
+    let req_fut = handle_udp_requests(&inbound, &outbound, control_peer_ip);
     let res_fut = handle_udp_responses(&inbound, &outbound);
     try_join!(req_fut, res_fut).map(|_| ())
+}
+
+#[cfg(test)]
+mod udp_peer_tests {
+    use super::*;
+
+    // cancel-safe: cancellation drops only local test sockets.
+    #[tokio::test(flavor = "current_thread")]
+    async fn udp_association_ignores_other_ip_and_locks_first_valid_source() {
+        let inbound = UdpSocket::from_std(udp_bind_random_port(None).unwrap().into()).unwrap();
+        let outbound = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let target = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let rogue = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let valid = UdpSocket::bind("[::1]:0").await.unwrap();
+        let port = inbound.local_addr().unwrap().port();
+        let mut request = vec![0, 0, 0, 1, 127, 0, 0, 1];
+        request.extend_from_slice(&target.local_addr().unwrap().port().to_be_bytes());
+        request.push(b'x');
+        let mut buf = [0u8; 128];
+
+        rogue.send_to(&request, (Ipv4Addr::LOCALHOST, port)).await.unwrap();
+        handle_udp_request(&inbound, &outbound, false, IpAddr::V6(Ipv6Addr::LOCALHOST), &mut buf)
+            .await
+            .unwrap();
+        assert!(inbound.peer_addr().is_err(), "rogue source must not lock the relay");
+
+        valid.send_to(&request, (Ipv6Addr::LOCALHOST, port)).await.unwrap();
+        handle_udp_request(&inbound, &outbound, false, IpAddr::V6(Ipv6Addr::LOCALHOST), &mut buf)
+            .await
+            .unwrap();
+        assert_eq!(inbound.peer_addr().unwrap(), valid.local_addr().unwrap());
+        let mut echoed = [0u8; 1];
+        let (size, _) = target.recv_from(&mut echoed).await.unwrap();
+        assert_eq!(&echoed[..size], b"x");
+    }
+
+    #[test]
+    fn ipv4_mapped_source_matches_ipv4_control_peer() {
+        let v4 = Ipv4Addr::LOCALHOST;
+        assert!(same_peer_ip(IpAddr::V6(v4.to_ipv6_mapped()), IpAddr::V4(v4)));
+        assert!(!same_peer_ip(IpAddr::V6(Ipv6Addr::LOCALHOST), IpAddr::V4(v4)));
+    }
 }

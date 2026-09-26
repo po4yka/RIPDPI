@@ -7,6 +7,8 @@ pub struct Socks5Socket<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> {
     cmd: Option<Socks5Command>,
     /// Socket address which will be used in the reply message.
     reply_ip: Option<IpAddr>,
+    /// Source IP of the authenticated TCP control connection.
+    control_peer_ip: Option<IpAddr>,
     /// If the client has been authenticated, that's where we store his credentials
     /// to be accessed from the socket
     credentials: Option<A::Item>,
@@ -381,6 +383,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
             target_addr: None,
             cmd: None,
             reply_ip: None,
+            control_peer_ip: None,
             credentials: None,
         }
     }
@@ -398,6 +401,11 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
     /// [2]: https://github.com/curl/curl/blob/d15692ebbad5e9cfb871b0f7f51a73e43762cee2/lib/socks.c#L978
     pub fn set_reply_ip(&mut self, addr: IpAddr) {
         self.reply_ip = Some(addr);
+    }
+
+    /// Set the authenticated TCP peer IP used to restrict UDP ASSOCIATE packets.
+    pub fn set_control_peer_ip(&mut self, addr: IpAddr) {
+        self.control_peer_ip = Some(addr);
     }
 
     /// Process clients SOCKS requests
@@ -445,7 +453,15 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
             }
             Socks5Command::UDPAssociate if self.config.allow_udp => {
                 self.inner =
-                    run_udp_proxy(proto, &target_addr, None, self.reply_ip.context("invalid reply ip")?, None).await?;
+                    run_udp_proxy(
+                        proto,
+                        &target_addr,
+                        self.control_peer_ip.context("missing control peer ip")?,
+                        None,
+                        self.reply_ip.context("invalid reply ip")?,
+                        None,
+                    )
+                    .await?;
             }
             _ => {
                 proto.reply_error(&ReplyError::CommandNotSupported).await?;

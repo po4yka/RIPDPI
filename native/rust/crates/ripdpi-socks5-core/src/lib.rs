@@ -421,6 +421,7 @@ mod test {
 
         loop {
             let (stream, _) = listener.accept().await?; // NOTE: not spawning for test
+            let control_peer_ip = stream.peer_addr()?.ip();
             let proto = server::Socks5ServerProtocol::accept_no_auth(stream).await?;
             let (proto, cmd, mut target_addr) = proto.read_command().await?;
             target_addr = target_addr.resolve_dns().await?;
@@ -429,7 +430,7 @@ mod test {
                     server::run_tcp_proxy(proto, &target_addr, Duration::from_secs(10), false).await?;
                 }
                 Socks5Command::UDPAssociate => {
-                    server::run_udp_proxy(proto, &target_addr, None, reply_ip, None).await?;
+                    server::run_udp_proxy(proto, &target_addr, control_peer_ip, None, reply_ip, None).await?;
                 }
                 Socks5Command::TCPBind => {
                     proto.reply_error(&ReplyError::CommandNotSupported).await?;
