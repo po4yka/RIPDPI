@@ -13,9 +13,10 @@ class AppLockLifecycleObserverTest {
     @Test
     fun `moving wall clock backward does not defer relock`() {
         val observer = AppLockLifecycleObserver(RuntimeEnvironment.getApplication())
-        val owner = object : LifecycleOwner {
-            override val lifecycle = LifecycleRegistry(this)
-        }
+        val owner =
+            object : LifecycleOwner {
+                override val lifecycle = LifecycleRegistry(this)
+            }
         var wallTimeMs = 10_000L
         var elapsedTimeMs = 10_000L
         var relocks = 0
@@ -36,9 +37,10 @@ class AppLockLifecycleObserverTest {
     @Test
     fun `wall clock at epoch zero does not disable relock`() {
         val observer = AppLockLifecycleObserver(RuntimeEnvironment.getApplication())
-        val owner = object : LifecycleOwner {
-            override val lifecycle = LifecycleRegistry(this)
-        }
+        val owner =
+            object : LifecycleOwner {
+                override val lifecycle = LifecycleRegistry(this)
+            }
         var elapsedTimeMs = 10_000L
         var relocks = 0
         observer.timeSource = { 0L }

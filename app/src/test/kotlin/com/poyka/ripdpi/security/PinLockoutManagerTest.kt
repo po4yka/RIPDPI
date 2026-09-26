@@ -118,7 +118,8 @@ class PinLockoutManagerTest {
     @Test
     fun `legacy deadline migrates to monotonic lockout`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        context.getSharedPreferences("pin_lockout", android.content.Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("pin_lockout", android.content.Context.MODE_PRIVATE)
             .edit()
             .putInt("failed_attempts", 3)
             .putLong("lockout_end_ms", 1L)
