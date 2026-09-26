@@ -99,7 +99,7 @@ class ScanFinalizationService
                     artifactWriteStore = artifactWriteStore,
                     serviceStateStore = serviceStateStore,
                     json = json,
-                    deferTerminal = prepared.pathMode == ScanPathMode.RAW_PATH,
+                    deferTerminal = true,
                 )
                 resolverOverride?.let { resolverOverrideStore.setTemporaryOverride(it) }
                 prepared.networkFingerprint?.let { fingerprint ->
@@ -130,6 +130,15 @@ class ScanFinalizationService
                         pathMode = prepared.pathMode,
                         resolverOverrideApplied = resolverOverride != null,
                     )
+                if (prepared.pathMode == ScanPathMode.IN_PATH) {
+                    val staged = checkNotNull(scanRecordStore.getScanSession(prepared.sessionId))
+                    if (!staged.hasAuthoritativeManualConflictCancellation()) {
+                        check(staged.status == "running") { "In-path scan changed status during finalization" }
+                        scanRecordStore.upsertScanSession(
+                            staged.copy(status = "completed", finishedAt = finalReport.finishedAt),
+                        )
+                    }
+                }
                 ScanFinalizationResult(
                     derived = derived,
                     shouldReprobeWithCorrectedDns = shouldReprobe,

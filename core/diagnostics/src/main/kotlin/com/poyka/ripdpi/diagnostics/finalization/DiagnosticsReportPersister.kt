@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsOutcomeTaxonomy
 import com.poyka.ripdpi.diagnostics.NativeSessionEvent
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
+import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
@@ -76,12 +77,12 @@ internal object DiagnosticsReportPersister {
                 strategyJson = existing?.strategyJson,
                 pathMode = normalizedReport.pathMode.name,
                 serviceMode =
-                    if (deferTerminal) {
+                    if (deferTerminal && normalizedReport.pathMode == ScanPathMode.RAW_PATH) {
                         existing?.serviceMode
                     } else {
                         serviceStateStore.status.value.second.name
                     },
-                status = if (deferTerminal) "running" else manualConflictCancellation?.status ?: "completed",
+                status = manualConflictCancellation?.status ?: if (deferTerminal) "running" else "completed",
                 summary = manualConflictCancellation?.summary ?: normalizedReport.summary,
                 reportJson = safeReportJson,
                 reportCompletionKind =
@@ -90,7 +91,7 @@ internal object DiagnosticsReportPersister {
                         ?.name,
                 reportTerminationReason = normalizedReport.terminationReason?.name,
                 startedAt = normalizedReport.startedAt,
-                finishedAt = normalizedReport.finishedAt.takeUnless { deferTerminal },
+                finishedAt = manualConflictCancellation?.finishedAt ?: normalizedReport.finishedAt.takeUnless { deferTerminal },
                 launchOrigin = existing?.launchOrigin,
                 triggerType = existing?.triggerType,
                 triggerClassification = existing?.triggerClassification,

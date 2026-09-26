@@ -151,6 +151,99 @@ class DiagnosticsScanPolicyFinalizationTest {
         }
 
     @Test
+    fun `in path post scan failure does not publish completed session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource(stores, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    json = json,
+                )
+            val base = preparedDiagnosticsScan("in-path-post-scan-failure", defaultDiagnosticsAppSettings())
+            val prepared =
+                base.copy(
+                    pathMode = ScanPathMode.IN_PATH,
+                    context = base.context.copy(pathMode = ScanPathMode.IN_PATH),
+                    requestJson =
+                        json.encodeToString(
+                            EngineScanRequestWire.serializer(),
+                            EngineScanRequestWire(
+                                profileId = base.intent.profileId,
+                                displayName = base.intent.displayName,
+                                pathMode = ScanPathMode.IN_PATH,
+                            ),
+                        ),
+                    initialSession = base.initialSession.copy(pathMode = ScanPathMode.IN_PATH.name),
+                )
+            seedPreparedScan(stores, prepared)
+            stores.beforeUpsertSnapshot = { snapshot ->
+                if (snapshot.snapshotKind == "post_scan") error("injected post-scan artifact failure")
+            }
+            val publishedStatuses = mutableListOf<String>()
+            stores.afterUpsertScanSession = { session -> publishedStatuses += session.status }
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val bridge = fixtures.bridgeFactory.bridge
+            bridge.startScan(prepared.requestJson, prepared.sessionId)
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.sessionId, prepared.registerActiveBridge)
+
+            fixtures.coordinator.execute(
+                prepared,
+                BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge),
+                rawPathRunner = ::runSettledRawPathBlock,
+            )
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("failed", session.status)
+            assertNotNull(session.reportJson)
+            assertTrue("published statuses: $publishedStatuses", "completed" !in publishedStatuses)
+        }
+
+    @Test
+    fun `late in path report preserves manual conflict cancellation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource(stores, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    json = json,
+                )
+            val base = preparedDiagnosticsScan("in-path-manual-conflict", defaultDiagnosticsAppSettings())
+            val prepared =
+                base.copy(
+                    pathMode = ScanPathMode.IN_PATH,
+                    context = base.context.copy(pathMode = ScanPathMode.IN_PATH),
+                    initialSession = base.initialSession.copy(pathMode = ScanPathMode.IN_PATH.name),
+                )
+            seedPreparedScan(stores, prepared)
+            stores.upsertScanSession(
+                prepared.initialSession.copy(
+                    status = "failed",
+                    summary = BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                ),
+            )
+            val report =
+                ScanReport(
+                    sessionId = prepared.sessionId,
+                    profileId = prepared.initialSession.profileId,
+                    pathMode = ScanPathMode.IN_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "Late native report",
+                )
+
+            fixtures.finalizationService.finalize(prepared, json.encodeToString(report.toEngineScanReportWire()))
+
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            assertEquals("failed", session.status)
+            assertEquals(BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary, session.summary)
+            assertNotNull(session.reportJson)
+        }
+
+    @Test
     fun `raw path settlement retries the whole atomic publication after terminal write fault`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

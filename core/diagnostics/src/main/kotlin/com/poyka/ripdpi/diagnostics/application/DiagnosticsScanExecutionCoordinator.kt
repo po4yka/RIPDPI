@@ -449,9 +449,24 @@ internal class DiagnosticsScanExecutionCoordinator
                     if (finalizeFailure is CancellationException) throw finalizeFailure
                     if (finalizeFailure != null) {
                         Logger.w(finalizeFailure) {
-                            "Scan finalization failed; persisted partial session instead"
+                            "Scan finalization failed; retained terminal report"
                         }
-                        persistPartialScanSession(runningSession, outcome.reportJson, prepared, scanRecordStore, json)
+                        if (
+                            prepared.pathMode == ScanPathMode.IN_PATH &&
+                            activeScanRegistry.cancellationSummaryFor(prepared.sessionId) == null
+                        ) {
+                            scanRecordStore.upsertScanSession(
+                                runningSession.copy(
+                                    status = "failed",
+                                    summary = finalizeFailure.message ?: "Diagnostics scan finalization failed",
+                                    reportJson = runningSession.reportJson
+                                        ?: outcome.reportJson.withLocalNetworkDeferrals(prepared, json),
+                                    finishedAt = System.currentTimeMillis(),
+                                ),
+                            )
+                        } else {
+                            persistPartialScanSession(runningSession, outcome.reportJson, prepared, scanRecordStore, json)
+                        }
                     }
                     true
                 }
