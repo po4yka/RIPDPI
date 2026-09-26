@@ -215,7 +215,8 @@ object GeoIpChecker {
         require(snapshots.isNotEmpty()) { "At least one GeoIP provider response is required" }
 
         val proxyMajority = snapshots.size >= MIN_PROVIDER_COUNT && snapshots.count { it.isProxy } > snapshots.size / 2
-        val hostingMajority = snapshots.size >= MIN_PROVIDER_COUNT && snapshots.count { it.isHosting } > snapshots.size / 2
+        val hostingMajority =
+            snapshots.size >= MIN_PROVIDER_COUNT && snapshots.count { it.isHosting } > snapshots.size / 2
         val countryCode = majorityString(snapshots, GeoIpSnapshot::countryCode)
         val countrySnapshot =
             snapshots

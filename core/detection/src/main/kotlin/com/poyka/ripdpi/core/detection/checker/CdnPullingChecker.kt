@@ -144,7 +144,9 @@ object CdnPullingChecker {
                 if (mismatchedTargets.isNotEmpty()) {
                     add(
                         Finding(
-                            description = "CDN reflected IP family differs from requested family: ${mismatchedTargets.joinToString()}",
+                            description =
+                                "CDN reflected IP family differs from requested family: " +
+                                    mismatchedTargets.joinToString(),
                             needsReview = true,
                             source = EvidenceSource.CDN_PULLING,
                             confidence = EvidenceConfidence.MEDIUM,
@@ -212,11 +214,7 @@ object CdnPullingChecker {
                 reflectedIp = null,
                 status = CdnPullingEndpointStatus.ERROR,
                 errorMessage = e.safeMessage(),
-                tlsMitm = e is SSLPeerUnverifiedException ||
-                    (e is SSLHandshakeException &&
-                        generateSequence(e.cause) { it.cause }.any {
-                            it is CertificateException || it is CertPathValidatorException
-                        }),
+                tlsMitm = e.isCertificateFailure(),
             )
         } catch (e: Exception) {
             CdnPullingEndpointResult(
@@ -278,6 +276,13 @@ object CdnPullingChecker {
         }
 
     private fun Throwable.safeMessage(): String = message?.takeIf(String::isNotBlank) ?: javaClass.simpleName
+
+    private fun SSLException.isCertificateFailure(): Boolean =
+        this is SSLPeerUnverifiedException ||
+            (this is SSLHandshakeException &&
+                generateSequence(cause) { it.cause }.any {
+                    it is CertificateException || it is CertPathValidatorException
+                })
 
     private fun Exception.isIpv6Unavailable(): Boolean = this is IOException
 

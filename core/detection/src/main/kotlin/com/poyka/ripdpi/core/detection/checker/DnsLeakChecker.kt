@@ -26,7 +26,10 @@ object DnsLeakChecker {
             detected = false,
             findings =
                 listOf(
-                    Finding("Active network DNS servers: ${activeDnsServers.joinToString(", ").ifEmpty { "unavailable" }}"),
+                    Finding(
+                        "Active network DNS servers: " +
+                            activeDnsServers.joinToString(", ").ifEmpty { "unavailable" },
+                    ),
                     Finding("App encrypted DNS setting: ${if (encryptedDnsEnabled) "enabled" else "disabled"}"),
                 ),
         )

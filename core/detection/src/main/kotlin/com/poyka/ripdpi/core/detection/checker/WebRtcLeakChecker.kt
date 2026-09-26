@@ -97,42 +97,71 @@ object WebRtcLeakChecker {
             false
         }
 
-    @Suppress("MagicNumber")
     internal fun validBindingResponse(
         response: ByteArray,
         size: Int,
         request: ByteArray,
-    ): Boolean {
-        if (size < 20 || size > response.size || request.size < 20 ||
-            response[0] != 0x01.toByte() || response[1] != 0x01.toByte()
-        ) return false
-        val length = (response[2].toInt() and 0xff) * 256 + (response[3].toInt() and 0xff)
-        if (length % 4 != 0 || length != size - 20 || (4 until 20).any { response[it] != request[it] }) {
-            return false
-        }
+    ): Boolean = validHeader(response, size, request) && validAttributes(response, size)
 
+    @Suppress("MagicNumber")
+    private fun validHeader(
+        response: ByteArray,
+        size: Int,
+        request: ByteArray,
+    ): Boolean {
+        if (size < 20 || size > response.size || request.size < 20) return false
+        val length = (response[2].toInt() and 0xff) * 256 + (response[3].toInt() and 0xff)
+        val validLength = length % 4 == 0 && length == size - 20
+        val matchingTransaction = (4 until 20).all { response[it] == request[it] }
+        return response[0] == 0x01.toByte() && response[1] == 0x01.toByte() &&
+            validLength && matchingTransaction
+    }
+
+    @Suppress("MagicNumber")
+    private fun validAttributes(
+        response: ByteArray,
+        size: Int,
+    ): Boolean {
         var offset = 20
         var hasMappedAddress = false
-        while (offset < size) {
-            if (size - offset < 4) return false
-            val type = (response[offset].toInt() and 0xff) * 256 + (response[offset + 1].toInt() and 0xff)
-            val attributeLength =
-                (response[offset + 2].toInt() and 0xff) * 256 +
-                    (response[offset + 3].toInt() and 0xff)
-            val valueOffset = offset + 4
-            offset = valueOffset + ((attributeLength + 3) and -4)
-            if (offset > size) return false
-            // This unauthenticated Binding probe understands only address attributes.
-            if (type < 0x8000 && type != 0x0001 && type != 0x0020) return false
-            if (type == 0x0020) {
-                if (attributeLength != 8 && attributeLength != 20) return false
-                val family = response[valueOffset + 1].toInt() and 0xff
-                if (!((family == 1 && attributeLength == 8) || (family == 2 && attributeLength == 20))) {
-                    return false
-                }
-                hasMappedAddress = true
+        var valid = true
+        while (offset < size && valid) {
+            if (size - offset < 4) {
+                valid = false
+            } else {
+                val type = (response[offset].toInt() and 0xff) * 256 + (response[offset + 1].toInt() and 0xff)
+                val attributeLength =
+                    (response[offset + 2].toInt() and 0xff) * 256 +
+                        (response[offset + 3].toInt() and 0xff)
+                val valueOffset = offset + 4
+                offset = valueOffset + ((attributeLength + 3) and -4)
+                valid = offset <= size && validAttribute(response, valueOffset, type, attributeLength)
+                if (valid && type == 0x0020) hasMappedAddress = true
             }
         }
-        return hasMappedAddress
+        return valid && hasMappedAddress
+    }
+
+    @Suppress("MagicNumber")
+    private fun validAttribute(
+        response: ByteArray,
+        valueOffset: Int,
+        type: Int,
+        length: Int,
+    ): Boolean {
+        // This unauthenticated Binding probe understands only address attributes.
+        if (type == 0x0020) return validMappedAddress(response, valueOffset, length)
+        return type >= 0x8000 || type == 0x0001
+    }
+
+    @Suppress("MagicNumber")
+    private fun validMappedAddress(
+        response: ByteArray,
+        valueOffset: Int,
+        length: Int,
+    ): Boolean {
+        if (length != 8 && length != 20) return false
+        val family = response[valueOffset + 1].toInt() and 0xff
+        return (family == 1 && length == 8) || (family == 2 && length == 20)
     }
 }
