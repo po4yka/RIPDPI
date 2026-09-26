@@ -11,6 +11,7 @@ import com.poyka.ripdpi.shortcuts.ExtraSelectGroupId
 import com.poyka.ripdpi.shortcuts.ExtraSelectProfileId
 import com.poyka.ripdpi.shortcuts.ExtraSelectorCapability
 import com.poyka.ripdpi.shortcuts.SelectorShortcutCapability
+import com.poyka.ripdpi.ui.navigation.Route
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -99,6 +100,35 @@ class MainActivityPermissionTest {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))
 
         assertFalse(requestsConfiguredStop(intent))
+    }
+
+    @Test
+    fun `public navigation links map only known hosts`() {
+        assertEquals(Route.Home, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect"))))
+        assertEquals(Route.Config, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config"))))
+        assertEquals(
+            Route.Diagnostics(),
+            navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://diagnostics"))),
+        )
+        assertEquals(Route.Settings, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings"))))
+        assertEquals(
+            Route.SubscriptionFailover,
+            navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://subscription-failover"))),
+        )
+        assertEquals(null, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://disconnect"))))
+        assertEquals(null, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings/other"))))
+        assertEquals(null, navigationRouteFrom(Intent("untrusted", Uri.parse("ripdpi://settings"))))
+    }
+
+    @Test
+    fun `navigation host intent contains no inbound deep link or forged navigation extras`() {
+        val context = RuntimeEnvironment.getApplication()
+        val safe = safeMainActivityIntent(context)
+
+        assertEquals(ComponentName(context, MainActivity::class.java), safe.component)
+        assertEquals(null, safe.data)
+        assertEquals(null, safe.extras)
+        assertEquals(null, safe.action)
     }
 
     @Test

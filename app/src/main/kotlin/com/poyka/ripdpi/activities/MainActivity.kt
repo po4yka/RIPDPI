@@ -80,6 +80,9 @@ class MainActivity : AppCompatActivity() {
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
         shellController.setLaunchRouteRequest(automationConfig?.startRoute)
+        // NavController handles Activity.intent when its graph is created. Keep inbound
+        // links in the shell so the onboarding and app-lock gates can defer them.
+        setIntent(safeMainActivityIntent(this))
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -130,7 +133,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
+        setIntent(safeMainActivityIntent(this))
         applySelectorSelection(intent)
         val automationConfig =
             automationController
@@ -197,6 +200,24 @@ internal fun createMainActivityLaunchIntent(
             putExtra(extraStopConfiguredMode, true)
         }
     }
+
+internal fun safeMainActivityIntent(context: Context): Intent = Intent(context, MainActivity::class.java)
+
+internal fun navigationRouteFrom(intent: Intent?): Route? =
+    intent
+        ?.takeIf { it.action == Intent.ACTION_VIEW }
+        ?.data
+        ?.takeIf { it.scheme == "ripdpi" && it.path.isNullOrEmpty() }
+        ?.let { uri ->
+            when (uri.authority) {
+                "connect" -> Route.Home
+                "config" -> Route.Config
+                "diagnostics" -> Route.Diagnostics()
+                "settings" -> Route.Settings
+                "subscription-failover" -> Route.SubscriptionFailover
+                else -> null
+            }
+        }
 
 internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(extraOpenHome, false) == true
 

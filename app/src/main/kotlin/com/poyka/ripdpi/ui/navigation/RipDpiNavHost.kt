@@ -287,8 +287,10 @@ private fun HandleLaunchRequests(
     navigateToImportRoute: (Route) -> Unit,
     relockToRoute: (Route) -> Unit,
 ) {
-    LaunchedEffect(launchRequests.launchHomeRequested, currentStableRoute) {
-        if (!launchRequests.launchHomeRequested || currentStableRoute == null) {
+    LaunchedEffect(launchRequests.launchHomeRequested, launchRequests.relockRequested, currentStableRoute) {
+        if (!launchRequests.launchHomeRequested ||
+            shouldDeferLaunchRequest(currentStableRoute, launchRequests.relockRequested)
+        ) {
             return@LaunchedEffect
         }
         when {
@@ -303,9 +305,10 @@ private fun HandleLaunchRequests(
         }
     }
 
-    LaunchedEffect(launchRequests.launchRouteRequested, currentStableRoute) {
+    LaunchedEffect(launchRequests.launchRouteRequested, launchRequests.relockRequested, currentStableRoute) {
         val requestedStableRoute = launchRequests.launchRouteRequested ?: return@LaunchedEffect
         val resolvedCurrentRoute = currentStableRoute ?: return@LaunchedEffect
+        if (shouldDeferLaunchRequest(resolvedCurrentRoute, launchRequests.relockRequested)) return@LaunchedEffect
         if (requestedStableRoute == resolvedCurrentRoute) {
             launchRequests.onLaunchRouteHandled()
             return@LaunchedEffect
@@ -315,18 +318,22 @@ private fun HandleLaunchRequests(
         launchRequests.onLaunchRouteHandled()
     }
 
-    LaunchedEffect(launchRequests.sharedDiagnosticFragmentRequested, currentStableRoute) {
+    LaunchedEffect(
+        launchRequests.sharedDiagnosticFragmentRequested,
+        launchRequests.relockRequested,
+        currentStableRoute,
+    ) {
         val fragment = launchRequests.sharedDiagnosticFragmentRequested ?: return@LaunchedEffect
-        if (currentStableRoute == null) {
+        if (shouldDeferLaunchRequest(currentStableRoute, launchRequests.relockRequested)) {
             return@LaunchedEffect
         }
         navigateToSharedDiagnostic(fragment)
         launchRequests.onSharedDiagnosticFragmentHandled()
     }
 
-    LaunchedEffect(launchRequests.importRouteRequested, currentStableRoute) {
+    LaunchedEffect(launchRequests.importRouteRequested, launchRequests.relockRequested, currentStableRoute) {
         val destination = launchRequests.importRouteRequested ?: return@LaunchedEffect
-        if (currentStableRoute == null) {
+        if (shouldDeferLaunchRequest(currentStableRoute, launchRequests.relockRequested)) {
             return@LaunchedEffect
         }
         navigateToImportRoute(destination)
@@ -979,10 +986,13 @@ internal fun shouldNavigateToHomeFromLaunchRequest(
         return false
     }
 
-    return currentRoute != Route.Home.stableRoute &&
-        currentRoute !in
-        setOf(
-            Route.Onboarding.stableRoute,
-            Route.BiometricPrompt.stableRoute,
-        )
+    return currentRoute != Route.Home.stableRoute && !isNavigationGateRoute(currentRoute)
 }
+
+internal fun isNavigationGateRoute(route: String?): Boolean =
+    route == Route.Onboarding.stableRoute || route == Route.BiometricPrompt.stableRoute
+
+private fun shouldDeferLaunchRequest(
+    currentRoute: String?,
+    relockRequested: Boolean,
+): Boolean = relockRequested || currentRoute == null || isNavigationGateRoute(currentRoute)

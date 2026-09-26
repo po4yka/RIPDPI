@@ -56,6 +56,14 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `all external navigation waits at onboarding and biometric gates`() {
+        assertTrue(isNavigationGateRoute(Route.Onboarding.stableRoute))
+        assertTrue(isNavigationGateRoute(Route.BiometricPrompt.stableRoute))
+        assertFalse(isNavigationGateRoute(Route.Home.stableRoute))
+        assertFalse(isNavigationGateRoute(Route.Settings.stableRoute))
+    }
+
+    @Test
     fun `launch home request is ignored when already on home`() {
         assertFalse(
             shouldNavigateToHomeFromLaunchRequest(
