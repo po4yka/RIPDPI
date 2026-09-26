@@ -18,6 +18,8 @@ class PinLockoutManagerTest {
     fun setUp() {
         manager = PinLockoutManager(ApplicationProvider.getApplicationContext())
         manager.timeSource = { currentTimeMs }
+        manager.elapsedTimeSource = { currentTimeMs }
+        manager.bootCountSource = { 1 }
     }
 
     @Test
@@ -82,6 +84,38 @@ class PinLockoutManagerTest {
         currentTimeMs += 30_001L
         assertFalse(manager.isLockedOut())
         assertEquals(0L, manager.remainingLockoutMs())
+    }
+
+    @Test
+    fun `moving wall clock forward does not end lockout`() {
+        var wallTimeMs = currentTimeMs
+        manager.timeSource = { wallTimeMs }
+        repeat(3) { manager.recordFailure() }
+        wallTimeMs += 3_600_000L
+
+        assertTrue(manager.isLockedOut())
+    }
+
+    @Test
+    fun `reboot restarts active lockout`() {
+        repeat(3) { manager.recordFailure() }
+        manager.bootCountSource = { 2 }
+
+        assertTrue(manager.isLockedOut())
+        assertEquals(30_000L, manager.remainingLockoutMs())
+    }
+
+    @Test
+    fun `legacy deadline migrates to monotonic lockout`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences("pin_lockout", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("failed_attempts", 3)
+            .putLong("lockout_end_ms", 1L)
+            .remove("lockout_end_elapsed_ms")
+            .commit()
+
+        assertTrue(PinLockoutManager(context).isLockedOut())
     }
 
     @Test
