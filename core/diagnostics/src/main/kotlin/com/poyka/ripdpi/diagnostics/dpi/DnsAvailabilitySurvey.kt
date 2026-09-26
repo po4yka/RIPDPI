@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -8,6 +10,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -96,9 +99,11 @@ class DnsAvailabilitySurvey(
     private suspend fun probeServer(server: DnsServer): DnsServerResult {
         if (server.type == DnsServerType.DOH_WIRE) {
             runCatching {
-                withTimeout(timeoutMs + HardTimeoutSlackMs) {
+                withTimeoutOrNull(timeoutMs + HardTimeoutSlackMs) {
                     dohProbe.warmup(server, domains.first(), timeoutMs)
                 }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
             }
         }
 
@@ -131,7 +136,8 @@ class DnsAvailabilitySurvey(
     private suspend fun runProbe(block: suspend () -> DnsProbeSample): DnsProbeSample =
         runCatching { block() }.getOrElse { error ->
             when (error) {
-                is SocketTimeoutException -> DnsProbeSample(DnsProbeStatus.TIMEOUT)
+                is TimeoutCancellationException, is SocketTimeoutException -> DnsProbeSample(DnsProbeStatus.TIMEOUT)
+                is CancellationException -> throw error
                 else -> DnsProbeSample(DnsProbeStatus.TIMEOUT)
             }
         }
@@ -224,7 +230,9 @@ class OkHttpDohWireAvailabilityProbe(
         domain: String,
         timeoutMs: Long,
     ) {
-        runCatching { probe(server, domain, timeoutMs) }
+        runCatching { probe(server, domain, timeoutMs) }.onFailure { error ->
+            if (error is CancellationException) throw error
+        }
     }
 
     override suspend fun probe(

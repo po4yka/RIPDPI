@@ -1,13 +1,38 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.net.SocketTimeoutException
 
 class DnsAvailabilitySurveyTest {
+    @Test
+    fun cancellationStopsSurvey() =
+        runTest {
+            var attempts = 0
+            val survey =
+                DnsAvailabilitySurvey(
+                    servers = listOf(DnsServer("cancelled", DnsServerType.UDP, "192.0.2.53")),
+                    domains = listOf("first.example", "second.example"),
+                    udpProbe = UdpAvailabilityProbe { _, _ ->
+                        attempts++
+                        throw CancellationException("cancelled")
+                    },
+                )
+
+            try {
+                survey.run()
+                fail("Expected cancellation")
+            } catch (_: CancellationException) {
+                // Cancellation must reach the caller.
+            }
+            assertEquals(1, attempts)
+        }
+
     @Test
     fun timeoutServerRecordedAsUnavailable() =
         runTest {
