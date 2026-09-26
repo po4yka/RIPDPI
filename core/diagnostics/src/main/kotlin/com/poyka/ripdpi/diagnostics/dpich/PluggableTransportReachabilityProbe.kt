@@ -284,18 +284,27 @@ class SnowflakeStunReachabilityProbe(
     ): Boolean {
         if (length < StunHeaderBytes || address != destination.address || port != destination.port) return false
         val data = data.copyOfRange(offset, offset + length)
-        val messageLength = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
+        val messageLength =
+            ((data[StunMessageLengthOffset].toInt() and UnsignedByteMask) shl StunLengthHighByteShift) or
+                (data[StunMessageLengthOffset + 1].toInt() and UnsignedByteMask)
         return data[0] == 0x01.toByte() &&
             data[1] == 0x01.toByte() &&
             messageLength % StunAttributeAlignment == 0 &&
             length == StunHeaderBytes + messageLength &&
-            data.copyOfRange(4, 8).contentEquals(StunBindingRequestPrefix.copyOfRange(4, 8)) &&
-            data.copyOfRange(8, StunHeaderBytes).contentEquals(request.copyOfRange(8, StunHeaderBytes))
+            data.copyOfRange(StunCookieOffset, StunTransactionIdOffset)
+                .contentEquals(StunBindingRequestPrefix.copyOfRange(StunCookieOffset, StunTransactionIdOffset)) &&
+            data.copyOfRange(StunTransactionIdOffset, StunHeaderBytes)
+                .contentEquals(request.copyOfRange(StunTransactionIdOffset, StunHeaderBytes))
     }
 
     private companion object {
         private const val SnowflakeStunLeg = "snowflake_stun"
         private const val StunHeaderBytes = 20
+        private const val StunMessageLengthOffset = 2
+        private const val StunCookieOffset = 4
+        private const val StunTransactionIdOffset = 8
+        private const val StunLengthHighByteShift = 8
+        private const val UnsignedByteMask = 0xFF
         private const val StunResponseBytes = 512
         private const val StunTransactionIdBytes = 12
         private const val StunAttributeAlignment = 4

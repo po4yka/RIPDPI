@@ -327,7 +327,11 @@ class PluggableTransportReachabilityProbeTest {
         private lateinit var request: DatagramPacket
 
         override fun send(packet: DatagramPacket) {
-            request = DatagramPacket(packet.data.copyOfRange(packet.offset, packet.offset + packet.length), packet.length)
+            request =
+                DatagramPacket(
+                    packet.data.copyOfRange(packet.offset, packet.offset + packet.length),
+                    packet.length,
+                )
             request.socketAddress = packet.socketAddress
         }
 
