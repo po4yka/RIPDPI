@@ -91,7 +91,7 @@ fun BackupRestoreRoute(
     val onExportClick = rememberBackupExportController(viewModel, snackbarHostState)
 
     // Share wiring (one-time reminder + fresh cache-dir SHARE backup + ShareCompat
-    // intent + post-share cleanup) likewise lives in its own composable.
+    // intent + bounded cache cleanup) likewise lives in its own composable.
     val onShareRedactedClick = rememberBackupShareController(viewModel, snackbarHostState)
 
     val openDocumentLauncher =
@@ -283,8 +283,8 @@ private fun rememberBackupExportController(
  * generation. Generation writes a FRESH [BackupVariant.SHARE] backup into a private
  * cache subdirectory (`cacheDir/backup-share/`), then hands it to the share sheet via
  * the `${applicationId}.backup.fileprovider` FileProvider using [ShareCompat]. The
- * temp file is deleted when the share activity returns (completed or cancelled) and
- * on any generation failure, so a redacted backup is never left in the cache.
+ * temp file is retained for delayed recipient reads after launch and removed by
+ * bounded cache cleanup. Generation and launch failures delete it immediately.
  */
 @Composable
 private fun rememberBackupShareController(
@@ -294,16 +294,16 @@ private fun rememberBackupShareController(
     val context = LocalContext.current
     var showReminder by rememberSaveable { mutableStateOf(false) }
 
-    val shareLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            // Regardless of result (shared, cancelled, or dismissed) the redacted temp
-            // file has served its purpose — delete it.
-            viewModel.shareTempFiles.clear()
-        }
+    LaunchedEffect(viewModel) {
+        viewModel.shareTempFiles.pruneExpired(context.cacheDir)
+    }
 
     val generateAndShare: () -> Unit = {
-        val shareFile = newShareTempFile(context)
-        viewModel.shareTempFiles.replace(shareFile)
+        val shareFile =
+            viewModel.shareTempFiles.createFile(
+                context.cacheDir,
+                defaultBackupFilename().removeSuffix(".json"),
+            )
         viewModel.prepareShareBackup {
             runCatching { java.io.FileOutputStream(shareFile) }.getOrNull()
         }
@@ -326,9 +326,10 @@ private fun rememberBackupShareController(
                     file = file,
                     subject = subject,
                     chooserTitle = chooserTitle,
-                    launcher = shareLauncher,
                 )
-            if (!launched) {
+            if (launched) {
+                viewModel.shareTempFiles.releaseForShare()
+            } else {
                 // No share target / launch failure: clean up the temp file now.
                 viewModel.shareTempFiles.clear()
             }
@@ -543,37 +544,21 @@ private fun shareBackup(
     runCatching { context.startActivity(chooser) }
 }
 
-/** Subdirectory of the app cache backing the redacted-share FileProvider grant. */
-private const val ShareCacheDirName = "backup-share"
-
 /** FileProvider authority for the redacted-share grant (mirrors the manifest entry). */
 private fun backupFileProviderAuthority(context: android.content.Context): String =
     "${context.packageName}.backup.fileprovider"
 
 /**
- * Creates a fresh, empty temp file under `cacheDir/backup-share/` for a redacted
- * share. Stale files from a previous interrupted share are swept first so the cache
- * never accumulates redacted backups.
- */
-private fun newShareTempFile(context: android.content.Context): java.io.File {
-    val dir = java.io.File(context.cacheDir, ShareCacheDirName)
-    dir.mkdirs()
-    runCatching { dir.listFiles()?.forEach { it.delete() } }
-    return java.io.File(dir, defaultBackupFilename())
-}
-
-/**
  * Launches the share sheet for [file] via [ShareCompat] backed by the backup
- * FileProvider. Uses `StartActivityForResult` so the caller can clean up the temp
- * file on return. Returns `false` when no chooser could be launched (so the caller
- * can delete the temp file immediately).
+ * FileProvider. Returns `false` when no chooser could be launched (so the caller
+ * can delete the temp file immediately). A chooser result does not prove that a
+ * recipient has finished reading the URI.
  */
 private fun launchShareIntent(
     context: android.content.Context,
     file: java.io.File,
     subject: String,
     chooserTitle: String,
-    launcher: androidx.activity.result.ActivityResultLauncher<Intent>,
 ): Boolean {
     val uri =
         runCatching {
@@ -595,7 +580,7 @@ private fun launchShareIntent(
             .intent
             .apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     val chooser = Intent.createChooser(sendIntent, chooserTitle)
-    return runCatching { launcher.launch(chooser) }.isSuccess
+    return runCatching { context.startActivity(chooser) }.isSuccess
 }
 
 @Composable

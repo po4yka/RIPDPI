@@ -6,7 +6,7 @@ import java.io.File
 
 class BackupShareViewModelOwnershipTest {
     @Test
-    fun `view model clears its share file when route scope ends`() {
+    fun `view model clears an unlaunched share file when route scope ends`() {
         val source = source().readText()
 
         assertTrue(source.contains("internal val shareTempFiles = BackupShareTempFileOwner()"))
