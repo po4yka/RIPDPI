@@ -74,7 +74,8 @@ impl RelaySpoofer {
     /// 4. On Linux with raw-socket capabilities present, inject the decoy
     ///    segment. A successful injection records the telemetry tally; a failed
     ///    one logs the failure class (`io::ErrorKind`) and records a failure
-    ///    tally, but never aborts the real handshake. Where capabilities are
+    ///    tally. A TCP_REPAIR cleanup failure shuts down the connection and
+    ///    returns an error. Where capabilities are
     ///    absent (e.g. the macOS dev host, or an unprivileged relay), forging
     ///    and validation still run and succeed, but no segment is emitted.
     ///
@@ -111,6 +112,9 @@ impl RelaySpoofer {
                     // never the decoy hostname, destination, or method value.
                     tracing::warn!(kind = %err.kind(), "tls.spoof_inject_failed");
                     telemetry::note_spoof_failed();
+                    if inject::is_repair_cleanup_failure(&err) {
+                        return Err(SpoofError::RepairCleanupFailed);
+                    }
                 }
             }
         }

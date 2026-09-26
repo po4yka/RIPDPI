@@ -27,7 +27,7 @@
 //!   7. getsockopt(fd, TCP_QUEUE_SEQ=21)   → read live ack
 //!   8. build_spoof_segment(params)        → full IPv4+TCP bytes
 //!   9. SOCK_RAW / IPPROTO_RAW socket, IP_HDRINCL=1, sendto(dst) → on-wire
-//!  10. setsockopt(fd, TCP_REPAIR=19, -1)  → leave repair mode (always runs)
+//!  10. setsockopt(fd, TCP_REPAIR=19, -1)  → leave repair mode; on failure shut down stream
 //! ```
 //!
 //! Steps 8–9 run while `TCP_REPAIR` is still engaged: repair mode quiesces
@@ -51,6 +51,8 @@
 //! contract is documentation, not types.
 
 use std::io;
+#[cfg(any(target_os = "linux", test))]
+use std::net::Shutdown;
 use std::net::TcpStream;
 #[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
@@ -58,6 +60,31 @@ use std::os::fd::AsRawFd;
 use crate::config::SpoofMethod;
 #[cfg(target_os = "linux")]
 use crate::segment::{SpoofSegmentParams, build_spoof_segment};
+
+#[derive(Debug)]
+struct RepairCleanupFailure(io::Error);
+
+impl std::fmt::Display for RepairCleanupFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TCP_REPAIR cleanup failed: {}", self.0)
+    }
+}
+
+impl std::error::Error for RepairCleanupFailure {}
+
+pub(crate) fn is_repair_cleanup_failure(error: &io::Error) -> bool {
+    error.get_ref().is_some_and(|source| source.is::<RepairCleanupFailure>())
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn finish_repair(stream: &TcpStream, send_result: io::Result<()>, cleanup_result: io::Result<()>) -> io::Result<()> {
+    if let Err(error) = cleanup_result {
+        // A socket still in repair mode must never carry the real handshake.
+        let _ = stream.shutdown(Shutdown::Both);
+        return Err(io::Error::other(RepairCleanupFailure(error)));
+    }
+    send_result
+}
 
 // ── Linux constants ──────────────────────────────────────────────────────────
 /// `setsockopt` option level for TCP options.
@@ -140,8 +167,9 @@ pub fn has_raw_socket_caps() -> bool {
 /// [`build_spoof_segment`], and emit it via a `SOCK_RAW / IPPROTO_RAW`
 /// socket with `IP_HDRINCL`.
 ///
-/// `TCP_REPAIR` is left disabled (mode `−1`) after this call regardless of
-/// whether the segment send succeeds, so the real connection is not affected.
+/// The function attempts to disable `TCP_REPAIR` (mode `−1`) even when the
+/// segment send fails. If cleanup fails, it shuts down the TCP connection and
+/// returns an error that the caller must not suppress.
 ///
 /// Requires `CAP_NET_ADMIN` (for `TCP_REPAIR`) and `CAP_NET_RAW` (for
 /// `SOCK_RAW`). Returns `Err(EPERM)` if either capability is absent.
@@ -245,9 +273,7 @@ pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: Spoof
         Ok(())
     })();
 
-    // Disable TCP_REPAIR unconditionally; ignore errors (best-effort cleanup).
-    let _ = set_tcp_int_opt(fd, TCP_REPAIR, TCP_REPAIR_OFF_NO_WP);
-    result
+    finish_repair(stream, result, set_tcp_int_opt(fd, TCP_REPAIR, TCP_REPAIR_OFF_NO_WP))
 }
 
 /// Read the live socket TTL via `getsockopt(IP_TTL)`.
@@ -436,6 +462,20 @@ pub fn inject_decoy_segment(stream: &TcpStream, _forged_hello: &[u8], _method: S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn failed_repair_cleanup_closes_connection_and_marks_error() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let error = finish_repair(&stream, Ok(()), Err(io::Error::other("cleanup failed"))).unwrap_err();
+        assert!(is_repair_cleanup_failure(&error));
+        assert!(stream.write_all(b"real handshake").is_err());
+
+        let send_error = io::Error::other("send failed");
+        let error = finish_repair(&stream, Err(send_error), Ok(())).unwrap_err();
+        assert!(!is_repair_cleanup_failure(&error));
+    }
 
     #[cfg(not(target_os = "linux"))]
     #[test]

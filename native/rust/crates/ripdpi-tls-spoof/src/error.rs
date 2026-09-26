@@ -42,6 +42,10 @@ pub enum SpoofError {
     #[error("input is not a ClientHello with an SNI extension")]
     MalformedClientHello,
 
+    /// The TCP connection could not leave repair mode and is unusable.
+    #[error("TCP repair cleanup failed; upstream connection was shut down")]
+    RepairCleanupFailed,
+
     /// `SpoofRequest::destination` is not a syntactically valid `host:port`
     /// pointing at a globally routable address. Loopback, private,
     /// link-local, and other non-global targets are rejected so the relay
