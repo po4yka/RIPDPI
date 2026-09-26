@@ -344,7 +344,9 @@ internal class DefaultMainActivityHost
                     )
                 }
 
-                null -> return
+                null -> {
+                    return
+                }
             }
         }
 
