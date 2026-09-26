@@ -165,6 +165,29 @@ fn doh_pipeline_queries_primary_batch_and_returns_record_order() {
 }
 
 #[test]
+fn doh_pipeline_does_not_cache_zero_ttl_address() {
+    let expected_types = [RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
+    let responses = expected_types
+        .iter()
+        .map(|record_type| {
+            let query = build_query_for_type("fixture.test", *record_type);
+            match record_type {
+                RecordType::A => build_response_with_record(&query, 0),
+                RecordType::AAAA => build_response_with_record(&query, 120),
+                _ => build_empty_response(&query),
+            }
+        })
+        .collect::<Vec<_>>();
+    let (port, certificate, _, server) = spawn_batched_doh_fixture("fixture.test.", &expected_types, responses);
+    let pipeline =
+        pipeline_with_fixture(fixture_endpoint(port, "primary"), fixture_endpoint(port, "secondary"), certificate);
+
+    let lookup = pipeline.resolve_blocking("fixture.test").expect("batch lookup");
+    assert_eq!(lookup.cache_ttl_secs, Some(0));
+    server.join().expect("server joins");
+}
+
+#[test]
 fn doh_pipeline_blocking_keeps_primary_address_when_optional_rr_requests_fail() {
     let expected_types = [RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
     let (port, certificate, query_count, server) =

@@ -164,7 +164,7 @@ fn batch_lookup(
         domain: domain.to_string(),
         resolver_role,
         endpoint_label: endpoint_label.unwrap_or_else(|| resolver.endpoint_label()),
-        cache_ttl_secs: records.iter().filter_map(|record| record.min_ttl_secs).filter(|ttl| *ttl > 0).min(),
+        cache_ttl_secs: records.iter().filter_map(|record| record.min_ttl_secs).min(),
         records,
     }
 }
