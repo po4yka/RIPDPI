@@ -52,7 +52,11 @@ class HistoryConnectionDetailUiFactoryTest {
                     events = emptyList(),
                 ),
             )
-        val fields = detail.snapshots.single().fields.associate { it.label to it.value }
+        val fields =
+            detail.snapshots
+                .single()
+                .fields
+                .associate { it.label to it.value }
 
         assertEquals("Hidden (2)", fields["DNS"])
         assertEquals("Hidden", fields["Private DNS"])
@@ -91,7 +95,11 @@ class HistoryConnectionDetailUiFactoryTest {
                     events = emptyList(),
                 ),
             )
-        val fields = detail.snapshots.single().fields.associate { it.label to it.value }
+        val fields =
+            detail.snapshots
+                .single()
+                .fields
+                .associate { it.label to it.value }
 
         assertEquals("Redacted (not stored) · Hidden (2)", fields["DNS"])
         assertEquals("Redacted (not stored)", fields["Private DNS"])

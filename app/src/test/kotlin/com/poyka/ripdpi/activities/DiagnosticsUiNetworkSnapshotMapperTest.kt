@@ -134,7 +134,9 @@ class DiagnosticsUiNetworkSnapshotMapperTest {
         showSensitiveDetails: Boolean,
     ): Map<String, String> =
         requireNotNull(support.toNetworkSnapshotUiModel(snapshot, showSensitiveDetails))
-            .fieldGroups.flatMap { it.fields }.associate { it.label to it.value }
+            .fieldGroups
+            .flatMap { it.fields }
+            .associate { it.label to it.value }
 
     private fun valueLabel(id: Int): String = support.context.getString(id)
 }

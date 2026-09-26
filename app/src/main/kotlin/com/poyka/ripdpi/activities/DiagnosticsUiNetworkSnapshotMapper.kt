@@ -278,10 +278,17 @@ private fun DiagnosticsUiFactorySupport.networkAddressListValue(
     showSensitiveDetails: Boolean,
 ): String =
     when {
-        !showSensitiveDetails -> redactCollection(values)
-        values.any { it == "redacted" } ->
+        !showSensitiveDetails -> {
+            redactCollection(values)
+        }
+
+        values.any { it == "redacted" } -> {
             context.getString(R.string.diagnostics_field_not_stored) + " · " + redactCollection(values)
-        else -> values.joinToString().ifBlank { unknownFieldLabel() }
+        }
+
+        else -> {
+            values.joinToString().ifBlank { unknownFieldLabel() }
+        }
     }
 
 private fun DiagnosticsUiFactorySupport.privateDnsModeValue(

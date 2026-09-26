@@ -2825,7 +2825,12 @@ class DiagnosticsViewModelTest {
             assertTrue(cellFields.any { it.label == "Data network" && it.value == "NR" })
             viewModel.toggleSensitiveSessionDetails()
             advanceUntilIdle()
-            val visibleCellFields = viewModel.uiState.value.selectedSessionDetail?.snapshots?.first()?.fields.orEmpty()
+            val visibleCellFields =
+                viewModel.uiState.value.selectedSessionDetail
+                    ?.snapshots
+                    ?.first()
+                    ?.fields
+                    .orEmpty()
             assertTrue(visibleCellFields.any { it.label == "Carrier" && it.value == "Example Carrier" })
             collector.cancel()
         }

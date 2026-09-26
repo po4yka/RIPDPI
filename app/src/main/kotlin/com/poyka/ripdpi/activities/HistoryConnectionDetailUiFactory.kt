@@ -200,11 +200,17 @@ internal class HistoryConnectionDetailUiFactory
                                         when (snapshot.privateDnsMode.lowercase()) {
                                             "system", "off", "none", "opportunistic", "strict", "unknown",
                                             "unavailable",
-                                            ->
+                                            -> {
                                                 snapshot.privateDnsMode
-                                            "redacted" ->
+                                            }
+
+                                            "redacted" -> {
                                                 stringResolver.getString(R.string.diagnostics_field_not_stored)
-                                            else -> coreSupport.redactValue(snapshot.privateDnsMode)
+                                            }
+
+                                            else -> {
+                                                coreSupport.redactValue(snapshot.privateDnsMode)
+                                            }
                                         },
                                     ),
                                     DiagnosticsFieldUiModel(
