@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
+use std::time::Duration;
 
 use bytes::Bytes;
 use http::{Method, Request, Response, StatusCode};
@@ -12,6 +13,7 @@ use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::{Mutex, mpsc};
+use tokio::time::sleep;
 
 use crate::config::OriginConfig;
 use crate::errors::{classify_error, emit_structured_error};
@@ -20,9 +22,10 @@ use crate::path::extract_session_id;
 use crate::session::run_session;
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|cloudflare-origin|";
+const SESSION_ATTACH_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_PENDING_SESSIONS: usize = 1_024;
 
 struct SessionState {
-    inbound_tx: mpsc::Sender<Bytes>,
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     binding: Mutex<SessionBindingState>,
 }
@@ -31,6 +34,7 @@ struct SessionBindingState {
     get_attached: bool,
     post_attached: bool,
     started: bool,
+    inbound_tx: Option<mpsc::Sender<Bytes>>,
     inbound_rx: Option<mpsc::Receiver<Bytes>>,
     outbound_rx: Option<mpsc::Receiver<io::Result<Bytes>>>,
 }
@@ -76,7 +80,9 @@ impl OriginServer {
     }
 
     async fn handle_get(&self, session_id: String) -> Response<XhttpBody> {
-        let session = self.session_for(session_id.clone()).await;
+        let Some(session) = self.session_for(session_id.clone()).await else {
+            return empty_response(StatusCode::SERVICE_UNAVAILABLE);
+        };
         let outbound_rx = {
             let mut binding = session.binding.lock().await;
             if binding.get_attached {
@@ -93,16 +99,21 @@ impl OriginServer {
     }
 
     async fn handle_post(&self, session_id: String, body: Incoming) -> Response<XhttpBody> {
-        let session = self.session_for(session_id.clone()).await;
-        {
+        let Some(session) = self.session_for(session_id.clone()).await else {
+            return empty_response(StatusCode::SERVICE_UNAVAILABLE);
+        };
+        let inbound_tx = {
             let mut binding = session.binding.lock().await;
             if binding.post_attached {
                 return empty_response(StatusCode::CONFLICT);
             }
             binding.post_attached = true;
-        }
+            let Some(inbound_tx) = binding.inbound_tx.take() else {
+                return empty_response(StatusCode::CONFLICT);
+            };
+            inbound_tx
+        };
 
-        let inbound_tx = session.inbound_tx.clone();
         tokio::spawn(async move {
             if let Err(error) = pump_request_body(body, inbound_tx).await {
                 emit_structured_error(classify_error(&error), &error);
@@ -113,9 +124,33 @@ impl OriginServer {
         empty_response(StatusCode::OK)
     }
 
-    async fn session_for(&self, session_id: String) -> Arc<SessionState> {
+    // cancel-safe: cancellation during the scan leaves the map unchanged; insertion
+    // and timer registration complete without further awaits.
+    async fn session_for(&self, session_id: String) -> Option<Arc<SessionState>> {
         let mut sessions = self.sessions.lock().await;
-        sessions.entry(session_id).or_insert_with(new_session).clone()
+        if let Some(session) = sessions.get(&session_id) {
+            return Some(Arc::clone(session));
+        }
+        // ponytail: linear scan is bounded by expected session volume; track a
+        // separate counter only if active sessions make admission measurable.
+        let mut pending = 0;
+        for session in sessions.values() {
+            if !session.binding.lock().await.started {
+                pending += 1;
+                if pending >= MAX_PENDING_SESSIONS {
+                    return None;
+                }
+            }
+        }
+        let session = new_session();
+        sessions.insert(session_id.clone(), Arc::clone(&session));
+        let sessions = Arc::clone(&self.sessions);
+        let weak = Arc::downgrade(&session);
+        tokio::spawn(async move {
+            sleep(SESSION_ATTACH_TIMEOUT).await;
+            expire_unstarted_session(&sessions, &session_id, &weak).await;
+        });
+        Some(session)
     }
 
     async fn maybe_start_session(&self, session_id: String, session: Arc<SessionState>) {
@@ -144,16 +179,33 @@ impl OriginServer {
     }
 }
 
+// cancel-safe: the map entry stays unchanged until both locks are held.
+async fn expire_unstarted_session(
+    sessions: &Mutex<HashMap<String, Arc<SessionState>>>,
+    session_id: &str,
+    weak: &Weak<SessionState>,
+) {
+    let Some(session) = weak.upgrade() else { return };
+    let mut sessions = sessions.lock().await;
+    if !sessions.get(session_id).is_some_and(|current| Arc::ptr_eq(current, &session)) {
+        return;
+    }
+    let binding = session.binding.lock().await;
+    if !binding.started {
+        sessions.remove(session_id);
+    }
+}
+
 fn new_session() -> Arc<SessionState> {
     let (inbound_tx, inbound_rx) = mpsc::channel::<Bytes>(64);
     let (outbound_tx, outbound_rx) = mpsc::channel::<io::Result<Bytes>>(64);
     Arc::new(SessionState {
-        inbound_tx,
         outbound_tx,
         binding: Mutex::new(SessionBindingState {
             get_attached: false,
             post_attached: false,
             started: false,
+            inbound_tx: Some(inbound_tx),
             inbound_rx: Some(inbound_rx),
             outbound_rx: Some(outbound_rx),
         }),
@@ -180,4 +232,70 @@ fn empty_response(status: StatusCode) -> Response<XhttpBody> {
 
 fn response(status: StatusCode, body: XhttpBody) -> Response<XhttpBody> {
     Response::builder().status(status).body(body).expect("response build")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use tokio::sync::Mutex;
+
+    use super::{MAX_PENDING_SESSIONS, OriginConfig, OriginServer, expire_unstarted_session, new_session};
+
+    fn server() -> OriginServer {
+        OriginServer {
+            config: Arc::new(OriginConfig {
+                listen: "127.0.0.1:0".to_owned(),
+                path: "/".to_owned(),
+                uuid: [0; 16],
+                protect_path: None,
+            }),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    #[tokio::test]
+    // cancel-safe: the test owns its socket and channel resources.
+    async fn post_sender_closure_reaches_session_while_state_is_retained() {
+        let session = new_session();
+        let mut binding = session.binding.lock().await;
+        let sender = binding.inbound_tx.take().expect("POST sender");
+        let mut receiver = binding.inbound_rx.take().expect("session receiver");
+        drop(binding);
+
+        drop(sender);
+        assert!(receiver.recv().await.is_none());
+    }
+    #[tokio::test]
+    // cancel-safe: this test owns only in-memory session entries.
+    async fn pending_session_expires_without_removing_replacement_or_active_session() {
+        let server = server();
+        let first = server.session_for("one".to_owned()).await.expect("first session");
+        let old = Arc::downgrade(&first);
+        expire_unstarted_session(&server.sessions, "one", &old).await;
+        assert!(server.sessions.lock().await.is_empty());
+
+        let current = server.session_for("one".to_owned()).await.expect("replacement session");
+        expire_unstarted_session(&server.sessions, "one", &old).await;
+        assert!(Arc::ptr_eq(server.sessions.lock().await.get("one").expect("current entry"), &current));
+
+        current.binding.lock().await.started = true;
+        expire_unstarted_session(&server.sessions, "one", &Arc::downgrade(&current)).await;
+        assert!(server.sessions.lock().await.contains_key("one"));
+    }
+
+    #[tokio::test]
+    // cancel-safe: this test owns only in-memory session entries.
+    async fn pending_limit_returns_service_unavailable_without_counting_active_sessions() {
+        let server = server();
+        for index in 0..MAX_PENDING_SESSIONS {
+            assert!(server.session_for(format!("session-{index}")).await.is_some());
+        }
+        assert!(server.session_for("overflow".to_owned()).await.is_none());
+
+        let active = server.sessions.lock().await.get("session-0").cloned().expect("first session");
+        active.binding.lock().await.started = true;
+        assert!(server.session_for("new-pending".to_owned()).await.is_some());
+    }
 }
