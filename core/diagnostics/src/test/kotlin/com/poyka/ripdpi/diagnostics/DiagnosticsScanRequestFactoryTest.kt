@@ -50,10 +50,14 @@ class DiagnosticsScanRequestFactoryTest {
         val request = encoder.encode(DefaultDiagnosticsPlanner().plan(intent, context))
 
         assertEquals(1, request.probeTasks.count { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY })
-        assertEquals("Selected.Example", request.probeTasks.first { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY }.targetId)
+        assertEquals(
+            "Selected.Example",
+            request.probeTasks.first { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY }.targetId,
+        )
         assertTrue(request.probeTasks.any { it.family == EngineProbeTaskFamily.DNS })
 
-        val noDnsRequest = encoder.encode(DefaultDiagnosticsPlanner().plan(intent.copy(dnsTargets = emptyList()), context))
+        val noDnsRequest =
+            encoder.encode(DefaultDiagnosticsPlanner().plan(intent.copy(dnsTargets = emptyList()), context))
         assertTrue(noDnsRequest.probeTasks.none { it.family == EngineProbeTaskFamily.DOH_JSON_SURVEY })
     }
 

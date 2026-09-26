@@ -71,7 +71,10 @@ class DiagnosticsLocalNetworkPreflightTest {
                 val localTask = EngineProbeTaskWire(family, targetId, "Local target")
                 val localTasks =
                     if (family == EngineProbeTaskFamily.DNS) {
-                        listOf(localTask, EngineProbeTaskWire(EngineProbeTaskFamily.DOH_JSON_SURVEY, targetId, "JSON survey"))
+                        listOf(
+                            localTask,
+                            EngineProbeTaskWire(EngineProbeTaskFamily.DOH_JSON_SURVEY, targetId, "JSON survey"),
+                        )
                     } else {
                         listOf(localTask)
                     }
@@ -114,7 +117,11 @@ class DiagnosticsLocalNetworkPreflightTest {
                     probeTasks =
                         listOf(
                             EngineProbeTaskWire(EngineProbeTaskFamily.DNS, "Selected.Example", "DNS"),
-                            EngineProbeTaskWire(EngineProbeTaskFamily.DOH_JSON_SURVEY, "Selected.Example", "JSON survey"),
+                            EngineProbeTaskWire(
+                                EngineProbeTaskFamily.DOH_JSON_SURVEY,
+                                "Selected.Example",
+                                "JSON survey",
+                            ),
                         ),
                 )
 

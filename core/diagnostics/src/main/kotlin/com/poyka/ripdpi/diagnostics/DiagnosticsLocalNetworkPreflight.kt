@@ -32,7 +32,8 @@ internal suspend fun AndroidLocalNetworkAccess.prepareScanEndpoints(
         admitted.copy(
             probeTasks = admitted.probeTasks.filterNot { task ->
                 (task.family to task.targetId) in filter.deniedTasks ||
-                    (task.family == EngineProbeTaskFamily.DOH_JSON_SURVEY && task.targetId.lowercase() !in admittedDnsDomains)
+                    (task.family == EngineProbeTaskFamily.DOH_JSON_SURVEY &&
+                        task.targetId.lowercase() !in admittedDnsDomains)
             },
         ),
         filter.deferred,
