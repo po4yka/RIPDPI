@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -31,6 +34,63 @@ class DnsAvailabilitySurveyTest {
                 // Cancellation must reach the caller.
             }
             assertEquals(1, attempts)
+        }
+
+    @Test
+    fun parentTimeoutStopsSurveyBeforeNextDomain() =
+        runTest {
+            var attempts = 0
+            val survey =
+                DnsAvailabilitySurvey(
+                    servers = listOf(DnsServer("timed", DnsServerType.UDP, "192.0.2.53")),
+                    domains = listOf("first.example", "second.example"),
+                    udpProbe = UdpAvailabilityProbe { _, _ ->
+                        attempts++
+                        awaitCancellation()
+                    },
+                )
+
+            try {
+                withTimeout(1) { survey.run() }
+                fail("Expected parent timeout")
+            } catch (_: TimeoutCancellationException) {
+                // The parent timeout must stop the survey.
+            }
+            assertEquals(1, attempts)
+        }
+
+    @Test
+    fun parentTimeoutDuringWarmupStopsDohProbes() =
+        runTest {
+            var probeAttempts = 0
+            val survey =
+                DnsAvailabilitySurvey(
+                    servers = listOf(DnsServer("timed", DnsServerType.DOH_WIRE, "https://dns.example/dns-query")),
+                    domains = listOf("first.example"),
+                    dohProbe =
+                        object : DohWireAvailabilityProbe {
+                            override suspend fun warmup(server: DnsServer, domain: String, timeoutMs: Long) {
+                                awaitCancellation()
+                            }
+
+                            override suspend fun probe(
+                                server: DnsServer,
+                                domain: String,
+                                timeoutMs: Long,
+                            ): DnsProbeSample {
+                                probeAttempts++
+                                return DnsProbeSample(DnsProbeStatus.OK, 1)
+                            }
+                        },
+                )
+
+            try {
+                withTimeout(1) { survey.run() }
+                fail("Expected parent timeout")
+            } catch (_: TimeoutCancellationException) {
+                // The parent timeout must stop the survey.
+            }
+            assertEquals(0, probeAttempts)
         }
 
     @Test

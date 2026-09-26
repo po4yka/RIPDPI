@@ -6,6 +6,8 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -105,6 +107,7 @@ class DnsAvailabilitySurvey(
             }.onFailure { error ->
                 if (error is CancellationException) throw error
             }
+            currentCoroutineContext().ensureActive()
         }
 
         val samples =
@@ -135,6 +138,7 @@ class DnsAvailabilitySurvey(
 
     private suspend fun runProbe(block: suspend () -> DnsProbeSample): DnsProbeSample =
         runCatching { block() }.getOrElse { error ->
+            currentCoroutineContext().ensureActive()
             when (error) {
                 is TimeoutCancellationException, is SocketTimeoutException -> DnsProbeSample(DnsProbeStatus.TIMEOUT)
                 is CancellationException -> throw error
