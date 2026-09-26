@@ -333,14 +333,20 @@ class Tun2SocksTunnel(
             val currentHandle = handle
             val attributionToken = flowAttributionToken
             try {
-                if (attributionToken != 0L) {
-                    withContext(Dispatchers.IO) {
-                        nativeBindings.unregisterFlowAttribution(attributionToken)
+                try {
+                    if (attributionToken != 0L) {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                nativeBindings.unregisterFlowAttribution(attributionToken)
+                            }
+                        } finally {
+                            flowAttributionToken = 0L
+                        }
                     }
-                    flowAttributionToken = 0L
-                }
-                withContext(Dispatchers.IO) {
-                    nativeBindings.stop(currentHandle)
+                } finally {
+                    withContext(Dispatchers.IO) {
+                        nativeBindings.stop(currentHandle)
+                    }
                 }
             } finally {
                 try {

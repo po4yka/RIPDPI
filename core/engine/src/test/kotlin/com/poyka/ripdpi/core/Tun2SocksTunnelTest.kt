@@ -14,6 +14,18 @@ import java.io.IOException
 
 class Tun2SocksTunnelTest {
     @Test
+    fun stopStillStopsNativeTunnelWhenAttributionUnregisterFails() =
+        runTest {
+            val bindings = FakeTun2SocksBindings().apply { flowAttributionUnregisterFailure = IOException("unregister") }
+            val tunnel = Tun2SocksTunnel(bindings)
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7, flowAttributionBridge = Any())
+
+            assertTrue(runCatching { tunnel.stop() }.exceptionOrNull() is IOException)
+            assertEquals(listOf(1L), bindings.stoppedHandles)
+            assertEquals(listOf(1L), bindings.destroyedHandles)
+        }
+
+    @Test
     fun telemetryAddsDedicatedIcmpIngressCounterWithoutChangingJsonSchema() =
         runTest {
             val bindings =

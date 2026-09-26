@@ -409,6 +409,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     var flowAttributionTokenResult: Long = FLOW_ATTRIBUTION_TOKEN
 
+    var flowAttributionUnregisterFailure: Throwable? = null
+
     override fun registerFlowAttribution(bridge: Any): Long {
         lastFlowAttributionBridge = bridge
         return flowAttributionTokenResult
@@ -416,6 +418,7 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     override fun unregisterFlowAttribution(token: Long) {
         flowAttributionUnregisteredToken = token
+        flowAttributionUnregisterFailure?.let { throw it }
     }
 
     private companion object {
