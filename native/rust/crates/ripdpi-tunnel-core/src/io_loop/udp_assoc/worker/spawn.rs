@@ -44,10 +44,20 @@ fn response_source_for_target(
 ) -> Option<SocketAddr> {
     match target {
         TargetAddr::Ip(source) => Some(source),
-        TargetAddr::Domain(host, port) => response_sources
-            .iter()
-            .find(|((known_host, _, known_port), _)| known_host == &host.to_ascii_lowercase() && *known_port == port)
-            .map(|(_, source)| SocketAddr::new(source.ip(), port)),
+        TargetAddr::Domain(host, port) => {
+            let host = host.trim_end_matches('.').to_ascii_lowercase();
+            let mut source = None;
+            for ((known_host, _, known_port), candidate) in response_sources {
+                if *known_host == host && *known_port == port {
+                    let candidate = SocketAddr::new(candidate.ip(), port);
+                    if source.is_some() && source != Some(candidate) {
+                        return None;
+                    }
+                    source = Some(candidate);
+                }
+            }
+            source
+        }
         TargetAddr::ResolvedDomain(host, pinned) => response_sources.get(&response_authority(&host, pinned)).copied(),
     }
 }
@@ -221,6 +231,22 @@ mod tests {
             response_source_for_target(&sources, TargetAddr::ResolvedDomain("MULTI.EXAMPLE.".into(), first_pinned)),
             Some(first_source)
         );
+    }
+
+    #[test]
+    fn ambiguous_domain_response_has_no_source() {
+        let mut sources = HashMap::new();
+        let first_pinned: SocketAddr = "203.0.113.10:443".parse().unwrap();
+        let second_pinned: SocketAddr = "203.0.113.11:443".parse().unwrap();
+        let first_source: SocketAddr = "198.18.0.10:443".parse().unwrap();
+        let second_source: SocketAddr = "198.18.0.11:443".parse().unwrap();
+        remember_response_source(&mut sources, "multi.example", first_pinned, first_source);
+        assert_eq!(
+            response_source_for_target(&sources, TargetAddr::Domain("multi.example".into(), 443)),
+            Some(first_source)
+        );
+        remember_response_source(&mut sources, "multi.example", second_pinned, second_source);
+        assert_eq!(response_source_for_target(&sources, TargetAddr::Domain("multi.example".into(), 443)), None);
     }
 
     #[test]
