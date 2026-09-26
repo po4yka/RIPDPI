@@ -372,7 +372,9 @@ internal class ProxyServiceRuntimeCoordinator(
             stop(
                 guard =
                     RuntimeStopGuard(
-                        isCurrent = { runtimeSession?.runtimeId == session.runtimeId && status == ServiceStatus.Failed },
+                        isCurrent = {
+                            runtimeSession?.runtimeId == session.runtimeId && status == ServiceStatus.Failed
+                        },
                         failureReason = reason,
                     ),
             )

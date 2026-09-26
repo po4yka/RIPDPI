@@ -16,9 +16,9 @@ import com.poyka.ripdpi.data.SharedPriorsRefreshCache
 import com.poyka.ripdpi.data.SharedPriorsRefreshState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
 
 // 24-hour periodic worker that fetches the signed shared-priors bundle
 // from the GitHub release channel, hands it to the native verifier, and

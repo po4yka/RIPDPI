@@ -24,6 +24,7 @@ class ConnectionPolicySignatureBuilderTest {
                 encryptedDnsDnscryptProviderName = "",
                 encryptedDnsDnscryptPublicKey = "",
             )
+
         fun signature(token: String) =
             buildConnectionPolicySignature(
                 mode = Mode.Proxy,

@@ -120,7 +120,7 @@ internal fun readBoundedGeoAssetBytes(
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
 ): ByteArray {
     val output = ByteArrayOutputStream()
-    val buffer = ByteArray(8 * 1024)
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     var total = 0L
     while (true) {
         val read = input.read(buffer)

@@ -705,46 +705,46 @@ class ProxyServiceRuntimeCoordinatorTest {
             endpointPort = 51820,
             interfaceAddressV4 = "10.8.0.2/32",
         )
-
-    private fun TestScope.buildProxySupervisorBundle(
-        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
-        factory: TestRipDpiProxyFactory,
-        relayFactory: TestRipDpiRelayFactory = TestRipDpiRelayFactory(),
-        warpFactory: TestRipDpiWarpFactory,
-        awgFactory: NoOpRipDpiAmneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
-    ): ProxyRuntimeSupervisorBundle =
-        ProxyRuntimeSupervisorBundle(
-            upstreamRelaySupervisor =
-                UpstreamRelaySupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    relayFactory = relayFactory,
-                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
-                ),
-            warpRuntimeSupervisor =
-                WarpRuntimeSupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    warpFactory = warpFactory,
-                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                ),
-            amneziaWgRuntimeSupervisor =
-                AmneziaWgRuntimeSupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    amneziaWgFactory = awgFactory,
-                    runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
-                ),
-            proxyRuntimeSupervisor =
-                ProxyRuntimeSupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    ripDpiProxyFactory = factory,
-                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                ),
-        )
 }
+
+private fun TestScope.buildProxySupervisorBundle(
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    factory: TestRipDpiProxyFactory,
+    relayFactory: TestRipDpiRelayFactory = TestRipDpiRelayFactory(),
+    warpFactory: TestRipDpiWarpFactory,
+    awgFactory: NoOpRipDpiAmneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+): ProxyRuntimeSupervisorBundle =
+    ProxyRuntimeSupervisorBundle(
+        upstreamRelaySupervisor =
+            UpstreamRelaySupervisor(
+                scope = backgroundScope,
+                dispatcher = dispatcher,
+                relayFactory = relayFactory,
+                naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+            ),
+        warpRuntimeSupervisor =
+            WarpRuntimeSupervisor(
+                scope = backgroundScope,
+                dispatcher = dispatcher,
+                warpFactory = warpFactory,
+                runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+            ),
+        amneziaWgRuntimeSupervisor =
+            AmneziaWgRuntimeSupervisor(
+                scope = backgroundScope,
+                dispatcher = dispatcher,
+                amneziaWgFactory = awgFactory,
+                runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+            ),
+        proxyRuntimeSupervisor =
+            ProxyRuntimeSupervisor(
+                scope = backgroundScope,
+                dispatcher = dispatcher,
+                ripDpiProxyFactory = factory,
+                networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+            ),
+    )
 
 private class DelayedStopProxyRuntime(
     private val events: MutableList<String>,

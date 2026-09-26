@@ -217,5 +217,6 @@ internal fun defaultXrayStartParams(
     )
 
 /** Native cleanup still owns a resource; a later stop may retry it. */
-internal class RuntimeCleanupPendingException(cause: Throwable? = null) :
-    IllegalStateException("Runtime cleanup is incomplete", cause)
+internal class RuntimeCleanupPendingException(
+    cause: Throwable? = null,
+) : IllegalStateException("Runtime cleanup is incomplete", cause)

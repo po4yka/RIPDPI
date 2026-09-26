@@ -77,11 +77,11 @@ class AssetStrategyPackRepositoryRefreshPolicyTest {
                                 val index = calls.incrementAndGet()
                                 if (index == 2) secondManifestRequested.complete(Unit)
                                 val payload = if (index == 1) older else newer
-                                return Json.encodeToString(
+                                val manifest =
                                     manifestFor(payload, version = "2026.04.$index").copy(
                                         catalogUrl = "https://cdn.example.test/catalog/$index",
-                                    ),
-                                ).toByteArray()
+                                    )
+                                return Json.encodeToString(manifest).toByteArray()
                             }
 
                             override suspend fun downloadCatalog(url: String): ByteArray =
@@ -104,7 +104,14 @@ class AssetStrategyPackRepositoryRefreshPolicyTest {
             first.await()
             second.await()
 
-            assertEquals(9L, repository.loadSnapshot().snapshot.catalog.sequence)
+            assertEquals(
+                9L,
+                repository
+                    .loadSnapshot()
+                    .snapshot
+                    .catalog
+                    .sequence,
+            )
         }
 
     @Test
