@@ -261,7 +261,7 @@ class GeoIpCheckerTest {
                 )
 
             assertFalse(result.detected)
-            assertTrue(result.needsReview)
+            assertFalse(result.needsReview)
             assertTrue(result.findings.any { it.description.contains("insufficient") })
         }
     }

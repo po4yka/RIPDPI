@@ -156,11 +156,9 @@ object GeoIpChecker {
         val result = evaluate(mergeSnapshots(snapshots))
         if (snapshots.size >= MIN_PROVIDER_COUNT) return result
         return result.copy(
-            needsReview = true,
             findings = result.findings +
                 Finding(
                     description = "GeoIP consensus insufficient: only ${snapshots.size} providers responded",
-                    needsReview = true,
                     source = EvidenceSource.GEO_IP,
                     confidence = EvidenceConfidence.LOW,
                 ),

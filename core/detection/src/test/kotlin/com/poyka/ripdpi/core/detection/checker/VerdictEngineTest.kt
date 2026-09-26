@@ -51,6 +51,39 @@ class VerdictEngineTest {
     }
 
     @Test
+    fun `partial GeoIP outage on Russian network does not imply detection`() {
+        val geoIp =
+            GeoIpChecker.evaluateConsensus(
+                (1..2).map { index ->
+                    GeoIpChecker.GeoIpSnapshot(
+                        ip = "1.2.3.4",
+                        country = "Russia",
+                        countryCode = "RU",
+                        isp = "ISP",
+                        org = "Org",
+                        asn = "AS1234",
+                        isProxy = false,
+                        isHosting = false,
+                        providerName = "provider$index",
+                    )
+                },
+            )
+
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = geoIp,
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals =
+                    emptyCategory("Location").copy(findings = listOf(Finding("network_mcc_ru:true"))),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(Verdict.NOT_DETECTED, explanation.verdict)
+        assertEquals("R0", explanation.ruleApplied)
+    }
+
+    @Test
     fun `split tunnel bypass returns DETECTED`() {
         val bypass =
             emptyBypass().copy(
