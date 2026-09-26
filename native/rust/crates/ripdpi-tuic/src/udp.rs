@@ -362,7 +362,8 @@ fn send_udp_payload(
     payload: &[u8],
 ) -> io::Result<()> {
     let max_datagram_size = client
-        .max_datagram_size
+        .connection
+        .max_datagram_size()
         .ok_or_else(|| io::Error::new(io::ErrorKind::Unsupported, "TUIC UDP is unavailable"))?;
 
     let first_header = PacketHeader {

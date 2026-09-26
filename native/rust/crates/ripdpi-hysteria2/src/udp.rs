@@ -337,7 +337,7 @@ async fn send_udp_payload(
     address: &str,
     payload: &[u8],
 ) -> Result<()> {
-    let max_datagram_size = client.max_datagram_size.ok_or(HysteriaError::UdpNotSupported)?;
+    let max_datagram_size = client.connection.max_datagram_size().ok_or(HysteriaError::UdpNotSupported)?;
     let address_len = encode_varint(address.len() as u64);
     let header_len = 4 + 2 + 1 + 1 + address_len.len() + address.len();
     if header_len >= max_datagram_size {
