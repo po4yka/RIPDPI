@@ -210,7 +210,7 @@ where
         let [version, is_success] = read_exact!(self.socket, [0u8; 2]).context("Can't read is_success")?;
         debug!("Auth: [version: {version}, is_success: {is_success}]", version = version, is_success = is_success,);
 
-        if is_success != consts::SOCKS5_REPLY_SUCCEEDED {
+        if version != 0x01 || is_success != consts::SOCKS5_REPLY_SUCCEEDED {
             return Err(SocksError::AuthenticationRejected("SOCKS5 authentication rejected".to_owned()));
         }
 
@@ -786,6 +786,17 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn use_password_auth_rejects_wrong_reply_version() {
+        let (mut stream, mut server) = duplex_stream();
+        let methods = password_methods("u", "p");
+        let handle = tokio::spawn(async move { stream.use_password_auth(methods).await });
+        let mut frame = [0u8; 5];
+        server.read_exact(&mut frame).await.expect("read auth frame");
+        server.write_all(&[0xff, 0]).await.expect("write malformed reply");
+        assert!(matches!(handle.await.expect("join"), Err(SocksError::AuthenticationRejected(_))));
+    }
+
     /// The rejection must happen *before* anything is written to the socket,
     /// otherwise a truncated/partial auth frame would already be on the wire.
     /// We assert the server half observes zero bytes from the failed attempt.
@@ -828,7 +839,7 @@ mod tests {
         assert_eq!(frame[257], 1, "PLEN");
 
         // Reply with success so the spawned task completes cleanly.
-        server.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_REPLY_SUCCEEDED]).await.expect("write reply");
+        server.write_all(&[0x01, consts::SOCKS5_REPLY_SUCCEEDED]).await.expect("write reply");
         let result = handle.await.expect("join");
         assert!(result.is_ok(), "max-length credential should authenticate, got {result:?}");
     }

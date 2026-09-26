@@ -230,7 +230,7 @@ where
     let mut reply = [0u8; 2];
     stream.read_exact(&mut reply).await?;
     // reply[0] is the sub-negotiation version (we accept any); reply[1] is the status.
-    if reply[1] != consts::SOCKS5_REPLY_SUCCEEDED {
+    if reply[0] != 0x01 || reply[1] != consts::SOCKS5_REPLY_SUCCEEDED {
         return Err(OutboundError::AuthRejected);
     }
     Ok(())
@@ -576,6 +576,14 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unknown_connect_reply_returns_error() {
+        let (mut client, server) = duplex(4096);
+        tokio::spawn(server_reply_error(server, 0x09));
+        let result = connect(&mut client, OutboundTarget::Ipv4(Ipv4Addr::LOCALHOST, 9997), None).await;
+        assert!(matches!(result, Err(OutboundError::ConnectFailed(ReplyError::OtherReply(0x09)))));
+    }
+
+    #[tokio::test]
     async fn domain_too_long_returns_error() {
         let long = "a".repeat(256);
         let result = encode_connect_request(&OutboundTarget::Domain(long.clone(), 80));
@@ -720,6 +728,34 @@ mod tests {
             matches!(result, Err(OutboundError::AssociateFailed(ReplyError::CommandNotSupported))),
             "got {result:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn unknown_associate_reply_returns_error() {
+        let (mut client, mut server) = duplex(64);
+        tokio::spawn(async move {
+            server.write_all(&[consts::SOCKS5_VERSION, 0x09, 0, consts::SOCKS5_ADDR_TYPE_IPV4]).await.unwrap();
+        });
+        let result = read_associate_reply(&mut client).await;
+        assert!(matches!(result, Err(OutboundError::AssociateFailed(ReplyError::OtherReply(0x09)))));
+    }
+
+    #[tokio::test]
+    async fn password_reply_rejects_wrong_version() {
+        let (mut client, mut server) = duplex(64);
+        tokio::spawn(async move {
+            let mut header = [0u8; 2];
+            server.read_exact(&mut header).await.unwrap();
+            let mut body = vec![0u8; header[1] as usize];
+            server.read_exact(&mut body).await.unwrap();
+            server.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_AUTH_METHOD_PASSWORD]).await.unwrap();
+            let mut frame = [0u8; 5];
+            server.read_exact(&mut frame).await.unwrap();
+            server.write_all(&[0xff, 0]).await.unwrap();
+        });
+        let creds = Credentials { username: "u".into(), password: "p".into() };
+        let result = greet_and_authenticate(&mut client, Some(&creds)).await;
+        assert!(matches!(result, Err(OutboundError::AuthRejected)));
     }
 
     #[tokio::test]
