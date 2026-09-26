@@ -255,6 +255,7 @@ fn execute_registry_action<I: TunPacketInjector>(
     };
 
     let mut injected = false;
+    let mut all_injected = true;
     let mut sequence_delta = 0u32;
     let mut ttl = None;
     for action in plan.actions {
@@ -263,18 +264,27 @@ fn execute_registry_action<I: TunPacketInjector>(
                 if inject_strategy_output(packet, meta, &output, sequence_delta, ttl, injector) {
                     injected = true;
                     sequence_delta = sequence_delta.wrapping_add(output.len() as u32);
+                } else {
+                    all_injected = false;
                 }
                 ttl = None;
             }
             DesyncAction::Split { offset, disorder } => {
                 if let Some((first, second)) = split_payload(payload, offset) {
+                    let first_sent;
+                    let second_sent;
                     if disorder {
-                        injected |= inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
-                        injected |= inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                        first_sent = inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
+                        second_sent = first_sent && inject_strategy_output(packet, meta, first, 0, ttl, injector);
                     } else {
-                        injected |= inject_strategy_output(packet, meta, first, 0, ttl, injector);
-                        injected |= inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
+                        first_sent = inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                        second_sent = first_sent
+                            && inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
                     }
+                    injected |= first_sent || second_sent;
+                    all_injected &= first_sent && second_sent;
+                } else {
+                    all_injected = false;
                 }
                 ttl = None;
             }
@@ -282,22 +292,34 @@ fn execute_registry_action<I: TunPacketInjector>(
             DesyncAction::RestoreDefaultTtl => ttl = None,
             DesyncAction::WriteFake { ttl: fake_ttl, .. } => {
                 if let Some(output) = low_ttl_tcp_copy(packet, fake_ttl.or(ttl).unwrap_or(5)) {
-                    injected |= inject_strategy_output(packet, meta, &output, 0, None, injector);
+                    let sent = inject_strategy_output(packet, meta, &output, 0, None, injector);
+                    injected |= sent;
+                    all_injected &= sent;
+                } else {
+                    all_injected = false;
                 }
                 ttl = None;
             }
             DesyncAction::UdpLen { delta } => {
                 if let Some(output) = ripdpi_strategy_udp::apply_udplen(packet, delta) {
-                    injected |= inject_strategy_output(packet, meta, &output, 0, None, injector);
+                    let sent = inject_strategy_output(packet, meta, &output, 0, None, injector);
+                    injected |= sent;
+                    all_injected &= sent;
+                } else {
+                    all_injected = false;
                 }
                 ttl = None;
             }
             DesyncAction::SetWindowClamp(_) | DesyncAction::WriteUrgent { .. } | DesyncAction::SendFakeRst { .. } => {
                 debug!("Lua TUN egress action is unsupported on raw TUN path; forwarding original packet");
+                all_injected = false;
             }
         }
+        if !all_injected {
+            break;
+        }
     }
-    drop_original || (injected && !forward_original)
+    drop_original || (injected && all_injected && !forward_original)
 }
 
 fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
@@ -907,6 +929,80 @@ strategies:
         assert_eq!(packet_payload(&interceptor.injector.packets[1]), b"cdef");
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
         assert!(packet_destination(&interceptor.injector.packets[1]).is_some());
+    }
+
+    #[test]
+    fn lua_split_failure_forwards_original() {
+        let packet = ipv4_tcp_packet(49152, 443, b"abcdef");
+        let script = write_lua_script(
+            "lua-egress-split-failure",
+            r#"
+function candidate(desync)
+    desync.split(2, false)
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), FailsSecondInjector(0));
+
+        assert!(!interceptor.handle_packet(&packet));
+    }
+
+    #[test]
+    fn lua_stops_after_failed_injection() {
+        let packet = ipv4_tcp_packet(49152, 443, b"abcdef");
+        let script = write_lua_script(
+            "lua-egress-stop-after-failure",
+            r#"
+function candidate(desync)
+    desync.rawsend("one")
+    desync.rawsend("two")
+    desync.rawsend("three")
+    return VERDICT_MODIFY
+end
+"#,
+        );
+        let yaml = format!(
+            r#"
+version: 1
+strategies:
+  - id: lua-egress
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+            script.display()
+        );
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), FailsSecondInjector(0));
+
+        assert!(!interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.0, 2);
+    }
+
+    struct FailsSecondInjector(usize);
+
+    impl TunPacketInjector for FailsSecondInjector {
+        fn inject_packet(&mut self, _packet: &[u8]) -> io::Result<()> {
+            self.0 += 1;
+            if self.0 == 2 { Err(io::Error::other("boom")) } else { Ok(()) }
+        }
     }
 
     #[derive(Default)]
