@@ -30,11 +30,15 @@ import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
@@ -557,6 +561,187 @@ class DiagnosticsScanPolicyFinalizationTest {
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsScanDnsCorrectedReprobeTest {
     private val json = diagnosticsTestJson()
+
+    @Test
+    fun `dns re-probe keeps admission reserved during handoff`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource(stores, backgroundScope),
+                    serviceStateStore = serviceStateStore,
+                    json = json,
+                )
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-handoff",
+                    settings = settings,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val originalBridge = buildDnsFallbackBridge(prepared.sessionId, settings)
+            fixtures.activeScanRegistry.registerBridge(originalBridge, prepared.sessionId, false)
+            val handoffEntered = CompletableDeferred<Unit>()
+            val releaseHandoff = CompletableDeferred<Unit>()
+            stores.afterUpsertScanSession = { session ->
+                if (session.summary.startsWith("DNS-corrected re-probe")) {
+                    handoffEntered.complete(Unit)
+                    releaseHandoff.await()
+                }
+            }
+
+            val execution =
+                backgroundScope.async {
+                    fixtures.coordinator.execute(
+                        prepared,
+                        BridgeSessionHandle(originalBridge, prepared.sessionId, false),
+                        rawPathRunner = ::runSettledRawPathBlock,
+                    )
+                }
+            handoffEntered.await()
+            val admissionService =
+                ScanAdmissionService(
+                    FakeAppSettingsRepository(),
+                    stores,
+                    fixtures.activeScanRegistry,
+                    json,
+                )
+            val admission =
+                admissionService.admitManualStart(selectedProfileId = "automatic-probing")
+            assertTrue(admission is ManualStartAdmission.HiddenAutomaticProbeConflict)
+            assertNull(admissionService.admitAutomaticProbe(settings))
+
+            releaseHandoff.complete(Unit)
+            runCurrent()
+            assertTrue(fixtures.activeScanRegistry.hasHiddenActiveScan)
+            execution.cancelAndJoin()
+            assertEquals(false, fixtures.activeScanRegistry.hasHiddenActiveScan)
+        }
+
+    @Test
+    fun `dns re-probe registration failure cleans primary admission`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource(stores, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                    json = json,
+                )
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-handoff-failure",
+                    settings = settings,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val originalBridge = buildDnsFallbackBridge(prepared.sessionId, settings)
+            fixtures.activeScanRegistry.registerBridge(originalBridge, prepared.sessionId, false)
+            stores.afterUpsertScanSession = { session ->
+                if (session.summary.startsWith("DNS-corrected re-probe")) {
+                    error("re-probe session persistence failed")
+                }
+            }
+
+            fixtures.coordinator.execute(
+                prepared,
+                BridgeSessionHandle(originalBridge, prepared.sessionId, false),
+                rawPathRunner = ::runSettledRawPathBlock,
+            )
+
+            assertEquals(1, originalBridge.destroyCount)
+            assertEquals(false, fixtures.activeScanRegistry.hasHiddenActiveScan)
+            assertEquals(
+                "failed",
+                stores.sessionsState.value.first { it.pathMode == ScanPathMode.IN_PATH.name }.status,
+            )
+        }
+
+    @Test
+    fun `owner cancellation after DNS recommendation does not start re-probe`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource(stores, backgroundScope),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
+                    json = json,
+                )
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsProviderId(DnsProviderCustom)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            val prepared =
+                preparedDiagnosticsScan(
+                    sessionId = "session-handoff-cancelled",
+                    settings = settings,
+                    exposeProgress = false,
+                    registerActiveBridge = false,
+                    kind = ScanKind.STRATEGY_PROBE,
+                    profileId = "automatic-probing",
+                    family = DiagnosticProfileFamily.AUTOMATIC_PROBING,
+                    strategyProbeRequest = StrategyProbeRequest(suiteId = "quick_v1"),
+                )
+            seedPreparedScan(stores, prepared)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
+            val originalBridge = buildDnsFallbackBridge(prepared.sessionId, settings)
+            fixtures.activeScanRegistry.registerBridge(originalBridge, prepared.sessionId, false)
+
+            val cancellation =
+                runCatching {
+                    fixtures.coordinator.execute(
+                        prepared,
+                        BridgeSessionHandle(originalBridge, prepared.sessionId, false),
+                        rawPathRunner = { block ->
+                            block()
+                            throw RawPathExecutionCancelledException(
+                                completedRawPathExecutionResult(
+                                    executionOutcome = RawPathExecutionOutcome.BlockCancelled,
+                                ),
+                                CancellationException("owner stopped after report"),
+                            )
+                        },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(cancellation is CancellationException)
+            assertEquals(1, originalBridge.destroyCount)
+            assertEquals(false, fixtures.activeScanRegistry.hasHiddenActiveScan)
+            assertTrue(stores.sessionsState.value.none { it.pathMode == ScanPathMode.IN_PATH.name })
+        }
 
     @Test
     fun `dns corrected reprobe waits for vpn auto resume before starting`() =

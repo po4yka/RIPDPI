@@ -93,22 +93,36 @@ internal class DiagnosticsScanExecutionCoordinator
             ) {
                 activeScanRegistry.cancelledSessionFailures.putIfAbsent(prepared.sessionId, outcome.failure)
             }
-            cleanupPrimaryScan(
-                prepared = prepared,
-                handle = handle,
-                failure = outcome.failure ?: outcome.externalCancellation,
-                persistFailure = !outcome.rawPathTerminalBarrierIncomplete,
-                pollingState = pollingState,
-            )
-            outcome.externalCancellation?.let { cancellation -> throw cancellation }
-
-            if (outcome.failure == null && outcome.finalizationResult?.shouldReprobeWithCorrectedDns == true) {
-                runDnsCorrectedReprobe(
-                    original = prepared,
-                    finalizationResult = requireNotNull(outcome.finalizationResult),
-                    ownerId = ownerId,
-                )
+            var primaryCleaned = false
+            val cleanupPrimary = suspend {
+                if (!primaryCleaned) {
+                    primaryCleaned = true
+                    cleanupPrimaryScan(
+                        prepared = prepared,
+                        handle = handle,
+                        failure = outcome.failure ?: outcome.externalCancellation,
+                        persistFailure = !outcome.rawPathTerminalBarrierIncomplete,
+                        pollingState = pollingState,
+                    )
+                }
             }
+            try {
+                if (
+                    outcome.failure == null &&
+                    outcome.externalCancellation == null &&
+                    outcome.finalizationResult?.shouldReprobeWithCorrectedDns == true
+                ) {
+                    runDnsCorrectedReprobe(
+                        original = prepared,
+                        finalizationResult = requireNotNull(outcome.finalizationResult),
+                        ownerId = ownerId,
+                        onReserved = cleanupPrimary,
+                    )
+                }
+            } finally {
+                cleanupPrimary()
+            }
+            outcome.externalCancellation?.let { cancellation -> throw cancellation }
         }
 
         private fun routePollingState(prepared: PreparedDiagnosticsScan): BridgeReportPollingState =
@@ -515,6 +529,7 @@ internal class DiagnosticsScanExecutionCoordinator
             original: PreparedDiagnosticsScan,
             finalizationResult: ScanFinalizationResult,
             ownerId: String?,
+            onReserved: suspend () -> Unit,
         ) {
             val preparedReprobe =
                 scanRequestFactory.prepareReprobe(
@@ -547,6 +562,7 @@ internal class DiagnosticsScanExecutionCoordinator
                             registerActiveBridge = false,
                         ),
                     ) { "DNS-corrected re-probe was cancelled before startup" }
+                    onReserved()
                     waitForVpnServiceResume()
                     reprobe =
                         preparedReprobe.bindCurrentInPathRoute(
