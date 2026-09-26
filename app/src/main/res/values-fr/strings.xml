@@ -1429,6 +1429,7 @@ Source : %2$s</string>
     <string name="language_name_fa">فارسی</string>
     <string name="language_name_ar">العربية</string>
     <string name="language_picker_sheet_title">Choisir la langue</string>
+    <string name="language_picker_system_language">Langue du système</string>
     <string name="logs_auto_scroll_title">Défilement automatique vers les plus récents</string>
     <string name="logs_empty_title">Aucun journal pour l\'instant</string>
     <string name="logs_filters_helper">Filtrez par sous-système ou gravité pour vous concentrer sur le runtime que vous déboguez.</string>

@@ -2733,6 +2733,7 @@ fakeddisorder endhost</string>
     <string name="settings_language_title">زبان</string>
     <string name="settings_language_body">زبان مورد استفادهٔ برنامهٔ RIPDPI را انتخاب کنید</string>
     <string name="language_picker_sheet_title">انتخاب زبان</string>
+    <string name="language_picker_system_language">زبان سیستم</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="language_name_en">English</string>
     <string name="language_name_ru">Русский</string>

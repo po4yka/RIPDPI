@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components
 
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,50 +31,55 @@ fun LanguagePickerSheet(
 ) {
     val context = LocalContext.current
     val tags = remember(context) { LocalesConfig.parse(context) }
-    // Resolve the language that is actually in effect. getApplicationLocales() is
-    // empty until the user sets a per-app override, so without this fallback the
-    // currently-active (system) language would show no selection at all.
-    val currentTag =
-        remember(tags) {
-            val applied = AppCompatDelegate.getApplicationLocales()
-            val effective = if (applied.isEmpty) LocaleListCompat.getAdjustedDefault() else applied
-            val locale = effective.get(0)
-            tags.firstOrNull { tag ->
-                val offered = Locale.forLanguageTag(tag)
-                offered.language == locale?.language &&
-                    (offered.country.isEmpty() || offered.country.equals(locale.country, ignoreCase = true))
-            } ?: tags.firstOrNull { it.equals("en", ignoreCase = true) }
-        }
+    val applied = AppCompatDelegate.getApplicationLocales()
 
     RipDpiBottomSheet(
         onDismissRequest = onDismissRequest,
         title = stringResource(R.string.language_picker_sheet_title),
         modifier = modifier,
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            tags.forEach { tag ->
-                LanguageRow(
-                    tag = tag,
-                    selected = tag == currentTag,
-                    onSelected = {
-                        AppCompatDelegate.setApplicationLocales(
-                            LocaleListCompat.forLanguageTags(tag),
-                        )
-                        onDismissRequest()
-                    },
-                )
-            }
+        LanguagePickerOptions(tags = tags, applied = applied) { selection ->
+            AppCompatDelegate.setApplicationLocales(selection)
+            onDismissRequest()
+        }
+    }
+}
+
+@Composable
+internal fun LanguagePickerOptions(
+    tags: List<String>,
+    applied: LocaleListCompat,
+    onSelected: (LocaleListCompat) -> Unit,
+) {
+    val locale = applied.get(0)
+    val currentTag =
+        tags.firstOrNull { tag ->
+            val offered = Locale.forLanguageTag(tag)
+            offered.language == locale?.language &&
+                (offered.country.isEmpty() || offered.country.equals(locale.country, ignoreCase = true))
+        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        LanguageRow(
+            nameRes = R.string.language_picker_system_language,
+            selected = applied.isEmpty,
+            onSelected = { onSelected(LocaleListCompat.getEmptyLocaleList()) },
+        )
+        tags.forEach { tag ->
+            LanguageRow(
+                nameRes = languageNameResource(tag),
+                selected = tag.equals(currentTag, ignoreCase = true),
+                onSelected = { onSelected(LocaleListCompat.forLanguageTags(tag)) },
+            )
         }
     }
 }
 
 @Composable
 private fun LanguageRow(
-    tag: String,
+    @StringRes nameRes: Int,
     selected: Boolean,
     onSelected: () -> Unit,
 ) {
-    val nameRes = languageNameResource(tag)
     val spacing = RipDpiThemeTokens.spacing
     Row(
         modifier =

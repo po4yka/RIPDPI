@@ -2686,6 +2686,7 @@ fakeddisorder endhost</string>
     <string name="settings_language_title">اللغة</string>
     <string name="settings_language_body">اختر اللغة المستخدمة في تطبيق RIPDPI</string>
     <string name="language_picker_sheet_title">اختر لغة</string>
+    <string name="language_picker_system_language">لغة النظام</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="language_name_en">English</string>
     <string name="language_name_ru">Русский</string>

@@ -2885,6 +2885,7 @@ Source: %2$s</string>
     <string name="settings_language_title">Language</string>
     <string name="settings_language_body">Choose the language used by the RIPDPI app</string>
     <string name="language_picker_sheet_title">Choose language</string>
+    <string name="language_picker_system_language">System language</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="language_name_en">English</string>
     <string name="language_name_ru">Русский</string>

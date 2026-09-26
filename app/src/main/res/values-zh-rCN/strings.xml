@@ -2725,6 +2725,7 @@ fake_burst 3</string>
     <string name="settings_language_title">语言</string>
     <string name="settings_language_body">选择 RIPDPI 应用使用的语言</string>
     <string name="language_picker_sheet_title">选择语言</string>
+    <string name="language_picker_system_language">系统语言</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="language_name_en">English</string>
     <string name="language_name_ru">Русский</string>

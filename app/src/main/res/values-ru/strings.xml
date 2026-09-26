@@ -2718,6 +2718,7 @@ fakeddisorder endhost</string>
     <string name="settings_language_title">Язык</string>
     <string name="settings_language_body">Выберите язык, используемый приложением RIPDPI</string>
     <string name="language_picker_sheet_title">Выберите язык</string>
+    <string name="language_picker_system_language">Язык системы</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="language_name_en">English</string>
     <string name="language_name_ru">Русский</string>

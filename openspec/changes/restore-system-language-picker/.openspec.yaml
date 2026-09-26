@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-26
+goal: UIX-1790432109043744 Restore system language in the language picker

@@ -1429,6 +1429,7 @@ Quelle: %2$s</string>
     <string name="language_name_fa">فارسی</string>
     <string name="language_name_ar">العربية</string>
     <string name="language_picker_sheet_title">Sprache wählen</string>
+    <string name="language_picker_system_language">Systemsprache</string>
     <string name="logs_auto_scroll_title">Automatisch zum Neuesten scrollen</string>
     <string name="logs_empty_title">Noch keine Logs</string>
     <string name="logs_filters_helper">Nach Subsystem oder Schweregrad filtern, um sich auf die Laufzeit zu konzentrieren, die Sie debuggen.</string>

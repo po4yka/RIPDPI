@@ -963,6 +963,7 @@
     <string name="settings_language_title">भाषा</string>
     <string name="settings_language_body">RIPDPI ऐप द्वारा उपयोग की जाने वाली भाषा चुनें</string>
     <string name="language_picker_sheet_title">भाषा चुनें</string>
+    <string name="language_picker_system_language">सिस्टम की भाषा</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="language_name_en">English</string>
     <string name="language_name_ru">Русский</string>
