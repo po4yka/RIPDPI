@@ -28,7 +28,9 @@ pub use endpoints::{
     encrypted_dns_protocol, parse_bootstrap_ips, parse_url_host,
 };
 pub use fallback::build_fallback_encrypted_dns_endpoints;
-pub use wire::{DNS_RECORD_TYPE_A, build_dns_query_with_type, parse_dns_response, skip_dns_name};
+pub use wire::{
+    DNS_RECORD_TYPE_A, build_dns_query_with_type, parse_dns_response, parse_dns_response_for_query, skip_dns_name,
+};
 
 pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::TransportConfig;

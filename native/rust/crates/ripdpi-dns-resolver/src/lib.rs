@@ -32,7 +32,9 @@ pub use odoh::{
 };
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
-pub use transport::{IpAnswerFamily, IpAnswerRecord, extract_ip_answer_records, extract_ip_answers};
+pub use transport::{
+    IpAnswerFamily, IpAnswerRecord, extract_ip_answer_records, extract_ip_answers, validate_dns_response_for_query,
+};
 pub use types::{
     BoxedDnsTcpStream, DirectTcpConnection, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError,
     EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsSocks5Credentials,

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::net::IpAddr;
 
 use hickory_proto::op::{Message, MessageType, OpCode, Query};
-use hickory_proto::rr::{Name, RData, RecordType};
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 
 use crate::types::EncryptedDnsError;
 
@@ -27,6 +27,42 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
         record_type,
     ));
     message.to_vec().map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))
+}
+
+/// Validate that a DNS reply answers the query that was actually sent.
+pub fn validate_dns_response_for_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
+    let request = Message::from_vec(query).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
+    let reply = Message::from_vec(response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
+    if request.queries.len() != 1
+        || reply.metadata.id != request.metadata.id
+        || reply.metadata.message_type != MessageType::Response
+        || reply.queries != request.queries
+    {
+        return Err(EncryptedDnsError::DnsParse("DNS response does not match query".to_string()));
+    }
+
+    let mut valid_names = vec![request.queries[0].name.clone()];
+    loop {
+        let previous_len = valid_names.len();
+        for record in &reply.answers {
+            if let RData::CNAME(target) = &record.data
+                && record.dns_class == DNSClass::IN
+                && valid_names.contains(&record.name)
+                && !valid_names.contains(&target.0)
+            {
+                valid_names.push(target.0.clone());
+            }
+        }
+        if valid_names.len() == previous_len {
+            break;
+        }
+    }
+    if reply.answers.iter().any(|record| {
+        matches!(record.data, RData::A(_)) && (record.dns_class != DNSClass::IN || !valid_names.contains(&record.name))
+    }) {
+        return Err(EncryptedDnsError::DnsParse("DNS answer owner does not match query".to_string()));
+    }
+    Ok(())
 }
 
 pub fn extract_ip_answers(packet: &[u8]) -> Result<Vec<String>, EncryptedDnsError> {

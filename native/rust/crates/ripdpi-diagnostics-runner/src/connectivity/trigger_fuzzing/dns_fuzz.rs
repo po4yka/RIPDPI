@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::summary::{TriggerFuzzOutcome, append_trigger_fuzzing_summary};
-use crate::connectivity::adapters::dns::{build_dns_query_with_type, parse_dns_response};
+use crate::connectivity::adapters::dns::{build_dns_query_with_type, parse_dns_response_for_query};
 use crate::connectivity::adapters::transport::{
     TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr,
 };
@@ -23,24 +23,22 @@ pub(crate) fn append_trigger_fuzzing_details(
             "uppercase_qname",
             "qname_case",
             build_dns_query_with_type(&target.domain.to_ascii_uppercase(), dns_query_id(1), 1),
-            dns_query_id(1),
         ),
         (
             "mixedcase_qname",
             "qname_case",
             build_dns_query_with_type(&alternating_case(&target.domain), dns_query_id(2), 1),
-            dns_query_id(2),
         ),
-        ("edns0_opt", "edns0", build_dns_query_with_edns0(&target.domain, dns_query_id(3)), dns_query_id(3)),
+        ("edns0_opt", "edns0", build_dns_query_with_edns0(&target.domain, dns_query_id(3))),
     ];
 
     let mut outcomes = Vec::new();
-    for (id, field, packet, query_id) in variants.into_iter().take(MAX_DNS_FUZZ_VARIANTS) {
+    for (id, field, packet) in variants.into_iter().take(MAX_DNS_FUZZ_VARIANTS) {
         let Ok(packet) = packet else {
             continue;
         };
 
-        let variant_result = execute_variant(udp_server, transport, &packet, query_id);
+        let variant_result = execute_variant(udp_server, transport, &packet);
         let outcome = classify_variant_outcome(&variant_result, encrypted_result);
         let detail = variant_result.as_ref().map_or_else(Clone::clone, |addresses| addresses.join("|"));
         outcomes.push(TriggerFuzzOutcome { id, field, outcome, detail });
@@ -49,12 +47,7 @@ pub(crate) fn append_trigger_fuzzing_details(
     append_trigger_fuzzing_summary(details, "dnsFuzz", baseline_outcome, &outcomes);
 }
 
-fn execute_variant(
-    server: &str,
-    transport: &TransportConfig,
-    packet: &[u8],
-    query_id: u16,
-) -> Result<Vec<String>, String> {
+fn execute_variant(server: &str, transport: &TransportConfig, packet: &[u8]) -> Result<Vec<String>, String> {
     let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
     let response = match transport {
         TransportConfig::Direct { .. } => {
@@ -67,7 +60,7 @@ fn execute_variant(
         }
     }?;
 
-    parse_dns_response(&response, query_id)
+    parse_dns_response_for_query(&response, packet)
 }
 
 fn classify_variant_outcome(

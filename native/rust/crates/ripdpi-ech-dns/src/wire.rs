@@ -84,6 +84,13 @@ pub fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>
     Ok(answers)
 }
 
+pub fn parse_dns_response_for_query(packet: &[u8], query: &[u8]) -> Result<Vec<String>, String> {
+    let id_bytes = query.get(..2).ok_or("dns_query_too_short")?;
+    let expected_id = u16::from_be_bytes([id_bytes[0], id_bytes[1]]);
+    ripdpi_dns_resolver::validate_dns_response_for_query(query, packet).map_err(|error| error.to_string())?;
+    parse_dns_response(packet, expected_id)
+}
+
 pub fn skip_dns_name(packet: &[u8], mut offset: usize) -> Result<usize, String> {
     loop {
         let Some(length) = packet.get(offset).copied() else {
@@ -151,8 +158,74 @@ mod tests {
         packet.extend(4u16.to_be_bytes());
         packet.extend([1, 2, 3, 4]);
 
-        let answers = parse_dns_response(&packet, query_id).unwrap();
+        let query = build_dns_query("example.com", query_id).unwrap();
+        let answers = parse_dns_response_for_query(&packet, &query).unwrap();
         assert_eq!(answers, vec!["1.2.3.4"]);
+    }
+
+    #[test]
+    fn validated_response_rejects_wrong_question_and_answer_owner() {
+        let query = build_dns_query("example.com", 0x1234).unwrap();
+        let mut response = query[..12].to_vec();
+        response[2..4].copy_from_slice(&0x8180u16.to_be_bytes());
+        response[6..8].copy_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&query[12..]);
+        let answer_offset = response.len();
+        response.extend_from_slice(&[0xC0, 0x0C]);
+        response.extend_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&60u32.to_be_bytes());
+        response.extend_from_slice(&4u16.to_be_bytes());
+        response.extend_from_slice(&[1, 2, 3, 4]);
+        assert_eq!(parse_dns_response_for_query(&response, &query).unwrap(), vec!["1.2.3.4"]);
+
+        let mut changed_case = response.clone();
+        changed_case[13] = b'E';
+        assert_eq!(parse_dns_response_for_query(&changed_case, &query).unwrap(), vec!["1.2.3.4"]);
+
+        let other_query = build_dns_query("other.com", 0x1234).unwrap();
+        let mut wrong_question = response.clone();
+        wrong_question.splice(12..answer_offset, other_query[12..].iter().copied());
+        assert!(parse_dns_response_for_query(&wrong_question, &query).is_err());
+
+        let mut wrong_qtype = response.clone();
+        wrong_qtype[answer_offset - 4..answer_offset - 2].copy_from_slice(&28u16.to_be_bytes());
+        assert!(parse_dns_response_for_query(&wrong_qtype, &query).is_err());
+
+        let mut wrong_nxdomain = wrong_question;
+        wrong_nxdomain[3] = (wrong_nxdomain[3] & 0xf0) | 3;
+        assert!(parse_dns_response_for_query(&wrong_nxdomain, &query).is_err());
+
+        let mut wrong_owner = response.clone();
+        wrong_owner.splice(answer_offset..answer_offset + 2, b"\x05other\x03com\x00".iter().copied());
+        assert!(parse_dns_response_for_query(&wrong_owner, &query).is_err());
+
+        let mut wrong_qr = response;
+        wrong_qr[2] &= 0x7f;
+        assert!(parse_dns_response_for_query(&wrong_qr, &query).is_err());
+    }
+
+    #[test]
+    fn validated_response_accepts_cname_answer_chain() {
+        let query = build_dns_query("example.com", 0x1234).unwrap();
+        let mut response = query[..12].to_vec();
+        response[2..4].copy_from_slice(&0x8180u16.to_be_bytes());
+        response[6..8].copy_from_slice(&2u16.to_be_bytes());
+        response.extend_from_slice(&query[12..]);
+        response.extend_from_slice(&[0xC0, 0x0C]);
+        response.extend_from_slice(&5u16.to_be_bytes());
+        response.extend_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&60u32.to_be_bytes());
+        response.extend_from_slice(&11u16.to_be_bytes());
+        response.extend_from_slice(b"\x05alias\x03com\x00");
+        response.extend_from_slice(b"\x05alias\x03com\x00");
+        response.extend_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&60u32.to_be_bytes());
+        response.extend_from_slice(&4u16.to_be_bytes());
+        response.extend_from_slice(&[1, 2, 3, 4]);
+
+        assert_eq!(parse_dns_response_for_query(&response, &query).unwrap(), vec!["1.2.3.4"]);
     }
 
     #[test]

@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use crate::transport::{TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr};
 use crate::util::{now_ms, ranged_probe_delay};
 
-use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_dns_query_with_type, parse_dns_response};
+use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_dns_query_with_type, parse_dns_response_for_query};
 
 const UDP_DNS_ATTEMPTS: usize = 3;
 const UDP_DNS_RETRY_JITTER_MIN_MS: u64 = 20;
@@ -58,7 +58,7 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
                 return resolution;
             }
         };
-        match execute_udp_query(server, transport, &packet, query_id) {
+        match execute_udp_query(server, transport, &packet) {
             Ok((addresses, response)) => {
                 let error_kind = last_error.as_ref().map(|(_, kind): &(String, String)| kind.clone());
                 let resolution = UdpDnsResolution {
@@ -103,7 +103,6 @@ fn execute_udp_query(
     server: &str,
     transport: &TransportConfig,
     packet: &[u8],
-    query_id: u16,
 ) -> Result<(Vec<String>, Vec<u8>), String> {
     let raw = match transport {
         TransportConfig::Direct { .. } => {
@@ -116,7 +115,7 @@ fn execute_udp_query(
         }
     }?;
     let (response, _local_addr) = raw;
-    let parsed = parse_dns_response(&response, query_id)?;
+    let parsed = parse_dns_response_for_query(&response, packet)?;
     Ok((parsed, response))
 }
 
