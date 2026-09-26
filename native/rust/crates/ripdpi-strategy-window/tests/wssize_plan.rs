@@ -23,3 +23,8 @@ fn wssize_plans_scaled_tcp_window_clamp_action() {
 
     assert_eq!(plan.actions, vec![DesyncAction::SetWindowClamp(256)]);
 }
+
+#[test]
+fn wssize_saturates_when_shift_loses_high_bits() {
+    assert_eq!(WssizeStrategy::new(u32::MAX, 1).effective_window(), u32::MAX);
+}

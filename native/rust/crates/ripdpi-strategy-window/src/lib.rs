@@ -10,7 +10,8 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration, StrategyVerdict,
+    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration,
+    StrategyVerdict,
 };
 
 /// TCP window clamp strategy using a direct byte value.
@@ -47,7 +48,7 @@ impl WssizeStrategy {
 
     /// Returns the effective clamp value.
     pub fn effective_window(self) -> u32 {
-        self.size.checked_shl(u32::from(self.scale)).unwrap_or(u32::MAX)
+        self.size.saturating_mul(2u32.checked_pow(u32::from(self.scale)).unwrap_or(u32::MAX))
     }
 }
 
@@ -62,8 +63,8 @@ impl DesyncStrategy for WsizeStrategy {
         "wsize"
     }
 
-    fn matches(&self, _ctx: &StrategyContext<'_>) -> bool {
-        true
+    fn matches(&self, ctx: &StrategyContext<'_>) -> bool {
+        ctx.caps.has(RuntimeCapability::TcpWindowClamp)
     }
 
     fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
@@ -80,8 +81,8 @@ impl DesyncStrategy for WssizeStrategy {
         "wssize"
     }
 
-    fn matches(&self, _ctx: &StrategyContext<'_>) -> bool {
-        true
+    fn matches(&self, ctx: &StrategyContext<'_>) -> bool {
+        ctx.caps.has(RuntimeCapability::TcpWindowClamp)
     }
 
     fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
@@ -102,12 +103,12 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
     }
 }
 
-fn make_wsize_strategy() -> Box<dyn DesyncStrategy> {
-    Box::new(WsizeStrategy::default())
+fn make_wsize_strategy(params: &StrategyStepParams) -> Box<dyn DesyncStrategy> {
+    Box::new(WsizeStrategy::new(params.value.unwrap_or(4)))
 }
 
-fn make_wssize_strategy() -> Box<dyn DesyncStrategy> {
-    Box::new(WssizeStrategy::default())
+fn make_wssize_strategy(params: &StrategyStepParams) -> Box<dyn DesyncStrategy> {
+    Box::new(WssizeStrategy::new(params.size.unwrap_or(64), params.scale.unwrap_or(2)))
 }
 
 #[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
@@ -118,10 +119,10 @@ static WSIZE_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration {
         aliases: &[],
         required_tier: CapabilityTier::Tier1,
         required_capabilities: &[RuntimeCapability::TcpWindowClamp],
-        needs_parameters: false,
-        parameter_schema: "",
+        needs_parameters: true,
+        parameter_schema: "value: TCP window clamp (default 4)",
     },
-    factory: StrategyStepFactory::Stateless(make_wsize_strategy),
+    factory: StrategyStepFactory::Configured(make_wsize_strategy),
 };
 
 #[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
@@ -132,15 +133,15 @@ static WSSIZE_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration 
         aliases: &[],
         required_tier: CapabilityTier::Tier1,
         required_capabilities: &[RuntimeCapability::TcpWindowClamp],
-        needs_parameters: false,
-        parameter_schema: "",
+        needs_parameters: true,
+        parameter_schema: "size: window size (default 64), scale: shift (default 2)",
     },
-    factory: StrategyStepFactory::Stateless(make_wssize_strategy),
+    factory: StrategyStepFactory::Configured(make_wssize_strategy),
 };
 
 fn plan_window_clamp(ctx: &StrategyContext<'_>, plan: &mut DesyncPlan, window: u32) -> Result<(), StrategyError> {
     if !ctx.caps.has(RuntimeCapability::TcpWindowClamp) {
-        return Ok(());
+        return Err(StrategyError::CapabilityUnavailable(RuntimeCapability::TcpWindowClamp));
     }
     plan.actions.push(DesyncAction::SetWindowClamp(window));
     plan.verdict = StrategyVerdict::Apply;

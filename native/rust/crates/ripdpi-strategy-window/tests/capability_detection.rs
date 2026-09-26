@@ -5,7 +5,7 @@ use ripdpi_strategy_trait::{
 use ripdpi_strategy_window::WsizeStrategy;
 
 #[test]
-fn window_strategy_noops_when_tcp_window_clamp_is_unavailable() {
+fn window_strategy_reports_unavailable_tcp_window_clamp() {
     let dissect = Dissect::default();
     let conn = ConnectionState::default();
     let caps = Capabilities { tier: CapabilityTier::Tier0, available: Vec::new() };
@@ -19,7 +19,10 @@ fn window_strategy_noops_when_tcp_window_clamp_is_unavailable() {
     };
     let mut plan = DesyncPlan::default();
 
-    WsizeStrategy::new(4).plan(&ctx, &mut plan).expect("no-op without capability");
+    assert!(matches!(
+        WsizeStrategy::new(4).plan(&ctx, &mut plan),
+        Err(ripdpi_strategy_trait::StrategyError::CapabilityUnavailable(RuntimeCapability::TcpWindowClamp))
+    ));
 
     assert!(plan.actions.is_empty());
     assert_eq!(WsizeStrategy::new(4).describe().required_capabilities, [RuntimeCapability::TcpWindowClamp]);

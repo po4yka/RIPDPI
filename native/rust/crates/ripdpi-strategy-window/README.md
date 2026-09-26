@@ -13,11 +13,13 @@ implementation crate follows the same three steps:
 1. **Implement `DesyncStrategy`** for each strategy type (`WsizeStrategy`,
    `WssizeStrategy`) — `id` / `matches` / `plan` / `describe`. `plan` is
    capability-gated (`RuntimeCapability::TcpWindowClamp`); a strategy that
-   lacks its capability returns an empty plan rather than failing.
+   lacks its capability returns `CapabilityUnavailable` so the registry can
+   try the next strategy.
 2. **Contribute a `StrategyStepRegistration`** to the
    `STRATEGY_STEP_REGISTRATIONS` `linkme` slice for each stable ID —
    `#[linkme::distributed_slice(...)]` over a `StrategyStepDescriptor` paired
-   with a `StrategyStepFactory::Stateless` zero-argument `make` function.
+   with a `StrategyStepFactory::Configured` builder that reads the parsed
+   window parameters.
 3. `ripdpi-strategy-registry` **force-links** this crate
    (`extern crate ripdpi_strategy_window as _;`) so the slice entries reach the
    final binary, then resolves `wsize` / `wssize` by descriptor id with **no
