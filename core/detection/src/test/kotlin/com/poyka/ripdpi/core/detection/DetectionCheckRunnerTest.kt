@@ -3,8 +3,11 @@ package com.poyka.ripdpi.core.detection
 import android.content.Context
 import com.poyka.ripdpi.core.detection.checker.BypassChecker
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverMode
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -15,9 +18,24 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import kotlin.coroutines.CoroutineContext
 
 @RunWith(RobolectricTestRunner::class)
 class DetectionCheckRunnerTest {
+    @Test
+    fun `synchronous checks dispatch to IO`() =
+        runTest {
+            val io = RecordingDispatcher()
+            val runner =
+                FakeDetectionPorts().newRunner(
+                    AppCoroutineDispatchers(default = Dispatchers.Unconfined, io = io, main = Dispatchers.Unconfined),
+                )
+
+            runner.run(context = RuntimeEnvironment.getApplication(), config = DetectionRunnerConfig())
+
+            assertTrue("expected direct, indirect, location and native checks on IO", io.dispatchCount >= 4)
+        }
+
     @Test
     fun `runner schedules enabled checks reports progress and assembles verdict`() =
         runTest {
@@ -228,7 +246,10 @@ class DetectionCheckRunnerTest {
         val callTransport = FakeCallTransportCheckerPort()
         val verdict = FakeDetectionVerdictEvaluator()
 
-        fun newRunner(): DefaultDetectionCheckRunner =
+        fun newRunner(
+            dispatchers: AppCoroutineDispatchers =
+                AppCoroutineDispatchers(Dispatchers.Unconfined, Dispatchers.Unconfined, Dispatchers.Unconfined),
+        ): DefaultDetectionCheckRunner =
             DefaultDetectionCheckRunner(
                 geoIpChecker = geo,
                 directSignsChecker = direct,
@@ -246,6 +267,7 @@ class DetectionCheckRunnerTest {
                 nativeSignsChecker = nativeSigns,
                 callTransportChecker = callTransport,
                 verdictEvaluator = verdict,
+                dispatchers = dispatchers,
             )
     }
 
@@ -486,6 +508,19 @@ class DetectionCheckRunnerTest {
             this.nativeSigns = nativeSigns
             return Verdict.NEEDS_REVIEW
         }
+    }
+}
+
+private class RecordingDispatcher : CoroutineDispatcher() {
+    var dispatchCount: Int = 0
+        private set
+
+    override fun dispatch(
+        context: CoroutineContext,
+        block: Runnable,
+    ) {
+        dispatchCount++
+        block.run()
     }
 }
 

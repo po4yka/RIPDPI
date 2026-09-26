@@ -26,9 +26,11 @@ class DefaultDetectionCheckRunner
         nativeSignsChecker: NativeSignsCheckerPort,
         callTransportChecker: CallTransportCheckerPort,
         verdictEvaluator: DetectionVerdictEvaluator,
+        dispatchers: AppCoroutineDispatchers,
     ) : DetectionCheckRunner {
         private val scheduler =
             DetectionPipelineScheduler(
+                dispatchers = dispatchers,
                 geoIpChecker = geoIpChecker,
                 directSignsChecker = directSignsChecker,
                 indirectSignsChecker = indirectSignsChecker,
@@ -80,6 +82,7 @@ object DetectionRunner {
             nativeSignsChecker = DefaultNativeSignsCheckerPort(),
             callTransportChecker = DefaultCallTransportCheckerPort(dispatchers),
             verdictEvaluator = DefaultDetectionVerdictEvaluator(),
+            dispatchers = dispatchers,
         )
 
     suspend fun run(

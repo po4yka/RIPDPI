@@ -3,11 +3,14 @@
 package com.poyka.ripdpi.core.detection
 
 import android.content.Context
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 @Suppress("LongParameterList")
 internal class DetectionPipelineScheduler(
+    private val dispatchers: AppCoroutineDispatchers,
     private val geoIpChecker: GeoIpCheckerPort,
     private val directSignsChecker: DirectSignsCheckerPort,
     private val indirectSignsChecker: IndirectSignsCheckerPort,
@@ -44,14 +47,14 @@ internal class DetectionPipelineScheduler(
             val directSignsDeferred =
                 async {
                     reporter.started(DetectionStage.DIRECT_SIGNS)
-                    directSignsChecker.check(context, excludePackage).also {
+                    withContext(dispatchers.io) { directSignsChecker.check(context, excludePackage) }.also {
                         reporter.completed(DetectionStage.DIRECT_SIGNS)
                     }
                 }
             val indirectSignsDeferred =
                 async {
                     reporter.started(DetectionStage.INDIRECT_SIGNS)
-                    indirectSignsChecker.check(context).also {
+                    withContext(dispatchers.io) { indirectSignsChecker.check(context) }.also {
                         reporter.completed(DetectionStage.INDIRECT_SIGNS)
                     }
                 }
@@ -59,7 +62,7 @@ internal class DetectionPipelineScheduler(
                 if (config.includeLocationCheck) {
                     async {
                         reporter.started(DetectionStage.LOCATION_SIGNALS)
-                        locationSignalsChecker.check(context).also {
+                        withContext(dispatchers.io) { locationSignalsChecker.check(context) }.also {
                             reporter.completed(DetectionStage.LOCATION_SIGNALS)
                         }
                     }
@@ -141,7 +144,7 @@ internal class DetectionPipelineScheduler(
                 if (config.includeNativeSignsCheck) {
                     async {
                         reporter.started(DetectionStage.NATIVE_SIGNS)
-                        nativeSignsChecker.check(enabled = true).also {
+                        withContext(dispatchers.io) { nativeSignsChecker.check(enabled = true) }.also {
                             reporter.completed(DetectionStage.NATIVE_SIGNS)
                         }
                     }
