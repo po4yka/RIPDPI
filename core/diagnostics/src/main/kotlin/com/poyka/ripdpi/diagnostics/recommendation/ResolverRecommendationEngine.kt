@@ -63,9 +63,6 @@ internal object ResolverRecommendationEngine {
         val dnsResults = report.results.filter { it.probeType == ProbeTypeDnsIntegrity }
         val blockedBootstrapIps = extractBlockedBootstrapIps(report.results)
         return dnsResults.firstRecommendationTrigger()?.let { trigger ->
-            if (dnsResults.hasHealthyPrimaryDnsFor(trigger.target) && !trigger.isPrimaryOrSystemDnsObservation()) {
-                return null
-            }
             val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
             selectCandidate(
                 collectCandidates(dnsResults),
@@ -227,14 +224,16 @@ private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
 
 private fun List<ProbeResult>.firstRecommendationTrigger(): ProbeResult? =
     firstOrNull {
-        it.outcome == OutcomeDnsSubstitution ||
-            it.outcome == OutcomeDnsSinkholeSubstitution ||
-            it.outcome == OutcomeDnsNxdomain ||
-            it.outcome == OutcomeDnsNxdomainMismatch ||
-            it.outcome == OutcomeDnsSystemResolutionFailed ||
-            it.outcome == OutcomeUdpBlocked ||
-            it.outcome == OutcomeUdpSkippedOrBlocked ||
-            it.outcome == OutcomeUdpTimeoutTransient
+        (
+            it.outcome == OutcomeDnsSubstitution ||
+                it.outcome == OutcomeDnsSinkholeSubstitution ||
+                it.outcome == OutcomeDnsNxdomain ||
+                it.outcome == OutcomeDnsNxdomainMismatch ||
+                it.outcome == OutcomeDnsSystemResolutionFailed ||
+                it.outcome == OutcomeUdpBlocked ||
+                it.outcome == OutcomeUdpSkippedOrBlocked ||
+                it.outcome == OutcomeUdpTimeoutTransient
+        ) && (!hasHealthyPrimaryDnsFor(it.target) || it.isPrimaryOrSystemDnsObservation())
     }
 
 private fun List<ProbeResult>.hasHealthyPrimaryDnsFor(target: String): Boolean =

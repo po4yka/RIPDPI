@@ -809,6 +809,55 @@ class ResolverRecommendationEngineComputeTest {
 
         assertNull(result)
     }
+
+    @Test
+    fun `compute considers later primary trigger after suppressed secondary trigger`() {
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(
+                            "dns_integrity",
+                            "healthy.example",
+                            "dns_sinkhole_substitution",
+                            listOf(ProbeDetail("dnsSelectedResolverRole", "secondary")),
+                        ),
+                        ProbeResult(
+                            "dns_integrity",
+                            "healthy.example",
+                            "dns_match",
+                            listOf(ProbeDetail("dnsSelectedResolverRole", "primary")),
+                        ),
+                        ProbeResult(
+                            "dns_integrity",
+                            "blocked.example",
+                            "dns_nxdomain_mismatch",
+                            listOf(
+                                ProbeDetail("dnsSelectedResolverRole", "primary"),
+                                ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
+                                ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                ProbeDetail("encryptedAddresses", "93.184.216.34"),
+                            ),
+                        ),
+                    ),
+            )
+
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings = com.poyka.ripdpi.proto.AppSettings.getDefaultInstance(),
+                preferredPath = null,
+            )
+
+        assertNotNull(result)
+        assertEquals("dns_nxdomain_mismatch", result!!.triggerOutcome)
+    }
 }
 
 private fun dnsIntegrityResult(
