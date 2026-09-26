@@ -8,7 +8,9 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -65,7 +67,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 transaction?.onStarted?.invoke()
             }
                 ?: return
-        val cancellation = failure as? CancellationException
+        val cancellation = (failure as? CancellationException)?.takeUnless { currentCoroutineContext().isActive }
         try {
             if (cancellation == null) {
                 val error =
