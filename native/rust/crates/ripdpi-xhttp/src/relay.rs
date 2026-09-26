@@ -153,6 +153,12 @@ impl PooledConnection {
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let post_request =
             build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
+        let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let mut open_tasks = OpenStreamTaskGuard::new();
+        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
+        user_upload.write_all(&request).await?;
+
         let post_response = self.send_request(post_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
         })?;
@@ -163,16 +169,10 @@ impl PooledConnection {
             ));
         }
 
-        let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        let mut open_tasks = OpenStreamTaskGuard::new();
-        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
         open_tasks.push(spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed"));
         open_tasks.push(spawn_body_drain(post_response.into_body(), "xHTTP POST stream failed"));
-
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
-        user_upload.write_all(&request).await?;
 
         // xray-core buffers the VLESS response header until the first
         // downstream payload. Return the writable stream immediately and
@@ -205,6 +205,11 @@ impl PooledConnection {
         let (outgoing_tx, outgoing_rx) = mpsc::channel::<io::Result<Bytes>>(64);
         let post_request =
             build_post_request(&stream_path, &host_header, &referer, &header_padding, ChannelBody::new(outgoing_rx))?;
+        let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let mut open_tasks = OpenStreamTaskGuard::new();
+        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
+        user_upload.write_all(&request).await?;
 
         let post_response = self.send_request(post_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP stream-one request failed: {error}"))
@@ -216,19 +221,13 @@ impl PooledConnection {
             ));
         }
 
-        let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        let mut open_tasks = OpenStreamTaskGuard::new();
-        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
         open_tasks.push(spawn_download_pump(
             post_response.into_body(),
             transport_download,
             "xHTTP stream-one body failed",
         ));
-
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
-        user_upload.write_all(&request).await?;
 
         let stream =
             XhttpStream { reader: ResponseHeaderStream::new(user_download), writer: user_upload, _permit: permit };
@@ -381,12 +380,20 @@ fn random_session_id() -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::Infallible;
     use std::future;
+    use std::sync::Arc;
     use std::time::Duration;
 
-    use tokio::sync::oneshot;
+    use bytes::Bytes;
+    use http_body_util::{BodyExt, Full};
+    use hyper::service::service_fn;
+    use hyper_util::rt::{TokioExecutor, TokioIo};
+    use tokio::sync::{Semaphore, oneshot};
 
     use super::OpenStreamTaskGuard;
+    use crate::config::{XhttpMode, XhttpProtocolMode, XhttpTlsConfig};
+    use crate::pool::PooledConnection;
 
     struct DropSignal(Option<oneshot::Sender<()>>);
 
@@ -438,5 +445,56 @@ mod tests {
             tokio::time::timeout(Duration::from_millis(50), dropped_rx).await.is_err(),
             "returned xHTTP streams keep their pump tasks alive until stream halves close",
         );
+    }
+
+    #[tokio::test]
+    // cancel-safe: test-owned H2 tasks and duplex streams close on runtime drop.
+    async fn post_body_starts_before_server_response_in_both_modes() {
+        for protocol_mode in [XhttpProtocolMode::StreamUp, XhttpProtocolMode::StreamOne] {
+            let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+            let (sender, connection) =
+                hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+                    .await
+                    .expect("client H2 handshake");
+            let driver = tokio::spawn(async move { connection.await.expect("client H2 connection") });
+            let server = tokio::spawn(async move {
+                let service = service_fn(|request: hyper::Request<hyper::body::Incoming>| async move {
+                    if request.method() == hyper::Method::POST {
+                        let mut body = request.into_body();
+                        let frame = body.frame().await.expect("POST body frame").expect("valid POST frame");
+                        assert!(!frame.into_data().expect("POST data frame").is_empty());
+                    }
+                    Ok::<_, Infallible>(hyper::Response::new(Full::new(Bytes::new())))
+                });
+                hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+                    .serve_connection(TokioIo::new(server_io), service)
+                    .await
+                    .expect("server H2 connection");
+            });
+            let mode = XhttpMode::Tls(
+                XhttpTlsConfig::from_strings(
+                    "example.com",
+                    443,
+                    "example.com",
+                    "550e8400-e29b-41d4-a716-446655440000",
+                    "/xhttp",
+                    "",
+                    "chrome_stable",
+                )
+                .expect("mode")
+                .with_protocol_mode(protocol_mode),
+            );
+            let pooled = PooledConnection::new(sender, 1);
+            let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+            let result = tokio::time::timeout(
+                Duration::from_millis(500),
+                pooled.open_stream_from_mode(&mode, "example.com:443", permit),
+            )
+            .await;
+            assert!(result.is_ok(), "{protocol_mode:?} waited for a POST response before sending its body");
+            result.expect("deadline").expect("open stream");
+            driver.abort();
+            server.abort();
+        }
     }
 }
