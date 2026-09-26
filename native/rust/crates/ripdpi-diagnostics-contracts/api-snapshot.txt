@@ -908,6 +908,7 @@ pub fn ripdpi_diagnostics_contracts::util::late_stage_cutoff(usize, usize) -> bo
 pub fn ripdpi_diagnostics_contracts::util::looks_like_sinkhole(&str) -> bool
 pub fn ripdpi_diagnostics_contracts::util::now_ms() -> u64
 pub fn ripdpi_diagnostics_contracts::util::parse_content_length(&[u8]) -> core::option::Option<usize>
+pub fn ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer(&[u8]) -> core::result::Result<core::option::Option<core::net::ip_addr::IpAddr>, &'static str>
 pub fn ripdpi_diagnostics_contracts::util::probe_session_seed(core::option::Option<&str>, &str) -> u64
 pub fn ripdpi_diagnostics_contracts::util::ranged_probe_delay(u64, &str, &str, u64, u64) -> u64
 pub fn ripdpi_diagnostics_contracts::util::stable_probe_hash(u64, &str) -> u64

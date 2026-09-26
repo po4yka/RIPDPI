@@ -33,6 +33,7 @@
 //! dependency is pulled through this crate.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
+use ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer;
 
 use crate::probes::doh_survey::DohHttpClient;
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
@@ -255,47 +256,12 @@ impl<C: DohHttpClient> DohJsonSurveyRunner<C> {
 // ── private helpers ───────────────────────────────────────────────────────────
 
 /// Parse a DoH-JSON response body into a [`DohJsonResolverStatus`].
-///
-/// Permissive by design: Google and Cloudflare share an identical schema
-/// (`{"Status":0,"Answer":[{"data":"<ip>"},…]}`), and this walks every
-/// `"data"` field accepting the first value that parses as an IP address. A
-/// body that is not a JSON envelope with a `Status` field is reported as
-/// [`DohJsonResolverStatus::MalformedJson`] — a probe failure, never a panic.
-/// Avoids `serde_json` to keep this crate's dependency surface unchanged.
 fn parse_doh_json_answer(body: &[u8]) -> DohJsonResolverStatus {
-    let Ok(text) = std::str::from_utf8(body) else {
-        return DohJsonResolverStatus::MalformedJson { detail: "non-utf8 response body".to_string() };
-    };
-
-    // Must look like a DoH-JSON object envelope. Google/Cloudflare/AdGuard/
-    // Alibaba all return a top-level object carrying a "Status" RCODE field.
-    // Anything else (HTML error page, wire bytes, truncated body) is malformed.
-    if !text.trim_start().starts_with('{') || !(text.contains("\"Status\"") || text.contains("\"status\"")) {
-        return DohJsonResolverStatus::MalformedJson { detail: "response is not a DoH-JSON object".to_string() };
+    match parse_doh_json_ip_answer(body) {
+        Ok(Some(ip)) => DohJsonResolverStatus::Ok { answered_ip: ip.to_string() },
+        Ok(None) => DohJsonResolverStatus::NxDomain,
+        Err(detail) => DohJsonResolverStatus::MalformedJson { detail: detail.to_string() },
     }
-
-    // NXDOMAIN is signalled by RCODE 3 in the Status field.
-    if text.contains("\"Status\":3") || text.contains("\"status\":3") {
-        return DohJsonResolverStatus::NxDomain;
-    }
-
-    // Walk every "data":"<value>" field and return the first that parses as an
-    // IP address. This skips CNAME chains (whose data is a hostname) and only
-    // accepts a usable A/AAAA answer, matching the runtime resolver contract.
-    let mut rest = text;
-    while let Some(pos) = rest.find("\"data\":\"") {
-        let after = &rest[pos + "\"data\":\"".len()..];
-        let Some(end) = after.find('"') else { break };
-        let value = &after[..end];
-        if value.parse::<std::net::IpAddr>().is_ok() {
-            return DohJsonResolverStatus::Ok { answered_ip: value.to_string() };
-        }
-        rest = &after[end..];
-    }
-
-    // Well-formed envelope, Status present and != 3, but no usable A/AAAA data
-    // (CNAME-only answer or empty Answer section).
-    DohJsonResolverStatus::NxDomain
 }
 
 /// Returns `true` for HTTP status codes that conventionally indicate a
@@ -422,6 +388,28 @@ mod tests {
             DohJsonResolverStatus::Ok { answered_ip } => assert_eq!(answered_ip, "203.0.113.7"),
             other => panic!("expected Ok, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn parse_rejects_nested_status_and_truncated_json() {
+        assert_eq!(
+            parse_doh_json_answer(
+                br#"{"Status":0,"Metadata":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7"}]}"#
+            ),
+            DohJsonResolverStatus::Ok { answered_ip: "203.0.113.7".to_string() }
+        );
+        assert!(matches!(
+            parse_doh_json_answer(br#"{"Status":0,"Answer":[{"data":"192.0.2.1"}"#),
+            DohJsonResolverStatus::MalformedJson { .. }
+        ));
+        assert!(matches!(
+            parse_doh_json_answer(br#"{"Metadata":{"Status":0},"Answer":[]}"#),
+            DohJsonResolverStatus::MalformedJson { .. }
+        ));
+        assert!(matches!(
+            parse_doh_json_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1"}]}"#),
+            DohJsonResolverStatus::MalformedJson { .. }
+        ));
     }
 
     #[test]

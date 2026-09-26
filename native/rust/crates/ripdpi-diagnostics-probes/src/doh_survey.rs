@@ -7,7 +7,7 @@
 //! This half is always usable in unit tests and in the offline classification
 //! pipeline.
 //!
-//! **Half 2 — async runner** ([`DohSurveyRunner`]): fires one RFC 8484 JSON
+//! **Half 2 — async runner** ([`DohSurveyRunner`]): fires one vendor JSON GET
 //! query per resolver in parallel and builds a [`DohSurveyProbe`] from the
 //! responses. The runner is generic over an HTTP client trait so the parent
 //! crate can wire whatever HTTP stack is available without pulling a new
@@ -22,6 +22,7 @@
 //! ```
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
+use ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer;
 
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
 
@@ -40,7 +41,7 @@ pub enum DohResolverStatus {
         /// First IP address returned by the resolver.
         answered_ip: String,
     },
-    /// The resolver returned NXDOMAIN (DNS answer present, host not found).
+    /// The resolver returned NXDOMAIN or no usable IP answer.
     NxDomain,
     /// The resolver did not reply within the configured timeout.
     Timeout,
@@ -54,9 +55,9 @@ pub enum DohResolverStatus {
         /// Short description of the TLS failure.
         detail: String,
     },
-    /// TCP/IP or OS-level network error before any HTTP response was received.
+    /// Network, response, or resolver failure.
     NetworkError {
-        /// Short description of the network failure.
+        /// Short description of the network or response failure.
         detail: String,
     },
 }
@@ -149,7 +150,7 @@ impl Probe for DohSurveyProbe {
 pub struct DohResolverEndpoint {
     /// Short human-readable label (e.g. `"cloudflare"`, `"google"`).
     pub label: String,
-    /// RFC 8484 JSON endpoint URL
+    /// Vendor JSON DoH endpoint URL
     /// (e.g. `"https://cloudflare-dns.com/dns-query"`).
     pub url: String,
 }
@@ -182,7 +183,7 @@ pub trait DohHttpClient: Send + Sync {
 pub type DohHttpFuture<'a> =
     std::pin::Pin<Box<dyn std::future::Future<Output = Result<(u16, Vec<u8>), String>> + Send + 'a>>;
 
-/// Fires one RFC 8484 JSON DoH query per configured resolver in parallel and
+/// Fires one vendor JSON DoH GET per configured resolver in parallel and
 /// returns a fully populated [`DohSurveyProbe`].
 ///
 /// The runner itself does no verdict computation; that is the probe's
@@ -230,8 +231,7 @@ impl<C: DohHttpClient> DohSurveyRunner<C> {
                     let status = match raw {
                         Ok((code, body)) if (200..300).contains(&code) => {
                             // Parse the JSON response body for an A/AAAA answer.
-                            // RFC 8484 JSON format: {"Answer":[{"data":"<ip>"},...]}
-                            // Use a minimal string search to avoid pulling in serde_json.
+                            // JSON resolver format: {"Answer":[{"data":"<ip>"},...]}
                             parse_doh_answer(&body)
                         }
                         Ok((code, _)) if is_timeout_code(code) => DohResolverStatus::Timeout,
@@ -254,31 +254,12 @@ impl<C: DohHttpClient> DohSurveyRunner<C> {
 // ── private helpers ───────────────────────────────────────────────────────────
 
 /// Parse a DoH JSON response body and return the appropriate status.
-///
-/// Uses a minimal string search to extract the first `"data"` field value
-/// without requiring `serde_json` in this crate.
 fn parse_doh_answer(body: &[u8]) -> DohResolverStatus {
-    let Ok(text) = std::str::from_utf8(body) else {
-        return DohResolverStatus::NetworkError { detail: "non-utf8 response body".to_string() };
-    };
-
-    // NXDOMAIN is signalled by status=3 in the JSON envelope.
-    if text.contains("\"Status\":3") || text.contains("\"status\":3") {
-        return DohResolverStatus::NxDomain;
+    match parse_doh_json_ip_answer(body) {
+        Ok(Some(ip)) => DohResolverStatus::Ok { answered_ip: ip.to_string() },
+        Ok(None) => DohResolverStatus::NxDomain,
+        Err(detail) => DohResolverStatus::NetworkError { detail: format!("DoH response error: {detail}") },
     }
-
-    // Look for the first "data":"<value>" field in an Answer section.
-    if let Some(pos) = text.find("\"data\":\"") {
-        let after = &text[pos + 8..];
-        if let Some(end) = after.find('"')
-            && !after[..end].is_empty()
-        {
-            return DohResolverStatus::Ok { answered_ip: after[..end].to_string() };
-        }
-    }
-
-    // No Answer section and no NXDOMAIN — treat as effectively NXDOMAIN.
-    DohResolverStatus::NxDomain
 }
 
 /// Returns `true` for HTTP status codes that conventionally indicate a
@@ -412,6 +393,30 @@ mod tests {
             DohResolverStatus::Ok { answered_ip } => assert_eq!(answered_ip, "93.184.216.34"),
             other => panic!("expected Ok, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn parse_doh_answer_rejects_nested_status_and_malformed_json() {
+        assert_eq!(
+            parse_doh_answer(
+                br#"{"Status":0,"Metadata":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7"}]}"#
+            ),
+            DohResolverStatus::Ok { answered_ip: "203.0.113.7".to_string() }
+        );
+        for body in [
+            br#"{"Metadata":{"Status":0},"Answer":[{"data":"192.0.2.1"}]}"#.as_slice(),
+            br#"{"Status":0,"Answer":[{"data":"192.0.2.1"}"#.as_slice(),
+        ] {
+            assert!(matches!(parse_doh_answer(body), DohResolverStatus::NetworkError { .. }));
+        }
+        assert_eq!(
+            parse_doh_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example"}]}"#),
+            DohResolverStatus::NxDomain
+        );
+        assert!(matches!(
+            parse_doh_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1"}]}"#),
+            DohResolverStatus::NetworkError { .. }
+        ));
     }
 
     #[test]

@@ -1,6 +1,37 @@
 use std::collections::BTreeSet;
 use std::net::{IpAddr, SocketAddr};
 
+/// Read a JSON DoH response without accepting nested Status or unrelated data fields.
+/// `Ok(None)` covers NXDOMAIN and successful responses without an IP answer.
+pub fn parse_doh_json_ip_answer(body: &[u8]) -> Result<Option<IpAddr>, &'static str> {
+    let value: serde_json::Value = serde_json::from_slice(body).map_err(|_| "malformed DoH JSON")?;
+    let object = value.as_object().ok_or("DoH response is not an object")?;
+    let status = object
+        .get("Status")
+        .or_else(|| object.get("status"))
+        .and_then(serde_json::Value::as_u64)
+        .ok_or("missing or invalid DoH Status")?;
+    if status == 3 {
+        return Ok(None);
+    }
+    if status != 0 {
+        return Err("DoH Status is not successful");
+    }
+    let Some(answers) = object.get("Answer").or_else(|| object.get("answer")) else {
+        return Ok(None);
+    };
+    let answers = answers.as_array().ok_or("invalid DoH Answer")?;
+    Ok(answers.iter().find_map(|answer| {
+        let ip = answer.get("data")?.as_str()?.parse::<IpAddr>().ok()?;
+        match answer.get("type") {
+            Some(record_type) if record_type.as_u64() == Some(1) && ip.is_ipv4() => Some(ip),
+            Some(record_type) if record_type.as_u64() == Some(28) && ip.is_ipv6() => Some(ip),
+            None => Some(ip), // Some vendor fixtures omit the DNS record type.
+            _ => None,
+        }
+    }))
+}
+
 pub fn ip_set(values: &[String]) -> BTreeSet<String> {
     values.iter().cloned().collect()
 }
@@ -98,5 +129,50 @@ pub fn format_socket_result(result: &Result<Vec<SocketAddr>, String>) -> String 
     match result {
         Ok(values) => values.iter().map(SocketAddr::to_string).collect::<Vec<_>>().join("|"),
         Err(err) => format!("error:{err}"),
+    }
+}
+
+#[cfg(test)]
+mod doh_json_tests {
+    use super::parse_doh_json_ip_answer;
+
+    #[test]
+    fn accepts_top_level_status_and_a_or_aaaa_answer() {
+        assert_eq!(
+            parse_doh_json_ip_answer(br#"{ "Status" : 0, "Answer" : [{"type": 1, "data" : "203.0.113.7"}]}"#)
+                .unwrap()
+                .unwrap()
+                .to_string(),
+            "203.0.113.7"
+        );
+        assert_eq!(
+            parse_doh_json_ip_answer(br#"{"Status":0,"Answer":[{"type":28,"data":"2001:db8::1"}]}"#)
+                .unwrap()
+                .unwrap()
+                .to_string(),
+            "2001:db8::1"
+        );
+        assert_eq!(parse_doh_json_ip_answer(br#"{"Status":3,"Answer":[]}"#), Ok(None));
+        assert_eq!(parse_doh_json_ip_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"192.0.2.1"}]}"#), Ok(None));
+        assert_eq!(parse_doh_json_ip_answer(br#"{"Status":0,"Answer":[{"type":1,"data":"2001:db8::1"}]}"#), Ok(None));
+    }
+
+    #[test]
+    fn ignores_nested_status_and_data_outside_answer() {
+        assert_eq!(
+            parse_doh_json_ip_answer(
+                br#"{"Status":0,"Meta":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7"}]}"#
+            ),
+            Ok(Some("203.0.113.7".parse().unwrap()))
+        );
+        assert!(parse_doh_json_ip_answer(br#"{"Meta":{"Status":0},"Answer":[{"data":"192.0.2.1"}]}"#).is_err());
+        assert_eq!(parse_doh_json_ip_answer(br#"{"Status":0,"data":"192.0.2.1"}"#), Ok(None));
+    }
+
+    #[test]
+    fn rejects_malformed_or_unsuccessful_response() {
+        assert!(parse_doh_json_ip_answer(br#"{"Status":0,"Answer":[{"data":"192.0.2.1"}"#).is_err());
+        assert!(parse_doh_json_ip_answer(br#"{"Status":"0","Answer":[]}"#).is_err());
+        assert!(parse_doh_json_ip_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1"}]}"#).is_err());
     }
 }
