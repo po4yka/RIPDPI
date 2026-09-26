@@ -54,6 +54,9 @@ impl<T: Ord> BoundedHeap<T> {
     ///
     /// Returns the evicted item when eviction occurs, `None` otherwise.
     pub fn push_or_evict(&mut self, item: T) -> Option<T> {
+        if self.capacity() == 0 {
+            return Some(item);
+        }
         if !self.is_full() {
             self.data[self.len] = Some(item);
             self.len += 1;
@@ -267,6 +270,8 @@ mod tests {
         let mut heap = BoundedHeap::new(0);
         assert!(!heap.push(1));
         assert!(heap.is_full());
+        assert_eq!(heap.push_or_evict(2), Some(2));
+        assert!(heap.is_empty());
     }
 
     #[test]
