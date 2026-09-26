@@ -240,6 +240,43 @@ strategies:
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[cfg(feature = "lua-strategies")]
+#[test]
+fn lua_noop_and_explicit_verdicts_remain_terminal() {
+    let dir = std::env::temp_dir().join(format!("ripdpi-lua-outcomes-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create Lua test directory");
+    let script_path = dir.join("candidate.lua");
+    let yaml = "version: 1\nstrategies:\n  - id: lua-chain\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [candidate.lua]\n      - type: split\n";
+
+    for (lua_return, expected) in [
+        ("nil", StrategyVerdict::Apply),
+        ("VERDICT_PASS", StrategyVerdict::FallbackPlain),
+        ("VERDICT_MODIFY", StrategyVerdict::Apply),
+        ("VERDICT_DROP", StrategyVerdict::Drop),
+    ] {
+        std::fs::write(&script_path, format!("function candidate(desync) return {lua_return} end"))
+            .expect("write Lua strategy");
+        let config = parse_yaml_str(yaml, &dir).expect("parse Lua chain");
+        let registry = StrategyRegistry::from_loaded_config(&config).expect("materialize Lua chain");
+        let dissect = Dissect::default();
+        let conn = ConnectionState::default();
+        let caps = Capabilities::default();
+        let ctx = StrategyContext {
+            dissect: &dissect,
+            conn: &conn,
+            caps: &caps,
+            flow_id: FlowId(13),
+            payload: b"payload",
+            direction: FlowDirection::Outbound,
+        };
+        let mut plan = DesyncPlan::default();
+
+        assert_eq!(registry.execute(&ctx, &mut plan), expected, "Lua return {lua_return}");
+        assert!(plan.actions.is_empty(), "Lua return {lua_return} must not run the later split step");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 fn vpn_caps() -> Capabilities {
     Capabilities { tier: CapabilityTier::Tier3, available: vec![RuntimeCapability::VpnMode] }
 }

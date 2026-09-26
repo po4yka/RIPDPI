@@ -147,7 +147,7 @@ impl ripdpi_strategy_trait::DesyncStrategy for ripdpi_desync::TcpDesyncStrategy<
 pub fn ripdpi_desync::TcpDesyncStrategy<'_>::describe(&self) -> ripdpi_strategy_trait::StrategyDescriptor
 pub fn ripdpi_desync::TcpDesyncStrategy<'_>::id(&self) -> &str
 pub fn ripdpi_desync::TcpDesyncStrategy<'_>::matches(&self, &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
-pub fn ripdpi_desync::TcpDesyncStrategy<'_>::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>
+pub fn ripdpi_desync::TcpDesyncStrategy<'_>::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<ripdpi_strategy_trait::StrategyPlanOutcome, ripdpi_strategy_trait::StrategyError>
 pub struct ripdpi_desync::TcpSegmentHint
 pub ripdpi_desync::TcpSegmentHint::advmss: core::option::Option<i64>
 pub ripdpi_desync::TcpSegmentHint::ip_header_overhead: i64

@@ -4,8 +4,8 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, L7Protocol, RuntimeCapability, StrategyContext,
-    StrategyDescriptor, StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams,
-    StrategyStepRegistration, StrategyVerdict,
+    StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory,
+    StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
 };
 
 const IPV4_HEADER_MIN_LEN: usize = 20;
@@ -42,15 +42,16 @@ impl DesyncStrategy for UdpLenStrategy {
         udp_ports_present && matches!(ctx.dissect.proto, L7Protocol::Quic(_) | L7Protocol::Unknown)
     }
 
-    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
         if !ctx.caps.has(RuntimeCapability::VpnMode) && tier_rank(ctx.caps.tier) < tier_rank(CapabilityTier::Tier3) {
-            return Ok(());
+            return Ok(StrategyPlanOutcome::Skipped);
         }
-        if let Some(packet) = apply_udplen(ctx.payload, self.delta) {
-            plan.actions.push(DesyncAction::RawSend(packet));
-            plan.verdict = StrategyVerdict::Apply;
-        }
-        Ok(())
+        let Some(packet) = apply_udplen(ctx.payload, self.delta) else {
+            return Ok(StrategyPlanOutcome::Skipped);
+        };
+        plan.actions.push(DesyncAction::RawSend(packet));
+        plan.verdict = StrategyVerdict::Apply;
+        Ok(StrategyPlanOutcome::Applied)
     }
 
     fn describe(&self) -> StrategyDescriptor {

@@ -10,8 +10,8 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration,
-    StrategyVerdict,
+    StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams,
+    StrategyStepRegistration, StrategyVerdict,
 };
 
 /// TCP window clamp strategy using a direct byte value.
@@ -67,7 +67,7 @@ impl DesyncStrategy for WsizeStrategy {
         ctx.caps.has(RuntimeCapability::TcpWindowClamp)
     }
 
-    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
         plan_window_clamp(ctx, plan, self.window)
     }
 
@@ -85,7 +85,7 @@ impl DesyncStrategy for WssizeStrategy {
         ctx.caps.has(RuntimeCapability::TcpWindowClamp)
     }
 
-    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
         plan_window_clamp(ctx, plan, self.effective_window())
     }
 
@@ -139,13 +139,17 @@ static WSSIZE_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration 
     factory: StrategyStepFactory::Configured(make_wssize_strategy),
 };
 
-fn plan_window_clamp(ctx: &StrategyContext<'_>, plan: &mut DesyncPlan, window: u32) -> Result<(), StrategyError> {
+fn plan_window_clamp(
+    ctx: &StrategyContext<'_>,
+    plan: &mut DesyncPlan,
+    window: u32,
+) -> Result<StrategyPlanOutcome, StrategyError> {
     if !ctx.caps.has(RuntimeCapability::TcpWindowClamp) {
         return Err(StrategyError::CapabilityUnavailable(RuntimeCapability::TcpWindowClamp));
     }
     plan.actions.push(DesyncAction::SetWindowClamp(window));
     plan.verdict = StrategyVerdict::Apply;
-    Ok(())
+    Ok(StrategyPlanOutcome::Applied)
 }
 
 fn descriptor(id: &str, label: &str) -> StrategyDescriptor {

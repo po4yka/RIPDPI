@@ -70,6 +70,9 @@ pub ripdpi_strategy_trait::StrategyError::Execution(alloc::string::String)
 pub ripdpi_strategy_trait::StrategyError::InvalidConfig(alloc::string::String)
 pub ripdpi_strategy_trait::StrategyError::LuaTypeError(alloc::string::String)
 pub ripdpi_strategy_trait::StrategyError::ScriptLoad(alloc::string::String)
+pub enum ripdpi_strategy_trait::StrategyPlanOutcome
+pub ripdpi_strategy_trait::StrategyPlanOutcome::Applied
+pub ripdpi_strategy_trait::StrategyPlanOutcome::Skipped
 pub enum ripdpi_strategy_trait::StrategyStepFactory
 pub ripdpi_strategy_trait::StrategyStepFactory::Configured(fn(&ripdpi_strategy_trait::StrategyStepParams) -> alloc::boxed::Box<dyn ripdpi_strategy_trait::DesyncStrategy>)
 pub ripdpi_strategy_trait::StrategyStepFactory::Stateless(fn() -> alloc::boxed::Box<dyn ripdpi_strategy_trait::DesyncStrategy>)
@@ -162,4 +165,4 @@ pub trait ripdpi_strategy_trait::DesyncStrategy: core::marker::Send + core::mark
 pub fn ripdpi_strategy_trait::DesyncStrategy::describe(&self) -> ripdpi_strategy_trait::StrategyDescriptor
 pub fn ripdpi_strategy_trait::DesyncStrategy::id(&self) -> &str
 pub fn ripdpi_strategy_trait::DesyncStrategy::matches(&self, &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
-pub fn ripdpi_strategy_trait::DesyncStrategy::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>
+pub fn ripdpi_strategy_trait::DesyncStrategy::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<ripdpi_strategy_trait::StrategyPlanOutcome, ripdpi_strategy_trait::StrategyError>

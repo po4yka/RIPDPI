@@ -2,7 +2,7 @@
 //!
 //! [`StrategyRegistry`] aggregates every `ripdpi-strategy-*` implementation
 //! into an ordered chain and runs it: the first [`matches`](DesyncStrategy::matches)ing
-//! strategy whose [`plan`](DesyncStrategy::plan) succeeds wins, with a
+//! strategy whose [`plan`](DesyncStrategy::plan) handles the flow wins, with a
 //! per-strategy [`OnFail`] policy on failure.
 //!
 //! Strategy resolution is a **descriptor/factory platform**. Every strategy
@@ -41,8 +41,8 @@ use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StrategyStep};
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncPlan, DesyncStrategy, STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_STEP_REGISTRATIONS,
-    StrategyContext, StrategyDescriptor, StrategyError, StrategyStepDescriptor, StrategyStepFactory,
-    StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
+    StrategyContext, StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyStepDescriptor,
+    StrategyStepFactory, StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
 };
 use thiserror::Error;
 
@@ -176,7 +176,7 @@ impl StrategyRegistry {
         self.entries.push(RegistryEntry { strategy, descriptor, on_fail });
     }
 
-    /// Executes the first successful matching strategy in registry order.
+    /// Executes the first matching strategy that handles the flow.
     pub fn execute(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> StrategyVerdict {
         for entry in &self.entries {
             if !entry.strategy.matches(ctx) {
@@ -185,7 +185,8 @@ impl StrategyRegistry {
 
             let checkpoint = plan.clone();
             match entry.strategy.plan(ctx, plan) {
-                Ok(()) => return apply_plan_verdict(plan),
+                Ok(StrategyPlanOutcome::Applied) => return apply_plan_verdict(plan),
+                Ok(StrategyPlanOutcome::Skipped) => *plan = checkpoint,
                 Err(_error) => match entry.on_fail {
                     OnFail::Next => {
                         *plan = checkpoint;
@@ -305,7 +306,7 @@ impl DesyncStrategy for UnimplementedStrategy {
         ctx.caps.tier >= self.descriptor.required_tier
     }
 
-    fn plan(&self, _ctx: &StrategyContext<'_>, _plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+    fn plan(&self, _ctx: &StrategyContext<'_>, _plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
         Err(StrategyError::InvalidConfig(format!(
             "strategy {} is registered but not yet implemented",
             self.descriptor.id,

@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-26
+goal: RST-1790428851570062 Distinguish skipped strategy steps from handled no-op

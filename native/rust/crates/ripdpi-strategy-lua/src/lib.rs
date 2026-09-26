@@ -15,7 +15,7 @@ mod enabled {
     };
     use ripdpi_strategy_trait::{
         DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, MarkerName, RuntimeCapability, StrategyContext,
-        StrategyDescriptor, StrategyError, StrategyVerdict,
+        StrategyDescriptor, StrategyError, StrategyPlanOutcome, StrategyVerdict,
     };
     use thiserror::Error;
 
@@ -1119,7 +1119,7 @@ mod enabled {
             true
         }
 
-        fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+        fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
             match self.engine.call_strategy(&self.func_name, ctx) {
                 Ok(outcome) => {
                     let had_actions = !outcome.actions.is_empty() || outcome.output.is_some();
@@ -1132,7 +1132,7 @@ mod enabled {
                     } else if had_actions {
                         plan.verdict = StrategyVerdict::Apply;
                     }
-                    Ok(())
+                    Ok(StrategyPlanOutcome::Applied)
                 }
                 Err(LuaError::ScriptLoad(error)) => Err(StrategyError::ScriptLoad(error)),
                 Err(LuaError::Call(error)) => Err(StrategyError::LuaTypeError(error)),

@@ -360,6 +360,15 @@ pub enum StrategyError {
     CapabilityUnavailable(RuntimeCapability),
 }
 
+/// Whether a strategy handled the current flow or declined it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StrategyPlanOutcome {
+    /// The strategy handled the flow, including an intentional no-op.
+    Applied,
+    /// The strategy did not handle the flow; the registry may try the next step.
+    Skipped,
+}
+
 /// Common interface implemented by Rust-native, config, and Lua strategies.
 pub trait DesyncStrategy: Send + Sync {
     /// Returns the stable strategy identifier.
@@ -368,8 +377,8 @@ pub trait DesyncStrategy: Send + Sync {
     /// Returns whether this strategy applies to the context.
     fn matches(&self, ctx: &StrategyContext<'_>) -> bool;
 
-    /// Appends desync actions to the supplied plan.
-    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError>;
+    /// Plans a handled step or reports that the current packet was skipped.
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError>;
 
     /// Returns public strategy metadata.
     fn describe(&self) -> StrategyDescriptor;

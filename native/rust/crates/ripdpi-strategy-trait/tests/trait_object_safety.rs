@@ -1,4 +1,6 @@
-use ripdpi_strategy_trait::{DesyncPlan, DesyncStrategy, StrategyContext, StrategyDescriptor, StrategyError};
+use ripdpi_strategy_trait::{
+    DesyncPlan, DesyncStrategy, StrategyContext, StrategyDescriptor, StrategyError, StrategyPlanOutcome,
+};
 
 #[derive(Debug)]
 struct NoopStrategy;
@@ -12,8 +14,8 @@ impl DesyncStrategy for NoopStrategy {
         true
     }
 
-    fn plan(&self, _ctx: &StrategyContext<'_>, _plan: &mut DesyncPlan) -> Result<(), StrategyError> {
-        Ok(())
+    fn plan(&self, _ctx: &StrategyContext<'_>, _plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
+        Ok(StrategyPlanOutcome::Applied)
     }
 
     fn describe(&self) -> StrategyDescriptor {

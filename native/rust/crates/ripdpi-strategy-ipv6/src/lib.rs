@@ -4,8 +4,8 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration,
-    StrategyVerdict,
+    StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams,
+    StrategyStepRegistration, StrategyVerdict,
 };
 
 const IPV6_HEADER_LEN: usize = 40;
@@ -57,18 +57,19 @@ impl DesyncStrategy for Ipv6ExtHdrStrategy {
         ctx.dissect.is_ipv6
     }
 
-    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
         if !self.matches(ctx) {
-            return Ok(());
+            return Ok(StrategyPlanOutcome::Skipped);
         }
         if !ctx.caps.has(RuntimeCapability::VpnMode) && tier_rank(ctx.caps.tier) < tier_rank(CapabilityTier::Tier3) {
-            return Ok(());
+            return Ok(StrategyPlanOutcome::Skipped);
         }
-        if let Some(packet) = apply_ipv6_ext_header(ctx.payload, self.ext_type) {
-            plan.actions.push(DesyncAction::RawSend(packet));
-            plan.verdict = StrategyVerdict::Apply;
-        }
-        Ok(())
+        let Some(packet) = apply_ipv6_ext_header(ctx.payload, self.ext_type) else {
+            return Ok(StrategyPlanOutcome::Skipped);
+        };
+        plan.actions.push(DesyncAction::RawSend(packet));
+        plan.verdict = StrategyVerdict::Apply;
+        Ok(StrategyPlanOutcome::Applied)
     }
 
     fn describe(&self) -> StrategyDescriptor {

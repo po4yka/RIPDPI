@@ -20,7 +20,7 @@
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration,
+    StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration,
 };
 
 /// Empty capability set — a technique that runs on any device.
@@ -73,9 +73,13 @@ macro_rules! core_strategy {
                 ctx.caps.tier >= Self::DESCRIPTOR.required_tier
             }
 
-            fn plan(&self, _ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+            fn plan(
+                &self,
+                _ctx: &StrategyContext<'_>,
+                plan: &mut DesyncPlan,
+            ) -> Result<StrategyPlanOutcome, StrategyError> {
                 plan.actions.push($action);
-                Ok(())
+                Ok(StrategyPlanOutcome::Applied)
             }
 
             fn describe(&self) -> StrategyDescriptor {

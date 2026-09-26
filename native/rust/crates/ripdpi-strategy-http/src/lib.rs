@@ -6,7 +6,8 @@ use std::ops::Range;
 
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, StrategyContext, StrategyDescriptor,
-    StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration, StrategyVerdict,
+    StrategyError, StrategyPlanOutcome, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration,
+    StrategyVerdict,
 };
 
 /// Alternates HTTP Host value casing using the zapret2 `domcase` pattern.
@@ -116,10 +117,10 @@ macro_rules! impl_http_strategy {
                 matches!(&ctx.dissect.proto, L7Protocol::Http(http) if http.is_request)
             }
 
-            fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<(), StrategyError> {
+            fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
                 plan.actions.push(DesyncAction::Write($apply(ctx)));
                 plan.verdict = StrategyVerdict::Apply;
-                Ok(())
+                Ok(StrategyPlanOutcome::Applied)
             }
 
             fn describe(&self) -> StrategyDescriptor {

@@ -3,7 +3,7 @@ mod common;
 use ripdpi_strategy_ipv6::{Ipv6ExtHdrStrategy, Ipv6ExtType};
 use ripdpi_strategy_trait::{
     CapabilityTier, ConnectionState, DesyncAction, DesyncPlan, DesyncStrategy, Dissect, RuntimeCapability,
-    StrategyVerdict,
+    StrategyPlanOutcome, StrategyVerdict,
 };
 
 #[test]
@@ -34,8 +34,21 @@ fn strategy_appends_rawsend_for_vpn_ipv6_packet() {
     let ctx = common::vpn_ipv6_context(&dissect, &conn, &caps, &packet);
     let mut plan = DesyncPlan::default();
 
-    strategy.plan(&ctx, &mut plan).expect("plan");
+    assert_eq!(strategy.plan(&ctx, &mut plan), Ok(StrategyPlanOutcome::Applied));
 
     assert_eq!(plan.verdict, StrategyVerdict::Apply);
     assert!(matches!(plan.actions.as_slice(), [DesyncAction::RawSend(output)] if output[6] == 60));
+}
+
+#[test]
+fn strategy_skips_invalid_ipv6_packet() {
+    let strategy = Ipv6ExtHdrStrategy::new(Ipv6ExtType::DestOpts);
+    let dissect = Dissect { is_ipv6: true, ..Dissect::default() };
+    let caps = common::vpn_caps();
+    let conn = ConnectionState::default();
+    let ctx = common::vpn_ipv6_context(&dissect, &conn, &caps, b"invalid packet");
+    let mut plan = DesyncPlan::default();
+
+    assert_eq!(strategy.plan(&ctx, &mut plan), Ok(StrategyPlanOutcome::Skipped));
+    assert!(plan.actions.is_empty());
 }

@@ -21,7 +21,8 @@ use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
 use ripdpi_strategy_trait::{
     DesyncAction as StrategyAction, DesyncPlan as StrategyPlan, DesyncStrategy, HttpDissect, L7Protocol, QuicDissect,
-    StrategyContext, StrategyDescriptor, StrategyDescriptorRegistration, StrategyError, StrategyVerdict, TlsDissect,
+    StrategyContext, StrategyDescriptor, StrategyDescriptorRegistration, StrategyError, StrategyPlanOutcome,
+    StrategyVerdict, TlsDissect,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -59,13 +60,13 @@ impl DesyncStrategy for TcpDesyncStrategy<'_> {
         activation_filter_matches(self.group.activation_filter(), self.context)
     }
 
-    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut StrategyPlan) -> Result<(), StrategyError> {
+    fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut StrategyPlan) -> Result<StrategyPlanOutcome, StrategyError> {
         let native_plan = self
             .plan(ctx.payload)
             .map_err(|_error| StrategyError::Execution("tcp desync planning failed".to_owned()))?;
         plan.actions.extend(native_plan.actions.into_iter().map(strategy_action_from_native));
         plan.verdict = StrategyVerdict::Apply;
-        Ok(())
+        Ok(StrategyPlanOutcome::Applied)
     }
 
     fn describe(&self) -> StrategyDescriptor {
