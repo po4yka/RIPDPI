@@ -426,6 +426,72 @@ mod tests {
     }
 
     #[test]
+    fn rewrite_endpoints_scrubs_ipv6_routing_segments() {
+        let sni = "secret-sni.example";
+        let hello = make_client_hello_with_sni(sni);
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x60;
+        packet[6] = 43; // Routing header.
+        packet[8..40].fill(0x20);
+        packet.extend_from_slice(&[6, 4, 4, 1, 1, 0, 0, 0]); // SRH with two 16-byte segments.
+        packet.extend_from_slice(&[0x30; 16]);
+        packet.extend_from_slice(&[0x40; 16]);
+        let tcp_start = packet.len();
+        packet.extend_from_slice(&[0; 20]);
+        packet[tcp_start + 12] = 0x50;
+        packet.extend_from_slice(&hello);
+        let payload_len = (packet.len() - 40) as u16;
+        packet[4..6].copy_from_slice(&payload_len.to_be_bytes());
+
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[8..40], &[0; 32]);
+        assert_eq!(&redacted[40..48], &packet[40..48]); // Keep next header and length usable.
+        assert_eq!(&redacted[48..80], &[0; 32]);
+        assert!(!redacted.windows(sni.len()).any(|part| part == sni.as_bytes()));
+
+        let truncated = rewrite_packet(&packet[..64]); // Partial second segment.
+        assert_eq!(&truncated[48..64], &[0; 16]);
+    }
+
+    #[test]
+    fn rewrite_endpoints_scrubs_ipv6_home_address_option() {
+        let sni = "secret-sni.example";
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x60;
+        packet[6] = 60; // Destination Options -> TCP.
+        packet.extend_from_slice(&[6, 2, 201, 16]); // Home Address option, 16-byte IPv6 address.
+        packet.extend_from_slice(&[0x30; 16]);
+        packet.extend_from_slice(&[0; 4]); // Pad to 24 bytes.
+        packet.extend_from_slice(&[0; 20]);
+        packet[64 + 12] = 0x50;
+        packet.extend_from_slice(&make_client_hello_with_sni(sni));
+        let payload_len = (packet.len() - 40) as u16;
+        packet[4..6].copy_from_slice(&payload_len.to_be_bytes());
+
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[40..44], &[6, 2, 201, 16]);
+        assert_eq!(&redacted[44..60], &[0; 16]);
+        assert_eq!(&redacted[60..64], &packet[60..64]);
+        assert!(!redacted.windows(sni.len()).any(|part| part == sni.as_bytes()));
+    }
+
+    #[test]
+    fn rewrite_endpoints_preserves_ipv6_jumbo_payload_option() {
+        let sni = "secret-sni.example";
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x60;
+        packet[6] = 0; // Hop-by-Hop with Jumbo Payload option.
+        packet.extend_from_slice(&[6, 0, 0xc2, 4, 0, 1, 0, 0]); // Advertise 65,536 bytes.
+        packet.extend_from_slice(&[0; 20]);
+        packet[48 + 12] = 0x50;
+        packet.extend_from_slice(&make_client_hello_with_sni(sni));
+
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[40..48], &packet[40..48]);
+        assert!(!redacted.windows(sni.len()).any(|part| part == sni.as_bytes()));
+    }
+
+    #[test]
     fn rewrite_endpoints_tolerates_truncated_ipv6_extension_chain() {
         for extension_len in 0..8 {
             let mut packet = vec![0u8; 40 + extension_len];

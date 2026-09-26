@@ -7,6 +7,8 @@ use crate::writer::PcapWriter;
 /// Stream-read packets from `src`, rewrite endpoint addresses to all
 /// zeros (IPv4 `0.0.0.0`, IPv6 `::`), recompute the IPv4 header
 /// checksum, zero the TCP/UDP checksum, and stream-write to `dst`.
+/// IPv6 Routing data and Home Address option values are also cleared. Other
+/// option values and application payloads are not fully anonymized.
 ///
 /// Non-IP packets are passed through unchanged (defensive - shouldn't
 /// happen with LINKTYPE_RAW, but we do not bail).
@@ -218,13 +220,42 @@ fn find_host_in_sni_ext(payload: &[u8], body: usize, body_end: usize) -> Option<
     None
 }
 
+/// Keep option framing intact while removing the IPv6 Home Address value.
+fn redact_ipv6_options(bytes: &mut [u8], mut at: usize, declared_end: usize) {
+    let captured_end = declared_end.min(bytes.len());
+    while at < captured_end {
+        let option_type = bytes[at];
+        if option_type == 0 {
+            // Pad1 has no length byte.
+            at += 1;
+            continue;
+        }
+        let Some(header) = bytes.get(at..captured_end).and_then(|rest| rest.get(..2)) else {
+            return;
+        };
+        let value_start = at + 2;
+        let Some(value_end) = value_start.checked_add(usize::from(header[1])) else {
+            return;
+        };
+        if option_type == 0xc9 {
+            // Home Address option.
+            bytes[value_start..value_end.min(captured_end)].fill(0);
+        }
+        if value_end > captured_end {
+            return;
+        }
+        at = value_end;
+    }
+}
+
 /// Find TCP or UDP after the IPv6 extension headers we can parse safely.
 /// Non-initial fragments and incomplete headers have no usable transport header.
-fn ipv6_transport(bytes: &[u8]) -> Option<(u8, usize)> {
+fn ipv6_transport(bytes: &mut [u8]) -> Option<(u8, usize)> {
     let mut next = *bytes.get(6)?;
     let mut offset = 40usize;
     loop {
         let rest = bytes.get(offset..)?;
+        let current = next;
         let len = match next {
             0 | 43 | 60 => {
                 let header = rest.get(..2)?;
@@ -246,8 +277,20 @@ fn ipv6_transport(bytes: &[u8]) -> Option<(u8, usize)> {
             }
             _ => break,
         };
-        offset = offset.checked_add(len)?;
-        bytes.get(..offset)?;
+        let end = offset.checked_add(len)?;
+        if matches!(current, 0 | 60) {
+            redact_ipv6_options(bytes, offset.checked_add(2)?, end);
+        } else if current == 43 {
+            // Routing types keep segment addresses after the eight-byte fixed header.
+            // Scrub captured bytes even when the declared length exceeds the record.
+            let data_start = offset.checked_add(8)?;
+            let captured_end = end.min(bytes.len());
+            if data_start <= captured_end {
+                bytes[data_start..captured_end].fill(0);
+            }
+        }
+        bytes.get(..end)?;
+        offset = end;
     }
     Some((next, offset))
 }
