@@ -172,10 +172,10 @@ pub struct ResolverSurveyOptions {
 /// Runs an availability survey over the static [`RESOLVER_PANEL`].
 ///
 /// All network I/O is injected via a `probe_fn` closure so the runner can be
-/// exercised in unit tests without touching the network. Current live DoH
-/// probing is implemented by `ripdpi-diagnostics-probes::doh_survey`; this
-/// runner remains the reusable pure classifier for callers that can provide
-/// UDP/53 and DoH observations.
+/// exercised in unit tests without touching the network. The monitor engine's
+/// DNS stage gets encrypted DoH observations through `ripdpi-diagnostics-runner`
+/// and `ripdpi-diagnostics-dns`; this runner is a pure classifier for callers
+/// that provide UDP/53 and DoH observations.
 ///
 /// Bounded concurrency (≤8 in-flight) is noted as a future enhancement; the
 /// current implementation uses simple sequential iteration to keep this unit

@@ -90,7 +90,7 @@ fn doh_json_survey_only_measures_the_supplied_target() {
 }
 
 #[test]
-fn doh_wire_survey_only_measures_the_supplied_target() {
+fn doh_json_get_survey_only_measures_the_supplied_target() {
     let target = "another-user-host.example";
     let resolvers = vec![
         DohResolverEndpoint { label: "google".to_string(), url: "https://dns.google/dns-query".to_string() },

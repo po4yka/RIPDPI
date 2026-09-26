@@ -1,27 +1,15 @@
 //! DoH-JSON survey probe: per-resolver reachability across the *JSON* DoH APIs.
 //!
-//! This is a sibling to [`crate::probes::doh_survey`]. The two probes exist
-//! because resolver operators expose the two DoH transports independently and
-//! middleboxes filter them independently:
+//! This is a sibling to [`crate::probes::doh_survey`]. Both runners send vendor
+//! JSON GET requests to configured resolver endpoints. This runner uses a
+//! separate endpoint panel and stable probe id, so its results stay distinct
+//! from the other survey's results for the same operator. The monitor engine's
+//! DNS stage measures the encrypted DNS wire path.
 //!
-//! * **DoH wire** (RFC 8484, `application/dns-message`) — the format the
-//!   runtime resolver in `ripdpi-dns-resolver` actually uses.
-//! * **DoH JSON** (vendor `?name=…&type=A` GET, `application/dns-json`) — a
-//!   non-IETF convenience API offered by Google, Cloudflare, AdGuard and
-//!   Alibaba. Some ISPs block the wire format while leaving the JSON API
-//!   reachable, or vice-versa.
+//! ## Diagnostics-only
 //!
-//! Probing both lets the classifier represent split outcomes such as
-//! "Google wire blocked, Google JSON reachable". This probe reports a verdict
-//! **per endpoint**, with its own stable probe id, so its results never alias
-//! the wire survey's results for the same operator.
-//!
-//! ## Diagnostics-only — never a runtime resolver path
-//!
-//! DoH JSON is vendor-specific and not an IETF interface. This probe is a
-//! diagnostics *evidence source* only. The runtime resolver
-//! (`ripdpi-dns-resolver`) stays wire-only; there is deliberately no
-//! wire→JSON fallback anywhere on the resolution hot path.
+//! DoH JSON is vendor-specific and not an IETF interface. This probe provides
+//! diagnostic evidence; it is not used by the runtime resolver.
 //!
 //! Split into two halves, mirroring [`crate::probes::doh_survey`]:
 //!
@@ -41,7 +29,7 @@ use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
 // ── stable probe id ───────────────────────────────────────────────────────────
 
 /// Stable probe identifier. Embedded in goldens and telemetry — distinct from
-/// [`crate::probes::doh_survey::DOH_SURVEY_PROBE_ID`] so wire and JSON verdicts
+/// [`crate::probes::doh_survey::DOH_SURVEY_PROBE_ID`] so the two JSON surveys
 /// for the same operator stay independent.
 pub const DOH_JSON_SURVEY_PROBE_ID: &str = "doh_json_survey";
 
@@ -58,11 +46,11 @@ pub enum DohJsonResolverStatus {
     /// The resolver returned NXDOMAIN (RCODE 3) or a well-formed JSON envelope
     /// with no usable A/AAAA answer (e.g. CNAME-only).
     NxDomain,
-    /// A 2xx HTTP response was received but the body was not parseable DoH
-    /// JSON (HTML captive-portal page, truncated body, wire-format bytes).
+    /// A 2xx HTTP response contained invalid DoH JSON, or a valid JSON
+    /// response with an error RCODE other than NXDOMAIN (e.g. SERVFAIL).
     /// Treated as a probe *failure*, never a panic.
     MalformedJson {
-        /// Short description of why the body failed to parse.
+        /// Short description of why the response was unusable.
         detail: String,
     },
     /// The resolver did not reply within the configured timeout.
@@ -178,11 +166,9 @@ pub struct DohJsonResolverEndpoint {
 
 /// The default JSON-only DoH endpoint panel.
 ///
-/// These are the vendor JSON APIs that are *distinct* from the operators'
-/// RFC 8484 wire endpoints. The `ct=application/dns-json` query parameter the
-/// runner appends forces JSON on operators (Cloudflare) that share one path
-/// for both transports; it is ignored harmlessly by dedicated `/resolve`
-/// endpoints.
+/// These endpoints offer vendor JSON APIs. The runner appends
+/// `ct=application/dns-json` to request JSON on shared paths such as
+/// Cloudflare's; dedicated `/resolve` endpoints ignore the parameter.
 pub fn default_json_resolvers() -> Vec<DohJsonResolverEndpoint> {
     vec![
         DohJsonResolverEndpoint { label: "google".to_string(), url: "https://dns.google/resolve".to_string() },
@@ -212,8 +198,8 @@ pub struct DohJsonSurveyRunner<C> {
     /// JSON resolver endpoints to survey. Defaults available via
     /// [`default_json_resolvers`].
     pub resolvers: Vec<DohJsonResolverEndpoint>,
-    /// HTTP client implementation. Reuses the same [`DohHttpClient`] trait as
-    /// the wire survey so the parent crate wires one client for both.
+    /// HTTP client implementation. Reuses the [`DohHttpClient`] trait from
+    /// [`crate::probes::doh_survey::DohSurveyRunner`].
     pub client: C,
 }
 
