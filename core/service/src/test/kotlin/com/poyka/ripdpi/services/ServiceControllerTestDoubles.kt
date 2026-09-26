@@ -222,6 +222,7 @@ internal class TestResolverOverrideStore(
 internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     val failures = mutableListOf<RememberedNetworkPolicyEntity>()
     var validatedMatch: RememberedNetworkPolicyEntity? = null
+    var recordFailureError: Exception? = null
 
     override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = emptyFlow()
 
@@ -259,6 +260,7 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
         failedAt: Long?,
         allowSuppression: Boolean,
     ): RememberedNetworkPolicyEntity {
+        recordFailureError?.let { throw it }
         failures += policy
         return policy
     }

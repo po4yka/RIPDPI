@@ -65,19 +65,27 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 transaction?.onStarted?.invoke()
             }
                 ?: return
-        val error =
-            failure as? Exception ?: IllegalStateException(
-                "Failed to start ${dependencies.serviceLabel()}",
-                failure,
-            )
-        val classifiedError = error.unwrapSupervisorStartupFailure()
-        Logger.e(classifiedError) { "Failed to start ${dependencies.serviceLabel()}" }
-        matchedRememberedPolicy?.let { policy ->
-            dependencies.rememberedNetworkPolicyStore.recordFailure(policy)
+        val cancellation = failure as? CancellationException
+        try {
+            if (cancellation == null) {
+                val error =
+                    failure as? Exception ?: IllegalStateException(
+                        "Failed to start ${dependencies.serviceLabel()}",
+                        failure,
+                    )
+                val classifiedError = error.unwrapSupervisorStartupFailure()
+                Logger.e(classifiedError) { "Failed to start ${dependencies.serviceLabel()}" }
+                matchedRememberedPolicy?.let { policy ->
+                    runCatching { dependencies.rememberedNetworkPolicyStore.recordFailure(policy) }
+                        .onFailure { Logger.e(it) { "Failed to record remembered policy startup failure" } }
+                }
+                val failureReason = callbacks.classifyStartupFailure(classifiedError)
+                callbacks.updateStatus(ServiceStatus.Failed, failureReason)
+            }
+        } finally {
+            withContext(NonCancellable) { stop(stopSelfStartId = stopSelfStartId) }
         }
-        val failureReason = callbacks.classifyStartupFailure(classifiedError)
-        callbacks.updateStatus(ServiceStatus.Failed, failureReason)
-        stop(stopSelfStartId = stopSelfStartId)
+        if (cancellation != null) throw cancellation
     }
 
     suspend fun stop(

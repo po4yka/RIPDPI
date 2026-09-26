@@ -101,6 +101,39 @@ class BaseServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun cancelledStartStopsRuntimeBeforeReleasingService() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.publishEvidenceGate = CompletableDeferred()
+            val start = backgroundScope.launch { env.coordinator.start(stopSelfStartId = 42) }
+            runCurrent()
+
+            assertEquals(1, env.coordinator.startCalls)
+            start.cancel()
+            runCurrent()
+
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(listOf(42), env.host.stopRequests)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertFalse(ServiceStatus.Failed in env.coordinator.statusTransitions)
+        }
+
+    @Test
+    fun policyFailureRecordingErrorDoesNotSkipStartupCleanup() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.failOnStart = true
+            env.coordinator.rememberedPolicy = sampleRememberedPolicyEntity()
+            env.rememberedStore.recordFailureError = IllegalStateException("storage unavailable")
+
+            env.coordinator.start(stopSelfStartId = 43)
+
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(listOf(43), env.host.stopRequests)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
     fun stopFinalizationUnregistersRuntimeAndRequestsStopSelfOnce() =
         runTest {
             val env = newEnv()
@@ -857,13 +890,14 @@ private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprin
     val runtimeRegistry = DefaultServiceRuntimeRegistry()
     val handoverMonitor = TestNetworkHandoverMonitor()
     val handoverEvents = TestPolicyHandoverEventStore()
+    val rememberedStore = TestRememberedNetworkPolicyStore()
     val clock = TestServiceClock(now = 1_000L)
     val coordinator =
         TestCoordinator(
             host = host,
             resolver = resolver,
             runtimeRegistry = runtimeRegistry,
-            rememberedStore = TestRememberedNetworkPolicyStore(),
+            rememberedStore = rememberedStore,
             handoverMonitor = handoverMonitor,
             handoverEvents = handoverEvents,
             permissionWatchdog = TestPermissionWatchdog(),
@@ -876,6 +910,7 @@ private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprin
         runtimeRegistry = runtimeRegistry,
         handoverMonitor = handoverMonitor,
         handoverEvents = handoverEvents,
+        rememberedStore = rememberedStore,
         clock = clock,
     )
 }
@@ -886,6 +921,7 @@ private data class Env(
     val runtimeRegistry: ServiceRuntimeRegistry,
     val handoverMonitor: TestNetworkHandoverMonitor,
     val handoverEvents: TestPolicyHandoverEventStore,
+    val rememberedStore: TestRememberedNetworkPolicyStore,
     val clock: TestServiceClock,
 )
 
@@ -929,6 +965,8 @@ private class TestCoordinator(
     var finalTelemetryCalls: Int = 0
     var cancelFinalTelemetry: Boolean = false
     var readySnapshot: NativeRuntimeSnapshot = NativeRuntimeSnapshot(source = "proxy")
+    var rememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
+    var publishEvidenceGate: CompletableDeferred<Unit>? = null
     var publishedEvidence: RuntimeStartEvidence? = null
     var publishedRuntimeId: String? = null
     val handoverResolutionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
@@ -970,7 +1008,7 @@ private class TestCoordinator(
     private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
     private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
-        sampleResolution(mode = Mode.Proxy)
+        sampleResolution(mode = Mode.Proxy).copy(matchedNetworkPolicy = rememberedPolicy)
 
     @Suppress("UnusedParameter")
     private suspend fun resolveHandoverConnectionPolicy(
@@ -1022,6 +1060,7 @@ private class TestCoordinator(
         resolution: ConnectionPolicyResolution,
         evidence: RuntimeStartEvidence,
     ) {
+        publishEvidenceGate?.await()
         publishedRuntimeId = session.runtimeId
         publishedEvidence = evidence
         startLifecycleEvents += "publish_evidence:${session.runtimeId}"
