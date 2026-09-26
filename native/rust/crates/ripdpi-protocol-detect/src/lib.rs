@@ -53,7 +53,14 @@ fn is_tls_client_hello(payload: &[u8]) -> bool {
 }
 
 fn is_quic_initial(payload: &[u8]) -> bool {
-    payload.len() >= 6 && payload[0] & 0xC0 == 0xC0 && payload[0] & 0x30 == 0
+    if payload.len() < 6 || payload[0] & 0xC0 != 0xC0 {
+        return false;
+    }
+    match &payload[1..5] {
+        [0, 0, 0, 1] => payload[0] & 0x30 == 0,
+        [0x6b, 0x33, 0x43, 0xcf] => payload[0] & 0x30 == 0x10,
+        _ => false,
+    }
 }
 
 fn is_wireguard(payload: &[u8]) -> bool {

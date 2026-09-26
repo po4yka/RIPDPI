@@ -19,3 +19,12 @@ fn detects_quic_initial_long_header_signature() {
     let payload = [0xC3, 0x00, 0x00, 0x00, 0x01, 8, 1, 2, 3, 4, 5, 6, 7, 8];
     assert!(matches!(classify_l7(&payload, 12345, 443, true), L7Protocol::Quic(_)));
 }
+
+#[test]
+fn detects_quic_v2_initial_without_misclassifying_handshake() {
+    let initial = [0xD3, 0x6b, 0x33, 0x43, 0xcf, 8, 1, 2, 3, 4, 5, 6, 7, 8];
+    assert!(matches!(classify_l7(&initial, 12345, 443, true), L7Protocol::Quic(_)));
+    let mut handshake = initial;
+    handshake[0] = 0xE3;
+    assert!(matches!(classify_l7(&handshake, 12345, 443, true), L7Protocol::Unknown));
+}
