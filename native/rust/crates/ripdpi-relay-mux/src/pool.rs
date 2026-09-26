@@ -102,12 +102,13 @@ where
                 let Ok((fresh, _)) = self.session_for_open().await else {
                     return Err(error);
                 };
+                let retry_permit = self.acquire_permit().await;
                 self.mark_lease_started();
                 let retry_guard = LeaseGuard::new(
                     self.inner.state.clone(),
                     Arc::clone(&fresh),
                     self.inner.capabilities.reusable,
-                    self.acquire_permit().await,
+                    retry_permit,
                 );
                 match fresh.open_stream(target).await {
                     Ok(stream) => Ok(MuxStream::new(stream, retry_guard)),
@@ -141,12 +142,13 @@ where
                 let Ok((fresh, _)) = self.session_for_open().await else {
                     return Err(error);
                 };
+                let retry_permit = self.acquire_permit().await;
                 self.mark_lease_started();
                 let retry_guard = LeaseGuard::new(
                     self.inner.state.clone(),
                     Arc::clone(&fresh),
                     self.inner.capabilities.reusable,
-                    self.acquire_permit().await,
+                    retry_permit,
                 );
                 match fresh.open_datagram().await {
                     Ok(datagram) => Ok(MuxLease::new(datagram, retry_guard)),

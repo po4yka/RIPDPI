@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -306,6 +307,7 @@ async fn lease_guard_drop_does_not_panic_when_mutex_is_poisoned() {
 #[derive(Clone)]
 struct StaleFirstCarrierFactory {
     creations: Arc<AtomicUsize>,
+    fresh_gate: Option<(Arc<Notify>, Arc<Notify>)>,
 }
 
 struct StaleFirstCarrierSession {
@@ -345,8 +347,15 @@ impl RelaySessionFactory for StaleFirstCarrierFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: true }
     }
 
+    // cancel-safe: a cancelled construction leaves no session or worker behind.
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let generation = self.creations.fetch_add(1, Ordering::SeqCst);
+        if generation == 1
+            && let Some((entered, release)) = &self.fresh_gate
+        {
+            entered.notify_one();
+            release.notified().await;
+        }
         Ok(Arc::new(StaleFirstCarrierSession { generation, opens: AtomicUsize::new(0) }))
     }
 }
@@ -354,7 +363,10 @@ impl RelaySessionFactory for StaleFirstCarrierFactory {
 #[tokio::test]
 async fn stale_cached_carrier_failure_is_retried_once_on_a_fresh_session() {
     let creations = Arc::new(AtomicUsize::new(0));
-    let mux = RelayMux::new(StaleFirstCarrierFactory { creations: Arc::clone(&creations) }, RelayPoolConfig::default());
+    let mux = RelayMux::new(
+        StaleFirstCarrierFactory { creations: Arc::clone(&creations), fresh_gate: None },
+        RelayPoolConfig::default(),
+    );
 
     // Warm the cache: the first carrier opens fine and is reused afterward.
     let warm = mux.open_stream("example.com:443").await.expect("warm-up open");
@@ -370,6 +382,47 @@ async fn stale_cached_carrier_failure_is_retried_once_on_a_fresh_session() {
     drop(stream);
 
     assert_eq!(2, creations.load(Ordering::SeqCst), "exactly one fresh-carrier retry must happen");
+}
+
+// cancel-safe: the test owns both pending opens and cancels them before returning.
+#[tokio::test(flavor = "current_thread")]
+async fn cancelling_retry_waiting_for_permit_keeps_lease_count_correct() {
+    let creations = Arc::new(AtomicUsize::new(0));
+    let fresh_entered = Arc::new(Notify::new());
+    let release_fresh = Arc::new(Notify::new());
+    let mux = RelayMux::new(
+        StaleFirstCarrierFactory {
+            creations,
+            fresh_gate: Some((Arc::clone(&fresh_entered), Arc::clone(&release_fresh))),
+        },
+        RelayPoolConfig { max_active_leases: 1, idle_timeout: Duration::from_secs(30) },
+    );
+    drop(mux.open_stream("warm.example:443").await.expect("cache first carrier"));
+
+    let retry_mux = mux.clone();
+    let mut retry = tokio::spawn(async move { retry_mux.open_stream("retry.example:443").await });
+    fresh_entered.notified().await;
+    assert_eq!(0, mux.health().busy_streams, "failed cached open released its lease");
+
+    // Poll once while fresh creation holds the gate: this caller owns the only
+    // permit but cannot take a lease until the retry publishes the fresh carrier.
+    let competing_mux = mux.clone();
+    let mut competing = Box::pin(competing_mux.open_stream("competing.example:443"));
+    std::future::poll_fn(|cx| {
+        assert!(competing.as_mut().poll(cx).is_pending());
+        std::task::Poll::Ready(())
+    })
+    .await;
+
+    release_fresh.notify_one();
+    assert!(timeout(Duration::from_millis(20), &mut retry).await.is_err(), "retry must wait for the permit");
+    retry.abort();
+    match retry.await {
+        Err(error) => assert!(error.is_cancelled()),
+        Ok(_) => panic!("retry was not cancelled"),
+    }
+    drop(competing);
+    assert_eq!(0, mux.health().busy_streams, "cancelled retry must not leak a lease");
 }
 
 #[tokio::test]
