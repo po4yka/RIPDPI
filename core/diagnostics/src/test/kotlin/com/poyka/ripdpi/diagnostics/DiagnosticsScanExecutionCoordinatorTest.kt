@@ -107,6 +107,7 @@ class DiagnosticsScanPolicyFinalizationTest {
             assertNotNull(preferredPath)
             assertEquals(1, stores.storedProbeResults(prepared.sessionId).size)
             assertEquals(2, stores.snapshotsState.value.count { it.sessionId == prepared.sessionId })
+            assertEquals(listOf(true), fixtures.networkMetadataProvider.publicIpRequests)
             assertEquals(3, stores.contextsState.value.count { it.sessionId == prepared.sessionId })
             assertTrue(stores.nativeEventsState.value.any { it.sessionId == prepared.sessionId })
             assertNull(timelineSource.activeScanProgress.value)
@@ -772,6 +773,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
                 preparedDiagnosticsScan(
                     sessionId = "session-reprobe",
                     settings = settings,
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
                     exposeProgress = false,
                     registerActiveBridge = false,
                     kind = ScanKind.STRATEGY_PROBE,
@@ -820,6 +822,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
                     session.pathMode == ScanPathMode.IN_PATH.name && session.status == "completed"
                 },
             )
+            assertEquals(listOf(false, false, false), fixtures.networkMetadataProvider.publicIpRequests)
         }
 
     @Test
@@ -1359,6 +1362,7 @@ class DiagnosticsScanRememberedPolicyTest {
             fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+            assertEquals(listOf(false), fixtures.networkMetadataProvider.publicIpRequests)
         }
 }
 
@@ -1389,6 +1393,7 @@ internal data class ExecutionCoordinatorFixtures(
     val finalizationService: ScanFinalizationService,
     val runtimeCoordinator: FakeDiagnosticsRuntimeCoordinator,
     val rawPathSettlementBarrier: RawPathSettlementBarrier,
+    val networkMetadataProvider: FakeNetworkMetadataProvider,
 )
 
 class DiagnosticsInPathRouteAuthorityTest {
@@ -1577,6 +1582,7 @@ internal fun executionCoordinatorFixtures(
         finalizationService = scanFinalizationService,
         runtimeCoordinator = runtimeCoordinator,
         rawPathSettlementBarrier = rawPathSettlementBarrier,
+        networkMetadataProvider = networkMetadataProvider,
     )
 }
 

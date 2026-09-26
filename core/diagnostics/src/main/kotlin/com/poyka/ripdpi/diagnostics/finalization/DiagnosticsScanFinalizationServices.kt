@@ -119,7 +119,7 @@ class ScanFinalizationService
                         report = finalReport,
                     )
                 }
-                persistPostScanArtifacts(prepared.sessionId)
+                persistPostScanArtifacts(prepared)
                 val correctedDnsPath =
                     with(ResolverRecommendationEngine) {
                         finalReport.resolverRecommendation?.toEncryptedDnsPathCandidate()
@@ -296,17 +296,19 @@ class ScanFinalizationService
             }
         }
 
-        private suspend fun persistPostScanArtifacts(sessionId: String) {
+        private suspend fun persistPostScanArtifacts(prepared: PreparedDiagnosticsScan) {
             val now = System.currentTimeMillis()
             artifactWriteStore.upsertSnapshot(
                 com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
                     id = UUID.randomUUID().toString(),
-                    sessionId = sessionId,
+                    sessionId = prepared.sessionId,
                     snapshotKind = "post_scan",
                     payloadJson =
                         json.encodeToString(
                             NetworkSnapshotModel.serializer(),
-                            networkMetadataProvider.captureSnapshot(includePublicIp = true),
+                            networkMetadataProvider.captureSnapshot(
+                                includePublicIp = prepared.includePublicIpInSnapshots,
+                            ),
                         ),
                     capturedAt = now,
                 ),
@@ -314,7 +316,7 @@ class ScanFinalizationService
             artifactWriteStore.upsertContextSnapshot(
                 com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
                     id = UUID.randomUUID().toString(),
-                    sessionId = sessionId,
+                    sessionId = prepared.sessionId,
                     contextKind = "post_scan",
                     payloadJson =
                         json.encodeToString(

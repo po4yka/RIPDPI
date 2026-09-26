@@ -65,6 +65,7 @@ internal data class PreparedDiagnosticsScan(
     val plan: ScanPlan,
     val requestJson: String,
     val scanOrigin: DiagnosticsScanOrigin,
+    val includePublicIpInSnapshots: Boolean = scanOrigin != DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
     val launchTrigger: DiagnosticsScanLaunchTrigger?,
     val exposeProgress: Boolean,
     val registerActiveBridge: Boolean,
@@ -185,6 +186,7 @@ internal class DiagnosticsScanRequestFactory
                 plan = plan,
                 requestJson = json.encodeToString(EngineScanRequestWire.serializer(), engineRequest),
                 scanOrigin = DiagnosticsScanOrigin.DNS_CORRECTED_REPROBE,
+                includePublicIpInSnapshots = original.includePublicIpInSnapshots,
                 launchTrigger = original.launchTrigger,
                 exposeProgress = false,
                 registerActiveBridge = false,
@@ -329,7 +331,7 @@ internal class DiagnosticsScanRequestFactory
                 preferredDnsPath = scanContext.preferredDnsPath,
                 initialSession =
                     buildInitialSession(sessionId, profile, scanContext, pathMode, scanOrigin, launchTrigger, now),
-                preScanSnapshot = buildPreScanSnapshot(sessionId, now),
+                preScanSnapshot = buildPreScanSnapshot(sessionId, now, scanOrigin),
                 preScanContext = buildPreScanContext(sessionId, scanContext, now),
             )
         }
@@ -369,6 +371,7 @@ internal class DiagnosticsScanRequestFactory
         private suspend fun buildPreScanSnapshot(
             sessionId: String,
             now: Long,
+            scanOrigin: DiagnosticsScanOrigin,
         ): NetworkSnapshotEntity =
             NetworkSnapshotEntity(
                 id = UUID.randomUUID().toString(),
@@ -377,7 +380,9 @@ internal class DiagnosticsScanRequestFactory
                 payloadJson =
                     json.encodeToString(
                         NetworkSnapshotModel.serializer(),
-                        networkMetadataProvider.captureSnapshot(includePublicIp = true),
+                        networkMetadataProvider.captureSnapshot(
+                            includePublicIp = scanOrigin != DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                        ),
                     ),
                 capturedAt = now,
             )

@@ -869,7 +869,12 @@ internal class FakeRawPathSettlementStore(
 }
 
 internal class FakeNetworkMetadataProvider : NetworkMetadataProvider {
-    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel = networkSnapshotModelForTest()
+    val publicIpRequests = mutableListOf<Boolean>()
+
+    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
+        publicIpRequests += includePublicIp
+        return networkSnapshotModelForTest()
+    }
 }
 
 internal class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {

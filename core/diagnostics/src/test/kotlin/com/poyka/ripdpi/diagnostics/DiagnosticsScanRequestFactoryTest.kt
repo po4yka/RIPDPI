@@ -237,10 +237,11 @@ class DiagnosticsScanRequestFactoryTest {
             val settings = defaultDiagnosticsAppSettings()
             val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = null)
             val context = strategyProbeContext(settings = settings, preferredDnsPath = null)
+            val networkMetadataProvider = FakeNetworkMetadataProvider()
             val factory =
                 DiagnosticsScanRequestFactory(
                     context = TestContext(),
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkMetadataProvider = networkMetadataProvider,
                     intentResolver =
                         object : DiagnosticsIntentResolver {
                             override suspend fun resolve(
@@ -310,6 +311,7 @@ class DiagnosticsScanRequestFactoryTest {
             assertEquals(42L, prepared.initialSession.triggerOccurredAt)
             assertEquals("fingerprint-a", prepared.initialSession.triggerPreviousFingerprintHash)
             assertEquals("fingerprint-b", prepared.initialSession.triggerCurrentFingerprintHash)
+            assertEquals(listOf(false), networkMetadataProvider.publicIpRequests)
         }
 
     @Test
@@ -318,10 +320,11 @@ class DiagnosticsScanRequestFactoryTest {
             val settings = defaultDiagnosticsAppSettings()
             val intent = strategyProbeIntent(settings = settings, baseProxyConfigJson = null)
             val context = strategyProbeContext(settings = settings, preferredDnsPath = null)
+            val networkMetadataProvider = FakeNetworkMetadataProvider()
             val factory =
                 DiagnosticsScanRequestFactory(
                     context = TestContext(),
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkMetadataProvider = networkMetadataProvider,
                     intentResolver =
                         object : DiagnosticsIntentResolver {
                             override suspend fun resolve(
@@ -373,6 +376,7 @@ class DiagnosticsScanRequestFactoryTest {
             assertNull(prepared.initialSession.triggerType)
             assertNull(prepared.initialSession.triggerClassification)
             assertNull(prepared.initialSession.triggerOccurredAt)
+            assertEquals(listOf(true), networkMetadataProvider.publicIpRequests)
             assertNull(prepared.initialSession.triggerPreviousFingerprintHash)
             assertNull(prepared.initialSession.triggerCurrentFingerprintHash)
         }
