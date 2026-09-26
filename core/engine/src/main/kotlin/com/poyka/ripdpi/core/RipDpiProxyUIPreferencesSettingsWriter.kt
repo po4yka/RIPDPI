@@ -104,6 +104,8 @@ private fun AppSettings.Builder.applyParserAndAdaptivePreferences(preferences: R
     setHttpMethodSpace(parserEvasions.httpMethodSpace)
     setHttpUnixEol(parserEvasions.httpUnixEol)
     setHttpHostPad(parserEvasions.httpHostPad)
+    setHttpHostExtraSpace(parserEvasions.httpHostExtraSpace)
+    setHttpHostTab(parserEvasions.httpHostTab)
     setAdaptiveFallbackEnabled(adaptiveFallback.enabled)
     setAdaptiveFallbackTorst(adaptiveFallback.torst)
     setAdaptiveFallbackTlsErr(adaptiveFallback.tlsErr)
