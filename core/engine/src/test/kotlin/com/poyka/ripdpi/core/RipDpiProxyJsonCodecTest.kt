@@ -31,7 +31,8 @@ class RipDpiProxyJsonCodecTest {
     @Test
     fun `LAN token reaches native config but not remembered policy`() {
         val settings =
-            AppSettings.newBuilder()
+            AppSettings
+                .newBuilder()
                 .setProxyAllowLan(true)
                 .setProxyLanAuthToken("lan-secret")
                 .build()

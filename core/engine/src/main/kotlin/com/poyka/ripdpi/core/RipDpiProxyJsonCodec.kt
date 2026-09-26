@@ -68,8 +68,9 @@ internal object RipDpiProxyJsonCodec {
             NativeProxyConfig.Ui(
                 strategyPreset = strategyPreset,
                 listen =
-                    NetworkSectionCodec.toNative(preferences.listen)
-                        .copy(authToken = listenAuthToken ?: preferences.listen.authToken),
+                    NetworkSectionCodec.toNative(preferences.listen).copy(
+                        authToken = listenAuthToken ?: preferences.listen.authToken,
+                    ),
                 protocols = NetworkSectionCodec.toNative(preferences.protocols),
                 chains = ChainCodec.toNative(preferences.chains),
                 fakePackets = PacketCodec.toNative(preferences.fakePackets),

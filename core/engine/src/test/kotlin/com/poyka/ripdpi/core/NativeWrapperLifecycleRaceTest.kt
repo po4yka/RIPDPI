@@ -23,10 +23,11 @@ class NativeWrapperLifecycleRaceTest {
         runTest {
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
-            val bindings = FakeRipDpiProxyBindings().apply {
-                createStartedSignal = entered
-                createBlocker = release
-            }
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    createStartedSignal = entered
+                    createBlocker = release
+                }
             val proxy = RipDpiProxy(bindings)
             val startJob = async { proxy.startProxy(RipDpiProxyUIPreferences()) }
 

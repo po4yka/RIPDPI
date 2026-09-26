@@ -20,10 +20,11 @@ class Tun2SocksTunnelTest {
         runTest {
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
-            val bindings = FakeTun2SocksBindings().apply {
-                createStartedSignal = entered
-                createBlocker = release
-            }
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    createStartedSignal = entered
+                    createBlocker = release
+                }
             val tunnel = Tun2SocksTunnel(bindings)
             val startJob = async { tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7) }
 
@@ -41,14 +42,16 @@ class Tun2SocksTunnelTest {
         runTest {
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
-            val bindings = FakeTun2SocksBindings().apply {
-                flowAttributionStartedSignal = entered
-                flowAttributionBlocker = release
-            }
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    flowAttributionStartedSignal = entered
+                    flowAttributionBlocker = release
+                }
             val tunnel = Tun2SocksTunnel(bindings)
-            val startJob = async {
-                tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7, flowAttributionBridge = Any())
-            }
+            val startJob =
+                async {
+                    tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7, flowAttributionBridge = Any())
+                }
 
             entered.await()
             startJob.cancel()
