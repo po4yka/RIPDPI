@@ -90,7 +90,10 @@ class IpConsensusBuilderTest {
                 findings = emptyList(),
                 detected = false,
             )
-        assertEquals(Verdict.NEEDS_REVIEW, VerdictEngine.evaluate(empty, empty, empty, empty, bypass, ipConsensus = result))
+        assertEquals(
+            Verdict.NEEDS_REVIEW,
+            VerdictEngine.evaluate(empty, empty, empty, empty, bypass, ipConsensus = result),
+        )
     }
 
     @Test
