@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
-use crate::http::{extract_host_from_url, extract_path_from_url};
+use crate::http::{extract_host_from_url, extract_path_from_url, parse_http_response};
 use crate::tls::{
     ApplicationProtocolPolicy, NoCertificateVerification, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
     open_probe_stream_targets_with_options_and_abort,
@@ -210,11 +210,14 @@ fn telegram_download_transfer_loop(
             return TelegramTransferResult::from_transfer(status, 0, 0, std::time::Instant::now(), Some(err));
         }
     };
-    let Some(header_end) = find_headers_end(&header_buf) else {
-        stream.shutdown();
-        return TelegramTransferResult::blocked("response_missing_headers".to_string());
+    let body_start = match telegram_response_body_start(&header_buf) {
+        Ok(body_start) => body_start,
+        Err(err) => {
+            stream.shutdown();
+            return TelegramTransferResult::blocked(err);
+        }
     };
-    let body_prefix_len = header_buf.len() - (header_end + 4);
+    let body_prefix_len = header_buf.len() - body_start;
 
     let start = std::time::Instant::now();
     let mut last_data_at = start;
@@ -306,6 +309,15 @@ fn telegram_download_transfer_loop(
         "blocked"
     };
     TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, None)
+}
+
+fn telegram_response_body_start(headers: &[u8]) -> Result<usize, String> {
+    let header_end = find_headers_end(headers).ok_or_else(|| "response_missing_headers".to_string())?;
+    let status_code = parse_http_response(&headers[..header_end], Vec::new())?.status_code;
+    if !(200..300).contains(&status_code) {
+        return Err(format!("http_status_{status_code}"));
+    }
+    Ok(header_end + 4)
 }
 
 fn read_telegram_http_headers(
@@ -507,6 +519,18 @@ fn telegram_upload_transfer_loop(
         }
     }
 
+    if bytes_total == content_length {
+        let response_abort =
+            || should_abort().or_else(|| (start.elapsed() >= total_timeout).then_some("deadline_exceeded"));
+        let response = read_telegram_http_headers(stream, MAX_HTTP_BYTES, &response_abort)
+            .and_then(|headers| telegram_response_body_start(&headers));
+        if let Err(err) = response {
+            stream.shutdown();
+            let status = abort_status_from_error(&err).unwrap_or("blocked");
+            return TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, Some(err));
+        }
+    }
+
     stream.shutdown();
     let status = if bytes_total >= content_length * 98 / 100 {
         "ok"
@@ -526,6 +550,63 @@ fn clamp_transfer_io_timeout(stream: &mut dyn TelegramIo) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct TestIo {
+        response: std::io::Cursor<Vec<u8>>,
+        written: Vec<u8>,
+    }
+
+    impl Read for TestIo {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.response.read(buf)
+        }
+    }
+
+    impl Write for TestIo {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.written.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl TelegramIo for TestIo {
+        fn shutdown(&mut self) {}
+
+        fn set_io_timeout(&mut self, _timeout: Duration) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn download_rejects_http_error_response() {
+        let mut stream = TestIo {
+            response: std::io::Cursor::new(b"HTTP/1.1 404 Not Found\r\nContent-Length: 2\r\n\r\nno".to_vec()),
+            written: Vec::new(),
+        };
+
+        let result =
+            telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_secs(1), &|| None);
+        assert_eq!(result.status, "blocked");
+        assert_eq!(result.error.as_deref(), Some("http_status_404"));
+    }
+
+    #[test]
+    fn upload_rejects_http_error_response() {
+        let mut stream = TestIo {
+            response: std::io::Cursor::new(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n".to_vec()),
+            written: Vec::new(),
+        };
+
+        let result =
+            telegram_upload_transfer_loop(&mut stream, 5, Duration::from_secs(1), Duration::from_secs(1), &|| None);
+        assert_eq!(stream.written.len(), 5);
+        assert_eq!(result.status, "blocked");
+        assert_eq!(result.error.as_deref(), Some("http_status_403"));
+    }
 
     #[test]
     fn upload_host_target_uses_default_tls_verification() {
