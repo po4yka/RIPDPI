@@ -2,7 +2,7 @@
 
 **Layer:** L1 -- protocol / core.
 
-`ripdpi-pcap` provides classic pcap read/write support and endpoint redaction for RIPDPI packet-capture export paths.
+`ripdpi-pcap` provides classic pcap read/write support and redaction for RIPDPI packet-capture export paths. The redacted export clears endpoint addresses, unknown option values, and packet payloads. Timing, sizes, ports, fixed header fields, and the IPv6 Jumbo Payload length remain visible.
 
 ## Boundaries
 

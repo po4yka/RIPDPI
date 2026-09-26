@@ -142,8 +142,8 @@ pub(crate) fn adopt_pcap_dest_fd(dest_fd: i32) -> Option<OwnedFd> {
     Some(unsafe { OwnedFd::from_raw_fd(dest_fd) })
 }
 
-/// Inner entry: read `source_path`, redact endpoint addresses + zero
-/// transport checksums, write the rewritten pcap stream to `dest_fd`.
+/// Inner entry: read `source_path`, clear endpoint addresses, unknown options,
+/// and packet payloads, then write the rewritten pcap stream to `dest_fd`.
 /// Returns bytes-written on success or 0 on any failure (source open
 /// failure, invalid fd, IO error during rewrite).
 ///

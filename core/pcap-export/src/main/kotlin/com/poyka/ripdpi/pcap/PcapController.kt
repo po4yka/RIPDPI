@@ -74,8 +74,9 @@ class PcapController
             }
 
         /**
-         * Redact the source .pcap file's endpoint IPs and stream the
-         * result to the user-selected Uri. The Uri must come from a SAF
+         * Clear endpoint IPs, unknown options, and packet payloads in a
+         * .pcap export to the user-selected Uri. Timestamps, sizes, ports,
+         * and fixed headers remain visible. The Uri must come from a SAF
          * CreateDocument result. Returns bytes written.
          *
          * Closes the ParcelFileDescriptor's fd by transferring ownership

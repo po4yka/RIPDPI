@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-//! Classic libpcap (LINKTYPE_RAW) writer + reader + endpoint-redaction
+//! Classic libpcap (LINKTYPE_RAW) writer + reader + packet-content redaction
 //! for the RIPDPI PCAP-export subsystem.
 //!
 //! Format: classic pcap with `0xa1b2c3d4` magic, version 2.4, LINKTYPE_RAW
@@ -308,12 +308,10 @@ mod tests {
     }
 
     #[test]
-    fn redact_in_place_handles_short_packet() {
+    fn redact_in_place_clears_short_packet() {
         let mut tiny = vec![0x45, 0, 0, 0, 0];
-        // Should not panic - just returns without action because the
-        // buffer is shorter than the IPv4 minimum (20 bytes).
         redact_in_place(&mut tiny);
-        assert_eq!(tiny, vec![0x45, 0, 0, 0, 0]);
+        assert_eq!(tiny, vec![0; 5]);
 
         // Empty buffer: also no panic.
         let mut empty: Vec<u8> = Vec::new();
@@ -365,16 +363,60 @@ mod tests {
     }
 
     #[test]
-    fn redact_in_place_leaves_non_tls_tcp_payload_unchanged() {
-        // A TCP payload that is not a TLS handshake must be left intact and
-        // must not panic.
+    fn redact_in_place_clears_non_tls_payload_and_tcp_options() {
         let payload = b"GET / HTTP/1.1\r\nHost: secret-sni.example\r\n\r\n";
         let mut packet = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], payload);
-        let payload_before = packet[40..].to_vec();
+        packet.splice(40..40, [0x01, 0x01, 0x01, 0x01]);
+        packet[20 + 12] = 0x60; // TCP header with four option bytes.
         redact_in_place(&mut packet);
-        // The HTTP body (including its Host header) is not a ClientHello, so
-        // the SNI-scrub leaves it untouched.
-        assert_eq!(&packet[40..], &payload_before[..], "non-TLS payload mutated");
+        assert_eq!(&packet[20..24], &[0x12, 0x34, 0x56, 0x78]);
+        assert!(packet[40..].iter().all(|byte| *byte == 0));
+        assert!(ipv4_header_checksum_valid(&packet));
+    }
+
+    #[test]
+    fn redact_in_place_clears_ipv4_options_and_non_ip_packets() {
+        let mut packet = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"private payload");
+        packet.splice(20..20, [0x44, 0x55, 0x66, 0x77]);
+        packet[0] = 0x46; // IPv4 header with four option bytes.
+        redact_in_place(&mut packet);
+        assert_eq!(&packet[20..24], &[0; 4]);
+        assert!(packet[44..].iter().all(|byte| *byte == 0));
+
+        let mut unknown = b"private non-IP frame".to_vec();
+        redact_in_place(&mut unknown);
+        assert!(unknown.iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn redact_in_place_clears_non_initial_fragments_and_invalid_tcp_headers() {
+        let mut fragment = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"private fragment");
+        fragment[6..8].copy_from_slice(&1u16.to_be_bytes());
+        redact_in_place(&mut fragment);
+        assert!(fragment[20..].iter().all(|byte| *byte == 0));
+
+        let mut invalid_tcp = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"private data");
+        invalid_tcp[32] = 0x10; // TCP data offset claims four header bytes.
+        redact_in_place(&mut invalid_tcp);
+        assert!(invalid_tcp[20..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn rewrite_endpoints_clears_unknown_ipv6_option_and_udp_payload() {
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x60;
+        packet[6] = 0; // Hop-by-Hop options -> UDP.
+        packet[8..40].fill(0x20);
+        packet.extend_from_slice(&[17, 0, 0xee, 4, b's', b'e', b'c', b'r']);
+        packet.extend_from_slice(&[0x12, 0x34, 0x56, 0x78, 0, 14, 0xaa, 0xbb]);
+        packet.extend_from_slice(b"secret");
+        packet[4..6].copy_from_slice(&22u16.to_be_bytes());
+
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[40..42], &[17, 0]);
+        assert_eq!(&redacted[42..48], &[0; 6]);
+        assert_eq!(&redacted[48..52], &[0x12, 0x34, 0x56, 0x78]);
+        assert!(redacted[56..].iter().all(|byte| *byte == 0));
     }
 
     #[test]
@@ -445,7 +487,8 @@ mod tests {
 
         let redacted = rewrite_packet(&packet);
         assert_eq!(&redacted[8..40], &[0; 32]);
-        assert_eq!(&redacted[40..48], &packet[40..48]); // Keep next header and length usable.
+        assert_eq!(&redacted[40..44], &packet[40..44]); // Keep framing usable.
+        assert_eq!(&redacted[44..48], &[0; 4]);
         assert_eq!(&redacted[48..80], &[0; 32]);
         assert!(!redacted.windows(sni.len()).any(|part| part == sni.as_bytes()));
 
@@ -469,9 +512,8 @@ mod tests {
         packet[4..6].copy_from_slice(&payload_len.to_be_bytes());
 
         let redacted = rewrite_packet(&packet);
-        assert_eq!(&redacted[40..44], &[6, 2, 201, 16]);
-        assert_eq!(&redacted[44..60], &[0; 16]);
-        assert_eq!(&redacted[60..64], &packet[60..64]);
+        assert_eq!(&redacted[40..42], &[6, 2]);
+        assert_eq!(&redacted[42..64], &[0; 22]);
         assert!(!redacted.windows(sni.len()).any(|part| part == sni.as_bytes()));
     }
 
@@ -492,6 +534,27 @@ mod tests {
     }
 
     #[test]
+    fn rewrite_endpoints_clears_options_adjacent_to_jumbo_and_malformed_tlv() {
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x60;
+        packet[6] = 0;
+        packet.extend_from_slice(&[17, 1, 0xee, 4, b's', b'e', b'c', b'r']);
+        packet.extend_from_slice(&[0xc2, 4, 0, 1, 0, 0, 0, 0]); // Jumbo length, then Pad1.
+        packet.extend_from_slice(&[0x12, 0x34, 0x56, 0x78, 0, 14, 0xaa, 0xbb]);
+        packet.extend_from_slice(b"secret");
+
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[42..48], &[0; 6]);
+        assert_eq!(&redacted[48..54], &packet[48..54]);
+        assert!(redacted[56 + 8..].iter().all(|byte| *byte == 0));
+
+        packet[43] = 250; // The unknown option now extends past the header.
+        let malformed = rewrite_packet(&packet);
+        assert_eq!(&malformed[42..56], &[0; 14]);
+        assert!(malformed[56 + 8..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
     fn rewrite_endpoints_tolerates_truncated_ipv6_extension_chain() {
         for extension_len in 0..8 {
             let mut packet = vec![0u8; 40 + extension_len];
@@ -506,8 +569,11 @@ mod tests {
         packet[6] = 60;
         packet[40] = 6;
         packet[41] = 1; // Claims 16 bytes, but only eight are captured.
+        packet[42..48].fill(b'x');
         let redacted = rewrite_packet(&packet);
         assert_eq!(&redacted[8..40], &[0; 32]);
+        assert_eq!(redacted[6], 59);
+        assert_eq!(&redacted[40..], &[0; 8]);
     }
 
     #[test]
