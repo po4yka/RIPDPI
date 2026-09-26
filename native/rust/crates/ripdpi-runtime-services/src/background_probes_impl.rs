@@ -34,9 +34,8 @@ impl BackgroundProbes for ServicesStateHandle {
         let identity = network_identity(&snapshot);
 
         // Publish the current network identity as the ambient scope for the
-        // resolver-selection cache. `network_identity` uses only non-raw,
-        // stable identifiers (hashed SSID, operator code, DNS set) — see
-        // `.claude/rules/network-fingerprint-privacy.md`.
+        // resolver-selection cache. `network_identity` contains raw operator
+        // codes and DNS addresses; keep it transient and out of logs.
         set_active_network_scope(Some(identity.clone()));
         let should_reprobe = {
             let mut last = self.network.last_identity.lock().unwrap_or_else(std::sync::PoisonError::into_inner);

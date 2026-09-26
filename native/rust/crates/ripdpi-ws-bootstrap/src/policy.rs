@@ -110,7 +110,6 @@ pub(crate) fn record_successful_resolver_in(
         target: "ripdpi::resolver_selection",
         event = "resolver_selection_recorded",
         host = host,
-        network_scope = scope,
         resolver_id = context.resolver_id.as_deref().unwrap_or_default(),
         "recorded successful encrypted-DNS resolver for (host, NetProfile)"
     );
@@ -129,7 +128,6 @@ fn cached_encrypted_dns_context(
         target: "ripdpi::resolver_selection",
         event = "resolver_selection_cache_hit",
         host = host,
-        network_scope = scope,
         resolver_id = context.resolver_id.as_deref().unwrap_or_default(),
         "applied learned encrypted-DNS resolver preference for (host, NetProfile)"
     );
