@@ -256,16 +256,15 @@ where
     if resolution_deadline <= started {
         return Err(io::Error::new(io::ErrorKind::TimedOut, "target resolution timed out"));
     }
-    // Keep this permit with the caller rather than the blocking system resolver.
-    // DNS lookup cannot be cancelled safely, but a cancelled or timed-out scan
-    // must immediately make its bounded wait slot available to later targets.
-    let _permit = limiter
+    // The blocking resolver owns its permit until it exits, even if the caller times out.
+    let permit = limiter
         .try_acquire()
         .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "target resolution capacity exhausted"))?;
     let (result_tx, result_rx) = mpsc::sync_channel(1);
     std::thread::Builder::new()
         .name("diagnostics-dns-resolution".to_string())
         .spawn(move || {
+            let _permit = permit;
             let _ = result_tx.send(resolver(host, port));
         })
         .map_err(|error| io::Error::other(format!("failed to start bounded target resolution: {error}")))?;
@@ -853,15 +852,14 @@ mod tests {
     }
 
     #[test]
-    fn abandoned_resolution_releases_its_permit_immediately() {
+    fn timed_out_resolution_keeps_permit_until_worker_exits() {
         let limiter = Arc::new(ResolutionLimiter::new(1));
         let (release_tx, release_rx) = mpsc::channel();
-        let stop_after_start = AtomicU16::new(0);
-        let abandoned = resolve_host_with_limiter(
-            "abandoned.example.test".to_string(),
+        let timed_out = resolve_host_with_limiter(
+            "timed-out.example.test".to_string(),
             443,
-            Some(Instant::now() + Duration::from_secs(5)),
-            || stop_after_start.fetch_add(1, Ordering::AcqRel) > 0,
+            Some(Instant::now() + Duration::from_millis(50)),
+            || false,
             move |_, _| {
                 let _ = release_rx.recv();
                 Ok("127.0.0.1:443".parse().expect("address"))
@@ -869,19 +867,24 @@ mod tests {
             Arc::clone(&limiter),
         );
 
-        assert_eq!(abandoned.expect_err("wait must be cancelled").kind(), io::ErrorKind::Interrupted);
-        assert_eq!(limiter.active.load(Ordering::Acquire), 0, "permit must be released on abandon");
+        assert_eq!(timed_out.expect_err("wait must time out").kind(), io::ErrorKind::TimedOut);
+        assert_eq!(limiter.active.load(Ordering::Acquire), 1, "blocked worker must retain its permit");
 
         let follow_up = resolve_host_with_limiter(
             "followup.example.test".to_string(),
             443,
             Some(Instant::now() + Duration::from_millis(100)),
             || false,
-            |_, _| Ok("127.0.0.1:443".parse().expect("address")),
+            |_, _| panic!("capacity-rejected resolver must not run"),
             Arc::clone(&limiter),
         );
-        assert!(follow_up.is_ok(), "capacity must be available after abandonment");
-        let _ = release_tx.send(());
+        assert_eq!(follow_up.expect_err("capacity must stay full").kind(), io::ErrorKind::WouldBlock);
+        release_tx.send(()).expect("release blocked worker");
+        let wait_deadline = Instant::now() + Duration::from_secs(1);
+        while limiter.active.load(Ordering::Acquire) != 0 && Instant::now() < wait_deadline {
+            std::thread::yield_now();
+        }
+        assert_eq!(limiter.active.load(Ordering::Acquire), 0, "permit must release after worker exits");
     }
 
     #[test]
