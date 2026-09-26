@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.Bundle
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,7 +26,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
 import java.io.OutputStream
@@ -35,73 +33,6 @@ import java.util.Optional
 import javax.inject.Inject
 
 private const val PostNotificationsPermission = "android.permission.POST_NOTIFICATIONS"
-private const val PendingDiagnosticsArchiveStateKey = "pending-diagnostics-archive"
-private const val PendingArchiveRequestKey = "request"
-private const val PendingArchiveFilePathKey = "file-path"
-private const val PendingArchiveFileNameKey = "file-name"
-
-internal sealed interface PendingDiagnosticsArchiveResult {
-    data class Request(
-        val uri: Uri,
-        val request: DiagnosticsArchiveRequest,
-    ) : PendingDiagnosticsArchiveResult
-
-    data class File(
-        val uri: Uri,
-        val filePath: String,
-        val fileName: String,
-    ) : PendingDiagnosticsArchiveResult
-}
-
-internal class PendingDiagnosticsArchiveState {
-    var pendingRequest: DiagnosticsArchiveRequest? = null
-        set(value) {
-            field = value
-            if (value != null) pendingFile = null
-        }
-    var pendingFile: Pair<String, String>? = null
-        set(value) {
-            field = value
-            if (value != null) pendingRequest = null
-        }
-
-    fun save(): Bundle =
-        Bundle().apply {
-            pendingRequest?.let { putString(PendingArchiveRequestKey, Json.encodeToString(it)) }
-            pendingFile?.let { (path, name) ->
-                putString(PendingArchiveFilePathKey, path)
-                putString(PendingArchiveFileNameKey, name)
-            }
-        }
-
-    fun restore(saved: Bundle?) {
-        saved ?: return
-        pendingRequest =
-            saved
-                .getString(PendingArchiveRequestKey)
-                ?.let { encoded ->
-                    runCatching { Json.decodeFromString<DiagnosticsArchiveRequest>(encoded) }.getOrNull()
-                }
-        if (pendingRequest == null) {
-            val path = saved.getString(PendingArchiveFilePathKey)
-            val name = saved.getString(PendingArchiveFileNameKey)
-            if (path != null && name != null) pendingFile = path to name
-        }
-    }
-
-    fun onPickerResult(uri: Uri?): PendingDiagnosticsArchiveResult? {
-        val request = pendingRequest
-        val file = pendingFile
-        pendingRequest = null
-        pendingFile = null
-        uri ?: return null
-        return when {
-            request != null -> PendingDiagnosticsArchiveResult.Request(uri, request)
-            file != null -> PendingDiagnosticsArchiveResult.File(uri, file.first, file.second)
-            else -> null
-        }
-    }
-}
 
 internal sealed interface MainActivityHostCommand {
     data object RequestLocalNetworkPermission : MainActivityHostCommand
@@ -183,12 +114,7 @@ internal class DefaultMainActivityHost
 
             this.activity = activity
             this.viewModel = viewModel
-            pendingDiagnosticsArchive.restore(
-                activity.savedStateRegistry.consumeRestoredStateForKey(PendingDiagnosticsArchiveStateKey),
-            )
-            activity.savedStateRegistry.registerSavedStateProvider(PendingDiagnosticsArchiveStateKey) {
-                pendingDiagnosticsArchive.save()
-            }
+            registerPendingArchiveState(activity)
             vpnPermissionLauncher =
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                     viewModel.onPermissionResult(
@@ -235,6 +161,15 @@ internal class DefaultMainActivityHost
                     handleDiagnosticsArchiveResult(result.data?.data)
                 }
             registered = true
+        }
+
+        private fun registerPendingArchiveState(activity: AppCompatActivity) {
+            pendingDiagnosticsArchive.restore(
+                activity.savedStateRegistry.consumeRestoredStateForKey(PendingDiagnosticsArchiveStateKey),
+            )
+            activity.savedStateRegistry.registerSavedStateProvider(PendingDiagnosticsArchiveStateKey) {
+                pendingDiagnosticsArchive.save()
+            }
         }
 
         override fun handle(command: MainActivityHostCommand) {
@@ -409,9 +344,7 @@ internal class DefaultMainActivityHost
                     )
                 }
 
-                null -> {
-                    Unit
-                }
+                null -> return
             }
         }
 
