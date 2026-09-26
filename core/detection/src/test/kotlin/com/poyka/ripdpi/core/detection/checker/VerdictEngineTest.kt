@@ -19,24 +19,24 @@ import com.poyka.ripdpi.core.detection.consensus.IpConsensusResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+private fun emptyCategory(name: String) =
+    CategoryResult(
+        name = name,
+        detected = false,
+        findings = emptyList(),
+    )
+
+private fun emptyBypass() =
+    BypassResult(
+        proxyEndpoint = null,
+        directIp = null,
+        proxyIp = null,
+        xrayApiScanResult = null,
+        findings = emptyList(),
+        detected = false,
+    )
+
 class VerdictEngineTest {
-    private fun emptyCategory(name: String) =
-        CategoryResult(
-            name = name,
-            detected = false,
-            findings = emptyList(),
-        )
-
-    private fun emptyBypass() =
-        BypassResult(
-            proxyEndpoint = null,
-            directIp = null,
-            proxyIp = null,
-            xrayApiScanResult = null,
-            findings = emptyList(),
-            detected = false,
-        )
-
     @Test
     fun `no evidence returns NOT_DETECTED`() {
         val verdict =
@@ -279,7 +279,9 @@ class VerdictEngineTest {
         assertEquals(Verdict.NEEDS_REVIEW, explanation.verdict)
         assertEquals("R3", explanation.ruleApplied)
     }
+}
 
+class VerdictEngineSignalTest {
     @Test
     fun `generic VPN active returns NEEDS_REVIEW`() {
         val indirect =
@@ -650,26 +652,26 @@ class VerdictEngineTest {
             )
         assertEquals(Verdict.NEEDS_REVIEW, verdict)
     }
-
-    private fun crossChannelMismatchConsensus() =
-        IpConsensusResult(
-            observedIps =
-                mapOf(
-                    IpConsensusChannel.IP_COMPARISON_RU to listOf("1.2.3.4"),
-                    IpConsensusChannel.IP_COMPARISON_NON_RU to listOf("5.6.7.8"),
-                ),
-            channelConflicts = emptyList(),
-            crossChannelMismatches =
-                listOf(
-                    CrossChannelMismatch(
-                        leftChannel = IpConsensusChannel.IP_COMPARISON_RU,
-                        leftIps = listOf("1.2.3.4"),
-                        rightChannel = IpConsensusChannel.IP_COMPARISON_NON_RU,
-                        rightIps = listOf("5.6.7.8"),
-                        confidence = EvidenceConfidence.HIGH,
-                    ),
-                ),
-            foreignIps = emptyList(),
-            warpIndicator = false,
-        )
 }
+
+private fun crossChannelMismatchConsensus() =
+    IpConsensusResult(
+        observedIps =
+            mapOf(
+                IpConsensusChannel.IP_COMPARISON_RU to listOf("1.2.3.4"),
+                IpConsensusChannel.IP_COMPARISON_NON_RU to listOf("5.6.7.8"),
+            ),
+        channelConflicts = emptyList(),
+        crossChannelMismatches =
+            listOf(
+                CrossChannelMismatch(
+                    leftChannel = IpConsensusChannel.IP_COMPARISON_RU,
+                    leftIps = listOf("1.2.3.4"),
+                    rightChannel = IpConsensusChannel.IP_COMPARISON_NON_RU,
+                    rightIps = listOf("5.6.7.8"),
+                    confidence = EvidenceConfidence.HIGH,
+                ),
+            ),
+        foreignIps = emptyList(),
+        warpIndicator = false,
+    )
