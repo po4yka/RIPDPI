@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +27,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
 import java.io.OutputStream
@@ -33,6 +35,73 @@ import java.util.Optional
 import javax.inject.Inject
 
 private const val PostNotificationsPermission = "android.permission.POST_NOTIFICATIONS"
+private const val PendingDiagnosticsArchiveStateKey = "pending-diagnostics-archive"
+private const val PendingArchiveRequestKey = "request"
+private const val PendingArchiveFilePathKey = "file-path"
+private const val PendingArchiveFileNameKey = "file-name"
+
+internal sealed interface PendingDiagnosticsArchiveResult {
+    data class Request(
+        val uri: Uri,
+        val request: DiagnosticsArchiveRequest,
+    ) : PendingDiagnosticsArchiveResult
+
+    data class File(
+        val uri: Uri,
+        val filePath: String,
+        val fileName: String,
+    ) : PendingDiagnosticsArchiveResult
+}
+
+internal class PendingDiagnosticsArchiveState {
+    var pendingRequest: DiagnosticsArchiveRequest? = null
+        set(value) {
+            field = value
+            if (value != null) pendingFile = null
+        }
+    var pendingFile: Pair<String, String>? = null
+        set(value) {
+            field = value
+            if (value != null) pendingRequest = null
+        }
+
+    fun save(): Bundle =
+        Bundle().apply {
+            pendingRequest?.let { putString(PendingArchiveRequestKey, Json.encodeToString(it)) }
+            pendingFile?.let { (path, name) ->
+                putString(PendingArchiveFilePathKey, path)
+                putString(PendingArchiveFileNameKey, name)
+            }
+        }
+
+    fun restore(saved: Bundle?) {
+        saved ?: return
+        pendingRequest =
+            saved
+                .getString(PendingArchiveRequestKey)
+                ?.let { encoded ->
+                    runCatching { Json.decodeFromString<DiagnosticsArchiveRequest>(encoded) }.getOrNull()
+                }
+        if (pendingRequest == null) {
+            val path = saved.getString(PendingArchiveFilePathKey)
+            val name = saved.getString(PendingArchiveFileNameKey)
+            if (path != null && name != null) pendingFile = path to name
+        }
+    }
+
+    fun onPickerResult(uri: Uri?): PendingDiagnosticsArchiveResult? {
+        val request = pendingRequest
+        val file = pendingFile
+        pendingRequest = null
+        pendingFile = null
+        uri ?: return null
+        return when {
+            request != null -> PendingDiagnosticsArchiveResult.Request(uri, request)
+            file != null -> PendingDiagnosticsArchiveResult.File(uri, file.first, file.second)
+            else -> null
+        }
+    }
+}
 
 internal sealed interface MainActivityHostCommand {
     data object RequestLocalNetworkPermission : MainActivityHostCommand
@@ -101,8 +170,7 @@ internal class DefaultMainActivityHost
         private lateinit var batteryOptimizationLauncher: ActivityResultLauncher<Intent>
         private lateinit var logsLauncher: ActivityResultLauncher<Intent>
         private lateinit var diagnosticsArchiveLauncher: ActivityResultLauncher<Intent>
-        private var pendingDiagnosticsArchive: PendingDiagnosticsArchive? = null
-        private var pendingDiagnosticsArchiveRequest: DiagnosticsArchiveRequest? = null
+        private val pendingDiagnosticsArchive = PendingDiagnosticsArchiveState()
         private var registered = false
 
         override fun register(
@@ -115,6 +183,12 @@ internal class DefaultMainActivityHost
 
             this.activity = activity
             this.viewModel = viewModel
+            pendingDiagnosticsArchive.restore(
+                activity.savedStateRegistry.consumeRestoredStateForKey(PendingDiagnosticsArchiveStateKey),
+            )
+            activity.savedStateRegistry.registerSavedStateProvider(PendingDiagnosticsArchiveStateKey) {
+                pendingDiagnosticsArchive.save()
+            }
             vpnPermissionLauncher =
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                     viewModel.onPermissionResult(
@@ -202,11 +276,7 @@ internal class DefaultMainActivityHost
                 }
 
                 is MainActivityHostCommand.SaveDiagnosticsArchive -> {
-                    pendingDiagnosticsArchive =
-                        PendingDiagnosticsArchive(
-                            filePath = command.filePath,
-                            fileName = command.fileName,
-                        )
+                    pendingDiagnosticsArchive.pendingFile = command.filePath to command.fileName
                     launchSaveDocument(
                         Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
@@ -219,7 +289,7 @@ internal class DefaultMainActivityHost
                 }
 
                 is MainActivityHostCommand.SaveDiagnosticsArchiveRequest -> {
-                    pendingDiagnosticsArchiveRequest = command.request
+                    pendingDiagnosticsArchive.pendingRequest = command.request
                     launchSaveDocument(
                         Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
@@ -295,13 +365,7 @@ internal class DefaultMainActivityHost
         }
 
         private fun handleDiagnosticsArchiveResult(uri: Uri?) {
-            val request = pendingDiagnosticsArchiveRequest
-            val archive = pendingDiagnosticsArchive.takeIf { request == null }
-            if (request == null) {
-                pendingDiagnosticsArchive = null
-            } else {
-                pendingDiagnosticsArchiveRequest = null
-            }
+            val result = pendingDiagnosticsArchive.onPickerResult(uri)
             val onFailure: (Throwable) -> Unit = { error ->
                 Logger.e(error) { "Failed to save diagnostics archive" }
                 val feedback = diagnosticsArchiveSaveFeedback(error)
@@ -312,37 +376,41 @@ internal class DefaultMainActivityHost
                 )
             }
 
-            if (uri != null) {
-                when {
-                    request != null -> {
-                        activity.launchIoOperation(
-                            operation = {
-                                writeDiagnosticsArchiveDocument(
-                                    destination = uri,
-                                    openDestinationStream = { activity.contentResolver.openOutputStream(uri) },
-                                    writeArchive = { stream -> diagnosticsShareService.writeArchive(request, stream) },
-                                    deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
-                                )
-                            },
-                            onFailure = onFailure,
-                        )
-                    }
+            when (result) {
+                is PendingDiagnosticsArchiveResult.Request -> {
+                    activity.launchIoOperation(
+                        operation = {
+                            writeDiagnosticsArchiveDocument(
+                                destination = result.uri,
+                                openDestinationStream = { activity.contentResolver.openOutputStream(result.uri) },
+                                writeArchive = { stream ->
+                                    diagnosticsShareService.writeArchive(result.request, stream)
+                                },
+                                deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
+                            )
+                        },
+                        onFailure = onFailure,
+                    )
+                }
 
-                    archive != null -> {
-                        activity.launchIoOperation(
-                            operation = {
-                                writeDiagnosticsArchiveDocument(
-                                    destination = uri,
-                                    openDestinationStream = { activity.contentResolver.openOutputStream(uri) },
-                                    writeArchive = { stream ->
-                                        copyDiagnosticsArchive(source = File(archive.filePath), destination = stream)
-                                    },
-                                    deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
-                                )
-                            },
-                            onFailure = onFailure,
-                        )
-                    }
+                is PendingDiagnosticsArchiveResult.File -> {
+                    activity.launchIoOperation(
+                        operation = {
+                            writeDiagnosticsArchiveDocument(
+                                destination = result.uri,
+                                openDestinationStream = { activity.contentResolver.openOutputStream(result.uri) },
+                                writeArchive = { stream ->
+                                    copyDiagnosticsArchive(source = File(result.filePath), destination = stream)
+                                },
+                                deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
+                            )
+                        },
+                        onFailure = onFailure,
+                    )
+                }
+
+                null -> {
+                    Unit
                 }
             }
         }
@@ -415,8 +483,7 @@ internal class DefaultMainActivityHost
         ) {
             val failureCode = launchDiagnosticsExport(intent, launch)
             if (failureCode != null) {
-                pendingDiagnosticsArchive = null
-                pendingDiagnosticsArchiveRequest = null
+                pendingDiagnosticsArchive.onPickerResult(null)
                 reportExportLaunchFailure(failureCode, failureMessage)
             }
         }
@@ -427,11 +494,6 @@ internal class DefaultMainActivityHost
         ) {
             code?.let { viewModel.reportSupportError(message, it, null) }
         }
-
-        private data class PendingDiagnosticsArchive(
-            val filePath: String,
-            val fileName: String,
-        )
 
         private fun deletePartialDiagnosticsArchiveDocument(uri: Uri): Boolean =
             runCatching {
