@@ -10,6 +10,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import javax.inject.Inject
@@ -49,18 +51,21 @@ class DetectionHistoryStore
     ) : DetectionHistoryRepository {
         private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         private val json = RipDpiJson
+        private val writeMutex = Mutex()
 
         override suspend fun save(entry: DetectionHistoryEntry) =
             withContext(dispatchers.io) {
-                val history = loadBlocking()
-                val updated =
-                    history.copy(
-                        entries =
-                            (listOf(entry) + history.entries)
-                                .distinctBy { it.networkFingerprint }
-                                .take(MAX_ENTRIES),
-                    )
-                prefs.edit { putString(KEY_HISTORY, json.encodeToString(updated)) }
+                writeMutex.withLock {
+                    val history = loadBlocking()
+                    val updated =
+                        history.copy(
+                            entries =
+                                (listOf(entry) + history.entries)
+                                    .distinctBy { it.networkFingerprint }
+                                    .take(MAX_ENTRIES),
+                        )
+                    prefs.edit { putString(KEY_HISTORY, json.encodeToString(updated)) }
+                }
             }
 
         override suspend fun loadLatest(count: Int): List<DetectionHistoryEntry> =
@@ -75,7 +80,7 @@ class DetectionHistoryStore
 
         override suspend fun clear() =
             withContext(dispatchers.io) {
-                prefs.edit { remove(KEY_HISTORY) }
+                writeMutex.withLock { prefs.edit { remove(KEY_HISTORY) } }
             }
 
         private fun loadBlocking(): DetectionHistory =

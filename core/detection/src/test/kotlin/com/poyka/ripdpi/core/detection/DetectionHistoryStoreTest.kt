@@ -1,9 +1,13 @@
 package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,6 +23,31 @@ import kotlin.coroutines.CoroutineContext
 @Config(sdk = [35])
 @OptIn(ExperimentalCoroutinesApi::class)
 class DetectionHistoryStoreTest {
+    @Test
+    fun `concurrent saves retain distinct network entries`() =
+        runTest {
+            val store =
+                DetectionHistoryStore(
+                    RuntimeEnvironment.getApplication(),
+                    AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.Default, Dispatchers.Unconfined),
+                )
+            store.clear()
+            val start = CompletableDeferred<Unit>()
+            val writes =
+                (1..50).map { index ->
+                    async(Dispatchers.Default) {
+                        start.await()
+                        store.save(
+                            DetectionHistoryEntry("network-$index", "wifi", index.toLong(), "NOT_DETECTED", 100, 0),
+                        )
+                    }
+                }
+            start.complete(Unit)
+            writes.awaitAll()
+
+            assertEquals(50, store.loadLatest(50).map { it.networkFingerprint }.distinct().size)
+        }
+
     @Test
     fun `save and load use injected IO dispatcher`() =
         runTest {
