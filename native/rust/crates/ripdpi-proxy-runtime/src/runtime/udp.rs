@@ -61,6 +61,7 @@ fn parse_socks5_udp_packet_with_host<'a>(
 pub(super) fn udp_associate_loop(
     client_relay: UdpSocket,
     control_peer_ip: IpAddr,
+    requested_udp_source: SocketAddr,
     protect_path: Option<String>,
     state: RuntimeState,
     running: Arc<AtomicBool>,
@@ -88,6 +89,7 @@ pub(super) fn udp_associate_loop(
             &mut client_buffer,
             &mut udp_client_addr,
             control_peer_ip,
+            requested_udp_source,
             &mut flow_state,
             flow_limit,
             &state,

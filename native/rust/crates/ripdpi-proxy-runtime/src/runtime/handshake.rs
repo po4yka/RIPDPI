@@ -154,7 +154,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 Err(err) => handle_socks5_connect_error(&mut client, err),
             }
         }
-        Ok(RuntimeClientRequest::Socks5UdpAssociate) => {
+        Ok(RuntimeClientRequest::Socks5UdpAssociate(requested_udp_source)) => {
             if !state.udp_associate_enabled() {
                 let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
                 client.write_all(
@@ -162,7 +162,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                 )?;
                 return Ok(());
             }
-            handle_socks5_udp_associate(client, state, attempt_token)
+            handle_socks5_udp_associate(client, state, attempt_token, requested_udp_source)
         }
         Ok(_) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
@@ -226,6 +226,7 @@ fn handle_socks5_udp_associate(
     mut client: TcpStream,
     state: &RuntimeState,
     attempt_token: Option<AttemptCorrelationId>,
+    requested_udp_source: SocketAddr,
 ) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
     let control_peer_ip = client.peer_addr()?.ip();
@@ -244,6 +245,7 @@ fn handle_socks5_udp_associate(
             super::udp::udp_associate_loop(
                 relay.client,
                 control_peer_ip,
+                requested_udp_source,
                 worker_protect_path,
                 worker_state,
                 worker_running,

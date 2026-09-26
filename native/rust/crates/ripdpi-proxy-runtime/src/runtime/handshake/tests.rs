@@ -141,6 +141,14 @@ fn read_socks5_request_reads_domain_target() {
 }
 
 #[test]
+fn socks5_udp_associate_preserves_declared_client_endpoint() {
+    let state = runtime_state(RuntimeConfig::default());
+    let request = [S_VER5, S_CMD_AUDP, 0, S_ATP_I4, 127, 0, 0, 1, 0x12, 0x34];
+    let parsed = state.parse_socks5_client_request(&request, resolve_ip_literal).expect("parse UDP associate");
+    assert_eq!(parsed, RuntimeClientRequest::Socks5UdpAssociate(SocketAddr::from(([127, 0, 0, 1], 0x1234))));
+}
+
+#[test]
 fn read_http_connect_request_reads_delimiter_split_across_chunks() {
     let (mut reader, mut writer) = connected_pair();
     let mut request = b"CONNECT example.com:443 HTTP/1.1\r\n".to_vec();

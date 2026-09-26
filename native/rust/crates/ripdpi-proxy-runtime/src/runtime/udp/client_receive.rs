@@ -35,6 +35,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
     client_buffer: &mut [u8],
     udp_client_addr: &mut Option<SocketAddr>,
     control_peer_ip: IpAddr,
+    requested_udp_source: SocketAddr,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     flow_limit: usize,
     state: &RuntimeState,
@@ -44,9 +45,14 @@ pub(super) fn receive_and_forward_udp_client_packet(
     match client_relay.recv_from(client_buffer) {
         Ok((n, sender)) => {
             let now = Instant::now();
-            let Some(packet) =
-                decode_udp_client_packet(&client_buffer[..n], sender, control_peer_ip, udp_client_addr, state)
-            else {
+            let Some(packet) = decode_udp_client_packet(
+                &client_buffer[..n],
+                sender,
+                control_peer_ip,
+                requested_udp_source,
+                udp_client_addr,
+                state,
+            ) else {
                 return Ok(true);
             };
             if !ensure_udp_flow_selected(state, protect_path, flow_state, flow_limit, &packet, now, attempt_token)? {
@@ -67,10 +73,16 @@ fn decode_udp_client_packet<'a>(
     packet: &'a [u8],
     sender: SocketAddr,
     control_peer_ip: IpAddr,
+    requested_udp_source: SocketAddr,
     udp_client_addr: &mut Option<SocketAddr>,
     state: &RuntimeState,
 ) -> Option<UdpClientPacket<'a>> {
-    if sender.ip() != control_peer_ip || udp_client_addr.is_some_and(|known| known != sender) {
+    // For an unspecified port, retain the first-valid-datagram pinning policy.
+    if sender.ip() != control_peer_ip
+        || (!requested_udp_source.ip().is_unspecified() && sender.ip() != requested_udp_source.ip())
+        || (requested_udp_source.port() != 0 && sender.port() != requested_udp_source.port())
+        || udp_client_addr.is_some_and(|known| known != sender)
+    {
         return None;
     }
 
@@ -102,11 +114,27 @@ mod tests {
         let legitimate = SocketAddr::from(([127, 0, 0, 1], 4000));
         let spoofed = SocketAddr::from(([127, 0, 0, 2], 4001));
         let mut pinned = None;
-        assert!(decode_udp_client_packet(b"bad", legitimate, peer_ip, &mut pinned, &state).is_none());
+        let wildcard = SocketAddr::from(([0, 0, 0, 0], 0));
+        assert!(decode_udp_client_packet(b"bad", legitimate, peer_ip, wildcard, &mut pinned, &state).is_none());
         assert_eq!(pinned, None);
-        assert!(decode_udp_client_packet(&valid, spoofed, peer_ip, &mut pinned, &state).is_none());
+        assert!(decode_udp_client_packet(&valid, spoofed, peer_ip, wildcard, &mut pinned, &state).is_none());
         assert_eq!(pinned, None);
-        assert!(decode_udp_client_packet(&valid, legitimate, peer_ip, &mut pinned, &state).is_some());
+        assert!(decode_udp_client_packet(&valid, legitimate, peer_ip, wildcard, &mut pinned, &state).is_some());
         assert_eq!(pinned, Some(legitimate));
+    }
+
+    #[test]
+    fn udp_client_rejects_same_ip_wrong_declared_port() {
+        let state = RuntimeState::test_with_context(Default::default(), None);
+        let valid = RuntimeState::encode_socks5_udp_packet(SocketAddr::from(([127, 0, 0, 1], 53)), b"dns");
+        let peer_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let declared = SocketAddr::from(([127, 0, 0, 1], 4000));
+        let wrong_port = SocketAddr::from(([127, 0, 0, 1], 4001));
+        let mut pinned = None;
+        assert!(decode_udp_client_packet(&valid, wrong_port, peer_ip, declared, &mut pinned, &state).is_none());
+        assert_eq!(pinned, None);
+        let wrong_ip = SocketAddr::from(([127, 0, 0, 2], 4000));
+        assert!(decode_udp_client_packet(&valid, declared, peer_ip, wrong_ip, &mut pinned, &state).is_none());
+        assert!(decode_udp_client_packet(&valid, declared, peer_ip, declared, &mut pinned, &state).is_some());
     }
 }

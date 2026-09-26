@@ -40,7 +40,7 @@ pub(super) struct RuntimeTarget {
 pub(super) enum RuntimeClientRequest {
     Socks4Connect(RuntimeTarget),
     Socks5Connect(RuntimeTarget),
-    Socks5UdpAssociate,
+    Socks5UdpAssociate(SocketAddr),
     HttpConnect(RuntimeTarget),
 }
 
@@ -120,7 +120,7 @@ pub(super) fn runtime_client_request(request: ClientRequest) -> RuntimeClientReq
         ClientRequest::Socks5Connect(target) => {
             RuntimeClientRequest::Socks5Connect(RuntimeTarget { addr: target.addr, host: target.host })
         }
-        ClientRequest::Socks5UdpAssociate(_target) => RuntimeClientRequest::Socks5UdpAssociate,
+        ClientRequest::Socks5UdpAssociate(target) => RuntimeClientRequest::Socks5UdpAssociate(target.addr),
         ClientRequest::HttpConnect(target) => {
             RuntimeClientRequest::HttpConnect(RuntimeTarget { addr: target.addr, host: target.host })
         }
