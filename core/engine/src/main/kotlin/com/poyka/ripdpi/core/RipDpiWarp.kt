@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
@@ -303,13 +304,14 @@ class RipDpiWarp(
                 readinessSignal = startupSignal
                 try {
                     val newHandle =
-                        withContext(Dispatchers.IO) {
-                            nativeBindings.create(warpJson.encodeToString(nativeConfig))
+                        withContext(NonCancellable) {
+                            withContext(Dispatchers.IO) {
+                                nativeBindings.create(warpJson.encodeToString(nativeConfig))
+                            }.also { if (it != 0L) handle = it }
                         }
                     if (newHandle == 0L) {
                         throw NativeError.SessionCreationFailed("warp")
                     }
-                    handle = newHandle
                     newHandle
                 } catch (error: Exception) {
                     readinessSignal = null

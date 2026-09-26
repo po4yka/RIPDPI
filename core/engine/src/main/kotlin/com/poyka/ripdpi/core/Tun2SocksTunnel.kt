@@ -9,6 +9,8 @@ import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -273,8 +275,10 @@ class Tun2SocksTunnel(
             }
 
             val createdHandle =
-                withContext(Dispatchers.IO) {
-                    nativeBindings.create(configJson.encodeToString(config))
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.IO) {
+                        nativeBindings.create(configJson.encodeToString(config))
+                    }.also { handle = it }
                 }
             if (createdHandle == 0L) {
                 Logger.e { "Tunnel native session creation returned null handle" }
@@ -282,7 +286,6 @@ class Tun2SocksTunnel(
             }
             Logger.d { "Tunnel native session created: handle=$createdHandle" }
 
-            handle = createdHandle
             var startAttempted = false
             try {
                 if (config.uidPolicyMode != "disarmed" && flowAttributionBridge == null) {
@@ -295,14 +298,16 @@ class Tun2SocksTunnel(
                 Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
                 if (flowAttributionBridge != null) {
                     val registrationToken =
-                        withContext(Dispatchers.IO) {
-                            nativeBindings.registerFlowAttribution(flowAttributionBridge)
+                        withContext(NonCancellable) {
+                            withContext(Dispatchers.IO) {
+                                nativeBindings.registerFlowAttribution(flowAttributionBridge)
+                            }.also { flowAttributionToken = it }
                         }
                     if (registrationToken == 0L && config.uidPolicyMode != "disarmed") {
                         throw NativeError.SessionCreationFailed("tunnel flow attribution")
                     }
-                    flowAttributionToken = registrationToken
                 }
+                currentCoroutineContext().ensureActive()
             } catch (error: Exception) {
                 withContext(NonCancellable) {
                     if (flowAttributionToken != 0L) {

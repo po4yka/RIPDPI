@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
@@ -332,15 +333,16 @@ class RipDpiProxy : RipDpiProxyRuntime {
                 readinessSignal = startupSignal
                 try {
                     val createdHandle =
-                        withContext(Dispatchers.IO) {
-                            nativeBindings.create(preferences.toNativeConfigJson())
+                        withContext(NonCancellable) {
+                            withContext(Dispatchers.IO) {
+                                nativeBindings.create(preferences.toNativeConfigJson())
+                            }.also { if (it != 0L) this@RipDpiProxy.handle = it }
                         }
                     if (createdHandle == 0L) {
                         Logger.e { "Proxy native session creation returned null handle" }
                         throw NativeError.SessionCreationFailed("proxy")
                     }
                     Logger.d { "Proxy native session created: handle=$createdHandle" }
-                    this.handle = createdHandle
                     createdHandle
                 } catch (error: Exception) {
                     readinessSignal = null

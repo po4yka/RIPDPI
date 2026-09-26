@@ -94,6 +94,10 @@ class FakeRipDpiProxyBindings :
 
     @Volatile var createFailure: Throwable? = null
 
+    @Volatile var createStartedSignal: CompletableDeferred<Unit>? = null
+
+    @Volatile var createBlocker: CompletableDeferred<Unit>? = null
+
     @Volatile var startFailure: Throwable? = null
 
     @Volatile var stopFailure: Throwable? = null
@@ -146,6 +150,8 @@ class FakeRipDpiProxyBindings :
     override fun create(configJson: String): Long {
         faults.next(ProxyBindingFaultTarget.CREATE)?.throwOrIgnore()
         createFailure?.let { throw it }
+        createStartedSignal?.complete(Unit)
+        createBlocker?.awaitBlocking("FakeRipDpiProxyBindings.create")
         lastCreatePayload = configJson
         createdPayloads += configJson
         return createdHandle
@@ -300,6 +306,10 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     @Volatile var createFailure: Throwable? = null
 
+    @Volatile var createStartedSignal: CompletableDeferred<Unit>? = null
+
+    @Volatile var createBlocker: CompletableDeferred<Unit>? = null
+
     @Volatile var startFailure: Throwable? = null
 
     @Volatile var stopFailure: Throwable? = null
@@ -344,6 +354,8 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     override fun create(configJson: String): Long {
         faults.next(TunnelBindingFaultTarget.CREATE)?.throwOrIgnore()
         createFailure?.let { throw it }
+        createStartedSignal?.complete(Unit)
+        createBlocker?.awaitBlocking("FakeTun2SocksBindings.create")
         lastCreatePayload = configJson
         createdPayloads += configJson
         return createdHandle
@@ -411,7 +423,13 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
 
     var flowAttributionUnregisterFailure: Throwable? = null
 
+    var flowAttributionStartedSignal: CompletableDeferred<Unit>? = null
+
+    var flowAttributionBlocker: CompletableDeferred<Unit>? = null
+
     override fun registerFlowAttribution(bridge: Any): Long {
+        flowAttributionStartedSignal?.complete(Unit)
+        flowAttributionBlocker?.awaitBlocking("FakeTun2SocksBindings.registerFlowAttribution")
         lastFlowAttributionBridge = bridge
         return flowAttributionTokenResult
     }

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
@@ -214,13 +215,14 @@ class RipDpiAmneziaWg(
                 readinessSignal = startupSignal
                 try {
                     val newHandle =
-                        withContext(Dispatchers.IO) {
-                            nativeBindings.create(amneziaWgJson.encodeToString(config))
+                        withContext(NonCancellable) {
+                            withContext(Dispatchers.IO) {
+                                nativeBindings.create(amneziaWgJson.encodeToString(config))
+                            }.also { if (it != 0L) handle = it }
                         }
                     if (newHandle == 0L) {
                         throw NativeError.SessionCreationFailed(Source)
                     }
-                    handle = newHandle
                     newHandle
                 } catch (error: Exception) {
                     readinessSignal = null

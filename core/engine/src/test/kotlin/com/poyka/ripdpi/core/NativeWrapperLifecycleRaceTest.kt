@@ -19,6 +19,27 @@ class NativeWrapperLifecycleRaceTest {
     private val json = Json
 
     @Test
+    fun `cancelled proxy create still destroys returned handle`() =
+        runTest {
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val bindings = FakeRipDpiProxyBindings().apply {
+                createStartedSignal = entered
+                createBlocker = release
+            }
+            val proxy = RipDpiProxy(bindings)
+            val startJob = async { proxy.startProxy(RipDpiProxyUIPreferences()) }
+
+            entered.await()
+            startJob.cancel()
+            release.complete(Unit)
+            startJob.join()
+
+            assertEquals(listOf(1L), bindings.destroyedHandles)
+            assertEquals(emptyList<Long>(), bindings.startedHandles)
+        }
+
+    @Test
     fun `proxy stop waits for in-flight telemetry before handle destroy`() =
         runTest {
             val blocker = CompletableDeferred<Unit>()

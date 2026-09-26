@@ -2,6 +2,8 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -13,6 +15,51 @@ import org.junit.Test
 import java.io.IOException
 
 class Tun2SocksTunnelTest {
+    @Test
+    fun cancelledCreateStillDestroysReturnedHandle() =
+        runTest {
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val bindings = FakeTun2SocksBindings().apply {
+                createStartedSignal = entered
+                createBlocker = release
+            }
+            val tunnel = Tun2SocksTunnel(bindings)
+            val startJob = async { tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7) }
+
+            entered.await()
+            startJob.cancel()
+            release.complete(Unit)
+            startJob.join()
+
+            assertEquals(listOf(1L), bindings.destroyedHandles)
+            assertEquals(emptyList<Long>(), bindings.startedHandles)
+        }
+
+    @Test
+    fun cancelledAttributionRegistrationReleasesReturnedToken() =
+        runTest {
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val bindings = FakeTun2SocksBindings().apply {
+                flowAttributionStartedSignal = entered
+                flowAttributionBlocker = release
+            }
+            val tunnel = Tun2SocksTunnel(bindings)
+            val startJob = async {
+                tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7, flowAttributionBridge = Any())
+            }
+
+            entered.await()
+            startJob.cancel()
+            release.complete(Unit)
+            startJob.join()
+
+            assertEquals(bindings.flowAttributionTokenResult, bindings.flowAttributionUnregisteredToken)
+            assertEquals(listOf(1L), bindings.stoppedHandles)
+            assertEquals(listOf(1L), bindings.destroyedHandles)
+        }
+
     @Test
     fun stopStillStopsNativeTunnelWhenAttributionUnregisterFails() =
         runTest {
