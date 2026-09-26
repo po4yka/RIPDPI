@@ -103,7 +103,7 @@ pub(crate) fn build_ipv6_fragment_pair(
     // Calculate payload lengths including all extension headers.
     let frag_dest_opt_len = frag_dest_opt.as_ref().map_or(0, Vec::len);
     let first_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_opt_len + first_transport.len();
-    let second_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_opt_len + second_transport.len();
+    let second_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + second_transport.len();
 
     let base_first = Ipv6Header {
         traffic_class: 0,
@@ -146,13 +146,7 @@ pub(crate) fn build_ipv6_fragment_pair(
         frag_dest_opt.as_deref(),
         first_transport,
     );
-    let second_bytes = serialize_ipv6_fragment_ext(
-        &base_second,
-        &unfrag_ext,
-        &second_fragment,
-        frag_dest_opt.as_deref(),
-        second_transport,
-    );
+    let second_bytes = serialize_ipv6_fragment_ext(&base_second, &unfrag_ext, &second_fragment, None, second_transport);
     Ok(IpFragmentPair { first: first_bytes, second: second_bytes, effective_transport_split: split })
 }
 

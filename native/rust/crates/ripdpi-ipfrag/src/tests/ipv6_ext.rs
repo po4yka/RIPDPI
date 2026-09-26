@@ -107,3 +107,34 @@ fn ipv6_second_frag_next_override_forges_protocol() {
     let (_, udp_payload) = UdpHeader::from_slice(&transport).expect("parse udp");
     assert_eq!(udp_payload, payload);
 }
+
+#[test]
+fn ipv6_fragmentable_dest_opt_is_serialized_once() {
+    let spec = UdpFragmentSpec {
+        src: SocketAddr::from(([0x20, 1, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], 40000)),
+        dst: SocketAddr::from(([0x20, 1, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2], 443)),
+        ttl: 48,
+        identification: 0x12345678,
+        ipv6_ext: Ipv6ExtHeaders { dest_opt_fragmentable: true, ..Ipv6ExtHeaders::default() },
+    };
+    let payload = b"fragmentable destination options and UDP payload";
+    let pair = build_udp_fragment_pair(spec, payload, 8).expect("build fragments");
+    let (_, second_rest) = Ipv6Header::from_slice(&pair.second).expect("parse second IPv6 header");
+    let (second_fragment, second_payload) = Ipv6FragmentHeader::from_slice(second_rest).expect("parse fragment header");
+    assert_eq!(second_fragment.fragment_offset.byte_offset() as usize, 8 + pair.effective_transport_split);
+    assert_eq!(second_payload.len(), payload.len());
+
+    let reassembled = reassemble_ipv6_transport(&pair.first, &pair.second);
+    assert_eq!(&reassembled[..8], &[ip_number::UDP.0, 0, 1, 4, 0, 0, 0, 0]);
+    let (udp, udp_payload) = UdpHeader::from_slice(&reassembled[8..]).expect("parse UDP");
+    assert_eq!(udp_payload, payload);
+    assert_eq!(
+        udp.checksum,
+        udp.calc_checksum_ipv6_raw(
+            [0x20, 1, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [0x20, 1, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+            udp_payload,
+        )
+        .expect("recalculate UDP checksum")
+    );
+}
