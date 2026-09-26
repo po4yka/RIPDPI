@@ -10,6 +10,7 @@
     <string name="diagnostics_metric_path">Caminho</string>
     <string name="diagnostics_metric_probes">Sondas</string>
     <string name="diagnostics_field_hidden">Oculto</string>
+    <string name="diagnostics_field_not_stored">Ocultado (não armazenado)</string>
     <string name="diagnostics_field_hidden_count_format">Oculto (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">Família TCP vencedora</string>
     <string name="diagnostics_field_winning_quic_family">Família QUIC vencedora</string>

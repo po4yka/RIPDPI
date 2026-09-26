@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">路径</string>
     <string name="diagnostics_metric_probes">探测</string>
     <string name="diagnostics_field_hidden">已隐藏</string>
+    <string name="diagnostics_field_not_stored">已脱敏（未存储）</string>
     <string name="diagnostics_field_hidden_count_format">已隐藏（%1$d）</string>
     <string name="diagnostics_field_winning_tcp_family">胜出 TCP 系列</string>
     <string name="diagnostics_field_winning_quic_family">胜出 QUIC 系列</string>

@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">المسار</string>
     <string name="diagnostics_metric_probes">الاختبارات</string>
     <string name="diagnostics_field_hidden">مخفي</string>
+    <string name="diagnostics_field_not_stored">محجوب (غير محفوظ)</string>
     <string name="diagnostics_field_hidden_count_format">مخفي (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">عائلة TCP الفائزة</string>
     <string name="diagnostics_field_winning_quic_family">عائلة QUIC الفائزة</string>

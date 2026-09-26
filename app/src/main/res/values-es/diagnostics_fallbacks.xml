@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">Ruta</string>
     <string name="diagnostics_metric_probes">Pruebas</string>
     <string name="diagnostics_field_hidden">Oculto</string>
+    <string name="diagnostics_field_not_stored">Oculto (no guardado)</string>
     <string name="diagnostics_field_hidden_count_format">Oculto (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">Familia TCP ganadora</string>
     <string name="diagnostics_field_winning_quic_family">Familia QUIC ganadora</string>

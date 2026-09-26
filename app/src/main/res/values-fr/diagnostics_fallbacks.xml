@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">Chemin</string>
     <string name="diagnostics_metric_probes">Sondes</string>
     <string name="diagnostics_field_hidden">Masqué</string>
+    <string name="diagnostics_field_not_stored">Masqué (non enregistré)</string>
     <string name="diagnostics_field_hidden_count_format">Masqué (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">Famille TCP gagnante</string>
     <string name="diagnostics_field_winning_quic_family">Famille QUIC gagnante</string>

@@ -23,6 +23,82 @@ class HistoryConnectionDetailUiFactoryTest {
         )
 
     @Test
+    fun `connection history conceals legacy network addresses without a details toggle`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val strings = AndroidStringResolver(context)
+        val realFactory =
+            HistoryConnectionDetailUiFactory(
+                context = context,
+                stringResolver = strings,
+                coreSupport = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings),
+            )
+        val original = historySnapshot(connectionSessionId = "connection-1")
+        val legacy =
+            original.copy(
+                snapshot =
+                    requireNotNull(original.snapshot).copy(
+                        privateDnsMode = "resolver.private.example",
+                        dnsServers = listOf("192.0.2.53", "198.51.100.53"),
+                        publicIp = "203.0.113.7",
+                    ),
+            )
+        val detail =
+            realFactory.toConnectionDetail(
+                DiagnosticConnectionDetail(
+                    session = historyConnectionSession(),
+                    snapshots = listOf(legacy),
+                    contexts = emptyList(),
+                    telemetry = emptyList(),
+                    events = emptyList(),
+                ),
+            )
+        val fields = detail.snapshots.single().fields.associate { it.label to it.value }
+
+        assertEquals("Hidden (2)", fields["DNS"])
+        assertEquals("Hidden", fields["Private DNS"])
+        assertEquals("Hidden", fields["Public IP"])
+        assertEquals("true", fields["Validated"])
+        assertTrue(fields.values.none { it.contains("192.0.2.53") || it.contains("resolver.private.example") })
+    }
+
+    @Test
+    fun `connection history explains values redacted before storage`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val strings = AndroidStringResolver(context)
+        val realFactory =
+            HistoryConnectionDetailUiFactory(
+                context = context,
+                stringResolver = strings,
+                coreSupport = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings),
+            )
+        val original = historySnapshot(connectionSessionId = "connection-1")
+        val stored =
+            original.copy(
+                snapshot =
+                    requireNotNull(original.snapshot).copy(
+                        dnsServers = listOf("redacted", "redacted"),
+                        privateDnsMode = "redacted",
+                        publicIp = "redacted",
+                    ),
+            )
+        val detail =
+            realFactory.toConnectionDetail(
+                DiagnosticConnectionDetail(
+                    session = historyConnectionSession(),
+                    snapshots = listOf(stored),
+                    contexts = emptyList(),
+                    telemetry = emptyList(),
+                    events = emptyList(),
+                ),
+            )
+        val fields = detail.snapshots.single().fields.associate { it.label to it.value }
+
+        assertEquals("Redacted (not stored) · Hidden (2)", fields["DNS"])
+        assertEquals("Redacted (not stored)", fields["Private DNS"])
+        assertEquals("Redacted (not stored)", fields["Public IP"])
+    }
+
+    @Test
     fun `connection detail maps highlights dedupes contexts and ignores malformed payloads`() {
         val detail =
             factory.toConnectionDetail(

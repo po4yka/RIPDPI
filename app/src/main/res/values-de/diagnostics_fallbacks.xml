@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">Pfad</string>
     <string name="diagnostics_metric_probes">Prüfungen</string>
     <string name="diagnostics_field_hidden">Ausgeblendet</string>
+    <string name="diagnostics_field_not_stored">Geschwärzt (nicht gespeichert)</string>
     <string name="diagnostics_field_hidden_count_format">Ausgeblendet (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">Erfolgreiche TCP-Familie</string>
     <string name="diagnostics_field_winning_quic_family">Erfolgreiche QUIC-Familie</string>

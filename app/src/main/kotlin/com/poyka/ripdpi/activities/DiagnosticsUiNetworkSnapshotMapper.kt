@@ -52,27 +52,22 @@ private fun DiagnosticsUiFactorySupport.networkFields(
         ),
         field(
             R.string.diagnostics_field_dns,
-            if (showSensitiveDetails) {
-                snapshot.dnsServers.joinToString().ifBlank { unknownFieldLabel() }
-            } else {
-                redactCollection(snapshot.dnsServers)
-            },
+            networkAddressListValue(snapshot.dnsServers, showSensitiveDetails),
         ),
-        field(R.string.diagnostics_field_private_dns, snapshot.privateDnsMode),
+        field(
+            R.string.diagnostics_field_private_dns,
+            privateDnsModeValue(snapshot.privateDnsMode, showSensitiveDetails),
+        ),
         field(R.string.diagnostics_field_mtu, snapshot.mtu?.toString() ?: unknownFieldLabel()),
         field(
             R.string.diagnostics_field_local,
-            if (showSensitiveDetails) {
-                snapshot.localAddresses.joinToString().ifBlank { unknownFieldLabel() }
-            } else {
-                redactCollection(snapshot.localAddresses)
-            },
+            networkAddressListValue(snapshot.localAddresses, showSensitiveDetails),
         ),
         field(
             R.string.diagnostics_field_public_ip,
-            if (showSensitiveDetails) snapshot.publicIp ?: unknownFieldLabel() else redactValue(snapshot.publicIp),
+            sensitiveNetworkValue(snapshot.publicIp, showSensitiveDetails),
         ),
-        field(R.string.diagnostics_field_asn, snapshot.publicAsn ?: unknownFieldLabel()),
+        field(R.string.diagnostics_field_asn, sensitiveNetworkValue(snapshot.publicAsn, showSensitiveDetails)),
         field(R.string.diagnostics_field_validated, snapshot.networkValidated.toString()),
         field(R.string.diagnostics_field_captive_portal, snapshot.captivePortalDetected.toString()),
     )
@@ -89,7 +84,7 @@ private fun DiagnosticsUiFactorySupport.transportSpecificFields(
     showSensitiveDetails: Boolean,
 ): List<DiagnosticsFieldUiModel> =
     snapshot.wifiDetails?.let { wifiTransportFields(it, showSensitiveDetails) }
-        ?: snapshot.cellularDetails?.let { cellularTransportFields(it) }
+        ?: snapshot.cellularDetails?.let { cellularTransportFields(it, showSensitiveDetails) }
         ?: emptyList()
 
 private fun DiagnosticsUiFactorySupport.wifiTransportFields(
@@ -98,7 +93,7 @@ private fun DiagnosticsUiFactorySupport.wifiTransportFields(
 ): List<DiagnosticsFieldUiModel> =
     wifiIdentityFields(wifi, showSensitiveDetails) +
         wifiRadioFields(wifi) +
-        wifiCapabilityFields(wifi) +
+        wifiCapabilityFields(wifi, showSensitiveDetails) +
         wifiAddressFields(wifi, showSensitiveDetails) +
         wifiLeaseFields(wifi)
 
@@ -109,11 +104,11 @@ private fun DiagnosticsUiFactorySupport.wifiIdentityFields(
     listOf(
         field(
             R.string.diagnostics_field_wifi_ssid,
-            if (showSensitiveDetails) wifi.ssid else redactValue(wifi.ssid.takeUnless { it == "unknown" }),
+            sensitiveNetworkValue(wifi.ssid.takeUnless { it == "unknown" }, showSensitiveDetails),
         ),
         field(
             R.string.diagnostics_field_wifi_bssid,
-            if (showSensitiveDetails) wifi.bssid else redactValue(wifi.bssid.takeUnless { it == "unknown" }),
+            sensitiveNetworkValue(wifi.bssid.takeUnless { it == "unknown" }, showSensitiveDetails),
         ),
     )
 
@@ -149,12 +144,23 @@ private fun DiagnosticsUiFactorySupport.wifiRadioFields(wifi: WifiNetworkDetails
         ),
     )
 
-private fun DiagnosticsUiFactorySupport.wifiCapabilityFields(wifi: WifiNetworkDetails): List<DiagnosticsFieldUiModel> =
+private fun DiagnosticsUiFactorySupport.wifiCapabilityFields(
+    wifi: WifiNetworkDetails,
+    showSensitiveDetails: Boolean,
+): List<DiagnosticsFieldUiModel> =
     listOf(
         field(R.string.diagnostics_field_wifi_hidden_ssid, wifi.hiddenSsid?.toString() ?: unknownFieldLabel()),
         field(R.string.diagnostics_field_wifi_passpoint, wifi.isPasspoint?.toString() ?: unknownFieldLabel()),
         field(R.string.diagnostics_field_wifi_osu_ap, wifi.isOsuAp?.toString() ?: unknownFieldLabel()),
-        field(R.string.diagnostics_field_wifi_network_id, wifi.networkId?.toString() ?: unknownFieldLabel()),
+        field(
+            R.string.diagnostics_field_wifi_network_id,
+            sensitiveNetworkValue(
+                wifi.networkId?.toString() ?: "redacted".takeIf {
+                    wifi.ssid == "redacted" || wifi.bssid == "redacted"
+                },
+                showSensitiveDetails,
+            ),
+        ),
     )
 
 private fun DiagnosticsUiFactorySupport.wifiAddressFields(
@@ -164,19 +170,19 @@ private fun DiagnosticsUiFactorySupport.wifiAddressFields(
     listOf(
         field(
             R.string.diagnostics_field_wifi_gateway,
-            if (showSensitiveDetails) wifi.gateway ?: unknownFieldLabel() else redactValue(wifi.gateway),
+            sensitiveNetworkValue(wifi.gateway, showSensitiveDetails),
         ),
         field(
             R.string.diagnostics_field_wifi_dhcp_server,
-            if (showSensitiveDetails) wifi.dhcpServer ?: unknownFieldLabel() else redactValue(wifi.dhcpServer),
+            sensitiveNetworkValue(wifi.dhcpServer, showSensitiveDetails),
         ),
         field(
             R.string.diagnostics_field_wifi_ip,
-            if (showSensitiveDetails) wifi.ipAddress ?: unknownFieldLabel() else redactValue(wifi.ipAddress),
+            sensitiveNetworkValue(wifi.ipAddress, showSensitiveDetails),
         ),
         field(
             R.string.diagnostics_field_wifi_subnet,
-            if (showSensitiveDetails) wifi.subnetMask ?: unknownFieldLabel() else redactValue(wifi.subnetMask),
+            sensitiveNetworkValue(wifi.subnetMask, showSensitiveDetails),
         ),
     )
 
@@ -191,22 +197,54 @@ private fun DiagnosticsUiFactorySupport.wifiLeaseFields(wifi: WifiNetworkDetails
 
 private fun DiagnosticsUiFactorySupport.cellularTransportFields(
     cellular: CellularNetworkDetails,
+    showSensitiveDetails: Boolean,
 ): List<DiagnosticsFieldUiModel> =
     listOf(
-        field(R.string.diagnostics_field_carrier, cellular.carrierName),
-        field(R.string.diagnostics_field_sim_operator, cellular.simOperatorName),
-        field(R.string.diagnostics_field_network_operator, cellular.networkOperatorName),
+        field(
+            R.string.diagnostics_field_carrier,
+            sensitiveNetworkValue(cellular.carrierName, showSensitiveDetails),
+        ),
+        field(
+            R.string.diagnostics_field_sim_operator,
+            sensitiveNetworkValue(cellular.simOperatorName, showSensitiveDetails),
+        ),
+        field(
+            R.string.diagnostics_field_network_operator,
+            sensitiveNetworkValue(cellular.networkOperatorName, showSensitiveDetails),
+        ),
         field(R.string.diagnostics_field_network_country, cellular.networkCountryIso),
         field(R.string.diagnostics_field_sim_country, cellular.simCountryIso),
-        field(R.string.diagnostics_field_operator_code, cellular.operatorCode),
-        field(R.string.diagnostics_field_sim_operator_code, cellular.simOperatorCode),
+        field(
+            R.string.diagnostics_field_operator_code,
+            sensitiveNetworkValue(cellular.operatorCode, showSensitiveDetails),
+        ),
+        field(
+            R.string.diagnostics_field_sim_operator_code,
+            sensitiveNetworkValue(cellular.simOperatorCode, showSensitiveDetails),
+        ),
         field(R.string.diagnostics_field_data_network, cellular.dataNetworkType),
         field(R.string.diagnostics_field_voice_network, cellular.voiceNetworkType),
         field(R.string.diagnostics_field_data_state, cellular.dataState),
         field(R.string.diagnostics_field_service_state, cellular.serviceState),
         field(R.string.diagnostics_field_roaming, cellular.isNetworkRoaming?.toString() ?: unknownFieldLabel()),
-        field(R.string.diagnostics_field_carrier_id, cellular.carrierId?.toString() ?: unknownFieldLabel()),
-        field(R.string.diagnostics_field_sim_carrier_id, cellular.simCarrierId?.toString() ?: unknownFieldLabel()),
+        field(
+            R.string.diagnostics_field_carrier_id,
+            sensitiveNetworkValue(
+                cellular.carrierId?.toString() ?: "redacted".takeIf {
+                    cellular.carrierName == "redacted" || cellular.operatorCode == "redacted"
+                },
+                showSensitiveDetails,
+            ),
+        ),
+        field(
+            R.string.diagnostics_field_sim_carrier_id,
+            sensitiveNetworkValue(
+                cellular.simCarrierId?.toString() ?: "redacted".takeIf {
+                    cellular.carrierName == "redacted" || cellular.simOperatorCode == "redacted"
+                },
+                showSensitiveDetails,
+            ),
+        ),
         field(R.string.diagnostics_field_signal_level, cellular.signalLevel?.toString() ?: unknownFieldLabel()),
         field(
             R.string.diagnostics_field_signal_dbm,
@@ -222,3 +260,35 @@ private fun DiagnosticsUiFactorySupport.field(
 
 private fun DiagnosticsUiFactorySupport.unknownFieldLabel(): String =
     context.getString(R.string.diagnostics_field_unknown)
+
+private fun DiagnosticsUiFactorySupport.sensitiveNetworkValue(
+    value: String?,
+    showSensitiveDetails: Boolean,
+): String =
+    when {
+        value == null -> unknownFieldLabel()
+        value == "unknown" -> unknownFieldLabel()
+        !showSensitiveDetails -> redactValue(value)
+        value == "redacted" -> context.getString(R.string.diagnostics_field_not_stored)
+        else -> value
+    }
+
+private fun DiagnosticsUiFactorySupport.networkAddressListValue(
+    values: List<String>,
+    showSensitiveDetails: Boolean,
+): String =
+    when {
+        !showSensitiveDetails -> redactCollection(values)
+        values.any { it == "redacted" } ->
+            context.getString(R.string.diagnostics_field_not_stored) + " · " + redactCollection(values)
+        else -> values.joinToString().ifBlank { unknownFieldLabel() }
+    }
+
+private fun DiagnosticsUiFactorySupport.privateDnsModeValue(
+    mode: String,
+    showSensitiveDetails: Boolean,
+): String =
+    when (mode.lowercase()) {
+        "system", "off", "none", "opportunistic", "strict", "unknown", "unavailable" -> mode
+        else -> sensitiveNetworkValue(mode, showSensitiveDetails)
+    }

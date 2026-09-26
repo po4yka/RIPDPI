@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">Path</string>
     <string name="diagnostics_metric_probes">Probes</string>
     <string name="diagnostics_field_hidden">Hidden</string>
+    <string name="diagnostics_field_not_stored">Redacted (not stored)</string>
     <string name="diagnostics_field_hidden_count_format">Hidden (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">Winning TCP family</string>
     <string name="diagnostics_field_winning_quic_family">Winning QUIC family</string>

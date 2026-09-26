@@ -188,18 +188,32 @@ internal class HistoryConnectionDetailUiFactory
                                 listOf(
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_dns),
-                                        snapshot.dnsServers.joinToString().ifBlank {
-                                            stringResolver.getString(R.string.diagnostics_field_unknown)
+                                        if (snapshot.dnsServers.any { it == "redacted" }) {
+                                            stringResolver.getString(R.string.diagnostics_field_not_stored) +
+                                                " · " + coreSupport.redactCollection(snapshot.dnsServers)
+                                        } else {
+                                            coreSupport.redactCollection(snapshot.dnsServers)
                                         },
                                     ),
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_private_dns),
-                                        snapshot.privateDnsMode,
+                                        when (snapshot.privateDnsMode.lowercase()) {
+                                            "system", "off", "none", "opportunistic", "strict", "unknown",
+                                            "unavailable",
+                                            ->
+                                                snapshot.privateDnsMode
+                                            "redacted" ->
+                                                stringResolver.getString(R.string.diagnostics_field_not_stored)
+                                            else -> coreSupport.redactValue(snapshot.privateDnsMode)
+                                        },
                                     ),
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_public_ip),
-                                        snapshot.publicIp
-                                            ?: stringResolver.getString(R.string.diagnostics_field_unknown),
+                                        if (snapshot.publicIp == "redacted") {
+                                            stringResolver.getString(R.string.diagnostics_field_not_stored)
+                                        } else {
+                                            coreSupport.redactValue(snapshot.publicIp)
+                                        },
                                     ),
                                     DiagnosticsFieldUiModel(
                                         stringResolver.getString(R.string.diagnostics_field_validated),

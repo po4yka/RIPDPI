@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">مسیر</string>
     <string name="diagnostics_metric_probes">آزمون‌ها</string>
     <string name="diagnostics_field_hidden">پنهان</string>
+    <string name="diagnostics_field_not_stored">پنهان‌شده (ذخیره نشده)</string>
     <string name="diagnostics_field_hidden_count_format">پنهان (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">خانواده برنده TCP</string>
     <string name="diagnostics_field_winning_quic_family">خانواده برنده QUIC</string>

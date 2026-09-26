@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">Путь</string>
     <string name="diagnostics_metric_probes">Проверки</string>
     <string name="diagnostics_field_hidden">Скрыто</string>
+    <string name="diagnostics_field_not_stored">Обезличено (не сохранено)</string>
     <string name="diagnostics_field_hidden_count_format">Скрыто (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">Победившее семейство TCP</string>
     <string name="diagnostics_field_winning_quic_family">Победившее семейство QUIC</string>

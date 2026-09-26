@@ -9,6 +9,7 @@
     <string name="diagnostics_metric_path">पथ</string>
     <string name="diagnostics_metric_probes">जाँच</string>
     <string name="diagnostics_field_hidden">छिपा हुआ</string>
+    <string name="diagnostics_field_not_stored">छिपाया गया (सहेजा नहीं गया)</string>
     <string name="diagnostics_field_hidden_count_format">छिपा हुआ (%1$d)</string>
     <string name="diagnostics_field_winning_tcp_family">विजेता TCP परिवार</string>
     <string name="diagnostics_field_winning_quic_family">विजेता QUIC परिवार</string>
