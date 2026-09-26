@@ -7,7 +7,7 @@ pub fn find_headers_end(buffer: &[u8]) -> Option<usize> {
 pub fn parse_content_length(headers: &[u8]) -> Option<usize> {
     let text = String::from_utf8_lossy(headers);
     for line in text.split("\r\n") {
-        let (name, value) = line.split_once(':')?;
+        let Some((name, value)) = line.split_once(':') else { continue };
         if name.trim().eq_ignore_ascii_case("content-length") {
             return value.trim().parse::<usize>().ok();
         }

@@ -91,6 +91,11 @@ fn parse_content_length_extracts_value() {
 }
 
 #[test]
+fn parse_content_length_skips_status_line() {
+    assert_eq!(parse_content_length(b"HTTP/1.1 200 OK\r\nContent-Length: 42\r\n"), Some(42));
+}
+
+#[test]
 fn parse_content_length_is_case_insensitive() {
     assert_eq!(parse_content_length(b"content-length: 100\r\n"), Some(100));
 }
