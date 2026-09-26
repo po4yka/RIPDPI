@@ -53,6 +53,7 @@ internal data class DomainBypassListScreenState(
     val errors: List<DomainBypassList.BypassListError>,
     val cleanCount: Int,
     val hasRule: Boolean,
+    val isDraftInitialized: Boolean = true,
 )
 
 @Composable
@@ -81,6 +82,7 @@ fun DomainBypassListRoute(
                 errors = compiled.errors,
                 cleanCount = compiled.cleanLines.size,
                 hasRule = uiState.hasRule,
+                isDraftInitialized = uiState.isDraftInitialized,
             ),
         onBack = onBack,
         onTextChanged = viewModel::updateDraft,
@@ -237,7 +239,7 @@ private fun DomainBypassEditorCard(
                     text = stringResource(R.string.config_save),
                     onClick = onSave,
                     modifier = Modifier.weight(1f),
-                    enabled = state.cleanCount > 0 || state.errors.isEmpty(),
+                    enabled = state.isDraftInitialized && (state.cleanCount > 0 || state.errors.isEmpty()),
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Check,
                 )

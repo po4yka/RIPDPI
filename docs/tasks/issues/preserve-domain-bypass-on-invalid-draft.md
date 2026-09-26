@@ -21,6 +21,7 @@ An invalid-only domain bypass draft cannot remove a saved bypass rule.
 ## Acceptance criteria
 
 - An invalid-only draft leaves the existing managed rule unchanged and does not show a saved or cleared confirmation.
+- Save is unavailable before the saved rule finishes loading; an early Save cannot clear it.
 - A blank draft still clears the managed rule. A mixed valid and invalid draft still saves valid entries.
 - Focused repository and app tests pass. App lint reports no new issues.
 

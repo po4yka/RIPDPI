@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.data.rules.DomainBypassList
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
@@ -48,8 +49,35 @@ class DomainBypassListViewModelTest {
             assertEquals(0, confirmations)
         }
 
-    private class FakeRuleDao : RuleDao() {
-        private val managedRules = MutableSharedFlow<List<RuleEntity>>(replay = 1).apply { tryEmit(emptyList()) }
+    @Test
+    fun `save before draft hydration does not clear existing rule`() =
+        runTest {
+            val existing =
+                RuleEntity(
+                    id = 42L,
+                    name = DomainBypassList.ManagedBypassRuleName,
+                    domains = "example.com",
+                    outboundTag = OutboundTag.Bypass,
+                )
+            val dao = FakeRuleDao(initialRules = null, existing = existing)
+            val viewModel = DomainBypassListViewModel(RuleRepository(dao))
+            runCurrent()
+            var confirmations = 0
+
+            viewModel.save { confirmations++ }
+            runCurrent()
+
+            assertEquals(0, confirmations)
+            assertEquals(0, dao.deletions)
+        }
+
+    private class FakeRuleDao(
+        initialRules: List<RuleEntity>? = emptyList(),
+        private val existing: RuleEntity? = null,
+    ) : RuleDao() {
+        private val managedRules =
+            MutableSharedFlow<List<RuleEntity>>(replay = 1).apply { initialRules?.let(::tryEmit) }
+        var deletions = 0
 
         fun emitManagedRules() {
             managedRules.tryEmit(emptyList())
@@ -65,7 +93,7 @@ class DomainBypassListViewModelTest {
 
         override fun rulesByName(name: String): Flow<List<RuleEntity>> = managedRules
 
-        override suspend fun findByName(name: String): RuleEntity? = null
+        override suspend fun findByName(name: String): RuleEntity? = existing
 
         override suspend fun maxUserOrder(excludedName: String): Int? = null
 
@@ -73,7 +101,9 @@ class DomainBypassListViewModelTest {
 
         override suspend fun update(rule: RuleEntity) = error("not used")
 
-        override suspend fun delete(rule: RuleEntity) = error("not used")
+        override suspend fun delete(rule: RuleEntity) {
+            deletions++
+        }
 
         override suspend fun resetOutboundTags(
             ruleIds: List<Long>,

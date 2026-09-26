@@ -68,6 +68,7 @@ class DomainBypassListViewModel
 
         /** Compiles and persists the retained draft as the single managed bypass rule. */
         fun save(onSaved: (savedCount: Int) -> Unit) {
+            if (!_uiState.value.isDraftInitialized) return
             viewModelScope.launch {
                 val result = ruleRepository.saveDomainBypassList(_uiState.value.text)
                 if (result.cleanLines.isNotEmpty() || result.errors.isEmpty()) {

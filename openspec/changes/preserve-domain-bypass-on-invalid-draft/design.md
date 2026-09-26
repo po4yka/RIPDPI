@@ -11,6 +11,7 @@
 
 - Return the compile result without a database write when it has errors and no clean lines. Keep the existing repository as the save boundary.
 - Suppress the editor confirmation for that result and disable Save while the visible draft is known to be invalid-only. The repository guard also covers the brief validation debounce.
+- Disable Save and reject ViewModel save calls until the persisted rule initializes the draft. This prevents the initial empty placeholder from clearing a stored rule.
 
 ## Contracts and ownership
 

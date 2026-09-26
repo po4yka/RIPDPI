@@ -11,6 +11,7 @@ When every line in a domain bypass draft is invalid, Save removes the existing r
 - Save leaves the managed rule unchanged when the draft has errors and no valid entries.
 - An empty draft still clears the rule. A mixed draft still saves its valid entries.
 - The editor does not offer Save for a draft with only invalid entries.
+- Save is unavailable until the saved rule has loaded into the draft.
 
 ## Capabilities
 

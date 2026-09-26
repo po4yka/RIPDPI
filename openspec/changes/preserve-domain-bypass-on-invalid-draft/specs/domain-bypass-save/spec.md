@@ -34,3 +34,14 @@ The implementation MUST save valid entries from a draft that also has invalid en
 - **WHEN** the user saves a draft with one valid entry and one invalid entry
 - **THEN** the managed rule contains the valid entry
 - **AND** the editor shows the error for the invalid entry
+
+### Requirement: REQ-PENDING-DRAFT — Wait for the saved rule
+
+The implementation MUST NOT save the initial empty draft before the managed rule has loaded.
+
+#### Scenario: Save before hydration
+
+- **GIVEN** a saved bypass rule and a delayed repository emission
+- **WHEN** Save is requested before the editor draft is initialized
+- **THEN** the saved rule stays unchanged
+- **AND** the editor does not report a clear action
