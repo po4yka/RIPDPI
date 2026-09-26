@@ -20,9 +20,9 @@ Correct confirmed Rust diagnostics defects found in the 14-crate audit. Keep pro
 
 ## Acceptance criteria
 
-- [ ] Successful HTTPS baselines produce no failure class; a current strategy lists every required runtime capability.
-- [ ] Truncated HTTP responses and headers do not count as successful probes; Telegram transfers require a successful HTTP response.
-- [ ] A completed scan report is not lost on session reuse; abandoned DNS lookups retain their concurrency permit until the worker exits.
+- [x] Successful HTTPS baselines produce no failure class; a current strategy lists every required runtime capability.
+- [x] Truncated HTTP responses and headers do not count as successful probes; Telegram transfers require a successful HTTP response.
+- [x] A completed scan report is not lost on session reuse; abandoned DNS lookups retain their concurrency permit until the worker exits.
 - [ ] TCP, UDP, and proxy-start operations stop at the active scan deadline.
 - [ ] Confirmed dormant probe parser and byte-cap defects have focused regression tests and fixes.
 - [ ] Focused Rust tests, architecture-health, Cargo metadata, and affected workspace checks are observed on the integrated tree.
