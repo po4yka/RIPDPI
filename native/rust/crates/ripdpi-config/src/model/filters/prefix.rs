@@ -1,4 +1,7 @@
 pub fn prefix_match_bytes(lhs: &[u8], rhs: &[u8], bits: u8) -> bool {
+    if usize::from(bits) > lhs.len().min(rhs.len()).saturating_mul(8) {
+        return false;
+    }
     let full_bytes = (bits / 8) as usize;
     let rem = bits % 8;
     if lhs.get(..full_bytes) != rhs.get(..full_bytes) {

@@ -22,6 +22,12 @@ fn prefix_match_bytes_full_byte_boundary() {
 }
 
 #[test]
+fn prefix_match_bytes_rejects_oversized_prefix() {
+    assert!(!prefix_match_bytes(&[192], &[192], 16));
+    assert!(!prefix_match_bytes(&[192], &[192], 9));
+}
+
+#[test]
 fn common_suffix_match_dot_boundary() {
     // "notexample.com" should NOT match rule "example.com"
     assert!(!common_suffix_match("notexample.com", "example.com"));

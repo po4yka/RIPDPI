@@ -75,7 +75,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             };
             let start = start.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
             let end = end.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-            if start == 0 || end == 0 {
+            if start == 0 || end == 0 || start > end {
                 return Err(ConfigError::invalid(arg, Some(value)));
             }
             state.group().matches.port_filter = Some((start, end));

@@ -21,3 +21,19 @@ fn reload_if_changed_reloads_modified_yaml_file() {
     assert_eq!(reloader.current().strategies.len(), 1);
     let _ = fs::remove_dir_all(base);
 }
+
+#[test]
+fn reload_if_changed_reloads_referenced_host_list() {
+    let base = std::env::temp_dir().join(format!("ripdpi-host-reload-{}", std::process::id()));
+    fs::create_dir_all(&base).expect("create temp dir");
+    let path = base.join("strategy.yaml");
+    let hosts = base.join("hosts.txt");
+    fs::write(&hosts, "one.example\n").expect("write hosts");
+    fs::write(&path, "version: 1\nstrategies:\n  - id: host_list\n    match:\n      hosts: '@hosts.txt'\n    steps:\n      - type: split\n").expect("write strategy");
+    let mut reloader = StrategyConfigReloader::load(&path).expect("load reloader");
+    fs::write(&hosts, "two.example\n").expect("update hosts");
+
+    assert!(reloader.reload_if_changed().expect("reload referenced hosts"));
+    assert_eq!(reloader.current().strategies[0].matcher.hosts, ["two.example"]);
+    let _ = fs::remove_dir_all(base);
+}

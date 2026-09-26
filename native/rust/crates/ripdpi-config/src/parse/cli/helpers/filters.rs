@@ -6,7 +6,11 @@ use crate::{Cidr, ConfigError, FilterSet};
 use super::super::super::fake_profiles::lower_host_char;
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
-    Ok(parse_host_filter_spec(spec)?.hosts)
+    let hosts = parse_host_filter_spec(spec)?.hosts;
+    if !spec.trim().is_empty() && hosts.is_empty() {
+        return Err(ConfigError::invalid("--hosts", Some(spec)));
+    }
+    Ok(hosts)
 }
 
 pub fn parse_host_filter_spec(spec: &str) -> Result<FilterSet, ConfigError> {
@@ -23,6 +27,13 @@ pub fn parse_host_filter_spec(spec: &str) -> Result<FilterSet, ConfigError> {
         if let Some(host) = normalize_host_token(token) {
             filters.hosts.push(host);
         }
+    }
+    if !spec.trim().is_empty()
+        && filters.hosts.is_empty()
+        && filters.geoip_countries.is_empty()
+        && filters.geosite_categories.is_empty()
+    {
+        return Err(ConfigError::invalid("--hosts", Some(spec)));
     }
     Ok(filters)
 }
@@ -61,7 +72,10 @@ fn parse_ip_token(token: &str) -> Result<Cidr, ConfigError> {
         IpAddr::V4(_) => 32,
         IpAddr::V6(_) => 128,
     };
-    let bits = if bits == 0 || bits > max_bits { max_bits } else { bits };
+    if bits > max_bits {
+        return Err(ConfigError::invalid("--ipset", Some(token)));
+    }
+    let bits = if bits == 0 { max_bits } else { bits };
     Ok(Cidr { addr, bits: bits as u8 })
 }
 

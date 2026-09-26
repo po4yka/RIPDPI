@@ -32,8 +32,8 @@ fn parse_host_filter_spec_extracts_geo_rules() {
 }
 
 #[test]
-fn parse_ipset_spec_defaults_and_clamps_prefix_lengths() {
-    let entries = parse_ipset_spec("192.0.2.1 2001:db8::1/129").expect("parse ipset spec");
+fn parse_ipset_spec_defaults_and_rejects_oversized_prefixes() {
+    let entries = parse_ipset_spec("192.0.2.1 2001:db8::1").expect("parse ipset spec");
     assert_eq!(
         entries,
         vec![
@@ -41,6 +41,8 @@ fn parse_ipset_spec_defaults_and_clamps_prefix_lengths() {
             Cidr { addr: IpAddr::from_str("2001:db8::1").expect("ipv6 addr"), bits: 128 },
         ]
     );
+    assert!(parse_ipset_spec("192.0.2.1/33").is_err());
+    assert!(parse_ipset_spec("2001:db8::1/129").is_err());
 }
 
 #[test]
@@ -58,6 +60,26 @@ fn seconds_to_millis_valid_values() {
 #[test]
 fn seconds_to_millis_non_numeric_rejected() {
     assert!(seconds_to_millis("abc").is_err());
+}
+
+#[test]
+fn seconds_to_millis_rejects_non_finite_and_overflow() {
+    for value in ["NaN", "inf", "-inf", "4294968"] {
+        assert!(seconds_to_millis(value).is_err(), "{value} must be rejected");
+    }
+}
+
+#[test]
+fn parse_hosts_spec_rejects_only_invalid_tokens() {
+    assert!(parse_hosts_spec("bad^host").is_err());
+    assert!(parse_host_filter_spec("bad^host").is_err());
+    assert_eq!(parse_hosts_spec("  ").expect("empty host filter"), Vec::<String>::new());
+}
+
+#[test]
+fn parse_cli_rejects_reversed_port_filter() {
+    let args = vec!["--pf".to_string(), "443-80".to_string()];
+    assert!(parse_cli(&args, &StartupEnv::default()).is_err());
 }
 
 #[test]

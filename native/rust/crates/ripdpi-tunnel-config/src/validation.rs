@@ -71,6 +71,11 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
                 format!("must not exceed the {addressable} allocatable addresses in mapdns.network"),
             );
         }
+        if let Some(protocol) = &mapdns.encrypted_dns_protocol {
+            if !matches!(protocol.trim().to_ascii_lowercase().as_str(), "dot" | "dnscrypt" | "doh" | "doq" | "odoh") {
+                return invalid("mapdns.encrypted-dns-protocol", "must be dot, dnscrypt, doh, doq, or odoh");
+            }
+        }
         if let Some(port) = mapdns.encrypted_dns_port {
             non_zero("mapdns.encrypted-dns-port", u32::from(port))?;
         }

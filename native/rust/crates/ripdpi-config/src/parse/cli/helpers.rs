@@ -52,11 +52,12 @@ pub(super) fn parse_timeout(spec: &str, config: &mut RuntimeConfig) -> Result<()
 }
 
 pub(crate) fn seconds_to_millis(spec: &str) -> Result<u32, ConfigError> {
-    let seconds = spec.parse::<f32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
-    if seconds < 0.0 {
+    let seconds = spec.parse::<f64>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
+    let millis = seconds * 1000.0;
+    if !millis.is_finite() || millis < 0.0 || millis > f64::from(u32::MAX) {
         return Err(ConfigError::invalid("--timeout", Some(spec)));
     }
-    Ok((seconds * 1000.0) as u32)
+    Ok(millis as u32)
 }
 
 pub(super) fn split_plugin_options(spec: &str) -> Vec<String> {

@@ -40,6 +40,8 @@ pub enum StrategyConfigError {
     Metadata { path: PathBuf, source: std::io::Error },
     #[error("host list reference {reference} escapes the strategy-config base directory")]
     HostListPathEscape { reference: String },
+    #[error("unsupported strategy config version {0}")]
+    UnsupportedVersion(u32),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -343,6 +345,9 @@ pub fn load_config_file(path: impl AsRef<Path>) -> Result<LoadedStrategyConfig, 
 }
 
 fn load_raw(raw: RawConfig, base_dir: &Path) -> Result<LoadedStrategyConfig, StrategyConfigError> {
+    if raw.version != 1 {
+        return Err(StrategyConfigError::UnsupportedVersion(raw.version));
+    }
     let strategies = raw
         .strategies
         .into_iter()
@@ -430,10 +435,12 @@ impl StrategyConfigReloader {
 
     pub fn reload_if_changed(&mut self) -> Result<bool, StrategyConfigError> {
         let modified = file_modified(&self.path)?;
-        if modified == self.modified {
+        // ponytail: re-read referenced host files on each poll; track their mtimes if polling cost matters.
+        let config = load_config_file(&self.path)?;
+        if modified == self.modified && config == self.config {
             return Ok(false);
         }
-        self.config = load_config_file(&self.path)?;
+        self.config = config;
         self.modified = modified;
         Ok(true)
     }

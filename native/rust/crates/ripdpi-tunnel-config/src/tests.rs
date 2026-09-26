@@ -75,6 +75,13 @@ misc:
 "#;
 
 #[test]
+fn rejects_unknown_encrypted_dns_protocol() {
+    let yaml = format!("{MINIMAL_VALID}\nmapdns:\n  address: 198.18.0.2\n  encrypted-dns-protocol: dho\n");
+    let error = Config::from_str(&yaml).expect_err("unknown DNS protocol must fail during parsing");
+    assert!(error.to_string().contains("mapdns.encrypted-dns-protocol"));
+}
+
+#[test]
 fn test_parse_main_yml() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let conf_path = format!("{manifest_dir}/tests/fixtures/main.yml");
