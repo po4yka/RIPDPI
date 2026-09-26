@@ -72,4 +72,36 @@ class WebRtcLeakCheckerTest {
         response[3] = 0x10
         assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
     }
+
+    @Test
+    fun `unknown required attribute invalidates binding response after mapped address`() {
+        val request =
+            ByteArray(20).also {
+                it[4] = 0x21
+                it[5] = 0x12
+                it[6] = 0xa4.toByte()
+                it[7] = 0x42
+            }
+        val response =
+            request.copyOf(40).also {
+                it[0] = 0x01
+                it[1] = 0x01
+                it[3] = 0x14
+                it[21] = 0x20
+                it[23] = 0x08
+                it[25] = 0x01
+                it[32] = 0x80.toByte()
+                it[33] = 0x22 // SOFTWARE: comprehension-optional
+                it[35] = 0x04
+                it[36] = 't'.code.toByte()
+                it[37] = 'e'.code.toByte()
+                it[38] = 's'.code.toByte()
+                it[39] = 't'.code.toByte()
+            }
+
+        assertTrue(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
+        response[32] = 0x00
+        response[33] = 0x2f // Unassigned, comprehension-required
+        assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
+    }
 }

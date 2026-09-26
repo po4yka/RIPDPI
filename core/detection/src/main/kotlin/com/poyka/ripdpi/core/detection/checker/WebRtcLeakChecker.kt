@@ -122,6 +122,8 @@ object WebRtcLeakChecker {
             val valueOffset = offset + 4
             offset = valueOffset + ((attributeLength + 3) and -4)
             if (offset > size) return false
+            // This unauthenticated Binding probe understands only address attributes.
+            if (type < 0x8000 && type != 0x0001 && type != 0x0020) return false
             if (type == 0x0020) {
                 if (attributeLength != 8 && attributeLength != 20) return false
                 val family = response[valueOffset + 1].toInt() and 0xff
