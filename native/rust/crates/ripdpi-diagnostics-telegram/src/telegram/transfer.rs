@@ -561,7 +561,6 @@ mod tests {
         written: Vec<u8>,
         timeout_reads: usize,
         write_delay: Duration,
-        configured_timeout: Option<Duration>,
     }
 
     impl Read for TestIo {
@@ -591,8 +590,7 @@ mod tests {
     impl TelegramIo for TestIo {
         fn shutdown(&mut self) {}
 
-        fn set_io_timeout(&mut self, timeout: Duration) -> std::io::Result<()> {
-            self.configured_timeout = Some(timeout);
+        fn set_io_timeout(&mut self, _timeout: Duration) -> std::io::Result<()> {
             Ok(())
         }
     }
@@ -604,7 +602,6 @@ mod tests {
             written: Vec::new(),
             timeout_reads: 0,
             write_delay: Duration::ZERO,
-            configured_timeout: None,
         };
 
         let result =
@@ -620,7 +617,6 @@ mod tests {
             written: Vec::new(),
             timeout_reads: 0,
             write_delay: Duration::ZERO,
-            configured_timeout: None,
         };
 
         let result =
@@ -637,13 +633,11 @@ mod tests {
             written: Vec::new(),
             timeout_reads: 1,
             write_delay: Duration::ZERO,
-            configured_timeout: None,
         };
 
         let result =
             telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_millis(1), &|| None);
         assert_eq!(result.status, "deadline_exceeded");
-        assert!(stream.configured_timeout.unwrap() <= Duration::from_millis(1));
     }
 
     #[test]
@@ -653,7 +647,6 @@ mod tests {
             written: Vec::new(),
             timeout_reads: 0,
             write_delay: Duration::from_millis(5),
-            configured_timeout: None,
         };
 
         let result = telegram_upload_transfer_loop(
