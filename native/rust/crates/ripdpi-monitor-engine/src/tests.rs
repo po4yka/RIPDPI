@@ -1305,7 +1305,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
 }
 
 #[test]
-fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
+fn monitor_session_requires_report_cleanup_before_restart() {
     let request = || ScanRequest {
         profile_id: "default".to_string(),
         display_name: "Restart after finish".to_string(),
@@ -1350,6 +1350,9 @@ fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
         thread::sleep(Duration::from_millis(20));
     }
     assert!(finished, "first scan did not finish");
+
+    let first_report = wait_for_report(&session);
+    assert_eq!(first_report.session_id, "session-finished-1");
 
     let mut restarted = false;
     for _ in 0..50 {

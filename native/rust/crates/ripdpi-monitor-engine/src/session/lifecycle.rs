@@ -461,6 +461,29 @@ mod tests {
     }
 
     #[test]
+    fn unread_terminal_report_rejects_start_without_resetting_session() {
+        let session = MonitorSession::new();
+        *session.active_session_id.lock().expect("active session id") = Some("finished".to_string());
+        session.shared.lock().expect("shared state").report = Some(partial_report());
+        session.cancel.store(true, Ordering::Release);
+        *session.cancellation_reason.lock().expect("cancellation reason") = Some(ScanTerminationReason::UserCancelled);
+
+        assert_eq!(
+            session.start_scan("next".to_string(), request_wire()),
+            Err("diagnostics terminal report pending".to_string()),
+        );
+        assert_eq!(session.active_session_id.lock().expect("active session id").as_deref(), Some("finished"));
+        assert!(session.cancel.load(Ordering::Acquire));
+        assert_eq!(
+            *session.cancellation_reason.lock().expect("cancellation reason"),
+            Some(ScanTerminationReason::UserCancelled),
+        );
+        let report_json = session.take_report_json().expect("take pending report").expect("pending report");
+        let report: ScanReport = serde_json::from_str(&report_json).expect("decode pending report");
+        assert_eq!(report.session_id, "dpi-full");
+    }
+
+    #[test]
     fn start_marker_is_cleared_when_passive_event_callback_panics() {
         let session = MonitorSession::with_platform_bridge(Arc::new(PanickingClearPlatformBridge));
         let prev_hook = std::panic::take_hook();

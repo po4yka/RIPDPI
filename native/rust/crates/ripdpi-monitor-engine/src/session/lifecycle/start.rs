@@ -69,6 +69,12 @@ impl MonitorSession {
             if scan_control.start_in_progress {
                 return Err("diagnostics scan already running".to_string());
             }
+            let mut cancellation_reason =
+                self.cancellation_reason.lock().map_err(|_| "monitor cancellation state poisoned".to_string())?;
+            let mut shared = self.lock_shared_state_recovering();
+            if shared.report.is_some() {
+                return Err("diagnostics terminal report pending".to_string());
+            }
             *active_session_id = Some(session_id.clone());
             *scan_control = ScanControl {
                 deadline: Some(scan_deadline),
@@ -79,8 +85,7 @@ impl MonitorSession {
             start_guard.mark_admitted(&self.scan_control);
             // Ordering: the scan-control admission barrier serializes reset before cancellation publication.
             self.cancel.store(false, Ordering::Release);
-            *self.cancellation_reason.lock().map_err(|_| "monitor cancellation state poisoned".to_string())? = None;
-            let mut shared = self.lock_shared_state_recovering();
+            *cancellation_reason = None;
             shared.progress = None;
             shared.report = None;
             shared.checkpoint_report = None;
