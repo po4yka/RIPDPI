@@ -244,14 +244,17 @@ class SnowflakeStunReachabilityProbe(
             socketFactory().use { socket ->
                 socket.soTimeout = timeoutMs.toInt()
                 val request = stunBindingRequest(transactionId())
-                socket.send(DatagramPacket(request, request.size, InetSocketAddress(endpoint.host, endpoint.port)))
+                val destination = InetSocketAddress(endpoint.host, endpoint.port)
+                socket.send(DatagramPacket(request, request.size, destination))
                 val response = DatagramPacket(ByteArray(StunResponseBytes), StunResponseBytes)
                 socket.receive(response)
+                val valid = response.isBindingSuccessFor(request, destination)
                 PtProbeTrace(
                     leg = SnowflakeStunLeg,
                     target = "${endpoint.host}:${endpoint.port}",
-                    ok = response.length >= StunHeaderBytes,
+                    ok = valid,
                     latencyMs = System.currentTimeMillis() - startedAt,
+                    error = if (valid) null else "invalid STUN binding response",
                 )
             }
         } catch (_: SocketTimeoutException) {
@@ -275,11 +278,27 @@ class SnowflakeStunReachabilityProbe(
 
     private fun stunBindingRequest(id: ByteArray): ByteArray = StunBindingRequestPrefix + id
 
+    private fun DatagramPacket.isBindingSuccessFor(
+        request: ByteArray,
+        destination: InetSocketAddress,
+    ): Boolean {
+        if (length < StunHeaderBytes || address != destination.address || port != destination.port) return false
+        val data = data.copyOfRange(offset, offset + length)
+        val messageLength = ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
+        return data[0] == 0x01.toByte() &&
+            data[1] == 0x01.toByte() &&
+            messageLength % StunAttributeAlignment == 0 &&
+            length == StunHeaderBytes + messageLength &&
+            data.copyOfRange(4, 8).contentEquals(StunBindingRequestPrefix.copyOfRange(4, 8)) &&
+            data.copyOfRange(8, StunHeaderBytes).contentEquals(request.copyOfRange(8, StunHeaderBytes))
+    }
+
     private companion object {
         private const val SnowflakeStunLeg = "snowflake_stun"
         private const val StunHeaderBytes = 20
         private const val StunResponseBytes = 512
         private const val StunTransactionIdBytes = 12
+        private const val StunAttributeAlignment = 4
         private val StunBindingRequestPrefix =
             byteArrayOf(
                 0x00,

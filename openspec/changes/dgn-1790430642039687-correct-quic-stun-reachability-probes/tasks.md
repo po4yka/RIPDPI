@@ -11,7 +11,7 @@ The diagnostics network probe writer owns the QUIC and STUN Kotlin probe files, 
 ## Execution
 
 - [x] DGN-1790430818948716 Replace synthetic QUIC production packets with native packets and test local build failure #bug !high @item:DGN-1790430642039687
-- [ ] DGN-1790430824485948 Validate Snowflake STUN response type cookie transaction and source with focused tests #bug !high @item:DGN-1790430642039687
+- [x] DGN-1790430824485948 Validate Snowflake STUN response type cookie transaction and source with focused tests #bug !high @item:DGN-1790430642039687
 
 ## Verification
 

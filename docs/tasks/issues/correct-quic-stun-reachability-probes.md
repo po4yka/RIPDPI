@@ -22,8 +22,8 @@ Make the Android DPI suite report QUIC reachability from valid network probes, a
 
 - [x] The DPI suite sends native QUIC Initial packets for the bundled `cloudflare.com` target instead of synthetic fixture bytes.
 - [x] A native QUIC packet build failure cannot silently produce a QUIC block verdict from a synthetic packet.
-- [ ] A STUN response with a wrong type, magic cookie, transaction ID, source, or truncated header is rejected; a matching binding success is accepted.
-- [ ] Focused regression tests and `:core:diagnostics:testDebugUnitTest` pass; app compilation is checked if available.
+- [x] A STUN response with a wrong type, magic cookie, transaction ID, source, or truncated header is rejected; a matching binding success is accepted.
+- [x] Focused regression tests and `:core:diagnostics:testDebugUnitTest` pass; app compilation is checked if available.
 
 ## Ownership
 

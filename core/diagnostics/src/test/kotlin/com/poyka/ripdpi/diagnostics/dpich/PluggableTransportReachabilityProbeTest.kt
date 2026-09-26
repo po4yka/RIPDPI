@@ -14,6 +14,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketAddress
 import java.net.SocketTimeoutException
@@ -179,15 +180,54 @@ class PluggableTransportReachabilityProbeTest {
         }
 
     @Test
-    fun snowflakeStunResponseHeaderReturnsOk() =
+    fun snowflakeStunMatchingBindingResponseReturnsOk() =
         runTest {
             val trace =
                 SnowflakeStunReachabilityProbe(
-                    socketFactory = { FakeDatagramSocket(responseLength = 20) },
+                    endpoint = PtEndpoint("127.0.0.1", 3478),
+                    socketFactory = { FakeDatagramSocket() },
                     transactionId = { ByteArray(12) },
                 ).run(1_000)
 
             assertTrue(trace.ok)
+        }
+
+    @Test
+    fun snowflakeStunRejectsUnrelatedOrMalformedDatagrams() =
+        runTest {
+            val malformedResponses =
+                listOf<(ByteArray) -> ByteArray>(
+                    { it.copyOf(19) },
+                    { it.copyOf().also { bytes -> bytes[0] = 0 } },
+                    { it.copyOf().also { bytes -> bytes[4] = 0 } },
+                    { it.copyOf().also { bytes -> bytes[8] = 1 } },
+                    { it.copyOf().also { bytes -> bytes[3] = 4 } },
+                )
+            malformedResponses.forEach { mutate ->
+                val trace =
+                    SnowflakeStunReachabilityProbe(
+                        endpoint = PtEndpoint("127.0.0.1", 3478),
+                        socketFactory = { FakeDatagramSocket(mutateResponse = mutate) },
+                        transactionId = { ByteArray(12) },
+                    ).run(1_000)
+
+                assertEquals(false, trace.ok)
+            }
+        }
+
+    @Test
+    fun snowflakeStunRejectsResponseFromOtherEndpoint() =
+        runTest {
+            listOf(InetSocketAddress("127.0.0.2", 3478), InetSocketAddress("127.0.0.1", 3479)).forEach { source ->
+                val trace =
+                    SnowflakeStunReachabilityProbe(
+                        endpoint = PtEndpoint("127.0.0.1", 3478),
+                        socketFactory = { FakeDatagramSocket(sourceOverride = source) },
+                        transactionId = { ByteArray(12) },
+                    ).run(1_000)
+
+                assertEquals(false, trace.ok)
+            }
         }
 
     @Test
@@ -280,14 +320,27 @@ class PluggableTransportReachabilityProbeTest {
     }
 
     private class FakeDatagramSocket(
-        private val responseLength: Int = 0,
+        private val mutateResponse: (ByteArray) -> ByteArray = { it },
+        private val sourceOverride: InetSocketAddress? = null,
         private val timeout: Boolean = false,
     ) : DatagramSocket() {
+        private lateinit var request: DatagramPacket
+
+        override fun send(packet: DatagramPacket) {
+            request = DatagramPacket(packet.data.copyOfRange(packet.offset, packet.offset + packet.length), packet.length)
+            request.socketAddress = packet.socketAddress
+        }
+
         override fun receive(packet: DatagramPacket) {
             if (timeout) {
                 throw SocketTimeoutException("timeout")
             }
-            packet.length = responseLength
+            val bytes = ByteArray(20)
+            bytes[0] = 0x01
+            bytes[1] = 0x01
+            request.data.copyInto(bytes, destinationOffset = 4, startIndex = 4, endIndex = 20)
+            packet.data = mutateResponse(bytes)
+            packet.socketAddress = sourceOverride ?: request.socketAddress
         }
     }
 }
