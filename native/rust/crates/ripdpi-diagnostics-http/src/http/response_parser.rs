@@ -21,7 +21,7 @@ pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Re
             let mut chunk = vec![0u8; remaining.min(4096)];
             let read = stream.read(&mut chunk).map_err(|err| err.to_string())?;
             if read == 0 {
-                break;
+                return Err("response_truncated".to_string());
             }
             body.extend_from_slice(&chunk[..read]);
         }
@@ -56,7 +56,7 @@ pub fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Res
             if buf.is_empty() {
                 return Err("unexpected eof".to_string());
             }
-            break;
+            return Err("response_missing_headers".to_string());
         }
         buf.extend_from_slice(&chunk[..read]);
         if buf.len() > max_bytes {

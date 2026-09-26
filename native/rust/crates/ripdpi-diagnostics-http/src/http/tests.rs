@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::transport::ConnectionStream;
+
 use super::*;
 
 #[test]
@@ -111,6 +113,38 @@ fn parse_http_response_handles_missing_reason() {
     let response = parse_http_response(headers, vec![]).unwrap();
     assert_eq!(response.status_code, 204);
     assert_eq!(response.reason, "");
+}
+
+#[test]
+fn read_http_response_rejects_truncated_content_length() {
+    use std::{io::Write, net::TcpListener, thread};
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhi").unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(std::net::TcpStream::connect(addr).unwrap());
+    let response = read_http_response(&mut stream, 1024);
+    server.join().unwrap();
+    assert_eq!(response.unwrap_err(), "response_truncated");
+}
+
+#[test]
+fn read_http_headers_rejects_eof_before_boundary() {
+    use std::{io::Write, net::TcpListener, thread};
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n").unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(std::net::TcpStream::connect(addr).unwrap());
+    let headers = read_http_headers(&mut stream, 1024);
+    server.join().unwrap();
+    assert_eq!(headers.unwrap_err(), "response_missing_headers");
 }
 
 #[test]
