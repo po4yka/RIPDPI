@@ -178,13 +178,14 @@ class SubprocessSocksRelayManager
 
         private fun stopInternal() {
             bridgeOrchestrator.reset()
+            processSupervisor.stop()?.let { errorMessage ->
+                lastError = errorMessage
+                throw RuntimeCleanupPendingException()
+            }
             runtimeVersion = null
             runtimeStateOverride = null
             config = null
             launchSpec = null
-            processSupervisor.stop()?.let { errorMessage ->
-                lastError = errorMessage
-            }
         }
 
         fun noteRestarting(reason: String) {

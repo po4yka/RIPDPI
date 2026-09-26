@@ -261,17 +261,22 @@ internal class UpstreamRelaySupervisor(
     suspend fun stop() {
         val slot = activeSlot ?: return
 
+        var cleanupRetained = false
         try {
             slot.stopRequested.set(true)
             slot.runtime.stop()
-            withTimeoutOrNull(stopTimeoutMillis) {
-                slot.job.join()
-            }
+            val stopped =
+                withTimeoutOrNull(stopTimeoutMillis) {
+                    slot.job.join()
+                    true
+                } == true
+            if (!stopped) throw RuntimeCleanupPendingException()
             reportExitIfNeeded(slot)
+        } catch (pending: RuntimeCleanupPendingException) {
+            cleanupRetained = true
+            throw pending
         } finally {
-            if (activeSlot === slot) {
-                activeSlot = null
-            }
+            if (!cleanupRetained && activeSlot === slot) activeSlot = null
         }
     }
 

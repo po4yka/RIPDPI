@@ -814,6 +814,7 @@ internal class TestRelayRuntime(
     var startFailure: Throwable? = null
     var awaitReadyFailure: Exception? = null
     var stopFailure: Throwable? = null
+    var keepRunningOnStop: Boolean = false
     var telemetryFailure: Throwable? = null
     var telemetry: NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
@@ -846,7 +847,7 @@ internal class TestRelayRuntime(
         stopCount += 1
         events += "relay:stop"
         stopFailure?.let { throw it }
-        if (!exitCode.isCompleted) {
+        if (!keepRunningOnStop && !exitCode.isCompleted) {
             exitCode.complete(0)
         }
     }

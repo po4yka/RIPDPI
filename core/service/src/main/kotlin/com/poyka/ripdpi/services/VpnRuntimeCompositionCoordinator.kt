@@ -69,7 +69,10 @@ internal class VpnRuntimeCompositionCoordinator(
             proxyRuntimeStack.stop(skipRuntimeShutdown)
         }.onFailure { failure ->
             val previousFailure = stopFailure
-            if (previousFailure == null) {
+            if (failure is RuntimeCleanupPendingException && previousFailure !is RuntimeCleanupPendingException) {
+                previousFailure?.let(failure::addSuppressed)
+                stopFailure = failure
+            } else if (previousFailure == null) {
                 stopFailure = failure
             } else {
                 previousFailure.addSuppressed(failure)

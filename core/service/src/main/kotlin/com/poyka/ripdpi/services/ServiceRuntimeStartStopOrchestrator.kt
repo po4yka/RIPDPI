@@ -140,8 +140,8 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                         }
                 }
             } catch (_: RuntimeCleanupPendingException) {
-                // The process owner and installed TUN remain live. Never publish Disconnected.
-                callbacks.updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Xray cleanup is incomplete"))
+                // Native cleanup is unconfirmed. Keep ownership so stop can be retried.
+                callbacks.updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Runtime cleanup is incomplete"))
                 true
             }
         terminalTelemetryCancellation?.let { throw it }

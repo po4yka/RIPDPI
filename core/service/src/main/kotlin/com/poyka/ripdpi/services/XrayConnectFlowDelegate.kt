@@ -216,5 +216,6 @@ internal fun defaultXrayStartParams(
         splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
     )
 
-/** Native cleanup still owns the installed VPN barrier; a later stop may retry it. */
-internal class RuntimeCleanupPendingException : IllegalStateException("Xray native cleanup is incomplete")
+/** Native cleanup still owns a resource; a later stop may retry it. */
+internal class RuntimeCleanupPendingException(cause: Throwable? = null) :
+    IllegalStateException("Runtime cleanup is incomplete", cause)

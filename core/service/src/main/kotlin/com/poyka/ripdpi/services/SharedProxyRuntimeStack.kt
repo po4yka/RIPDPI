@@ -165,10 +165,14 @@ internal class SharedProxyRuntimeStack(
         for (stopAction in stopActions) {
             runCatching { stopAction() }
                 .onFailure { error ->
-                    if (stopFailure == null) {
+                    val previousFailure = stopFailure
+                    if (error is RuntimeCleanupPendingException && previousFailure !is RuntimeCleanupPendingException) {
+                        previousFailure?.let(error::addSuppressed)
+                        stopFailure = error
+                    } else if (previousFailure == null) {
                         stopFailure = error
                     } else {
-                        stopFailure.addSuppressed(error)
+                        previousFailure.addSuppressed(error)
                     }
                 }
         }

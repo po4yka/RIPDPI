@@ -368,6 +368,29 @@ class SharedProxyRuntimeStackTest {
             assertEquals(1, fixture.relayFactory.lastRuntime.stopCount)
         }
 
+    @Test
+    fun retainedRelayCleanupTakesPriorityOverProxyStopFailure() =
+        runTest {
+            val fixture = createFixture()
+            fixture.stack.start(
+                proxyPreferences = rememberedJsonPreferences(),
+                onRelayExit = {},
+                onWarpExit = {},
+                onAwgExit = {},
+                onProxyExit = {},
+                initialRelayRacePlan = racePlan(),
+            )
+            fixture.proxyFactory.lastRuntime.stopFailure = IllegalStateException("proxy stop failed")
+            fixture.relayFactory.lastRuntime.stopFailure = RuntimeCleanupPendingException()
+
+            val failure = runCatching { fixture.stack.stop(skipRuntimeShutdown = false) }.exceptionOrNull()
+
+            assertTrue(failure is RuntimeCleanupPendingException)
+            assertEquals(1, failure?.suppressed?.size)
+            fixture.relayFactory.lastRuntime.stopFailure = null
+            fixture.stack.stop(skipRuntimeShutdown = false)
+        }
+
     private fun TestScope.createFixture(
         awgActiveProbe: RelayActiveProbe =
             RelayActiveProbe { _, _, _ ->

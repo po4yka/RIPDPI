@@ -55,6 +55,60 @@ import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
+    @Test
+    fun `relay stop timeout retains slot for retry`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                    stopTimeoutMillis = 100L,
+                )
+            supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = {},
+            )
+            relayFactory.lastRuntime.keepRunningOnStop = true
+
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
+            assertTrue(supervisor.pollTelemetry() is RuntimeTelemetryOutcome.Snapshot)
+            relayFactory.lastRuntime.keepRunningOnStop = false
+            supervisor.stop()
+            assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())
+        }
+
+    @Test
+    fun `failed stop keeps relay owned until retry succeeds`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+            supervisor.start(
+                requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = {},
+            )
+            relayFactory.lastRuntime.stopFailure = RuntimeCleanupPendingException()
+
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
+            assertTrue(supervisor.pollTelemetry() is RuntimeTelemetryOutcome.Snapshot)
+            relayFactory.lastRuntime.stopFailure = null
+            supervisor.stop()
+            assertEquals(2, relayFactory.lastRuntime.stopCount)
+            assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())
+        }
+
     private companion object {
         const val SampleCloudflareValue = "sample-cloudflare-value"
         const val SampleMasqueValue = "sample-masque-value"

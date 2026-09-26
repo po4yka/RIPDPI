@@ -59,9 +59,9 @@ internal class SubprocessRelayProcessSupervisor(
             Thread.currentThread().interrupt()
             error.message ?: "Interrupted while waiting for subprocess exit"
         } catch (error: IOException) {
-            error.message
+            error.message ?: "I/O error while stopping subprocess"
         } catch (error: SecurityException) {
-            error.message
+            error.message ?: "Access denied while stopping subprocess"
         }
     }
 

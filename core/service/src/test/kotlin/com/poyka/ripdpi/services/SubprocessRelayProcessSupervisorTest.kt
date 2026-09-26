@@ -16,6 +16,19 @@ import java.util.concurrent.TimeUnit
 
 class SubprocessRelayProcessSupervisorTest {
     @Test
+    fun `message free stop exception still reports retained process`() {
+        val process = FakeProcess(stopException = IOException())
+        val supervisor = supervisor(process)
+        supervisor.start(ProcessBuilder(), launchSpec(), onOutputEvent = {})
+
+        assertNotNull(supervisor.stop())
+        assertTrue(supervisor.isRunning())
+        process.stopException = null
+        process.exitOnTimedWait = true
+        assertNull(supervisor.stop())
+    }
+
+    @Test
     fun `stop retains process ownership until forced exit is confirmed`() {
         val process = FakeProcess(exitOnTimedWait = false)
         val supervisor = supervisor(process)
@@ -82,6 +95,7 @@ private class FakeProcess(
     var exitOnTimedWait: Boolean = false,
     private val exitOnBlockingWait: Boolean = false,
     private val failOutput: Boolean = false,
+    var stopException: IOException? = null,
 ) : Process() {
     private var running = true
     var destroyedForcibly = false
@@ -118,7 +132,9 @@ private class FakeProcess(
         return 0
     }
 
-    override fun destroy() = Unit
+    override fun destroy() {
+        stopException?.let { throw it }
+    }
 
     override fun destroyForcibly(): Process {
         destroyedForcibly = true
