@@ -39,19 +39,37 @@ class WebRtcLeakCheckerTest {
             bytes[8] = 0x5a
         }
         val response =
+            request.copyOf(32).also {
+                it[0] = 0x01
+                it[1] = 0x01
+                it[3] = 0x0c
+                it[21] = 0x20
+                it[23] = 0x08
+                it[25] = 0x01
+            }
+
+        val headerOnly =
             request.copyOf().also {
                 it[0] = 0x01
                 it[1] = 0x01
             }
-
+        assertFalse(WebRtcLeakChecker.validBindingResponse(headerOnly, headerOnly.size, request))
+        assertFalse(WebRtcLeakChecker.validBindingResponse(response, 20, request))
         assertTrue(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
+        assertFalse(WebRtcLeakChecker.validBindingResponse(response.copyOf(36), 36, request))
+        response[21] = 0x01
+        assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
+        response[21] = 0x20
+        response[23] = 0x04
+        assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
+        response[23] = 0x08
         response[8] = 0x00
         assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
         response[8] = 0x5a
         response[4] = 0x00
         assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
         response[4] = 0x21
-        response[3] = 0x04
+        response[3] = 0x10
         assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
     }
 }

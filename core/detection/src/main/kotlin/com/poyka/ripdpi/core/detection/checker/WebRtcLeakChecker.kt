@@ -85,7 +85,7 @@ object WebRtcLeakChecker {
                 val sendPacket = DatagramPacket(request, request.size, address, port)
                 socket.send(sendPacket)
 
-                val response = ByteArray(128)
+                val response = ByteArray(1500)
                 val recvPacket = DatagramPacket(response, response.size)
                 socket.receive(recvPacket)
 
@@ -103,9 +103,34 @@ object WebRtcLeakChecker {
         size: Int,
         request: ByteArray,
     ): Boolean {
-        if (size < 20 || size > response.size || response[0] != 0x01.toByte() || response[1] != 0x01.toByte()) return false
+        if (size < 20 || size > response.size || request.size < 20 ||
+            response[0] != 0x01.toByte() || response[1] != 0x01.toByte()
+        ) return false
         val length = (response[2].toInt() and 0xff) * 256 + (response[3].toInt() and 0xff)
-        if (length % 4 != 0 || length > size - 20) return false
-        return (4 until 20).all { response[it] == request[it] }
+        if (length % 4 != 0 || length != size - 20 || (4 until 20).any { response[it] != request[it] }) {
+            return false
+        }
+
+        var offset = 20
+        var hasMappedAddress = false
+        while (offset < size) {
+            if (size - offset < 4) return false
+            val type = (response[offset].toInt() and 0xff) * 256 + (response[offset + 1].toInt() and 0xff)
+            val attributeLength =
+                (response[offset + 2].toInt() and 0xff) * 256 +
+                    (response[offset + 3].toInt() and 0xff)
+            val valueOffset = offset + 4
+            offset = valueOffset + ((attributeLength + 3) and -4)
+            if (offset > size) return false
+            if (type == 0x0020) {
+                if (attributeLength != 8 && attributeLength != 20) return false
+                val family = response[valueOffset + 1].toInt() and 0xff
+                if (!((family == 1 && attributeLength == 8) || (family == 2 && attributeLength == 20))) {
+                    return false
+                }
+                hasMappedAddress = true
+            }
+        }
+        return hasMappedAddress
     }
 }
