@@ -26,7 +26,7 @@ class QuicH3FingerprintProbeTest {
         runTest {
             val socket = RecordingQuicUdpProbe(successes = emptySet())
 
-            val result = QuicH3FingerprintProbe(socket = socket).check("blocked.example")
+            val result = probe(socket).check("blocked.example")
 
             assertEquals(QuicProbeVerdict.QUIC_TIMEOUT, result.verdict)
             assertFalse(result.udpReachable)
@@ -54,7 +54,7 @@ class QuicH3FingerprintProbeTest {
                         ),
                 )
 
-            val result = QuicH3FingerprintProbe(socket = socket).check("example.com")
+            val result = probe(socket).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
             assertEquals(
@@ -81,7 +81,7 @@ class QuicH3FingerprintProbeTest {
                         ),
                 )
 
-            val result = QuicH3FingerprintProbe(socket = socket).check("example.com")
+            val result = probe(socket).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
             assertTrue(result.udpReachable)
@@ -136,12 +136,11 @@ class QuicH3FingerprintProbeTest {
     fun allFingerprintsReturnNonQuicResponsesReturnsDropped() =
         runTest {
             val result =
-                QuicH3FingerprintProbe(
-                    socket =
-                        RecordingQuicUdpProbe(
-                            successes = emptySet(),
-                            nonQuicResponses = QuicFingerprint.entries.toSet(),
-                        ),
+                probe(
+                    RecordingQuicUdpProbe(
+                        successes = emptySet(),
+                        nonQuicResponses = QuicFingerprint.entries.toSet(),
+                    ),
                 ).check("example.com")
 
             assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
@@ -169,7 +168,15 @@ class QuicH3FingerprintProbeTest {
         }
 
     private fun probe(successes: Set<QuicFingerprint>): QuicH3FingerprintProbe =
-        QuicH3FingerprintProbe(socket = RecordingQuicUdpProbe(successes = successes))
+        probe(RecordingQuicUdpProbe(successes = successes))
+
+    private fun probe(socket: QuicUdpProbe): QuicH3FingerprintProbe =
+        QuicH3FingerprintProbe(
+            socket = socket,
+            packetFactory = QuicInitialPacketFactory { fingerprint, target ->
+                QuicFingerprintFactory.createSynthetic(fingerprint, target)
+            },
+        )
 }
 
 private class RecordingQuicUdpProbe(

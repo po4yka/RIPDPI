@@ -20,6 +20,6 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-QUIC-VALID-INITIAL | DGN-1790430818948716 | Pending focused packet-selection test and module gate. | required |
-| REQ-QUIC-BUILD-FAILURE | DGN-1790430818948716 | Pending native-failure test and module gate. | required |
+| REQ-QUIC-VALID-INITIAL | DGN-1790430818948716 | Production suite no longer selects bundled 125-byte fixtures. Focused QUIC tests and `:app:compileGithubFullDebugKotlin` passed with `-Pripdpi.skipNativeBuild=true`. | passed |
+| REQ-QUIC-BUILD-FAILURE | DGN-1790430818948716 | `nativePacketFactoryRejectsBuildFailure` passed; the suite maps factory failure to a failed probe row. | passed |
 | REQ-STUN-RESPONSE-MATCH | DGN-1790430824485948 | Pending valid and invalid UDP response tests and module gate. | required |

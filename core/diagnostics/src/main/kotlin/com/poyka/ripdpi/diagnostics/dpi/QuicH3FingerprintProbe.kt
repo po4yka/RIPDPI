@@ -149,25 +149,6 @@ fun interface QuicInitialPacketFactory {
     ): ByteArray
 }
 
-class FixtureBackedQuicFingerprintFactory(
-    private val fixtures: Map<QuicFingerprint, ByteArray>,
-    private val delegate: QuicInitialPacketFactory = QuicFingerprintFactory,
-) : QuicInitialPacketFactory {
-    override fun create(
-        fingerprint: QuicFingerprint,
-        target: String,
-    ): ByteArray =
-        if (target.equals(FixtureTarget, ignoreCase = true)) {
-            fixtures[fingerprint] ?: delegate.create(fingerprint = fingerprint, target = target)
-        } else {
-            delegate.create(fingerprint = fingerprint, target = target)
-        }
-
-    private companion object {
-        private const val FixtureTarget = "cloudflare.com"
-    }
-}
-
 object QuicFingerprintFactory : QuicInitialPacketFactory {
     const val QuicV1Version: Int = 0x00000001
     const val ReservedVersion: Int = 0x1A2A3A4A
@@ -178,10 +159,7 @@ object QuicFingerprintFactory : QuicInitialPacketFactory {
         fingerprint: QuicFingerprint,
         target: String,
     ): ByteArray =
-        nativeFactory.createOrNull(
-            fingerprint = fingerprint,
-            target = target,
-        ) ?: createSynthetic(
+        nativeFactory.create(
             fingerprint = fingerprint,
             target = target,
         )
@@ -286,6 +264,13 @@ internal class NativeQuicInitialPacketFactory(
     private val bindings: QuicInitialPacketNativeBindings = NativeQuicInitialPacketBindings(),
     private val json: Json = RipDpiJson,
 ) {
+    fun create(
+        fingerprint: QuicFingerprint,
+        target: String,
+    ): ByteArray =
+        createOrNull(fingerprint, target)
+            ?: error("Native QUIC Initial packet generation failed for $fingerprint")
+
     fun createOrNull(
         fingerprint: QuicFingerprint,
         target: String,

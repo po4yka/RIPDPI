@@ -4,6 +4,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
@@ -16,7 +17,7 @@ class QuicFingerprintFactoryTest {
             QuicFingerprint.FIREFOX_121,
             QuicFingerprint.GENERIC_V1,
         ).forEach { fingerprint ->
-            val packet = QuicFingerprintFactory.create(fingerprint, "cloudflare.com")
+            val packet = QuicFingerprintFactory.createSynthetic(fingerprint, "cloudflare.com")
 
             assertTrue(packet.first().toInt() and 0x80 != 0)
             assertEquals(QuicFingerprintFactory.QuicV1Version, packet.version())
@@ -25,15 +26,15 @@ class QuicFingerprintFactoryTest {
 
     @Test
     fun vnProbeUsesReservedVersion() {
-        val packet = QuicFingerprintFactory.create(QuicFingerprint.VN_PROBE, "cloudflare.com")
+        val packet = QuicFingerprintFactory.createSynthetic(QuicFingerprint.VN_PROBE, "cloudflare.com")
 
         assertEquals(QuicFingerprintFactory.ReservedVersion, packet.version())
     }
 
     @Test
     fun fingerprintsHaveDifferentConnectionIds() {
-        val chrome = QuicFingerprintFactory.create(QuicFingerprint.CHROME_120, "cloudflare.com")
-        val firefox = QuicFingerprintFactory.create(QuicFingerprint.FIREFOX_121, "cloudflare.com")
+        val chrome = QuicFingerprintFactory.createSynthetic(QuicFingerprint.CHROME_120, "cloudflare.com")
+        val firefox = QuicFingerprintFactory.createSynthetic(QuicFingerprint.FIREFOX_121, "cloudflare.com")
 
         assertNotEquals(chrome.copyOfRange(6, 14).toList(), firefox.copyOfRange(6, 14).toList())
     }
@@ -70,53 +71,12 @@ class QuicFingerprintFactoryTest {
     }
 
     @Test
-    fun fixtureBackedFactoryUsesBundledFixtureForCloudflareTarget() {
-        val fixture = byteArrayOf(1, 2, 3)
-        val factory =
-            FixtureBackedQuicFingerprintFactory(
-                fixtures = mapOf(QuicFingerprint.CHROME_120 to fixture),
-                delegate = FailingPacketFactory,
-            )
+    fun nativePacketFactoryRejectsBuildFailure() {
+        val factory = NativeQuicInitialPacketFactory(bindings = CapturingBindings { """{"error":"build failed"}""" })
 
-        val packet = factory.create(QuicFingerprint.CHROME_120, "cloudflare.com")
-
-        assertArrayEquals(fixture, packet)
-    }
-
-    @Test
-    fun fixtureBackedFactoryFallsBackForNonFixtureTarget() {
-        val fixture = byteArrayOf(1, 2, 3)
-        val delegatePacket = byteArrayOf(9, 8, 7)
-        val factory =
-            FixtureBackedQuicFingerprintFactory(
-                fixtures = mapOf(QuicFingerprint.CHROME_120 to fixture),
-                delegate =
-                    QuicInitialPacketFactory { _, _ ->
-                        delegatePacket
-                    },
-            )
-
-        val packet = factory.create(QuicFingerprint.CHROME_120, "example.com")
-
-        assertArrayEquals(delegatePacket, packet)
-    }
-
-    @Test
-    fun bundledFingerprintFixturesMatchDeterministicInitialsForCloudflare() {
-        val fixtures = DpiAssetLoader(fileProvider = RepoDpiAssetFileProvider()).loadQuicFingerprintFixtures()
-
-        assertArrayEquals(
-            fixtures.getValue(QuicFingerprint.CHROME_120),
-            QuicFingerprintFactory.createSynthetic(QuicFingerprint.CHROME_120, "cloudflare.com"),
-        )
-        assertArrayEquals(
-            fixtures.getValue(QuicFingerprint.FIREFOX_121),
-            QuicFingerprintFactory.createSynthetic(QuicFingerprint.FIREFOX_121, "cloudflare.com"),
-        )
-        assertArrayEquals(
-            fixtures.getValue(QuicFingerprint.GENERIC_V1),
-            QuicFingerprintFactory.createSynthetic(QuicFingerprint.GENERIC_V1, "cloudflare.com"),
-        )
+        assertThrows(IllegalStateException::class.java) {
+            factory.create(QuicFingerprint.CHROME_120, "cloudflare.com")
+        }
     }
 
     private fun ByteArray.version(): Int =
@@ -131,10 +91,4 @@ class QuicFingerprintFactoryTest {
         override fun create(requestJson: String): String? = response()
     }
 
-    private object FailingPacketFactory : QuicInitialPacketFactory {
-        override fun create(
-            fingerprint: QuicFingerprint,
-            target: String,
-        ): ByteArray = error("delegate should not be used")
-    }
 }

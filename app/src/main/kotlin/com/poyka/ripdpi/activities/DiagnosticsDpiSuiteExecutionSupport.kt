@@ -19,8 +19,6 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
-import com.poyka.ripdpi.diagnostics.dpi.FixtureBackedQuicFingerprintFactory
-import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
@@ -100,7 +98,6 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
                 concurrency: Int,
             ): List<QuicProbeResult> =
                 QuicH3FingerprintProbe(
-                    packetFactory = FixtureBackedQuicFingerprintFactory(loadQuicFingerprintFixtures()),
                     concurrency = concurrency,
                 ).checkAll(targets)
 
@@ -126,9 +123,6 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
         withContext(Dispatchers.IO) { assetLoader.loadWhitelistSni() }
 
     private suspend fun loadEchTargets(): List<String> = withContext(Dispatchers.IO) { assetLoader.loadEchTargets() }
-
-    private suspend fun loadQuicFingerprintFixtures(): Map<QuicFingerprint, ByteArray> =
-        withContext(Dispatchers.IO) { assetLoader.loadQuicFingerprintFixtures() }
 }
 
 internal class DiagnosticsDpiSuiteTlsRunFinalizer(
