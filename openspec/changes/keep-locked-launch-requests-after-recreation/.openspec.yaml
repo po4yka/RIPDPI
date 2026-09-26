@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-26
+goal: AND-1790433472437083 Keep locked launch requests through Activity recreation

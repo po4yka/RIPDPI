@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     internal lateinit var processDeathResumeCoordinator: ProcessDeathResumeCoordinator
 
     private val viewModel: MainViewModel by viewModels()
-    private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
+    private lateinit var shellController: MainActivityShellController
 
     companion object {
         fun createLaunchIntent(
@@ -74,12 +74,20 @@ class MainActivity : AppCompatActivity() {
         val splashScreen = installSplashScreen()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        shellController =
+            MainActivityShellController(
+                initialIntent = intent,
+                savedPendingLaunchRequests = savedInstanceState?.getBundle(PendingLaunchRequestsStateKey),
+            )
         applySelectorSelection(intent)
         val automationConfig =
             automationController
                 .map { controller -> controller.prepareLaunch(intent) }
                 .orElse(null)
-        shellController.setLaunchRouteRequest(automationConfig?.startRoute ?: navigationRouteFrom(intent)?.stableRoute)
+        val launchRoute = automationConfig?.startRoute ?: navigationRouteFrom(intent)?.stableRoute
+        if (savedInstanceState == null || launchRoute != null) {
+            shellController.setLaunchRouteRequest(launchRoute)
+        }
         // NavController handles Activity.intent when its graph is created. Keep inbound
         // links in the shell so the onboarding and app-lock gates can defer them.
         setIntent(safeMainActivityIntent(this))
@@ -115,6 +123,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.onForeground()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBundle(PendingLaunchRequestsStateKey, shellController.savePendingLaunchRequests())
+        super.onSaveInstanceState(outState)
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -177,6 +190,7 @@ internal fun applySelectorSelectionIntent(
 }
 
 private const val extraOpenHome = "com.poyka.ripdpi.extra.OPEN_HOME"
+private const val PendingLaunchRequestsStateKey = "pending-launch-requests"
 private const val extraStartConfiguredMode = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
 private const val extraStopConfiguredMode = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
 internal const val internalVpnControlActivityClassName =

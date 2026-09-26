@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
+import android.os.Bundle
+import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -40,18 +42,20 @@ internal sealed interface MainActivityUiEvent {
 
 internal class MainActivityShellController(
     initialIntent: Intent? = null,
+    savedPendingLaunchRequests: Bundle? = null,
 ) {
     private val _state =
         MutableStateFlow(
-            MainActivityShellState(
-                launchHomeRequested = requestsHomeTab(initialIntent),
-                launchRouteRequested = navigationRouteFrom(initialIntent)?.stableRoute,
-                sharedDiagnosticFragmentRequested = diagnosticShareFragment(initialIntent),
-                importRouteRequested = importRouteFrom(initialIntent),
-                startConfiguredModeRequested = requestsConfiguredStart(initialIntent),
-                stopConfiguredModeRequested = requestsConfiguredStop(initialIntent),
-                selectorSelectionRequested = selectorRequestFrom(initialIntent),
-            ),
+            savedPendingLaunchRequests?.let(::restorePendingLaunchRequests)
+                ?: MainActivityShellState(
+                    launchHomeRequested = requestsHomeTab(initialIntent),
+                    launchRouteRequested = navigationRouteFrom(initialIntent)?.stableRoute,
+                    sharedDiagnosticFragmentRequested = diagnosticShareFragment(initialIntent),
+                    importRouteRequested = importRouteFrom(initialIntent),
+                    startConfiguredModeRequested = requestsConfiguredStart(initialIntent),
+                    stopConfiguredModeRequested = requestsConfiguredStop(initialIntent),
+                    selectorSelectionRequested = selectorRequestFrom(initialIntent),
+                ),
         )
     private val _uiEvents = Channel<MainActivityUiEvent>(capacity = Channel.BUFFERED)
 
@@ -61,6 +65,45 @@ internal class MainActivityShellController(
     val state: StateFlow<MainActivityShellState> = _state.asStateFlow()
     val uiEvents: Flow<MainActivityUiEvent> = _uiEvents.receiveAsFlow()
     val hostCommands: Flow<MainActivityHostCommand> = _hostCommands.receiveAsFlow()
+
+    init {
+        if (savedPendingLaunchRequests != null) onNewIntent(initialIntent)
+    }
+
+    fun savePendingLaunchRequests(): Bundle =
+        Bundle().apply {
+            val current = _state.value
+            putBoolean("home", current.launchHomeRequested)
+            putString("route", current.launchRouteRequested)
+            putString("share", current.sharedDiagnosticFragmentRequested)
+            when (val route = current.importRouteRequested) {
+                is Route.SupportSettings -> {
+                    putString("import-kind", "support-settings")
+                    putString("import-value", route.packageJson)
+                }
+
+                is Route.ProfileImportConfirm -> {
+                    putString("import-kind", "profile")
+                    putString("import-value", route.importToken)
+                }
+
+                is Route.SubscriptionImportConfirm -> {
+                    putString("import-kind", "subscription")
+                    putString("import-value", route.importToken)
+                }
+
+                else -> {
+                    Unit
+                }
+            }
+            putBoolean("start-mode", current.startConfiguredModeRequested)
+            putBoolean("stop-mode", current.stopConfiguredModeRequested)
+            current.selectorSelectionRequested?.let { request ->
+                putString("selector-group", request.groupId)
+                putString("selector-profile", request.profileId)
+            }
+            putBoolean("relock", current.relockRequested)
+        }
 
     fun onNewIntent(intent: Intent?) {
         _state.update { current ->
@@ -210,6 +253,49 @@ internal class MainActivityShellController(
     internal fun emitHostCommand(command: MainActivityHostCommand) {
         _hostCommands.trySend(command)
     }
+}
+
+private fun restorePendingLaunchRequests(saved: Bundle): MainActivityShellState {
+    val importValue = saved.getString("import-value")
+    val importRoute =
+        when (saved.getString("import-kind")) {
+            "support-settings" -> {
+                importValue?.let(Route::SupportSettings)
+            }
+
+            "profile" -> {
+                importValue
+                    ?.takeIf(PendingProxyImportStore.process::contains)
+                    ?.let(Route::ProfileImportConfirm)
+            }
+
+            "subscription" -> {
+                importValue
+                    ?.takeIf(PendingProxyImportStore.process::contains)
+                    ?.let(Route::SubscriptionImportConfirm)
+            }
+
+            else -> {
+                null
+            }
+        }
+    val selectorGroup = saved.getString("selector-group")
+    val selectorProfile = saved.getString("selector-profile")
+    return MainActivityShellState(
+        launchHomeRequested = saved.getBoolean("home"),
+        launchRouteRequested = saved.getString("route"),
+        sharedDiagnosticFragmentRequested = saved.getString("share"),
+        importRouteRequested = importRoute,
+        startConfiguredModeRequested = saved.getBoolean("start-mode"),
+        stopConfiguredModeRequested = saved.getBoolean("stop-mode"),
+        selectorSelectionRequested =
+            if (selectorGroup != null && selectorProfile != null) {
+                SelectorSelectionRequest(selectorGroup, selectorProfile)
+            } else {
+                null
+            },
+        relockRequested = saved.getBoolean("relock"),
+    )
 }
 
 internal fun MainActivityShellController.requestSaveLogs() {

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import app.cash.turbine.test
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.shortcuts.ExtraSelectGroupId
@@ -294,6 +295,86 @@ class MainActivityShellControllerTest {
         controller.consumeLaunchRouteRequest()
         controller.onNewIntent(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config")))
         assertEquals(Route.Config.stableRoute, controller.state.value.launchRouteRequested)
+    }
+
+    @Test
+    fun `locked deep link remains pending after activity recreation`() {
+        val original = MainActivityShellController(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings")))
+        val savedState = Bundle().apply { putBundle("pending-launch", original.savePendingLaunchRequests()) }
+        val recreated =
+            MainActivityShellController(
+                initialIntent = safeMainActivityIntent(RuntimeEnvironment.getApplication()),
+                savedPendingLaunchRequests = savedState.getBundle("pending-launch"),
+            )
+
+        assertEquals(Route.Settings.stableRoute, recreated.state.value.launchRouteRequested)
+        recreated.consumeLaunchRouteRequest()
+        assertNull(recreated.state.value.launchRouteRequested)
+    }
+
+    @Test
+    fun `locked shared diagnostics link remains pending after activity recreation`() {
+        val intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://po4yka.github.io/RIPDPI/share?v=1#abc_Def-123"))
+        val original = MainActivityShellController(intent)
+        val recreated =
+            MainActivityShellController(
+                initialIntent = safeMainActivityIntent(RuntimeEnvironment.getApplication()),
+                savedPendingLaunchRequests = original.savePendingLaunchRequests(),
+            )
+
+        assertEquals("abc_Def-123", recreated.state.value.sharedDiagnosticFragmentRequested)
+        recreated.consumeDiagnosticShareFragmentRequest()
+        assertNull(recreated.state.value.sharedDiagnosticFragmentRequested)
+    }
+
+    @Test
+    fun `new share link delivered during recreation is kept with restored requests`() {
+        val original = MainActivityShellController(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://settings")))
+        val incoming =
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://po4yka.github.io/RIPDPI/share?v=1#abc_Def-123"))
+        val recreated =
+            MainActivityShellController(
+                initialIntent = incoming,
+                savedPendingLaunchRequests = original.savePendingLaunchRequests(),
+            )
+
+        assertEquals(Route.Settings.stableRoute, recreated.state.value.launchRouteRequested)
+        assertEquals("abc_Def-123", recreated.state.value.sharedDiagnosticFragmentRequested)
+    }
+
+    @Test
+    fun `locked import route remains pending after activity recreation`() {
+        val payload = """{"schema":1,"operations":[{"op":"set","path":"settings.app_theme","value":"dark"}]}"""
+        val encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.toByteArray())
+        val original =
+            MainActivityShellController(
+                Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://support-config?payload=$encoded")),
+            )
+        val recreated =
+            MainActivityShellController(
+                initialIntent = safeMainActivityIntent(RuntimeEnvironment.getApplication()),
+                savedPendingLaunchRequests = original.savePendingLaunchRequests(),
+            )
+
+        assertEquals(Route.SupportSettings(packageJson = payload), recreated.state.value.importRouteRequested)
+        recreated.consumeImportRouteRequest()
+        assertNull(recreated.state.value.importRouteRequested)
+    }
+
+    @Test
+    fun `pending relock survives activity recreation`() {
+        val original = MainActivityShellController()
+        original.onEffect(MainEffect.RelockRequested)
+        val recreated =
+            MainActivityShellController(
+                initialIntent = safeMainActivityIntent(RuntimeEnvironment.getApplication()),
+                savedPendingLaunchRequests = original.savePendingLaunchRequests(),
+            )
+
+        assertTrue(recreated.state.value.relockRequested)
+        recreated.consumeRelockRequest()
+        assertFalse(recreated.state.value.relockRequested)
     }
 
     @Test
