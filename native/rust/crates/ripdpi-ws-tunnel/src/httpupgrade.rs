@@ -252,6 +252,11 @@ pub fn parse_upgrade_response(buffer: &[u8]) -> Result<Option<UpgradeResponse>, 
         }
         return Ok(None);
     };
+    if terminator + HEADER_TERMINATOR.len() > MAX_RESPONSE_HEAD_LEN {
+        return Err(HttpUpgradeError::MalformedResponse(format!(
+            "response head exceeded {MAX_RESPONSE_HEAD_LEN} bytes"
+        )));
+    }
     let head = &buffer[..terminator];
     let leftover = buffer[terminator + HEADER_TERMINATOR.len()..].to_vec();
 
@@ -531,6 +536,15 @@ mod tests {
     fn parse_response_rejects_oversized_head_without_terminator() {
         let huge = vec![b'x'; MAX_RESPONSE_HEAD_LEN + 1];
         let err = parse_upgrade_response(&huge).expect_err("oversized head must be rejected");
+        assert!(matches!(err, HttpUpgradeError::MalformedResponse(_)));
+    }
+
+    #[test]
+    fn parse_response_rejects_oversized_head_with_terminator() {
+        let mut head = b"HTTP/1.1 101 Switching Protocols\r\nX-Fill: ".to_vec();
+        head.extend(vec![b'x'; MAX_RESPONSE_HEAD_LEN]);
+        head.extend_from_slice(b"\r\n\r\n");
+        let err = parse_upgrade_response(&head).expect_err("complete oversized head must be rejected");
         assert!(matches!(err, HttpUpgradeError::MalformedResponse(_)));
     }
 
