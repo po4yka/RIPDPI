@@ -25,6 +25,7 @@ import com.poyka.ripdpi.services.ProxySupervisorExitHandler
 import com.poyka.ripdpi.services.ProxyTelemetryCoordinator
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeStartEvidence
+import com.poyka.ripdpi.services.RuntimeStopGuard
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
@@ -312,7 +313,9 @@ internal class ProxyServiceRuntimeCoordinator(
             mutex.withLock {
                 if (runtimeSession?.runtimeId == observedSession.runtimeId && status == ServiceStatus.Connected) {
                     stopRuntimeBestEffort()
-                    updateStatus(ServiceStatus.Failed, classifyFailureReason(error))
+                    val reason = classifyFailureReason(error)
+                    updateStatus(ServiceStatus.Failed, reason)
+                    stopFailedDestinationRoutingSession(observedSession, reason)
                 }
             }
             null
@@ -342,7 +345,9 @@ internal class ProxyServiceRuntimeCoordinator(
             throw cancelled
         } catch (error: Exception) {
             stopRuntimeBestEffort()
-            updateStatus(ServiceStatus.Failed, classifyFailureReason(error))
+            val reason = classifyFailureReason(error)
+            updateStatus(ServiceStatus.Failed, reason)
+            stopFailedDestinationRoutingSession(session, reason)
         } finally {
             handoverRestarting = false
         }
@@ -356,6 +361,21 @@ internal class ProxyServiceRuntimeCoordinator(
             } catch (_: Exception) {
                 // Preserve the original policy-resolution or rebuild failure.
             }
+        }
+    }
+
+    private fun stopFailedDestinationRoutingSession(
+        session: ProxyRuntimeSession,
+        reason: FailureReason,
+    ) {
+        host.serviceScope.launch(ioDispatcher) {
+            stop(
+                guard =
+                    RuntimeStopGuard(
+                        isCurrent = { runtimeSession?.runtimeId == session.runtimeId && status == ServiceStatus.Failed },
+                        failureReason = reason,
+                    ),
+            )
         }
     }
 

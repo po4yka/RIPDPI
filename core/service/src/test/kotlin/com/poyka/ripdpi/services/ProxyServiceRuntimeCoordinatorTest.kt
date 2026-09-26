@@ -68,6 +68,22 @@ class ProxyServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun destinationRoutingResolutionFailureStopsFailedService() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            env.resolver.enqueueFailure(IOException("routing policy unavailable"))
+
+            advanceTimeBy(5_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(1, env.factory.lastRuntime.stopCount)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(listOf(null), env.host.stopRequests)
+        }
+
+    @Test
     fun receiptPersistenceFailureDoesNotBlockConnectedState() =
         runTest {
             val env =
