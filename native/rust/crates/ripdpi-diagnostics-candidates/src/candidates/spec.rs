@@ -83,15 +83,7 @@ pub(super) fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 /// - `ipfrag2_udp` → [`RuntimeCapability::RawUdpFragmentation`] (raw IP UDP fragmentation path).
 /// - `multidisorder` → [`RuntimeCapability::RootHelperAvailable`] (TCP_REPAIR / root).
 ///
-/// Returns a `'static` slice so it can be stored in [`StrategyCandidateSpec`]
-/// without allocation.
-pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [RuntimeCapability] {
-    static TTL_WRITE: &[RuntimeCapability] = &[RuntimeCapability::TtlWrite];
-    static RAW_TCP: &[RuntimeCapability] = &[RuntimeCapability::RawTcpFakeSend];
-    static RAW_UDP: &[RuntimeCapability] = &[RuntimeCapability::RawUdpFragmentation];
-    static REPLACEMENT_SOCKET: &[RuntimeCapability] = &[RuntimeCapability::ReplacementSocket];
-    static ROOT_HELPER: &[RuntimeCapability] = &[RuntimeCapability::RootHelperAvailable];
-
+pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> Vec<RuntimeCapability> {
     let all_steps = config.chains.tcp_steps.iter().chain(
         config
             .chains
@@ -132,22 +124,23 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [
         }
     }
 
-    // Return the most specific static slice. When multiple capabilities are
-    // required we conservatively return the highest-privilege one; in practice
-    // no single candidate currently needs more than one capability class.
-    if needs_root {
-        ROOT_HELPER
-    } else if needs_replacement_socket {
-        REPLACEMENT_SOCKET
-    } else if needs_raw_udp {
-        RAW_UDP
-    } else if needs_raw_tcp {
-        RAW_TCP
-    } else if needs_ttl {
-        TTL_WRITE
-    } else {
-        &[]
+    let mut required = Vec::new();
+    if needs_ttl {
+        required.push(RuntimeCapability::TtlWrite);
     }
+    if needs_raw_tcp {
+        required.push(RuntimeCapability::RawTcpFakeSend);
+    }
+    if needs_raw_udp {
+        required.push(RuntimeCapability::RawUdpFragmentation);
+    }
+    if needs_replacement_socket {
+        required.push(RuntimeCapability::ReplacementSocket);
+    }
+    if needs_root {
+        required.push(RuntimeCapability::RootHelperAvailable);
+    }
+    required
 }
 
 /// Filters `candidates` to those whose required capabilities are all available

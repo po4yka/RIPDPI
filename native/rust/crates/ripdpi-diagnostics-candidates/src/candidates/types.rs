@@ -29,12 +29,12 @@ pub struct StrategyCandidateSpec {
     pub requires_fake_ttl: bool,
     pub requires_tcp_fast_open: bool,
     /// Runtime capabilities that must be available for this candidate to emit
-    /// packets as designed. An empty slice means the candidate works on every
+    /// packets as designed. An empty list means the candidate works on every
     /// platform without special privileges.
     ///
     /// Use [`enumerate_capable_candidates`] to filter a pool against a live
     /// capability lookup before promoting a winner.
-    pub requires_capabilities: &'static [RuntimeCapability],
+    pub requires_capabilities: Vec<RuntimeCapability>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

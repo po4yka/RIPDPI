@@ -3,6 +3,7 @@ use crate::util::{TLS_FAKE_PROFILE_GOOGLE_CHROME, TLS_FAKE_PROFILE_GOOGLE_CHROME
 use ripdpi_diagnostics_contracts::StrategyEmitterTier;
 use ripdpi_proxy_config::{
     ProxyEncryptedDnsContext, ProxyUiActivationFilter, ProxyUiConfig, ProxyUiDestinationRoutingAction,
+    ProxyUiUdpChainStep,
 };
 use ripdpi_runtime_platform::capability::RuntimeCapability;
 
@@ -401,6 +402,26 @@ fn quic_ipfrag_candidate_records_udp_raw_capability_requirement() {
     assert_eq!(spec.config.chains.udp_steps[0].kind, "ipfrag2_udp");
     assert_eq!(spec.requires_capabilities, &[RuntimeCapability::RawUdpFragmentation]);
     assert_eq!(spec.emitter_tier, StrategyEmitterTier::RootedProduction);
+}
+
+#[test]
+fn current_baseline_keeps_all_capability_requirements() {
+    let mut base = minimal_ui_config();
+    base.chains.tcp_steps = vec![tcp_step("fakerst", "")];
+    base.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        kind: "ipfrag2_udp".to_string(),
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "none".to_string(),
+    }];
+
+    let current =
+        build_primary_candidates(&base).into_iter().find(|candidate| candidate.id == "baseline_current").unwrap();
+    assert_eq!(
+        current.requires_capabilities,
+        [RuntimeCapability::RawTcpFakeSend, RuntimeCapability::RawUdpFragmentation],
+    );
 }
 
 #[test]
