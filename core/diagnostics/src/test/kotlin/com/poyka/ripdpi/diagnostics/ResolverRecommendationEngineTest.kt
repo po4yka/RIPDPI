@@ -851,7 +851,9 @@ class ResolverRecommendationEngineComputeTest {
         val result =
             ResolverRecommendationEngine.compute(
                 report = report,
-                settings = com.poyka.ripdpi.proto.AppSettings.getDefaultInstance(),
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
                 preferredPath = null,
             )
 

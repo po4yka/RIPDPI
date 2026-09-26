@@ -6,8 +6,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,7 +35,10 @@ class HomeCompositeRunJobsTest {
         assertEquals(newTie, equalCounts.previousBefore(current.runId))
     }
 
-    private fun homeOutcome(runId: String, sessionCount: Int): DiagnosticsHomeCompositeOutcome =
+    private fun homeOutcome(
+        runId: String,
+        sessionCount: Int,
+    ): DiagnosticsHomeCompositeOutcome =
         DiagnosticsHomeCompositeOutcome(
             runId = runId,
             actionable = false,
