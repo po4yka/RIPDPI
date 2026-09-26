@@ -23,6 +23,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -96,6 +98,8 @@ class DefaultStrategyPackRepository
         private val buildProvenanceProvider: StrategyPackBuildProvenanceProvider,
         private val snapshotWriter: AtomicTextFileWriter,
     ) : StrategyPackRepository {
+        private val refreshMutex = Mutex()
+
         override suspend fun loadSnapshot(): StrategyPackLoadResult =
             withContext(Dispatchers.IO) {
                 val provenance = buildProvenanceProvider.current()
@@ -142,63 +146,65 @@ class DefaultStrategyPackRepository
             channel: String,
             allowRollbackOverride: Boolean,
         ): StrategyPackSnapshot =
-            withContext(Dispatchers.IO) {
-                val normalizedChannel = normalizeStrategyPackChannel(channel)
-                val provenance = buildProvenanceProvider.current()
-                val previousSnapshot = loadCachedSnapshot().snapshot
-                val manifest =
-                    runCatching { loadManifest(normalizedChannel) }
-                        .getOrElse { error ->
-                            if (error.isMissingRemoteManifest()) {
-                                return@withContext loadRefreshFallbackSnapshot(
-                                    channel = normalizedChannel,
-                                    provenance = provenance,
-                                )
+            refreshMutex.withLock {
+                withContext(Dispatchers.IO) {
+                    val normalizedChannel = normalizeStrategyPackChannel(channel)
+                    val provenance = buildProvenanceProvider.current()
+                    val previousSnapshot = loadCachedSnapshot().snapshot
+                    val manifest =
+                        runCatching { loadManifest(normalizedChannel) }
+                            .getOrElse { error ->
+                                if (error.isMissingRemoteManifest()) {
+                                    return@withContext loadRefreshFallbackSnapshot(
+                                        channel = normalizedChannel,
+                                        provenance = provenance,
+                                    )
+                                }
+                                throw error
                             }
-                            throw error
-                        }
-                val downloadedAtEpochMillis = clock.nowEpochMillis()
-                val tempFile = tempFileFactory.create(context.cacheDir)
+                    val downloadedAtEpochMillis = clock.nowEpochMillis()
+                    val tempFile = tempFileFactory.create(context.cacheDir)
 
-                try {
-                    val actualChecksum =
-                        service
-                            .downloadCatalog(manifest.catalogUrl)
-                            .writeToFileAndDigest(tempFile)
-                    val payload = tempFile.readBytes()
-                    verifier.verify(
-                        manifest = manifest,
-                        payload = payload,
-                        actualChecksumSha256 = actualChecksum,
-                    )
-
-                    val catalog = parseCatalog(payload)
-                    ensureCompatible(catalog)
-                    enforceAntiRollbackPolicy(
-                        catalog = catalog,
-                        downloadedAtEpochMillis = downloadedAtEpochMillis,
-                        acceptedSequence =
-                            previousSnapshot
-                                ?.takeIf { normalizeStrategyPackChannel(it.catalog.channel) == normalizedChannel }
-                                ?.acceptedSequenceOrNull(),
-                        allowRollbackOverride = allowRollbackOverride,
-                    )
-                    val snapshot =
-                        StrategyPackSnapshot(
-                            catalog = catalog,
-                            source = StrategyPackCatalogSourceDownloaded,
-                            lastFetchedAtEpochMillis = downloadedAtEpochMillis,
-                            manifestVersion = manifest.version,
-                            verifiedChecksumSha256 = manifest.catalogChecksumSha256.lowercase(),
-                            verifiedSignatureBase64 = manifest.catalogSignatureBase64,
+                    try {
+                        val actualChecksum =
+                            service
+                                .downloadCatalog(manifest.catalogUrl)
+                                .writeToFileAndDigest(tempFile)
+                        val payload = tempFile.readBytes()
+                        verifier.verify(
+                            manifest = manifest,
+                            payload = payload,
+                            actualChecksumSha256 = actualChecksum,
                         )
-                    snapshotWriter.write(
-                        file = cacheFile(),
-                        payload = snapshot.toJson(),
-                    )
-                    snapshot
-                } finally {
-                    tempFile.delete()
+
+                        val catalog = parseCatalog(payload)
+                        ensureCompatible(catalog)
+                        enforceAntiRollbackPolicy(
+                            catalog = catalog,
+                            downloadedAtEpochMillis = downloadedAtEpochMillis,
+                            acceptedSequence =
+                                previousSnapshot
+                                    ?.takeIf { normalizeStrategyPackChannel(it.catalog.channel) == normalizedChannel }
+                                    ?.acceptedSequenceOrNull(),
+                            allowRollbackOverride = allowRollbackOverride,
+                        )
+                        val snapshot =
+                            StrategyPackSnapshot(
+                                catalog = catalog,
+                                source = StrategyPackCatalogSourceDownloaded,
+                                lastFetchedAtEpochMillis = downloadedAtEpochMillis,
+                                manifestVersion = manifest.version,
+                                verifiedChecksumSha256 = manifest.catalogChecksumSha256.lowercase(),
+                                verifiedSignatureBase64 = manifest.catalogSignatureBase64,
+                            )
+                        snapshotWriter.write(
+                            file = cacheFile(),
+                            payload = snapshot.toJson(),
+                        )
+                        snapshot
+                    } finally {
+                        tempFile.delete()
+                    }
                 }
             }
 

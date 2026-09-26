@@ -12,7 +12,12 @@ import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
 import com.poyka.ripdpi.storage.AtomicTextFileWriter
 import com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter
 import com.poyka.ripdpi.testsupport.CorruptFileFixture
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -26,6 +31,7 @@ import org.robolectric.annotation.Config
 import java.io.IOException
 import java.security.KeyPair
 import java.security.KeyPairGenerator
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -53,6 +59,53 @@ class AssetStrategyPackRepositoryRefreshPolicyTest {
                     },
             )
     }
+
+    @Test
+    fun `concurrent refresh cannot replace newer accepted sequence`() =
+        runTest {
+            val older = refreshedCatalogJson(sequence = 8)
+            val newer = refreshedCatalogJson(sequence = 9)
+            val firstDownloadStarted = CompletableDeferred<Unit>()
+            val releaseFirstDownload = CompletableDeferred<Unit>()
+            val secondManifestRequested = CompletableDeferred<Unit>()
+            val calls = AtomicInteger()
+            val repository =
+                createRepository(
+                    service =
+                        object : StrategyPackDownloadService {
+                            override suspend fun downloadManifest(url: String): ByteArray {
+                                val index = calls.incrementAndGet()
+                                if (index == 2) secondManifestRequested.complete(Unit)
+                                val payload = if (index == 1) older else newer
+                                return Json.encodeToString(
+                                    manifestFor(payload, version = "2026.04.$index").copy(
+                                        catalogUrl = "https://cdn.example.test/catalog/$index",
+                                    ),
+                                ).toByteArray()
+                            }
+
+                            override suspend fun downloadCatalog(url: String): ByteArray =
+                                if (url.endsWith("/1")) {
+                                    firstDownloadStarted.complete(Unit)
+                                    releaseFirstDownload.await()
+                                    older.toByteArray()
+                                } else {
+                                    newer.toByteArray()
+                                }
+                        },
+                )
+
+            val first = async { repository.refreshSnapshot(StrategyPackChannelStable, false) }
+            firstDownloadStarted.await()
+            val second = async { repository.refreshSnapshot(StrategyPackChannelStable, false) }
+            val raced = withContext(Dispatchers.IO) { withTimeoutOrNull(2_000L) { secondManifestRequested.await() } }
+            if (raced != null) second.await()
+            releaseFirstDownload.complete(Unit)
+            first.await()
+            second.await()
+
+            assertEquals(9L, repository.loadSnapshot().snapshot.catalog.sequence)
+        }
 
     @Test
     fun `refresh rejects equal sequence and preserves the cached snapshot`() =
