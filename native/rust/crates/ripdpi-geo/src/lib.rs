@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use maxminddb::{Reader, geoip2};
+use regex::{Regex, RegexBuilder};
 use thiserror::Error;
 
 pub use crate::mapped_file::MappedFileError;
@@ -82,8 +83,9 @@ impl GeoRuntime {
 
     pub fn geosite_match(&self, category: &str, domain: &str) -> Option<bool> {
         let databases = self.databases.load();
-        let rules = databases.geosite.as_ref()?.category(category)?;
-        Some(rules.iter().any(|rule| rule.matches(domain)))
+        let database = databases.geosite.as_ref()?;
+        database.category(category)?;
+        Some(database.contains(category, domain))
     }
 
     pub fn geosite_category(&self, category: &str) -> Option<Vec<GeositeDomainRule>> {
@@ -177,11 +179,16 @@ struct GeositeDatabase {
     mapping: MappedFile,
     version: String,
     categories: HashMap<String, Vec<GeositeDomainRule>>,
+    regexes: HashMap<String, Vec<Regex>>,
 }
 
 impl GeositeDatabase {
     fn contains(&self, category: &str, domain: &str) -> bool {
-        self.category(category).is_some_and(|rules| rules.iter().any(|rule| rule.matches(domain)))
+        let key = category.to_ascii_lowercase();
+        let Some(rules) = self.categories.get(&key) else { return false };
+        let domain = domain.trim_end_matches('.');
+        rules.iter().any(|rule| rule.kind != GeositeDomainKind::Regex && rule.matches(domain))
+            || self.regexes.get(&key).is_some_and(|regexes| regexes.iter().any(|regex| regex.is_match(domain)))
     }
 
     fn category(&self, category: &str) -> Option<&[GeositeDomainRule]> {
@@ -204,7 +211,8 @@ impl GeositeDomainRule {
         let value = self.value.trim_end_matches('.');
         match self.kind {
             GeositeDomainKind::Plain => ascii_contains_ignore_case(domain, value),
-            GeositeDomainKind::Regex | GeositeDomainKind::Full => domain.eq_ignore_ascii_case(value),
+            GeositeDomainKind::Regex => false,
+            GeositeDomainKind::Full => domain.eq_ignore_ascii_case(value),
             GeositeDomainKind::RootDomain => {
                 domain.eq_ignore_ascii_case(value)
                     || (domain.len() > value.len()
@@ -290,8 +298,19 @@ fn load_geosite(
     let mapping = MappedFile::open(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
     let categories = parse_geosite_catalog(mapping.as_slice())
         .map_err(|source| GeoRuntimeError::GeositeParse { path: path.to_path_buf(), source })?;
+    let regexes = categories
+        .iter()
+        .filter_map(|(category, rules)| {
+            let compiled = rules
+                .iter()
+                .filter(|rule| rule.kind == GeositeDomainKind::Regex)
+                .filter_map(|rule| RegexBuilder::new(&rule.value).case_insensitive(true).build().ok())
+                .collect::<Vec<_>>();
+            (!compiled.is_empty()).then(|| (category.clone(), compiled))
+        })
+        .collect();
     let version = mapped_version(path, mapping.len());
-    Ok(Some(GeositeDatabase { mapping, version, categories }))
+    Ok(Some(GeositeDatabase { mapping, version, categories, regexes }))
 }
 
 fn mapped_version(path: &Path, len: usize) -> String {
@@ -488,6 +507,26 @@ mod tests {
             Some(vec![GeositeDomainRule { kind: GeositeDomainKind::RootDomain, value: "example.ru".to_owned() }]),
             result.runtime.geosite_category("ru").map(|rules| vec![rules[0].clone()])
         );
+    }
+
+    #[test]
+    fn geosite_lookup_matches_regex_domains_from_mapped_database() {
+        let dir = temp_dir();
+        fs::write(
+            dir.join("geosite.db"),
+            geosite_catalog(
+                "test",
+                &[domain(1, r"^([a-z0-9-]+\.)?example\.com$"), domain(1, "("), domain(3, "exact.test")],
+            ),
+        )
+        .expect("write geosite fixture");
+
+        let runtime = GeoRuntime::load(paths(&dir)).expect("runtime loads geosite database").runtime;
+        assert!(runtime.geosite_contains("test", "shop.example.com"));
+        assert_eq!(Some(true), runtime.geosite_match("test", "EXAMPLE.COM."));
+        assert!(!runtime.geosite_contains("test", "notexample.com"));
+        assert!(!runtime.geosite_contains("test", "example.com.evil"));
+        assert!(runtime.geosite_contains("test", "exact.test"));
     }
 
     #[test]

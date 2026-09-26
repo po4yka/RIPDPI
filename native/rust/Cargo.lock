@@ -5822,6 +5822,7 @@ dependencies = [
  "arc-swap",
  "libc",
  "maxminddb",
+ "regex",
  "thiserror 2.0.20",
 ]
 

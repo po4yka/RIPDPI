@@ -11,4 +11,5 @@ workspace = true
 arc-swap = { workspace = true }
 libc = { workspace = true }
 maxminddb = { workspace = true }
+regex = "1.12.4"
 thiserror = { workspace = true }
