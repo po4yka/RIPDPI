@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
@@ -6,8 +7,8 @@ use ripdpi_config::{RuntimeConfig, dump_cache_entries, load_cache_entries_from_p
 
 use super::route_from_record;
 use crate::runtime_policy::ConnectionRoute;
-use crate::runtime_policy::now_unix;
 use crate::runtime_policy::types::CacheRecord;
+use crate::runtime_policy::{next_temp_file_nonce, now_unix};
 
 pub(super) fn load_records(config: &RuntimeConfig) -> Vec<CacheRecord> {
     let mut records = Vec::new();
@@ -80,9 +81,43 @@ pub(super) fn persist_records_for_group(records: &[CacheRecord], config: &Runtim
     }
     let entries: Vec<_> =
         records.iter().filter(|record| record.group_index == group_index).map(|record| record.entry.clone()).collect();
-    if let Err(err) = fs::write(path, dump_cache_entries(&entries)) {
+    if let Err(err) = write_cache_file(Path::new(path), dump_cache_entries(&entries).as_bytes()) {
         tracing::warn!("cache persist failed (non-fatal): {err}");
     }
+}
+
+fn write_cache_file(path: &Path, payload: &[u8]) -> io::Result<()> {
+    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("route-cache");
+    let tmp_path = path.with_file_name(format!(".{name}.tmp-{}-{}", std::process::id(), next_temp_file_nonce()));
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&tmp_path)?;
+    let write_result = (|| {
+        file.write_all(payload)?;
+        file.sync_all()?;
+        match fs::metadata(path) {
+            Ok(metadata) => {
+                file.set_permissions(metadata.permissions())?;
+                file.sync_all()?;
+            }
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err),
+        }
+        Ok(())
+    })();
+    drop(file);
+    if let Err(err) = write_result.and_then(|()| fs::rename(&tmp_path, path)) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(err);
+    }
+    let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let _ = fs::File::open(parent).and_then(|dir| dir.sync_all());
+    Ok(())
 }
 
 pub(super) fn cache_matches(entry: &ripdpi_config::CacheEntry, dest: SocketAddr) -> bool {

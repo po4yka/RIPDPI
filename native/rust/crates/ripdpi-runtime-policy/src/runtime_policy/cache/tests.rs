@@ -1,5 +1,9 @@
 use std::collections::{BTreeMap, VecDeque};
+#[cfg(unix)]
+use std::fs;
 use std::net::IpAddr;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use ripdpi_config::DesyncGroup;
 
@@ -120,4 +124,41 @@ fn runtime_policy_store_preserves_cached_hostnames() {
     policy.dump_stdout_groups(&config, &mut dumped).expect("dump cache entries");
     let dumped = String::from_utf8(dumped).expect("cache dump utf8");
     assert!(dumped.contains("docs.example.test"));
+}
+
+#[cfg(unix)]
+#[test]
+fn cache_persist_failure_preserves_existing_file() {
+    let dir = tempfile::tempdir().expect("cache directory");
+    let path = dir.path().join("routes.cache");
+    let mut group = DesyncGroup::new(0);
+    group.policy.cache_file = Some(path.to_string_lossy().into_owned());
+    let config = config_with_groups(vec![group]);
+    let mut policy = RuntimePolicy::load(&config);
+    policy.store(&config, sample_dest(443), 0, 0, None);
+    let original = fs::read(&path).expect("initial route cache");
+
+    let permissions = fs::metadata(dir.path()).expect("directory metadata").permissions();
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o500)).expect("make directory read-only");
+    policy.store(&config, sample_dest(8443), 0, 0, None);
+    fs::set_permissions(dir.path(), permissions).expect("restore directory permissions");
+
+    assert_eq!(fs::read(&path).expect("preserved route cache"), original);
+}
+
+#[cfg(unix)]
+#[test]
+fn cache_persist_preserves_existing_file_permissions() {
+    let dir = tempfile::tempdir().expect("cache directory");
+    let path = dir.path().join("routes.cache");
+    let mut group = DesyncGroup::new(0);
+    group.policy.cache_file = Some(path.to_string_lossy().into_owned());
+    let config = config_with_groups(vec![group]);
+    let mut policy = RuntimePolicy::load(&config);
+    policy.store(&config, sample_dest(443), 0, 0, None);
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).expect("protect route cache");
+
+    policy.store(&config, sample_dest(8443), 0, 0, None);
+
+    assert_eq!(fs::metadata(&path).expect("route cache metadata").permissions().mode() & 0o777, 0o400);
 }
