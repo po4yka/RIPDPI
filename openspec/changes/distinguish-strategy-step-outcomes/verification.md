@@ -1,7 +1,7 @@
 ---
 task_id: RST-1790428851570062
 change: distinguish-strategy-step-outcomes
-commit_sha: null
+commit_sha: 23596161a6891ed90868d88fd2bd098fb26f2a0a
 local: required
 local_evidence: Affected crate nextest 270/270; Lua registry nextest 51/51; tunnel-intercept cargo check; Rust API snapshots and architecture checks passed.
 remote_ci: blocked
