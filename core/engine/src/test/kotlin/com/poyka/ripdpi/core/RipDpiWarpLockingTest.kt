@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -11,6 +12,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
@@ -18,6 +20,15 @@ import java.util.concurrent.CopyOnWriteArrayList
 @OptIn(ExperimentalCoroutinesApi::class)
 class RipDpiWarpLockingTest {
     private val json = Json
+
+    @Test
+    fun earlyExitClearsReadinessSignal() =
+        runTest {
+            val warp = RipDpiWarp(FakeRipDpiWarpBindings())
+
+            assertEquals(0, warp.start(testWarpConfig()))
+            assertTrue(runCatching { warp.awaitReady() }.exceptionOrNull() is NativeError.NotRunning)
+        }
 
     @Test
     fun telemetryDoesNotBlockStop() =

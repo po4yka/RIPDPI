@@ -361,7 +361,7 @@ class RipDpiWarp(
                 if (!startupSignal.isCompleted) {
                     startupSignal.completeExceptionally(IllegalStateException("WARP exited before becoming ready"))
                 }
-                if (readinessSignal === startupSignal && startupSignal.getCompletionExceptionOrNull() == null) {
+                if (readinessSignal === startupSignal) {
                     readinessSignal = null
                 }
             }

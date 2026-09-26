@@ -275,7 +275,7 @@ class RipDpiAmneziaWg(
                         IllegalStateException("AmneziaWG exited before becoming ready"),
                     )
                 }
-                if (readinessSignal === startupSignal && startupSignal.getCompletionExceptionOrNull() == null) {
+                if (readinessSignal === startupSignal) {
                     readinessSignal = null
                 }
             }
