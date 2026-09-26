@@ -91,7 +91,9 @@ internal object DiagnosticsReportPersister {
                         ?.name,
                 reportTerminationReason = normalizedReport.terminationReason?.name,
                 startedAt = normalizedReport.startedAt,
-                finishedAt = manualConflictCancellation?.finishedAt ?: normalizedReport.finishedAt.takeUnless { deferTerminal },
+                finishedAt =
+                    manualConflictCancellation?.finishedAt
+                        ?: normalizedReport.finishedAt.takeUnless { deferTerminal },
                 launchOrigin = existing?.launchOrigin,
                 triggerType = existing?.triggerType,
                 triggerClassification = existing?.triggerClassification,

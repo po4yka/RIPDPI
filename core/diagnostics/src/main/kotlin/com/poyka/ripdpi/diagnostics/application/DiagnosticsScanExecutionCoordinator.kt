@@ -465,7 +465,13 @@ internal class DiagnosticsScanExecutionCoordinator
                                 ),
                             )
                         } else {
-                            persistPartialScanSession(runningSession, outcome.reportJson, prepared, scanRecordStore, json)
+                            persistPartialScanSession(
+                                runningSession,
+                                outcome.reportJson,
+                                prepared,
+                                scanRecordStore,
+                                json,
+                            )
                         }
                     }
                     true
