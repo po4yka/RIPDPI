@@ -170,14 +170,14 @@ mod tests {
         let mut config = RuntimeConfig::default();
         config.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
         let always = ws_tunnel_settings(&config);
-        assert_eq!(runtime_should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(runtime_should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(4)));
         assert_eq!(runtime_should_ws_tunnel_first(ipv6_target, &always), Some(RuntimeTelegramDc::production(2)));
         assert_eq!(runtime_should_ws_tunnel_first(unrelated, &always), None);
         assert_eq!(runtime_should_ws_tunnel_fallback(target, &always), None);
 
         config.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
         let fallback = ws_tunnel_settings(&config);
-        assert_eq!(runtime_should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(runtime_should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(4)));
         assert_eq!(runtime_should_ws_tunnel_fallback(ipv6_target, &fallback), Some(RuntimeTelegramDc::production(2)));
         assert_eq!(runtime_should_ws_tunnel_fallback(unrelated, &fallback), None);
         assert_eq!(runtime_should_ws_tunnel_first(target, &fallback), None);
@@ -194,7 +194,7 @@ mod tests {
         let ws_config = runtime_ws_tunnel_config(&settings, Some(resolved));
         assert_eq!(ws_config.resolved_addr, Some(resolved));
         assert_eq!(ws_config.connect_timeout, Some(Duration::from_millis(1_250)));
-        assert_eq!(runtime_detect_telegram_dc(SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443))), Some(2));
+        assert_eq!(runtime_detect_telegram_dc(SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443))), Some(4));
         assert_eq!(
             runtime_detect_telegram_dc(SocketAddr::new(
                 "2001:b28:f23f::1".parse::<IpAddr>().expect("parse Telegram v6"),

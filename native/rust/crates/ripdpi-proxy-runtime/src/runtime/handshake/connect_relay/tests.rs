@@ -577,7 +577,7 @@ fn fallback_mode_returns_original_error_for_non_mtproto_preserved_seed() {
 
     assert_eq!(err.kind(), io::ErrorKind::TimedOut);
     assert_eq!(write_count.load(StdOrdering::Relaxed), 0);
-    assert_eq!(telemetry.ws_escalations.lock().expect("ws escalations lock").as_slice(), &[(target, 2, false)],);
+    assert_eq!(telemetry.ws_escalations.lock().expect("ws escalations lock").as_slice(), &[(target, 4, false)],);
 }
 
 #[test]

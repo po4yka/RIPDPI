@@ -1,14 +1,15 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-/// Date of the last review of the IPv4 DC range table below.
+/// Date of the last review of the Telegram DC address classifier below.
 ///
 /// Reviewed quarterly per `docs/strategy-pack-operations.md` section
 /// "Telegram DC table review". When updating the table, bump this constant and
 /// update the `dc_ipv4_table_provenance` test.
-pub const TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED: &str = "2026-05-15";
+pub const TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED: &str = "2026-09-26";
 
-/// Authoritative source for the Telegram DC IP table.
-pub const TELEGRAM_DC_IPV4_TABLE_SOURCE: &str = "https://core.telegram.org";
+/// Pinned source for exact production and test bootstrap IP mappings.
+pub const TELEGRAM_DC_IPV4_TABLE_SOURCE: &str =
+    "https://github.com/tdlib/td/blob/691cb6a775d25d79ef1aea4e9fdd334f12a607be/td/telegram/net/ConnectionCreator.cpp";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TelegramDcClass {
@@ -71,9 +72,30 @@ impl TelegramDc {
     }
 }
 
-/// Map a known Telegram IPv4 address to its production DC.
+/// Map a known Telegram IPv4 address to its DC.
 pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
     let octets = ip.octets();
+    let test_dc = match octets {
+        [149, 154, 175, 10] => Some(1),
+        [149, 154, 167, 40] => Some(2),
+        [149, 154, 175, 117] => Some(3),
+        _ => None,
+    };
+    if let Some(number) = test_dc {
+        return TelegramDc::from_raw(10_000 + number);
+    }
+    let known_dc = match octets {
+        [149, 154, 175, 50] => Some(1),
+        [149, 154, 167, 51] | [95, 161, 76, 100] => Some(2),
+        [149, 154, 175, 100] => Some(3),
+        [149, 154, 167, 91] => Some(4),
+        [149, 154, 171, 5] => Some(5),
+        _ => None,
+    };
+    if let Some(number) = known_dc {
+        return Some(TelegramDc::production(number));
+    }
+    // ponytail: subnet fallback is heuristic; replace with signed DC-to-IP updates if exact routing becomes required.
     let number = match (octets[0], octets[1]) {
         (149, 154) => Some(match octets[2] {
             160..=163 => 1,
@@ -94,7 +116,7 @@ pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
     Some(TelegramDc::production(number))
 }
 
-/// Map a known Telegram IPv6 address to its production DC.
+/// Map a known Telegram IPv6 address to its DC.
 ///
 /// The recognised supernets come from Telegram's published infrastructure
 /// documentation at `https://core.telegram.org`:
@@ -108,6 +130,26 @@ pub fn dc_from_ip(ip: Ipv4Addr) -> Option<TelegramDc> {
 /// tracked by [`TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED`].
 pub fn dc_from_ipv6(ip: Ipv6Addr) -> Option<TelegramDc> {
     let segments = ip.segments();
+    let test_dc = match segments {
+        [0x2001, 0x0b28, 0xf23d, 0xf001, 0, 0, 0, 0x000e] => Some(1),
+        [0x2001, 0x067c, 0x04e8, 0xf002, 0, 0, 0, 0x000e] => Some(2),
+        [0x2001, 0x0b28, 0xf23d, 0xf003, 0, 0, 0, 0x000e] => Some(3),
+        _ => None,
+    };
+    if let Some(number) = test_dc {
+        return TelegramDc::from_raw(10_000 + number);
+    }
+    let known_dc = match segments {
+        [0x2001, 0x0b28, 0xf23d, 0xf001, 0, 0, 0, 0x000a] => Some(1),
+        [0x2001, 0x067c, 0x04e8, 0xf002, 0, 0, 0, 0x000a] => Some(2),
+        [0x2001, 0x0b28, 0xf23d, 0xf003, 0, 0, 0, 0x000a] => Some(3),
+        [0x2001, 0x067c, 0x04e8, 0xf004, 0, 0, 0, 0x000a] => Some(4),
+        [0x2001, 0x0b28, 0xf23f, 0xf005, 0, 0, 0, 0x000a] => Some(5),
+        _ => None,
+    };
+    if let Some(number) = known_dc {
+        return Some(TelegramDc::production(number));
+    }
     if segments[0] == 0x2001 && segments[1] == 0x067c && segments[2] == 0x04e8 {
         return Some(TelegramDc::production(2));
     }
@@ -191,6 +233,38 @@ mod tests {
     }
 
     #[test]
+    fn tdlib_bootstrap_ips_map_to_their_production_dcs() {
+        for (ip, number) in [
+            ("149.154.175.50", 1),
+            ("149.154.167.51", 2),
+            ("149.154.175.100", 3),
+            ("149.154.167.91", 4),
+            ("149.154.171.5", 5),
+        ] {
+            assert_eq!(dc_from_ip(ip.parse().unwrap()), Some(TelegramDc::production(number)));
+        }
+        for (ip, number) in [
+            ("2001:b28:f23d:f001::a", 1),
+            ("2001:67c:4e8:f002::a", 2),
+            ("2001:b28:f23d:f003::a", 3),
+            ("2001:67c:4e8:f004::a", 4),
+            ("2001:b28:f23f:f005::a", 5),
+        ] {
+            assert_eq!(dc_from_ipv6(ip.parse().unwrap()), Some(TelegramDc::production(number)));
+        }
+    }
+
+    #[test]
+    fn tdlib_test_ips_map_to_test_dcs() {
+        for (ip, number) in [("149.154.175.10", 1), ("149.154.167.40", 2), ("149.154.175.117", 3)] {
+            assert_eq!(dc_from_ip(ip.parse().unwrap()), TelegramDc::from_raw(10_000 + number));
+        }
+        for (ip, number) in [("2001:b28:f23d:f001::e", 1), ("2001:67c:4e8:f002::e", 2), ("2001:b28:f23d:f003::e", 3)] {
+            assert_eq!(dc_from_ipv6(ip.parse().unwrap()), TelegramDc::from_raw(10_000 + number));
+        }
+    }
+
+    #[test]
     fn non_telegram_ips_return_none() {
         assert_eq!(dc_from_ip(Ipv4Addr::new(8, 8, 8, 8)), None);
         assert_eq!(dc_from_ip(Ipv4Addr::new(1, 1, 1, 1)), None);
@@ -242,6 +316,6 @@ mod tests {
     fn dc_ipv4_table_provenance() {
         assert!(TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED.starts_with("202"));
         assert_eq!(TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED.len(), 10, "review date must be YYYY-MM-DD");
-        assert!(TELEGRAM_DC_IPV4_TABLE_SOURCE.starts_with("https://core.telegram.org"));
+        assert!(TELEGRAM_DC_IPV4_TABLE_SOURCE.starts_with("https://github.com/tdlib/td/"));
     }
 }

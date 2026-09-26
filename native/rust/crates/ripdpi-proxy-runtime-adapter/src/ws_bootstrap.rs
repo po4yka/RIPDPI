@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn detect_telegram_dc_uses_same_ipv4_and_ipv6_classifier_as_tunnel_target() {
         let targets = [
-            (SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443)), Some(2)),
+            (SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443)), Some(4)),
             (SocketAddr::new("2001:67c:4e8:0:1::1".parse::<IpAddr>().expect("parse amsterdam v6"), 443), Some(2)),
             (SocketAddr::new("2001:b28:f23f::1".parse::<IpAddr>().expect("parse singapore v6"), 443), Some(3)),
             (SocketAddr::new("2001:4860:4860::8888".parse::<IpAddr>().expect("parse unrelated v6"), 443), None),

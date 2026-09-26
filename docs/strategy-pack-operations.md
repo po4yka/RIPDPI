@@ -193,13 +193,13 @@ Before shipping a catalog update:
 
 ## Telegram DC table review
 
-The IPv4 DC range table in `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs` must be re-verified against Telegram's published DC documentation (`https://core.telegram.org`) on a quarterly cadence. The constant `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` and the `dc_ipv4_table_provenance` unit test assert the review date is present and well-formed; the review itself is a human obligation.
+The Telegram DC address classifier in `native/rust/crates/ripdpi-ws-transport-port/src/dc.rs` must be re-verified against TDLib's current bootstrap endpoints on a quarterly cadence. Exact bootstrap addresses take priority over broad range fallbacks. The constant `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` and the `dc_ipv4_table_provenance` unit test assert the review date is present and well-formed; the review itself is a human obligation.
 
 - **Owner role:** native-runtime maintainer.
 - **Cadence:** quarterly, or sooner if the upstream-spec-watch job flags Telegram-side changes.
-- **On review:** 1. Cross-check `dc::dc_from_ip` ranges against Telegram's current published list. 2. Update the table when ranges have rotated; add a matching unit test for each new range. 3. Bump `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` to the review date. 4. Record the review in `docs/strategy-pack-tls-refresh-log.json` if a strategy-pack republication is needed; otherwise the dc.rs git history is the audit trail.
+- **On review:** 1. Cross-check exact IPv4 and IPv6 bootstrap addresses against current TDLib source. 2. Update exact mappings and their tests when endpoints change; review range heuristics separately before changing them. 3. Bump `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` to the review date. 4. Record the review in `docs/strategy-pack-tls-refresh-log.json` if a strategy-pack republication is needed; otherwise the dc.rs git history is the audit trail.
 
-IPv6 DC classification is currently passthrough-only in `ripdpi-ws-tunnel`; open a fresh task if product requirements need first-class IPv6 DC mapping.
+IPv6 classification uses exact TDLib bootstrap addresses and broad range fallbacks. The range fallbacks are heuristics; update them only with evidence for the address-to-DC mapping.
 
 ## What Not To Do
 

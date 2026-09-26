@@ -216,7 +216,7 @@ mod tests {
     fn detect_telegram_dc_extracts_dc_number_from_known_ipv4_target() {
         let target = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443));
 
-        assert_eq!(RuntimeState::detect_telegram_dc(target), Some(2));
+        assert_eq!(RuntimeState::detect_telegram_dc(target), Some(4));
     }
 
     #[test]
@@ -240,7 +240,7 @@ mod tests {
         let mut cfg = RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
         let always = runtime_state_with_config(cfg);
-        assert_eq!(should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(4)));
         assert_eq!(should_ws_tunnel_first(ipv6_target, &always), Some(RuntimeTelegramDc::production(3)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
         assert_eq!(should_ws_tunnel_fallback(target, &always), None);
@@ -248,7 +248,7 @@ mod tests {
         let mut cfg = RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
         let fallback = runtime_state_with_config(cfg);
-        assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(2)));
+        assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(4)));
         assert_eq!(should_ws_tunnel_fallback(ipv6_target, &fallback), Some(RuntimeTelegramDc::production(3)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);
         assert_eq!(should_ws_tunnel_first(target, &fallback), None);
