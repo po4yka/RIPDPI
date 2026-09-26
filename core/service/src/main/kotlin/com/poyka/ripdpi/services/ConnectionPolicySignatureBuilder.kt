@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.Mode
@@ -43,6 +44,7 @@ internal fun buildConnectionPolicySignature(
         listOf(
             mode.preferenceValue,
             stripRipDpiRuntimeContext(proxyPreferences.toNativeConfigJson()),
+            (proxyPreferences as? RipDpiProxyUIPreferences)?.listen?.authToken.orEmpty(),
             activeDns.mode,
             activeDns.providerId,
             activeDns.dnsIp,

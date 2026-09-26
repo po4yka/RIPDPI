@@ -220,7 +220,8 @@ Memory.
   listener settings replace the stored listener, including its token, before
   re-encoding. Session overrides (local listen-port override, auth token) are
   merged fresh via `SessionOverrideCodec.merge` — they are never part of the
-  persisted identity.
+  persisted identity. The policy signature hashes the current LAN listener
+  token, so a token change creates a different signature without storing it.
 - **Replay invariant:** a stored current-schema `proxyConfigJson` must preserve
   the same strategy semantics on the current build. This is why §2's
   no-rename rule is absolute — a renamed key silently drops persisted strategy
