@@ -54,7 +54,7 @@ pub(crate) fn build_ordered_fake_split_emissions<'a>(
     let real_b = FakeEmission {
         role: FakeEmissionRole::Genuine,
         payload: second_real,
-        ttl: fake_ttl,
+        ttl: first_real_ttl,
         flags: original_flags,
         original_offset: second_offset,
     };
@@ -72,6 +72,7 @@ pub(crate) fn build_plain_fake_emissions<'a>(
     order: FakeOrder,
     original: &'a [u8],
     fake_segments: &[&'a [u8]],
+    real_ttl: u8,
     fake_ttl: u8,
     fake_flags: platform::TcpFlagOverrides,
     original_flags: platform::TcpFlagOverrides,
@@ -89,7 +90,7 @@ pub(crate) fn build_plain_fake_emissions<'a>(
     let original = FakeEmission {
         role: FakeEmissionRole::Genuine,
         payload: original,
-        ttl: fake_ttl,
+        ttl: real_ttl,
         flags: original_flags,
         original_offset: 0,
     };

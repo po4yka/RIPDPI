@@ -14,12 +14,21 @@ pub(super) fn build_custom_ordered_segments<'a>(
     real_host: &'a [u8],
     fake_host: &'a [u8],
     midhost_split: Option<usize>,
+    real_ttl: u8,
     fake_ttl: u8,
     fake_flags: platform::TcpFlagOverrides,
     original_flags: platform::TcpFlagOverrides,
 ) -> Vec<platform::OrderedTcpSegment<'a>> {
-    let emissions =
-        build_hostfake_emissions(fake_order, real_host, fake_host, midhost_split, fake_ttl, fake_flags, original_flags);
+    let emissions = build_hostfake_emissions(
+        fake_order,
+        real_host,
+        fake_host,
+        midhost_split,
+        real_ttl,
+        fake_ttl,
+        fake_flags,
+        original_flags,
+    );
     ordered_segments_from_hostfake_emissions(emissions, fake_seq_mode)
 }
 
@@ -28,6 +37,7 @@ fn build_hostfake_emissions<'a>(
     real_host: &'a [u8],
     fake_host: &'a [u8],
     midhost_split: Option<usize>,
+    real_ttl: u8,
     fake_ttl: u8,
     fake_flags: platform::TcpFlagOverrides,
     original_flags: platform::TcpFlagOverrides,
@@ -39,7 +49,7 @@ fn build_hostfake_emissions<'a>(
             &fake_host[..split],
             &real_host[split..],
             &fake_host[split..],
-            fake_ttl,
+            real_ttl,
             fake_ttl,
             fake_flags,
             original_flags,
@@ -57,7 +67,7 @@ fn build_hostfake_emissions<'a>(
         FakeEmission {
             role: FakeEmissionRole::Genuine,
             payload: real_host,
-            ttl: fake_ttl,
+            ttl: real_ttl,
             flags: original_flags,
             original_offset: 0,
         },

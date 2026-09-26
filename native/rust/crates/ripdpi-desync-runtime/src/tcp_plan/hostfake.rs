@@ -75,6 +75,7 @@ pub(crate) fn execute_tcp_hostfake_step(
             real_host,
             host_payload.fake_host(),
             span.midhost.map(|midhost| midhost - span.host_start),
+            ctx.config.network.default_ttl,
             fake_ttl,
             fake_flags,
             original_flags,

@@ -38,7 +38,15 @@ pub(crate) fn execute(
 
     let bytes_committed = if opts.custom_order {
         let ordering = configured_step.fake_ordering();
-        let emissions = ordered_disorder_emissions(ordering.order, chunk, &first_fake, second, &second_fake, opts);
+        let emissions = ordered_disorder_emissions(
+            ordering.order,
+            chunk,
+            &first_fake,
+            second,
+            &second_fake,
+            ctx.config.network.default_ttl,
+            opts,
+        );
         let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
         send_ordered_fake_segments_action_named(
             ctx.writer,
@@ -199,6 +207,7 @@ fn ordered_disorder_emissions<'a>(
     first_fake: &'a [u8],
     second: &'a [u8],
     second_fake: &'a [u8],
+    real_ttl: u8,
     opts: FakeStepOptions,
 ) -> Vec<FakeEmission<'a>> {
     let second_offset = chunk.len();
@@ -207,23 +216,23 @@ fn ordered_disorder_emissions<'a>(
             fake(first_fake, 1, 0, opts),
             genuine(chunk, 1, 0, opts),
             fake(second_fake, opts.fake_ttl, second_offset, opts),
-            genuine(second, opts.fake_ttl, second_offset, opts),
+            genuine(second, real_ttl, second_offset, opts),
         ],
         FakeOrder::AllFakesFirst => vec![
             fake(first_fake, 1, 0, opts),
             fake(second_fake, opts.fake_ttl, second_offset, opts),
             genuine(chunk, 1, 0, opts),
-            genuine(second, opts.fake_ttl, second_offset, opts),
+            genuine(second, real_ttl, second_offset, opts),
         ],
         FakeOrder::RealFakeRealFake => vec![
             genuine(chunk, 1, 0, opts),
             fake(first_fake, 1, 0, opts),
-            genuine(second, opts.fake_ttl, second_offset, opts),
+            genuine(second, real_ttl, second_offset, opts),
             fake(second_fake, opts.fake_ttl, second_offset, opts),
         ],
         FakeOrder::AllRealsFirst => vec![
             genuine(chunk, 1, 0, opts),
-            genuine(second, opts.fake_ttl, second_offset, opts),
+            genuine(second, real_ttl, second_offset, opts),
             fake(first_fake, 1, 0, opts),
             fake(second_fake, opts.fake_ttl, second_offset, opts),
         ],
@@ -231,7 +240,7 @@ fn ordered_disorder_emissions<'a>(
             fake(first_fake, 1, 0, opts),
             genuine(chunk, 1, 0, opts),
             fake(second_fake, opts.fake_ttl, second_offset, opts),
-            genuine(second, opts.fake_ttl, second_offset, opts),
+            genuine(second, real_ttl, second_offset, opts),
         ],
     }
 }

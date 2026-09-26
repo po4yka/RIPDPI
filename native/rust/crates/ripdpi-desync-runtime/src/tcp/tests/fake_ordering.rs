@@ -6,6 +6,7 @@ fn fake_ordering_plain_fake_collapses_expected_sides() {
         FakeOrder::AllFakesFirst,
         b"real",
         &[b"fake-a".as_slice(), b"fake-b".as_slice()],
+        64,
         7,
         platform::TcpFlagOverrides::default(),
         platform::TcpFlagOverrides::default(),
@@ -14,6 +15,7 @@ fn fake_ordering_plain_fake_collapses_expected_sides() {
         FakeOrder::AllRealsFirst,
         b"real",
         &[b"fake-a".as_slice(), b"fake-b".as_slice()],
+        64,
         7,
         platform::TcpFlagOverrides::default(),
         platform::TcpFlagOverrides::default(),
@@ -27,6 +29,8 @@ fn fake_ordering_plain_fake_collapses_expected_sides() {
         after.iter().map(|emission| emission.role).collect::<Vec<_>>(),
         vec![FakeEmissionRole::Genuine, FakeEmissionRole::Fake, FakeEmissionRole::Fake]
     );
+    assert_eq!(before[2].ttl, 64);
+    assert_eq!(after[0].ttl, 64);
 }
 
 #[test]
@@ -47,6 +51,7 @@ fn fake_ordering_split_variants_emit_expected_order() {
 
     assert_eq!(labels, vec!["FA", "FB", "A", "B"]);
     assert_eq!(emissions[2].ttl, 3);
+    assert_eq!(emissions[3].ttl, 3);
     assert_eq!(emissions[3].original_offset, 1);
 }
 
