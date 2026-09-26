@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use crate::transport::ConnectionStream;
-
+use super::response_parser::response_content_length;
 use super::*;
 
 #[test]
@@ -117,18 +116,22 @@ fn parse_http_response_handles_missing_reason() {
 
 #[test]
 fn read_http_response_rejects_truncated_content_length() {
-    use std::{io::Write, net::TcpListener, thread};
+    use ripdpi_diagnostics_transport::transport::ConnectionStream;
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        thread,
+    };
 
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
     let server = thread::spawn(move || {
         let (mut stream, _) = listener.accept().unwrap();
-        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhi").unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nabc").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(std::net::TcpStream::connect(addr).unwrap());
-    let response = read_http_response(&mut stream, 1024);
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    assert_eq!(read_http_response(&mut stream, 1024).unwrap_err(), "response_truncated");
     server.join().unwrap();
-    assert_eq!(response.unwrap_err(), "response_truncated");
 }
 
 #[test]
@@ -145,6 +148,79 @@ fn read_http_headers_rejects_eof_before_boundary() {
     let headers = read_http_headers(&mut stream, 1024);
     server.join().unwrap();
     assert_eq!(headers.unwrap_err(), "response_missing_headers");
+}
+
+#[test]
+fn read_http_response_ignores_content_length_on_not_modified() {
+    use ripdpi_diagnostics_transport::transport::ConnectionStream;
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        thread,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.write_all(b"HTTP/1.1 304 Not Modified\r\nContent-Length: 5\r\n\r\n").unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let response = read_http_response(&mut stream, 1024).expect("bodyless 304 response");
+    assert_eq!(response.status_code, 304);
+    assert!(response.body.is_empty());
+    server.join().unwrap();
+}
+
+#[test]
+fn read_http_response_ignores_bytes_after_content_length() {
+    use ripdpi_diagnostics_transport::transport::ConnectionStream;
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        thread,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\nblocked").unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let response = read_http_response(&mut stream, 1024).expect("empty body response");
+    assert!(response.body.is_empty());
+    server.join().unwrap();
+}
+
+#[test]
+fn read_http_response_skips_interim_response() {
+    use ripdpi_diagnostics_transport::transport::ConnectionStream;
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        thread,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.write_all(b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK").unwrap();
+    });
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let response = read_http_response(&mut stream, 1024).expect("final response after early hints");
+    assert_eq!(response.status_code, 200);
+    assert_eq!(response.body, b"OK");
+    server.join().unwrap();
+}
+
+#[test]
+fn response_content_length_rejects_ambiguous_framing() {
+    assert!(response_content_length(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 5").is_err());
+    assert!(response_content_length(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 5").is_err());
+    assert_eq!(response_content_length(b"HTTP/1.1 200 OK\r\nContent-Length: 5, 5"), Ok(Some(5)));
+    assert_eq!(response_content_length(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked"), Ok(None));
 }
 
 #[test]
