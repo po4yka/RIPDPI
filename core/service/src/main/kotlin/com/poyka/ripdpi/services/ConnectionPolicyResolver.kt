@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiConnectionConcurrencyPolicy
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
@@ -406,6 +407,7 @@ class DefaultConnectionPolicyResolver
                 applyRememberedConnectionConcurrencyPolicy(baseRuntimeContext, rememberedPolicy)
             return runtimeContextAssembler.rememberedPreferences(
                 configJson = configJson,
+                listen = checkNotNull((baseline.baselinePreferences as? RipDpiProxyUIPreferences)?.listen),
                 hostAutolearnStorePath = baseline.hostAutolearnStorePath,
                 networkScopeKey = baseline.networkScopeKey,
                 runtimeContext = effectiveRuntimeContext,

@@ -213,11 +213,12 @@ Memory.
   winner. On reconnect that JSON is replayed.
 - **The strategy body is the identity; the context is not.** Before persistence
   the volatile context is stripped — `RipDpiProxyJsonCodec.stripRuntimeContext`
-  removes `runtimeContext` and `logContext`. On replay,
+  removes `runtimeContext`, `logContext`, and the LAN listener token. On replay,
   `RipDpiProxyJsonCodec.rewriteJson` patches the stored JSON tree and re-applies
   the *current* `hostAutolearnStorePath`, `networkScopeKey`, `runtimeContext`,
-  `logContext`, `rootMode`, geo-DB paths, and session overrides, then
-  re-encodes. Session overrides (local listen-port override, auth token) are
+  `logContext`, `rootMode`, geo-DB paths, and session overrides. The current
+  listener settings replace the stored listener, including its token, before
+  re-encoding. Session overrides (local listen-port override, auth token) are
   merged fresh via `SessionOverrideCodec.merge` — they are never part of the
   persisted identity.
 - **Replay invariant:** a stored current-schema `proxyConfigJson` must preserve

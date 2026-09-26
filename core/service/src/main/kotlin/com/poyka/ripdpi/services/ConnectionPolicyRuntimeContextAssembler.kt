@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiHostAutolearnConfig
+import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -177,6 +178,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
 
         suspend fun rememberedPreferences(
             configJson: String,
+            listen: RipDpiListenConfig,
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
@@ -211,7 +213,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     networkScopeKey = networkScopeKey,
                 )
             return rememberedPreferences
-                .withSessionOverrides(hostAutolearn = currentHostAutolearn)
+                .withSessionOverrides(listen = listen, hostAutolearn = currentHostAutolearn)
                 .withDestinationRoutingPolicy(destinationRouting, awgOverride = awg)
                 .let { proxySessionSecretResolver.applyRemembered(it, settings) }
         }

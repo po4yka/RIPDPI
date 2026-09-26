@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.SecretString
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TcpFamily
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -26,6 +27,33 @@ import org.junit.Test
 private const val TestLocalProxyAuth = "alpha-123"
 
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `LAN token reaches native config but not remembered policy`() {
+        val settings =
+            AppSettings.newBuilder()
+                .setProxyAllowLan(true)
+                .setProxyLanAuthToken("lan-secret")
+                .build()
+        val current = RipDpiProxyUIPreferences.fromSettings(settings)
+        val runtimeJson = current.toNativeConfigJson()
+        val runtimeListen = kotlinx.serialization.json.Json.parseToJsonElement(runtimeJson).jsonObject["listen"]!!.jsonObject
+        assertEquals("0.0.0.0", runtimeListen["ip"]?.jsonPrimitive?.content)
+        assertEquals("lan-secret", runtimeListen["authToken"]?.jsonPrimitive?.content)
+
+        val storedJson = stripRipDpiRuntimeContext(runtimeJson)
+        assertFalse(storedJson.contains("lan-secret"))
+        val remembered = decodeRipDpiProxyUiPreferences(storedJson)!!
+        val replay = remembered.withSessionOverrides(listen = current.listen).toNativeConfigJson()
+        val replayListen = kotlinx.serialization.json.Json.parseToJsonElement(replay).jsonObject["listen"]!!.jsonObject
+        assertEquals("lan-secret", replayListen["authToken"]?.jsonPrimitive?.content)
+
+        val disabledListen = RipDpiProxyUIPreferences.fromSettings(AppSettings.getDefaultInstance()).listen
+        val disabledReplay = remembered.withSessionOverrides(listen = disabledListen).toNativeConfigJson()
+        val disabled = kotlinx.serialization.json.Json.parseToJsonElement(disabledReplay).jsonObject["listen"]!!.jsonObject
+        assertEquals("127.0.0.1", disabled["ip"]?.jsonPrimitive?.content)
+        assertNull(disabled["authToken"]?.jsonPrimitive?.contentOrNull)
+    }
+
     @Test
     fun `worker transport is session only and stripped before policy persistence`() {
         val bearer = "worker-secret"

@@ -67,7 +67,9 @@ internal object RipDpiProxyJsonCodec {
         encode(
             NativeProxyConfig.Ui(
                 strategyPreset = strategyPreset,
-                listen = NetworkSectionCodec.toNative(preferences.listen).copy(authToken = listenAuthToken),
+                listen =
+                    NetworkSectionCodec.toNative(preferences.listen)
+                        .copy(authToken = listenAuthToken ?: preferences.listen.authToken),
                 protocols = NetworkSectionCodec.toNative(preferences.protocols),
                 chains = ChainCodec.toNative(preferences.chains),
                 fakePackets = PacketCodec.toNative(preferences.fakePackets),
@@ -145,6 +147,11 @@ internal object RipDpiProxyJsonCodec {
                 "sessionOverrides" to JsonNull,
             )
         if (payload is NativeProxyConfig.Ui) {
+            updates["listen"] =
+                patchObject(
+                    original["listen"]?.jsonObject ?: JsonObject(emptyMap()),
+                    mapOf("authToken" to JsonNull),
+                )
             updates["hostAutolearn"] =
                 patchObject(
                     original["hostAutolearn"]?.jsonObject ?: JsonObject(emptyMap()),
