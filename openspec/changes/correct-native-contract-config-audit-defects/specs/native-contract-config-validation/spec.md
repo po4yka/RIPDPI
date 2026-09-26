@@ -24,12 +24,17 @@ A public proxy listener MUST require supported authentication on every entry poi
 
 ### Requirement: REQ-HTTP-FRAMING — Respect HTTP response framing
 
-The HTTP diagnostic reader MUST parse content length from headers, reject incomplete bodies and ambiguous framing, and treat bodyless responses as bodyless.
+The HTTP diagnostic reader MUST parse content length from headers, reject incomplete bodies and ambiguous framing, decode chunked bodies, and treat bodyless responses as bodyless.
 
 #### Scenario: Truncated content-length body
 
 - **WHEN** an HTTP response ends before its declared body length
 - **THEN** the diagnostic reader reports an error
+
+#### Scenario: Chunked diagnostic body
+
+- **WHEN** an HTTP response uses complete chunked transfer framing
+- **THEN** the diagnostic reader returns the decoded body
 
 ### Requirement: REQ-STRATEGY-RELOAD — Observe referenced host lists
 

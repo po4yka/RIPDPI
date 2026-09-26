@@ -1,9 +1,9 @@
 ---
 task_id: RST-1790419862638443
 change: correct-native-contract-config-audit-defects
-commit_sha: 985d786ca0a7a7caa054fcfd6aa05968b7604638
+commit_sha: bb6859b318e19bedf754d7f5e9a8fae7b200bfe4
 local: passed
-local_evidence: Focused Cargo tests for all ten audited crates and affected downstream crates passed on 2026-09-26; cargo fmt --all --check, native architecture contracts, architecture health, and task contracts passed.
+local_evidence: Cargo tests for all ten audited crates and five affected consumers, cargo check --workspace --locked, cargo fmt --all --check, native architecture contracts, architecture health, and task/OpenSpec validation passed on 2026-09-26.
 remote_ci: required
 remote_ci_evidence: Pending push and hosted CI; push is not authorized for this audit.
 device: not_applicable

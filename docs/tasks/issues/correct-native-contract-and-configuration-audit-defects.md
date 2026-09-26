@@ -22,6 +22,6 @@ Correct confirmed native contract and configuration defects found in the ten-cra
 
 - Invalid explicit configuration is rejected with a field-specific error.
 - Public proxy listeners enforce authentication on all entry points; SOCKS4 cannot bypass token protection.
-- HTTP diagnostics reject truncated or ambiguous framing and respect bodyless responses.
+- HTTP diagnostics reject truncated or ambiguous framing, decode chunked bodies, and respect bodyless responses.
 - Strategy reload, gauge snapshots, recorder installation, and known Telegram DC classification return updated or accurate values.
 - Affected Cargo tests and native architecture checks pass; changes are committed on main.
