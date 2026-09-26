@@ -59,6 +59,13 @@ pub fn runtime_config_envelope_from_payload(
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned);
             adaptive_runtime_context::apply_session_overrides(&mut config, session_overrides)?;
+            if !config.network.listen.listen_ip.is_loopback()
+                && config.network.listen.auth_token.as_deref().is_none_or(str::is_empty)
+            {
+                return Err(ProxyConfigError::InvalidConfig(
+                    "Non-loopback proxy listeners require listen.authToken".to_string(),
+                ));
+            }
             Ok(RuntimeConfigEnvelope {
                 config,
                 runtime_context: adaptive_runtime_context::sanitize_runtime_context(runtime_context),

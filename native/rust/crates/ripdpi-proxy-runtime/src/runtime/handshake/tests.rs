@@ -407,6 +407,21 @@ fn handle_client_relays_successful_socks5_connect_flow() {
 }
 
 #[test]
+fn handle_client_rejects_socks4_when_auth_required() {
+    let mut config = RuntimeConfig::default();
+    config.network.listen.auth_token = Some("secret".to_string());
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.write_all(&[S_VER4]).expect("write SOCKS4 version");
+
+    let err = super::handle_client(server, &state).expect_err("SOCKS4 has no token authentication");
+    assert_eq!(err.kind(), ErrorKind::PermissionDenied);
+    let mut reply = [0u8; 8];
+    client.read_exact(&mut reply).expect("read SOCKS4 rejection");
+    assert_eq!(reply, encode_socks4_reply(false).as_bytes());
+}
+
+#[test]
 fn handle_client_relays_successful_socks4_connect_flow() {
     let upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream listener");
     let target = upstream.local_addr().expect("upstream addr");

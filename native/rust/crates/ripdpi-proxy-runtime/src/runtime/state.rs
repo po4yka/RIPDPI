@@ -212,7 +212,31 @@ pub(in crate::runtime) fn now_epoch_ms() -> u64 {
 }
 impl RuntimeState {
     pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
-        validate_ip_fragmentation_support(&raw_packet_requirements(config))
+        validate_ip_fragmentation_support(&raw_packet_requirements(config))?;
+        Self::validate_listener_auth(config, config.network.listen.listen_ip)
+    }
+    pub(super) fn validate_listener_auth(config: &RuntimeConfig, bound_ip: IpAddr) -> io::Result<()> {
+        let token = config.network.listen.auth_token.as_deref();
+        if !bound_ip.is_loopback() && token.is_none_or(|value| value.trim().is_empty()) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "non-loopback proxy listener requires auth token",
+            ));
+        }
+        if token.is_some()
+            && matches!(
+                ripdpi_proxy_runtime_adapter::model::config::proxy_protocol_mode(config),
+                ProxyProtocolMode::Transparent
+                    | ProxyProtocolMode::Mixed { shadowsocks_enabled: true }
+                    | ProxyProtocolMode::BytePrefixed { shadowsocks_enabled: true }
+            )
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "proxy auth token is incompatible with listener mode",
+            ));
+        }
+        Ok(())
     }
     pub(super) fn listener_bind_addr(config: &RuntimeConfig) -> SocketAddr {
         listener_settings(config).bind_addr

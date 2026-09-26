@@ -595,6 +595,25 @@ fn command_line_payload_requires_runnable_config() {
 }
 
 #[test]
+fn command_line_lan_listener_requires_auth_after_session_overrides() {
+    let payload = |auth_token: Option<&str>| ProxyConfigPayload::CommandLine {
+        args: vec!["--ip".to_string(), "0.0.0.0".to_string()],
+        host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: auth_token
+            .map(|token| ProxySessionOverrides { listen_port_override: None, auth_token: Some(token.to_string()) }),
+        schema_version: 2,
+    };
+    assert!(runtime_config_envelope_from_payload(payload(None)).is_err());
+    let allowed = runtime_config_envelope_from_payload(payload(Some("secret"))).expect("authenticated LAN listener");
+    assert_eq!(allowed.config.network.listen.auth_token.as_deref(), Some("secret"));
+}
+
+#[test]
 fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
     let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],

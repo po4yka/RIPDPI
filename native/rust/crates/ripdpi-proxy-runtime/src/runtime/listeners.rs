@@ -89,6 +89,8 @@ pub(super) fn run_proxy_with_listener_internal(
     ws_transport: StdArc<dyn WsTransport>,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
     let mut config = config;
+    super::validate_proxy_config(&config)?;
+    RuntimeState::validate_listener_auth(&config, listener.local_addr()?.ip())?;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let _root_helper = RootHelperRegistration::for_config(&config);
     let embedded_candidate_runtime = control.is_some();

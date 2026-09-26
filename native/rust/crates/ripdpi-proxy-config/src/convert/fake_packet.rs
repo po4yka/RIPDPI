@@ -48,10 +48,16 @@ pub(crate) fn apply_fake_packet_section(
     group.actions.fake_tcp_timestamp_delta_ticks = fake_packets.fake_tcp_timestamp_delta_ticks;
     group.actions.drop_sack = fake_packets.drop_sack;
     group.actions.window_clamp = fake_packets.window_clamp;
-    group.actions.wsize = fake_packets.wsize_window.filter(|&window| window > 0).map(|window| WsizeConfig {
-        window,
-        scale: fake_packets.wsize_scale.and_then(|value| if value >= 0 { Some(value as u8) } else { None }),
-    });
+    group.actions.wsize = if let Some(window) = fake_packets.wsize_window.filter(|&window| window > 0) {
+        let scale = match fake_packets.wsize_scale {
+            None | Some(-1) => None,
+            Some(value @ 0..=14) => Some(value as u8),
+            _ => return Err(ProxyConfigError::InvalidConfig("Invalid fakePackets.wsizeScale".to_string())),
+        };
+        Some(WsizeConfig { window, scale })
+    } else {
+        None
+    };
     group.actions.strip_timestamps = fake_packets.strip_timestamps;
     group.actions.ip_id_mode = parse_ip_id_mode(&fake_packets.ip_id_mode)?;
     group.actions.quic_bind_low_port = fake_packets.quic_bind_low_port;
@@ -228,6 +234,16 @@ mod tests {
         // Not requested -> stays false regardless of root mode.
         assert!(!md5sig_after_conversion(false, true));
         assert!(!md5sig_after_conversion(false, false));
+    }
+
+    #[test]
+    fn window_scale_rejects_out_of_range_values() {
+        for scale in [-2, 15, 256] {
+            let mut group = ripdpi_config::DesyncGroup::new(0);
+            let fake_packets =
+                ProxyUiFakePacketConfig { wsize_window: Some(1024), wsize_scale: Some(scale), ..Default::default() };
+            assert!(apply_fake_packet_section(&mut group, &fake_packets, false).is_err());
+        }
     }
 
     fn tlsminor_after_conversion(enabled: bool, value: u8) -> Option<u8> {

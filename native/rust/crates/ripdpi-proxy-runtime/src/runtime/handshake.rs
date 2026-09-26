@@ -106,6 +106,10 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
 }
 
 fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
+    if state.proxy_auth_token().is_some() {
+        client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "socks4 cannot authenticate"));
+    }
     let request = read_socks4_request(&mut client, version)?;
     let resolver = |host: &str| state.resolve_handshake_name(host);
     let parsed = state.parse_socks4_client_request(&request, resolver);

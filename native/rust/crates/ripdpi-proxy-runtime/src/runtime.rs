@@ -113,6 +113,30 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
     #[test]
+    fn listener_validation_rejects_unauthenticated_lan_and_unsupported_auth_modes() {
+        let mut config = RuntimeConfig::default();
+        config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
+        assert_eq!(super::validate_proxy_config(&config).unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+
+        config.network.listen.auth_token = Some("secret".to_string());
+        assert!(super::validate_proxy_config(&config).is_ok());
+        config.network.transparent = true;
+        assert_eq!(super::validate_proxy_config(&config).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        config.network.transparent = false;
+        config.network.shadowsocks = true;
+        assert_eq!(super::validate_proxy_config(&config).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn prebound_lan_listener_cannot_bypass_auth_validation() {
+        let config = RuntimeConfig::default();
+        let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).expect("bind LAN listener");
+        let err = super::run_proxy_with_listener(config, listener, Arc::new(ripdpi_ws_tunnel::TelegramWsTransport))
+            .expect_err("prebound LAN listener needs auth");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+    }
+
+    #[test]
     fn ordinary_api_preserves_poll_error_while_receipt_retains_cleanup_evidence() {
         let receipt =
             ProxyRuntimeCleanupReceipt::clean(false, false, Vec::new(), false, 2, 1, Some(io::ErrorKind::BrokenPipe));
