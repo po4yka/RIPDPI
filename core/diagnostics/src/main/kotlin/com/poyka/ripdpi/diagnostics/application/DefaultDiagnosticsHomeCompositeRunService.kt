@@ -71,6 +71,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val probeResultCache: ProbeResultCache = persistencePorts.probeResultCache
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
+        private val completionOrder = HomeCompositeCompletionOrder()
         private val packetCaptureCoordinator = HomePacketCaptureTerminalCoordinator(scope)
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
         private val runJobs = HomeCompositeRunJobs(scope)
@@ -95,6 +96,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     HomeCompositeFinalizationRuntime(
                         progressState = progressState,
                         completedRuns = completedRuns,
+                        completionOrder = completionOrder,
                         scope = scope,
                     ),
             )
@@ -684,7 +686,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         ) {
             packetCaptureCoordinator.settle(runId)
             val detectionResult = runDetectionResults.remove(runId)
-            val previousOutcome = completedRuns.mostRecentCompletedRunBefore(runId)
+            val previousOutcome = completionOrder.previousBefore(runId)
             outcomeFinalizer.finalize(
                 HomeCompositeFinalizationRequest(
                     runId = runId,

@@ -104,11 +104,17 @@ internal fun DiagnosticsHomeCompositeProgress.outcomeOrThrowIfTerminal(): Diagno
             -> throw DiagnosticsHomeRunTerminatedException(status)
         }
 
-internal fun Map<String, DiagnosticsHomeCompositeOutcome>.mostRecentCompletedRunBefore(
-    currentRunId: String,
-): DiagnosticsHomeCompositeOutcome? =
-    entries
-        .asSequence()
-        .filter { (key, _) -> key != currentRunId }
-        .map { (_, value) -> value }
-        .maxByOrNull { it.bundleSessionIds.size }
+internal class HomeCompositeCompletionOrder {
+    private var latest: DiagnosticsHomeCompositeOutcome? = null
+    private var prior: DiagnosticsHomeCompositeOutcome? = null
+
+    @Synchronized
+    fun recordCompleted(outcome: DiagnosticsHomeCompositeOutcome) {
+        if (latest?.runId != outcome.runId) prior = latest
+        latest = outcome
+    }
+
+    @Synchronized
+    fun previousBefore(currentRunId: String): DiagnosticsHomeCompositeOutcome? =
+        if (latest?.runId == currentRunId) prior else latest
+}

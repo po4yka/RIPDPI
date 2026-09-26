@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal class HomeCompositeFinalizationRuntime(
     val progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,
     val completedRuns: ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>,
+    val completionOrder: HomeCompositeCompletionOrder,
     val scope: CoroutineScope,
 )
 
@@ -116,6 +117,7 @@ internal class HomeCompositeOutcomeFinalizer(
 
     private suspend fun publish(outcome: DiagnosticsHomeCompositeOutcome) {
         val persistedOutcome = persistencePorts.homeRunPersistence.persistCompletedRun(outcome)
+        runtime.completionOrder.recordCompleted(persistedOutcome)
         runtime.completedRuns[persistedOutcome.runId] = persistedOutcome
         cacheOutcome(persistedOutcome)
         runtime.progressState.update { current ->

@@ -21,5 +21,5 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-DGN-1790433260349809-FREEZE | DGN-1790433444778107 | New test failed before mapping (1/1); all StrategyRecommendationEngineTest cases passed after mapping with -Pripdpi.skipNativeBuild=true. | passed |
-| REQ-DGN-1790433260349809-PREVIOUS | DGN-1790433446065936 | Focused red and green test pending. | required |
+| REQ-DGN-1790433260349809-PREVIOUS | DGN-1790433446065936 | Order test failed before fix (1/1); HomeCompositeRunJobsTest, DiagnosticsHomeCompositeRunServiceTest, and diagnostics detekt passed after fix with -Pripdpi.skipNativeBuild=true. | passed |
 | REQ-DGN-1790433260349809-DNS | DGN-1790433447391364 | Focused red and green test pending. | required |
