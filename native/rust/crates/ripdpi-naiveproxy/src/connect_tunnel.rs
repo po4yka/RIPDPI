@@ -88,7 +88,6 @@ struct NaivePaddingStream<S> {
     pending_read: Vec<u8>,
     pending_write: Vec<u8>,
     pending_write_offset: usize,
-    pending_write_consumed: usize,
 }
 
 impl<S> NaivePaddingStream<S> {
@@ -100,7 +99,6 @@ impl<S> NaivePaddingStream<S> {
             pending_read: Vec::new(),
             pending_write: Vec::new(),
             pending_write_offset: 0,
-            pending_write_consumed: 0,
         }
     }
 }
@@ -150,52 +148,34 @@ where
     S: AsyncWrite + Unpin,
 {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-        if self.pending_write.is_empty() {
-            let padding_size = rand::rng().random::<u8>();
-            let mut encoded = Vec::new();
-            let consumed = self.encoder.encode_with_padding_size(buf, padding_size, &mut encoded);
-            self.pending_write = encoded;
-            self.pending_write_offset = 0;
-            self.pending_write_consumed = consumed;
+        if buf.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+        match self.as_mut().poll_drain_pending(cx) {
+            Poll::Pending => return Poll::Pending,
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+            Poll::Ready(Ok(())) => {}
         }
 
-        while self.pending_write_offset < self.pending_write.len() {
-            let offset = self.pending_write_offset;
-            let chunk = self.pending_write[offset..].to_vec();
-            match Pin::new(&mut self.inner).poll_write(cx, &chunk) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
-                Poll::Ready(Ok(0)) => return Poll::Ready(Err(io::ErrorKind::WriteZero.into())),
-                Poll::Ready(Ok(written)) => {
-                    self.pending_write_offset += written;
-                }
-            }
-        }
-
-        let consumed = self.pending_write_consumed;
-        self.pending_write.clear();
+        let padding_size = rand::rng().random::<u8>();
+        let mut encoded = Vec::new();
+        let consumed = self.encoder.encode_with_padding_size(buf, padding_size, &mut encoded);
+        self.pending_write = encoded;
         self.pending_write_offset = 0;
-        self.pending_write_consumed = 0;
+        // The bytes are now owned by this buffered writer. A Pending result from
+        // the inner writer must not make a later poll_write acknowledge stale input.
+        if let Poll::Ready(Err(error)) = self.as_mut().poll_drain_pending(cx) {
+            return Poll::Ready(Err(error));
+        }
         Poll::Ready(Ok(consumed))
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        while self.pending_write_offset < self.pending_write.len() {
-            let offset = self.pending_write_offset;
-            let chunk = self.pending_write[offset..].to_vec();
-            match Pin::new(&mut self.inner).poll_write(cx, &chunk) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
-                Poll::Ready(Ok(0)) => return Poll::Ready(Err(io::ErrorKind::WriteZero.into())),
-                Poll::Ready(Ok(written)) => {
-                    self.pending_write_offset += written;
-                }
-            }
+        match self.as_mut().poll_drain_pending(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(error)) => Poll::Ready(Err(error)),
+            Poll::Ready(Ok(())) => Pin::new(&mut self.inner).poll_flush(cx),
         }
-        self.pending_write.clear();
-        self.pending_write_offset = 0;
-        self.pending_write_consumed = 0;
-        Pin::new(&mut self.inner).poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -204,5 +184,59 @@ where
             Poll::Ready(Err(error)) => Poll::Ready(Err(error)),
             Poll::Ready(Ok(())) => Pin::new(&mut self.inner).poll_shutdown(cx),
         }
+    }
+}
+
+impl<S: AsyncWrite + Unpin> NaivePaddingStream<S> {
+    fn poll_drain_pending(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        while self.pending_write_offset < self.pending_write.len() {
+            let this = self.as_mut().get_mut();
+            let chunk = &this.pending_write[this.pending_write_offset..];
+            let written = match Pin::new(&mut this.inner).poll_write(cx, chunk) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Ready(Ok(0)) => return Poll::Ready(Err(io::ErrorKind::WriteZero.into())),
+                Poll::Ready(Ok(written)) => written,
+            };
+            self.pending_write_offset += written;
+        }
+        self.pending_write.clear();
+        self.pending_write_offset = 0;
+        Poll::Ready(Ok(()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::pin::Pin;
+    use std::task::Poll;
+
+    use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+    use super::NaivePaddingStream;
+    use crate::padding::PaddingDecoder;
+
+    #[tokio::test]
+    // cancel-safe: the test owns its socket and channel resources.
+    async fn pending_inner_write_acknowledges_only_owned_input() {
+        let (inner, mut peer) = tokio::io::duplex(1);
+        let mut writer = NaivePaddingStream::new(inner);
+        std::future::poll_fn(|cx| {
+            assert!(matches!(Pin::new(&mut writer).poll_write(cx, b"A"), Poll::Ready(Ok(1))));
+            Poll::Ready(())
+        })
+        .await;
+
+        let reader = tokio::spawn(async move {
+            let mut wire = Vec::new();
+            peer.read_to_end(&mut wire).await.expect("read wire bytes");
+            wire
+        });
+        writer.write_all(b"B").await.expect("write next payload");
+        writer.shutdown().await.expect("flush and shut down");
+        let wire = reader.await.expect("reader task");
+        let mut decoded = Vec::new();
+        PaddingDecoder::default().decode(&wire, &mut decoded);
+        assert_eq!(decoded, b"AB");
     }
 }
