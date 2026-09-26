@@ -238,6 +238,35 @@ class GeoIpCheckerTest {
     }
 
     @Test
+    fun `two of three successful providers form a majority`() {
+        val result =
+            GeoIpChecker.evaluateConsensus(
+                listOf(
+                    snapshot("ipapi.is", isProxy = true),
+                    snapshot("iplocate.io", isProxy = true),
+                    snapshot("ipquery.io", isProxy = false),
+                ),
+            )
+
+        assertTrue(result.detected)
+        assertTrue(result.findings.any { it.description == "Provider count: 3" })
+    }
+
+    @Test
+    fun `one or two successful providers cannot confirm proxy signal`() {
+        for (count in 1..2) {
+            val result =
+                GeoIpChecker.evaluateConsensus(
+                    (1..count).map { snapshot("provider$it", isProxy = true) },
+                )
+
+            assertFalse(result.detected)
+            assertTrue(result.needsReview)
+            assertTrue(result.findings.any { it.description.contains("insufficient") })
+        }
+    }
+
+    @Test
     fun `provider count equals successful responses`() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)

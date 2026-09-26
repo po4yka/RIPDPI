@@ -152,7 +152,20 @@ object GeoIpChecker {
 
     internal fun evaluate(json: JSONObject): CategoryResult = evaluate(snapshotFrom(json))
 
-    internal fun evaluateConsensus(snapshots: List<GeoIpSnapshot>): CategoryResult = evaluate(mergeSnapshots(snapshots))
+    internal fun evaluateConsensus(snapshots: List<GeoIpSnapshot>): CategoryResult {
+        val result = evaluate(mergeSnapshots(snapshots))
+        if (snapshots.size >= MIN_PROVIDER_COUNT) return result
+        return result.copy(
+            needsReview = true,
+            findings = result.findings +
+                Finding(
+                    description = "GeoIP consensus insufficient: only ${snapshots.size} providers responded",
+                    needsReview = true,
+                    source = EvidenceSource.GEO_IP,
+                    confidence = EvidenceConfidence.LOW,
+                ),
+        )
+    }
 
     internal fun evaluate(snapshot: GeoIpSnapshot): CategoryResult {
         val findings = mutableListOf<Finding>()
@@ -203,8 +216,8 @@ object GeoIpChecker {
     private fun mergeSnapshots(snapshots: List<GeoIpSnapshot>): GeoIpSnapshot {
         require(snapshots.isNotEmpty()) { "At least one GeoIP provider response is required" }
 
-        val proxyMajority = snapshots.count { it.isProxy } >= PROVIDER_MAJORITY
-        val hostingMajority = snapshots.count { it.isHosting } >= PROVIDER_MAJORITY
+        val proxyMajority = snapshots.size >= MIN_PROVIDER_COUNT && snapshots.count { it.isProxy } > snapshots.size / 2
+        val hostingMajority = snapshots.size >= MIN_PROVIDER_COUNT && snapshots.count { it.isHosting } > snapshots.size / 2
         val countryCode = majorityString(snapshots, GeoIpSnapshot::countryCode)
         val countrySnapshot =
             snapshots
@@ -473,7 +486,7 @@ object GeoIpChecker {
     }
 
     private const val GEO_IP_TIMEOUT_MS = 10_000L
-    private const val PROVIDER_MAJORITY = 3
+    private const val MIN_PROVIDER_COUNT = 3
     private val DEFAULT_NETWORK_STACK = DetectionResolverNetworkStack()
     private const val SEED_URL =
         "https://ipwho.is/?fields=ip,success,message,country,country_code,connection,security"
