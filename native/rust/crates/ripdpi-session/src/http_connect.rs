@@ -3,16 +3,36 @@ use std::net::SocketAddr;
 use crate::types::{ClientRequest, NameResolver, SessionError, SocketType, TargetAddr};
 
 pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
-    let text = std::str::from_utf8(buffer).map_err(|_| SessionError::generic())?;
+    let header_end = buffer
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .map(|position| position + 4)
+        .ok_or_else(SessionError::generic)?;
+    let text = std::str::from_utf8(&buffer[..header_end]).map_err(|_| SessionError::generic())?;
     let mut lines = text.lines();
     let request_line = lines.next().ok_or_else(SessionError::generic)?;
-    if !request_line.starts_with("CONNECT ") {
+    let mut parts = request_line.split_ascii_whitespace();
+    if parts.next() != Some("CONNECT") {
         return Err(SessionError::generic());
     }
-    let host_header =
-        text.lines().find(|line| line.to_ascii_lowercase().starts_with("host:")).ok_or_else(SessionError::generic)?;
-    let host = host_header[5..].trim();
-    let (name, port) = split_host_port(host).ok_or_else(SessionError::generic)?;
+    let authority = parts.next().ok_or_else(SessionError::generic)?;
+    if !matches!(parts.next(), Some("HTTP/1.0" | "HTTP/1.1")) || parts.next().is_some() {
+        return Err(SessionError::generic());
+    }
+    let (name, port) = split_host_port(authority).ok_or_else(SessionError::generic)?;
+    let mut hosts = lines.take_while(|line| !line.is_empty()).filter_map(|line| {
+        line.split_once(':').filter(|(field, _)| field.eq_ignore_ascii_case("host")).map(|(_, value)| value.trim())
+    });
+    let host = hosts.next().ok_or_else(SessionError::generic)?;
+    if hosts.next().is_some() {
+        return Err(SessionError::generic());
+    }
+    let unbracketed_host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
+    let (host_name, host_port) =
+        split_host_port(host).map_or((unbracketed_host, None), |(name, port)| (name, Some(port)));
+    if !host_name.eq_ignore_ascii_case(name) || host_port.is_some_and(|host_port| host_port != port) {
+        return Err(SessionError::generic());
+    }
     let addr = resolver
         .resolve(name, SocketType::Stream)
         .map(|resolved| SocketAddr::new(resolved.ip(), port))
@@ -22,11 +42,18 @@ pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) ->
 
 fn split_host_port(value: &str) -> Option<(&str, u16)> {
     let (host, port) = value.rsplit_once(':')?;
-    if !host.starts_with('[') && host.contains(':') {
-        return None;
-    }
-    let port = port.parse::<u16>().ok()?;
-    Some((host.trim_matches(|ch| ch == '[' || ch == ']'), port))
+    let port = port.parse::<u16>().ok().filter(|port| *port != 0)?;
+    let host = if let Some(host) = host.strip_prefix('[') {
+        let host = host.strip_suffix(']')?;
+        host.parse::<std::net::Ipv6Addr>().ok()?;
+        host
+    } else {
+        if host.is_empty() || host.contains(['[', ']', ':']) {
+            return None;
+        }
+        host
+    };
+    Some((host, port))
 }
 
 #[cfg(test)]
@@ -45,8 +72,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_http_connect_request_uses_host_header() {
-        let request = b"CONNECT ignored HTTP/1.1\r\nHost: example.com:8443\r\n\r\n";
+    fn parse_http_connect_request_uses_connect_target() {
+        let request = b"CONNECT example.com:8443 HTTP/1.1\r\nHost: example.com:8443\r\n\r\n";
         let parsed = parse_http_connect_request(request, &resolver).expect("parse connect");
 
         assert_eq!(
@@ -56,6 +83,41 @@ mod tests {
                 host: Some("example.com".to_string()),
             })
         );
+    }
+
+    #[test]
+    fn parse_http_connect_request_rejects_mismatched_host() {
+        let request = b"CONNECT other.example:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n";
+        assert!(parse_http_connect_request(request, &resolver).is_err());
+    }
+
+    #[test]
+    fn parse_http_connect_request_accepts_host_without_port() {
+        let request = b"CONNECT example.com:8443 HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        assert!(parse_http_connect_request(request, &resolver).is_ok());
+    }
+
+    #[test]
+    fn parse_http_connect_request_accepts_binary_tunnel_data() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n\r\n\x16\x03\xff";
+        assert!(parse_http_connect_request(request, &resolver).is_ok());
+    }
+
+    #[test]
+    fn parse_http_connect_request_ignores_tunneled_host_text() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n\r\nHost: tunneled.example\r\n";
+        assert!(parse_http_connect_request(request, &resolver).is_ok());
+    }
+
+    #[test]
+    fn parse_http_connect_request_rejects_duplicate_host() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\nHost: example.com\r\n\r\n";
+        assert!(parse_http_connect_request(request, &resolver).is_err());
+    }
+
+    #[test]
+    fn split_host_port_rejects_zero_port() {
+        assert_eq!(split_host_port("example.com:0"), None);
     }
 
     #[test]
