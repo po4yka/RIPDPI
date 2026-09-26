@@ -39,7 +39,7 @@ class BackupShareTempFileOwnerTest {
         val cacheDir = Files.createTempDirectory("backup-share-cache-test").toFile()
         try {
             val directory = File(cacheDir, "backup-share").apply { mkdirs() }
-            val nowMs = 1_000_000_000L
+            val nowMs = System.currentTimeMillis()
             val expired =
                 File(directory, "expired.json").apply {
                     writeText("old")
@@ -60,10 +60,30 @@ class BackupShareTempFileOwnerTest {
             assertTrue(next != recent)
             next.writeText("new")
             owner.releaseForShare()
-            val another = owner.createFile(cacheDir, "ripdpi-backup", nowMs)
+            val another = owner.createFile(cacheDir, "ripdpi-backup")
             assertTrue(next.exists())
             assertTrue(another != next)
             owner.clear()
+        } finally {
+            cacheDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `clock rollback prunes future dated shares`() {
+        val cacheDir = Files.createTempDirectory("backup-share-clock-test").toFile()
+        try {
+            val directory = File(cacheDir, "backup-share").apply { mkdirs() }
+            val nowMs = 1_000_000_000L
+            val future =
+                File(directory, "future.json").apply {
+                    writeText("redacted backup")
+                    setLastModified(nowMs + 60 * 60 * 1000L)
+                }
+
+            BackupShareTempFileOwner().pruneExpired(cacheDir, nowMs)
+
+            assertFalse(future.exists())
         } finally {
             cacheDir.deleteRecursively()
         }

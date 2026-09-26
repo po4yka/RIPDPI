@@ -25,7 +25,7 @@ internal class BackupShareTempFileOwner : AutoCloseable {
     ) {
         File(cacheDir, SHARE_CACHE_DIR).listFiles()?.forEach { file ->
             val ageMs = nowMs - file.lastModified()
-            if (file.isFile && ageMs >= RETENTION_MS && ageMs >= 0L) {
+            if (file.isFile && (ageMs >= RETENTION_MS || ageMs < 0L)) {
                 runCatching { file.delete() }
             }
         }
