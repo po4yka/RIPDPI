@@ -20,6 +20,7 @@ class XrayApiScanner(
     private val dispatchers: AppCoroutineDispatchers,
     private val loopbackHosts: List<String> = listOf("127.0.0.1", "::1"),
     private val scanRange: IntRange = 1024..65535,
+    private val scanPorts: List<Int>? = null,
     private val connectTimeoutMs: Int = 200,
     private val grpcDeadlineMs: Long = 2000,
     private val maxConcurrency: Int = 100,
@@ -29,7 +30,7 @@ class XrayApiScanner(
 
     suspend fun findXrayApi(onProgress: suspend (XrayScanProgress) -> Unit): XrayApiScanResult? =
         withContext(dispatchers.io) {
-            val portsTotal = (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
+            val portsTotal = scanPorts?.size ?: (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
             val total = portsTotal * loopbackHosts.size
 
             var scannedOffset = 0
@@ -56,7 +57,7 @@ class XrayApiScanner(
         onProgress: suspend (XrayScanProgress) -> Unit,
     ): XrayApiScanResult? =
         coroutineScope {
-            val portsTotal = (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
+            val portsTotal = scanPorts?.size ?: (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
             if (portsTotal <= 0) return@coroutineScope null
 
             val scanned = AtomicInteger(0)
@@ -69,15 +70,16 @@ class XrayApiScanner(
                     host = host,
                     scanned = scannedOffset,
                     total = total,
-                    currentPort = scanRange.first,
+                    currentPort = scanPorts?.first() ?: scanRange.first,
                 ),
             )
 
             val jobs =
                 (0 until maxConcurrency).map { workerIndex ->
                     launch(dispatcher) {
-                        var port = scanRange.first + workerIndex
-                        while (port <= scanRange.last) {
+                        var portIndex = workerIndex
+                        while (portIndex < portsTotal) {
+                            val port = scanPorts?.get(portIndex) ?: scanRange.first + portIndex
                             coroutineContext.ensureActive()
                             if (found.get() != null) return@launch
 
@@ -101,7 +103,7 @@ class XrayApiScanner(
                                 }
                             }
 
-                            port += maxConcurrency
+                            portIndex += maxConcurrency
                         }
                     }
                 }
@@ -113,7 +115,7 @@ class XrayApiScanner(
                     host = host,
                     scanned = scannedOffset + portsTotal,
                     total = total,
-                    currentPort = scanRange.last,
+                    currentPort = scanPorts?.last() ?: scanRange.last,
                 ),
             )
 

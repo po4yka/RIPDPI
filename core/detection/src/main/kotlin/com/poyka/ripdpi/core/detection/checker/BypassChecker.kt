@@ -53,7 +53,17 @@ object BypassChecker {
                     scanRange = options.portRange.toScanRange(),
                     fullRangeEnabled = options.portRange !is BypassPortRange.Popular,
                 )
-            val xrayScanner = XrayApiScanner(dispatchers = dispatchers)
+            val xrayScanner =
+                XrayApiScanner(
+                    dispatchers = dispatchers,
+                    scanRange = options.portRange.toScanRange(),
+                    scanPorts =
+                        if (options.portRange is BypassPortRange.Popular) {
+                            (VpnAppCatalog.localhostProxyPorts + listOf(1081, 7890, 7891, 10085)).distinct().sorted()
+                        } else {
+                            null
+                        },
+                )
 
             val proxyDeferred =
                 async {
@@ -222,7 +232,7 @@ object BypassChecker {
             BypassPortRange.Popular -> 1024..65535
             BypassPortRange.Extended -> 1024..49151
             BypassPortRange.Full -> 1..65535
-            is BypassPortRange.Custom -> start.coerceIn(1, 65535)..end.coerceIn(1, 65535)
+            is BypassPortRange.Custom -> minOf(start, end).coerceIn(1, 65535)..maxOf(start, end).coerceIn(1, 65535)
         }
 
     private fun reportProxyTransportProbes(
