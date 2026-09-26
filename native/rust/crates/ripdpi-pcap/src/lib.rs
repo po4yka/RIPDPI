@@ -160,6 +160,14 @@ mod tests {
         sum == 0xffff
     }
 
+    fn rewrite_packet(packet: &[u8]) -> Vec<u8> {
+        let mut source = Vec::new();
+        PcapWriter::new(&mut source, SNAPLEN_DEFAULT).unwrap().write_packet(0, packet).unwrap();
+        let mut destination = Vec::new();
+        rewrite_endpoints(Cursor::new(source), &mut destination).unwrap();
+        PcapReader::new(Cursor::new(destination)).unwrap().next_record().unwrap().unwrap().bytes
+    }
+
     // -- writer ------------------------------------------------------------
 
     #[test]
@@ -378,6 +386,62 @@ mod tests {
             let mut packet = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], &full[..cut]);
             redact_in_place(&mut packet);
         }
+    }
+
+    #[test]
+    fn rewrite_endpoints_tolerates_truncated_tcp_header() {
+        let mut packet = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"");
+        packet[32] = 0xf0; // TCP claims 60 header bytes; only 20 are captured.
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[12..20], &[0; 8]);
+        assert!(ipv4_header_checksum_valid(&redacted));
+    }
+
+    #[test]
+    fn rewrite_endpoints_scrubs_ipv6_sni_after_extension_chain() {
+        let sni = b"secret-sni.example";
+        let hello = make_client_hello_with_sni(std::str::from_utf8(sni).unwrap());
+        let mut packet = vec![0u8; 40];
+        packet[0] = 0x60;
+        packet[6] = 0; // Hop-by-Hop -> Routing -> Destination Options -> Fragment -> AH -> TCP.
+        packet[8..24].fill(0x20);
+        packet[24..40].fill(0x30);
+        for next in [43, 60, 44] {
+            packet.extend_from_slice(&[next, 0, 0, 0, 0, 0, 0, 0]);
+        }
+        packet.extend_from_slice(&[51, 0, 0, 0, 0, 0, 0, 1]); // Atomic fragment.
+        packet.extend_from_slice(&[6, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // AH length = 12.
+        let tcp_start = packet.len();
+        packet.extend_from_slice(&[0u8; 20]);
+        packet[tcp_start + 12] = 0x50;
+        packet[tcp_start + 16] = 0xaa;
+        packet.extend_from_slice(&hello);
+        let payload_len = (packet.len() - 40) as u16;
+        packet[4..6].copy_from_slice(&payload_len.to_be_bytes());
+
+        let redacted = rewrite_packet(&packet);
+        assert!(!redacted.windows(sni.len()).any(|part| part == sni));
+        assert_eq!(&redacted[8..40], &[0; 32]);
+        assert_eq!(&redacted[tcp_start + 16..tcp_start + 18], &[0; 2]);
+    }
+
+    #[test]
+    fn rewrite_endpoints_tolerates_truncated_ipv6_extension_chain() {
+        for extension_len in 0..8 {
+            let mut packet = vec![0u8; 40 + extension_len];
+            packet[0] = 0x60;
+            packet[6] = 60; // Destination Options needs at least eight bytes.
+            packet[8..40].fill(0x20);
+            let redacted = rewrite_packet(&packet);
+            assert_eq!(&redacted[8..40], &[0; 32]);
+        }
+        let mut packet = vec![0u8; 48];
+        packet[0] = 0x60;
+        packet[6] = 60;
+        packet[40] = 6;
+        packet[41] = 1; // Claims 16 bytes, but only eight are captured.
+        let redacted = rewrite_packet(&packet);
+        assert_eq!(&redacted[8..40], &[0; 32]);
     }
 
     #[test]

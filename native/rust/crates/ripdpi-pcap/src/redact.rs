@@ -113,7 +113,10 @@ fn redact_tcp_sni(bytes: &mut [u8], tcp_start: usize) {
     let Some(payload_start) = tcp_start.checked_add(tcp_hdr_len) else {
         return;
     };
-    if let Some((host_off, host_len)) = find_sni_host(&bytes[payload_start..]) {
+    let Some(payload) = bytes.get(payload_start..) else {
+        return;
+    };
+    if let Some((host_off, host_len)) = find_sni_host(payload) {
         // host_off / host_len were derived from slices of the payload, so
         // these indices are in range; the loop is bounds-checked regardless.
         let abs_start = payload_start.saturating_add(host_off);
@@ -215,6 +218,40 @@ fn find_host_in_sni_ext(payload: &[u8], body: usize, body_end: usize) -> Option<
     None
 }
 
+/// Find TCP or UDP after the IPv6 extension headers we can parse safely.
+/// Non-initial fragments and incomplete headers have no usable transport header.
+fn ipv6_transport(bytes: &[u8]) -> Option<(u8, usize)> {
+    let mut next = *bytes.get(6)?;
+    let mut offset = 40usize;
+    loop {
+        let rest = bytes.get(offset..)?;
+        let len = match next {
+            0 | 43 | 60 => {
+                let header = rest.get(..2)?;
+                next = header[0];
+                (usize::from(header[1]) + 1) * 8
+            }
+            44 => {
+                let header = rest.get(..8)?;
+                if u16::from_be_bytes([header[2], header[3]]) & 0xfff8 != 0 {
+                    return None;
+                }
+                next = header[0];
+                8
+            }
+            51 => {
+                let header = rest.get(..2)?;
+                next = header[0];
+                (usize::from(header[1]) + 2) * 4
+            }
+            _ => break,
+        };
+        offset = offset.checked_add(len)?;
+        bytes.get(..offset)?;
+    }
+    Some((next, offset))
+}
+
 fn redact_ipv6(bytes: &mut [u8]) {
     if bytes.len() < 40 {
         return;
@@ -227,8 +264,9 @@ fn redact_ipv6(bytes: &mut [u8]) {
     // IPv6 (RFC 2460) and tools verify them, so zeroing them is an
     // explicit redaction tradeoff. We still zero for consistency with
     // IPv4 behavior.
-    let next_header = bytes[6];
-    let payload_start = 40;
+    let Some((next_header, payload_start)) = ipv6_transport(bytes) else {
+        return;
+    };
     match next_header {
         6 if bytes.len() >= payload_start + 18 => {
             bytes[payload_start + 16] = 0;
