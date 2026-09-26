@@ -13,7 +13,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -95,23 +97,12 @@ internal class ProxyRuntimeSupervisor(
                         ),
                     readySnapshot = readySnapshot,
                 )
+            } catch (readinessError: CancellationException) {
+                cleanupFailedStart(job, proxyInstance, lease, shouldReportExit)
+                throw readinessError
             } catch (readinessError: Exception) {
                 val proxyStartWasActive = job.isActive
-                shouldReportExit.set(false)
-                forwardingLease.compareAndSet(lease, null)
-                try {
-                    runCatching {
-                        if (proxyStartWasActive) {
-                            proxyInstance.stopProxy()
-                        }
-                    }
-                    job.join()
-                } finally {
-                    proxyJob = null
-                    proxyRuntime = null
-                    exitReporting = null
-                    stopRequested = false
-                }
+                cleanupFailedStart(job, proxyInstance, lease, shouldReportExit)
                 val startupFailure =
                     resolveProxyStartupFailure(
                         readinessError = readinessError,
@@ -125,6 +116,30 @@ internal class ProxyRuntimeSupervisor(
 
         updateNetworkSnapshot(proxyInstance)
         return startResult
+    }
+
+    private suspend fun cleanupFailedStart(
+        job: Job,
+        proxyInstance: RipDpiProxyRuntime,
+        lease: ProxyForwardingLease,
+        shouldReportExit: AtomicBoolean,
+    ) {
+        shouldReportExit.set(false)
+        forwardingLease.compareAndSet(lease, null)
+        val cleanupFailure =
+            runCatching {
+                withContext(NonCancellable) {
+                    if (!job.isCompleted) stop() else job.join()
+                }
+            }.exceptionOrNull()
+        if (cleanupFailure is RuntimeCleanupPendingException) throw cleanupFailure
+        if (!job.isCompleted) throw RuntimeCleanupPendingException(cleanupFailure)
+        if (proxyRuntime === proxyInstance) {
+            proxyJob = null
+            proxyRuntime = null
+            exitReporting = null
+            stopRequested = false
+        }
     }
 
     private suspend fun updateNetworkSnapshot(proxyInstance: RipDpiProxyRuntime) {
@@ -157,18 +172,27 @@ internal class ProxyRuntimeSupervisor(
         }
 
         forwardingLease.set(null)
-        try {
-            stopRequested = true
-            proxyInstance.stopProxy()
-            withTimeoutOrNull(stopTimeoutMillis) {
-                proxyJob?.join()
+        val outcome =
+            runCatching {
+                stopRequested = true
+                val stopped =
+                    withTimeoutOrNull(stopTimeoutMillis) {
+                        proxyInstance.stopProxy()
+                        proxyJob?.join()
+                        true
+                    } == true
+                if (!stopped && proxyJob?.isCompleted != true) throw RuntimeCleanupPendingException()
             }
-        } finally {
-            proxyJob = null
-            proxyRuntime = null
-            exitReporting = null
-            stopRequested = false
+        val failure = outcome.exceptionOrNull()
+        if (failure is Exception && proxyJob?.isCompleted != true) {
+            val pending = failure as? RuntimeCleanupPendingException ?: RuntimeCleanupPendingException(failure)
+            throw pending
         }
+        proxyJob = null
+        proxyRuntime = null
+        exitReporting = null
+        stopRequested = false
+        outcome.getOrThrow()
     }
 
     fun detach() {

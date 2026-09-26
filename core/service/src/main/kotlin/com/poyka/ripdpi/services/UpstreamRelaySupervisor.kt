@@ -24,8 +24,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -116,6 +119,10 @@ internal class UpstreamRelaySupervisor(
     )
 
     private var activeSlot: RelayRuntimeSlot? = null
+    private val pendingSlots = ConcurrentHashMap.newKeySet<RelayRuntimeSlot>()
+
+    val hasOwnedRuntime: Boolean
+        get() = activeSlot != null || pendingSlots.isNotEmpty()
 
     val localNetworkDependent: Boolean
         get() = activeSlot?.localNetworkDependent == true
@@ -126,7 +133,7 @@ internal class UpstreamRelaySupervisor(
         quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
-        check(activeSlot == null) { "Relay runtime is already active" }
+        check(!hasOwnedRuntime) { "Relay runtime is already active" }
         val slot =
             startSlot(
                 config = config,
@@ -143,8 +150,9 @@ internal class UpstreamRelaySupervisor(
         quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
         onState: (InitialTransportRaceSnapshot) -> Unit = {},
-    ): PromotedRelayRuntime =
-        initialRelayRaceRunnerFactory
+    ): PromotedRelayRuntime {
+        check(!hasOwnedRuntime) { "Relay runtime is already active" }
+        return initialRelayRaceRunnerFactory
             .create(
                 startCandidate = { candidate ->
                     startSlot(
@@ -163,6 +171,7 @@ internal class UpstreamRelaySupervisor(
                 promoteCandidate = ::promoteSlot,
                 stopDiscardedCandidates = ::stopDiscardedSlots,
             ).run(plan, onState)
+    }
 
     private suspend fun startSlot(
         config: RipDpiRelayConfig,
@@ -239,18 +248,12 @@ internal class UpstreamRelaySupervisor(
             }
             return slot
         } catch (readinessError: CancellationException) {
-            shouldReportExit.set(false)
-            stopRequested.set(true)
-            runCatching { runtime.stop() }
-            job.join()
+            cleanupFailedStart(slot)
             throw readinessError
         } catch (
             @Suppress("TooGenericExceptionCaught") readinessError: Exception,
         ) {
-            shouldReportExit.set(false)
-            stopRequested.set(true)
-            runCatching { runtime.stop() }
-            job.join()
+            cleanupFailedStart(slot)
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)
@@ -258,26 +261,57 @@ internal class UpstreamRelaySupervisor(
         }
     }
 
-    suspend fun stop() {
-        val slot = activeSlot ?: return
+    private suspend fun cleanupFailedStart(slot: RelayRuntimeSlot) {
+        slot.shouldReportExit.set(false)
+        val cleanupFailure = runCatching { withContext(NonCancellable) { stopSlot(slot) } }.exceptionOrNull()
+        if (cleanupFailure is RuntimeCleanupPendingException) throw cleanupFailure
+    }
 
-        var cleanupRetained = false
-        try {
-            slot.stopRequested.set(true)
-            slot.runtime.stop()
-            val stopped =
-                withTimeoutOrNull(stopTimeoutMillis) {
-                    slot.job.join()
-                    true
-                } == true
-            if (!stopped) throw RuntimeCleanupPendingException()
-            reportExitIfNeeded(slot)
-        } catch (pending: RuntimeCleanupPendingException) {
-            cleanupRetained = true
-            throw pending
-        } finally {
-            if (!cleanupRetained && activeSlot === slot) activeSlot = null
+    suspend fun stop() {
+        val slots =
+            buildList {
+                activeSlot?.let(::add)
+                addAll(pendingSlots)
+            }.distinct()
+        var stopFailure: Throwable? = null
+        for (slot in slots) {
+            runCatching { stopSlot(slot) }
+                .onFailure { failure ->
+                    val previous = stopFailure
+                    if (failure is RuntimeCleanupPendingException && previous !is RuntimeCleanupPendingException) {
+                        previous?.let(failure::addSuppressed)
+                        stopFailure = failure
+                    } else if (previous == null) {
+                        stopFailure = failure
+                    } else {
+                        previous.addSuppressed(failure)
+                    }
+                }
         }
+        stopFailure?.let { throw it }
+    }
+
+    private suspend fun stopSlot(slot: RelayRuntimeSlot) {
+        val outcome =
+            runCatching {
+                slot.stopRequested.set(true)
+                slot.runtime.stop()
+                val stopped =
+                    withTimeoutOrNull(stopTimeoutMillis) {
+                        slot.job.join()
+                        true
+                    } == true
+                if (!stopped && !slot.job.isCompleted) throw RuntimeCleanupPendingException()
+                reportExitIfNeeded(slot)
+            }
+        val failure = outcome.exceptionOrNull()
+        if (failure is Exception && !slot.job.isCompleted) {
+            pendingSlots.add(slot)
+            throw failure as? RuntimeCleanupPendingException ?: RuntimeCleanupPendingException(failure)
+        }
+        if (activeSlot === slot) activeSlot = null
+        pendingSlots.remove(slot)
+        outcome.getOrThrow()
     }
 
     fun detach() {
@@ -339,9 +373,7 @@ internal class UpstreamRelaySupervisor(
     ) {
         slots.filter { it !== winner }.forEach { slot ->
             slot.shouldReportExit.set(false)
-            slot.stopRequested.set(true)
-            runCatching { slot.runtime.stop() }
-            withTimeoutOrNull(stopTimeoutMillis) { slot.job.join() }
+            runCatching { stopSlot(slot) }
         }
     }
 

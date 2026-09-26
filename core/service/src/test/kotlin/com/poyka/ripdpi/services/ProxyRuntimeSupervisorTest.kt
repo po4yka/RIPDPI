@@ -8,8 +8,11 @@ import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -26,6 +29,123 @@ private const val TestLocalProxyAuth = "alpha-123"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {
+    @Test
+    fun cancellingProxyJobBeforeReadinessStillSignalsNativeStop() =
+        runTest {
+            val readyGate = CompletableDeferred<Unit>()
+            val runtime =
+                TestProxyRuntime().apply {
+                    ignoreStartCancellation = true
+                    beforeReady = { readyGate.await() }
+                }
+            val owner = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = owner,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            val startup = backgroundScope.async { runCatching { supervisor.start(RipDpiProxyUIPreferences()) {} } }
+            runCurrent()
+            owner.cancel()
+            readyGate.completeExceptionally(CancellationException("readiness cancelled"))
+
+            assertTrue(startup.await().exceptionOrNull() is CancellationException)
+            assertEquals(1, runtime.stopCount)
+            assertNull(supervisor.runtime)
+        }
+
+    @Test
+    fun readinessFailureRetainsProxyWhenCleanupIsPending() =
+        runTest {
+            val runtime =
+                TestProxyRuntime().apply {
+                    awaitReadyFailure = IOException("readiness failed")
+                    stopFailure = IOException("stop failed")
+                }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            assertTrue(
+                runCatching { supervisor.start(RipDpiProxyUIPreferences()) {} }.exceptionOrNull()
+                    is RuntimeCleanupPendingException,
+            )
+            assertSame(runtime, supervisor.runtime)
+            runtime.stopFailure = null
+            supervisor.stop()
+            assertNull(supervisor.runtime)
+        }
+
+    @Test
+    fun failedStopRetainsNativeProxyUntilRetry() =
+        runTest {
+            val runtime = TestProxyRuntime().apply { stopFailure = IOException("stop failed") }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
+            assertSame(runtime, supervisor.runtime)
+            runtime.stopFailure = null
+            supervisor.stop()
+            assertNull(supervisor.runtime)
+            assertEquals(2, runtime.stopCount)
+        }
+
+    @Test
+    fun stopTimeoutRetainsNativeProxyUntilRetry() =
+        runTest {
+            val runtime = TestProxyRuntime().apply { keepRunningOnStop = true }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    stopTimeoutMillis = 100L,
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
+            assertSame(runtime, supervisor.runtime)
+            runtime.keepRunningOnStop = false
+            supervisor.stop()
+            assertNull(supervisor.runtime)
+        }
+
+    @Test
+    fun blockedNativeStopTimesOutAndRetainsProxyUntilRetry() =
+        runTest {
+            val stopGate = CompletableDeferred<Unit>()
+            val runtime = TestProxyRuntime().apply { beforeStop = { stopGate.await() } }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    stopTimeoutMillis = 100L,
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
+            assertSame(runtime, supervisor.runtime)
+            stopGate.complete(Unit)
+            supervisor.stop()
+            assertNull(supervisor.runtime)
+        }
+
     @Test
     fun stopAtFormerSplitAcquisitionBoundaryRejectsRetiringRuntimeEvidence() =
         runTest {

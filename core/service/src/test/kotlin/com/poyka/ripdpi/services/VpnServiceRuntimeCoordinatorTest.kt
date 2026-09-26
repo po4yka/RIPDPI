@@ -581,7 +581,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun transportFailoverDeadlineCancelsHungApplicationAndCompletesFailClosedCleanup() =
+    fun transportFailoverDeadlineRetainsPendingProxyCleanup() =
         runTest {
             val stopGate = CompletableDeferred<Unit>()
             var runtimeIndex = 0
@@ -622,20 +622,26 @@ class VpnServiceRuntimeCoordinatorTest {
             val requestId = env.transportFailoverApplyTracker.begin()
             val restart =
                 async {
-                    env.coordinator.restartAfterTransportFailover(requestId, target)
+                    runCatching { env.coordinator.restartAfterTransportFailover(requestId, target) }
                 }
 
             runCurrent()
             advanceTimeBy(51L)
             runCurrent()
+            assertTrue(restart.await().exceptionOrNull() is RuntimeCleanupPendingException)
 
             assertEquals(
-                TransportFailoverApplyOutcome.RollbackSafeFailure,
+                TransportFailoverApplyOutcome.TimedOutInFlight,
                 env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
             )
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
-            restart.await()
             assertFalse(stopGate.isCompleted)
+            val originalRuntime =
+                env.factory.runtimes
+                    .single()
+            assertEquals(1, originalRuntime.stopCount)
+            assertEquals(1, env.bridgeFactory.bridge.stopCount)
+            assertFalse(env.tunnelProvider.session.closed)
             assertTrue(env.transportFailoverApplyTracker.begin() > requestId)
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
         }
@@ -1856,7 +1862,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun staleSupersededProxyExitDoesNotHaltRebuiltVpnSession() =
+    fun incompleteProxyStopPreventsVpnReplacementSession() =
         runTest {
             val env = buildStaleProxyExitEnv()
 
@@ -1877,9 +1883,9 @@ class VpnServiceRuntimeCoordinatorTest {
             env.oldRuntime.complete(23)
             repeat(3) { runCurrent() }
 
-            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
-            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
-            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
         }
 
     private data class StaleProxyExitEnv(
@@ -2342,6 +2348,102 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun explicitTransportActivationRetainsPendingNativeProxy() =
+        runTest {
+            val target = TransportFailoverTarget(RelayKindVlessReality, "editor-profile")
+            val runtime =
+                TestProxyRuntime().apply {
+                    awaitReadyFailure = IOException("readiness failed")
+                    stopFailure = IOException("stop failed")
+                }
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    runtimeFactory = { runtime },
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ).copy(udpEnabled = true),
+                )
+            val requestId = env.transportFailoverApplyTracker.begin()
+
+            env.coordinator.activateTransport(requestId, target)
+
+            assertEquals(
+                TransportFailoverApplyOutcome.TimedOutInFlight,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertTrue(runtime.stopCount > 0)
+            assertTrue(
+                env.bridgeFactory.bridge.startedConfigs
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun explicitTransportActivationRetainsPendingRelayAfterProxyCleanup() =
+        runTest {
+            val target = TransportFailoverTarget(RelayKindVlessReality, "editor-profile")
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).apply { awaitReadyFailure = IOException("readiness failed") }
+                    },
+                    relayRuntimeFactory = { events ->
+                        TestRelayRuntime(events).apply { stopFailure = IOException("stop failed") }
+                    },
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ).copy(udpEnabled = true),
+                )
+            val requestId = env.transportFailoverApplyTracker.begin()
+
+            env.coordinator.activateTransport(requestId, target)
+
+            assertEquals(
+                TransportFailoverApplyOutcome.TimedOutInFlight,
+                env.transportFailoverApplyTracker.awaitOutcome(requestId, timeoutMillis = 1L),
+            )
+            assertEquals(1, env.relayFactory.lastRuntime.stopCount)
+            assertTrue(
+                env.bridgeFactory.bridge.startedConfigs
+                    .isEmpty(),
+            )
+        }
+
+    @Test
     fun explicitTransportActivationRejectsMismatchedColdTargetBeforeStartingProxy() =
         runTest {
             val env = newEnv()
@@ -2377,6 +2479,7 @@ class VpnServiceRuntimeCoordinatorTest {
         appSettingsRepository: TestAppSettingsRepository =
             TestAppSettingsRepository(resolutions.firstOrNull()?.settings ?: AppSettingsSerializer.defaultValue),
         runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
+        relayRuntimeFactory: (MutableList<String>) -> TestRelayRuntime = { events -> TestRelayRuntime(events) },
         relayRuntimeConfig: ResolvedRipDpiRelayConfig = sampleResolvedRelayConfig(),
         transportFailoverRuntimeTimeoutMillis: Long = 60_000L,
         xrayProviderSessionControllerFactory:
@@ -2391,7 +2494,7 @@ class VpnServiceRuntimeCoordinatorTest {
         resolver.enqueue(*resolutions.toTypedArray())
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
-        val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
+        val relayFactory = TestRipDpiRelayFactory { relayRuntimeFactory(events) }
         val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
         val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events), additionalTunnelBridges)
         val tunnelProvider =

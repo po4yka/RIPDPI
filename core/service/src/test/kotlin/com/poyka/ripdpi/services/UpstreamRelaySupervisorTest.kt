@@ -56,6 +56,41 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
     @Test
+    fun `readiness failure retains unpromoted relay after failed stop`() =
+        runTest {
+            val relayFactory =
+                TestRipDpiRelayFactory {
+                    TestRelayRuntime().apply {
+                        awaitReadyFailure = IOException("readiness failed")
+                        stopFailure = IOException("stop failed")
+                    }
+                }
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                    stopTimeoutMillis = 100L,
+                )
+
+            assertTrue(
+                runCatching {
+                    supervisor.start(
+                        requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
+                        config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                        onUnexpectedExit = {},
+                    )
+                }.exceptionOrNull() is RuntimeCleanupPendingException,
+            )
+            assertTrue(supervisor.hasOwnedRuntime)
+            relayFactory.lastRuntime.stopFailure = null
+            supervisor.stop()
+            assertFalse(supervisor.hasOwnedRuntime)
+        }
+
+    @Test
     fun `relay stop timeout retains slot for retry`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
@@ -99,7 +134,7 @@ class UpstreamRelaySupervisorTest {
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
             )
-            relayFactory.lastRuntime.stopFailure = RuntimeCleanupPendingException()
+            relayFactory.lastRuntime.stopFailure = IOException("stop failed")
 
             assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
             assertTrue(supervisor.pollTelemetry() is RuntimeTelemetryOutcome.Snapshot)
@@ -185,6 +220,27 @@ class UpstreamRelaySupervisorTest {
             assertEquals(InitialRelayTransportClass.UdpObfuscation, promoted.result.selectedCandidate.transportClass)
             assertEquals(50L, promoted.result.latencyMs)
             supervisor.stop()
+        }
+
+    @Test
+    fun `failed loser stop remains owned after race selection`() =
+        runTest {
+            val relayFactory = raceRelayFactory(firstStopFailure = IOException("stop failed"))
+            val supervisor =
+                raceSupervisor(relayFactory) { endpoint, _, _ ->
+                    val latency = if (endpoint.port == HysteriaRacePort) 50L else 100L
+                    delay(latency)
+                    RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
+                }
+
+            supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            assertEquals(1, relayFactory.runtimes.first().stopCount)
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
+            supervisor.detach()
+            assertTrue(supervisor.hasOwnedRuntime)
+            relayFactory.runtimes.first().stopFailure = null
+            supervisor.stop()
+            assertFalse(supervisor.hasOwnedRuntime)
         }
 
     @Test
@@ -370,10 +426,11 @@ class UpstreamRelaySupervisorTest {
             initialRelayRaceRunnerFactory = InitialRelayRaceRunnerFactory(probe),
         )
 
-    private fun raceRelayFactory(): TestRipDpiRelayFactory {
+    private fun raceRelayFactory(firstStopFailure: Throwable? = null): TestRipDpiRelayFactory {
         var port = RealityRacePort
         return TestRipDpiRelayFactory {
             TestRelayRuntime().apply {
+                if (port == RealityRacePort) stopFailure = firstStopFailure
                 telemetry =
                     NativeRuntimeSnapshot(
                         source = "relay",

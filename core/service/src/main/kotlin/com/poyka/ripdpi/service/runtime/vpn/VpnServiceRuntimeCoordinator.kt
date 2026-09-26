@@ -34,6 +34,7 @@ import com.poyka.ripdpi.services.ProxyRuntimeStartResult
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RootHelperManager
+import com.poyka.ripdpi.services.RuntimeCleanupPendingException
 import com.poyka.ripdpi.services.RuntimeStartEvidence
 import com.poyka.ripdpi.services.RuntimeStartTransaction
 import com.poyka.ripdpi.services.RuntimeStopGuard
@@ -475,7 +476,7 @@ internal class VpnServiceRuntimeCoordinator(
             }
         }
         terminalFailure?.let { failure ->
-            val rollbackSafe = terminateFailedTransportReplacement(requestId)
+            val rollbackSafe = failure !is RuntimeCleanupPendingException && stopFailedReplacement(requestId)
             transportFailoverApplyTracker.recordRuntimeFailure(requestId, rollbackSafe = rollbackSafe)
             if (failure !is CancellationException) {
                 throw failure
@@ -520,7 +521,7 @@ internal class VpnServiceRuntimeCoordinator(
             }
         } finally {
             if (!applied) {
-                val rollbackSafe = !claimed || terminateFailedTransportReplacement(requestId)
+                val rollbackSafe = !claimed || (!proxyRuntimeStack.hasOwnedRuntime && stopFailedReplacement(requestId))
                 transportFailoverApplyTracker.recordRuntimeFailure(requestId, rollbackSafe)
             }
             if (claimed) transportFailoverApplyTracker.releaseRuntimeOwnership(requestId)
@@ -554,6 +555,9 @@ internal class VpnServiceRuntimeCoordinator(
             }
 
             else -> {
+                if (failure is RuntimeCleanupPendingException && !runtimeCompositionCoordinator.retainVpnBarrier()) {
+                    Logger.e { "Failed to retain VPN barrier during pending transport cleanup" }
+                }
                 updateFailedStatusAfterRetainingProviderBarrier(
                     failureReason = classifyFailureReason(failure, isTunnelContext = true),
                     lifecycleMutexHeld = true,
@@ -562,7 +566,7 @@ internal class VpnServiceRuntimeCoordinator(
             }
         }
 
-    private suspend fun terminateFailedTransportReplacement(requestId: Long): Boolean =
+    private suspend fun stopFailedReplacement(requestId: Long): Boolean =
         withContext(NonCancellable) {
             runCatching { stop() }
                 .onFailure { cleanupFailure ->
@@ -570,10 +574,7 @@ internal class VpnServiceRuntimeCoordinator(
                         "Failed to terminate transport replacement request=$requestId"
                     }
                 }
-            val cleanupCompleted =
-                runtimeSession == null &&
-                    !vpnTunnelRuntime.isRunning &&
-                    !vpnTunnelRuntime.isForwarding
+            val cleanupCompleted = runtimeSession == null && runtimeCompositionCoordinator.isStopped
             if (!cleanupCompleted) {
                 Logger.e { "Transport replacement cleanup remained in flight request=$requestId" }
             }

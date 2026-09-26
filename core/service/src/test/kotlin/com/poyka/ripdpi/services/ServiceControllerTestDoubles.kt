@@ -75,6 +75,7 @@ import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
 import com.poyka.ripdpi.service.warp.WarpRuntimeConfigResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,6 +84,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -724,6 +726,9 @@ internal class TestProxyRuntime(
     var startFailure: Throwable? = null
     var awaitReadyFailure: Exception? = null
     var stopFailure: Throwable? = null
+    var keepRunningOnStop: Boolean = false
+    var ignoreStartCancellation: Boolean = false
+    var beforeReady: suspend () -> Unit = {}
     var beforeStop: suspend () -> Unit = {}
     var telemetryFailure: Throwable? = null
     var forwardingEvidenceFailure: Throwable? = null
@@ -751,10 +756,15 @@ internal class TestProxyRuntime(
             throw it
         }
         ready.complete(Unit)
-        return exitCode.await()
+        return if (ignoreStartCancellation) {
+            withContext(NonCancellable) { exitCode.await() }
+        } else {
+            exitCode.await()
+        }
     }
 
     override suspend fun awaitReady(timeoutMillis: Long) {
+        beforeReady()
         awaitReadyFailure?.let { throw it }
         ready.await()
     }
@@ -764,7 +774,7 @@ internal class TestProxyRuntime(
         events += "proxy:stop"
         beforeStop()
         stopFailure?.let { throw it }
-        if (!exitCode.isCompleted) {
+        if (!keepRunningOnStop && !exitCode.isCompleted) {
             exitCode.complete(0)
         }
     }

@@ -537,7 +537,7 @@ class ProxyServiceRuntimeCoordinatorTest {
     }
 
     @Test
-    fun staleSupersededProxyExitDoesNotHaltReplacementSession() =
+    fun incompleteProxyStopPreventsReplacementSession() =
         runTest {
             val env = buildStaleReplacementEnv()
 
@@ -558,10 +558,10 @@ class ProxyServiceRuntimeCoordinatorTest {
             env.oldRuntime.complete(17)
             repeat(3) { runCurrent() }
 
-            assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
-            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertEquals(AppStatus.Halted to Mode.Proxy, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
             assertEquals(1, env.oldRuntime.stopCount)
-            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
         }
 
     @Test

@@ -38,6 +38,13 @@ internal class SharedProxyRuntimeStack(
             preferences.withRelayRuntimeSelection(selection, host, port)
         },
 ) {
+    val hasOwnedRuntime: Boolean
+        get() =
+            proxyRuntimeSupervisor.runtime != null ||
+                upstreamRelaySupervisor.hasOwnedRuntime ||
+                warpRuntimeSupervisor.runtime != null ||
+                amneziaWgRuntimeSupervisor.runtime != null
+
     suspend fun start(
         proxyPreferences: RipDpiProxyPreferences,
         onRelayExit: suspend (SupervisorExitCause) -> Unit,
@@ -150,6 +157,7 @@ internal class SharedProxyRuntimeStack(
     suspend fun stop(skipRuntimeShutdown: Boolean) {
         if (skipRuntimeShutdown) {
             detachAll()
+            upstreamRelaySupervisor.stop()
             return
         }
 

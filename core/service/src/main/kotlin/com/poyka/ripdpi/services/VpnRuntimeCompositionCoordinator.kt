@@ -4,6 +4,8 @@ import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
@@ -39,6 +41,14 @@ internal class VpnRuntimeCompositionCoordinator(
 ) {
     var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
         private set
+
+    val isStopped: Boolean
+        get() = !proxyRuntimeStack.hasOwnedRuntime && !vpnTunnelRuntime.isRunning && !vpnTunnelRuntime.isForwarding
+
+    suspend fun retainVpnBarrier(): Boolean =
+        withContext(NonCancellable) {
+            runCatching { vpnTunnelRuntime.retainFailClosedBarrier() }.getOrDefault(false)
+        }
 
     private val providerDelegate: XrayConnectFlowDelegate? =
         providerController?.let { controller ->

@@ -387,6 +387,7 @@ class SharedProxyRuntimeStackTest {
 
             assertTrue(failure is RuntimeCleanupPendingException)
             assertEquals(1, failure?.suppressed?.size)
+            fixture.proxyFactory.lastRuntime.stopFailure = null
             fixture.relayFactory.lastRuntime.stopFailure = null
             fixture.stack.stop(skipRuntimeShutdown = false)
         }
