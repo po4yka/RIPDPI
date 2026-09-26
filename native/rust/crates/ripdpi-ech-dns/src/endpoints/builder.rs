@@ -11,11 +11,6 @@ use super::parse::{encrypted_dns_protocol, parse_bootstrap_ips, parse_url_host};
 
 pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
     let protocol = encrypted_dns_protocol(target.encrypted_protocol.as_deref());
-    let bootstrap_strings = if target.encrypted_bootstrap_ips.is_empty() {
-        bootstrap_strings_for_resolver(target.encrypted_resolver_id.as_deref())
-    } else {
-        target.encrypted_bootstrap_ips.clone()
-    };
     let doh_url = target
         .encrypted_doh_url
         .clone()
@@ -24,6 +19,19 @@ pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(Encrypte
         target.encrypted_host.clone().or_else(|| doh_url.as_deref().and_then(parse_url_host)).unwrap_or_else(|| {
             if protocol == EncryptedDnsProtocol::Doh { DEFAULT_DOH_HOST.to_string() } else { String::new() }
         });
+    let resolver_id = target.encrypted_resolver_id.as_deref().unwrap_or("adguard");
+    let catalog = resolver_catalog_entry(resolver_id);
+    let catalog_matches = resolver_id == catalog.resolver_id
+        && host.eq_ignore_ascii_case(catalog.host)
+        && (protocol != EncryptedDnsProtocol::Doh
+            || doh_url.as_deref().and_then(parse_url_host) == parse_url_host(catalog.doh_url));
+    let bootstrap_strings = if !target.encrypted_bootstrap_ips.is_empty() {
+        target.encrypted_bootstrap_ips.clone()
+    } else if catalog_matches {
+        bootstrap_strings_for_resolver(Some(resolver_id))
+    } else {
+        Vec::new()
+    };
     let port = target.encrypted_port.unwrap_or_else(|| default_port(protocol));
 
     Ok((

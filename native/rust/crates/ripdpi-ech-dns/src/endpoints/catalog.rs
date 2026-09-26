@@ -30,7 +30,7 @@ pub(super) fn bootstrap_strings_for_resolver(resolver_id: Option<&str>) -> Vec<S
             let pinned = bootstrap_ips_for_resolver(rid);
             (!pinned.is_empty()).then(|| pinned.iter().map(ToString::to_string).collect::<Vec<_>>())
         })
-        .unwrap_or_else(default_bootstrap_strings)
+        .unwrap_or_default()
 }
 
 pub(super) fn default_bootstrap_ips() -> Vec<IpAddr> {

@@ -147,6 +147,31 @@ mod tests {
     }
 
     #[test]
+    fn custom_resolver_does_not_inherit_adguard_bootstrap_ips() {
+        let mut target = DnsTarget {
+            domain: "example.com".to_string(),
+            udp_server: None,
+            encrypted_resolver_id: Some("custom".to_string()),
+            encrypted_protocol: Some("doh".to_string()),
+            encrypted_host: Some("custom.example".to_string()),
+            encrypted_port: None,
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: vec![],
+            encrypted_doh_url: Some("https://custom.example/dns-query".to_string()),
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
+            expected_ips: vec![],
+        };
+        let (endpoint, ips) = encrypted_dns_endpoint_for_target(&target).expect("custom endpoint");
+        assert!(endpoint.bootstrap_ips.is_empty());
+        assert!(ips.is_empty());
+
+        target.encrypted_resolver_id = Some("cloudflare".to_string());
+        let (endpoint, _) = encrypted_dns_endpoint_for_target(&target).expect("overridden endpoint");
+        assert!(endpoint.bootstrap_ips.is_empty());
+    }
+
+    #[test]
     fn parse_bootstrap_ips_valid() {
         let input = vec!["8.8.8.8".to_string(), "2001:4860:4860::8888".to_string()];
         let result = parse_bootstrap_ips(&input).unwrap();
