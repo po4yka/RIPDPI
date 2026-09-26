@@ -149,11 +149,7 @@ internal class DefaultDiagnosticsScanController
                                         maxCandidates = maxCandidates,
                                     ),
                                 rawPathRunner = { block ->
-                                    if (resumeRuntimeAfterRawPath) {
-                                        runtimeCoordinator.runAutomaticRawPathScan(block)
-                                    } else {
-                                        runtimeCoordinator.runRawPathScan(block)
-                                    }
+                                    runtimeCoordinator.runManualRawPath(block, resumeRuntimeAfterRawPath)
                                 },
                                 ownerId = ownerId,
                             ),
@@ -166,6 +162,11 @@ internal class DefaultDiagnosticsScanController
                                 profile = admission.profile,
                                 settings = admission.settings,
                                 pathMode = pathMode,
+                                scanDeadlineMs = scanDeadlineMs,
+                                maxCandidates = maxCandidates,
+                                targetOverrides = targetOverrides,
+                                ownerId = ownerId,
+                                resumeRuntimeAfterRawPath = resumeRuntimeAfterRawPath,
                             ).also { pendingRequest ->
                                 pendingHiddenConflictRequest = pendingRequest
                             }.toConflictResult()
@@ -242,8 +243,12 @@ internal class DefaultDiagnosticsScanController
                                 launchTrigger = null,
                                 exposeProgress = true,
                                 registerActiveBridge = true,
+                                scanDeadlineMs = pendingRequest.scanDeadlineMs,
+                                maxCandidates = pendingRequest.maxCandidates,
+                                targetOverrides = pendingRequest.targetOverrides,
                             ),
-                        rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+                        rawPathRunner = pendingRequest.rawPathRunner(runtimeCoordinator),
+                        ownerId = pendingRequest.ownerId,
                     )
                 }.fold(
                     onSuccess = { sessionId -> DiagnosticsManualScanResolution.Started(sessionId) },
@@ -603,6 +608,11 @@ internal class HiddenProbeConflictRequestFactory
             profile: DiagnosticProfileEntity,
             settings: com.poyka.ripdpi.proto.AppSettings,
             pathMode: ScanPathMode,
+            scanDeadlineMs: Long? = null,
+            maxCandidates: Int? = null,
+            targetOverrides: DiagnosticsScanTargetOverrides? = null,
+            ownerId: String? = null,
+            resumeRuntimeAfterRawPath: Boolean = false,
         ): PendingHiddenConflictRequest {
             val projection = json.decodeProfileSpecWire(profile.requestJson).toProfileProjection()
             return PendingHiddenConflictRequest(
@@ -610,6 +620,16 @@ internal class HiddenProbeConflictRequestFactory
                 profile = profile,
                 settings = settings,
                 pathMode = pathMode,
+                scanDeadlineMs = scanDeadlineMs,
+                maxCandidates = maxCandidates,
+                targetOverrides =
+                    targetOverrides?.copy(
+                        domainTargets = targetOverrides.domainTargets?.toList(),
+                        serviceTargets = targetOverrides.serviceTargets?.toList(),
+                        circumventionTargets = targetOverrides.circumventionTargets?.toList(),
+                    ),
+                ownerId = ownerId,
+                resumeRuntimeAfterRawPath = resumeRuntimeAfterRawPath,
                 profileName = profile.name,
                 scanKind = projection.kind,
                 isFullAudit = projection.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
@@ -719,6 +739,22 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailure(
 
 private fun PreparedDiagnosticsScan.preparedRouteAbsent(): Boolean = inPathRouteLease == null
 
+private suspend fun DiagnosticsRuntimeCoordinator.runManualRawPath(
+    block: suspend () -> Unit,
+    resumeRuntimeAfterRawPath: Boolean,
+): RawPathExecutionResult =
+    if (resumeRuntimeAfterRawPath) {
+        runAutomaticRawPathScan(block)
+    } else {
+        runRawPathScan(block)
+    }
+
+private fun PendingHiddenConflictRequest.rawPathRunner(
+    runtimeCoordinator: DiagnosticsRuntimeCoordinator,
+): suspend (suspend () -> Unit) -> RawPathExecutionResult = { block ->
+    runtimeCoordinator.runManualRawPath(block, resumeRuntimeAfterRawPath)
+}
+
 private fun PreparedDiagnosticsScan.expectedProxyEndpoint(): String =
     plan.proxyHost?.let { host ->
         plan.proxyPort?.let { port -> "$host:$port" } ?: host
@@ -729,6 +765,11 @@ internal data class PendingHiddenConflictRequest(
     val profile: DiagnosticProfileEntity,
     val settings: com.poyka.ripdpi.proto.AppSettings,
     val pathMode: ScanPathMode,
+    val scanDeadlineMs: Long?,
+    val maxCandidates: Int?,
+    val targetOverrides: DiagnosticsScanTargetOverrides?,
+    val ownerId: String?,
+    val resumeRuntimeAfterRawPath: Boolean,
     val profileName: String,
     val scanKind: ScanKind,
     val isFullAudit: Boolean,

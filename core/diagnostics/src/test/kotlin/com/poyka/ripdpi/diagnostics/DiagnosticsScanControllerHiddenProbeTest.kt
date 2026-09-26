@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -114,8 +115,17 @@ class DiagnosticsScanControllerHiddenProbeTest {
                 ),
             )
             val conflict =
-                services.scanController.startScan(ScanPathMode.RAW_PATH)
-                    as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+                services.scanController.startScanOwnedBy(
+                    ownerId = "waiting-owner",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    scanDeadlineMs = 31_000L,
+                    maxCandidates = 5,
+                    targetOverrides =
+                        DiagnosticsScanTargetOverrides(
+                            domainTargets = listOf(DomainTarget(host = "waiting.example")),
+                        ),
+                    resumeRuntimeAfterRawPath = false,
+                ) as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
 
             appSettingsRepository.update { diagnosticsActiveProfileId = "default" }
 
@@ -133,8 +143,91 @@ class DiagnosticsScanControllerHiddenProbeTest {
                 )
 
             val sessionId = resolution.startedSessionId()
+            assertTrue(sessionId in services.scanController.activeSessionIdsOwnedBy("waiting-owner"))
+            advanceUntilIdle()
+            val request =
+                json.decodeFromString(
+                    EngineScanRequestWire.serializer(),
+                    requireNotNull(bridgeFactory.bridge.startedRequestJson),
+                )
             assertEquals("automatic-audit", stores.getScanSession(sessionId)?.profileId)
+            assertEquals(31_000L, request.scanDeadlineMs)
+            assertEquals(5, request.strategyProbe?.maxCandidates)
+            assertEquals(listOf("waiting.example"), request.domainTargets.map(DomainTarget::host))
             assertFalse(services.scanController.hiddenAutomaticProbeActive.value)
+        }
+
+    @Test
+    fun `cancel and run preserves owned manual scan options`() =
+        runTest {
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-audit")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val stores =
+                FakeDiagnosticsHistoryStores().apply {
+                    seedStrategyProbeProfile(json)
+                    addAutomaticAuditProfile(json)
+                }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply { bridge.autoCompleteOnStart = false }
+            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val mutableTargets = mutableListOf(DomainTarget(host = "chosen.example"))
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = runtimeCoordinator,
+                    serviceStateStore = FakeServiceStateStore(),
+                    networkFingerprintProvider = automaticProbeFingerprintProvider,
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+
+            assertEquals(
+                AutomaticProbeLaunchOutcome.LAUNCHED,
+                services.scanController.launchAutomaticProbe(
+                    settings = settings,
+                    event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
+                ),
+            )
+            val automaticRawScansBeforeResolution = runtimeCoordinator.automaticRawScanCount.get()
+            val conflict =
+                services.scanController.startScanOwnedBy(
+                    ownerId = "manual-owner",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    scanDeadlineMs = 42_000L,
+                    maxCandidates = 7,
+                    targetOverrides =
+                        DiagnosticsScanTargetOverrides(
+                            domainTargets = mutableTargets,
+                        ),
+                    resumeRuntimeAfterRawPath = true,
+                ) as DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution
+            mutableTargets[0] = DomainTarget(host = "changed.example")
+
+            val sessionId =
+                services.scanController
+                    .resolveHiddenProbeConflict(conflict.requestId, HiddenProbeConflictAction.CANCEL_AND_RUN)
+                    .startedSessionId()
+            assertTrue(sessionId in services.scanController.activeSessionIdsOwnedBy("manual-owner"))
+            advanceUntilIdle()
+            val request =
+                json.decodeFromString(
+                    EngineScanRequestWire.serializer(),
+                    requireNotNull(bridgeFactory.bridge.startedRequestJson),
+                )
+
+            assertEquals(42_000L, request.scanDeadlineMs)
+            assertEquals(7, request.strategyProbe?.maxCandidates)
+            assertEquals(listOf("chosen.example"), request.domainTargets.map(DomainTarget::host))
+            assertEquals(automaticRawScansBeforeResolution + 1, runtimeCoordinator.automaticRawScanCount.get())
         }
 
     @Test
