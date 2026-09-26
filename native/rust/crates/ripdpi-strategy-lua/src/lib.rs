@@ -88,7 +88,7 @@ mod enabled {
 
     struct LuaEngineInner {
         lua: Lua,
-        registered: HashMap<String, RegistryKey>,
+        registered: HashMap<String, (RegistryKey, bool)>,
         conn_states: HashMap<FlowId, (RegistryKey, u64)>,
         access_clock: u64,
         /// Per-call instruction-hook firing counter, reset before each script
@@ -216,11 +216,12 @@ mod enabled {
                     .globals()
                     .get::<Function>(function_name.as_str())
                     .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+                let takes_ctx = function.info().num_params >= 2;
                 let key = inner
                     .lua
                     .create_registry_value(function)
                     .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
-                inner.registered.insert(function_name.clone(), key);
+                inner.registered.insert(function_name.clone(), (key, takes_ctx));
             }
             Ok(names)
         }
@@ -249,9 +250,10 @@ mod enabled {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             let function =
                 inner.lua.globals().get::<Function>(name).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            let takes_ctx = function.info().num_params >= 2;
             let key =
                 inner.lua.create_registry_value(function).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
-            inner.registered.insert(name.to_owned(), key);
+            inner.registered.insert(name.to_owned(), (key, takes_ctx));
             Ok(())
         }
 
@@ -320,7 +322,7 @@ mod enabled {
                 inner.conn_states.insert(ctx.flow_id, (key, access_clock));
             }
 
-            let function_key =
+            let (function_key, takes_ctx) =
                 inner.registered.get(func_name).ok_or_else(|| LuaError::FunctionNotRegistered(func_name.to_owned()))?;
             let function = inner
                 .lua
@@ -335,7 +337,7 @@ mod enabled {
             let call_plan = Arc::new(Mutex::new(LuaCallPlan::default()));
             let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan))?;
 
-            match call_lua_strategy_function(&function, desync)? {
+            match call_lua_strategy_function(&function, desync, *takes_ctx)? {
                 Value::String(output) => {
                     let call_plan = take_call_plan(call_plan)?;
                     Ok(LuaCallOutcome {
@@ -503,12 +505,11 @@ mod enabled {
         Ok(firings)
     }
 
-    fn call_lua_strategy_function(function: &Function, desync: Table) -> Result<Value, LuaError> {
-        match function.call::<Value>(desync.clone()) {
-            Ok(value) => Ok(value),
-            Err(first_error) => function.call::<Value>((Value::Nil, desync)).map_err(|second_error| {
-                LuaError::Call(format!("{first_error}; retry with zapret ctx=nil convention failed: {second_error}"))
-            }),
+    fn call_lua_strategy_function(function: &Function, desync: Table, takes_ctx: bool) -> Result<Value, LuaError> {
+        if takes_ctx {
+            function.call::<Value>((Value::Nil, desync)).map_err(|error| LuaError::Call(error.to_string()))
+        } else {
+            function.call::<Value>(desync).map_err(|error| LuaError::Call(error.to_string()))
         }
     }
 
