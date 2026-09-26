@@ -149,6 +149,9 @@ fn parse_line(line: &str) -> Result<ParsedRecord, LineError> {
             LineError::Skippable(reason)
         }
     })?;
+    if value.get("record_type").is_some_and(|tag| !tag.is_string()) {
+        return Err(LineError::InvalidThreat("record_type must be a string".to_owned()));
+    }
     if value.get("record_type").and_then(serde_json::Value::as_str) == Some("protocol_threat") {
         return parse_protocol_threat(value).map(ParsedRecord::ProtocolThreat).map_err(LineError::InvalidThreat);
     }
@@ -327,5 +330,16 @@ not json at all
             "{{\"record_type\":\"protocol_threat\",\"protocol_class\":\"vless\",\"network_scope_key\":\"{scope}\",\"state\":\"active_broad\",\"expires_at_unix\":2000}}\n{{\"record_type\":\"protocol_threat\",\"protocol_class\":\"vless\",\"network_scope_key\":\"{scope}\",\"state\":\"active_broad\",\"expires_at_unix\":3000}}\n"
         );
         assert!(matches!(parse(&duplicate), Err(SharedPriorsError::InvalidThreatRecord { line: 2, .. })));
+    }
+
+    #[test]
+    fn non_string_record_type_rejects_bundle() {
+        for tag in ["null", "42", "false", "[]", "{}"] {
+            let input = format!("{{\"record_type\":{tag},\"combo_hash\":1,\"alpha\":1.0,\"beta\":1.0}}");
+            assert!(
+                matches!(parse(&input), Err(SharedPriorsError::InvalidThreatRecord { line: 1, .. })),
+                "record_type={tag} must reject the bundle"
+            );
+        }
     }
 }
