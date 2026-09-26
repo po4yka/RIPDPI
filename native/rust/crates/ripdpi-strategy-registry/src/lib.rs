@@ -151,12 +151,16 @@ impl StrategyRegistry {
 
     /// Registers all strategy steps from a parsed YAML/TOML strategy config.
     pub fn register_loaded_config(&mut self, config: &LoadedStrategyConfig) -> Result<(), StrategyRegistryError> {
+        let mut pending = Vec::new();
         for strategy in &config.strategies {
             let on_fail = on_fail_from_config(strategy.on_fail);
             for step in &strategy.steps {
                 let resolved = build_step_strategy(step, &config.base_dir)?;
-                self.register_with_policy(resolved, on_fail);
+                pending.push((resolved, on_fail));
             }
+        }
+        for (resolved, on_fail) in pending {
+            self.register_with_policy(resolved, on_fail);
         }
         Ok(())
     }
