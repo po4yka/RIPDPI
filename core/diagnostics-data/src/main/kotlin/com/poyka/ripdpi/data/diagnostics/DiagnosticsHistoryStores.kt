@@ -122,6 +122,8 @@ interface DiagnosticsArtifactObservationStore {
 interface DiagnosticsNativeArtifactReadStore {
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
 
+    fun observeWarningNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>>
+
     fun observeConnectionNativeEvents(
         connectionSessionId: String,
         limit: Int = 250,
@@ -169,6 +171,11 @@ interface DiagnosticsArtifactQueryStore {
     suspend fun getNativeEventsForSession(
         sessionId: String,
         limit: Int = 500,
+    ): List<NativeSessionEventEntity>
+
+    suspend fun getWarningNativeEventsForSession(
+        sessionId: String,
+        limit: Int,
     ): List<NativeSessionEventEntity>
 
     suspend fun getRelayAttemptTraceEvents(

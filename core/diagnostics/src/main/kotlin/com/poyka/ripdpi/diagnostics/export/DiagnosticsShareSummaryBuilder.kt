@@ -148,11 +148,9 @@ internal object DiagnosticsShareSummaryBuilder {
         artifactReadStore: DiagnosticsArtifactReadStore,
         artifactQueryStore: DiagnosticsArtifactQueryStore,
     ) = if (selectedSession != null) {
-        artifactQueryStore.getNativeEventsForSession(selectedSession.id, limit = WarningLimit)
+        artifactQueryStore.getWarningNativeEventsForSession(selectedSession.id, limit = WarningLimit)
     } else {
-        artifactReadStore.observeNativeEvents(limit = WarningLimit).first()
-    }.filter { event ->
-        event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
+        artifactReadStore.observeWarningNativeEvents(limit = WarningLimit).first()
     }
 
     private fun missingSessionSummary(requestedSessionId: String): ShareSummary =

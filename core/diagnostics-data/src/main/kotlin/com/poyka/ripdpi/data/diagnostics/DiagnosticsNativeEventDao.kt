@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DiagnosticsNativeEventDao :
     DiagnosticsNativeEventReadDao,
+    DiagnosticsWarningNativeEventReadDao,
     DiagnosticsRelayAttemptReadDao,
     DiagnosticsNativeEventArchiveDao,
     DiagnosticsNativeEventWriteDao
@@ -102,6 +103,31 @@ interface DiagnosticsNativeEventReadDao {
         """,
     )
     suspend fun countPendingTerminalOutboxes(): Int
+}
+
+interface DiagnosticsWarningNativeEventReadDao {
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE lower(level) IN ('warn', 'error')
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeWarningNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE sessionId = :sessionId AND lower(level) IN ('warn', 'error')
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getWarningNativeEventsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<NativeSessionEventEntity>
 }
 
 interface DiagnosticsRelayAttemptReadDao {

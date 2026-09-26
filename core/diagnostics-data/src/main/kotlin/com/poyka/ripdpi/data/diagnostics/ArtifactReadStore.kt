@@ -51,6 +51,9 @@ private class ArtifactObservationReadStore(
 
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = dao.observeNativeEvents(limit)
 
+    override fun observeWarningNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
+        dao.observeWarningNativeEvents(limit)
+
     override fun observeConnectionNativeEvents(
         connectionSessionId: String,
         limit: Int,
@@ -123,6 +126,11 @@ private class ArtifactQueryReadStore(
         sessionId: String,
         limit: Int,
     ): List<NativeSessionEventEntity> = dao.getNativeEventsForSession(sessionId = sessionId, limit = limit)
+
+    override suspend fun getWarningNativeEventsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<NativeSessionEventEntity> = dao.getWarningNativeEventsForSession(sessionId = sessionId, limit = limit)
 
     override suspend fun getRelayAttemptTraceEvents(
         connectionSessionId: String,

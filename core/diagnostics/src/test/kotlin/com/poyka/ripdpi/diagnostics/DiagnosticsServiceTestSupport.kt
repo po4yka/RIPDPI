@@ -295,10 +295,13 @@ internal class FakeDiagnosticsHistoryStores :
 
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
 
-    override suspend fun getNativeEventsForSession(
-        sessionId: String,
-        limit: Int,
-    ): List<NativeSessionEventEntity> = nativeEventsState.value.filter { it.sessionId == sessionId }.take(limit)
+    override fun observeWarningNativeEvents(limit: Int) = nativeEventsState.map { it.warningEvents(limit) }
+
+    override suspend fun getNativeEventsForSession(sessionId: String, limit: Int) =
+        nativeEventsState.value.filter { it.sessionId == sessionId }.take(limit)
+
+    override suspend fun getWarningNativeEventsForSession(sessionId: String, limit: Int) =
+        nativeEventsState.value.warningEvents(limit, sessionId)
 
     override suspend fun getNativeEventArchiveSourceForSession(
         sessionId: String,
@@ -1631,6 +1634,15 @@ internal fun networkSnapshotModelForTest(): NetworkSnapshotModel =
             ),
         capturedAt = 123L,
     )
+
+private fun List<NativeSessionEventEntity>.warningEvents(
+    limit: Int,
+    sessionId: String? = null,
+): List<NativeSessionEventEntity> =
+    filter { event ->
+        (sessionId == null || event.sessionId == sessionId) &&
+            (event.level.equals("warn", true) || event.level.equals("error", true))
+    }.sortedByDescending { it.createdAt }.take(limit)
 
 internal fun diagnosticsSession(
     id: String,

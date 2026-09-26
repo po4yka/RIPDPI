@@ -72,6 +72,35 @@ abstract class DiagnosticsRoomStoreTestBase {
 @Config(sdk = [35])
 class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
     @Test
+    fun `warning event queries filter before limit and preserve session scope`() =
+        runTest {
+            val store = RoomDiagnosticsArtifactStore(db, dao)
+            store.insertNativeSessionEvent(
+                nativeEvent(id = "older-warn", sessionId = "scan-1", createdAt = 10L).copy(level = "WARN"),
+            )
+            store.insertNativeSessionEvent(
+                nativeEvent(id = "newer-error", sessionId = "scan-1", createdAt = 20L).copy(level = "error"),
+            )
+            store.insertNativeSessionEvent(
+                nativeEvent(id = "other-warn", sessionId = "scan-2", createdAt = 30L).copy(level = "warn"),
+            )
+            repeat(50) { index ->
+                store.insertNativeSessionEvent(
+                    nativeEvent(id = "info-$index", sessionId = "scan-1", createdAt = 100L + index),
+                )
+            }
+
+            assertEquals(
+                listOf("newer-error", "older-warn"),
+                store.getWarningNativeEventsForSession("scan-1", limit = 2).map { it.id },
+            )
+            assertEquals(
+                listOf("other-warn", "newer-error"),
+                store.observeWarningNativeEvents(limit = 2).first().map { it.id },
+            )
+        }
+
+    @Test
     fun `profile catalog observes stored profiles and pack versions`() =
         runTest {
             val catalog = RoomDiagnosticsProfileCatalog(dao)
