@@ -30,11 +30,15 @@ where
             return Ok(decoded);
         }
 
-        if decoded.len() + size > MAX_DOH_RESPONSE_BYTES {
+        if size > MAX_DOH_RESPONSE_BYTES - decoded.len() {
             return Err(EncryptedDnsError::Request("chunked DoH response exceeds maximum size".to_string()));
         }
 
-        while buffer.len() < cursor + size + 2 {
+        let chunk_end = cursor
+            .checked_add(size)
+            .and_then(|end| end.checked_add(2))
+            .ok_or_else(|| EncryptedDnsError::Request("chunked DoH response size overflows".to_string()))?;
+        while buffer.len() < chunk_end {
             if read_more_doh_bytes(stream, &mut buffer).await? == 0 {
                 return Err(EncryptedDnsError::Request("chunked DoH response truncated".to_string()));
             }

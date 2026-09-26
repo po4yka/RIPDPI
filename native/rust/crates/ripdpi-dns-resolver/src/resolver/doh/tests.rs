@@ -34,6 +34,15 @@ async fn read_chunked_doh_body_rejects_chunk_larger_than_limit() {
 }
 
 #[tokio::test]
+// cancel-safe: the empty stream owns no state across an await.
+async fn read_chunked_doh_body_rejects_maximum_chunk_size() {
+    let error = read_chunked_doh_body(&mut tokio::io::empty(), b"ffffffffffffffff\r\n".to_vec())
+        .await
+        .expect_err("maximum chunk size must not overflow");
+    assert!(matches!(error, EncryptedDnsError::Request(_)));
+}
+
+#[tokio::test]
 async fn read_doh_response_head_rejects_oversized_headers() {
     let oversized_headers = format!("HTTP/1.1 200 OK\r\nX-Fill: {}\r\n\r\n", "a".repeat(MAX_DOH_HEADER_BYTES),);
     let (mut client, mut server) = tokio::io::duplex(oversized_headers.len() + 16);
