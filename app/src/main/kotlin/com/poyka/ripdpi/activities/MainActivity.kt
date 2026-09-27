@@ -90,7 +90,7 @@ class MainActivity : AppCompatActivity() {
         }
         // NavController handles Activity.intent when its graph is created. Keep inbound
         // links in the shell so the onboarding and app-lock gates can defer them.
-        setIntent(safeMainActivityIntent(this))
+        setIntent(safeMainActivityIntent(this, intent))
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -215,7 +215,16 @@ internal fun createMainActivityLaunchIntent(
         }
     }
 
-internal fun safeMainActivityIntent(context: Context): Intent = Intent(context, MainActivity::class.java)
+internal fun safeMainActivityIntent(
+    context: Context,
+    launchIntent: Intent? = null,
+): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        if (launchIntent?.action == Intent.ACTION_MAIN && launchIntent.data == null && launchIntent.type == null) {
+            action = Intent.ACTION_MAIN
+            launchIntent.categories?.forEach(::addCategory)
+        }
+    }
 
 internal fun navigationRouteFrom(intent: Intent?): Route? =
     intent

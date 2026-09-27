@@ -132,6 +132,30 @@ class MainActivityPermissionTest {
     }
 
     @Test
+    fun `navigation host intent preserves launcher identity without inbound payload`() {
+        val context: Context = RuntimeEnvironment.getApplication()
+        val launcher =
+            Intent(Intent.ACTION_MAIN)
+                .setClass(context, MainActivity::class.java)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+                .putExtra("untrusted", true)
+
+        val safe = safeMainActivityIntent(context, launcher)
+
+        assertTrue(launcher.filterEquals(safe))
+        assertEquals(null, safe.extras)
+        assertEquals(null, safe.data)
+        assertEquals(null, safe.type)
+
+        val deepLink =
+            Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect"))
+                .setClass(context, MainActivity::class.java)
+        val safeDeepLink = safeMainActivityIntent(context, deepLink)
+        assertEquals(null, safeDeepLink.action)
+        assertEquals(null, safeDeepLink.data)
+    }
+
+    @Test
     fun `process death gets a new navigation state key for gated startup`() {
         assertEquals("first", navigationStateKey(Route.BiometricPrompt, "first"))
         assertEquals("second", navigationStateKey(Route.BiometricPrompt, "second"))
