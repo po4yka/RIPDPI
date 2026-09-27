@@ -62,7 +62,7 @@ pub(in crate::io_loop) async fn wait_for_next_event(
 
 pub(super) fn handle_wait_event(state: &mut LoopState, event: WaitEvent) -> WaitOutcome {
     match event {
-        WaitEvent::TunReadable | WaitEvent::PollTimer => WaitOutcome::Continue,
+        WaitEvent::TunReadable | WaitEvent::PollTimer | WaitEvent::Udp(None) => WaitOutcome::Continue,
         WaitEvent::Udp(Some(event)) => {
             handle_udp_event(
                 &mut state.device,
@@ -75,7 +75,6 @@ pub(super) fn handle_wait_event(state: &mut LoopState, event: WaitEvent) -> Wait
             );
             WaitOutcome::Continue
         }
-        WaitEvent::Udp(None) => WaitOutcome::Continue,
         WaitEvent::Dns(Some(response)) => {
             handle_dns_wait_response(state, response);
             WaitOutcome::Continue

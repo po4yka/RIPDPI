@@ -30,14 +30,18 @@ impl UdpClientPacket<'_> {
     }
 }
 
+pub(super) struct UdpClientReceiveConfig {
+    pub(super) control_peer_ip: IpAddr,
+    pub(super) requested_udp_source: SocketAddr,
+    pub(super) flow_limit: usize,
+}
+
 pub(super) fn receive_and_forward_udp_client_packet(
     client_relay: &UdpSocket,
     client_buffer: &mut [u8],
     udp_client_addr: &mut Option<SocketAddr>,
-    control_peer_ip: IpAddr,
-    requested_udp_source: SocketAddr,
+    config: UdpClientReceiveConfig,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
-    flow_limit: usize,
     state: &RuntimeState,
     protect_path: Option<&str>,
     attempt_token: Option<&AttemptCorrelationId>,
@@ -48,14 +52,22 @@ pub(super) fn receive_and_forward_udp_client_packet(
             let Some(packet) = decode_udp_client_packet(
                 &client_buffer[..n],
                 sender,
-                control_peer_ip,
-                requested_udp_source,
+                config.control_peer_ip,
+                config.requested_udp_source,
                 udp_client_addr,
                 state,
             ) else {
                 return Ok(true);
             };
-            if !ensure_udp_flow_selected(state, protect_path, flow_state, flow_limit, &packet, now, attempt_token)? {
+            if !ensure_udp_flow_selected(
+                state,
+                protect_path,
+                flow_state,
+                config.flow_limit,
+                &packet,
+                now,
+                attempt_token,
+            )? {
                 return Ok(true);
             }
             let entry = flow_state
@@ -103,11 +115,12 @@ fn decode_udp_client_packet<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::config::RuntimeConfig;
     use std::net::{IpAddr, Ipv4Addr};
 
     #[test]
     fn udp_client_pins_only_valid_packet_from_control_peer() {
-        let state = RuntimeState::test_with_context(Default::default(), None);
+        let state = RuntimeState::test_with_context(RuntimeConfig::default(), None);
         let target = SocketAddr::from(([127, 0, 0, 1], 53));
         let valid = RuntimeState::encode_socks5_udp_packet(target, b"dns");
         let peer_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
@@ -125,7 +138,7 @@ mod tests {
 
     #[test]
     fn udp_client_rejects_same_ip_wrong_declared_port() {
-        let state = RuntimeState::test_with_context(Default::default(), None);
+        let state = RuntimeState::test_with_context(RuntimeConfig::default(), None);
         let valid = RuntimeState::encode_socks5_udp_packet(SocketAddr::from(([127, 0, 0, 1], 53)), b"dns");
         let peer_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
         let declared = SocketAddr::from(([127, 0, 0, 1], 4000));

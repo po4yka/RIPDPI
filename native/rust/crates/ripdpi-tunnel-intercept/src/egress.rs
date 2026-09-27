@@ -394,16 +394,18 @@ fn execute_registry_action<I: TunPacketInjector>(
             }
             DesyncAction::Split { offset, disorder } => {
                 if let Some((first, second)) = split_payload(payload, offset) {
-                    let first_sent;
-                    let second_sent;
-                    if disorder {
-                        first_sent = inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
-                        second_sent = first_sent && inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                    let (first_sent, second_sent) = if disorder {
+                        let first_sent =
+                            inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
+                        (first_sent, first_sent && inject_strategy_output(packet, meta, first, 0, ttl, injector))
                     } else {
-                        first_sent = inject_strategy_output(packet, meta, first, 0, ttl, injector);
-                        second_sent = first_sent
-                            && inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector);
-                    }
+                        let first_sent = inject_strategy_output(packet, meta, first, 0, ttl, injector);
+                        (
+                            first_sent,
+                            first_sent
+                                && inject_strategy_output(packet, meta, second, first.len() as u32, ttl, injector),
+                        )
+                    };
                     injected |= first_sent || second_sent;
                     all_injected &= first_sent && second_sent;
                 } else {

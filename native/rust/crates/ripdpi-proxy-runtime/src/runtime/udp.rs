@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
-use self::client_receive::receive_and_forward_udp_client_packet;
+use self::client_receive::{UdpClientReceiveConfig, receive_and_forward_udp_client_packet};
 use self::flow::{UdpFlowActivationState, UdpFlowExpirySchedule, UdpFlowKey, expire_udp_flows};
 pub(in crate::runtime) use self::settings::{
     RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
@@ -88,10 +88,8 @@ pub(super) fn udp_associate_loop(
             &client_relay,
             &mut client_buffer,
             &mut udp_client_addr,
-            control_peer_ip,
-            requested_udp_source,
+            UdpClientReceiveConfig { control_peer_ip, requested_udp_source, flow_limit },
             &mut flow_state,
-            flow_limit,
             &state,
             protect_path.as_deref(),
             attempt_token.as_ref(),

@@ -1,3 +1,11 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
+
+fn interrupted(cancel: &AtomicBool) -> bool {
+    cancel.load(Ordering::Acquire)
+        || crate::util::active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline)
+}
+
 macro_rules! impl_connectivity_runner {
     ($runner:ty, $family:ty, $stage:ident) => {
         impl crate::engine::runtime::ExecutionStageRunner for $runner {

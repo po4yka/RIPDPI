@@ -279,10 +279,12 @@ object CdnPullingChecker {
 
     private fun SSLException.isCertificateFailure(): Boolean =
         this is SSLPeerUnverifiedException ||
-            (this is SSLHandshakeException &&
-                generateSequence(cause) { it.cause }.any {
-                    it is CertificateException || it is CertPathValidatorException
-                })
+            (
+                this is SSLHandshakeException &&
+                    generateSequence(cause) { it.cause }.any {
+                        it is CertificateException || it is CertPathValidatorException
+                    }
+            )
 
     private fun Exception.isIpv6Unavailable(): Boolean = this is IOException
 

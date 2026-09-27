@@ -73,7 +73,7 @@ impl std::fmt::Display for RepairCleanupFailure {
 impl std::error::Error for RepairCleanupFailure {}
 
 pub(crate) fn is_repair_cleanup_failure(error: &io::Error) -> bool {
-    error.get_ref().is_some_and(|source| source.is::<RepairCleanupFailure>())
+    error.get_ref().is_some_and(<dyn std::error::Error + Send + Sync>::is::<RepairCleanupFailure>)
 }
 
 #[cfg(any(target_os = "linux", test))]

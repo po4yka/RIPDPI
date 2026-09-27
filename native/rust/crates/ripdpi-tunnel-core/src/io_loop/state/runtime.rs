@@ -9,6 +9,7 @@ use crate::split_dns::SplitDnsPolicy;
 use crate::uid_policy::UidFlowPolicy;
 
 use super::super::dns_intercept::MapDnsRuntime;
+use super::LoopState;
 
 pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) proxy_sockaddr: SocketAddr,
@@ -29,4 +30,15 @@ pub(in crate::io_loop) struct LoopRuntime {
     /// (CLI path). `None` on the Android JNI callback path. Threaded into the
     /// UDP-ASSOCIATE relay sockets so they are protected before connect/bind.
     pub(in crate::io_loop) protect_path: Option<String>,
+}
+
+impl LoopState {
+    pub(in crate::io_loop) fn release_closed_strategy_flows(&mut self) {
+        for flow in self.sessions.take_closed_flows() {
+            self.runtime.tun_egress_interceptor.close_flow(flow.protocol, flow.local, flow.remote);
+        }
+        for src in self.closed_udp_sources.drain(..) {
+            self.runtime.tun_egress_interceptor.close_udp_source(src);
+        }
+    }
 }

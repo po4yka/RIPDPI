@@ -45,7 +45,14 @@ class DetectionHistoryStoreTest {
             start.complete(Unit)
             writes.awaitAll()
 
-            assertEquals(50, store.loadLatest(50).map { it.networkFingerprint }.distinct().size)
+            assertEquals(
+                50,
+                store
+                    .loadLatest(50)
+                    .map { it.networkFingerprint }
+                    .distinct()
+                    .size,
+            )
         }
 
     @Test

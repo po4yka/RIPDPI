@@ -1,12 +1,13 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
+use std::sync::atomic::AtomicBool;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::{CollectedStageOutcome, CollectedStep, ExecutionPlan, RunnerArtifacts};
 use crate::types::ProbeResult;
+
+use super::interrupted;
 
 pub(super) trait ConnectivityProbeFamily {
     type Target: Clone;
@@ -39,25 +40,19 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
         }
         let message = F::message(&target);
         let probe = F::run_probe(&target, plan, &plan.probe_context, cancel, tls_verifier);
-        let outcome = probe.outcome.clone();
-        let artifacts = RunnerArtifacts::from_probe(probe, F::ARTIFACT_SOURCE, &plan.request.path_mode);
+        let latest_probe_outcome = Some(probe.outcome.clone());
         steps.push(CollectedStep {
             phase: F::PHASE,
             latest_probe_target: Some(message.clone()),
             message,
-            latest_probe_outcome: Some(outcome),
-            artifacts,
+            latest_probe_outcome,
+            artifacts: RunnerArtifacts::from_probe(probe, F::ARTIFACT_SOURCE, &plan.request.path_mode),
         });
         if interrupted(cancel) {
             return CollectedStageOutcome::Cancelled(steps);
         }
     }
     CollectedStageOutcome::Completed(steps)
-}
-
-fn interrupted(cancel: &AtomicBool) -> bool {
-    cancel.load(Ordering::Acquire)
-        || crate::util::active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline)
 }
 
 #[cfg(test)]

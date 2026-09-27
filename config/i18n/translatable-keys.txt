@@ -1404,6 +1404,7 @@ app:diagnostics_field_network_country
 app:diagnostics_field_network_fingerprint
 app:diagnostics_field_network_metered
 app:diagnostics_field_network_operator
+app:diagnostics_field_not_stored
 app:diagnostics_field_notification_permission
 app:diagnostics_field_operator_code
 app:diagnostics_field_packs
@@ -2518,6 +2519,7 @@ app:language_name_ru
 app:language_name_zh_cn
 app:language_picker_native_format
 app:language_picker_sheet_title
+app:language_picker_system_language
 app:logs
 app:logs_active_session_body
 app:logs_active_session_title

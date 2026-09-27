@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use rustls::client::danger::ServerCertVerifier;
@@ -10,10 +10,9 @@ use crate::engine::runtime::ExecutionPlan;
 use crate::http::{HttpResponse, execute_doh_json_request};
 use crate::transport::TargetAddress;
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult};
-use crate::util::{
-    DEFAULT_DOH_JSON_RESOLVERS, active_scan_io_deadline, encode_doh_json_query_name, parse_doh_json_ip_answer,
-};
+use crate::util::{DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, parse_doh_json_ip_answer};
 
+use super::interrupted;
 use super::support::ConnectivityProbeFamily;
 
 /// Measure vendor JSON DoH APIs for explicitly selected DNS targets.
@@ -114,10 +113,6 @@ fn survey(
         result.details[0].value = status.to_string();
     }
     result
-}
-
-fn interrupted(cancel: &AtomicBool) -> bool {
-    cancel.load(Ordering::Acquire) || active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline)
 }
 
 fn transport_status(error: &str) -> &'static str {

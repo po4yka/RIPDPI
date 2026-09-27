@@ -31,13 +31,14 @@ class WebRtcLeakCheckerTest {
 
     @Test
     fun `binding response must match cookie transaction and advertised length`() {
-        val request = ByteArray(20).also { bytes ->
-            bytes[4] = 0x21
-            bytes[5] = 0x12
-            bytes[6] = 0xa4.toByte()
-            bytes[7] = 0x42
-            bytes[8] = 0x5a
-        }
+        val request =
+            ByteArray(20).also { bytes ->
+                bytes[4] = 0x21
+                bytes[5] = 0x12
+                bytes[6] = 0xa4.toByte()
+                bytes[7] = 0x42
+                bytes[8] = 0x5a
+            }
         val response =
             request.copyOf(32).also {
                 it[0] = 0x01

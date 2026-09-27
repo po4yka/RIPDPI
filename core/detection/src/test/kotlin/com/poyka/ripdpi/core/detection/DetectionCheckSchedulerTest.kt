@@ -56,8 +56,7 @@ class DetectionCheckSchedulerTest {
             scheduler.stopObserving()
         }
 
-    private fun network(transport: String) =
-        NetworkFingerprint(transport, true, false, "system", emptyList())
+    private fun network(transport: String) = NetworkFingerprint(transport, true, false, "system", emptyList())
 
     private fun cleanResult(): DetectionCheckResult {
         val category = CategoryResult("clean", false, emptyList())

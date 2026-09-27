@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
-import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyType

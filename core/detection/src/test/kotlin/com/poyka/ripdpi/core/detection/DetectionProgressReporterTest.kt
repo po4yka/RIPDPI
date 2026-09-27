@@ -19,22 +19,24 @@ class DetectionProgressReporterTest {
             val firstEntered = CompletableDeferred<Unit>()
             val releaseFirst = CompletableDeferred<Unit>()
             val secondStarted = CompletableDeferred<Unit>()
-            val reporter = DetectionProgressReporter { progress ->
-                if (progress.stage == DetectionStage.GEO_IP) {
-                    firstEntered.complete(Unit)
-                    releaseFirst.await()
+            val reporter =
+                DetectionProgressReporter { progress ->
+                    if (progress.stage == DetectionStage.GEO_IP) {
+                        firstEntered.complete(Unit)
+                        releaseFirst.await()
+                    }
+                    events.add(progress)
                 }
-                events.add(progress)
-            }
 
             withContext(Dispatchers.Default) {
                 withTimeout(5_000) {
                     val first = async { reporter.completed(DetectionStage.GEO_IP) }
                     firstEntered.await()
-                    val second = async {
-                        secondStarted.complete(Unit)
-                        reporter.completed(DetectionStage.DIRECT_SIGNS)
-                    }
+                    val second =
+                        async {
+                            secondStarted.complete(Unit)
+                            reporter.completed(DetectionStage.DIRECT_SIGNS)
+                        }
                     secondStarted.await()
                     delay(50)
                     releaseFirst.complete(Unit)
