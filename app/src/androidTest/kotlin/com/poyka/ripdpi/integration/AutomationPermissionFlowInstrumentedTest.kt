@@ -5,6 +5,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.HomeMode
+import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.automation.AutomationPermissionPreset
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -25,6 +26,7 @@ class AutomationPermissionFlowInstrumentedTest {
             automationLaunchIntent(
                 startRoute = Route.Home.stableRoute,
                 permissionPreset = AutomationPermissionPreset.Granted,
+                dataPreset = AutomationDataPreset.SettingsReady,
             ),
         )
 
