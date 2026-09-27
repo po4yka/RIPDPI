@@ -104,6 +104,29 @@ class ProxyRuntimeSupervisorTest {
         }
 
     @Test
+    fun failedStopWaitsForCompletedProxyBeforeDetaching() =
+        runTest {
+            val runtime =
+                TestProxyRuntime().apply {
+                    stopFailure = IOException("stop failed")
+                    completeOnStopFailure = true
+                }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    ripDpiProxyFactory = TestRipDpiProxyFactory { runtime },
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            supervisor.start(RipDpiProxyUIPreferences()) {}
+
+            assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is IOException)
+            assertNull(supervisor.runtime)
+            supervisor.stop()
+            assertEquals(1, runtime.stopCount)
+        }
+
+    @Test
     fun stopTimeoutRetainsNativeProxyUntilRetry() =
         runTest {
             val runtime = TestProxyRuntime().apply { keepRunningOnStop = true }

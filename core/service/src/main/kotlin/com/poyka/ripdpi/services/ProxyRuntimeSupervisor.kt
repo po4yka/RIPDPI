@@ -175,13 +175,7 @@ internal class ProxyRuntimeSupervisor(
         val outcome =
             runCatching {
                 stopRequested = true
-                val stopped =
-                    withTimeoutOrNull(stopTimeoutMillis) {
-                        proxyInstance.stopProxy()
-                        proxyJob?.join()
-                        true
-                    } == true
-                if (!stopped && proxyJob?.isCompleted != true) throw RuntimeCleanupPendingException()
+                stopNativeProxyAndJoin(proxyInstance)
             }
         val failure = outcome.exceptionOrNull()
         if (failure is Exception && proxyJob?.isCompleted != true) {
@@ -193,6 +187,18 @@ internal class ProxyRuntimeSupervisor(
         exitReporting = null
         stopRequested = false
         outcome.getOrThrow()
+    }
+
+    private suspend fun stopNativeProxyAndJoin(proxyInstance: RipDpiProxyRuntime) {
+        var stopFailure: Throwable? = null
+        val stopped =
+            withTimeoutOrNull(stopTimeoutMillis) {
+                stopFailure = runCatching { proxyInstance.stopProxy() }.exceptionOrNull()
+                proxyJob?.join()
+                true
+            } == true
+        if (!stopped && proxyJob?.isCompleted != true) throw RuntimeCleanupPendingException(stopFailure)
+        stopFailure?.let { throw it }
     }
 
     fun detach() {

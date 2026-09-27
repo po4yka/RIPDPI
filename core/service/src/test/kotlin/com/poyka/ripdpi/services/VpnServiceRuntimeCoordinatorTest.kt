@@ -1021,6 +1021,10 @@ class VpnServiceRuntimeCoordinatorTest {
             advanceTimeBy(1_000L)
             repeat(3) { runCurrent() }
 
+            // A failed native stop waits for the bounded proxy-job cleanup before reporting failure.
+            advanceTimeBy(5_000L)
+            repeat(3) { runCurrent() }
+
             assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
             assertFalse(existingTun.closed)
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))

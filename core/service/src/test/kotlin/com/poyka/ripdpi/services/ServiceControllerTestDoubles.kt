@@ -726,6 +726,7 @@ internal class TestProxyRuntime(
     var startFailure: Throwable? = null
     var awaitReadyFailure: Exception? = null
     var stopFailure: Throwable? = null
+    var completeOnStopFailure: Boolean = false
     var keepRunningOnStop: Boolean = false
     var ignoreStartCancellation: Boolean = false
     var beforeReady: suspend () -> Unit = {}
@@ -773,7 +774,10 @@ internal class TestProxyRuntime(
         stopCount += 1
         events += "proxy:stop"
         beforeStop()
-        stopFailure?.let { throw it }
+        stopFailure?.let { failure ->
+            if (completeOnStopFailure && !exitCode.isCompleted) exitCode.complete(0)
+            throw failure
+        }
         if (!keepRunningOnStop && !exitCode.isCompleted) {
             exitCode.complete(0)
         }
