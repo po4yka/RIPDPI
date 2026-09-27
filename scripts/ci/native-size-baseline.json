@@ -4,21 +4,21 @@
   "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi-tunnel.so": 8502320,
-      "libripdpi.so": 12156072
+      "libripdpi.so": 11391104,
+      "libripdpi-tunnel.so": 8795712
     },
     "armeabi-v7a": {
-      "libripdpi-tunnel.so": 5269964,
-      "libripdpi.so": 7849228
+      "libripdpi.so": 7983972,
+      "libripdpi-tunnel.so": 5983400
     },
     "x86": {
-      "libripdpi-tunnel.so": 7483328,
-      "libripdpi.so": 11337584
+      "libripdpi.so": 11126240,
+      "libripdpi-tunnel.so": 8143216
     },
     "x86_64": {
-      "libripdpi-tunnel.so": 10039120,
-      "libripdpi.so": 14153968
+      "libripdpi.so": 12857888,
+      "libripdpi-tunnel.so": 9813328
     }
   },
-  "_comment": "Updated 2026-05-14 from CI native-size report after flavored debug path repair exposed current optimized libripdpi artifacts; thresholds unchanged."
+  "_comment": "Refreshed 2026-09-27 from CI run 36304499950 stripped native shard artifacts after Rust 1.96.0 to 1.98.1 and native feature changes; growth limits unchanged."
 }
