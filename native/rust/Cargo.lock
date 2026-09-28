@@ -5715,7 +5715,7 @@ dependencies = [
  "metrics",
  "odoh-rs",
  "quinn",
- "rand 0.9.5",
+ "rand 0.10.2",
  "rcgen",
  "reqwest",
  "ring",

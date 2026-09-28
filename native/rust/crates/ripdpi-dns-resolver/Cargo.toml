@@ -17,7 +17,7 @@ hickory-resolver = { workspace = true, optional = true }
 lru = { workspace = true }
 metrics = { workspace = true }
 odoh-rs = { workspace = true }
-rand_09 = { workspace = true }
+rand = { workspace = true }
 ring = { workspace = true }
 reqwest = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
