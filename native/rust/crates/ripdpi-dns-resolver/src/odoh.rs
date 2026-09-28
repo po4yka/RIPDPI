@@ -3,7 +3,6 @@ use odoh_rs::{
     ObliviousDoHConfigContents, ObliviousDoHConfigs, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, OdohSecret,
     compose, decrypt_response, encrypt_query, parse,
 };
-use rand_09::SeedableRng;
 use thiserror::Error;
 
 pub const ODOH_MESSAGE_MEDIA_TYPE: &str = "application/oblivious-dns-message";
@@ -154,7 +153,7 @@ impl OdohTargetConfig {
 
     pub fn encrypt_query(&self, dns_message: &[u8], padding_len: usize) -> Result<OdohEncryptedQuery, OdohError> {
         let plaintext = ObliviousDoHMessagePlaintext::new(dns_message, padding_len);
-        let mut rng = rand_09::rngs::StdRng::from_os_rng();
+        let mut rng: rand::rngs::StdRng = rand::make_rng();
         let (message, secret) = encrypt_query(&plaintext, &self.contents, &mut rng)?;
         let wire_message = compose(&message)?.to_vec();
         Ok(OdohEncryptedQuery {
