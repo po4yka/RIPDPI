@@ -268,7 +268,7 @@ maxminddb = "0.31"
 mlua = "0.12"
 mio = { version = "1.2", features = ["net", "os-poll"] }
 nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
-odoh-rs = "=1.0.4"
+odoh-rs = "=1.0.5"
 once_cell = "1"
 quinn = { version = "0.11", default-features = false, features = ["rustls", "ring", "runtime-tokio"] }
 ring = "0.17"
