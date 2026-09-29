@@ -20,6 +20,8 @@ use ripdpi_strategy_trait::{
 use tracing::{debug, warn};
 
 mod packet;
+#[cfg(test)]
+mod upstream_vectors;
 
 use self::packet::{
     PacketMeta, Transport, flow_id, low_ttl_tcp_copy, packet_destination, packet_with_payload, set_packet_hop_limit,

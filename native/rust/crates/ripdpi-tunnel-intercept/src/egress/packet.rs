@@ -422,7 +422,8 @@ fn finalize_checksum(mut sum: u32) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use super::PacketMeta;
+    use super::{PacketMeta, low_ttl_tcp_copy, packet_with_payload};
+    use crate::egress::upstream_vectors::*;
 
     #[test]
     fn truncated_tcp_headers_are_rejected() {
@@ -465,5 +466,70 @@ mod tests {
         assert!(PacketMeta::parse(&ipv4).is_some());
         ipv6[42..44].copy_from_slice(&0u16.to_be_bytes());
         assert!(PacketMeta::parse(&ipv6).is_some());
+    }
+    #[test]
+    fn upstream_option_packets_preserve_headers_and_recompute_checksums() {
+        for (original, rewrite) in [
+            (IPV4_TCP, IPV4_TCP_REWRITE),
+            (IPV6_TCP, IPV6_TCP_REWRITE),
+            (IPV6_HOP_TCP, IPV6_HOP_TCP_REWRITE),
+            (IPV4_UDP, IPV4_UDP_REWRITE_ZERO_SUM),
+            (IPV6_HOP_UDP, IPV6_HOP_UDP_REWRITE),
+        ] {
+            let packet = decode(original);
+            let meta = PacketMeta::parse(&packet).unwrap();
+            assert_eq!(meta.src_port, 49152);
+            assert_eq!(meta.dst_port, 443);
+            assert_eq!(meta.payload(&packet), b"abcdefg");
+            let expected_src = if meta.is_ipv6 { "[2001:db8::10]:49152" } else { "192.0.2.10:49152" };
+            assert_eq!(meta.src_addr().to_string(), expected_src);
+            let output = packet_with_payload(&packet, meta, b"\0new\xff", 0, None).unwrap();
+            assert_eq!(output, decode(rewrite));
+            // Input checksum bytes must not be trusted when producing a new packet.
+            let mut corrupt = packet.clone();
+            corrupt[meta.transport_offset + if meta.transport == super::Transport::Tcp { 16 } else { 6 }] ^= 1;
+            assert_eq!(packet_with_payload(&corrupt, meta, b"\0new\xff", 0, None).unwrap(), output);
+        }
+        // IPv4 permits an omitted UDP checksum; retain the existing TUN policy.
+        let mut upstream = decode(IPV4_UDP_REWRITE);
+        upstream[30..32].fill(0);
+        assert_eq!(upstream, decode(IPV4_UDP_REWRITE_ZERO_SUM));
+    }
+
+    #[test]
+    fn upstream_tcp_split_checksums_include_options_and_sequence_wrap() {
+        for (original, first, second) in [
+            (IPV4_TCP, IPV4_TCP_FIRST, IPV4_TCP_SECOND),
+            (IPV6_TCP, IPV6_TCP_FIRST, IPV6_TCP_SECOND),
+            (IPV6_HOP_TCP, IPV6_HOP_TCP_FIRST, IPV6_HOP_TCP_SECOND),
+        ] {
+            let packet = decode(original);
+            let meta = PacketMeta::parse(&packet).unwrap();
+            assert_eq!(packet_with_payload(&packet, meta, b"ab", 0, None).unwrap(), decode(first));
+            let output = packet_with_payload(&packet, meta, b"cdefg", 2, None).unwrap();
+            assert_eq!(output, decode(second));
+            assert_eq!(&output[meta.transport_offset + 4..meta.transport_offset + 8], &[0; 4]);
+        }
+    }
+
+    #[test]
+    fn upstream_low_ttl_preserves_transport_checksum_and_original() {
+        for (original, expected) in [(IPV4_TCP, IPV4_TCP_LOW_TTL), (IPV6_TCP, IPV6_TCP_LOW_TTL)] {
+            let packet = decode(original);
+            assert_eq!(low_ttl_tcp_copy(&packet, 3).unwrap(), decode(expected));
+            assert_eq!(packet, decode(original));
+        }
+    }
+
+    #[test]
+    fn upstream_unsupported_and_truncated_headers_are_rejected() {
+        assert!(PacketMeta::parse(&decode(IPV6_AH_UDP)).is_none());
+        for original in [IPV4_TCP, IPV6_TCP, IPV6_HOP_TCP, IPV4_UDP, IPV6_HOP_UDP] {
+            let packet = decode(original);
+            let meta = PacketMeta::parse(&packet).unwrap();
+            for length in 0..meta.payload_offset {
+                assert!(PacketMeta::parse(&packet[..length]).is_none(), "header prefix {length}");
+            }
+        }
     }
 }

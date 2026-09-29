@@ -923,3 +923,65 @@ fn ipv6_tcp_packet() -> Vec<u8> {
     packet[54..56].copy_from_slice(&65535u16.to_be_bytes());
     packet
 }
+
+#[test]
+fn upstream_lua_split_matches_complete_option_packets() {
+    use super::upstream_vectors::*;
+    let script =
+        write_lua_script("upstream-vector-split", "function candidate(d) d.split(2,false); return VERDICT_MODIFY end");
+    let yaml = format!(
+        "version: 1\nstrategies:\n  - id: upstream-split\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
+        script.display()
+    );
+    for (original, first, second) in [
+        (IPV4_TCP, IPV4_TCP_FIRST, IPV4_TCP_SECOND),
+        (IPV6_TCP, IPV6_TCP_FIRST, IPV6_TCP_SECOND),
+        (IPV6_HOP_TCP, IPV6_HOP_TCP_FIRST, IPV6_HOP_TCP_SECOND),
+    ] {
+        let packet = decode(original);
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets, vec![decode(first), decode(second)]);
+        assert_eq!(packet, decode(original));
+    }
+}
+
+#[test]
+fn upstream_lua_rewrite_matches_complete_tcp_and_udp_packets() {
+    use super::upstream_vectors::*;
+    let script = write_lua_script("upstream-vector-modify", r"function candidate(d) return '\0new\255' end");
+    let yaml = format!(
+        "version: 1\nstrategies:\n  - id: upstream-modify\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
+        script.display()
+    );
+    for (original, expected) in [
+        (IPV4_TCP, IPV4_TCP_REWRITE),
+        (IPV6_TCP, IPV6_TCP_REWRITE),
+        (IPV6_HOP_TCP, IPV6_HOP_TCP_REWRITE),
+        (IPV4_UDP, IPV4_UDP_REWRITE_ZERO_SUM),
+        (IPV6_HOP_UDP, IPV6_HOP_UDP_REWRITE),
+    ] {
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        assert!(interceptor.handle_packet(&decode(original)));
+        assert_eq!(interceptor.injector.packets, vec![decode(expected)]);
+    }
+    let mut interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+    assert!(!interceptor.handle_packet(&decode(IPV6_AH_UDP)));
+    assert!(interceptor.injector.packets.is_empty());
+}
+
+#[test]
+fn upstream_fake_ttl_matches_complete_packets_and_forwards_original() {
+    use super::upstream_vectors::*;
+    let yaml = "version: 1\nstrategies:\n  - id: upstream-fake\n    steps:\n      - type: fake\n        ttl: 3\n";
+    for (original, expected) in [(IPV4_TCP, IPV4_TCP_LOW_TTL), (IPV6_TCP, IPV6_TCP_LOW_TTL)] {
+        let packet = decode(original);
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+        assert!(!interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets, vec![decode(expected)]);
+        assert_eq!(packet, decode(original));
+    }
+}
