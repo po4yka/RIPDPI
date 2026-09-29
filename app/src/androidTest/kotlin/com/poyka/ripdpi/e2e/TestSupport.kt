@@ -653,14 +653,11 @@ class E2eFixtureRule(
     ): Statement =
         object : Statement() {
             override fun evaluate() {
-                if (isE2eFixtureConfigured() || allowsPacketSmokeAssertWithoutFixture()) {
-                    base.evaluate()
-                    return
-                }
-                println(
-                    "Skipping ${description.displayName}: E2E fixture control arguments are required " +
-                        "for com.poyka.ripdpi.e2e tests.",
+                assumeTrue(
+                    "E2E fixture control arguments are required for com.poyka.ripdpi.e2e tests.",
+                    isE2eFixtureConfigured() || allowsPacketSmokeAssertWithoutFixture(),
                 )
+                base.evaluate()
             }
         }
 
