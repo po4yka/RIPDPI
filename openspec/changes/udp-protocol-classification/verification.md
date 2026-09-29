@@ -1,11 +1,11 @@
 ---
 task_id: RST-1790681076965083
 change: udp-protocol-classification
-commit_sha: null
+commit_sha: f61667f553bcb72f0a34d5f019c185853906a453
 local: passed
 local_evidence: Four-package Rust tests, affected Clippy, fmt, locked metadata, native architecture contracts, architecture health, and independent review passed; commands and limits below.
 remote_ci: required
-remote_ci_evidence: null
+remote_ci_evidence: Pending hosted validation of the published change; local and Android gates passed. Do not archive before required CI evidence is observed.
 device: passed
 device_evidence: Full ARM64 interceptor test binary ran on emulator-5556 API 37 with 16384-byte pages; 33 passed, zero failed, ignored or filtered. No app settings or policies changed.
 artifact: passed
@@ -74,3 +74,14 @@ The existing egress test module was moved to `egress/tests.rs` to keep the
 production source below the staged architecture size limit. Independent
 review confirmed all previous test functions and 27 raw-string fixtures
 remain intact. The split module passed the Rust and Android gates above.
+
+## Publication
+
+Implementation commit `f61667f553bcb72f0a34d5f019c185853906a453` was rebased
+against `origin/main`; no base change was needed. Full four-package tests,
+architecture health, locked metadata, and task contracts passed again.
+The clean main checkout fast-forwarded and pushed successfully. `git ls-remote`
+confirmed the exact implementation SHA on `refs/heads/main`.
+
+Both execution steps are complete. The task remains in review while hosted
+validation is pending; no queued or running job is counted as passed.
