@@ -16,10 +16,12 @@ pub(super) fn execute_first_write(
     session_state: &mut FirstOutboundSession,
     attempt_token: Option<&AttemptCorrelationId>,
 ) -> Result<Option<&'static str>, OutboundSendError> {
+    session_state.lua_flow = state.new_lua_flow();
     let progress = session_state.observe_first_outbound_payload(original_request);
     let send_result = state.send_tcp_desync_payload(
         upstream,
         DesyncSendRequest {
+            lua_flow: session_state.lua_flow.as_deref(),
             group_index: route.group_index,
             group_override: None,
             payload: original_request,

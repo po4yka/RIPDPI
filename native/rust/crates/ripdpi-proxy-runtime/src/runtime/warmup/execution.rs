@@ -25,10 +25,12 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
     let _ = upstream.set_write_timeout(Some(PROBE_TIMEOUT));
     let _ = upstream.set_read_timeout(Some(PROBE_TIMEOUT));
 
+    let lua_flow = state.new_lua_flow();
     let progress = RuntimeState::single_payload_progress(payload.len());
     let send_result = state.send_tcp_desync_payload(
         &mut upstream,
         DesyncSendRequest {
+            lua_flow: lua_flow.as_deref(),
             group_index: route.group_index,
             group_override: None,
             payload: &payload,

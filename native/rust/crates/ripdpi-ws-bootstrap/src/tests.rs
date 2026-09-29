@@ -147,6 +147,8 @@ fn authority_transport_hint_downgrades_doq_when_udp_not_clean() {
         }],
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     };
 
     let context = runtime_encrypted_dns_context_for_host("fixture.test", Some(&runtime_context));
@@ -169,6 +171,8 @@ fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     }
 }
 

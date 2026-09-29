@@ -417,3 +417,11 @@ proptest! {
         prop_assert!(cfg.mapdns.is_none());
     }
 }
+
+#[test]
+fn lua_socket_ownership_defaults_to_tun_and_can_be_enabled() {
+    let default = Config::from_str(MINIMAL_VALID).unwrap();
+    assert!(!default.misc.lua_socket_owned);
+    let yaml = format!("{MINIMAL_VALID}\nmisc:\n  lua-socket-owned: true\n");
+    assert!(Config::from_str(&yaml).unwrap().misc.lua_socket_owned);
+}

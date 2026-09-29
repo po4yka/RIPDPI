@@ -224,6 +224,39 @@ pub fn execute_udp_actions(
     Ok(outcome)
 }
 
+/// Executes a validated Lua datagram replacement as real payload.
+/// Header mutations and multiple datagrams are rejected before the first send.
+pub fn execute_udp_payload_plan(
+    ctx: UdpActionExecContext<'_>,
+    plan: &ripdpi_strategy_trait::DesyncPlan,
+) -> Result<UdpExecutionOutcome, UdpExecutionError> {
+    let mut outcome = UdpExecutionOutcome {
+        attempted_actions: plan.actions.len(),
+        completed_actions: 0,
+        real_writes_committed: 0,
+        payload_bytes_committed: 0,
+        technique_actions_completed: 0,
+        ipv6_extension_profile: None,
+        fallback_reason: None,
+    };
+    let bytes = match plan.actions.as_slice() {
+        [] if plan.verdict == ripdpi_strategy_trait::StrategyVerdict::Drop => return Ok(outcome),
+        [ripdpi_strategy_trait::DesyncAction::Write(bytes)] => bytes,
+        _ => {
+            return Err(UdpExecutionError {
+                source: io::Error::new(io::ErrorKind::InvalidData, "unsupported Lua datagram plan"),
+                outcome,
+            });
+        }
+    };
+    let action = execute_udp_write_action(ctx, bytes, true).map_err(|source| UdpExecutionError { source, outcome })?;
+    outcome.completed_actions = 1;
+    outcome.real_writes_committed = action.real_writes_committed;
+    outcome.payload_bytes_committed = action.payload_bytes_committed;
+    outcome.technique_actions_completed = 1;
+    Ok(outcome)
+}
+
 fn execute_udp_action(
     ctx: UdpActionExecContext<'_>,
     action: &UdpDesyncAction,

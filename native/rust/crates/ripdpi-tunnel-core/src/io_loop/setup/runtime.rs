@@ -50,9 +50,10 @@ pub(super) fn build_loop_runtime(
             RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
         ),
         // Jail the egress `lua`-step `script_paths` to the app's absolute `<filesDir>/lua` dir when supplied, not `"."` (ill-defined Android CWD).
-        tun_egress_interceptor: Box::new(TunEgressInterceptor::new_with_base_dir(
+        tun_egress_interceptor: Box::new(TunEgressInterceptor::new_with_lua_owner(
             config.misc.strategy_chain_yaml.as_deref(),
             config.misc.lua_script_base_dir.as_deref().map_or(std::path::Path::new("."), std::path::Path::new),
+            config.misc.lua_socket_owned,
             RawTunPacketInjector::new(config.misc.protect_path.clone()),
         )),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),

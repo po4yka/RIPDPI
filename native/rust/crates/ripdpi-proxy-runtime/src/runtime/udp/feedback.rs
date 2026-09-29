@@ -116,6 +116,7 @@ mod tests {
     fn flow_entry(awaiting_response: bool) -> UdpFlowActivationState {
         let current_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443);
         UdpFlowActivationState {
+            lua_flow: None,
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
             route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },

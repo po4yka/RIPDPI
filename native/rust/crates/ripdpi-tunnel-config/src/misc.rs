@@ -43,6 +43,8 @@ pub struct MiscConfig {
     /// process CWD), which is ill-defined on Android — production passes the
     /// app's absolute `<filesDir>/lua` directory here.
     pub lua_script_base_dir: Option<String>,
+    #[serde(default)]
+    pub lua_socket_owned: bool,
 }
 
 impl Default for MiscConfig {
@@ -69,6 +71,7 @@ impl Default for MiscConfig {
             protect_path: None,
             root_helper_socket_path: None,
             lua_script_base_dir: None,
+            lua_socket_owned: false,
         }
     }
 }

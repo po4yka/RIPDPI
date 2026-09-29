@@ -7,6 +7,7 @@ pub mod ip_fragmentation;
 pub mod model;
 pub mod platform;
 pub mod protocol_payload;
+mod socket_lua;
 pub mod tcp_rotation;
 pub mod udp_desync;
 

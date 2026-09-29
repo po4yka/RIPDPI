@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.lua
 
+import com.poyka.ripdpi.services.lua.LuaAssetManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before

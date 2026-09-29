@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.lua
+package com.poyka.ripdpi.services.lua
 
 import android.content.Context
 import kotlinx.serialization.json.Json
@@ -21,6 +21,7 @@ object LuaAssetManager {
 
     fun currentManifestVersion(context: Context): String = readAssetManifest(context).version
 
+    @Synchronized
     fun extractIfOutdated(context: Context) {
         val manifest = readAssetManifest(context)
         val targetDir = targetDirectory(context).apply { mkdirs() }

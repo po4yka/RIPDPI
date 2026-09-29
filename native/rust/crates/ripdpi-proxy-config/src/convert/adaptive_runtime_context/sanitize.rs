@@ -25,6 +25,8 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
         Some(value)
     });
     runtime_context.protect_path = trim_non_empty(runtime_context.protect_path);
+    runtime_context.strategy_chain_yaml = runtime_context.strategy_chain_yaml.filter(|value| !value.trim().is_empty());
+    runtime_context.lua_script_base_dir = trim_non_empty(runtime_context.lua_script_base_dir);
     runtime_context.direct_path_capabilities = runtime_context
         .direct_path_capabilities
         .into_iter()
@@ -84,6 +86,8 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
     });
     if runtime_context.encrypted_dns.is_none()
         && runtime_context.protect_path.is_none()
+        && runtime_context.strategy_chain_yaml.is_none()
+        && runtime_context.lua_script_base_dir.is_none()
         && runtime_context.preferred_edges.is_empty()
         && runtime_context.direct_path_capabilities.is_empty()
         && runtime_context.morph_policy.is_none()
@@ -91,4 +95,31 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
         return None;
     }
     Some(runtime_context)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_runtime_context;
+    use crate::types::ProxyRuntimeContext;
+
+    #[test]
+    fn lua_only_runtime_context_survives_sanitization() {
+        let yaml = "version: 1\nstrategies:\n  - id: lua\n";
+        let normalized = sanitize_runtime_context(Some(ProxyRuntimeContext {
+            strategy_chain_yaml: Some(yaml.to_owned()),
+            lua_script_base_dir: Some(" /data/user/0/app/files/lua ".to_owned()),
+            ..ProxyRuntimeContext::default()
+        }))
+        .unwrap();
+        assert_eq!(normalized.strategy_chain_yaml.as_deref(), Some(yaml));
+        assert_eq!(normalized.lua_script_base_dir.as_deref(), Some("/data/user/0/app/files/lua"));
+        assert!(
+            sanitize_runtime_context(Some(ProxyRuntimeContext {
+                strategy_chain_yaml: Some(" \n ".to_owned()),
+                lua_script_base_dir: Some(" ".to_owned()),
+                ..ProxyRuntimeContext::default()
+            }))
+            .is_none()
+        );
+    }
 }

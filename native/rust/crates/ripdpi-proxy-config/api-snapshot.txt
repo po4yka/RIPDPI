@@ -117,9 +117,11 @@ pub struct ripdpi_proxy_config::ProxyRuntimeContext
 pub ripdpi_proxy_config::ProxyRuntimeContext::connection_concurrency: core::option::Option<ripdpi_proxy_config::ProxyConnectionConcurrencyPolicy>
 pub ripdpi_proxy_config::ProxyRuntimeContext::direct_path_capabilities: alloc::vec::Vec<ripdpi_proxy_config::ProxyDirectPathCapability>
 pub ripdpi_proxy_config::ProxyRuntimeContext::encrypted_dns: core::option::Option<ripdpi_proxy_config::ProxyEncryptedDnsContext>
+pub ripdpi_proxy_config::ProxyRuntimeContext::lua_script_base_dir: core::option::Option<alloc::string::String>
 pub ripdpi_proxy_config::ProxyRuntimeContext::morph_policy: core::option::Option<ripdpi_proxy_config::ProxyMorphPolicy>
 pub ripdpi_proxy_config::ProxyRuntimeContext::preferred_edges: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<ripdpi_proxy_config::ProxyPreferredEdge>>
 pub ripdpi_proxy_config::ProxyRuntimeContext::protect_path: core::option::Option<alloc::string::String>
+pub ripdpi_proxy_config::ProxyRuntimeContext::strategy_chain_yaml: core::option::Option<alloc::string::String>
 pub struct ripdpi_proxy_config::ProxyUiActivationFilter
 pub ripdpi_proxy_config::ProxyUiActivationFilter::payload_size: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>
 pub ripdpi_proxy_config::ProxyUiActivationFilter::round: core::option::Option<ripdpi_proxy_config::ProxyUiNumericRange>

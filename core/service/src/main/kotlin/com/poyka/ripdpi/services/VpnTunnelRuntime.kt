@@ -309,6 +309,7 @@ internal class VpnTunnelRuntime(
                     rootHelperSocketPath =
                         environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
                     luaScriptBaseDir = environment.luaScriptBaseDir,
+                    luaSocketOwned = settings.strategyChainYaml.isNotBlank() && !settings.rootModeEnabled,
                     uidPolicy = uidPolicy,
                     geositeDbPath = environment.geositeDbPath,
                 )

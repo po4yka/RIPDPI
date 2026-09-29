@@ -4,7 +4,7 @@
 
 #[cfg(feature = "lua-strategies")]
 mod enabled {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeMap, HashMap, HashSet};
     use std::fs;
     use std::path::{Component, Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -263,7 +263,25 @@ mod enabled {
             if !inner.registered.contains_key(func_name) {
                 return Err(LuaError::FunctionNotRegistered(func_name.to_owned()));
             }
-            Ok(Box::new(LuaFunctionStrategy { engine: self.clone(), func_name: func_name.to_owned() }))
+            Ok(Box::new(LuaFunctionStrategy {
+                engine: self.clone(),
+                func_name: func_name.to_owned(),
+                socket_tcp: None,
+            }))
+        }
+
+        /// Creates a strategy restricted to payload writes on an existing socket.
+        /// The entire plan is checked before it is returned to the caller.
+        pub fn make_socket_strategy(&self, func_name: &str, tcp: bool) -> Result<Box<dyn DesyncStrategy>, LuaError> {
+            let inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
+            if !inner.registered.contains_key(func_name) {
+                return Err(LuaError::FunctionNotRegistered(func_name.to_owned()));
+            }
+            Ok(Box::new(LuaFunctionStrategy {
+                engine: self.clone(),
+                func_name: func_name.to_owned(),
+                socket_tcp: Some(tcp),
+            }))
         }
 
         /// Lists registered strategy function names.
@@ -307,7 +325,12 @@ mod enabled {
             Ok(())
         }
 
-        fn call_strategy(&self, func_name: &str, ctx: &StrategyContext<'_>) -> Result<LuaCallOutcome, LuaError> {
+        fn call_strategy(
+            &self,
+            func_name: &str,
+            ctx: &StrategyContext<'_>,
+            socket_tcp: Option<bool>,
+        ) -> Result<LuaCallOutcome, LuaError> {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             inner.reset_watchdog();
             if !inner.conn_states.contains_key(&ctx.flow_id) {
@@ -332,33 +355,31 @@ mod enabled {
             let conn =
                 inner.lua.registry_value::<Table>(conn_key).map_err(|error| LuaError::Call(error.to_string()))?;
             let call_plan = Arc::new(Mutex::new(LuaCallPlan::default()));
-            let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan))?;
-
-            match call_lua_strategy_function(&function, desync, *takes_ctx)? {
-                Value::String(output) => {
-                    let call_plan = take_call_plan(call_plan)?;
-                    Ok(LuaCallOutcome {
-                        output: Some(output.as_bytes().to_vec()),
-                        actions: call_plan.actions,
-                        verdict: call_plan.verdict,
-                    })
-                }
+            let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan), socket_tcp)?;
+            let dis = desync.get::<Table>("dis").map_err(to_call)?;
+            let baseline = socket_tcp.map(|_| header_snapshot(&dis, false)).transpose().map_err(to_call)?;
+            let result = call_lua_strategy_function(&function, desync.clone(), *takes_ctx)?;
+            let mut call_plan = take_call_plan(call_plan)?;
+            let output = match result {
+                Value::String(output) => Some(output.as_bytes().to_vec()),
                 Value::Integer(verdict) => {
-                    let mut call_plan = take_call_plan(call_plan)?;
                     call_plan.verdict = verdict_from_lua(verdict).or(call_plan.verdict);
-                    Ok(LuaCallOutcome { output: None, actions: call_plan.actions, verdict: call_plan.verdict })
+                    None
                 }
                 Value::Number(verdict) => {
-                    let mut call_plan = take_call_plan(call_plan)?;
                     call_plan.verdict = verdict_from_lua(verdict as i64).or(call_plan.verdict);
-                    Ok(LuaCallOutcome { output: None, actions: call_plan.actions, verdict: call_plan.verdict })
+                    None
                 }
-                Value::Nil | Value::Boolean(_) => {
-                    let call_plan = take_call_plan(call_plan)?;
-                    Ok(LuaCallOutcome { output: None, actions: call_plan.actions, verdict: call_plan.verdict })
+                Value::Nil | Value::Boolean(_) => None,
+                other => {
+                    return Err(LuaError::Call(format!("unsupported Lua strategy return type: {}", other.type_name())));
                 }
-                other => Err(LuaError::Call(format!("unsupported Lua strategy return type: {}", other.type_name()))),
+            };
+            if let (Some(tcp), Some(baseline)) = (socket_tcp, baseline) {
+                let dis = desync.get::<Table>("dis").map_err(to_call)?;
+                return socket_outcome(ctx.payload, tcp, dis, baseline, call_plan, output);
             }
+            Ok(LuaCallOutcome { output, actions: call_plan.actions, verdict: call_plan.verdict })
         }
     }
 
@@ -719,6 +740,123 @@ mod enabled {
             assert_eq!(plan.actions, vec![DesyncAction::Write(b"new".to_vec())]);
         }
 
+        fn socket_plan(script: &str, tcp: bool) -> Result<DesyncPlan, ripdpi_strategy_trait::StrategyError> {
+            let engine = LuaStrategyEngine::new().unwrap();
+            engine.load_bytes_registering_globals("socket.lua", script.as_bytes()).unwrap();
+            let strategy = engine.make_socket_strategy("candidate", tcp).unwrap();
+            let dissect = Dissect::default();
+            let conn = ConnectionState::default();
+            let caps = Capabilities::default();
+            let ctx = StrategyContext {
+                dissect: &dissect,
+                conn: &conn,
+                caps: &caps,
+                flow_id: FlowId(1),
+                payload: b"abcd",
+                direction: FlowDirection::Outbound,
+            };
+            let mut plan = DesyncPlan::default();
+            strategy.plan(&ctx, &mut plan)?;
+            Ok(plan)
+        }
+
+        #[test]
+        fn socket_accepts_rewrite_modify_split_and_drop() {
+            for tcp in [false, true] {
+                let rewrite = socket_plan("function candidate(d) return 'new' end", tcp).unwrap();
+                assert_eq!(rewrite.actions, vec![DesyncAction::Write(b"new".to_vec())]);
+                let modify =
+                    socket_plan("function candidate(d) d.dis.payload='new'; return VERDICT_MODIFY end", tcp).unwrap();
+                assert_eq!(modify.actions, rewrite.actions);
+                let drop = socket_plan("function candidate(d) return VERDICT_DROP end", tcp).unwrap();
+                assert_eq!(drop.verdict, StrategyVerdict::Drop);
+                assert!(drop.actions.is_empty());
+            }
+            let split = socket_plan("function candidate(d) return d.split(2,false) end", true).unwrap();
+            assert_eq!(split.actions, vec![DesyncAction::Write(b"ab".to_vec()), DesyncAction::Write(b"cd".to_vec())]);
+        }
+
+        #[test]
+        fn socket_rejects_complete_unsupported_plan_without_mutation() {
+            for script in [
+                "function candidate(d) d.dis.tcp.th_flags=0; return 'new' end",
+                "function candidate(d) d.dis.tcp.th_seq=1; return VERDICT_MODIFY end",
+                "function candidate(d) d.dis.ip={ttl=1}; return 'new' end",
+                "function candidate(d) d.dis={payload='new'}; return VERDICT_MODIFY end",
+                "function candidate(d) d.split(2,false); d.rawsend('raw'); return VERDICT_MODIFY end",
+                "function candidate(d) d.split(2,true); return VERDICT_MODIFY end",
+                "function candidate(d) d.split(2,false,1); return VERDICT_MODIFY end",
+                "function candidate(d) d.fake(1); return VERDICT_MODIFY end",
+                "function candidate(d) d.split(2,false); return VERDICT_DROP end",
+                "function candidate(d) d.split(2,false); d.split(3,false); return VERDICT_MODIFY end",
+            ] {
+                assert!(socket_plan(script, true).is_err(), "{script}");
+            }
+            assert!(socket_plan("function candidate(d) d.split(2,false); return VERDICT_MODIFY end", false).is_err());
+        }
+
+        #[test]
+        fn socket_rawsend_dissect_requires_exact_contiguous_replacement() {
+            let safe = "function candidate(d) local dis=d.dis; dis.payload='ab'; rawsend_dissect(dis,{},{}); dis.tcp.th_seq=2; dis.payload='cd'; rawsend_dissect(dis); dis.tcp.th_seq=0; return VERDICT_DROP end";
+            let plan = socket_plan(safe, true).unwrap();
+            assert_eq!(plan.verdict, StrategyVerdict::Apply);
+            assert_eq!(plan.actions, vec![DesyncAction::Write(b"ab".to_vec()), DesyncAction::Write(b"cd".to_vec())]);
+            assert!(socket_plan(safe, false).is_err());
+            for script in [
+                safe.replace("th_seq=2", "th_seq=1"),
+                safe.replace("th_seq=2", "th_seq=3"),
+                safe.replace("rawsend_dissect(dis,{},{});", "rawsend_dissect(dis,{repeats=2},{});"),
+                safe.replace("rawsend_dissect(dis,{},{});", "dis.tcp.th_flags=0; rawsend_dissect(dis,{},{});"),
+                safe.replace("dis.payload='cd'", "dis.payload='ce'"),
+                safe.replace("VERDICT_DROP", "VERDICT_PASS"),
+                safe.replace("rawsend_dissect(dis);", ""),
+            ] {
+                assert!(socket_plan(&script, true).is_err(), "{script}");
+            }
+        }
+
+        #[test]
+        fn socket_executes_bundled_multisplit_and_complete_tcpseg() {
+            let engine = LuaStrategyEngine::new().unwrap();
+            let assets =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../core/engine/src/main/assets/lua");
+            engine.load_script_registering_globals(assets.join("zapret-lib.lua")).unwrap();
+            engine.load_script_registering_globals(assets.join("zapret-antidpi.lua")).unwrap();
+            engine.load_bytes_registering_globals("wrappers.lua", br#"
+                function split_candidate(ctx,d) d.arg.payload='all'; return multisplit(ctx,d) end
+                function tcpseg_candidate(ctx,d) d.arg.payload='all'; d.arg.pos='1,4'; tcpseg(ctx,d); return VERDICT_DROP end
+            "#).unwrap();
+            let dissect = Dissect::default();
+            let conn = ConnectionState::default();
+            let caps = Capabilities::default();
+            let ctx = StrategyContext {
+                dissect: &dissect,
+                conn: &conn,
+                caps: &caps,
+                flow_id: FlowId(1),
+                payload: b"abcd",
+                direction: FlowDirection::Outbound,
+            };
+            for function in ["split_candidate", "tcpseg_candidate"] {
+                let strategy = engine.make_socket_strategy(function, true).unwrap();
+                let mut plan = DesyncPlan::default();
+                strategy.plan(&ctx, &mut plan).unwrap();
+                assert_eq!(plan.verdict, StrategyVerdict::Apply);
+                let bytes: Vec<u8> = plan
+                    .actions
+                    .iter()
+                    .flat_map(|action| match action {
+                        DesyncAction::Write(bytes) => bytes.clone(),
+                        _ => panic!("non-write socket action"),
+                    })
+                    .collect();
+                assert_eq!(bytes, b"abcd");
+                if function == "split_candidate" {
+                    assert_eq!(plan.actions.len(), 2);
+                }
+            }
+        }
+
         #[test]
         fn getpid_is_stubbed() {
             // getpid() must return 0 inside the sandbox — the real process PID
@@ -735,12 +873,127 @@ mod enabled {
     struct LuaCallPlan {
         actions: Vec<DesyncAction>,
         verdict: Option<StrategyVerdict>,
+        raw_socket_sends: Vec<(usize, i64, bool)>,
     }
 
     struct LuaCallOutcome {
         output: Option<Vec<u8>>,
         actions: Vec<DesyncAction>,
         verdict: Option<StrategyVerdict>,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    enum HeaderValue {
+        Bool(bool),
+        Integer(i64),
+        Number(u64),
+        String(Vec<u8>),
+        Table(BTreeMap<String, HeaderValue>),
+    }
+
+    // Bounded snapshots reject cycles, metatables and non-data fields from imported scripts.
+    fn header_snapshot(dis: &Table, ignore_seq: bool) -> mlua::Result<HeaderValue> {
+        snapshot_table(dis, ignore_seq, "", 0)
+    }
+
+    fn snapshot_table(table: &Table, ignore_seq: bool, path: &str, depth: usize) -> mlua::Result<HeaderValue> {
+        if depth > 16 || table.metatable().is_some() {
+            return Err(mlua::Error::external("unsupported Lua packet table"));
+        }
+        let mut values = BTreeMap::new();
+        for pair in table.clone().pairs::<Value, Value>() {
+            let (key, value) = pair?;
+            let key = match key {
+                Value::String(key) => format!("s:{}", key.to_str()?),
+                Value::Integer(key) => format!("i:{key}"),
+                _ => return Err(mlua::Error::external("unsupported Lua packet key")),
+            };
+            if (path.is_empty() && key == "s:payload") || (ignore_seq && path == "s:tcp" && key == "s:th_seq") {
+                continue;
+            }
+            let child_path = if path.is_empty() { key.clone() } else { format!("{path}/{key}") };
+            let value = match value {
+                Value::Boolean(value) => HeaderValue::Bool(value),
+                Value::Integer(value) => HeaderValue::Integer(value),
+                Value::Number(value) => HeaderValue::Number(value.to_bits()),
+                Value::String(value) => HeaderValue::String(value.as_bytes().to_vec()),
+                Value::Table(value) => snapshot_table(&value, ignore_seq, &child_path, depth + 1)?,
+                _ => return Err(mlua::Error::external("unsupported Lua packet value")),
+            };
+            values.insert(key, value);
+        }
+        Ok(HeaderValue::Table(values))
+    }
+
+    fn socket_outcome(
+        payload: &[u8],
+        tcp: bool,
+        dis: Table,
+        baseline: HeaderValue,
+        call_plan: LuaCallPlan,
+        output: Option<Vec<u8>>,
+    ) -> Result<LuaCallOutcome, LuaError> {
+        let unsupported =
+            || LuaError::Call("Lua plan requires packet injection or unsupported socket actions".to_owned());
+        if header_snapshot(&dis, false).map_err(to_call)? != baseline {
+            return Err(unsupported());
+        }
+        let mut actions = call_plan.actions;
+        if !call_plan.raw_socket_sends.is_empty() {
+            if !tcp
+                || output.is_some()
+                || call_plan.verdict != Some(StrategyVerdict::Drop)
+                || call_plan.raw_socket_sends.len() != actions.len()
+            {
+                return Err(unsupported());
+            }
+            let mut covered = 0usize;
+            for (index, seq, safe) in call_plan.raw_socket_sends {
+                let Some(DesyncAction::RawSend(bytes)) = actions.get_mut(index) else { return Err(unsupported()) };
+                if !safe
+                    || seq != covered as i64
+                    || bytes.is_empty()
+                    || payload.get(covered..covered.saturating_add(bytes.len())) != Some(bytes.as_slice())
+                {
+                    return Err(unsupported());
+                }
+                covered += bytes.len();
+                actions[index] = DesyncAction::Write(std::mem::take(bytes));
+            }
+            if covered != payload.len() {
+                return Err(unsupported());
+            }
+            return Ok(LuaCallOutcome { output: None, actions, verdict: Some(StrategyVerdict::Apply) });
+        }
+        if actions.iter().any(|action| matches!(action, DesyncAction::Split { .. }))
+            && (actions.len() != 1 || output.is_some())
+        {
+            return Err(unsupported());
+        }
+        let mut writes = Vec::new();
+        for action in actions {
+            match action {
+                DesyncAction::Write(bytes) => writes.push(DesyncAction::Write(bytes)),
+                DesyncAction::Split { offset, disorder: false } if tcp && offset > 0 && offset < payload.len() => {
+                    writes.push(DesyncAction::Write(payload[..offset].to_vec()));
+                    writes.push(DesyncAction::Write(payload[offset..].to_vec()));
+                }
+                _ => return Err(unsupported()),
+            }
+        }
+        if let Some(output) = output {
+            writes.push(DesyncAction::Write(output));
+        } else if writes.is_empty() && call_plan.verdict == Some(StrategyVerdict::Apply) {
+            let modified = dis.get::<LuaString>("payload").map_err(to_call)?;
+            writes.push(DesyncAction::Write(modified.as_bytes().to_vec()));
+        }
+        if !tcp && writes.len() > 1 {
+            return Err(unsupported());
+        }
+        if call_plan.verdict == Some(StrategyVerdict::Drop) && !writes.is_empty() {
+            return Err(unsupported());
+        }
+        Ok(LuaCallOutcome { output: None, actions: writes, verdict: call_plan.verdict })
     }
 
     fn take_call_plan(call_plan: Arc<Mutex<LuaCallPlan>>) -> Result<LuaCallPlan, LuaError> {
@@ -757,6 +1010,7 @@ mod enabled {
         ctx: &StrategyContext<'_>,
         conn: Table,
         call_plan: Arc<Mutex<LuaCallPlan>>,
+        socket_tcp: Option<bool>,
     ) -> Result<Table, LuaError> {
         let desync = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("conn", conn).map_err(|error| LuaError::Call(error.to_string()))?;
@@ -779,9 +1033,13 @@ mod enabled {
         desync
             .set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
             .map_err(|error| LuaError::Call(error.to_string()))?;
-        desync.set("dis", create_dis_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
+        let dis = create_dis_table(lua, ctx)?;
+        if socket_tcp == Some(false) {
+            dis.set("tcp", Value::Nil).map_err(to_call)?;
+        }
+        desync.set("dis", dis.clone()).map_err(to_call)?;
         desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
-        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan))?;
+        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan), socket_tcp, &dis)?;
         attach_action_functions(lua, &desync, ctx, call_plan)?;
         Ok(desync)
     }
@@ -815,7 +1073,10 @@ mod enabled {
         lua: &Lua,
         ctx: &StrategyContext<'_>,
         call_plan: Arc<Mutex<LuaCallPlan>>,
+        socket_tcp: Option<bool>,
+        dis: &Table,
     ) -> Result<(), LuaError> {
+        let baseline = socket_tcp.map(|_| header_snapshot(dis, true)).transpose().map_err(to_call)?;
         let rawsend_plan = Arc::clone(&call_plan);
         let rawsend_dissect = lua
             .create_function(move |_, args: Variadic<Value>| {
@@ -823,8 +1084,22 @@ mod enabled {
                     return Ok(false);
                 };
                 let payload = dis.get::<Option<LuaString>>("payload")?;
+                if payload.is_none() && baseline.is_some() {
+                    return Err(mlua::Error::external("socket rawsend_dissect requires payload"));
+                }
                 if let Some(payload) = payload {
                     let mut plan = lock_lua_call_plan(&rawsend_plan)?;
+                    if let Some(baseline) = &baseline {
+                        let safe = header_snapshot(dis, true).is_ok_and(|headers| &headers == baseline)
+                            && args.iter().skip(1).all(|option| match option {
+                                Value::Nil => true,
+                                Value::Table(table) => table.is_empty() && table.metatable().is_none(),
+                                _ => false,
+                            });
+                        let seq = dis.get::<Table>("tcp").and_then(|tcp| tcp.get::<i64>("th_seq")).unwrap_or(-1);
+                        let index = plan.actions.len();
+                        plan.raw_socket_sends.push((index, seq, safe));
+                    }
                     plan.actions.push(DesyncAction::RawSend(payload.as_bytes().to_vec()));
                     plan.verdict = Some(StrategyVerdict::Apply);
                 }
@@ -832,6 +1107,43 @@ mod enabled {
             })
             .map_err(to_call)?;
         lua.globals().set("rawsend_dissect", rawsend_dissect).map_err(to_call)?;
+
+        if socket_tcp.is_some() {
+            let markers = ctx.dissect.markers.clone();
+            let resolve_range = lua
+                .create_function(
+                    move |lua,
+                          (data, _l7payload, spec, strict, zero_based): (
+                        LuaString,
+                        Value,
+                        String,
+                        Option<bool>,
+                        Option<bool>,
+                    )| {
+                        if strict == Some(true) || zero_based == Some(true) {
+                            return Err(mlua::Error::external("unsupported socket range mode"));
+                        }
+                        let tokens = spec.split(',').map(str::trim).collect::<Vec<_>>();
+                        if tokens.len() != 2 {
+                            return Err(mlua::Error::external("resolve_range requires two markers"));
+                        }
+                        let positions = tokens
+                            .iter()
+                            .map(|token| resolve_zapret_position_token(token, &markers))
+                            .collect::<Option<Vec<_>>>();
+                        let Some(positions) = positions else { return Ok(None) };
+                        if positions[0] == 0 || positions[0] > positions[1] || positions[1] > data.as_bytes().len() {
+                            return Ok(None);
+                        }
+                        let range = lua.create_table()?;
+                        range.raw_set(1, positions[0])?;
+                        range.raw_set(2, positions[1])?;
+                        Ok(Some(range))
+                    },
+                )
+                .map_err(to_call)?;
+            lua.globals().set("resolve_range", resolve_range).map_err(to_call)?;
+        }
 
         let markers = ctx.dissect.markers.clone();
         let resolve_multi_pos = lua
@@ -1105,6 +1417,7 @@ mod enabled {
     struct LuaFunctionStrategy {
         engine: LuaStrategyEngine,
         func_name: String,
+        socket_tcp: Option<bool>,
     }
 
     impl DesyncStrategy for LuaFunctionStrategy {
@@ -1125,7 +1438,7 @@ mod enabled {
         }
 
         fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
-            match self.engine.call_strategy(&self.func_name, ctx) {
+            match self.engine.call_strategy(&self.func_name, ctx, self.socket_tcp) {
                 Ok(outcome) => {
                     let had_actions = !outcome.actions.is_empty() || outcome.output.is_some();
                     plan.actions.extend(outcome.actions);

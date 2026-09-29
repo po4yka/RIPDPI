@@ -49,6 +49,8 @@ internal data class NativePreferredEdge(
 internal data class NativeRuntimeContext(
     val encryptedDns: NativeEncryptedDnsContext? = null,
     val protectPath: String? = null,
+    val strategyChainYaml: String? = null,
+    val luaScriptBaseDir: String? = null,
     val preferredEdges: Map<String, List<NativePreferredEdge>> = emptyMap(),
     val directPathCapabilities: List<NativeDirectPathCapability> = emptyList(),
     val morphPolicy: NativeMorphPolicy? = null,
@@ -158,6 +160,8 @@ internal object ProxyRuntimeContextCodec {
                             )
                         },
                     protectPath = it.protectPath,
+                    strategyChainYaml = it.strategyChainYaml,
+                    luaScriptBaseDir = it.luaScriptBaseDir,
                     preferredEdges =
                         it.preferredEdges.mapValues { (_, candidates) ->
                             candidates.map { edge ->
@@ -237,6 +241,8 @@ internal object ProxyRuntimeContextCodec {
                         )
                     },
                 protectPath = context.protectPath,
+                strategyChainYaml = context.strategyChainYaml,
+                luaScriptBaseDir = context.luaScriptBaseDir,
                 preferredEdges =
                     context.preferredEdges.mapValues { (_, candidates) ->
                         candidates.map { edge ->

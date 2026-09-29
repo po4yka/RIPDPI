@@ -25,6 +25,7 @@ impl RuntimeState {
         control: std::sync::Arc<EmbeddedProxyControl>,
     ) -> Self {
         Self::new(config, Some(control), std::sync::Arc::new(ripdpi_ws_tunnel::TelegramWsTransport))
+            .expect("test runtime config")
     }
     #[cfg(test)]
     pub(in crate::runtime) fn test_with_telemetry_and_context(
@@ -105,6 +106,10 @@ impl RuntimeState {
             active_upstream_tcp_sockets: ActiveSocketRegistry::default(),
             candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
+            lua_strategies: ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaStrategies::load(
+                runtime_context.as_ref(),
+            )
+            .expect("test Lua config"),
             runtime_context,
             control: None,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),

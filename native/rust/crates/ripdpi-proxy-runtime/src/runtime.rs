@@ -410,6 +410,7 @@ mod tests {
             .send_tcp_desync_payload(
                 &mut upstream,
                 DesyncSendRequest {
+                    lua_flow: None,
                     group_index: next.group_index,
                     group_override: None,
                     payload: &payload,

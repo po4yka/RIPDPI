@@ -309,6 +309,36 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
+    fun nonRootLuaIsOwnedByProxyInTunnelConfig() =
+        runTest {
+            val yaml = "version: 1\nstrategies:\n  - id: lua\n"
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setStrategyChainYaml(yaml)
+                    .build()
+            val bridge = TestTun2SocksBridge()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                    environment = VpnTunnelRuntimeEnvironment(luaScriptBaseDir = "/data/app/files/lua"),
+                )
+            runtime.start(
+                activeDns = settings.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+            assertEquals(yaml, bridge.startedConfig?.strategyChainYaml)
+            assertEquals("/data/app/files/lua", bridge.startedConfig?.luaScriptBaseDir)
+            assertEquals(true, bridge.startedConfig?.luaSocketOwned)
+        }
+
+    @Test
     fun rootModeAddsRootHelperSocketToTunnelConfig() =
         runTest {
             val events = mutableListOf<String>()
@@ -317,6 +347,7 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue
                     .toBuilder()
                     .setRootModeEnabled(true)
+                    .setStrategyChainYaml("version: 1\nstrategies: []")
                     .build()
             var rootHelperSocketPath: String? = null
             val runtime =
@@ -348,6 +379,7 @@ class VpnTunnelRuntimeTest {
                 "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
                 bridge.startedConfig?.rootHelperSocketPath,
             )
+            assertEquals(false, bridge.startedConfig?.luaSocketOwned)
         }
 
     @Test

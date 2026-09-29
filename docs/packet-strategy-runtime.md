@@ -2,7 +2,7 @@
 
 This document describes the packet-strategy runtime added around the Android VPN path. It covers how saved strategy configs, Lua scripts, TUN-egress packet actions, and the optional root helper cooperate during a running VPN session.
 
-The runtime is local to the device. Strategy configs are parsed by in-repository Rust crates, carried through the Kotlin service layer, and applied by the native tunnel before sessions leave the app process.
+The runtime is local to the device. Strategy configs are parsed by in-repository Rust crates, carried through the Kotlin service layer, and applied by the native proxy or tunnel before sessions leave the app process.
 
 ## Implemented Surface
 
@@ -13,6 +13,7 @@ The runtime now supports these packet actions in strategy configs:
 | `fake` | Proxy runtime and VPN TUN egress | Optional for raw packet emission | Can emit a low-TTL TCP copy while the original flow continues through the normal path. |
 | `udplen` | VPN TUN egress | Required for raw packet emission on Android | Builds a UDP packet whose length field is larger than the carried payload, then sends the crafted IPv4 packet through the raw-packet path. |
 | `ipv6Ext` | VPN TUN egress | Required for raw packet emission on Android | Inserts IPv6 extension headers before the transport header, reparses the extension chain, and sends the crafted IPv6 packet through the raw-packet path. |
+| Lua payload Write, MODIFY, ordered Split | Existing proxy TCP/UDP sockets | None | Runs in non-root proxy and VPN sessions after complete plan validation. |
 | Lua `rawsend` | VPN TUN egress | Required for raw packet emission on Android | Lets a parsed Lua strategy request an explicit raw IPv4 or IPv6 packet send. |
 
 The same registry IDs are accepted by YAML strategy configs and by the app's saved strategy-config workflow. Saved configs can be imported, validated, stored, exported, and applied to the next active service start.
@@ -25,6 +26,8 @@ flowchart TD
     B --> C["Materialized\nstrategy chain"]
     C --> D["Android settings\nand saved config"]
     D --> E["ConnectionPolicyResolver"]
+    E --> LP["Non-root Lua payload registry"]
+    LP --> G
     E --> F{"VPN mode?"}
     F -- No --> G["libripdpi.so\nproxy runtime"]
     F -- Yes --> H["RipDpiVpnService"]
@@ -47,8 +50,31 @@ flowchart TD
     V & W --> X["Network interface"]
     N --> Y{"Original packet verdict"}
     Y -- "pass / forward_original: true" --> Z["Continue through SOCKS5"]
-    Y -- "rawsend default or VERDICT_DROP" --> AA["Consume original"]
+    Y -- "successful replacement or pure DROP" --> AA["Consume original"]
 ```
+
+## Non-root Lua payload execution
+
+The service extracts bundled Lua files into `<filesDir>/lua` before it creates
+proxy preferences. Assets belong to `core/engine`; the installer belongs to `core/service`. Both UI
+and command-line preferences carry `strategyChainYaml` and `luaScriptBaseDir` in
+the optional runtime context. In non-root VPN mode, `luaSocketOwned` tells TUN
+to skip Lua steps; other TUN rules remain active. Root mode retains TUN Lua.
+
+The socket planner accepts string-return writes, payload-only `VERDICT_MODIFY`,
+ordered TCP splits, and a single UDP payload replacement. It accepts a
+`rawsend_dissect` TCP replacement only when all segments preserve the original
+bytes, cover contiguous sequence ranges in order, have unchanged headers and
+empty send options, and replace the original with `VERDICT_DROP`. This permits
+bundled `multisplit` and a complete `tcpseg` replacement. It does not promise
+kernel packet boundaries.
+
+The complete plan is checked before the first write. Unsupported actions follow
+`on_fail`; a partial TCP write is terminal and reports committed bytes. UDP
+replacement counts as real application payload. Flow owners keep Lua state from
+the first write through relay teardown, retain the logical target behind an
+upstream SOCKS server, and close state on TCP or UDP flow removal. No new
+outbound socket or per-packet JNI call is used.
 
 ## Root Helper Lifecycle
 
@@ -82,7 +108,9 @@ Shutdown is bounded. The manager asks the helper to stop, waits briefly, and for
 TUN-egress actions run before the original packet is bridged to the local SOCKS5
 session. Lua `rawsend` consumes the original packet by default. Set
 `forward_original: true` to treat the injected packet as a sidecar; an explicit
-`VERDICT_DROP` always consumes the original.
+`VERDICT_DROP` without actions consumes the original. A replacement plan consumes
+the original only after every injection succeeds. Injection failure forwards the
+original packet.
 
 ```mermaid
 flowchart LR
@@ -102,6 +130,13 @@ For IPv6 extension-header actions, the tunnel reparses the resulting extension c
 
 ## Verification
 
+The non-root socket path passed native TCP/UDP tests on an ARM64 Android API 35
+emulator under shell UID 2000. Tests cover split writes, per-flow state and
+release, unsupported-plan plain fallback, UDP replacement, and partial TCP write
+accounting. This checks native socket execution; it does not verify an APK-level
+`VpnService.protect` callback.
+
+
 The implemented path was verified on a rooted Android API 34 emulator with rebuilt native artifacts and a pushed `ripdpi-root-helper` binary. Captured egress showed:
 
 - low-TTL TCP fake copy with marker payload
@@ -113,7 +148,7 @@ Relevant local checks for future changes:
 
 ```bash
 ./gradlew :core:engine:testDebugUnitTest :core:service:testDebugUnitTest -Pripdpi.skipNativeBuild=true
-cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-core -p ripdpi-root-helper
+cargo test --manifest-path native/rust/Cargo.toml --locked -p ripdpi-tunnel-core -p ripdpi-root-helper
 ```
 
 Use the full native build and emulator proof path when changing raw packet construction, root-helper IPC, or TUN packet parsing.

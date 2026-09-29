@@ -22,6 +22,7 @@ pub(super) struct UdpFlowKey {
 }
 
 pub(super) struct UdpFlowActivationState {
+    pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
     pub(super) session: UdpFlowSession,
     pub(super) last_used: Instant,
     pub(super) route: RuntimeConnectionRoute,

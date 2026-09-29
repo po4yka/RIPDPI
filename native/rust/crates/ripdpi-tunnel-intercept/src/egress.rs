@@ -86,7 +86,17 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
     /// `../` escape) is rejected. File-backed callers pass the directory of
     /// the strategy file; inline-YAML callers pass `.`.
     pub fn new_with_base_dir(strategy_yaml: Option<&str>, base_dir: &Path, injector: I) -> Self {
-        let rules = strategy_yaml.map(|yaml| parse_rules(yaml, base_dir)).unwrap_or_default();
+        Self::new_with_lua_owner(strategy_yaml, base_dir, false, injector)
+    }
+
+    /// Skips Lua steps when the proxy owns their non-root socket execution.
+    pub fn new_with_lua_owner(
+        strategy_yaml: Option<&str>,
+        base_dir: &Path,
+        lua_socket_owned: bool,
+        injector: I,
+    ) -> Self {
+        let rules = strategy_yaml.map(|yaml| parse_rules(yaml, base_dir, lua_socket_owned)).unwrap_or_default();
         Self { rules, injector }
     }
 
@@ -204,11 +214,13 @@ impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressIntercepto
     }
 }
 
-fn parse_rules(strategy_yaml: &str, base_dir: &Path) -> Vec<EgressRule> {
+fn parse_rules(strategy_yaml: &str, base_dir: &Path, lua_socket_owned: bool) -> Vec<EgressRule> {
     match ripdpi_strategy_config::parse_yaml_str(strategy_yaml, base_dir) {
-        Ok(config) => {
-            config.strategies.iter().flat_map(|strategy| rules_for_strategy(strategy, &config.base_dir)).collect()
-        }
+        Ok(config) => config
+            .strategies
+            .iter()
+            .flat_map(|strategy| rules_for_strategy(strategy, &config.base_dir, lua_socket_owned))
+            .collect(),
         Err(error) => {
             warn!("failed to parse strategy YAML for TUN egress interception: {error}");
             Vec::new()
@@ -216,10 +228,11 @@ fn parse_rules(strategy_yaml: &str, base_dir: &Path) -> Vec<EgressRule> {
     }
 }
 
-fn rules_for_strategy(strategy: &LoadedStrategy, base_dir: &Path) -> Vec<EgressRule> {
+fn rules_for_strategy(strategy: &LoadedStrategy, base_dir: &Path, lua_socket_owned: bool) -> Vec<EgressRule> {
     strategy
         .steps
         .iter()
+        .filter(|step| !lua_socket_owned || step.kind != StepType::Lua)
         .filter_map(|step| {
             EgressRuleAction::from_step(step, base_dir, strategy.on_fail)
                 .map(|action| EgressRule { matcher: PacketMatcher::from_strategy(strategy), action })
@@ -381,6 +394,7 @@ fn execute_registry_action<I: TunPacketInjector>(
     let mut all_injected = true;
     let mut sequence_delta = 0u32;
     let mut ttl = None;
+    let pure_drop = drop_original && plan.actions.is_empty();
     for action in plan.actions {
         match action {
             DesyncAction::RawSend(output) | DesyncAction::Write(output) => {
@@ -444,7 +458,7 @@ fn execute_registry_action<I: TunPacketInjector>(
             break;
         }
     }
-    drop_original || (injected && all_injected && !forward_original)
+    pure_drop || (injected && all_injected && (drop_original || !forward_original))
 }
 
 fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
@@ -1260,14 +1274,14 @@ strategies:
     }
 
     #[test]
-    fn lua_split_failure_forwards_original() {
+    fn lua_replacement_drop_failure_forwards_original() {
         let packet = ipv4_tcp_packet(49152, 443, b"abcdef");
         let script = write_lua_script(
             "lua-egress-split-failure",
             r#"
 function candidate(desync)
     desync.split(2, false)
-    return VERDICT_MODIFY
+    return VERDICT_DROP
 end
 "#,
         );
@@ -1322,6 +1336,31 @@ strategies:
 
         assert!(!interceptor.handle_packet(&packet));
         assert_eq!(interceptor.injector.0, 2);
+    }
+
+    #[test]
+    fn socket_lua_owner_keeps_other_tun_rules() {
+        let yaml = r#"
+version: 1
+strategies:
+  - id: owner-test
+    steps:
+      - type: lua
+        function: candidate
+        script_paths: [missing.lua]
+      - type: fake
+        ttl: 5
+"#;
+        let mut interceptor = TunEgressInterceptor::new_with_lua_owner(
+            Some(yaml),
+            std::path::Path::new("."),
+            true,
+            RecordingInjector::default(),
+        );
+        let packet = ipv4_tcp_packet(49152, 443, b"abcdef");
+        assert!(!interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.rules.len(), 1, "only Lua must move to the socket owner");
+        assert_eq!(interceptor.injector.packets.len(), 1);
     }
 
     struct FailsSecondInjector(usize);

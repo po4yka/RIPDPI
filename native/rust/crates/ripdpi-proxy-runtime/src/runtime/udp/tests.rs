@@ -62,6 +62,8 @@ fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     }
 }
 
@@ -320,6 +322,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     flow_state.insert(
         flow_key,
         UdpFlowActivationState {
+            lua_flow: None,
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
             route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
@@ -432,6 +435,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     flow_state.insert(
         flow_key.clone(),
         UdpFlowActivationState {
+            lua_flow: None,
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
             route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 0 },
@@ -785,4 +789,55 @@ proptest! {
         prop_assert_eq!(decoded_target, target);
         prop_assert_eq!(decoded_payload, payload.as_slice());
     }
+}
+
+#[test]
+fn lua_nonroot_udp_modify_uses_existing_datagram_socket() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("candidate.lua"),
+        "function candidate(d) d.dis.payload='new'; return VERDICT_MODIFY end",
+    )
+    .unwrap();
+    let state = test_runtime_state_with_context(RuntimeConfig::default(), Some(ProxyRuntimeContext {
+        strategy_chain_yaml: Some("version: 1\nstrategies:\n  - id: socket\n    on_fail: fallback_plain\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [candidate.lua]\n".into()),
+        lua_script_base_dir: Some(dir.path().to_string_lossy().into_owned()),
+        ..ProxyRuntimeContext::default()
+    }));
+    let upstream = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let peer = UdpSocket::bind("127.0.0.1:0").unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    let target = peer.local_addr().unwrap();
+    upstream.connect(target).unwrap();
+    let mut entry = UdpFlowActivationState {
+        lua_flow: state.new_lua_flow(),
+        session: UdpFlowSession::new(),
+        last_used: Instant::now(),
+        route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+        destination_egress: DestinationEgress::Tunneled,
+        socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
+        packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
+        source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+        execution_family: None,
+        attempt_token: None,
+        host: None,
+        payload: Vec::new(),
+        awaiting_response: false,
+        upstream,
+        quic_migrated: false,
+        logical_target: target,
+        current_target: target,
+        target_candidates: vec![target],
+        target_index: 0,
+        cache_host: false,
+        upstream_socks: None,
+    };
+    super::upstream_pump::send_udp_flow_payload(&state, &mut entry, b"original", Instant::now(), None).unwrap();
+    let mut bytes = [0; 32];
+    let count = peer.recv(&mut bytes).unwrap();
+    assert_eq!(&bytes[..count], b"new");
+    assert!(entry.awaiting_response, "modified bytes are real application payload");
+    assert_eq!(&entry.payload, b"original", "session progress retains the logical source payload");
+    peer.set_nonblocking(true).unwrap();
+    assert_eq!(peer.recv(&mut bytes).unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
 }

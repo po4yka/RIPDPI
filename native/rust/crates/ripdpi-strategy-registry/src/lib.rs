@@ -149,6 +149,23 @@ impl StrategyRegistry {
         Ok(registry)
     }
 
+    /// Compiles Lua steps for an existing TCP or UDP socket.
+    /// Non-Lua steps are left to the ordinary proxy planner.
+    pub fn from_loaded_socket_config(config: &LoadedStrategyConfig, tcp: bool) -> Result<Self, StrategyRegistryError> {
+        let mut registry = Self::new();
+        for strategy in &config.strategies {
+            for step in &strategy.steps {
+                if step.kind.registry_id() == "lua" {
+                    registry.register_with_policy(
+                        configured_lua_socket_strategy_from_step(step, &config.base_dir, tcp)?,
+                        on_fail_from_config(strategy.on_fail),
+                    );
+                }
+            }
+        }
+        Ok(registry)
+    }
+
     /// Registers all strategy steps from a parsed YAML/TOML strategy config.
     pub fn register_loaded_config(&mut self, config: &LoadedStrategyConfig) -> Result<(), StrategyRegistryError> {
         let mut pending = Vec::new();
@@ -178,6 +195,11 @@ impl StrategyRegistry {
 
     /// Executes the first matching strategy that handles the flow.
     pub fn execute(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> StrategyVerdict {
+        self.execute_if_handled(ctx, plan).unwrap_or(StrategyVerdict::FallbackPlain)
+    }
+
+    /// Returns None when every matching step is skipped or fails with NEXT.
+    pub fn execute_if_handled(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Option<StrategyVerdict> {
         for entry in &self.entries {
             if !entry.strategy.matches(ctx) {
                 continue;
@@ -185,7 +207,7 @@ impl StrategyRegistry {
 
             let checkpoint = plan.clone();
             match entry.strategy.plan(ctx, plan) {
-                Ok(StrategyPlanOutcome::Applied) => return apply_plan_verdict(plan),
+                Ok(StrategyPlanOutcome::Applied) => return Some(apply_plan_verdict(plan)),
                 Ok(StrategyPlanOutcome::Skipped) => *plan = checkpoint,
                 Err(_error) => match entry.on_fail {
                     OnFail::Next => {
@@ -194,17 +216,17 @@ impl StrategyRegistry {
                     OnFail::FallbackPlain => {
                         plan.actions.clear();
                         plan.verdict = StrategyVerdict::FallbackPlain;
-                        return StrategyVerdict::FallbackPlain;
+                        return Some(StrategyVerdict::FallbackPlain);
                     }
                     OnFail::Drop => {
                         plan.verdict = StrategyVerdict::Drop;
-                        return StrategyVerdict::Drop;
+                        return Some(StrategyVerdict::Drop);
                     }
                 },
             }
         }
 
-        StrategyVerdict::FallbackPlain
+        None
     }
 
     /// Releases state for a completed flow in every registered strategy.
@@ -442,6 +464,24 @@ fn configured_lua_strategy_from_step(
     step: &StrategyStep,
     base_dir: &Path,
 ) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+    configured_lua_strategy(step, base_dir, None)
+}
+
+#[cfg(feature = "lua-strategies")]
+fn configured_lua_socket_strategy_from_step(
+    step: &StrategyStep,
+    base_dir: &Path,
+    tcp: bool,
+) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+    configured_lua_strategy(step, base_dir, Some(tcp))
+}
+
+#[cfg(feature = "lua-strategies")]
+fn configured_lua_strategy(
+    step: &StrategyStep,
+    base_dir: &Path,
+    socket_tcp: Option<bool>,
+) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
     let function = step.function.as_deref().map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| {
         StrategyRegistryError::Lua { function: "<missing>".to_owned(), error: "missing Lua function name".to_owned() }
     })?;
@@ -469,9 +509,20 @@ fn configured_lua_strategy_from_step(
             .load_script_registering_globals(path)
             .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })?;
     }
-    engine
-        .make_strategy(function)
-        .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })
+    let strategy = match socket_tcp {
+        Some(tcp) => engine.make_socket_strategy(function, tcp),
+        None => engine.make_strategy(function),
+    };
+    strategy.map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })
+}
+
+#[cfg(not(feature = "lua-strategies"))]
+fn configured_lua_socket_strategy_from_step(
+    step: &StrategyStep,
+    base_dir: &Path,
+    _tcp: bool,
+) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+    configured_lua_strategy_from_step(step, base_dir)
 }
 
 #[cfg(not(feature = "lua-strategies"))]

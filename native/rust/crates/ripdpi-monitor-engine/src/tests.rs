@@ -857,6 +857,8 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     };
 
     let baseline = detect_strategy_probe_dns_tampering(
@@ -1016,6 +1018,8 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -1110,6 +1114,8 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),

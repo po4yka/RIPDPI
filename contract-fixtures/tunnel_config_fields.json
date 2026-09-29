@@ -29,6 +29,7 @@
   "logContext.runtimeId",
   "logLevel",
   "luaScriptBaseDir",
+  "luaSocketOwned",
   "mapdnsAddress",
   "mapdnsCacheSize",
   "mapdnsNetmask",

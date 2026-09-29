@@ -21,9 +21,9 @@ import com.poyka.ripdpi.activities.StrategyConfigApplyResult
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.validateStrategyChainUsage
-import com.poyka.ripdpi.lua.LuaAssetManager
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import com.poyka.ripdpi.services.StrategyConfigRuntime
+import com.poyka.ripdpi.services.lua.LuaAssetManager
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.state.SettingsUiState

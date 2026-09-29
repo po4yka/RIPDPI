@@ -9,19 +9,21 @@ use crate::runtime::types::{RuntimeOutboundProgress, RuntimeRelayRotationSeed, R
 
 pub(super) struct RelaySession {
     state: RuntimeSessionState,
+    pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 pub(super) struct FirstOutboundSession {
     state: RuntimeSessionState,
+    pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 impl FirstOutboundSession {
     pub(super) fn new() -> Self {
-        Self { state: RuntimeState::new_session_state() }
+        Self { state: RuntimeState::new_session_state(), lua_flow: None }
     }
 
     pub(super) fn into_relay_session(self) -> RelaySession {
-        RelaySession::from_state(self.state)
+        RelaySession { state: self.state, lua_flow: self.lua_flow }
     }
 
     pub(super) fn observe_first_outbound_payload(&mut self, original_request: &[u8]) -> RuntimeOutboundProgress {
@@ -38,12 +40,8 @@ impl FirstOutboundSession {
 }
 
 impl RelaySession {
-    pub(super) fn from_state(state: RuntimeSessionState) -> Self {
-        Self { state }
-    }
-
     pub(super) fn into_shared(self) -> RelaySharedSession {
-        RelaySharedSession { state: Arc::new(Mutex::new(self.state)) }
+        RelaySharedSession { state: Arc::new(Mutex::new(self.state)), lua_flow: self.lua_flow }
     }
 
     pub(super) fn has_inbound_payload(&self) -> bool {
@@ -66,6 +64,7 @@ impl RelaySession {
 #[derive(Clone)]
 pub(super) struct RelaySharedSession {
     state: Arc<Mutex<RuntimeSessionState>>,
+    pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 impl RelaySharedSession {
@@ -73,7 +72,7 @@ impl RelaySharedSession {
         self.state
             .lock()
             .map_err(|_| io::Error::other("session mutex poisoned"))
-            .map(|state| RelaySession::from_state(state.clone()))
+            .map(|state| RelaySession { state: state.clone(), lua_flow: self.lua_flow.clone() })
     }
 
     pub(super) fn observe_inbound_payload(&self, payload: &[u8]) {

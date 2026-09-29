@@ -15,17 +15,22 @@ ripdpi-desync-runtime = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }
+ripdpi-protocol-detect = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-runtime-services = { workspace = true }
 ripdpi-session = { workspace = true }
+ripdpi-strategy-config = { workspace = true }
+ripdpi-strategy-registry = { workspace = true, features = ["lua-strategies"] }
+ripdpi-strategy-trait = { workspace = true }
 socket2 = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
 libc = { workspace = true }
+tempfile = "3.27"
 
 [features]
 loom = ["dep:loom", "ripdpi-desync-runtime/loom"]

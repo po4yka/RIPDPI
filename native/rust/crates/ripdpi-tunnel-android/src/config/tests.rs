@@ -172,6 +172,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 protect_path: None,
                 root_helper_socket_path: None,
                 lua_script_base_dir: None,
+                lua_socket_owned: false,
                 task_stack_size,
                 tcp_buffer_size,
                 udp_recv_buffer_size,
@@ -310,6 +311,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 protect_path: None,
                 root_helper_socket_path: None,
                 lua_script_base_dir: None,
+                lua_socket_owned: false,
                 task_stack_size,
                 tcp_buffer_size,
                 udp_recv_buffer_size,
@@ -400,6 +402,7 @@ fn maps_synack_runtime_fields_to_misc_config() {
     payload.protect_path = Some("/tmp/ripdpi-protect.sock".to_string());
     payload.root_helper_socket_path = Some("/tmp/ripdpi-root-helper.sock".to_string());
     payload.lua_script_base_dir = Some("/data/user/0/com.poyka.ripdpi/files/lua".to_string());
+    payload.lua_socket_owned = true;
 
     let config = config_from_payload(payload).expect("config");
 
@@ -407,6 +410,7 @@ fn maps_synack_runtime_fields_to_misc_config() {
     assert_eq!(config.misc.protect_path.as_deref(), Some("/tmp/ripdpi-protect.sock"),);
     assert_eq!(config.misc.root_helper_socket_path.as_deref(), Some("/tmp/ripdpi-root-helper.sock"));
     assert_eq!(config.misc.lua_script_base_dir.as_deref(), Some("/data/user/0/com.poyka.ripdpi/files/lua"));
+    assert!(config.misc.lua_socket_owned);
 }
 
 #[test]
@@ -853,6 +857,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "protectPath": "/data/user/0/com.poyka.ripdpi/files/protect_path",
         "rootHelperSocketPath": "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
         "luaScriptBaseDir": "/data/user/0/com.poyka.ripdpi/files/lua",
+        "luaSocketOwned": true,
         "taskStackSize": 81920,
         "tcpBufferSize": 32768,
         "udpRecvBufferSize": 16384,

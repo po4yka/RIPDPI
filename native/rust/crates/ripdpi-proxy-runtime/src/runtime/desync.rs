@@ -5,7 +5,8 @@ pub(crate) use ripdpi_proxy_runtime_adapter::desync_platform::{
 };
 pub(crate) use ripdpi_proxy_runtime_adapter::udp_desync::{
     UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
-    UdpExecutionError, UdpExecutionOutcome, execute_udp_actions, plan_udp_actions_for_runtime,
+    UdpExecutionError, UdpExecutionOutcome, execute_udp_actions, execute_udp_payload_plan,
+    plan_udp_actions_for_runtime,
 };
 
 use ripdpi_proxy_runtime_adapter::desync_platform::tcp_desync_executor;

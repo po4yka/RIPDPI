@@ -45,6 +45,7 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
     misc.protect_path = payload.protect_path.clone().filter(|value| !value.trim().is_empty());
     misc.root_helper_socket_path = payload.root_helper_socket_path.clone().filter(|value| !value.trim().is_empty());
     misc.lua_script_base_dir = payload.lua_script_base_dir.clone().filter(|value| !value.trim().is_empty());
+    misc.lua_socket_owned = payload.lua_socket_owned;
     misc
 }
 
@@ -52,6 +53,18 @@ pub(crate) fn misc_config_from_payload(payload: &TunnelConfigPayload) -> MiscCon
 mod tests {
     use super::misc_config_from_payload;
     use crate::config::payload::sample_payload;
+
+    #[test]
+    fn accepts_additive_lua_socket_owner_field() {
+        let json = serde_json::json!({
+            "schemaVersion": crate::config::payload::TUNNEL_JNI_CONFIG_SCHEMA_VERSION,
+            "socks5Port": 1080,
+            "luaSocketOwned": true
+        });
+        let payload = serde_json::from_value(json).expect("additive field");
+        assert!(misc_config_from_payload(&payload).lua_socket_owned);
+        assert!(!misc_config_from_payload(&sample_payload()).lua_socket_owned);
+    }
 
     #[test]
     fn threads_absolute_lua_script_base_dir_from_payload() {

@@ -59,6 +59,7 @@ fn flush_outbound_payload(
     let send_result = state.send_tcp_desync_payload(
         writer,
         DesyncSendRequest {
+            lua_flow: session.lua_flow.as_deref(),
             group_index,
             group_override: None,
             payload,

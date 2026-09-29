@@ -111,6 +111,7 @@ class Tun2SocksTunnelTest {
         val config =
             Tun2SocksConfig(
                 tunnelName = "tun1",
+                luaSocketOwned = true,
                 socks5Port = 1081,
                 logLevel = "info",
             )
@@ -118,6 +119,7 @@ class Tun2SocksTunnelTest {
         val payload = Json.parseToJsonElement(Json.encodeToString(config)).jsonObject
 
         assertEquals("tun1", payload.getValue("tunnelName").jsonPrimitive.content)
+        assertEquals("true", payload.getValue("luaSocketOwned").jsonPrimitive.content)
         assertEquals("1081", payload.getValue("socks5Port").jsonPrimitive.content)
         assertEquals("info", payload.getValue("logLevel").jsonPrimitive.content)
     }

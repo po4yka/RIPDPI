@@ -164,6 +164,21 @@ pub(super) fn send_udp_flow_payload(
     entry.payload.extend_from_slice(payload);
     entry.awaiting_response = true;
     let progress = entry.session.observe_datagram_outbound(payload);
+    if let Some(flow) = &entry.lua_flow
+        && let Some(plan) =
+            flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref())?
+    {
+        let outcome = RuntimeState::execute_lua_udp_plan(
+            &entry.upstream,
+            entry.current_target,
+            entry.packet_settings,
+            entry.socks_framed(),
+            &plan,
+        )
+        .map_err(ripdpi_proxy_runtime_adapter::udp_desync::UdpExecutionError::into_io_error)?;
+        entry.awaiting_response = outcome.real_writes_committed > 0;
+        return Ok(());
+    }
     let actions = state.plan_udp_flow_actions(
         entry.route.group_index,
         payload,

@@ -6,6 +6,11 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::{
 };
 
 impl RuntimeState {
+    pub(in crate::runtime) fn new_lua_flow(
+        &self,
+    ) -> Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>> {
+        self.lua_strategies.as_ref().map(|strategies| std::sync::Arc::new(strategies.open_flow()))
+    }
     pub(in crate::runtime) fn send_tcp_desync_payload(
         &self,
         writer: &mut TcpStream,
@@ -182,6 +187,25 @@ impl RuntimeState {
             logical_payload,
         )
     }
+    pub(in crate::runtime) fn execute_lua_udp_plan(
+        upstream: &UdpSocket,
+        target: SocketAddr,
+        packet_settings: RuntimeUdpPacketSettings,
+        socks_udp_frame: bool,
+        plan: &ripdpi_proxy_runtime_adapter::desync_platform::PayloadPlan,
+    ) -> Result<UdpExecutionOutcome, UdpExecutionError> {
+        execute_udp_payload_plan(
+            UdpActionExecContext {
+                upstream,
+                target,
+                default_ttl: packet_settings.default_ttl,
+                protect_path: None,
+                ip_id_mode: None,
+                socks_udp_frame,
+            },
+            plan,
+        )
+    }
     fn udp_desync_plan_context(&self) -> UdpDesyncPlanContext<'_> {
         UdpDesyncPlanContext {
             planner: &self.udp_desync_planner,
@@ -332,6 +356,25 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
     use ripdpi_proxy_runtime_adapter::udp_desync::UdpExecutionFallbackReason;
     use std::sync::Arc;
+
+    #[test]
+    fn lua_socket_receipt_reaches_runtime_evidence() {
+        use std::net::TcpListener;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut writer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (_reader, _) = listener.accept().unwrap();
+        let outcome = ripdpi_proxy_runtime_adapter::desync_platform::send_lua_payload_segments(
+            &mut writer,
+            &[b"a".to_vec(), b"bc".to_vec()],
+            None,
+        )
+        .unwrap();
+        let receipt = runtime_desync_execution_receipt(&outcome.execution_receipt).expect("valid Lua receipt");
+        assert_eq!(receipt.disposition(), DesyncExecutionDisposition::Applied);
+        assert_eq!(receipt.planned_steps(), 1);
+        assert_eq!(receipt.real_writes_committed(), 2);
+        assert_eq!(receipt.payload_bytes_committed(), 3);
+    }
 
     #[test]
     fn udp_decoy_only_outcome_records_non_applied_receipt() {

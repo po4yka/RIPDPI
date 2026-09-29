@@ -16,6 +16,9 @@ use ripdpi_session::OutboundProgress;
 
 use crate::sync::AtomicBool;
 
+pub use crate::socket_lua::{PayloadPlan, SocketLuaFlow, SocketLuaStrategies};
+pub use ripdpi_desync_runtime::send_payload_segments as send_lua_payload_segments;
+
 pub use ripdpi_desync_runtime::{
     OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
     TcpOffsetMarkerBase, TcpStrategyFamily, TcpTerminalReason, primary_tcp_strategy_family,
@@ -40,6 +43,7 @@ pub struct TcpDesyncExecutionContext<'a> {
 }
 
 pub struct DesyncSendRequest<'a> {
+    pub lua_flow: Option<&'a crate::socket_lua::SocketLuaFlow>,
     pub group_index: usize,
     pub group_override: Option<&'a ripdpi_config::DesyncGroup>,
     pub payload: &'a [u8],
@@ -111,6 +115,19 @@ pub fn send_tcp_desync_payload(
     context: TcpDesyncExecutionContext<'_>,
     request: DesyncSendRequest<'_>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
+    if let Some(flow) = request.lua_flow
+        && let Some(plan) = flow.plan(writer.local_addr()?, request.target, "tcp", request.payload, request.host)?
+    {
+        let segments = plan
+            .actions
+            .into_iter()
+            .map(|action| match action {
+                ripdpi_strategy_trait::DesyncAction::Write(bytes) => Ok(bytes),
+                _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "unsupported Lua socket action")),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return send_lua_payload_segments(writer, &segments, context.pcap_hook);
+    }
     let config = &context.executor.config;
     let selected_group = crate::model::config::selected_desync_group(config, request.group_index)
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "missing desync group"))?;

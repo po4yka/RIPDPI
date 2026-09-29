@@ -30,7 +30,7 @@ use super::desync::{
     TcpDesyncExecutor, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason, TcpOffsetMarkerBase,
     TcpStrategyFamily, TcpTerminalReason, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
     UdpDesyncPlanRequest, UdpDesyncPlanner, UdpExecutionError, UdpExecutionOutcome, execute_udp_actions,
-    plan_udp_actions_for_runtime, runtime_desync_projection, send_tcp_desync_payload,
+    execute_udp_payload_plan, plan_udp_actions_for_runtime, runtime_desync_projection, send_tcp_desync_payload,
 };
 use super::failure::{
     RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeDnsTamperingEvidence, RuntimeFailureAction,
@@ -150,6 +150,7 @@ pub(super) struct RuntimeState {
     candidate_refusal_trials: std::sync::Arc<CandidateRefusalTrials>,
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
+    lua_strategies: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaStrategies>>,
     control: Option<std::sync::Arc<EmbeddedProxyControl>>,
     /// Session-level flag: once any connection discovers that per-socket TTL
     /// modification is rejected by the kernel (EROFS on Android), all
@@ -185,6 +186,9 @@ pub(super) struct RouteConnectPolicy {
     pub(super) window_clamp: Option<u32>,
     pub(super) strip_timestamps: bool,
 }
+
+#[cfg(all(test, not(feature = "loom")))]
+mod lua_tests;
 
 mod adaptive;
 mod control;
@@ -251,9 +255,11 @@ impl RuntimeState {
         config: RuntimeConfig,
         control: Option<std::sync::Arc<EmbeddedProxyControl>>,
         ws_transport: std::sync::Arc<dyn WsTransport>,
-    ) -> Self {
+    ) -> io::Result<Self> {
         let telemetry = control.as_ref().and_then(|c| c.telemetry_sink()).or_else(current_runtime_telemetry);
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
+        let lua_strategies =
+            ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaStrategies::load(runtime_context.as_ref())?;
 
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         let decision_engine = new_decision_engine(&handle);
@@ -301,7 +307,7 @@ impl RuntimeState {
         let RuntimeResponseProjection { first_response_exchange_policy } = runtime_response_projection(&config);
         let (selected_tls_profile, same_sni_caps) = connection_concurrency_runtime_state(runtime_context.as_ref());
 
-        Self {
+        Ok(Self {
             listener_settings,
             handshake_settings,
             delayed_connect_settings,
@@ -334,6 +340,7 @@ impl RuntimeState {
             candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
             runtime_context,
+            lua_strategies,
             control,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
@@ -344,7 +351,7 @@ impl RuntimeState {
             ws_transport,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
-        }
+        })
     }
 
     /// Try to reserve a per-exit-IP concurrent-session slot for an outbound TCP

@@ -10,12 +10,45 @@ use crate::strategy_family::{effective_tcp_strategy_family, primary_tcp_strategy
 use crate::sync::AtomicBool;
 use crate::tcp_actions::execute_tcp_actions;
 use crate::tcp_plan::{TcpPlanStrategyContext, execute_tcp_plan, requires_special_tcp_execution};
-use crate::transport_io::write_transport_payload;
+use crate::transport_io::{write_strategy_payload_named, write_transport_payload};
 use crate::types::{
     OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
     TcpTerminalReason,
 };
 use crate::{DESYNC_SEED_BASE, platform};
+
+/// Sends an already validated payload plan on the existing stream.
+/// A partial write is terminal; the caller must not replay the original bytes.
+pub fn send_payload_segments(
+    writer: &mut TcpStream,
+    segments: &[Vec<u8>],
+    pcap_hook: Option<&PcapHook>,
+) -> Result<OutboundSendOutcome, OutboundSendError> {
+    let mut receipt =
+        TcpExecutionReceipt::failed_strategy_execution(Some("lua"), 0, 0, 0, 0, 0, TcpTerminalReason::Transport);
+    receipt.planned_steps = usize::from(!segments.is_empty());
+    for bytes in segments {
+        receipt.attempted_actions += 1;
+        receipt.payload_bytes_committed =
+            write_strategy_payload_named(writer, bytes, "lua_write", "lua", None, receipt.payload_bytes_committed)
+                .map_err(|error| {
+                    receipt.payload_bytes_committed = error.bytes_committed();
+                    error.with_execution_receipt(receipt.clone())
+                })?;
+        receipt.completed_actions += 1;
+        receipt.real_writes_committed += 1;
+        if let Some(hook) = pcap_hook {
+            hook(bytes, true);
+        }
+    }
+    receipt.disposition = TcpExecutionDisposition::Applied;
+    receipt.terminal_reason = None;
+    Ok(OutboundSendOutcome {
+        bytes_committed: receipt.payload_bytes_committed,
+        strategy_family: Some("lua"),
+        execution_receipt: receipt,
+    })
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
@@ -237,3 +270,40 @@ pub(crate) use crate::tcp_plan::*;
 
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
+
+#[cfg(test)]
+mod payload_segment_tests {
+    use super::send_payload_segments;
+    use std::io::Read;
+    use std::net::{TcpListener, TcpStream};
+
+    #[test]
+    fn lua_payload_segments_preserve_order_and_write_receipts() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut writer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        let result = send_payload_segments(&mut writer, &[b"ab".to_vec(), b"cdef".to_vec()], None).unwrap();
+        let mut output = [0; 6];
+        peer.read_exact(&mut output).unwrap();
+        assert_eq!(&output, b"abcdef");
+        assert_eq!(result.bytes_committed, 6);
+        assert_eq!(result.execution_receipt.real_writes_committed, 2);
+    }
+
+    #[test]
+    fn lua_partial_write_reports_committed_bytes_without_replay() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut writer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (_peer, _) = listener.accept().unwrap();
+        socket2::SockRef::from(&writer).set_send_buffer_size(1024).unwrap();
+        writer.set_nonblocking(true).unwrap();
+        let error =
+            send_payload_segments(&mut writer, &[b"prefix".to_vec(), vec![b'x'; 16 * 1024 * 1024]], None).unwrap_err();
+        assert!(error.bytes_committed() >= 6);
+        assert!(error.bytes_committed() < 16 * 1024 * 1024 + 6);
+        let receipt = error.execution_receipt().unwrap();
+        assert_eq!(receipt.completed_actions, 1);
+        assert_eq!(receipt.attempted_actions, 2);
+        assert_eq!(receipt.payload_bytes_committed, error.bytes_committed());
+    }
+}

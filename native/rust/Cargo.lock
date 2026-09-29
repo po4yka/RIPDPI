@@ -6102,13 +6102,18 @@ dependencies = [
  "ripdpi-failure-classifier",
  "ripdpi-ipfrag",
  "ripdpi-packets",
+ "ripdpi-protocol-detect",
  "ripdpi-proxy-config",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",
+ "ripdpi-strategy-config",
+ "ripdpi-strategy-registry",
+ "ripdpi-strategy-trait",
  "socket2",
+ "tempfile",
  "tracing",
 ]
 

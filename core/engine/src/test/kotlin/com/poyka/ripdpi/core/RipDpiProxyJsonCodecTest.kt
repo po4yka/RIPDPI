@@ -29,6 +29,28 @@ private const val TestLocalProxyAuth = "alpha-123"
 
 class RipDpiProxyJsonCodecTest {
     @Test
+    fun `Lua-only runtime context survives UI and command line encoding`() {
+        val yaml = "version: 1\nstrategies:\n  - id: lua\n"
+        val context = RipDpiRuntimeContext(strategyChainYaml = yaml, luaScriptBaseDir = "/data/app/files/lua")
+        val preferences =
+            listOf(
+                RipDpiProxyUIPreferences(runtimeContext = context),
+                RipDpiProxyCmdPreferences("--port 1081", hostAutolearnStorePath = null, runtimeContext = context),
+            )
+        preferences.forEach { preference ->
+            val json = preference.toNativeConfigJson()
+            val runtime = Json.parseToJsonElement(json).jsonObject["runtimeContext"]!!.jsonObject
+            assertEquals(yaml, runtime["strategyChainYaml"]!!.jsonPrimitive.content)
+            assertEquals("/data/app/files/lua", runtime["luaScriptBaseDir"]!!.jsonPrimitive.content)
+            val stored = Json.parseToJsonElement(stripRipDpiRuntimeContext(json)).jsonObject
+            assertNull(stored["runtimeContext"]?.jsonPrimitive?.contentOrNull)
+        }
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.first().toNativeConfigJson())
+        assertEquals(context, decoded?.runtimeContext)
+        assertNull(normalizeRuntimeContext(RipDpiRuntimeContext(strategyChainYaml = " \n", luaScriptBaseDir = " ")))
+    }
+
+    @Test
     fun `LAN token reaches native config but not remembered policy`() {
         val settings =
             AppSettings

@@ -254,6 +254,7 @@ fn build_initial_udp_flow_entry(
         return Ok(None);
     };
     let entry = UdpFlowActivationState {
+        lua_flow: state.new_lua_flow(),
         session: UdpFlowSession::new(),
         last_used: now,
         route: selection.route,

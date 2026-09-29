@@ -51,6 +51,8 @@ fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
         connection_concurrency: None,
+        strategy_chain_yaml: None,
+        lua_script_base_dir: None,
     }
 }
 

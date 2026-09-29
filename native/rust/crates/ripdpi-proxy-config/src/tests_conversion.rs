@@ -704,6 +704,8 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
         runtime_context: Some(ProxyRuntimeContext {
             encrypted_dns: None,
             protect_path: None,
+            strategy_chain_yaml: None,
+            lua_script_base_dir: None,
             preferred_edges: std::collections::BTreeMap::default(),
             direct_path_capabilities: vec![
                 ProxyDirectPathCapability {

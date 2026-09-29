@@ -3,7 +3,7 @@ package com.poyka.ripdpi.jni
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.core.ProcessGlobalStrategyEngineBindings
-import com.poyka.ripdpi.lua.LuaAssetManager
+import com.poyka.ripdpi.services.lua.LuaAssetManager
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

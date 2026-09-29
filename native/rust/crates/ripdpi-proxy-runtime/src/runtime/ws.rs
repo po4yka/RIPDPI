@@ -248,6 +248,8 @@ mod tests {
             direct_path_capabilities: Vec::new(),
             morph_policy: None,
             connection_concurrency: None,
+            strategy_chain_yaml: None,
+            lua_script_base_dir: None,
         }
     }
 

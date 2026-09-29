@@ -8,6 +8,10 @@ pub struct ProxyRuntimeContext {
     #[serde(default)]
     pub protect_path: Option<String>,
     #[serde(default)]
+    pub strategy_chain_yaml: Option<String>,
+    #[serde(default)]
+    pub lua_script_base_dir: Option<String>,
+    #[serde(default)]
     pub preferred_edges: std::collections::BTreeMap<String, Vec<ProxyPreferredEdge>>,
     #[serde(default)]
     pub direct_path_capabilities: Vec<ProxyDirectPathCapability>,
@@ -147,4 +151,27 @@ pub struct ProxyEncryptedDnsContext {
     pub dnscrypt_provider_name: Option<String>,
     #[serde(default)]
     pub dnscrypt_public_key: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProxyRuntimeContext;
+
+    #[test]
+    fn lua_context_is_additive_and_preserves_yaml() {
+        let default: ProxyRuntimeContext = serde_json::from_str("{}").unwrap();
+        assert!(default.strategy_chain_yaml.is_none());
+        assert!(default.lua_script_base_dir.is_none());
+        let yaml = "version: 1\nstrategies:\n  - id: lua\n";
+        let context = ProxyRuntimeContext {
+            strategy_chain_yaml: Some(yaml.to_owned()),
+            lua_script_base_dir: Some("/data/user/0/app/files/lua".to_owned()),
+            ..ProxyRuntimeContext::default()
+        };
+        let encoded = serde_json::to_value(&context).unwrap();
+        assert_eq!(encoded["strategyChainYaml"], yaml);
+        assert_eq!(encoded["luaScriptBaseDir"], "/data/user/0/app/files/lua");
+        let decoded: ProxyRuntimeContext = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded, context);
+    }
 }

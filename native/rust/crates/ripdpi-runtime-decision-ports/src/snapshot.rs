@@ -292,6 +292,8 @@ mod tests {
                 fake_packet_shape_profile: "compat_default".to_string(),
             }),
             connection_concurrency: None,
+            strategy_chain_yaml: None,
+            lua_script_base_dir: None,
         }
     }
 

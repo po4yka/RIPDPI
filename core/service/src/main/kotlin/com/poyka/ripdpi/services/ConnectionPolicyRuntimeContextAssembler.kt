@@ -24,7 +24,10 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.lua.LuaAssetManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -140,6 +143,24 @@ internal class ConnectionPolicyRuntimeContextAssembler
             }
         }
 
+        private suspend fun withLuaSocketContext(
+            runtimeContext: RipDpiRuntimeContext?,
+            settings: AppSettings,
+        ): RipDpiRuntimeContext? {
+            val yaml = settings.strategyChainYaml.takeIf { it.isNotBlank() && !settings.rootModeEnabled }
+            if (runtimeContext == null && yaml == null) return null
+            val luaScriptBaseDir =
+                yaml?.let {
+                    withContext(Dispatchers.IO) {
+                        LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString()
+                    }
+                }
+            return (runtimeContext ?: RipDpiRuntimeContext()).copy(
+                strategyChainYaml = yaml,
+                luaScriptBaseDir = luaScriptBaseDir,
+            )
+        }
+
         suspend fun baselinePreferences(
             settings: AppSettings,
             hostAutolearnStorePath: String,
@@ -149,6 +170,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences {
             val geoPaths = resolveGeoDatabasePaths(context)
+            val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
             return if (settings.enableCmdSettings) {
                 RipDpiProxyCmdPreferences(
                     settings.cmdArgs,
@@ -156,14 +178,14 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     destinationRouting = destinationRouting,
                     geoipDbPath = geoPaths.geoipDbPath,
                     geositeDbPath = geoPaths.geositeDbPath,
-                    runtimeContext = runtimeContext,
+                    runtimeContext = effectiveRuntimeContext,
                 )
             } else {
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     hostAutolearnStorePath,
                     networkScopeKey,
-                    runtimeContext,
+                    effectiveRuntimeContext,
                     rootMode = settings.rootModeEnabled,
                     rootHelperSocketPath = rootHelperManager.socketPath,
                     environmentKind = environmentDetector.kind,
@@ -187,12 +209,13 @@ internal class ConnectionPolicyRuntimeContextAssembler
             awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences {
             val geoPaths = resolveGeoDatabasePaths(context)
+            val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
             val remembered =
                 com.poyka.ripdpi.core.RipDpiProxyJsonPreferences(
                     configJson = configJson,
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey,
-                    runtimeContext = runtimeContext,
+                    runtimeContext = effectiveRuntimeContext,
                     rootMode = settings.rootModeEnabled,
                     rootHelperSocketPath = rootHelperManager.socketPath,
                     environmentKind = environmentDetector.kind,

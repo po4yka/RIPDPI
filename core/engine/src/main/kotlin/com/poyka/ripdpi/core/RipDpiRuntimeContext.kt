@@ -81,6 +81,8 @@ data class RipDpiMorphPolicy(
 data class RipDpiRuntimeContext(
     val encryptedDns: RipDpiEncryptedDnsContext? = null,
     val protectPath: String? = null,
+    val strategyChainYaml: String? = null,
+    val luaScriptBaseDir: String? = null,
     val preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
     val directPathCapabilities: List<RipDpiDirectPathCapability> = emptyList(),
     val morphPolicy: RipDpiMorphPolicy? = null,
@@ -150,6 +152,8 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                 )
             }
         val protectPath = ctx.protectPath?.trim()?.takeIf { it.isNotEmpty() }
+        val strategyChainYaml = ctx.strategyChainYaml?.takeIf { it.isNotBlank() }
+        val luaScriptBaseDir = ctx.luaScriptBaseDir?.trim()?.takeIf { it.isNotEmpty() }
         val preferredEdges =
             ctx.preferredEdges
                 .mapNotNull { (host, candidates) ->
@@ -238,6 +242,8 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
         RipDpiRuntimeContext(
             encryptedDns = encryptedDns,
             protectPath = protectPath,
+            strategyChainYaml = strategyChainYaml,
+            luaScriptBaseDir = luaScriptBaseDir,
             preferredEdges = preferredEdges,
             directPathCapabilities = directPathCapabilities,
             morphPolicy = morphPolicy,
@@ -245,6 +251,8 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
         ).takeIf {
             encryptedDns != null ||
                 protectPath != null ||
+                strategyChainYaml != null ||
+                luaScriptBaseDir != null ||
                 preferredEdges.isNotEmpty() ||
                 directPathCapabilities.isNotEmpty() ||
                 morphPolicy != null ||

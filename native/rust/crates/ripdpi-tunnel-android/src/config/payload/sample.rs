@@ -49,6 +49,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         protect_path: None,
         root_helper_socket_path: None,
         lua_script_base_dir: None,
+        lua_socket_owned: false,
         task_stack_size: default_task_stack_size(),
         tcp_buffer_size: None,
         udp_recv_buffer_size: None,
