@@ -2,7 +2,7 @@
 id: RST-1790672261516782
 title: Complete zapret2 Lua compatibility
 kind: feature
-status: doing
+status: blocked
 area: rust-native
 priority: high
 owner: Native strategy
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: lua-payload-function-compatibility
 created: 2026-09-29
 updated: 2026-09-29
+status_detail: A target with app-granting root and SELinux socket-transfer access is required to verify APK root activation and successful C-to-VpnService.protect. API 37 AOSP rejects these socket FDs; no policy change is authorized.
 ---
 
 ## Goal

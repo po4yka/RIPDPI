@@ -103,7 +103,125 @@ This AOSP target rejects su from an application UID. A target that grants root
 to the application is required for that gate. The C bridge handshake tests do
 not replace this Android gate.
 
-APK assembly and hosted CI evidence are recorded separately after their
-observed results. The implementation task remains open until its remaining
-verification is recorded. SIGKILL of the helper bypasses its cleanup handler;
-see the backend setup for that explicit operational limit.
+The implementation task remains open until its root application and socket
+transfer contracts pass on a compatible target. SIGKILL of the helper bypasses
+its cleanup handler; see the backend setup for that explicit operational limit.
+
+## APK and JNI checks
+
+The actual `:app:assembleGithubFullDebug` build passed in 4 min 19 s on
+`2c1697db3bc95ea0df3fe4ded925c64db8aac1b7`. Native build tasks were enabled.
+Its managed Xray AAR came from the exact same commit's CI producer. The owning
+`verify-libxray-artifacts.sh --release` passed API, provenance, hash, four-ABI,
+and ELF alignment checks. AAR SHA256:
+`e0fed5714cb8d38e1b305bfc256d88d5d0229ab65418a5a0d688bfe8ce5a8df4`.
+
+The 713155477-byte ARM64 debug APK passed `apksigner` verification. SHA256:
+`2c7099d4d12df8f27b75b5ad8a453563031e357a3cd56fd2029cbc59c49f70aa`.
+Its nfqws2 matches the four-ABI producer's ARM64 binary. All six Lua files,
+14 license files, and source manifest match the source lock byte for byte.
+The five Rust JNI libraries and actual Go JNI library are present. The packaged
+root helper SHA256 is
+`b8396f3ce2d52ffc3ccff158514adc1c12ed50711a1e3933813204f1d0362eb6`.
+
+The actual app and AndroidTest APKs installed on API 37. All eight maintained
+`NativeBridgeInstrumentedTest` cases passed. Package data was not cleared.
+The root smoke's stale newline JSON transport was also changed to the bounded
+big-endian length frame. Its AndroidTest APK compiled successfully; its root
+acceptance body still requires app-granting root.
+
+The broad `assembleDebug` command failed because the Simple variant requires
+the absent user relay bundle `app/src/simple/assets/embedded-relay-bundle.json`.
+No substitute bundle was created. Standard local debug policy uses optional
+pluggable-transport stub launchers. Those launchers do not prove production PT
+packaging; nfqws2, the helper, Rust JNI, and Xray in this APK are actual builds.
+
+Artifacts: `/tmp/nfqws2-final-app-github-full-debug.apk`,
+`/tmp/ripdpi-nfqws2-githubFullDebug.log`,
+`/tmp/ripdpi-nfqws2-combined-assembleDebug.log`,
+`/tmp/ripdpi-nfqws2-apk-inspection.log`,
+`/tmp/ripdpi-nfqws2-apk-signature.log`,
+`/tmp/ripdpi-nfqws2-apk-elf.log`, and
+`/tmp/ripdpi-nfqws2-nativeBridge-instrumentation.log`.
+
+## Actual VPN socket transfer
+
+The ordinary app UI and actual Android consent dialog started
+`RipDpiVpnService`. TUN and the app's protection socket were active. The exact
+APK C executable ran through shell root with the actual app UID, 10233.
+Raw-socket initialization failed before Lua or raw sends: the app receiver
+reported truncated ancillary data (`MSG_CTRUNC`, `Message too long`), and the
+C bridge received connection reset and exited 1. The fixture received no
+payload; the capture contains only its 24-byte PCAP header.
+
+Two independent native probes used the same UID with `su` and `runas_app`
+SELinux domains. Both failed. Read-only policy checks allowed `fd:use` but
+denied UDP/raw-IP socket read/write from those domains to `untrusted_app`.
+The corresponding own-app domain checks passed. This is a measured AOSP
+socket-transfer constraint. Root launch permission alone does not establish
+this contract. No SELinux policy, enforcing mode, root grant, or appops entry
+was changed. The test VPN stopped through its UI; no queue, child, or capture
+process remains.
+
+The successful C-to-`VpnService.protect` runtime gate remains unresolved.
+This test does not prove the app-domain root launcher. Full evidence and
+runnable drivers are `/tmp/nfqws2-real-vpn-protect/evidence.md`,
+`/tmp/nfqws2_real_vpn_protect.py`, and `/tmp/nfqws2_vpn_ui.py`.
+
+## Native size accounting
+
+CI checks only the proxy and tunnel libraries across four ABIs for this size
+budget. nfqws2, the root helper, relay, WARP, and AmneziaWG are outside that
+size budget. The original baseline total was 76094860 bytes. The published
+`617008b14` tree already measured 76636228 bytes, above its 76357004-byte
+allowance. The compatibility tree measures 76768004 bytes: a further 131776
+bytes, with an original-budget overrun of 411000 bytes.
+
+The actual ARM64 symbol sidecars show proxy growth of 17600 bytes, including
+10760 text bytes and 7832 bytes in Lua-named code and callbacks. Root-helper
+protocol text did not grow. New positions, `u32add`, and safety checks are
+present. The earlier footprint includes dependency changes and non-root Lua;
+it cannot all be attributed to Lua.
+
+The user approved a refresh of only `native-size-baseline.json` to the actual
+`617008b14` measurements. Per-library 131072-byte, total 2 percent, and total
+262144-byte growth limits stay unchanged. This preserves the current change's
+131776-byte growth and leaves 130368 bytes of total headroom.
+
+The maintained ELF and size scripts then checked the actual stripped native
+shard artifacts from implementation CI `36555670276`. ELF metadata passed for
+five libraries across four ABIs. All eight proxy/tunnel size entries passed
+against the approved baseline. Binary SHA256 values, artifact IDs, and ABI
+provenance are recorded in the isolated build tree under
+`build/nfqws-size-actual-ci2c/provenance.json`; the same directory contains
+`elf-gate.log`, `size-gate.log`, and `approved-size-report.md`. No substitute
+ELF files or rebuilt binaries were used.
+
+Source reports: CI `36545675398` for `617008b14` and CI `36555670276` for
+`2c1697db3`. Local comparison artifacts are
+`/tmp/ripdpi-native-size-prior-current-table.md`,
+`/tmp/ripdpi-native-size-symbol-delta.md`, and
+`/tmp/ripdpi-native-size-section-delta.md`.
+
+## Hosted validation and publication
+
+Implementation commit `2c1697db3bc95ea0df3fe4ded925c64db8aac1b7` was integrated
+with a fast-forward merge and pushed to `origin/main`. The remote SHA matched.
+The framed Android root probe is in
+`9aa8633c529d71985fe7317c67c9a1544875f705`; the approved baseline refresh is in
+`1dbc5d6d4a501fdbd4437fc171db599a4ea8abee`.
+
+[Implementation CI](https://github.com/po4yka/RIPDPI/actions/runs/36555670276)
+finished with 43 successful, four failed, and 17 skipped jobs. The three debug
+distribution jobs failed only the old size budget; `ci-required` reported that
+aggregate failure. Their APK compilation and ELF checks passed. All three
+release shards and actual instrumentation targets API 27, 33, 35, 36, and
+37 with 16 KiB pages passed. Static analysis, Rust workspace/lint/coverage,
+Miri, relay interoperability, network E2E, JNI API, source asset staging,
+Roborazzi, Kotlin coverage, and actual gomobile-linked unit gates passed.
+CodeQL, Secret Scan, and fleet fixture runs also passed. Skipped scheduled and
+opt-in lanes are not included as passes.
+
+The next push validates the framed smoke and approved size baseline. These
+changes do not change the tested runtime binaries. The remaining root target
+gate keeps the portfolio task blocked and the OpenSpec change open.

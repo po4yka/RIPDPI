@@ -100,6 +100,13 @@ protection mark. On failure, the raw-socket cache entry is closed and reset.
 The Android service provides the existing protection server; the bridge does
 not use Android netd APIs or hard-coded mark bits.
 
+The root target must also permit socket descriptor transfer from the backend
+domain to the app domain. Equal Linux UIDs do not change SELinux socket labels.
+The API 37 AOSP test target denies app access to UDP/raw sockets created in
+`su` or `runas_app`; Android reports truncated ancillary data and rejects the
+handshake. The backend fails closed. Root launch permission alone does not
+prove this VPN contract; verify it on the intended root framework.
+
 ## Activation
 
 Enable root mode and command-line settings. Start the command with `nfqws2`:
