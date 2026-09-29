@@ -116,7 +116,17 @@ pub fn send_tcp_desync_payload(
     request: DesyncSendRequest<'_>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
     if let Some(flow) = request.lua_flow
-        && let Some(plan) = flow.plan(writer.local_addr()?, request.target, "tcp", request.payload, request.host)?
+        && let Some(plan) = flow.plan(
+            writer.local_addr()?,
+            request.target,
+            "tcp",
+            request.payload,
+            request.host,
+            tcp_segment_hint(writer)
+                .and_then(|hint| hint.snd_mss)
+                .and_then(|mss| u16::try_from(mss).ok())
+                .filter(|mss| *mss > 0),
+        )?
     {
         let segments = plan
             .actions

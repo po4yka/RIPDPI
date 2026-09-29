@@ -166,7 +166,7 @@ pub(super) fn send_udp_flow_payload(
     let progress = entry.session.observe_datagram_outbound(payload);
     if let Some(flow) = &entry.lua_flow
         && let Some(plan) =
-            flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref())?
+            flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref(), None)?
     {
         let outcome = RuntimeState::execute_lua_udp_plan(
             &entry.upstream,

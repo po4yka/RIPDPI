@@ -351,3 +351,33 @@ fn protocol_relative_positions_do_not_reuse_markers_for_another_payload_type() {
         assert_eq!(bytes(&result), b"nil::nil");
     }
 }
+
+#[test]
+fn measured_mss_controls_lua_and_bundled_tcpseg() {
+    let engine = engine();
+    engine
+        .load_bytes_registering_globals(
+            "mss-wrapper",
+            br#"
+        function report_mss(d) return tostring(d.tcp_mss) end
+        function measured_tcpseg(ctx,d) d.arg.pos='0,-1'; tcpseg(ctx,d); return VERDICT_DROP end
+    "#,
+        )
+        .unwrap();
+    let payload: Vec<u8> = (0..4381).map(|value| (value % 251) as u8).collect();
+    for supplied in [Some(536), Some(1200), Some(1448), Some(1), Some(u16::MAX), Some(0), None] {
+        let mss = supplied.filter(|value| *value > 0).unwrap_or(1460);
+        let dissect = Dissect {
+            tcp_mss: supplied,
+            proto: L7Protocol::Tls(TlsDissect { is_client_hello: true, ..TlsDissect::default() }),
+            ..Dissect::default()
+        };
+        let report = plan(&engine, "report_mss", b"x", &dissect, FlowDirection::Outbound, 40).unwrap();
+        assert_eq!(bytes(&report), mss.to_string().as_bytes());
+        let result = plan(&engine, "measured_tcpseg", &payload, &dissect, FlowDirection::Outbound, 41).unwrap();
+        assert_eq!(result.verdict, StrategyVerdict::Apply, "MSS {mss}");
+        assert_eq!(bytes(&result), payload);
+        assert!(result.actions.iter().all(|action| matches!(action,
+            DesyncAction::Write(bytes) if !bytes.is_empty() && bytes.len() <= usize::from(mss))));
+    }
+}

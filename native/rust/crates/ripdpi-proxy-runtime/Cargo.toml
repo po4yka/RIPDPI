@@ -25,6 +25,7 @@ loom = ["dep:loom", "ripdpi-proxy-runtime-adapter/loom"]
 io-uring = ["dep:ripdpi-io-uring", "ripdpi-proxy-runtime-adapter/io-uring"]
 
 [dev-dependencies]
+socket2 = { workspace = true }
 aes = { workspace = true }
 base64 = { workspace = true }
 ctr = "0.10"

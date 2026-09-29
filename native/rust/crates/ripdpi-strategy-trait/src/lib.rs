@@ -245,6 +245,8 @@ pub struct Dissect {
     pub dst_port: u16,
     /// True when the packet came from an IPv6 flow.
     pub is_ipv6: bool,
+    /// Current effective outbound TCP socket MSS, when measured by the backend.
+    pub tcp_mss: Option<u16>,
     /// Resolved marker offsets in the payload.
     pub markers: HashMap<MarkerName, usize>,
 }

@@ -1054,7 +1054,9 @@ mod enabled {
         desync.set("replay", false).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("replay_piece", 1).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("replay_piece_last", true).map_err(|error| LuaError::Call(error.to_string()))?;
-        desync.set("tcp_mss", 1460).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync
+            .set("tcp_mss", ctx.dissect.tcp_mss.filter(|mss| *mss > 0).unwrap_or(1460))
+            .map_err(|error| LuaError::Call(error.to_string()))?;
         let track = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         track.set("lua_state", conn).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("track", track).map_err(|error| LuaError::Call(error.to_string()))?;

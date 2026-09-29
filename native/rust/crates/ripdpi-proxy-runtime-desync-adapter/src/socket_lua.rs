@@ -109,6 +109,7 @@ impl SocketLuaFlow {
         proto: &str,
         payload: &[u8],
         host: Option<&str>,
+        tcp_mss: Option<u16>,
     ) -> io::Result<Option<DesyncPlan>> {
         let tcp = match proto {
             "tcp" => true,
@@ -117,7 +118,8 @@ impl SocketLuaFlow {
         };
         // The stream peer can be an upstream SOCKS server after the first write.
         let dst = if tcp { *self.tcp_target.get_or_init(|| dst) } else { dst };
-        let (dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload);
+        let (mut dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload);
+        dissect.tcp_mss = if tcp { tcp_mss } else { None };
         let host = host.or(detected_host.as_deref()).map(|host| host.trim_end_matches('.').to_ascii_lowercase());
         let conn =
             ConnectionState { packet_count: self.packet_count.fetch_add(1, Ordering::Relaxed).saturating_add(1) };
@@ -302,14 +304,14 @@ mod tests {
         ] {
             let mut payload = vec![0; length];
             payload[0] = kind;
-            let result = strategies.open_flow().plan(src, dst, "udp", &payload, None).unwrap().unwrap();
+            let result = strategies.open_flow().plan(src, dst, "udp", &payload, None, None).unwrap().unwrap();
             assert_eq!(result.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
         }
         for (kind, expected) in [(1, "dtls_client_hello"), (2, "dtls_server_hello"), (11, "unknown")] {
             let mut payload = [0; 14];
             payload[..3].copy_from_slice(&[22, 0xfe, 0xfd]);
             payload[13] = kind;
-            let result = strategies.open_flow().plan(src, dst, "udp", &payload, None).unwrap().unwrap();
+            let result = strategies.open_flow().plan(src, dst, "udp", &payload, None, None).unwrap().unwrap();
             assert_eq!(result.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
         }
     }
@@ -344,18 +346,22 @@ mod tests {
         let flow = strategies.open_flow();
         let (src, dst) = endpoints();
         let payload = b"GET / HTTP/1.1\r\nHost: sub.example.org\r\n\r\n";
-        let plan = flow.plan(src, dst, "tcp", payload, None).unwrap().unwrap();
+        let plan = flow.plan(src, dst, "tcp", payload, None, None).unwrap().unwrap();
         assert_eq!(plan.actions, vec![DesyncAction::Write(b"good".to_vec())]);
-        assert!(flow.plan(src, dst, "tcp", b"unknown", Some("example.org")).unwrap().is_none());
-        assert!(flow.plan(src, dst, "tcp", payload, Some("notexample.org")).unwrap().is_none());
+        assert!(flow.plan(src, dst, "tcp", b"unknown", Some("example.org"), None).unwrap().is_none());
+        assert!(flow.plan(src, dst, "tcp", payload, Some("notexample.org"), None).unwrap().is_none());
         assert!(
-            strategies.open_flow().plan(src, "127.0.0.1:80".parse().unwrap(), "tcp", payload, None).unwrap().is_none()
+            strategies
+                .open_flow()
+                .plan(src, "127.0.0.1:80".parse().unwrap(), "tcp", payload, None, None)
+                .unwrap()
+                .is_none()
         );
-        assert!(flow.plan(src, dst, "udp", payload, None).unwrap().is_none());
+        assert!(flow.plan(src, dst, "udp", payload, None, None).unwrap().is_none());
         for policy in ["fallback_plain", "drop"] {
             let strategies =
                 scripts.load(&(rule("first", "unsupported", policy, "") + &rule("second", "write", "drop", "")));
-            let plan = strategies.open_flow().plan(src, dst, "tcp", payload, None).unwrap().unwrap();
+            let plan = strategies.open_flow().plan(src, dst, "tcp", payload, None, None).unwrap().unwrap();
             if policy == "drop" {
                 assert_eq!(plan.verdict, StrategyVerdict::Drop);
                 assert!(plan.actions.is_empty());
@@ -374,10 +380,10 @@ mod tests {
         let second = strategies.open_flow();
         let (src, dst) = endpoints();
         for expected in [b"1", b"2"] {
-            let plan = first.plan(src, dst, "tcp", b"original", None).unwrap().unwrap();
+            let plan = first.plan(src, dst, "tcp", b"original", None, None).unwrap().unwrap();
             assert_eq!(plan.actions, vec![DesyncAction::Write(expected.to_vec())]);
         }
-        let plan = second.plan(src, dst, "tcp", b"original", None).unwrap().unwrap();
+        let plan = second.plan(src, dst, "tcp", b"original", None, None).unwrap().unwrap();
         assert_eq!(plan.actions, vec![DesyncAction::Write(b"1".to_vec())]);
         let id = first.flow_id;
         assert!(strategies.rules[0].tcp.has_flow(id));
@@ -391,12 +397,29 @@ mod tests {
         let scripts = Scripts::new("function write(d) assert(d.dis.tcp==nil); return 'new datagram' end");
         let strategies = scripts.load(&rule("udp", "write", "drop", ""));
         let (src, dst) = endpoints();
-        let plan = strategies.open_flow().plan(src, dst, "udp", b"original", None).unwrap().unwrap();
+        let plan = strategies.open_flow().plan(src, dst, "udp", b"original", None, None).unwrap().unwrap();
         assert_eq!(plan.actions, vec![DesyncAction::Write(b"new datagram".to_vec())]);
         let yaml = format!(
             "version: 1\nstrategies:\n{}",
             rule("escape", "write", "drop", "").replace("candidate.lua", "../candidate.lua")
         );
         assert!(SocketLuaStrategies::from_yaml(&yaml, &scripts.0).is_err());
+    }
+    #[test]
+    fn socket_mss_is_current_and_udp_has_no_measurement() {
+        let scripts = Scripts::new("function report(d) return tostring(d.tcp_mss) end");
+        let strategies = scripts.load(&rule("mss", "report", "drop", ""));
+        let flow = strategies.open_flow();
+        let (src, dst) = endpoints();
+        for (proto, supplied, expected) in [
+            ("tcp", Some(536), "536"),
+            ("tcp", Some(1200), "1200"),
+            ("tcp", None, "1460"),
+            ("tcp", Some(0), "1460"),
+            ("udp", Some(536), "1460"),
+        ] {
+            let plan = flow.plan(src, dst, proto, b"x", None, supplied).unwrap().unwrap();
+            assert_eq!(plan.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
+        }
     }
 }

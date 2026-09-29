@@ -476,6 +476,7 @@ fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
         src_port: meta.src_port,
         dst_port: meta.dst_port,
         is_ipv6: meta.is_ipv6,
+        tcp_mss: None,
         markers: HashMap::new(),
     };
     populate_markers(&mut dissect, payload);

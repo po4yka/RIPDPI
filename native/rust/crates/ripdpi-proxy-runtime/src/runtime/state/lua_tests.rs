@@ -143,3 +143,52 @@ fn lua_nonroot_tcp_keeps_logical_destination_after_socks_first_write() {
     reader.read_exact(&mut bytes).unwrap();
     assert_eq!(&bytes, b"1ab2cd");
 }
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[test]
+fn lua_nonroot_tcp_reads_physical_socket_mss_on_each_send() {
+    let (state, _dir) = lua_runtime_with_matcher(
+        "function candidate(d) return tostring(d.tcp_mss)..':'..d.dis.payload end",
+        "    match:\n      port: [443]\n",
+    );
+    let flow = state.new_lua_flow().unwrap();
+    for requested in [536, 1200] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        socket2::SockRef::from(&listener).set_tcp_mss(requested).unwrap();
+        let mut writer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut reader, _) = listener.accept().unwrap();
+        reader.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mss = socket2::SockRef::from(&writer).tcp_mss().unwrap();
+        assert!(mss > 0 && mss <= requested);
+        assert_ne!(mss, 1460);
+        assert_ne!(writer.peer_addr().unwrap().port(), 443);
+        eprintln!("requested MSS {requested}; actual sending MSS {mss}");
+        for payload in [b"first".as_slice(), b"steady"] {
+            let target =
+                if payload == b"first" { "127.0.0.1:443".parse().unwrap() } else { writer.peer_addr().unwrap() };
+            state
+                .send_tcp_desync_payload(
+                    &mut writer,
+                    DesyncSendRequest {
+                        lua_flow: Some(&flow),
+                        group_index: 0,
+                        group_override: None,
+                        payload,
+                        progress: OutboundProgress {
+                            round: 1,
+                            payload_size: payload.len(),
+                            stream_start: 0,
+                            stream_end: payload.len() - 1,
+                        },
+                        host: None,
+                        target,
+                    },
+                )
+                .unwrap();
+            let expected = [format!("{mss}:").as_bytes(), payload].concat();
+            let mut received = vec![0; expected.len()];
+            reader.read_exact(&mut received).unwrap();
+            assert_eq!(received, expected);
+        }
+    }
+}

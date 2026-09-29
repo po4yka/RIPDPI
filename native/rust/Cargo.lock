@@ -6060,6 +6060,7 @@ dependencies = [
  "ripdpi-ws-tunnel",
  "rustls",
  "serde_json",
+ "socket2",
  "tempfile",
  "tokio",
  "tracing",
