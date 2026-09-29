@@ -10,6 +10,7 @@ workspace = true
 [dependencies]
 etherparse = { workspace = true }
 ripdpi-packets = { workspace = true }
+ripdpi-protocol-detect = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-strategy-config = { workspace = true }
 ripdpi-strategy-ipv6 = { workspace = true }

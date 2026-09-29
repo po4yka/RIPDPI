@@ -6731,6 +6731,7 @@ version = "0.1.0"
 dependencies = [
  "etherparse",
  "ripdpi-packets",
+ "ripdpi-protocol-detect",
  "ripdpi-runtime-platform",
  "ripdpi-strategy-config",
  "ripdpi-strategy-ipv6",
