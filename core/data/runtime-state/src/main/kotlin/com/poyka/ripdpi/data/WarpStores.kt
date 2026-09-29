@@ -334,15 +334,32 @@ class SharedPreferencesWarpEndpointStore
             networkScopeKey: String,
         ) {
             withContext(Dispatchers.IO) {
-                preferences.edit().remove(prefKey(profileId, normalizeScopeKey(networkScopeKey))).commitOrThrow()
+                val scopeKey = normalizeScopeKey(networkScopeKey)
+                val entries = preferences.all
+                val key = prefKey(profileId, scopeKey)
+                val editor = preferences.edit()
+                if (!isLegacyEntry(key, entries[key])) {
+                    editor.remove(key)
+                }
+                val legacyKey = legacyPrefKey(scopeKey)
+                if (profileId == DefaultWarpProfileId && isLegacyEntry(legacyKey, entries[legacyKey])) {
+                    editor.remove(legacyKey)
+                }
+                editor.commitOrThrow()
             }
         }
 
         override suspend fun clearProfile(profileId: String) {
             withContext(Dispatchers.IO) {
                 val editor = preferences.edit()
-                preferences.all.keys
-                    .filter { it.startsWith("endpoint:$profileId:") }
+                preferences.all
+                    .filter { (key, value) ->
+                        if (isLegacyEntry(key, value)) {
+                            profileId == DefaultWarpProfileId
+                        } else {
+                            key.startsWith("endpoint:$profileId:")
+                        }
+                    }.keys
                     .forEach(editor::remove)
                 editor.commitOrThrow()
             }
@@ -373,6 +390,16 @@ class SharedPreferencesWarpEndpointStore
             networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
 
         private fun legacyPrefKey(networkScopeKey: String): String = "endpoint:$networkScopeKey"
+
+        private fun isLegacyEntry(
+            key: String,
+            value: Any?,
+        ): Boolean =
+            value is String &&
+                runCatching {
+                    val entry = json.decodeFromString(WarpEndpointCacheEntry.serializer(), value)
+                    key == legacyPrefKey(normalizeScopeKey(entry.networkScopeKey))
+                }.getOrDefault(false)
 
         private companion object {
             const val EndpointPrefsName = "warp_endpoint_cache"

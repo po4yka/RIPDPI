@@ -15,6 +15,32 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class RelayProfileStoreMigrationTest {
     @Test
+    fun `profile overwrite selective deletion and bulk clear survive store recreation`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+            val store = SharedPreferencesRelayProfileStore(context)
+            store.clearAll()
+            val second = RelayProfileRecord(id = "b", kind = RelayKindTrojan, server = "second.example")
+            val first = RelayProfileRecord(id = "a", kind = RelayKindTrojan, server = "first.example")
+            val updated = first.copy(server = "updated.example", serverPort = 8443, udpEnabled = true)
+            store.save(second)
+            store.save(first)
+            store.save(updated)
+
+            val reopened = SharedPreferencesRelayProfileStore(context)
+            assertEquals(listOf(updated, second), reopened.list())
+            assertEquals(updated, reopened.load(first.id))
+            reopened.clear(first.id)
+
+            val afterDelete = SharedPreferencesRelayProfileStore(context)
+            assertNull(afterDelete.load(first.id))
+            assertEquals(listOf(second), afterDelete.list())
+            afterDelete.clearAll()
+
+            assertTrue(SharedPreferencesRelayProfileStore(context).list().isEmpty())
+        }
+
+    @Test
     fun `legacy xhttp record with empty reality public key migrates to plain tls`() {
         val legacy =
             RelayProfileRecord(

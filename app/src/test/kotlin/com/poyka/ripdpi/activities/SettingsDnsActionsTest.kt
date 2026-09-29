@@ -1,20 +1,30 @@
 package com.poyka.ripdpi.activities
 
+import androidx.datastore.core.DataStoreFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultAppSettingsRepository
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -23,6 +33,8 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
 
 internal const val ValidOdohConfigsHex =
     "002c000100280020000100010020c6a793bedbd601c25970b1cc46bea80fdb1a8ec51540d79e4f9f17b8baa9da33"
@@ -31,6 +43,73 @@ internal const val ValidOdohConfigsHex =
 class SettingsDnsActionsTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    @Test
+    fun `switch from custom encrypted to plain dns is durable and clears stale resolver fields`() =
+        runTest {
+            val controller = FakeServiceController()
+            var saved = AppSettings.getDefaultInstance()
+            withPersistentRepository { repository ->
+                val actions =
+                    createActions(repository = repository, serviceController = controller, scope = backgroundScope)
+                actions.setCustomDohResolver(" https://resolver.example:8443/dns-query ", listOf("1.1.1.1", "1.1.1.1"))
+                backgroundScope.coroutineContext.job.children
+                    .toList()
+                    .joinAll()
+                val encrypted = repository.snapshot()
+                assertEquals("resolver.example", encrypted.encryptedDnsHost)
+                assertEquals(8443, encrypted.encryptedDnsPort)
+                assertEquals(listOf("1.1.1.1"), encrypted.encryptedDnsBootstrapIpsList)
+                actions.setPlainDnsServer("9.9.9.9")
+                backgroundScope.coroutineContext.job.children
+                    .toList()
+                    .joinAll()
+                saved = repository.snapshot()
+                assertEquals(DnsModePlainUdp, saved.dnsMode)
+                assertEquals("9.9.9.9", saved.dnsIp)
+                assertEquals("", saved.encryptedDnsProtocol)
+                assertEquals("", saved.encryptedDnsHost)
+                assertEquals(0, saved.encryptedDnsPort)
+                assertEquals("", saved.encryptedDnsDohUrl)
+                assertEquals("", saved.encryptedDnsTlsServerName)
+                assertTrue(saved.encryptedDnsBootstrapIpsList.isEmpty())
+            }
+
+            withPersistentRepository { assertEquals(saved, it.snapshot()) }
+            assertEquals(0, controller.stopCount)
+            assertTrue(controller.startedModes.isEmpty())
+        }
+
+    @Test
+    fun `doq rejected by persisted vpn mode leaves settings unchanged across reopen`() =
+        runTest {
+            var before = AppSettings.getDefaultInstance()
+            val controller = FakeServiceController()
+            withPersistentRepository { repository ->
+                repository.update { setRipdpiMode(Mode.VPN.preferenceValue) }
+                before = repository.snapshot()
+                createActions(repository = repository, serviceController = controller, scope = backgroundScope)
+                    .setCustomDotResolver(
+                        protocol = EncryptedDnsProtocolDoq,
+                        selectedMode = Mode.Proxy,
+                        host = "resolver.example",
+                        port = 853,
+                        tlsServerName = "resolver.example",
+                        bootstrapIps = listOf("1.1.1.1"),
+                    )
+                backgroundScope.coroutineContext.job.children
+                    .toList()
+                    .joinAll()
+                assertEquals(before, repository.snapshot())
+            }
+
+            withPersistentRepository { assertEquals(before, it.snapshot()) }
+            assertEquals(0, controller.stopCount)
+            assertTrue(controller.startedModes.isEmpty())
+        }
 
     @Test
     fun `dns save leaves halted runtime for next start`() =
@@ -367,11 +446,12 @@ class SettingsDnsActionsTest {
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
         serviceIntentArbiter: ServiceIntentArbiter = ServiceIntentArbiter(),
+        scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
     ): SettingsDnsActions =
         SettingsDnsActions(
             mutations =
                 SettingsMutationRunner(
-                    scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main),
+                    scope = scope,
                     appSettingsRepository = repository,
                     effects =
                         MutableSharedFlow(
@@ -383,4 +463,19 @@ class SettingsDnsActionsTest {
             serviceController = serviceController,
             serviceIntentArbiter = serviceIntentArbiter,
         )
+
+    private suspend fun withPersistentRepository(block: suspend (AppSettingsRepository) -> Unit) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val store =
+            DataStoreFactory.create(
+                serializer = AppSettingsSerializer,
+                scope = scope,
+                produceFile = { File(temporaryFolder.root, "dns-settings.pb") },
+            )
+        try {
+            block(DefaultAppSettingsRepository(store))
+        } finally {
+            scope.coroutineContext.job.cancelAndJoin()
+        }
+    }
 }
