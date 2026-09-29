@@ -4,21 +4,21 @@
   "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi.so": 11391104,
-      "libripdpi-tunnel.so": 8795712
+      "libripdpi-tunnel.so": 8834528,
+      "libripdpi.so": 11518392
     },
     "armeabi-v7a": {
-      "libripdpi.so": 7983972,
-      "libripdpi-tunnel.so": 5983400
+      "libripdpi-tunnel.so": 6015696,
+      "libripdpi.so": 8056932
     },
     "x86": {
-      "libripdpi.so": 11126240,
-      "libripdpi-tunnel.so": 8143216
+      "libripdpi-tunnel.so": 8181064,
+      "libripdpi.so": 11225552
     },
     "x86_64": {
-      "libripdpi.so": 12857888,
-      "libripdpi-tunnel.so": 9813328
+      "libripdpi-tunnel.so": 9850712,
+      "libripdpi.so": 12953352
     }
   },
-  "_comment": "Refreshed 2026-09-27 from CI run 36304499950 stripped native shard artifacts after Rust 1.96.0 to 1.98.1 and native feature changes; growth limits unchanged."
+  "_comment": "Approved refresh on 2026-09-29 from CI run 36545675398 (push, commit 617008b147bd6e46df642aadb062c563a544e886), stripped packaged JNI report after published dependency and non-root Lua changes; growth limits unchanged."
 }
