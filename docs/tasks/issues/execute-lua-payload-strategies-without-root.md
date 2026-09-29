@@ -2,7 +2,7 @@
 id: RST-1790669115219534
 title: Execute Lua payload strategies without root
 kind: feature
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Native strategy
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: lua-nonroot-socket-execution
 created: 2026-09-29
 updated: 2026-09-29
+status_detail: Implementation published to main; remote CI evidence remains pending.
 ---
 
 ## Goal

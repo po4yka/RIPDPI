@@ -1,7 +1,7 @@
 ---
 task_id: RST-1790669115219534
 change: lua-nonroot-socket-execution
-commit_sha: null
+commit_sha: 71c6a29605b313315f9e1037c44fa267ee67b2f8
 local: required
 local_evidence: Native and Kotlin gates passed; see the observed checks below.
 remote_ci: required
@@ -63,7 +63,11 @@ The service waits for installation before it builds non-root proxy preferences.
 
 ## Remaining evidence
 
-Remote CI is pending publication. This record does not claim an APK-level
+Implementation commit `71c6a29605b313315f9e1037c44fa267ee67b2f8` was fast-forwarded
+to main and pushed to origin. `git ls-remote origin refs/heads/main` returned
+the same SHA. Post-rebase Rust, Gradle, architecture-health, and locked metadata
+gates passed. Remote CI is pending; the initial exact-commit run lookup returned
+no runs. The portfolio remains in review until its CI evidence is resolved. This record does not claim an APK-level
 VpnService.protect callback test or API 37/16 KiB device validation. The change
 uses the existing outbound socket and protection path; the Android result above
 proves native socket execution only.
