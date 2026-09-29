@@ -24,7 +24,10 @@ def test_settings_persist_across_navigation(workflow_app):
     settings.wait_for_screen(SettingsPage.SCREEN)
 
     # Step 2: Toggle WebRTC protection.
+    initial_webrtc = settings.is_webrtc_enabled()
     settings.tap_webrtc_toggle()
+    settings.wait_until(lambda: settings.is_webrtc_enabled() != initial_webrtc)
+    assert settings.is_webrtc_enabled() != initial_webrtc, "WebRTC toggle should change state"
     nav.navigate_to("home")
     home = HomePage(driver)
     home.wait_for_screen(HomePage.SCREEN)
@@ -38,7 +41,10 @@ def test_settings_persist_across_navigation(workflow_app):
 
     dns.select_mode("plain-udp")
     dns.set_plain_address("8.8.4.4")
+    assert dns.is_plain_save_enabled(), "Save should be enabled for the changed DNS address"
     dns.tap_plain_save()
+    dns.wait_until(lambda: not dns.is_plain_save_enabled())
+    assert not dns.is_plain_save_enabled(), "Save should be disabled after the address is stored"
 
     # Step 4: Navigate back to settings, then home.
     driver.back()
@@ -51,9 +57,8 @@ def test_settings_persist_across_navigation(workflow_app):
     nav.navigate_to("settings")
     settings.wait_for_screen(SettingsPage.SCREEN)
 
-    # WebRTC toggle state is visible on the settings screen (visual verification).
-    assert settings.is_webrtc_toggle_reachable(), (
-        "WebRTC toggle should still be visible"
+    assert settings.is_webrtc_enabled() != initial_webrtc, (
+        "WebRTC protection should retain its changed state after navigation"
     )
     nav.navigate_to("home")
     home.wait_for_screen(HomePage.SCREEN)
@@ -64,8 +69,8 @@ def test_settings_persist_across_navigation(workflow_app):
     settings.tap_dns_settings()
     dns.wait_for_screen(DnsSettingsPage.SCREEN)
 
-    dns.select_mode("plain-udp")
+    assert dns.is_mode_selected("plain-udp"), "Plain DNS mode should persist after navigation"
     value = dns.get_plain_address()
-    assert "8.8.4.4" in value, (
+    assert value == "8.8.4.4", (
         f"DNS address should persist as '8.8.4.4', got '{value}'"
     )

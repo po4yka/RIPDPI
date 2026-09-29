@@ -15,7 +15,12 @@ def test_toggle_tcp_fast_open(driver):
     page = AdvancedSettingsPage(driver)
     assert page.is_loaded(), "Advanced settings screen should be visible"
 
+    tag = "advanced-toggle-tcp-fast-open"
+    page.scroll_incrementally_to(tag)
+    initial_state = page.is_checked(tag)
     page.toggle_setting("tcp-fast-open")
+    page.wait_until(lambda: page.is_checked(tag) != initial_state)
+    assert page.is_checked(tag) != initial_state, "TCP Fast Open should change after tapping"
 
 
 @pytest.mark.automation(

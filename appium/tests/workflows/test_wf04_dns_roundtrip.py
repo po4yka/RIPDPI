@@ -31,7 +31,10 @@ def test_dns_settings_persist_across_navigation(workflow_app):
     # Step 3: Set plain DNS address.
     dns.select_mode("plain-udp")
     dns.set_plain_address("9.9.9.9")
+    assert dns.is_plain_save_enabled(), "Save should be enabled for the changed DNS address"
     dns.tap_plain_save()
+    dns.wait_until(lambda: not dns.is_plain_save_enabled())
+    assert not dns.is_plain_save_enabled(), "Save should be disabled after the address is stored"
 
     # Step 4: Navigate back to home.
     driver.back()
@@ -49,8 +52,8 @@ def test_dns_settings_persist_across_navigation(workflow_app):
     dns.wait_for_screen(DnsSettingsPage.SCREEN)
 
     # Step 6: Verify the address persisted.
-    dns.select_mode("plain-udp")
+    assert dns.is_mode_selected("plain-udp"), "Plain DNS mode should persist after navigation"
     value = dns.get_plain_address()
-    assert "9.9.9.9" in value, (
+    assert value == "9.9.9.9", (
         f"DNS address should persist as '9.9.9.9', got '{value}'"
     )

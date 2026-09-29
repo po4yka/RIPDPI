@@ -185,6 +185,28 @@ class BasePage:
         )
         return self.wait_for(new_screen_tag, timeout=timeout)
 
+    def is_checked(self, tag: str) -> bool:
+        """Read a switch or radio state; reject missing accessibility state."""
+        element = self.wait_for(tag)
+        if element.get_attribute("checkable") != "true":
+            raise ValueError(f"Element {tag!r} does not expose a checked state")
+        value = element.get_attribute("checked")
+        if value not in ("true", "false"):
+            raise ValueError(f"Invalid checked state for {tag!r}: {value!r}")
+        return value == "true"
+
+    def is_selected(self, tag: str) -> bool:
+        """Read Compose selection exposed as checked or selected on Android."""
+        element = self.wait_for(tag)
+        checkable = element.get_attribute("checkable")
+        if checkable not in ("true", "false"):
+            raise ValueError(f"Invalid checkable state for {tag!r}: {checkable!r}")
+        attribute = "checked" if checkable == "true" else "selected"
+        value = element.get_attribute(attribute)
+        if value not in ("true", "false"):
+            raise ValueError(f"Invalid {attribute} state for {tag!r}: {value!r}")
+        return value == "true"
+
     def get_text(self, tag: str, timeout: int = 10) -> str:
         """Read the text value of an element."""
         el = self.wait_for(tag, timeout=timeout)

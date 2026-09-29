@@ -41,6 +41,10 @@ class SettingsPage(BasePage):
     def tap_webrtc_toggle(self) -> None:
         self.scroll_incrementally_to(self.WEBRTC_PROTECTION).click()
 
+    def is_webrtc_enabled(self) -> bool:
+        self.scroll_incrementally_to(self.WEBRTC_PROTECTION)
+        return self.is_checked(self.WEBRTC_PROTECTION)
+
     def is_webrtc_toggle_reachable(self) -> bool:
         try:
             self.scroll_incrementally_to(self.WEBRTC_PROTECTION)
@@ -64,6 +68,13 @@ class SettingsPage(BasePage):
             "dark": "Dark",
         }
         self.tap_text(labels.get(option, option))
+
+    def is_biometric_available(self) -> bool:
+        return self.scroll_incrementally_to(self.BIOMETRIC).is_enabled()
+
+    def is_biometric_enabled(self) -> bool:
+        self.scroll_incrementally_to(self.BIOMETRIC)
+        return self.is_checked(self.BIOMETRIC)
 
     def tap_biometric_toggle(self) -> None:
         self.scroll_down_to(self.BIOMETRIC)

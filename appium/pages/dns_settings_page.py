@@ -60,12 +60,20 @@ class DnsSettingsPage(BasePage):
     def tap_plain_save(self) -> None:
         self.scroll_incrementally_to(self.PLAIN_SAVE).click()
 
+    def is_plain_save_enabled(self) -> bool:
+        return self.scroll_incrementally_to(self.PLAIN_SAVE).is_enabled()
+
     def is_plain_save_visible(self) -> bool:
         return self.is_visible(self.PLAIN_SAVE)
 
     def get_plain_address(self) -> str:
         self.scroll_incrementally_to(self.PLAIN_ADDRESS)
         return self.get_text(self.PLAIN_ADDRESS)
+
+    def is_mode_selected(self, mode: str) -> bool:
+        tag = f"dns-mode-{mode}"
+        self.scroll_incrementally_to(tag)
+        return self.is_selected(tag)
 
     def select_doh_resolver(self, provider: str) -> None:
         tag = f"dns-resolver-{provider}"

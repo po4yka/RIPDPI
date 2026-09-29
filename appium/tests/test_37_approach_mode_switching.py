@@ -39,12 +39,20 @@ def test_approach_switch_to_strategies(driver):
 
     # Switch to strategies mode.
     diag.tap_approach_mode_strategies()
-    assert diag.is_visible(DiagnosticsPage.APPROACH_MODE_STRATEGIES), (
-        "Strategies chip should remain visible after selection"
+    diag.wait_until(lambda: diag.is_selected(DiagnosticsPage.APPROACH_MODE_STRATEGIES))
+    assert diag.is_selected(DiagnosticsPage.APPROACH_MODE_STRATEGIES), (
+        "Strategies mode should be selected"
+    )
+    assert not diag.is_selected(DiagnosticsPage.APPROACH_MODE_PROFILES), (
+        "Profiles mode should be deselected"
     )
 
     # Switch back to profiles mode.
     diag.tap_approach_mode_profiles()
-    assert diag.is_visible(DiagnosticsPage.APPROACH_MODE_PROFILES), (
-        "Profiles chip should remain visible after switching back"
+    diag.wait_until(lambda: diag.is_selected(DiagnosticsPage.APPROACH_MODE_PROFILES))
+    assert diag.is_selected(DiagnosticsPage.APPROACH_MODE_PROFILES), (
+        "Profiles mode should be selected after switching back"
+    )
+    assert not diag.is_selected(DiagnosticsPage.APPROACH_MODE_STRATEGIES), (
+        "Strategies mode should be deselected after switching back"
     )

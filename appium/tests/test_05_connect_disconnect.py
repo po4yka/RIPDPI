@@ -1,27 +1,20 @@
-"""Test 05: Start and stop configured mode (Maestro flow 04 parity)."""
+"""Test 05: Enable and disable local DPI bypass with the automation service."""
 
 import pytest
 
 from pages.home_page import HomePage
 
 
-@pytest.mark.automation(
-    start_route="home",
-    data_preset="clean_home",
-    service_preset="idle",
-)
+@pytest.mark.automation(start_route="home", data_preset="settings_ready", service_preset="idle")
 def test_connect_disconnect(driver):
     home = HomePage(driver)
     assert home.is_loaded(), "Home screen should be visible"
+    assert home.get_local_bypass_action() == "Enable", "Local bypass should start idle"
 
-    # Tap connect.
-    home.tap_connect()
-    assert home.is_connection_button_visible(), (
-        "Connection button should remain visible after connecting"
-    )
+    home.tap_local_bypass()
+    home.wait_until(lambda: home.get_local_bypass_action() == "Disable")
+    assert home.get_local_bypass_action() == "Disable", "Local bypass should become active"
 
-    # Tap again to disconnect.
-    home.tap_connect()
-    assert home.is_connection_button_visible(), (
-        "Connection button should remain visible after disconnecting"
-    )
+    home.tap_local_bypass()
+    home.wait_until(lambda: home.get_local_bypass_action() == "Enable")
+    assert home.get_local_bypass_action() == "Enable", "Local bypass should return to idle"

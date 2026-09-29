@@ -55,6 +55,7 @@ appium/
   lib/                 # Capabilities, launch contract, helpers
   pages/               # Page objects (one per screen)
   tests/               # Test files (test_01_ through test_46_)
+  checks/              # State-reader checks without a device
 ```
 
 ## How It Works
@@ -66,6 +67,8 @@ Each test is decorated with `@pytest.mark.automation(...)` specifying the automa
 3. Waits for the expected screen resource ID to appear.
 
 This mirrors the Maestro flows under `maestro/` but uses Appium for richer assertions and programmatic control.
+
+Service presets `idle`, `connected_proxy`, and `connected_vpn` simulate service state. Connection assertions in these presets verify UI state transitions; they do not verify native network traffic.
 
 ## CI
 
@@ -144,3 +147,10 @@ pytest tests/workflows/ -v
 | wf05 | `test_wf05_diagnostics_flow.py` | Diagnostics pager -> scan -> share section |
 | wf06 | `test_wf06_config_edit_validation.py` | Edit mode -> invalid port -> fix -> save |
 | wf07 | `test_wf07_settings_roundtrip.py` | WebRTC + DNS change -> navigate away -> verify persisted |
+
+State-reader checks do not need a device or Appium server. Run them with the same Python dependencies:
+
+```bash
+cd appium
+PYTHONPATH=. python -m pytest --confcutdir=checks checks/
+```

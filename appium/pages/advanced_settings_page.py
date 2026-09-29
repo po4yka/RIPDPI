@@ -17,9 +17,18 @@ class AdvancedSettingsPage(BasePage):
         return self.is_visible(self.SCREEN)
 
     def edit_retention_days(self, value: str) -> None:
-        el = self.scroll_down_to(self.RETENTION_INPUT)
-        el.clear()
-        el.send_keys(value)
+        self.scroll_down_to(self.RETENTION_INPUT)
+        self.clear_and_type(self.RETENTION_INPUT, value)
+
+    def tap_retention_save(self) -> None:
+        self.scroll_incrementally_to(self.RETENTION_SAVE).click()
+
+    def get_retention_days(self) -> str:
+        self.scroll_down_to(self.RETENTION_INPUT)
+        return self.get_text(self.RETENTION_INPUT)
+
+    def is_retention_save_enabled(self) -> bool:
+        return self.scroll_incrementally_to(self.RETENTION_SAVE).is_enabled()
 
     def is_retention_save_visible(self) -> bool:
         return self.is_visible(self.RETENTION_SAVE)

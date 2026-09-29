@@ -38,6 +38,15 @@ class HomePage(BasePage):
         self.ensure_modes_expanded()
         self.tap(self.CONNECTION_BUTTON)
 
+    def tap_local_bypass(self) -> None:
+        self.ensure_modes_expanded()
+        self.scroll_incrementally_to(self.LOCAL_BYPASS_BUTTON, max_swipes=12).click()
+
+    def get_local_bypass_action(self) -> str:
+        self.ensure_modes_expanded()
+        self.scroll_incrementally_to(self.LOCAL_BYPASS_BUTTON, max_swipes=12)
+        return self.get_text(self.LOCAL_BYPASS_BUTTON)
+
     def tap_any_primary_action(self) -> None:
         self.ensure_modes_expanded()
         for tag in (self.CONNECTION_BUTTON, self.LOCAL_BYPASS_BUTTON, self.DIAGNOSTIC_BUTTON):
