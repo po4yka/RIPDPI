@@ -419,7 +419,8 @@ pub fn wait_for_report_json(session: &MonitorSession) -> String {
 pub fn assert_monitor_json_golden(name: &str, actual_json: &str, http_port: u16) {
     let actual = canonicalize_json_with(actual_json, |value| scrub_monitor_json(value, http_port))
         .expect("canonicalize monitor json");
-    assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
+    let manifest_dir = golden_test_support::repo_root().join("native/rust/crates/ripdpi-monitor-engine");
+    assert_text_golden(&manifest_dir.to_string_lossy(), &format!("tests/golden/{name}.json"), &actual);
 }
 
 /// Replace `(os error <number>)` with `(os error _)` so goldens are

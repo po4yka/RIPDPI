@@ -142,7 +142,19 @@ mod tests {
         let third = thread::spawn(move || release_third_rx.recv().expect("wait for third release"));
 
         reaper.reap(first).expect("enqueue running worker");
-        reaper.reap(second).expect("fill bounded reaper queue");
+        // The first enqueue can fill the queue before the reaper worker is scheduled.
+        // Wait for that worker to take the first handle before testing saturation.
+        let enqueue_deadline = Instant::now() + Duration::from_secs(1);
+        let mut second = second;
+        loop {
+            match reaper.reap(second) {
+                Ok(()) => break,
+                Err(handle) => {
+                    second = handle;
+                    assert!(Instant::now() < enqueue_deadline, "reaper must accept the second worker");
+                }
+            }
+        }
         let third = reaper.reap(third).expect_err("saturated reaper must reject work without growing its queue");
 
         release_first_tx.send(()).expect("release first worker");
