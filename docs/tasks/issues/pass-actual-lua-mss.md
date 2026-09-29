@@ -2,7 +2,7 @@
 id: RST-1790682603953151
 title: Pass actual sending MSS to Lua strategies
 kind: feature
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Native strategy

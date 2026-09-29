@@ -1,11 +1,11 @@
 ---
 task_id: RST-1790682603953151
 change: actual-lua-mss
-commit_sha: null
+commit_sha: 92d9eeea0c6c0f8ad4242fb64f7bc24fa7641649
 local: passed
 local_evidence: Five affected full package suites passed 407 tests; affected Clippy, fmt, locked metadata, architecture health/contracts/hotspot budgets and independent review passed. Existing ignored tests are listed below.
 remote_ci: required
-remote_ci_evidence: null
+remote_ci_evidence: Exact-SHA CI run 36565867413 is pending; CodeQL and other workflow runs are in progress. Hosted acceptance is not yet passed.
 device: passed
 device_evidence: Full Android proxy library and bundled Lua compatibility binaries passed 251 tests on emulator-5556 API 37 ARM64 with 16K pages; actual socket MSS values were 524 and 1188.
 artifact: passed
@@ -89,3 +89,22 @@ An initial host run failed before tests because GIT_WORK_TREE reached a
 nested boring-sys git init. The corrected run scoped that variable to Git
 operations and used the native workspace directory to select Rust 1.98.1.
 No product source or quality gate was changed to resolve this environment issue.
+
+## Publication
+
+Commit `92d9eeea0c6c0f8ad4242fb64f7bc24fa7641649` was fetched and rebased
+against origin/main; its base did not change. Combined-tree full package
+tests passed again: 407 passed, 13 existing ignores. Pinned fmt, locked
+metadata, architecture health and native contracts passed again. The
+pre-commit hook also passed workspace all-targets Clippy and staged
+architecture validation.
+
+The clean main checkout fast-forwarded. Push succeeded, and ls-remote
+confirmed the exact implementation SHA on refs/heads/main. GitHub reported
+the repository's direct-main bypass for PR, pending ci-required and pending
+CodeQL requirements; no repository rules were changed.
+
+Exact-SHA hosted CI: https://github.com/po4yka/RIPDPI/actions/runs/36565867413
+was pending when observed. CodeQL, Secret Scan, fleet-fixtures and the
+monitor dependency guard were in progress. Both execution steps are complete;
+the portfolio task stays in review until required hosted evidence passes.
