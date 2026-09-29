@@ -59,6 +59,10 @@ cargo fmt --all --check
 ```
 
 Run the same complete native library test binaries on Android with the owning
-NDK environment and `android-jni-dev` profile. This checks native computation
+NDK environment and `android-jni-dev` profile. For the monitor binary, copy the
+unchanged `native/rust/crates/ripdpi-monitor-engine/tests/golden` files under
+the same relative path in a temporary fixture root. Set `RIPDPI_REPO_ROOT` to
+that root when running the binary. Check each copied file hash against its
+repository source. This checks native computation
 and bounded local diagnostic execution. It does not prove DPI evasion, raw
 packet delivery, APK root activation or privileged VPN socket transfer.

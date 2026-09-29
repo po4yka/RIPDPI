@@ -2,7 +2,7 @@
 id: RST-1790683922892928
 title: Port zapret verification examples and complete full audits
 kind: feature
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Native verification
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: zapret-verification-examples
 created: 2026-09-29
 updated: 2026-09-29
+status_detail: Implementation and local/Android checks passed; main push verified. Required hosted CI remains pending.
 ---
 
 ## Goal
