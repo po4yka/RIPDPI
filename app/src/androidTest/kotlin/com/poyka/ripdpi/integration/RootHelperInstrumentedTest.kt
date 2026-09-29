@@ -8,12 +8,15 @@ import com.poyka.ripdpi.services.RootHelperManager
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -80,6 +83,7 @@ class RootHelperInstrumentedTest {
     private companion object {
         private const val RootHelperSmokeArg = "ripdpi.rootHelperSmoke"
         private const val RootHelperProtocolVersion = 3
+        private const val MaxMessageBytes = 8192
         private const val ProbeCapabilitiesCommand = "v3/probe_capabilities"
         private const val RawIpv4Capability = "raw_ipv4"
         private const val RawIpv6Capability = "raw_ipv6"
@@ -203,18 +207,26 @@ class RootHelperInstrumentedTest {
 
         LocalSocket().use { socket ->
             socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
+            socket.soTimeout = 2000
             val request =
                 JSONObject()
                     .put("protocol_version", RootHelperProtocolVersion)
                     .put("command", ProbeCapabilitiesCommand)
                     .put("session_nonce", sessionNonce)
                     .toString()
-            socket.outputStream.write("$request\n".toByteArray(Charsets.UTF_8))
-            socket.outputStream.flush()
-
-            val responseLine = socket.inputStream.bufferedReader(Charsets.UTF_8).readLine()
-            assertNotNull("Root helper did not return a capability probe response", responseLine)
-            val response = JSONObject(requireNotNull(responseLine))
+                    .toByteArray(Charsets.UTF_8)
+            DataOutputStream(socket.outputStream).apply {
+                writeInt(request.size)
+                write(request)
+                flush()
+            }
+            val input = DataInputStream(socket.inputStream)
+            val size = input.readInt()
+            assertTrue("Root helper response frame is invalid", size in 1..MaxMessageBytes)
+            val bytes = ByteArray(size)
+            input.readFully(bytes)
+            val response = JSONObject(bytes.toString(Charsets.UTF_8))
+            assertEquals(RootHelperProtocolVersion, response.getInt("protocol_version"))
             assertTrue(response.optString("error"), response.optBoolean("ok"))
             val data = response.getJSONObject("data")
             assertBooleanCapability(data, RawIpv4Capability)
