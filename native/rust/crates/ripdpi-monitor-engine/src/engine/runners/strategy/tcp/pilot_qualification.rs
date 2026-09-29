@@ -25,8 +25,9 @@ pub(super) fn qualify_pilot_candidates(
     // representative target slice before the full-matrix run.
     // This avoids permanently pruning candidates based on a single domain.
     // Candidates are tested in parallel batches of up to 3 to reduce wall-clock time.
-    // Skipped when max_candidates is set (quick scan) since the list is already small.
-    if strategy_plan.max_candidates.is_some() || domain_targets.len() <= 1 {
+    // Full audits must test every applicable candidate against all targets.
+    // Capped scans already have a small candidate list.
+    if strategy_plan.is_exhaustive() || strategy_plan.max_candidates.is_some() || domain_targets.len() <= 1 {
         return pending_tcp_specs;
     }
 

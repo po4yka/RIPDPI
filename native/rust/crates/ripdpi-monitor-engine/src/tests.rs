@@ -36,7 +36,7 @@ use std::time::Duration;
 /// Serializes tests that spawn local TCP/TLS servers to avoid thread-starvation
 /// timeouts on resource-constrained hosts (e.g., Raspberry Pi).
 static NETWORK_PROBE_LOCK: Mutex<()> = Mutex::new(());
-fn lock_network_probes() -> MutexGuard<'static, ()> {
+pub(crate) fn lock_network_probes() -> MutexGuard<'static, ()> {
     NETWORK_PROBE_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
@@ -129,7 +129,7 @@ impl CandidateProbeRuntime for DirectCandidateRuntime {
     }
 }
 
-struct DirectCandidateRuntimeLauncher;
+pub(crate) struct DirectCandidateRuntimeLauncher;
 
 impl CandidateRuntimeLauncher for DirectCandidateRuntimeLauncher {
     fn start_candidate_runtime(

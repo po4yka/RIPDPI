@@ -1,3 +1,6 @@
+#[path = "runtime_tests/exhaustive.rs"]
+mod exhaustive;
+
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

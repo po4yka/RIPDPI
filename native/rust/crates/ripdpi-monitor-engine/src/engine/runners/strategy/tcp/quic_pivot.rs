@@ -14,6 +14,9 @@ pub(super) fn skip_for_confirmed_quic(
     tcp_specs: &[StrategyCandidateSpec],
 ) -> bool {
     let strategy_plan = plan.strategy.as_ref().expect("strategy plan");
+    if strategy_plan.is_exhaustive() {
+        return false;
+    }
     let quic_pivot_candidate = select_promotable_candidate_index(
         &runtime.strategy.quic_candidates,
         &strategy_plan.suite.quic_candidates,

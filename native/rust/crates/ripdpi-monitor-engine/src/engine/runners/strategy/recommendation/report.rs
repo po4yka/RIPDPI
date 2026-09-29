@@ -122,6 +122,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         quic_candidates: runtime.strategy.quic_candidates.clone(),
         recommendation,
         completion_kind: match () {
+            _ if strategy_plan.is_exhaustive() && is_partial => StrategyProbeCompletionKind::PartialResults,
             _ if is_dns_tampered => StrategyProbeCompletionKind::DnsTamperingWithFallback,
             _ if is_partial => StrategyProbeCompletionKind::PartialResults,
             _ => StrategyProbeCompletionKind::Normal,

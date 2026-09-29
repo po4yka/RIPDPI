@@ -3,7 +3,7 @@ use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_confi
 
 use crate::candidates::{StrategyProbeSuite, build_strategy_probe_suite};
 use crate::types::ScanRequest;
-use crate::util::probe_session_seed;
+use crate::util::{STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, probe_session_seed};
 
 pub(in crate::engine) struct StrategyExecutionPlan {
     pub(in crate::engine) suite_id: String,
@@ -11,6 +11,12 @@ pub(in crate::engine) struct StrategyExecutionPlan {
     pub(in crate::engine) suite: StrategyProbeSuite,
     pub(in crate::engine) probe_seed: u64,
     pub(in crate::engine) max_candidates: Option<usize>,
+}
+
+impl StrategyExecutionPlan {
+    pub(in crate::engine) fn is_exhaustive(&self) -> bool {
+        self.suite_id == STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 && self.max_candidates.is_none()
+    }
 }
 
 pub(super) fn build_strategy_execution_plan(
