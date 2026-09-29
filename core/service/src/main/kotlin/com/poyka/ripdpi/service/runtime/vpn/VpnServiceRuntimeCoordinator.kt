@@ -178,6 +178,7 @@ internal class VpnServiceRuntimeCoordinator(
     private val runtimeCompositionCoordinator =
         VpnRuntimeCompositionCoordinator(
             proxyRuntimeStack = proxyRuntimeStack,
+            rootHelperManager = rootHelperManager,
             vpnTunnelRuntime = vpnTunnelRuntime,
             supervisorExitHandler = supervisorExitHandler,
             applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
@@ -316,7 +317,10 @@ internal class VpnServiceRuntimeCoordinator(
                 ),
             stopHooks =
                 ServiceRuntimeStopHooks(
-                    stopModeRuntime = ::stopModeRuntime,
+                    stopModeRuntime = { skipRuntimeShutdown ->
+                        runtimeSession?.revokeInPathLease()
+                        runtimeCompositionCoordinator.stop(skipRuntimeShutdown)
+                    },
                     captureFinalTelemetry = telemetryCoordinator::captureFinalTelemetry,
                     onAfterStopCleanup = ::onAfterStopCleanup,
                 ),
@@ -406,13 +410,9 @@ internal class VpnServiceRuntimeCoordinator(
         super.onDestroy()
     }
 
-    private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
-        runtimeSession?.revokeInPathLease()
-        runtimeCompositionCoordinator.stop(skipRuntimeShutdown)
-    }
-
     private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
         telemetryCoordinator.start(tunnelRefreshCoordinator, replaceTelemetryJob)
+        monitorNfqws(rootHelperManager, ::retainProviderFailClosedBarrierIfActiveLocked)
     }
 
     private suspend fun restartAfterHandover(
@@ -716,7 +716,6 @@ internal class VpnServiceRuntimeCoordinator(
         telemetryCoordinator.stopProtectFailureMonitoring()
         resolverOverrideStore.clear()
         runtimeCompositionCoordinator.resetAfterStop(session)
-        rootHelperManager.stop()
     }
 }
 

@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.CloudflareWorkerTransportConfig
 import com.poyka.ripdpi.data.EnvironmentKind
+import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
@@ -249,6 +250,33 @@ fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSett
         quicInitialMode = quic.initialMode,
         quicFakeProfile = quic.fakeProfile,
         activeDns = activeDns,
+    )
+
+/** Keep transport and routing settings; nfqws2 owns every packet strategy. */
+fun RipDpiProxyUIPreferences.withoutPacketStrategies(): RipDpiProxyUIPreferences =
+    RipDpiProxyUIPreferences(
+        listen = listen,
+        protocols = protocols.copy(desyncHttp = false, desyncHttps = false, desyncUdp = false),
+        chains = RipDpiChainConfig(tcpSteps = emptyList()),
+        fakePackets = RipDpiFakePacketConfig(),
+        parserEvasions = RipDpiParserEvasionConfig(),
+        adaptiveFallback = RipDpiAdaptiveFallbackConfig(enabled = false),
+        quic = quic.copy(fakeProfile = QuicFakeProfileDisabled, fakeHost = ""),
+        hosts = hosts,
+        relay = relay,
+        warp = warp,
+        hostAutolearn = RipDpiHostAutolearnConfig(),
+        wsTunnel = wsTunnel,
+        nativeLogLevel = nativeLogLevel,
+        runtimeContext = runtimeContext,
+        logContext = logContext,
+        rootMode = rootMode,
+        rootHelperSocketPath = rootHelperSocketPath,
+        geoipDbPath = geoipDbPath,
+        geositeDbPath = geositeDbPath,
+        environmentKind = environmentKind,
+        destinationRouting = destinationRouting,
+        awg = awg,
     )
 
 internal const val MaxValidPortNumber = 65535

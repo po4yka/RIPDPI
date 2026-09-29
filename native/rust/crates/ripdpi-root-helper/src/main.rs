@@ -10,6 +10,7 @@
 
 mod dispatch;
 mod handlers;
+mod nfqws2;
 
 use std::ffi::CString;
 use std::fs;
@@ -95,12 +96,38 @@ fn main() {
     }
     RUNNING.store(true, Ordering::SeqCst);
 
+    let mut backend = socket_path.parent().and_then(|directory| match nfqws2::Nfqws2Backend::new(directory) {
+        Ok(backend) => Some(backend),
+        Err(error) => {
+            warn!(%error, "nfqws2 backend is unavailable");
+            None
+        }
+    });
     info!(path = %socket_path.display(), "listening for connections");
 
-    while running.load(Ordering::Relaxed) && RUNNING.load(Ordering::SeqCst) {
+    loop {
+        let stopping = !running.load(Ordering::Relaxed) || !RUNNING.load(Ordering::SeqCst);
+        if let Some(backend) = backend.as_mut() {
+            if stopping {
+                backend.request_shutdown();
+                backend.stop();
+            } else {
+                backend.poll();
+            }
+            if backend.shutdown_complete() {
+                break;
+            }
+        } else if stopping {
+            break;
+        }
+        if stopping {
+            // Keep ownership while netd holds its lock; do not exit with owned rules.
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            continue;
+        }
         match listener.accept() {
             Ok((stream, _addr)) => {
-                if let Err(e) = handle_connection(&stream, &session_nonce) {
+                if let Err(e) = handle_connection_with_backend(&stream, &session_nonce, backend.as_mut()) {
                     warn!(%e, "connection handler error");
                 }
             }
@@ -110,7 +137,7 @@ fn main() {
             }
             Err(e) => {
                 if !RUNNING.load(Ordering::SeqCst) {
-                    break;
+                    continue;
                 }
                 error!(%e, "accept failed");
                 std::thread::sleep(std::time::Duration::from_millis(100));
@@ -118,14 +145,26 @@ fn main() {
         }
     }
 
+    if let Some(backend) = backend.as_mut() {
+        backend.stop();
+    }
     info!("shutting down");
     let _ = fs::remove_file(&socket_path);
 }
 
+#[cfg(test)]
 fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()> {
+    handle_connection_with_backend(stream, session_nonce, None)
+}
+
+fn handle_connection_with_backend(
+    stream: &UnixStream,
+    session_nonce: &str,
+    backend: Option<&mut nfqws2::Nfqws2Backend>,
+) -> io::Result<()> {
     use std::time::Duration;
 
-    stream.set_read_timeout(Some(Duration::from_secs(30)))?;
+    stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
 
     let (data, received_fd) = protocol::recv_message(stream, "peer closed connection")?;
@@ -148,7 +187,7 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
     // So `handle_connection` must NOT close `received_fd` here — doing so would
     // double-close a descriptor dispatch already released (the previous
     // dead/inverted accounting block, audit F17).
-    let dispatch = dispatch::dispatch_command(&request, received_fd.map(IntoRawFd::into_raw_fd));
+    let dispatch = dispatch::dispatch_command_with_backend(&request, received_fd.map(IntoRawFd::into_raw_fd), backend);
     if dispatch.shutdown_requested {
         RUNNING.store(false, Ordering::SeqCst);
     }

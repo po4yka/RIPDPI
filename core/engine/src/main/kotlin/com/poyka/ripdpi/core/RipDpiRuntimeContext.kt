@@ -136,21 +136,7 @@ internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContex
 @Suppress("LongMethod")
 internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): RipDpiRuntimeContext? =
     runtimeContext?.let { ctx ->
-        val encryptedDns =
-            ctx.encryptedDns?.let { value ->
-                val normalizedHost = value.host.trim().takeIf { it.isNotEmpty() } ?: return@let null
-                RipDpiEncryptedDnsContext(
-                    resolverId = value.resolverId?.trim()?.takeIf { it.isNotEmpty() },
-                    protocol = value.protocol.trim().lowercase(),
-                    host = normalizedHost,
-                    port = value.port.takeIf { it > 0 } ?: 443,
-                    tlsServerName = value.tlsServerName?.trim()?.takeIf { it.isNotEmpty() },
-                    bootstrapIps = value.bootstrapIps.map(String::trim).filter { it.isNotEmpty() },
-                    dohUrl = value.dohUrl?.trim()?.takeIf { it.isNotEmpty() },
-                    dnscryptProviderName = value.dnscryptProviderName?.trim()?.takeIf { it.isNotEmpty() },
-                    dnscryptPublicKey = value.dnscryptPublicKey?.trim()?.takeIf { it.isNotEmpty() },
-                )
-            }
+        val encryptedDns = ctx.encryptedDns?.let(::normalizeEncryptedDnsContext)
         val protectPath = ctx.protectPath?.trim()?.takeIf { it.isNotEmpty() }
         val strategyChainYaml = ctx.strategyChainYaml?.takeIf { it.isNotBlank() }
         val luaScriptBaseDir = ctx.luaScriptBaseDir?.trim()?.takeIf { it.isNotEmpty() }
@@ -313,4 +299,19 @@ private fun List<RipDpiDirectPathCapability>.applyQuicHostWideEscalation(): List
             capability
         }
     }
+}
+
+private fun normalizeEncryptedDnsContext(value: RipDpiEncryptedDnsContext): RipDpiEncryptedDnsContext? {
+    val host = value.host.trim().takeIf { it.isNotEmpty() } ?: return null
+    return RipDpiEncryptedDnsContext(
+        resolverId = value.resolverId?.trim()?.takeIf { it.isNotEmpty() },
+        protocol = value.protocol.trim().lowercase(),
+        host = host,
+        port = value.port.takeIf { it > 0 } ?: 443,
+        tlsServerName = value.tlsServerName?.trim()?.takeIf { it.isNotEmpty() },
+        bootstrapIps = value.bootstrapIps.map(String::trim).filter { it.isNotEmpty() },
+        dohUrl = value.dohUrl?.trim()?.takeIf { it.isNotEmpty() },
+        dnscryptProviderName = value.dnscryptProviderName?.trim()?.takeIf { it.isNotEmpty() },
+        dnscryptPublicKey = value.dnscryptPublicKey?.trim()?.takeIf { it.isNotEmpty() },
+    )
 }

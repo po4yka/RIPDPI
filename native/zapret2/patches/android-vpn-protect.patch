@@ -1,0 +1,64 @@
+--- a/darkmagic.c
++++ b/darkmagic.c
+@@ -18,6 +18,9 @@
+ #include "helpers.h"
+ #include "params.h"
+ #include "nfqws.h"
++#ifdef __ANDROID__
++#include "ripdpi_protect.h"
++#endif
+ 
+ #ifdef __CYGWIN__
+ #include "timer.h"
+@@ -656,6 +659,9 @@
+ {
+ 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+ 	if (sock < 0) return false;
++#ifdef __ANDROID__
++	if (!ripdpi_protect_socket(sock)) { close(sock); return false; }
++#endif
+ 
+ 	struct sockaddr_in serv,name;
+ 	socklen_t namelen;
+@@ -683,6 +689,9 @@
+ {
+ 	int sock = socket(AF_INET6, SOCK_DGRAM, 0);
+ 	if (sock < 0) return false;
++#ifdef __ANDROID__
++	if (!ripdpi_protect_socket(sock)) { close(sock); return false; }
++#endif
+ 
+ 	struct sockaddr_in6 serv,name;
+ 	socklen_t namelen;
+@@ -1945,6 +1954,13 @@
+ 			DLOG_PERROR("rawsend: socket()");
+ 			return -1;
+ 		}
++#ifdef __ANDROID__
++		if (!ripdpi_protect_socket(*sock))
++		{
++			DLOG_PERROR("rawsend: VPN protect");
++			goto exiterr;
++		}
++#endif
+ #ifdef __linux__
+ 		if (setsockopt(*sock, SOL_SOCKET, SO_PRIORITY, &pri, sizeof(pri)) == -1)
+ 		{
+@@ -1988,6 +2004,17 @@
+ 	if (sock==-1) return false;
+ #if defined(BSD) || defined(__linux__)
+ 	if (!set_socket_fwmark(sock,fwmark)) return false;
++#endif
++#ifdef __ANDROID__
++	/* SO_MARK overwrites Android VPN protection, so re-protect before emission. */
++	if (!ripdpi_protect_socket(sock))
++	{
++		int saved_errno = errno;
++		DLOG_PERROR("rawsend: VPN protect");
++		rawsend_clean_sock(rawsend_family_sock(dst->sa_family));
++		errno = saved_errno;
++		return false;
++	}
+ #endif
+ 	int salen = dst->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+ 	struct sockaddr_storage dst2;

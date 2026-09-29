@@ -144,6 +144,7 @@ class DefaultConnectionPolicyResolver
             val selectedAwgEgress = if (mode == Mode.VPN) selectedAwgEgress() else null
             val settings = appSettingsRepository.snapshot().forAwg(selectedAwgEgress)
             rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
+            rootHelperManager.syncNfqws(context, settings)
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val destinationRoutingSnapshot = destinationRoutingPolicySource.snapshot()

@@ -16,10 +16,10 @@ pub fn classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -
             return L7Protocol::Quic(QuicDissect::default());
         }
         if is_wireguard(payload) {
-            return L7Protocol::WireGuard(WireGuardDissect::default());
+            return L7Protocol::WireGuard(WireGuardDissect { message_type: Some(u32::from(payload[0])) });
         }
         if is_dtls(payload) {
-            return L7Protocol::Dtls(DtlsDissect::default());
+            return L7Protocol::Dtls(DtlsDissect { is_client_hello: payload[0] == 22 && payload.get(13) == Some(&1) });
         }
         if is_stun(payload) {
             return L7Protocol::Stun(StunDissect);

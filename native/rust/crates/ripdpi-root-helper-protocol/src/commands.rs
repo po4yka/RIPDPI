@@ -82,6 +82,13 @@ pub const CMD_RECV_ICMP_WRAPPED_UDP: &str = "v3/recv_icmp_wrapped_udp";
 /// to a target address. No fd is passed.
 pub const CMD_SEND_RAW_IP_PACKET: &str = "v3/send_raw_ip_packet";
 
+/// Start the app-owned foreground nfqws2 backend. No fd is passed.
+pub const CMD_START_NFQWS2: &str = "v3/start_nfqws2";
+/// Remove owned NFQUEUE rules and stop the backend. No fd is passed.
+pub const CMD_STOP_NFQWS2: &str = "v3/stop_nfqws2";
+/// Read backend readiness and cleanup state. No fd is passed.
+pub const CMD_NFQWS2_STATUS: &str = "v3/nfqws2_status";
+
 /// Ask the helper to finish the in-flight request and exit cleanly. No fd is
 /// passed; issued by `RootHelperManager` during shutdown.
 pub const CMD_SHUTDOWN: &str = "v3/shutdown";
@@ -89,15 +96,16 @@ pub const CMD_SHUTDOWN: &str = "v3/shutdown";
 #[cfg(test)]
 mod tests {
     use super::{
-        CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST,
-        CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
-        CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
-        CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+        CMD_NFQWS2_STATUS, CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP,
+        CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP,
+        CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
+        CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP,
+        CMD_SHUTDOWN, CMD_START_NFQWS2, CMD_STOP_NFQWS2,
     };
 
     /// Every `CMD_*` wire string. A change to this set is a breaking protocol
     /// change — see `docs/architecture/ROOT_HELPER_CONTRACT.md`.
-    const ALL_COMMANDS: [&str; 15] = [
+    const ALL_COMMANDS: [&str; 18] = [
         CMD_PROTOCOL_PREFLIGHT,
         CMD_PROBE_CAPABILITIES,
         CMD_SEND_FAKE_TCP,
@@ -112,6 +120,9 @@ mod tests {
         CMD_SEND_ICMP_WRAPPED_UDP,
         CMD_RECV_ICMP_WRAPPED_UDP,
         CMD_SEND_RAW_IP_PACKET,
+        CMD_START_NFQWS2,
+        CMD_STOP_NFQWS2,
+        CMD_NFQWS2_STATUS,
         CMD_SHUTDOWN,
     ];
 
@@ -133,6 +144,9 @@ mod tests {
         assert_eq!(CMD_SEND_ICMP_WRAPPED_UDP, "v3/send_icmp_wrapped_udp");
         assert_eq!(CMD_RECV_ICMP_WRAPPED_UDP, "v3/recv_icmp_wrapped_udp");
         assert_eq!(CMD_SEND_RAW_IP_PACKET, "v3/send_raw_ip_packet");
+        assert_eq!(CMD_START_NFQWS2, "v3/start_nfqws2");
+        assert_eq!(CMD_STOP_NFQWS2, "v3/stop_nfqws2");
+        assert_eq!(CMD_NFQWS2_STATUS, "v3/nfqws2_status");
         assert_eq!(CMD_SHUTDOWN, "v3/shutdown");
     }
 
@@ -148,7 +162,7 @@ mod tests {
             let operation = command.strip_prefix("v3/").expect("command must be namespaced to protocol v3");
             assert!(!operation.is_empty(), "command operation must not be empty");
             assert!(
-                operation.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'_'),
+                operation.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'),
                 "command operation {operation} must be lowercase snake_case",
             );
         }

@@ -289,6 +289,32 @@ mod tests {
     }
 
     #[test]
+    fn protocol_detection_reaches_lua_with_wireguard_and_dtls_subtypes() {
+        let scripts = Scripts::new("function kind(d) return d.l7payload end");
+        let strategies = scripts.load(&rule("kind", "kind", "drop", ""));
+        let (src, dst) = endpoints();
+        for (kind, length, expected) in [
+            (1, 148, "wireguard_initiation"),
+            (2, 92, "wireguard_response"),
+            (3, 64, "wireguard_cookie"),
+            (4, 32, "wireguard_keepalive"),
+            (4, 64, "wireguard_data"),
+        ] {
+            let mut payload = vec![0; length];
+            payload[0] = kind;
+            let result = strategies.open_flow().plan(src, dst, "udp", &payload, None).unwrap().unwrap();
+            assert_eq!(result.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
+        }
+        for (kind, expected) in [(1, "dtls_client_hello"), (2, "dtls_server_hello"), (11, "unknown")] {
+            let mut payload = [0; 14];
+            payload[..3].copy_from_slice(&[22, 0xfe, 0xfd]);
+            payload[13] = kind;
+            let result = strategies.open_flow().plan(src, dst, "udp", &payload, None).unwrap().unwrap();
+            assert_eq!(result.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
+        }
+    }
+
+    #[test]
     fn socket_load_requires_absolute_jail_and_ignores_builtin_only_yaml() {
         assert!(SocketLuaStrategies::load(None).unwrap().is_none());
         let yaml = format!("version: 1\nstrategies:\n{}", rule("lua", "write", "drop", ""));

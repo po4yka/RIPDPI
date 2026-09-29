@@ -8,10 +8,11 @@ use std::os::fd::RawFd;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
-    CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
-    CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
-    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
-    CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, DescriptorValidationError, HelperRequest, validate_request,
+    CMD_NFQWS2_STATUS, CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST,
+    CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
+    CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
+    CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, CMD_START_NFQWS2, CMD_STOP_NFQWS2,
+    DescriptorValidationError, HelperRequest, validate_request,
 };
 
 /// The wire strings the dispatch `match` below has an arm for, in match order.
@@ -39,6 +40,9 @@ pub(crate) const DISPATCH_COMMANDS: &[&str] = &[
     CMD_SEND_ICMP_WRAPPED_UDP,
     CMD_RECV_ICMP_WRAPPED_UDP,
     CMD_SEND_RAW_IP_PACKET,
+    CMD_START_NFQWS2,
+    CMD_STOP_NFQWS2,
+    CMD_NFQWS2_STATUS,
     CMD_SHUTDOWN,
 ];
 
@@ -76,7 +80,16 @@ impl DispatchOutcome {
 /// 3. On success the per-command match arm dispatches as before. The
 ///    per-handler `require_fd` / `decode_params` checks remain in place as
 ///    defence-in-depth.
+#[cfg(test)]
 pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawFd>) -> DispatchOutcome {
+    dispatch_command_with_backend(request, received_fd, None)
+}
+
+pub(crate) fn dispatch_command_with_backend(
+    request: &HelperRequest,
+    received_fd: Option<RawFd>,
+    backend: Option<&mut crate::nfqws2::Nfqws2Backend>,
+) -> DispatchOutcome {
     if let Err(error) = request.validate_protocol_version() {
         close_received_fd(received_fd);
         return DispatchOutcome::command(protocol::HelperResponse::error(error.to_string()), None);
@@ -106,7 +119,55 @@ pub(crate) fn dispatch_command(request: &HelperRequest, received_fd: Option<RawF
         CMD_SEND_ICMP_WRAPPED_UDP => experimental::dispatch_send_icmp_wrapped_udp(request),
         CMD_RECV_ICMP_WRAPPED_UDP => experimental::dispatch_recv_icmp_wrapped_udp(request),
         CMD_SEND_RAW_IP_PACKET => experimental::dispatch_send_raw_ip_packet(request),
-        CMD_SHUTDOWN => shutdown::dispatch_shutdown(),
+        CMD_START_NFQWS2 | CMD_STOP_NFQWS2 | CMD_NFQWS2_STATUS => {
+            let Some(backend) = backend else {
+                return DispatchOutcome::command(
+                    protocol::HelperResponse::error("nfqws2 backend is unavailable"),
+                    None,
+                );
+            };
+            let status = match request.command.as_str() {
+                CMD_START_NFQWS2 => {
+                    let params = match decode_params(request) {
+                        Ok(params) => params,
+                        Err(error) => return DispatchOutcome::command(error, None),
+                    };
+                    backend.start(params)
+                }
+                CMD_STOP_NFQWS2 => backend.stop(),
+                _ => {
+                    backend.poll();
+                    backend.status()
+                }
+            };
+            let data = match serde_json::to_value(&status) {
+                Ok(data) => data,
+                Err(error) => {
+                    return DispatchOutcome::command(protocol::HelperResponse::error(error.to_string()), None);
+                }
+            };
+            // Lifecycle failures retain their typed state for the app to inspect.
+            let mut response = protocol::HelperResponse::success(data);
+            if status.capability_error.is_some() && request.command != CMD_NFQWS2_STATUS {
+                response.ok = false;
+                response.error = status.capability_error;
+            }
+            DispatchOutcome::command(response, None)
+        }
+        CMD_SHUTDOWN => {
+            if let Some(backend) = backend {
+                backend.request_shutdown();
+                let status = backend.stop();
+                if status.cleanup_pending {
+                    let data = serde_json::to_value(&status).unwrap_or(serde_json::Value::Null);
+                    let mut response =
+                        protocol::HelperResponse::error("nfqws2 cleanup is pending; helper remains active");
+                    response.data = data;
+                    return DispatchOutcome::command(response, None);
+                }
+            }
+            shutdown::dispatch_shutdown()
+        }
         // Unreachable: validate_request above already maps every wire string
         // in DISPATCH_COMMANDS to Ok and every other string to UnknownCommand
         // — kept defensively so a missing arm produces a clear runtime error

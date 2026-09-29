@@ -1,0 +1,17 @@
+--- a/src/extra/ipv4.c
++++ b/src/extra/ipv4.c
+@@ -16,6 +16,14 @@
+ #include <arpa/inet.h>
+ #include <netinet/ip.h>
+ 
++/* Bionic does not define these legacy IPv4 TOS extraction helpers. */
++#ifndef IPTOS_TOS
++#define IPTOS_TOS(tos) ((tos) & 0x1e)
++#endif
++#ifndef IPTOS_PREC
++#define IPTOS_PREC(tos) ((tos) & 0xe0)
++#endif
++
+ #include <libnetfilter_queue/libnetfilter_queue.h>
+ #include <libnetfilter_queue/libnetfilter_queue_ipv4.h>
+ #include <libnetfilter_queue/pktbuff.h>

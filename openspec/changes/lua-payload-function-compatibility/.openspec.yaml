@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-09-29
+goal: RST-1790672261516782 Complete zapret2 Lua compatibility

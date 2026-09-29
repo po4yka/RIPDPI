@@ -6,15 +6,28 @@ import android.net.LocalSocketAddress
 import android.os.Build
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.RootSettingsSection
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.io.File
 import java.io.IOException
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,21 +40,36 @@ import javax.inject.Singleton
 @Singleton
 open class RootHelperManager
     @Inject
-    constructor() {
+    constructor(
+        private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
+    ) {
+        constructor() : this(ActiveProtectSocketPathProvider())
+
         internal constructor(
             binaryExtractor: (Context) -> File,
             processLaunchAttempts: (File, File, File) -> List<RootHelperLaunchAttempt>,
             readinessProbe: suspend (File, Long, Long) -> Boolean,
             shutdownRequester: ((String, String?) -> Unit)? = null,
             rootProcessTerminator: (() -> Unit)? = null,
+            nfqwsRequester: ((String, String, String, JsonObject) -> JsonObject)? = null,
+            nfqwsExtractor: ((Context) -> File)? = null,
+            nfqwsDispatcher: CoroutineDispatcher = Dispatchers.IO,
         ) : this() {
             this.binaryExtractor = binaryExtractor
             this.processLaunchAttempts = processLaunchAttempts
             this.readinessProbe = readinessProbe
-            this.shutdownRequester = shutdownRequester ?: ::requestHelperShutdown
+            this.shutdownRequester = shutdownRequester ?: RootHelperIpc::shutdown
             this.rootProcessTerminator = rootProcessTerminator ?: ::terminateRootHelperProcesses
+            this.nfqwsRequester = nfqwsRequester ?: RootHelperIpc::request
+            this.nfqwsExtractor = nfqwsExtractor ?: NfqwsBackendAssets::extract
+            this.nfqwsDispatcher = nfqwsDispatcher
         }
 
+        private val backendSession = AtomicReference<NfqwsBackendSession?>(null)
+        private var backendMonitor: Job? = null
+        private var nfqwsRequester: (String, String, String, JsonObject) -> JsonObject = RootHelperIpc::request
+        private var nfqwsExtractor: (Context) -> File = NfqwsBackendAssets::extract
+        private var nfqwsDispatcher: CoroutineDispatcher = Dispatchers.IO
         private var helperProcess: Process? = null
         private var activeSocketPath: String? = null
         private var activeNoncePath: String? = null
@@ -51,7 +79,7 @@ open class RootHelperManager
         private var readinessProbe: suspend (File, Long, Long) -> Boolean = { socket, timeoutMs, pollIntervalMs ->
             awaitSocketReady(socket, timeoutMs, pollIntervalMs)
         }
-        private var shutdownRequester: (String, String?) -> Unit = ::requestHelperShutdown
+        private var shutdownRequester: (String, String?) -> Unit = RootHelperIpc::shutdown
         private var rootProcessTerminator: () -> Unit = ::terminateRootHelperProcesses
 
         private companion object {
@@ -59,14 +87,12 @@ open class RootHelperManager
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
             private const val SOCKET_NAME = "root_helper.sock"
             private const val NONCE_FILE_NAME = "$SOCKET_NAME.nonce"
-            private const val ROOT_HELPER_PROTOCOL_VERSION = 3
-            private const val SHUTDOWN_COMMAND = "v3/shutdown"
-            private const val SHUTDOWN_READ_TIMEOUT_MS = 500
             private const val ROOT_TERMINATION_TIMEOUT_MS = 1000L
             private const val SESSION_NONCE_BYTES = 32
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
             private const val STOP_TIMEOUT_MS = 1000L
+            private const val BACKEND_POLL_INTERVAL_MS = 1000L
             private val SU_COMMAND_CANDIDATES = listOf("su", "/system/xbin/su", "/system/bin/su")
             private val secureRandom = SecureRandom()
         }
@@ -74,6 +100,100 @@ open class RootHelperManager
         /** Absolute path of the live helper Unix socket, or `null` when the helper is not running. */
         open val socketPath: String?
             get() = activeSocketPath
+
+        /** True only after NFQUEUE startup and rule installation succeed. */
+        open val nfqwsActive: Boolean
+            get() = backendSession.get()?.running == true && isRunning()
+
+        open suspend fun syncNfqws(
+            context: Context,
+            settings: com.poyka.ripdpi.proto.AppSettings,
+        ) {
+            val requested = nfqwsArguments(settings)
+            val socket = activeSocketPath
+            val nonce = activeNoncePath
+            if (requested == null) {
+                val pending = backendSession.updateAndGet { it?.copy(running = false) }
+                backendMonitor?.cancel()
+                if (pending != null && socket != null && nonce != null) {
+                    withContext(nfqwsDispatcher) {
+                        nfqwsRequester(socket, nonce, "v3/stop_nfqws2", buildJsonObject {})
+                    }
+                }
+                backendSession.compareAndSet(pending, null)
+                return
+            }
+            if (socket == null || nonce == null) throw IOException("nfqws2 root helper is unavailable")
+            val protectPath = activeProtectSocketPathProvider.current()
+            withContext(nfqwsDispatcher) {
+                val prior = backendSession.get()
+                if (prior?.args == requested && prior.protectPath == protectPath && prior.running) {
+                    val status = nfqwsRequester(socket, nonce, "v3/nfqws2_status", buildJsonObject {})
+                    if (status["running"]?.jsonPrimitive?.booleanOrNull == true) return@withContext
+                }
+                backendMonitor?.cancel()
+                val pending = NfqwsBackendSession(requested, protectPath, nonce, running = false)
+                backendSession.set(pending)
+                val directory = nfqwsExtractor(context)
+                val params =
+                    buildJsonObject {
+                        put("binary_path", File(directory, "nfqws2").absolutePath)
+                        put("working_directory", directory.absolutePath)
+                        put("owner_pid", android.os.Process.myPid())
+                        protectPath?.let { put("protect_path", it) }
+                        put(
+                            "args",
+                            buildJsonArray {
+                                (NfqwsBackendAssets.initializers() + requested).forEach { add(it) }
+                            },
+                        )
+                    }
+                val status = nfqwsRequester(socket, nonce, "v3/start_nfqws2", params)
+                check(status["running"]?.jsonPrimitive?.booleanOrNull == true) { "nfqws2 did not activate" }
+                if (!backendSession.compareAndSet(pending, pending.copy(running = true))) {
+                    throw RuntimeCleanupPendingException()
+                }
+            }
+        }
+
+        open fun monitorNfqws(
+            scope: CoroutineScope,
+            onFailure: suspend (IOException) -> Unit,
+        ) {
+            backendMonitor?.cancel()
+            val observed = backendSession.get()
+            val socket = activeSocketPath
+            if (observed?.running != true || socket == null || !isRunning()) return
+            val nonce = observed.noncePath
+            backendMonitor =
+                scope.launch(nfqwsDispatcher) {
+                    while (isActive && backendSession.get() === observed) {
+                        delay(BACKEND_POLL_INTERVAL_MS)
+                        val failure =
+                            try {
+                                val status =
+                                    nfqwsRequester(
+                                        socket,
+                                        nonce,
+                                        "v3/nfqws2_status",
+                                        buildJsonObject {},
+                                    )
+                                if (status["running"]?.jsonPrimitive?.booleanOrNull == true) {
+                                    null
+                                } else {
+                                    IOException("nfqws2 exited unexpectedly")
+                                }
+                            } catch (error: IOException) {
+                                error
+                            }
+                        if (!isActive) return@launch
+                        if (failure != null && backendSession.compareAndSet(observed, observed.copy(running = false))) {
+                            onFailure(failure)
+                            return@launch
+                        }
+                    }
+                }
+        }
 
         /**
          * Reconcile the helper process with the [RootSettingsSection].
@@ -110,6 +230,7 @@ open class RootHelperManager
                 return currentPath
             }
             stop()
+            if (activeSocketPath != null) throw IOException("Root-helper cleanup is pending")
             return start(context)
         }
 
@@ -170,19 +291,23 @@ open class RootHelperManager
 
         /** Stop the root helper process and clean up. */
         open fun stop() {
+            val ownedBackend = backendSession.getAndUpdate { it?.copy(running = false) }
+            backendMonitor?.cancel()
+            backendMonitor = null
             val process = helperProcess
             val socketPath = activeSocketPath
             val noncePath = activeNoncePath
+            if (socketPath != null) {
+                val shutdownFailure = runCatching { shutdownRequester(socketPath, noncePath) }.exceptionOrNull()
+                if (shutdownFailure != null) {
+                    log.w(shutdownFailure) { "failed to request root helper shutdown" }
+                    if (ownedBackend != null) throw RuntimeCleanupPendingException(shutdownFailure)
+                }
+            }
             helperProcess = null
             activeSocketPath = null
             activeNoncePath = null
-            if (socketPath != null) {
-                runCatching {
-                    shutdownRequester(socketPath, noncePath)
-                }.onFailure { error ->
-                    log.w(error) { "failed to request root helper shutdown" }
-                }
-            }
+            backendSession.set(null)
             if (process == null) {
                 removeIpcFiles(socketPath, noncePath)
                 return
@@ -203,7 +328,7 @@ open class RootHelperManager
             } catch (e: SecurityException) {
                 log.w(e) { "error stopping root helper" }
             } finally {
-                if (socketPath != null) {
+                if (socketPath != null && ownedBackend == null) {
                     runCatching {
                         rootProcessTerminator()
                     }.onFailure { error ->
@@ -311,35 +436,6 @@ open class RootHelperManager
             noncePath?.let { runCatching { File(it).delete() } }
         }
 
-        private fun requestHelperShutdown(
-            socketPath: String,
-            noncePath: String?,
-        ) {
-            val nonce =
-                noncePath
-                    ?.let(::File)
-                    ?.takeIf(File::exists)
-                    ?.readText(Charsets.US_ASCII)
-                    ?.trim()
-                    .orEmpty()
-            if (nonce.isEmpty()) {
-                return
-            }
-            val payload =
-                """{"protocol_version":$ROOT_HELPER_PROTOCOL_VERSION,"command":"$SHUTDOWN_COMMAND",""" +
-                    """"session_nonce":"$nonce"}""" +
-                    "\n"
-            LocalSocket().use { socket ->
-                socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
-                socket.soTimeout = SHUTDOWN_READ_TIMEOUT_MS
-                socket.outputStream.write(payload.toByteArray(Charsets.UTF_8))
-                socket.outputStream.flush()
-                runCatching {
-                    socket.inputStream.bufferedReader(Charsets.UTF_8).readLine()
-                }
-            }
-        }
-
         private fun terminateRootHelperProcesses() {
             val command =
                 "killall -TERM $HELPER_BINARY_NAME 2>/dev/null || true; " +
@@ -395,3 +491,12 @@ internal class RootHelperLaunchAttempt(
     val description: String,
     val launch: () -> Process,
 )
+
+/** Finish local service destruction while the helper retains pending cleanup. */
+internal fun RootHelperManager.stopOnDestroy() {
+    try {
+        stop()
+    } catch (error: RuntimeCleanupPendingException) {
+        Logger.withTag("RootHelperManager").w(error) { "root helper retains pending cleanup after service destruction" }
+    }
+}

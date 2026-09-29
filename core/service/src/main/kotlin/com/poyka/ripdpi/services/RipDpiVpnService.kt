@@ -165,7 +165,7 @@ class RipDpiVpnService :
         sessionLifecycle.destroy()
         vpnRouteObservationAuthority.stop()
         underlyingNetworkBinder.stop()
-        rootHelperManager.stop()
+        rootHelperManager.stopOnDestroy()
         super.onDestroy()
     }
 

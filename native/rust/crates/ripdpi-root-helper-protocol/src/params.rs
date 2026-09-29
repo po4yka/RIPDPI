@@ -1,5 +1,28 @@
 use serde::{Deserialize, Serialize};
 
+/// App-private paths and upstream options for the opt-in root backend.
+/// The helper derives the app UID from its private socket directory.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StartNfqws2Params {
+    pub binary_path: String,
+    pub working_directory: String,
+    pub args: Vec<String>,
+    pub owner_pid: u32,
+    #[serde(default)]
+    pub protect_path: Option<String>,
+}
+
+/// Actual backend state, including cleanup failures.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Nfqws2Status {
+    pub running: bool,
+    pub pid: Option<u32>,
+    pub owner_pid: Option<u32>,
+    pub cleanup_pending: bool,
+    pub capability_error: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FakeRstParams {
     pub default_ttl: u8,
@@ -167,7 +190,8 @@ pub struct RawIpPacketParams {
 mod tests {
     use super::{
         FakeRstParams, FakeTcpParams, FlaggedTcpPayloadParams, IpFragTcpParams, IpFragUdpParams, MultiDisorderParams,
-        OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
+        Nfqws2Status, OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
+        StartNfqws2Params,
     };
 
     /// Round-trip a canonical compact JSON form through `from_str` then
@@ -231,6 +255,34 @@ mod tests {
             r#""ipv6_routing":false,"ipv6_second_frag_next_override":null}"#,
         ));
         assert_params_json_stable::<RawIpPacketParams>(r#"{"target_addr":"203.0.113.5:443","packet":[1,2,255]}"#);
+    }
+
+    #[test]
+    fn nfqws2_params_are_typed_and_protect_path_is_optional() {
+        let params: StartNfqws2Params = serde_json::from_str(
+            r#"{"binary_path":"/app/files/nfqws2/nfqws2","working_directory":"/app/files/nfqws2","args":["--lua-desync=multisplit"],"owner_pid":123}"#
+        ).expect("params");
+        assert_eq!(params.owner_pid, 123);
+        assert_eq!(params.protect_path, None);
+        assert!(
+            serde_json::from_str::<StartNfqws2Params>(
+                r#"{"binary_path":"/a","working_directory":"/b","args":[],"owner_pid":123,"uid":0}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<StartNfqws2Params>(r#"{"binary_path":"/a","working_directory":"/b","args":[]}"#)
+                .is_err()
+        );
+        let status = Nfqws2Status {
+            running: false,
+            pid: None,
+            owner_pid: Some(123),
+            cleanup_pending: true,
+            capability_error: Some("cleanup failed".to_owned()),
+        };
+        let encoded = serde_json::to_string(&status).expect("status JSON");
+        assert_eq!(serde_json::from_str::<Nfqws2Status>(&encoded).expect("status"), status);
     }
 
     #[test]

@@ -23,6 +23,7 @@ import java.util.UUID
  */
 internal class VpnRuntimeCompositionCoordinator(
     private val proxyRuntimeStack: SharedProxyRuntimeStack,
+    private val rootHelperManager: RootHelperManager,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val supervisorExitHandler: VpnSupervisorExitHandler,
     private val applyActiveConnectionPolicy: (
@@ -65,32 +66,36 @@ internal class VpnRuntimeCompositionCoordinator(
     ): ProxyRuntimeStartResult? = startComposedRuntime(session, resolution)
 
     suspend fun stop(skipRuntimeShutdown: Boolean) {
-        if (providerDelegate?.tryStop() == true) {
-            currentLocalProxyEndpoint = null
-            return
-        }
-        var stopFailure: Throwable? = null
-        runCatching {
-            vpnTunnelRuntime.stop()
-        }.onFailure { failure ->
-            stopFailure = failure
-        }
-        runCatching {
-            proxyRuntimeStack.stop(skipRuntimeShutdown)
-        }.onFailure { failure ->
-            val previousFailure = stopFailure
-            if (failure is RuntimeCleanupPendingException && previousFailure !is RuntimeCleanupPendingException) {
-                previousFailure?.let(failure::addSuppressed)
-                stopFailure = failure
-            } else if (previousFailure == null) {
-                stopFailure = failure
-            } else {
-                previousFailure.addSuppressed(failure)
+        try {
+            if (providerDelegate?.tryStop() == true) {
+                currentLocalProxyEndpoint = null
+                return
             }
-        }
-        stopFailure?.let { failure ->
-            val error = failure as? Exception ?: IllegalStateException("Failed to stop VPN runtime", failure)
-            throw error
+            var stopFailure: Throwable? = null
+            runCatching {
+                vpnTunnelRuntime.stop()
+            }.onFailure { failure ->
+                stopFailure = failure
+            }
+            runCatching {
+                proxyRuntimeStack.stop(skipRuntimeShutdown)
+            }.onFailure { failure ->
+                val previousFailure = stopFailure
+                if (failure is RuntimeCleanupPendingException && previousFailure !is RuntimeCleanupPendingException) {
+                    previousFailure?.let(failure::addSuppressed)
+                    stopFailure = failure
+                } else if (previousFailure == null) {
+                    stopFailure = failure
+                } else {
+                    previousFailure.addSuppressed(failure)
+                }
+            }
+            stopFailure?.let { failure ->
+                val error = failure as? Exception ?: IllegalStateException("Failed to stop VPN runtime", failure)
+                throw error
+            }
+        } finally {
+            rootHelperManager.stop()
         }
     }
 

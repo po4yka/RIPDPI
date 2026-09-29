@@ -145,6 +145,20 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         beforeStopFinalization = beforeStopFinalization,
     )
 
+    protected fun monitorNfqws(
+        manager: RootHelperManager,
+        beforeStopFinalization: suspend () -> Unit = {},
+    ) {
+        val observedSession = runtimeSession ?: return
+        manager.monitorNfqws(host.serviceScope) { error ->
+            failAndStopRuntime(
+                failureReason = FailureReason.NativeError(error.message ?: "nfqws2 failed"),
+                guard = RuntimeStopGuard(isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId }),
+                beforeStopFinalization = beforeStopFinalization,
+            )
+        }
+    }
+
     open fun onDestroy() {
         sessionLifecycle.onDestroy()
     }

@@ -17,7 +17,7 @@ pub const PROTOCOL_VERSION: u32 = 3;
 /// runtime capabilities). Independent from [`PROTOCOL_VERSION`]: the wire
 /// protocol can be stable while the capability set evolves. Missing on
 /// responses from a pre-versioned helper.
-pub const CAPABILITY_VERSION: u32 = 1;
+pub const CAPABILITY_VERSION: u32 = 2;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HelperRequest {

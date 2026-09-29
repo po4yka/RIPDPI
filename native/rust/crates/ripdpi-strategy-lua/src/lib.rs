@@ -3,7 +3,11 @@
 #![forbid(unsafe_code)]
 
 #[cfg(feature = "lua-strategies")]
+mod positions;
+
+#[cfg(feature = "lua-strategies")]
 mod enabled {
+    use super::positions;
     use std::collections::{BTreeMap, HashMap, HashSet};
     use std::fs;
     use std::path::{Component, Path, PathBuf};
@@ -355,7 +359,7 @@ mod enabled {
             let conn =
                 inner.lua.registry_value::<Table>(conn_key).map_err(|error| LuaError::Call(error.to_string()))?;
             let call_plan = Arc::new(Mutex::new(LuaCallPlan::default()));
-            let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan), socket_tcp)?;
+            let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan), socket_tcp, func_name)?;
             let dis = desync.get::<Table>("dis").map_err(to_call)?;
             let baseline = socket_tcp.map(|_| header_snapshot(&dis, false)).transpose().map_err(to_call)?;
             let result = call_lua_strategy_function(&function, desync.clone(), *takes_ctx)?;
@@ -473,6 +477,29 @@ mod enabled {
             .map_err(to_load)?;
         globals
             .set("bitxor", lua.create_function(|_, (left, right): (i64, i64)| Ok(left ^ right)).map_err(to_load)?)
+            .map_err(to_load)?;
+        globals
+            .set(
+                "u32add",
+                lua.create_function(|lua, values: Variadic<Value>| {
+                    let max = i64::from(u32::MAX);
+                    if values.is_empty() || values.len() > 100 {
+                        return Err(mlua::Error::external("u32add argument count out of range"));
+                    }
+                    let mut sum = 0;
+                    for value in values {
+                        let value = lua
+                            .coerce_integer(value)?
+                            .ok_or_else(|| mlua::Error::external("u32add requires integers"))?;
+                        if !(-max..=max).contains(&value) {
+                            return Err(mlua::Error::external("u32add argument out of range"));
+                        }
+                        sum += value;
+                    }
+                    Ok(sum & max)
+                })
+                .map_err(to_load)?,
+            )
             .map_err(to_load)?;
         globals.set("bitnot", lua.create_function(|_, value: i64| Ok(!value)).map_err(to_load)?).map_err(to_load)?;
         globals
@@ -824,7 +851,7 @@ mod enabled {
             engine.load_script_registering_globals(assets.join("zapret-antidpi.lua")).unwrap();
             engine.load_bytes_registering_globals("wrappers.lua", br#"
                 function split_candidate(ctx,d) d.arg.payload='all'; return multisplit(ctx,d) end
-                function tcpseg_candidate(ctx,d) d.arg.payload='all'; d.arg.pos='1,4'; tcpseg(ctx,d); return VERDICT_DROP end
+                function tcpseg_candidate(ctx,d) d.arg.payload='all'; d.arg.pos='0,-1'; tcpseg(ctx,d); return VERDICT_DROP end
             "#).unwrap();
             let dissect = Dissect::default();
             let conn = ConnectionState::default();
@@ -1011,24 +1038,25 @@ mod enabled {
         conn: Table,
         call_plan: Arc<Mutex<LuaCallPlan>>,
         socket_tcp: Option<bool>,
+        func_name: &str,
     ) -> Result<Table, LuaError> {
         let desync = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
-        desync.set("conn", conn).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("conn", conn.clone()).map_err(|error| LuaError::Call(error.to_string()))?;
         let arg = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
-        desync.set("arg", arg).map_err(|error| LuaError::Call(error.to_string()))?;
-        desync.set("func_instance", "ripdpi_lua_strategy").map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("arg", arg.clone()).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync.set("func_instance", func_name).map_err(|error| LuaError::Call(error.to_string()))?;
         desync
             .set("outgoing", ctx.direction == ripdpi_strategy_trait::FlowDirection::Outbound)
             .map_err(|error| LuaError::Call(error.to_string()))?;
-        desync.set("l7payload", proto_name(&ctx.dissect.proto)).map_err(|error| LuaError::Call(error.to_string()))?;
+        desync
+            .set("l7payload", payload_name(&ctx.dissect.proto, ctx.payload))
+            .map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("replay", false).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("replay_piece", 1).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("replay_piece_last", true).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("tcp_mss", 1460).map_err(|error| LuaError::Call(error.to_string()))?;
         let track = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
-        track
-            .set("lua_state", lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?)
-            .map_err(|error| LuaError::Call(error.to_string()))?;
+        track.set("lua_state", conn).map_err(|error| LuaError::Call(error.to_string()))?;
         desync.set("track", track).map_err(|error| LuaError::Call(error.to_string()))?;
         desync
             .set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
@@ -1039,7 +1067,7 @@ mod enabled {
         }
         desync.set("dis", dis.clone()).map_err(to_call)?;
         desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
-        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan), socket_tcp, &dis)?;
+        install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan), socket_tcp, &dis, &arg)?;
         attach_action_functions(lua, &desync, ctx, call_plan)?;
         Ok(desync)
     }
@@ -1075,9 +1103,11 @@ mod enabled {
         call_plan: Arc<Mutex<LuaCallPlan>>,
         socket_tcp: Option<bool>,
         dis: &Table,
+        arg: &Table,
     ) -> Result<(), LuaError> {
         let baseline = socket_tcp.map(|_| header_snapshot(dis, true)).transpose().map_err(to_call)?;
         let rawsend_plan = Arc::clone(&call_plan);
+        let socket_arg = socket_tcp.map(|_| arg.clone());
         let rawsend_dissect = lua
             .create_function(move |_, args: Variadic<Value>| {
                 let Some(Value::Table(dis)) = args.first() else {
@@ -1090,7 +1120,18 @@ mod enabled {
                 if let Some(payload) = payload {
                     let mut plan = lock_lua_call_plan(&rawsend_plan)?;
                     if let Some(baseline) = &baseline {
-                        let safe = header_snapshot(dis, true).is_ok_and(|headers| &headers == baseline)
+                        let no_packet_fooling = socket_arg.as_ref().is_none_or(|arg| {
+                            arg.pairs::<String, Value>().all(|entry| {
+                                entry.is_ok_and(|(key, _)| {
+                                    !key.starts_with("ip_")
+                                        && !key.starts_with("ip6_")
+                                        && !key.starts_with("tcp_")
+                                        && key != "fool"
+                                })
+                            })
+                        });
+                        let safe = no_packet_fooling
+                            && header_snapshot(dis, true).is_ok_and(|headers| &headers == baseline)
                             && args.iter().skip(1).all(|option| match option {
                                 Value::Nil => true,
                                 Value::Table(table) => table.is_empty() && table.metatable().is_none(),
@@ -1108,69 +1149,9 @@ mod enabled {
             .map_err(to_call)?;
         lua.globals().set("rawsend_dissect", rawsend_dissect).map_err(to_call)?;
 
-        if socket_tcp.is_some() {
-            let markers = ctx.dissect.markers.clone();
-            let resolve_range = lua
-                .create_function(
-                    move |lua,
-                          (data, _l7payload, spec, strict, zero_based): (
-                        LuaString,
-                        Value,
-                        String,
-                        Option<bool>,
-                        Option<bool>,
-                    )| {
-                        if strict == Some(true) || zero_based == Some(true) {
-                            return Err(mlua::Error::external("unsupported socket range mode"));
-                        }
-                        let tokens = spec.split(',').map(str::trim).collect::<Vec<_>>();
-                        if tokens.len() != 2 {
-                            return Err(mlua::Error::external("resolve_range requires two markers"));
-                        }
-                        let positions = tokens
-                            .iter()
-                            .map(|token| resolve_zapret_position_token(token, &markers))
-                            .collect::<Option<Vec<_>>>();
-                        let Some(positions) = positions else { return Ok(None) };
-                        if positions[0] == 0 || positions[0] > positions[1] || positions[1] > data.as_bytes().len() {
-                            return Ok(None);
-                        }
-                        let range = lua.create_table()?;
-                        range.raw_set(1, positions[0])?;
-                        range.raw_set(2, positions[1])?;
-                        Ok(Some(range))
-                    },
-                )
-                .map_err(to_call)?;
-            lua.globals().set("resolve_range", resolve_range).map_err(to_call)?;
-        }
-
-        let markers = ctx.dissect.markers.clone();
-        let resolve_multi_pos = lua
-            .create_function(move |lua, (_data, _l7payload, spec): (Value, Value, String)| {
-                let positions = lua.create_table()?;
-                let mut index = 1;
-                for token in spec.split(',') {
-                    if let Some(position) = resolve_zapret_position_token(token.trim(), &markers) {
-                        positions.raw_set(index, position)?;
-                        index += 1;
-                    }
-                }
-                Ok(positions)
-            })
+        positions::install(lua, &ctx.dissect.markers, ctx.payload, payload_name(&ctx.dissect.proto, ctx.payload))
             .map_err(to_call)?;
-        lua.globals().set("resolve_multi_pos", resolve_multi_pos).map_err(to_call)?;
         Ok(())
-    }
-
-    fn resolve_zapret_position_token(token: &str, markers: &HashMap<MarkerName, usize>) -> Option<usize> {
-        if token.is_empty() {
-            return None;
-        }
-        if let Ok(position) = token.parse::<usize>() {
-            return Some(position);
-        }
-        marker_by_name(token).and_then(|marker| markers.get(&marker).map(|offset| offset.saturating_add(1)))
     }
 
     fn create_caps_table(lua: &Lua, ctx: &StrategyContext<'_>) -> Result<Table, LuaError> {
@@ -1358,6 +1339,63 @@ mod enabled {
         }
     }
 
+    fn payload_name(proto: &L7Protocol, payload: &[u8]) -> &'static str {
+        if payload.is_empty() {
+            return "empty";
+        }
+        match proto {
+            L7Protocol::Any => "all",
+            L7Protocol::Http(d) => {
+                if d.is_request {
+                    "http_req"
+                } else {
+                    "http_reply"
+                }
+            }
+            L7Protocol::Tls(d) => {
+                if d.is_client_hello {
+                    "tls_client_hello"
+                } else if payload.first() == Some(&22) && payload.get(5) == Some(&2) {
+                    "tls_server_hello"
+                } else {
+                    "unknown"
+                }
+            }
+            L7Protocol::Dtls(d) => {
+                if d.is_client_hello {
+                    "dtls_client_hello"
+                } else {
+                    if payload.first() == Some(&22) && payload.get(13) == Some(&2) {
+                        "dtls_server_hello"
+                    } else {
+                        "unknown"
+                    }
+                }
+            }
+            L7Protocol::Quic(_) => "quic_initial",
+            L7Protocol::WireGuard(d) => match d.message_type {
+                Some(1) => "wireguard_initiation",
+                Some(2) => "wireguard_response",
+                Some(3) => "wireguard_cookie",
+                Some(4) if payload.len() == 32 => "wireguard_keepalive",
+                Some(4) => "wireguard_data",
+                _ => "unknown",
+            },
+            L7Protocol::Dns(d) => {
+                if d.is_query {
+                    "dns_query"
+                } else {
+                    "dns_response"
+                }
+            }
+            L7Protocol::Xmpp(_) => "xmpp_stream",
+            L7Protocol::Mtproto(_) => "mtproto_initial",
+            L7Protocol::BitTorrent(_) => "bt_handshake",
+            L7Protocol::UtpBitTorrent(_) => "utp_bt_handshake",
+            _ => proto_name(proto),
+        }
+    }
+
     fn hostname(proto: &L7Protocol) -> Option<&str> {
         match proto {
             L7Protocol::Http(dissect) => dissect.host.as_deref(),
@@ -1389,7 +1427,7 @@ mod enabled {
         (MarkerName::End, "end"),
     ];
 
-    fn marker_by_name(name: &str) -> Option<MarkerName> {
+    pub(super) fn marker_by_name(name: &str) -> Option<MarkerName> {
         match name {
             "absolute" | "abs" => Some(MarkerName::Absolute),
             "host" => Some(MarkerName::Host),
@@ -1397,9 +1435,9 @@ mod enabled {
             "sld" | "host_sld" => Some(MarkerName::HostSld),
             "midsld" | "host_mid_sld" => Some(MarkerName::HostMidSld),
             "endsld" | "host_end_sld" => Some(MarkerName::HostEndSld),
-            "http_method" => Some(MarkerName::HttpMethod),
-            "ext_len" => Some(MarkerName::ExtLen),
-            "sni_ext" => Some(MarkerName::SniExt),
+            "http_method" | "method" => Some(MarkerName::HttpMethod),
+            "ext_len" | "extlen" => Some(MarkerName::ExtLen),
+            "sni_ext" | "sniext" => Some(MarkerName::SniExt),
             "data" => Some(MarkerName::Data),
             "end" => Some(MarkerName::End),
             _ => None,

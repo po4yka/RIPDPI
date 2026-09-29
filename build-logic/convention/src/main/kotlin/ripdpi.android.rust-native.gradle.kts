@@ -1611,6 +1611,7 @@ fun rustWorkspaceCrateSources() =
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val generatedNativeSymbolsDir = layout.buildDirectory.dir("generated/nativeSymbols")
 val generatedRootHelperAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
+val generatedNfqws2AssetsDir = layout.buildDirectory.dir("generated/nfqws2Assets")
 val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naiveProxyAssets")
 val generatedCloudflareOriginAssetsDir = layout.buildDirectory.dir("generated/cloudflareOriginAssets")
 val generatedPtAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportAssets")
@@ -1639,10 +1640,25 @@ val rustCloudflareOriginArtifactSpecs =
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedRootHelperAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedNfqws2AssetsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedNaiveProxyAssetsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedCloudflareOriginAssetsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedPtAssetsDir.get().asFile.absolutePath)
 }
+
+val buildNfqws2 =
+    tasks.register<Nfqws2BuildTask>("buildNfqws2") {
+        group = "build"
+        description = "Builds the checksum-pinned upstream nfqws2 root backend and Lua assets."
+        vendorDir.set(rootProject.layout.projectDirectory.dir("native/zapret2"))
+        builderScript.set(rootProject.layout.projectDirectory.file("scripts/native/build-nfqws2.py"))
+        sdkDir.set(layout.dir(resolveAndroidSdkDir().map(::File)))
+        ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
+        abis.set(rustNativeAbis)
+        workDir.set(layout.buildDirectory.dir("intermediates/nfqws2"))
+        outputDir.set(generatedNfqws2AssetsDir)
+    }
 
 val buildRustNativeLibs =
     tasks.register<BuildRustNativeLibsTask>("buildRustNativeLibs") {
@@ -1901,6 +1917,7 @@ if (!skipNativeBuildWiring) {
             dependsOn(buildRustNativeLibs)
         }
         if (name.matches(Regex("^merge.+Assets$"))) {
+            dependsOn(buildNfqws2)
             dependsOn(buildRustRootHelper)
             dependsOn(buildRustNaiveProxy)
             dependsOn(buildRustCloudflareOrigin)
@@ -1909,6 +1926,7 @@ if (!skipNativeBuildWiring) {
     }
 
     tasks.named("preBuild") {
+        dependsOn(buildNfqws2)
         dependsOn(buildRustNativeLibs)
         dependsOn(buildRustRootHelper)
         dependsOn(buildRustNaiveProxy)

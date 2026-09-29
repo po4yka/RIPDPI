@@ -1,0 +1,5 @@
+# Preserve checksum-locked source and packet payload bytes on every platform.
+upstream/** -text
+archives/** -text
+patches/** -text
+licenses/** -text

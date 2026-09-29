@@ -13,10 +13,10 @@
 //! See `docs/architecture/ROOT_HELPER_CONTRACT.md`.
 
 use crate::commands::{
-    CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
-    CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
-    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
-    CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    CMD_NFQWS2_STATUS, CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST,
+    CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
+    CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
+    CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, CMD_START_NFQWS2, CMD_STOP_NFQWS2,
 };
 
 /// Static metadata for one root-helper IPC command.
@@ -155,6 +155,27 @@ pub static COMMAND_DESCRIPTORS: &[CommandDescriptor] = &[
         note: "Experimental (lab_diagnostics_only); sends a caller-supplied raw IP packet.",
     },
     CommandDescriptor {
+        command: CMD_START_NFQWS2,
+        params_type: Some("StartNfqws2Params"),
+        requires_inbound_fd: false,
+        may_return_outbound_fd: false,
+        note: "Opt-in root backend; starts app-owned nfqws2 and private NFQUEUE rules.",
+    },
+    CommandDescriptor {
+        command: CMD_STOP_NFQWS2,
+        params_type: None,
+        requires_inbound_fd: false,
+        may_return_outbound_fd: false,
+        note: "Stops nfqws2 and removes only its owned firewall rules.",
+    },
+    CommandDescriptor {
+        command: CMD_NFQWS2_STATUS,
+        params_type: None,
+        requires_inbound_fd: false,
+        may_return_outbound_fd: false,
+        note: "Reports actual nfqws2 readiness and pending cleanup.",
+    },
+    CommandDescriptor {
         command: CMD_SHUTDOWN,
         params_type: None,
         requires_inbound_fd: false,
@@ -258,15 +279,16 @@ pub fn validate_request(
 mod tests {
     use super::{COMMAND_DESCRIPTORS, DescriptorValidationError, command_descriptor, validate_request};
     use crate::commands::{
-        CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST,
-        CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
-        CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
-        CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+        CMD_NFQWS2_STATUS, CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP,
+        CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP,
+        CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
+        CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP,
+        CMD_SHUTDOWN, CMD_START_NFQWS2, CMD_STOP_NFQWS2,
     };
 
     /// Every `CMD_*` wire-string constant — the independent oracle for the
     /// descriptor-coverage tests. A new command must be added here too.
-    const ALL_COMMANDS: [&str; 15] = [
+    const ALL_COMMANDS: [&str; 18] = [
         CMD_PROTOCOL_PREFLIGHT,
         CMD_PROBE_CAPABILITIES,
         CMD_SEND_FAKE_TCP,
@@ -281,6 +303,9 @@ mod tests {
         CMD_SEND_ICMP_WRAPPED_UDP,
         CMD_RECV_ICMP_WRAPPED_UDP,
         CMD_SEND_RAW_IP_PACKET,
+        CMD_START_NFQWS2,
+        CMD_STOP_NFQWS2,
+        CMD_NFQWS2_STATUS,
         CMD_SHUTDOWN,
     ];
 

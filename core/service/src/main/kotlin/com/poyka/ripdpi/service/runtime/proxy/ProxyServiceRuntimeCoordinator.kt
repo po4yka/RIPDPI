@@ -259,6 +259,7 @@ internal class ProxyServiceRuntimeCoordinator(
 
     private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
         telemetryCoordinator.start(replaceTelemetryJob)
+        monitorNfqws(rootHelperManager)
     }
 
     private suspend fun restartAfterHandover(

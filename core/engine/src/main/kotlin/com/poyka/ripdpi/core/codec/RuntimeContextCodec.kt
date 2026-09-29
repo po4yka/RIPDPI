@@ -145,20 +145,7 @@ internal object ProxyRuntimeContextCodec {
         normalizeRuntimeContext(
             value?.let {
                 RipDpiRuntimeContext(
-                    encryptedDns =
-                        it.encryptedDns?.let { dns ->
-                            RipDpiEncryptedDnsContext(
-                                resolverId = dns.resolverId,
-                                protocol = dns.protocol,
-                                host = dns.host,
-                                port = dns.port,
-                                tlsServerName = dns.tlsServerName,
-                                bootstrapIps = dns.bootstrapIps,
-                                dohUrl = dns.dohUrl,
-                                dnscryptProviderName = dns.dnscryptProviderName,
-                                dnscryptPublicKey = dns.dnscryptPublicKey,
-                            )
-                        },
+                    encryptedDns = it.encryptedDns?.let(::encryptedDnsToModel),
                     protectPath = it.protectPath,
                     strategyChainYaml = it.strategyChainYaml,
                     luaScriptBaseDir = it.luaScriptBaseDir,
@@ -221,6 +208,19 @@ internal object ProxyRuntimeContextCodec {
                         },
                 )
             },
+        )
+
+    private fun encryptedDnsToModel(dns: NativeEncryptedDnsContext): RipDpiEncryptedDnsContext =
+        RipDpiEncryptedDnsContext(
+            resolverId = dns.resolverId,
+            protocol = dns.protocol,
+            host = dns.host,
+            port = dns.port,
+            tlsServerName = dns.tlsServerName,
+            bootstrapIps = dns.bootstrapIps,
+            dohUrl = dns.dohUrl,
+            dnscryptProviderName = dns.dnscryptProviderName,
+            dnscryptPublicKey = dns.dnscryptPublicKey,
         )
 
     fun toNative(value: RipDpiRuntimeContext?): NativeRuntimeContext? =

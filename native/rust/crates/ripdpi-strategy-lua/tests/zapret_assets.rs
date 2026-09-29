@@ -51,5 +51,5 @@ fn bundled_zapret2_multisplit_executes_through_compat_layer() {
     strategy.plan(&ctx, &mut plan).expect("multisplit should execute");
 
     assert_eq!(plan.verdict, StrategyVerdict::Drop);
-    assert_eq!(plan.actions, vec![DesyncAction::RawSend(b"p".to_vec()), DesyncAction::RawSend(b"ayload".to_vec())]);
+    assert_eq!(plan.actions, vec![DesyncAction::RawSend(b"pa".to_vec()), DesyncAction::RawSend(b"yload".to_vec())]);
 }

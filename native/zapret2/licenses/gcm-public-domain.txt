@@ -1,0 +1,23 @@
+/******************************************************************************
+*
+* THIS SOURCE CODE IS HEREBY PLACED INTO THE PUBLIC DOMAIN FOR THE GOOD OF ALL
+*
+* This is a simple and straightforward implementation of AES-GCM authenticated
+* encryption. The focus of this work was correctness & accuracy. It is written
+* in straight 'C' without any particular focus upon optimization or speed. It
+* should be endian (memory byte order) neutral since the few places that care
+* are handled explicitly.
+*
+* This implementation of AES-GCM was created by Steven M. Gibson of GRC.com.
+*
+* It is intended for general purpose use, but was written in support of GRC's
+* reference implementation of the SQRL (Secure Quick Reliable Login) client.
+*
+* See:    http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
+*         http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/ \
+*         gcm/gcm-revised-spec.pdf
+*
+* NO COPYRIGHT IS CLAIMED IN THIS WORK, HOWEVER, NEITHER IS ANY WARRANTY MADE
+* REGARDING ITS FITNESS FOR ANY PARTICULAR PURPOSE. USE IT AT YOUR OWN RISK.
+*
+*******************************************************************************/

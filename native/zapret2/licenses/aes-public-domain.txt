@@ -1,0 +1,21 @@
+/******************************************************************************
+*
+* THIS SOURCE CODE IS HEREBY PLACED INTO THE PUBLIC DOMAIN FOR THE GOOD OF ALL
+*
+* This is a simple and straightforward implementation of the AES Rijndael
+* 128-bit block cipher designed by Vincent Rijmen and Joan Daemen. The focus
+* of this work was correctness & accuracy.  It is written in 'C' without any
+* particular focus upon optimization or speed. It should be endian (memory
+* byte order) neutral since the few places that care are handled explicitly.
+*
+* This implementation of Rijndael was created by Steven M. Gibson of GRC.com.
+*
+* It is intended for general purpose use, but was written in support of GRC's
+* reference implementation of the SQRL (Secure Quick Reliable Login) client.
+*
+* See:    http://csrc.nist.gov/archive/aes/rijndael/wsdindex.html
+*
+* NO COPYRIGHT IS CLAIMED IN THIS WORK, HOWEVER, NEITHER IS ANY WARRANTY MADE
+* REGARDING ITS FITNESS FOR ANY PARTICULAR PURPOSE. USE IT AT YOUR OWN RISK.
+*
+*******************************************************************************/

@@ -118,7 +118,7 @@ class RipDpiProxyService :
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
         try {
             coordinator?.onDestroy()
-            rootHelperManager.stop()
+            rootHelperManager.stopOnDestroy()
         } finally {
             stateInitializer?.close()
             clearSessionReferences()

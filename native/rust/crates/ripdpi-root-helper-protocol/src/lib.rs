@@ -20,14 +20,15 @@ pub use command_descriptor::{
     COMMAND_DESCRIPTORS, CommandDescriptor, DescriptorValidationError, command_descriptor, validate_request,
 };
 pub use commands::{
-    CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
-    CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
-    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
-    CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    CMD_NFQWS2_STATUS, CMD_PROBE_CAPABILITIES, CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST,
+    CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,
+    CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
+    CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, CMD_START_NFQWS2, CMD_STOP_NFQWS2,
 };
 pub use params::{
     FakeRstParams, FakeTcpParams, FlaggedTcpPayloadParams, IpFragTcpParams, IpFragUdpParams, MultiDisorderParams,
-    OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
+    Nfqws2Status, OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
+    StartNfqws2Params,
 };
 pub use scm_rights::{recv_message, send_message};
 pub use wire::{

@@ -278,7 +278,6 @@ internal class VpnTunnelRuntime(
                 splitStrictDnsPolicy?.underlayLeaseGeneration,
             )
         try {
-            val ipv6 = settings.ipv6Enable
             val tunnelNetworkParameters =
                 vpnHost.currentTunnelNetworkParameters().let { parameters ->
                     profileInterface?.let { parameters.copy(tunnelMtu = it.mtu) } ?: parameters
@@ -294,29 +293,29 @@ internal class VpnTunnelRuntime(
                 nativeUidPolicyProvider?.invoke(appRoutingPlan)
                     ?: flowAttributionBridge?.nativeUidPolicy(appRoutingPlan)
                     ?: NativeUidPolicy.Disarmed
+            val rootSocket = environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled }
             val config =
                 buildVpnTun2SocksConfig(
                     dnsPlan = dnsPlan,
                     overrideReason = overrideReason,
                     localProxyEndpoint = localProxyEndpoint,
-                    ipv6Enabled = ipv6,
+                    ipv6Enabled = settings.ipv6Enable,
                     webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
                     tunnelMtu = tunnelNetworkParameters.tunnelMtu,
                     logContext = logContext,
                     encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
                     strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
                     protectPath = environment.protectPath,
-                    rootHelperSocketPath =
-                        environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
+                    rootHelperSocketPath = rootSocket,
                     luaScriptBaseDir = environment.luaScriptBaseDir,
-                    luaSocketOwned = settings.strategyChainYaml.isNotBlank() && !settings.rootModeEnabled,
+                    luaSocketOwned = settings.strategyChainYaml.isNotBlank() && rootSocket == null,
                     uidPolicy = uidPolicy,
                     geositeDbPath = environment.geositeDbPath,
                 )
             val (tunnelSession, lifecycleGeneration) =
                 establishRouteObservedTunnel(
                     dns = dnsPlan.builderDnsAddress,
-                    ipv6 = ipv6,
+                    ipv6 = settings.ipv6Enable,
                     appRoutingPlan = appRoutingPlan,
                     httpProxyPort = interfacePolicy.httpProxyPort,
                     settings = settings,

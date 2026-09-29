@@ -10,7 +10,10 @@ fn detects_dtls_client_hello_sample_payload() {
         0x67, 0x3E, 0x51, 0x9D, 0x0C, 0xF8, 0xD4, 0x00, 0x00, 0x02, 0x13, 0x01, 0x01, 0x00,
     ];
 
-    assert!(matches!(classify_l7(&client_hello, 44444, 443, true), L7Protocol::Dtls(_)));
+    let L7Protocol::Dtls(d) = classify_l7(&client_hello, 44444, 443, true) else {
+        panic!("expected DTLS");
+    };
+    assert!(d.is_client_hello);
 }
 
 #[test]

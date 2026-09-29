@@ -51,3 +51,15 @@ fn rejects_truncated_or_wrong_length_wireguard_messages() {
     short_data[0] = 0x04;
     assert!(matches!(classify_l7(&short_data, 51820, 0, true), L7Protocol::Unknown));
 }
+
+#[test]
+fn retains_wireguard_message_type() {
+    for (message_type, len) in [(1, 148), (2, 92), (3, 64), (4, 32), (4, 64)] {
+        let mut payload = vec![0; len];
+        payload[0] = message_type;
+        let L7Protocol::WireGuard(d) = classify_l7(&payload, 1234, 51820, true) else {
+            panic!("expected WireGuard");
+        };
+        assert_eq!(d.message_type, Some(u32::from(message_type)));
+    }
+}

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.core.withDestinationRoutingPolicy
+import com.poyka.ripdpi.core.withoutPacketStrategies
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
@@ -147,7 +148,11 @@ internal class ConnectionPolicyRuntimeContextAssembler
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
         ): RipDpiRuntimeContext? {
-            val yaml = settings.strategyChainYaml.takeIf { it.isNotBlank() && !settings.rootModeEnabled }
+            val yaml =
+                settings.strategyChainYaml.takeIf {
+                    it.isNotBlank() && !rootHelperManager.nfqwsActive &&
+                        rootHelperManager.socketPath == null
+                }
             if (runtimeContext == null && yaml == null) return null
             val luaScriptBaseDir =
                 yaml?.let {
@@ -171,7 +176,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         ): RipDpiProxyPreferences {
             val geoPaths = resolveGeoDatabasePaths(context)
             val effectiveRuntimeContext = withLuaSocketContext(runtimeContext, settings)
-            return if (settings.enableCmdSettings) {
+            return if (settings.enableCmdSettings && !rootHelperManager.nfqwsActive) {
                 RipDpiProxyCmdPreferences(
                     settings.cmdArgs,
                     hostAutolearnStorePath = hostAutolearnStorePath,
@@ -181,20 +186,23 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     runtimeContext = effectiveRuntimeContext,
                 )
             } else {
-                RipDpiProxyUIPreferences.fromSettings(
-                    settings,
-                    hostAutolearnStorePath,
-                    networkScopeKey,
-                    effectiveRuntimeContext,
-                    rootMode = settings.rootModeEnabled,
-                    rootHelperSocketPath = rootHelperManager.socketPath,
-                    environmentKind = environmentDetector.kind,
-                    destinationRouting = destinationRouting,
-                    geoipDbPath = geoPaths.geoipDbPath,
-                    geositeDbPath = geoPaths.geositeDbPath,
-                    awg = awg,
-                    workerBearer = proxySessionSecretResolver.currentBearer(settings),
-                )
+                RipDpiProxyUIPreferences
+                    .fromSettings(
+                        settings,
+                        hostAutolearnStorePath,
+                        networkScopeKey,
+                        effectiveRuntimeContext,
+                        rootMode = settings.rootModeEnabled,
+                        rootHelperSocketPath = rootHelperManager.socketPath,
+                        environmentKind = environmentDetector.kind,
+                        destinationRouting = destinationRouting,
+                        geoipDbPath = geoPaths.geoipDbPath,
+                        geositeDbPath = geoPaths.geositeDbPath,
+                        awg = awg,
+                        workerBearer = proxySessionSecretResolver.currentBearer(settings),
+                    ).let { preferences ->
+                        if (rootHelperManager.nfqwsActive) preferences.withoutPacketStrategies() else preferences
+                    }
             }
         }
 

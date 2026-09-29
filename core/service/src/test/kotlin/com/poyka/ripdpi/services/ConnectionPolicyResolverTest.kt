@@ -65,70 +65,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class ConnectionPolicyResolverTest {
     @Test
-    fun `current Lua settings reach proxy and VPN runtime only without root`() =
-        runTest {
-            val yaml = "version: 1\nstrategies:\n  - id: lua\n"
-            for (mode in listOf(Mode.Proxy, Mode.VPN)) {
-                for (root in listOf(false, true)) {
-                    for (commandLine in listOf(false, true)) {
-                        val settings =
-                            plainUdpSettings()
-                                .toBuilder()
-                                .setStrategyChainYaml(yaml)
-                                .setRootModeEnabled(root)
-                                .setEnableCmdSettings(commandLine)
-                                .setCmdArgs("--port 1081")
-                                .build()
-                        val context = RuntimeEnvironment.getApplication()
-                        val luaDir = context.filesDir.resolve("lua")
-                        luaDir.deleteRecursively()
-                        val resolver =
-                            DefaultConnectionPolicyResolver(
-                                context = context,
-                                appSettingsRepository = TestAppSettingsRepository(settings),
-                                networkFingerprintProvider = TestNetworkFingerprintProvider(null),
-                                networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                                rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                                rootHelperManager = FakeRootHelperManager("/tmp/root-helper.sock"),
-                                environmentDetector = EnvironmentDetector(),
-                                serverCapabilityStore = TestServerCapabilityStore(),
-                                awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
-                                destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                                proxySessionSecretResolver =
-                                    ProxySessionSecretResolver(
-                                        EmptyWsTunnelWorkerCredentialStore,
-                                    ),
-                            )
-                        val resolution = resolver.resolve(mode = mode)
-                        val encoded =
-                            Json
-                                .parseToJsonElement(
-                                    resolution.proxyPreferences.toNativeConfigJson(),
-                                ).jsonObject
-                        val runtime =
-                            encoded["runtimeContext"]
-                                ?.takeIf { it !is JsonNull }
-                                ?.jsonObject
-                        assertEquals(
-                            if (root) null else yaml,
-                            runtime?.get("strategyChainYaml")?.jsonPrimitive?.contentOrNull,
-                        )
-                        assertEquals(
-                            if (root) null else luaDir.absolutePath,
-                            runtime?.get("luaScriptBaseDir")?.jsonPrimitive?.contentOrNull,
-                        )
-                        assertEquals(!root, luaDir.resolve("zapret-lib.lua").isFile)
-                        assertEquals(!root, luaDir.resolve("zapret-antidpi.lua").isFile)
-                        assertEquals(!root, luaDir.resolve("lua-manifest.json").isFile)
-                        assertEquals(!root, luaDir.resolve("LICENSE.zapret2.txt").isFile)
-                    }
-                }
-            }
-        }
-
-    @Test
     fun `saved doq resolves for proxy but rejects vpn before runtime composition`() =
         runTest {
             val settings =
@@ -780,28 +716,104 @@ class ConnectionPolicyResolverTest {
             tlsServerName = "dns.quad9.net",
             bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
         )
+}
 
-    private class FakeRootHelperManager(
-        private val startedSocketPath: String,
-    ) : RootHelperManager() {
-        val syncCalls = mutableListOf<Boolean>()
-        private var activePath: String? = null
-
-        override val socketPath: String?
-            get() = activePath
-
-        override suspend fun syncRootMode(
-            context: Context,
-            root: RootSettingsSection,
-        ): String? {
-            syncCalls += root.rootModeEnabled
-            activePath = startedSocketPath.takeIf { root.rootModeEnabled }
-            return activePath
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class LuaConnectionPolicyResolverTest {
+    @Test
+    fun `Lua settings reach non-root executor when root is unavailable`() =
+        runTest {
+            val yaml = "version: 1\nstrategies:\n  - id: lua\n"
+            for (mode in listOf(Mode.Proxy, Mode.VPN)) {
+                for ((root, available) in listOf(false to false, true to false, true to true)) {
+                    val effectiveRoot = root && available
+                    for (commandLine in listOf(false, true)) {
+                        val settings =
+                            plainUdpSettings()
+                                .toBuilder()
+                                .setStrategyChainYaml(yaml)
+                                .setRootModeEnabled(root)
+                                .setEnableCmdSettings(commandLine)
+                                .setCmdArgs("--port 1081")
+                                .build()
+                        val context = RuntimeEnvironment.getApplication()
+                        val luaDir = context.filesDir.resolve("lua")
+                        luaDir.deleteRecursively()
+                        val resolver =
+                            DefaultConnectionPolicyResolver(
+                                context = context,
+                                appSettingsRepository = TestAppSettingsRepository(settings),
+                                networkFingerprintProvider = TestNetworkFingerprintProvider(null),
+                                networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                                rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                                rootHelperManager = FakeRootHelperManager("/tmp/root-helper.sock".takeIf { available }),
+                                environmentDetector = EnvironmentDetector(),
+                                serverCapabilityStore = TestServerCapabilityStore(),
+                                awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                                destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                                proxySessionSecretResolver =
+                                    ProxySessionSecretResolver(
+                                        EmptyWsTunnelWorkerCredentialStore,
+                                    ),
+                            )
+                        val resolution = resolver.resolve(mode = mode)
+                        val encoded =
+                            Json
+                                .parseToJsonElement(
+                                    resolution.proxyPreferences.toNativeConfigJson(),
+                                ).jsonObject
+                        val runtime =
+                            encoded["runtimeContext"]
+                                ?.takeIf { it !is JsonNull }
+                                ?.jsonObject
+                        assertEquals(
+                            if (effectiveRoot) null else yaml,
+                            runtime?.get("strategyChainYaml")?.jsonPrimitive?.contentOrNull,
+                        )
+                        assertEquals(
+                            if (effectiveRoot) null else luaDir.absolutePath,
+                            runtime?.get("luaScriptBaseDir")?.jsonPrimitive?.contentOrNull,
+                        )
+                        assertEquals(!effectiveRoot, luaDir.resolve("zapret-lib.lua").isFile)
+                        assertEquals(!effectiveRoot, luaDir.resolve("zapret-antidpi.lua").isFile)
+                        assertEquals(!effectiveRoot, luaDir.resolve("lua-manifest.json").isFile)
+                        assertEquals(!effectiveRoot, luaDir.resolve("LICENSE.zapret2.txt").isFile)
+                    }
+                }
+            }
         }
 
-        override fun stop() {
-            activePath = null
-        }
+    private fun plainUdpSettings() =
+        AppSettingsSerializer.defaultValue
+            .toBuilder()
+            .setDnsMode(DnsModePlainUdp)
+            .setDnsIp("9.9.9.9")
+            .build()
+}
+
+private class FakeRootHelperManager(
+    private val startedSocketPath: String?,
+) : RootHelperManager() {
+    val syncCalls = mutableListOf<Boolean>()
+    private var activePath: String? = null
+
+    override val socketPath: String?
+        get() = activePath
+
+    override suspend fun syncRootMode(
+        context: Context,
+        root: RootSettingsSection,
+    ): String? {
+        syncCalls += root.rootModeEnabled
+        activePath = startedSocketPath?.takeIf { root.rootModeEnabled }
+        return activePath
+    }
+
+    override fun stop() {
+        activePath = null
     }
 }
 
