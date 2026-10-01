@@ -16,6 +16,9 @@ until the exact mirror reaches the client's default branch.
   and `capabilities`, and bounds the topology to 1–10 nodes.
 - Keep Android and native runtime behavior unchanged; this is not runtime
   observability support.
+- Repair the pre-existing hosted API snapshot failure: normalize rustdoc's Arc
+  path alias and record the already-existing `Dissect::tcp_mss` field in its
+  owning strategy-trait snapshot, with regression coverage for real API drift.
 
 ## Capabilities
 
@@ -29,5 +32,6 @@ until the exact mirror reaches the client's default branch.
 
 ## Impact
 
-- One test-resource schema and its required task/specification records.
+- One test-resource schema, the bounded API snapshot check repair above, and
+  required task/specification records.
 - No new dependency, runtime parser, persisted-data migration, or deployment.

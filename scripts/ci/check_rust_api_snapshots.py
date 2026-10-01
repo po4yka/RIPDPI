@@ -21,6 +21,7 @@ HIGH_INDEGREE_THRESHOLD = 10
 EXPLICIT_SNAPSHOT_CRATES = frozenset({"ripdpi-runtime-api", "ripdpi-ws-transport-port"})
 PUBLIC_API_ARGS = ("-sss",)
 PUBLIC_API_NORMALIZATIONS = {
+    "alloc::rcs::arc::Arc": "alloc::sync::Arc",
     "core::io::error::ErrorKind": "std::io::error::ErrorKind",
     "core::io::error::Error": "std::io::error::Error",
     "core::io::error::Result": "std::io::error::Result",

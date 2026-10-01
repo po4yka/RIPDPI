@@ -2,7 +2,8 @@
 
 ## Objective and ownership
 
-Publish the exact frozen producer topology test resource. Own only that schema,
+Publish the exact frozen producer topology test resource. Own that schema,
+the authorized Arc normalization and existing `Dissect::tcp_mss` snapshot repair,
 this task's records, and its generated board entry; runtime and other mirrors
 remain unchanged.
 

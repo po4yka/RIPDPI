@@ -31,5 +31,7 @@ main integration.
 #### Scenario: Scope and acceptance review
 
 - **WHEN** the authorized topology mirror PR is integrated
-- **THEN** the only contract payload change is the topology schema and exact-head
-  hosted checks have passed; local checks alone do not count as integration
+- **THEN** the only deployment contract payload change is the topology schema;
+  the bounded API check repair only normalizes Arc and records the existing
+  `Dissect::tcp_mss` field, and exact-head hosted checks have passed; local checks
+  alone do not count as integration

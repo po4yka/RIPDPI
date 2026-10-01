@@ -32,5 +32,9 @@ schema v2 from `po4yka/ripdpi-vpn-deploy` revision
 
 - Owned: `core/data/src/test/resources/contract/observability-topology.schema.json`
   and this task's OpenSpec records. The generated board is serialized to this lane.
+- Authorized CI repair: the golden-blesser lane owns Arc path normalization in
+  `scripts/ci/check_rust_api_snapshots.py`, its regression tests, and only
+  `native/rust/crates/ripdpi-strategy-trait/api-snapshot.txt` to record the existing
+  `Dissect::tcp_mss` field. No runtime API or other snapshot changes are permitted.
 - Out of scope: Kotlin/Rust runtime, other contract mirrors, producer code,
   credentials, network policy, deployment, and device behavior.

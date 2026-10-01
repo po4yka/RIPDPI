@@ -18,9 +18,19 @@ mirror. Source inspection found no Kotlin or Rust consumers of this topology.
 
 ## Contracts and ownership
 
-- Sole payload: `core/data/src/test/resources/contract/observability-topology.schema.json`.
-- This task owns its task/spec records and the generated board update only.
+- Mirror payload: `core/data/src/test/resources/contract/observability-topology.schema.json`.
+- The golden-blesser lane owns the authorized CI repair in the API snapshot
+  checker, its regression test, and only the strategy-trait API snapshot.
+- This task also owns its task/spec records and generated board update.
 - No Kotlin module API, Rust crate, JNI, protobuf, or stored-data contract changes.
+
+The failing hosted check exposes two pre-existing issues: nightly rustdoc emits
+`alloc::rcs::arc::Arc` for the canonical `alloc::sync::Arc` type, and the
+strategy-trait snapshot omits `Dissect::tcp_mss: Option<u16>`, already present in
+base revision `53124991ec1e573ac3ed94b0aa97ba5add26af59`. Normalize the alias
+without changing those snapshots; regenerate only the strategy-trait snapshot
+through the checker's owning function. Tests must still reject changed Arc type
+arguments and newly added public fields.
 
 ## Risks / Trade-offs
 
