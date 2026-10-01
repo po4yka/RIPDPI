@@ -145,6 +145,29 @@ class RustApiSnapshotTests(unittest.TestCase):
 
         self.assertEqual(output, "pub fn ripdpi_example::f(kind: std::io::error::ErrorKind)\n")
 
+    def test_arc_path_alias_matches_snapshot_but_api_changes_do_not(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            crate = sut.WorkspaceCrate("ripdpi-example", root / "Cargo.toml")
+            target = sut.SnapshotTarget(crate, indegree=10, reason="high indegree")
+            expected = "pub fn ripdpi_example::f(value: alloc::sync::Arc<u16>)\n"
+            sut.snapshot_path(crate).write_text(expected, encoding="utf-8")
+            outputs = (
+                (expected, False),
+                (expected.replace("alloc::sync::Arc", "alloc::rcs::arc::Arc"), False),
+                (expected.replace("alloc::sync::Arc<u16>", "alloc::rcs::arc::Arc<u32>"), True),
+                (expected + "pub ripdpi_example::Dissect::tcp_mss: core::option::Option<u16>\n", True),
+            )
+            with patch.object(sut, "REPO_ROOT", root), patch.object(sut, "RUST_ROOT", root):
+                for output, has_drift in outputs:
+                    with self.subTest(output=output), patch.object(sut.subprocess, "run") as run:
+                        run.return_value = SimpleNamespace(returncode=0, stdout=output, stderr="")
+                        violations = sut.check_snapshot(target, update=False)
+                        self.assertEqual(bool(violations), has_drift)
+                        if has_drift:
+                            self.assertIn("public API snapshot drifted", violations[0].message)
+                        self.assertEqual(sut.snapshot_path(crate).read_text(encoding="utf-8"), expected)
+
 
 if __name__ == "__main__":
     unittest.main()

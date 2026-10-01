@@ -100,6 +100,7 @@ pub ripdpi_strategy_trait::Dissect::is_ipv6: bool
 pub ripdpi_strategy_trait::Dissect::markers: std::collections::hash::map::HashMap<ripdpi_strategy_trait::MarkerName, usize>
 pub ripdpi_strategy_trait::Dissect::proto: ripdpi_strategy_trait::L7Protocol
 pub ripdpi_strategy_trait::Dissect::src_port: u16
+pub ripdpi_strategy_trait::Dissect::tcp_mss: core::option::Option<u16>
 pub struct ripdpi_strategy_trait::DnsDissect
 pub ripdpi_strategy_trait::DnsDissect::is_query: bool
 pub struct ripdpi_strategy_trait::DtlsDissect
