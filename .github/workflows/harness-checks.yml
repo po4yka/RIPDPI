@@ -3,6 +3,20 @@ name: harness-checks
 on:
   pull_request:
     paths:
+      - '**/*.kt'
+      - '**/*.kts'
+      - '**/*.rs'
+      - '**/*.py'
+      - '**/*.sh'
+      - '**/*.proto'
+      - '**/*.java'
+      - '**/*.c'
+      - '**/*.h'
+      - '**/*.cpp'
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.mjs'
+      - '**/*.pro'
       - 'AGENTS.md'
       - 'CLAUDE.md'
       - '.gitmodules'
@@ -26,6 +40,20 @@ on:
   push:
     branches: [main]
     paths:
+      - '**/*.kt'
+      - '**/*.kts'
+      - '**/*.rs'
+      - '**/*.py'
+      - '**/*.sh'
+      - '**/*.proto'
+      - '**/*.java'
+      - '**/*.c'
+      - '**/*.h'
+      - '**/*.cpp'
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.mjs'
+      - '**/*.pro'
       - 'AGENTS.md'
       - 'CLAUDE.md'
       - '.gitmodules'

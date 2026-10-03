@@ -171,7 +171,7 @@ support. DoQ is not routed through hickory either.
 The diagnostics runner uses encrypted DNS as a ground-truth oracle to
 detect DNS tampering by the ISP/middlebox.
 
-**Detection flow** (`strategy.rs:detect_strategy_probe_dns_tampering()`):
+**Detection flow** (`native/rust/crates/ripdpi-diagnostics-runner/src/strategy.rs:detect_strategy_probe_dns_tampering()`):
 1. For each target domain, resolve via system DNS (`resolve_addresses()`)
 2. Resolve the same domain via encrypted DNS (`resolve_via_encrypted_dns()`)
 3. Compare results:

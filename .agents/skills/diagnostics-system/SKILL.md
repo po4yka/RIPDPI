@@ -392,7 +392,7 @@ End-to-end walkthrough for adding a hypothetical "ping" probe:
    }
    ```
 3. Add it to the `load()` list.
-4. If you need a new target pack, add it to `DiagnosticsCatalogPackSource.kt`.
+4. If you need a new target pack, add it to `build-logic/convention/src/main/kotlin/DefaultDiagnosticsCatalogPackSource.kt:DefaultDiagnosticsCatalogPackSource`.
 5. Rebuild. The catalog assembler validates uniqueness, pack references, and
    schema constraints.
 6. Update `diagnostics-contract-fixtures/profile_catalog_current.json` by
@@ -444,18 +444,8 @@ After any wire type change:
 3. If fields were added: bless goldens with `RIPDPI_BLESS_GOLDENS=1` and
    commit updated fixtures.
 
-## 13. PCAP Diagnostic Recording
+## 13. PCAP Storage and Export
 
-On-device packet capture for DPI evasion debugging without external tools.
+`core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveExporter.kt:createArchive()` rejects `includePcap`: raw packet captures must be exported separately from redacted diagnostic archives.
 
-**Rust components:**
-- `ripdpi-monitor-engine` / diagnostics archive support -- standard pcap export, retention, and archive bundling for captured sessions
-- `ripdpi-proxy-runtime/src/runtime/state/desync.rs` plus the runtime desync context -- `PcapHook` callback invoked on outbound desync execution
-- `ripdpi-android/src/ffi/proxy_bridge/pcap.rs` -- JNI bridge: `jniStartPcapRecording`, `jniStopPcapRecording`, `jniIsPcapRecording`
-
-**Android components:**
-- `DiagnosticsViewModel` -- `togglePcapRecording()` action, `pcapRecording` state flow
-- `DiagnosticsArchiveFileStore` -- `cleanupPcapFiles()` (24h age-based), `getRecentPcapFiles()` for export
-- `DiagnosticsArchiveRenderer` -- includes up to 3 recent pcap files in diagnostic export bundles
-
-**Storage safety:** 10 MB file cap, 50 connection auto-stop, cache directory storage, 24h cleanup on app start.
+`core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveFileStore.kt:cleanupPcapFiles()` owns retention, byte/file limits, and protection of active capture sets. Derive those limits from its constants when changing storage behavior.

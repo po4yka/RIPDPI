@@ -21,6 +21,10 @@ paths:
 
 Applies when editing agent instructions, skills, subagents, rules, hooks, or their CI. Validate every such change with `just harness-check`; the blocking `harness-validation` workflow runs the same checks.
 
+The link audit checks source pointers in inline code and Markdown links across entry points, local skills and their Markdown references, rules, and Claude/Codex agents. File names, suffix paths, globs, and `...` must resolve to tracked files in the current checkout. Qualify symbols with `path:Symbol()` or `path#Symbol`; Rust, Kotlin, Python, and protobuf declaration checks require one matching file. Numeric `:line` and `#Lline` references must fit that file. Supported source extensions live in `scripts/ci/check_harness_links.py:_RE_SOURCE`. Code fences, template placeholders, external `../` paths, and vendored library examples are outside the source audit; use concrete local pointers for repository guidance. Source changes also trigger the CI audit; the pre-commit audit is blocking.
+
+A library-reference skill can declare `<!-- harness-source-scope: external -->` on a separate line in `SKILL.md`. Its short source paths then name upstream library files and are reported as external. Repository-root paths in that skill and its Markdown references remain checked; qualify RIPDPI pointers from the root. Relative Markdown links resolving inside the checkout are local references.
+
 ## Layers
 
 - `AGENTS.md` is read by Codex directly and by Claude Code through the `@AGENTS.md` import in `CLAUDE.md`. It holds project facts, boundaries, and pointers that every task needs, and must stay under Codex's 32 KiB `project_doc_max_bytes` default. Put a line there only if removing it would cause a recurring repository-specific mistake.

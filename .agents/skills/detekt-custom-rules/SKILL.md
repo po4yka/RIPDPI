@@ -40,7 +40,7 @@ quality/detekt-rules/
 
 ### Step 1: Write the Rule Class
 
-Create `src/main/kotlin/com/poyka/ripdpi/quality/detekt/YourRuleName.kt`:
+Create `src/main/kotlin/com/poyka/ripdpi/quality/detekt/<YourRuleName>.kt`:
 
 ```kotlin
 package com.poyka.ripdpi.quality.detekt
@@ -119,7 +119,7 @@ diGuardrails:
 
 ### Step 4: Write Tests
 
-Create `src/test/kotlin/com/poyka/ripdpi/quality/detekt/YourRuleNameTest.kt`:
+Create `src/test/kotlin/com/poyka/ripdpi/quality/detekt/<YourRuleName>Test.kt`:
 
 ```kotlin
 package com.poyka.ripdpi.quality.detekt

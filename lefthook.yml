@@ -78,8 +78,7 @@ pre-commit:
       run: python3 scripts/ci/check_native_architecture_contracts.py
 
     harness-link-audit:
-      glob: "{AGENTS.md,CLAUDE.md,.agents/**,.claude/**,.codex/**}"
-      run: python3 scripts/ci/check_harness_links.py --report-only
+      run: python3 scripts/ci/check_harness_links.py --strict
 
     pinact-check:
       glob: ".github/workflows/*.yml"

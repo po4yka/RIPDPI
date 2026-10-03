@@ -7,6 +7,8 @@ argument-hint: "[audit [scope: full|performance|state|side-effects|api] [module:
 
 # Compose -- RIPDPI
 
+<!-- harness-source-scope: external -->
+
 Two modes in one skill:
 
 - **Expert Guidance** (default) — practical, evidence-backed answers for Compose questions

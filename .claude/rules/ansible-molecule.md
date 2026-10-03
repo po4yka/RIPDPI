@@ -121,7 +121,7 @@ intuitively-correct empty form is rejected:
 
 Audit when editing
 `ansible/roles/xray/templates/config.json.j2`. Programmatic enforcement
-lives in the sibling repo's `scripts/check-templates-render.py`, which
+lives in the sibling repo's `../ripdpi-vpn-deploy/scripts/check-templates-render.py`, which
 runs the rendered config through `xray run -test -config` when a local
 xray binary or cached `ghcr.io/xtls/xray-core` image is available.
 
@@ -147,9 +147,9 @@ forbidden-input list.
 - `.claude/rules/llm-rust-prompts.md` — sentinel patterns for the
   routing-rule and inventory-shape failures above; the diff-acceptance
   gate covers AI-generated Ansible/Jinja2 diffs too.
-- ripdpi-vpn-deploy `scripts/check-templates-render.py` — programmatic
+- ripdpi-vpn-deploy `../ripdpi-vpn-deploy/scripts/check-templates-render.py` — programmatic
   xray template lint with semantic validation via `xray -test`.
-- ripdpi-vpn-deploy `scripts/validate-secrets.py` — schema gate for the
+- ripdpi-vpn-deploy `../ripdpi-vpn-deploy/scripts/validate-secrets.py` — schema gate for the
   production secrets file (the `validate-secrets` mode in the deploy
   pipeline, distinct from the test-fixture pre-flight above).
 - ripdpi-vpn-deploy `ansible/molecule/full-stack/molecule.yml` and
