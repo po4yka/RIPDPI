@@ -7,6 +7,7 @@ RIPDPI is an offline-first Android network-path diagnostics and performance tool
 ## Source of truth
 
 - At task start and after changing directories, run `just checkout-doctor` to discover the actual checkout root, branch, Git directories, usable registered worktrees, and Rust-skill submodule state. Use its current paths instead of remembered checkout names. It is read-only; exit 1 means inspect the reported issue before proceeding. For a Git directory without a justfile, invoke `scripts/checkout_doctor.py` from an available checkout with the directory as its argument (`--json` provides structured output).
+- To locate guidance for a build, runtime, contract, UI, testing, release, or harness task, use the [task-based documentation index](docs/README.md#find-docs-by-task).
 - For cross-module or architecture work, start at `docs/architecture/ARCHITECTURE.md` and follow its links (`NATIVE_RUST.md`, `JNI_CONTRACT.md`, `CONFIG_CONTRACTS.md`, `DIAGNOSTICS_ARCHITECTURE.md`, `FEATURE_EXTENSION_GUIDE.md`) as the change requires.
 - Derive protocol and relay claims from current Kotlin/Rust registries, schemas, tests, and crate existence. Old plans, README prose, and rollout notes are not authoritative when code disagrees.
 - Native build properties come from `gradle.properties`; dependency versions come from `gradle/libs.versions.toml`; Rust membership and dependencies come from `native/rust/Cargo.toml` and `cargo metadata --locked`.

@@ -2,6 +2,26 @@
 
 RIPDPI documentation index. For a quick start, see the main [README](../README.md).
 
+## Find docs by task
+
+Choose the row matching the change or failure you are investigating. Read the entry point and its prerequisites, then follow the next pointer for the affected part of the task. The topic catalog below remains available for broader reading.
+
+| Task | Start here | Follow when needed |
+| --- | --- | --- |
+| Fix a local build, slow Gradle/Cargo build, or worktree contention | [Build performance](contributor/build-performance.md) | [Checkout discovery and setup](../AGENTS.md#source-of-truth); current build inputs in [Gradle properties](../gradle.properties) and the [Rust workspace manifest](../native/rust/Cargo.toml) |
+| Select tests or investigate a CI failure | [Testing](testing.md) | [Feature test checklist](feature-test-checklist.md) for coverage; [CI workflow](../.github/workflows/ci.yml) for the failing job's actual command |
+| Change module ownership or Rust crate boundaries | [Architecture overview](architecture/ARCHITECTURE.md) | [Native Rust workspace](architecture/NATIVE_RUST.md) for layering; [architecture quality gates](architecture/quality-gates.md) for validation |
+| Change a Kotlin/Rust payload, JNI method, or wire schema | [JNI contract](architecture/JNI_CONTRACT.md) | [Config contracts](architecture/CONFIG_CONTRACTS.md) for serialization and compatibility; [diagnostics architecture](architecture/DIAGNOSTICS_ARCHITECTURE.md) for scan payloads |
+| Add or change a persisted setting | [Config contracts](architecture/CONFIG_CONTRACTS.md) | [Protobuf/DataStore mapping](../.agents/skills/protobuf-datastore/SKILL.md); [protobuf schema evolution](../.agents/skills/protobuf-schema-evolution/SKILL.md) for field changes |
+| Investigate VPN/proxy startup, shutdown, or network handover | [Runtime modes](architecture/RUNTIME_MODES.md) | [Service lifecycle](../.agents/skills/service-lifecycle/SKILL.md) and [service session scope](service-session-scope.md) for ownership; [runtime debugging](native/debug-runtime-issue.md) for evidence collection |
+| Change a diagnostics stage, target catalog, or report | [Diagnostics architecture](architecture/DIAGNOSTICS_ARCHITECTURE.md) | [Diagnostics system](../.agents/skills/diagnostics-system/SKILL.md) for implementation paths and contract tests |
+| Add a strategy, relay, or probe | [Architecture overview](architecture/ARCHITECTURE.md) | [Feature extension guide](architecture/FEATURE_EXTENSION_GUIDE.md), after its native-workspace prerequisites, for the relevant extension checklist |
+| Change a Compose screen, theme, or localized text | [Design spec](../DESIGN.md) | [Design system](design-system.md) and [RIPDPI Compose patterns](../.agents/skills/android-compose-patterns/SKILL.md); [locale rules](../AGENTS.md#locales) for resource changes |
+| Author or debug Appium/Maestro UI automation | [External UI automation](automation/README.md) | [Selector contract](automation/selector-contract.md) for locators; [Appium readiness](automation/appium-readiness.md) for setup and execution |
+| Build, sign, or publish a release | [Release workflow](../.agents/skills/ripdpi-release/SKILL.md) | [Signing](../.agents/skills/release-signing/SKILL.md) and [distribution channels](distribution.md) for release inputs and channel behavior |
+| Change agent instructions, skills, mirrors, hooks, or their checks | [Harness maintenance](../.claude/rules/harness-maintenance.md) | [Harness manifests](../scripts/ci/check_harness_manifests.py) and [reference audit](../scripts/ci/check_harness_links.py) for the enforced rules |
+| Create, execute, or close a portfolio task; decide whether OpenSpec is required | [Task management](tasks/README.md) | [Task board workflow](../.agents/skills/repo-task-board/SKILL.md) for the repository CLI and execution routes |
+
 ## Architecture — start here
 
 New developers should read these in order:
