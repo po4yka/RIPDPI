@@ -2,6 +2,8 @@
 
 This document describes the current test stack for RIPDPI after the migration to in-repository Rust native modules.
 
+For a failed GitHub Actions check, start with the [short CI triage route](contributor/ci-triage.md) to identify the exact run, attempt, failing job, and relevant reproduction command.
+
 ## Coverage Layers
 
 Use the [feature test checklist](feature-test-checklist.md) as the canonical feature and combination inventory when selecting release, nightly, or manual QA coverage. Use the [manual evidence template](feature-test-manual-evidence-template.md) when recording rooted-device, physical-network, provider-relay, TalkBack, routed netem, or remote-workflow evidence. Final checklist sign-off must run `test-lab/scripts/check-feature-test-signoff.sh` with an evidence-backed, operator-reviewed readiness JSON whose required `ready` rows are tied to the filled manual template. The required readiness rows are `android_device`, `rooted_physical_device`, `manual_talkback`, `physical_network_handover`, `routed_netem_vm`, `production_relay_matrix`, and `remote_workflow_confirmation`; print the canonical list with `test-lab/scripts/check-feature-test-signoff.sh --list-required-readiness`.

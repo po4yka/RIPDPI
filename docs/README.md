@@ -9,7 +9,8 @@ Choose the row matching the change or failure you are investigating. Read the en
 | Task | Start here | Follow when needed |
 | --- | --- | --- |
 | Fix a local build, slow Gradle/Cargo build, or worktree contention | [Build performance](contributor/build-performance.md) | [Checkout discovery and setup](../AGENTS.md#source-of-truth); current build inputs in [Gradle properties](../gradle.properties) and the [Rust workspace manifest](../native/rust/Cargo.toml) |
-| Select tests or investigate a CI failure | [Testing](testing.md) | [Feature test checklist](feature-test-checklist.md) for coverage; [CI workflow](../.github/workflows/ci.yml) for the failing job's actual command |
+| Diagnose a failed CI job | [Short CI triage route](contributor/ci-triage.md) | Exact run/attempt/job logs, then the failing workflow's command and artifacts |
+| Select tests | [Testing](testing.md) | [Feature test checklist](feature-test-checklist.md) for feature and combination coverage |
 | Change module ownership or Rust crate boundaries | [Architecture overview](architecture/ARCHITECTURE.md) | [Native Rust workspace](architecture/NATIVE_RUST.md) for layering; [architecture quality gates](architecture/quality-gates.md) for validation |
 | Change a Kotlin/Rust payload, JNI method, or wire schema | [JNI contract](architecture/JNI_CONTRACT.md) | [Config contracts](architecture/CONFIG_CONTRACTS.md) for serialization and compatibility; [diagnostics architecture](architecture/DIAGNOSTICS_ARCHITECTURE.md) for scan payloads |
 | Add or change a persisted setting | [Config contracts](architecture/CONFIG_CONTRACTS.md) | [Protobuf/DataStore mapping](../.agents/skills/protobuf-datastore/SKILL.md); [protobuf schema evolution](../.agents/skills/protobuf-schema-evolution/SKILL.md) for field changes |
@@ -68,6 +69,7 @@ New developers should read these in order:
 
 ## Testing & CI
 
+- [Short CI triage route](contributor/ci-triage.md)
 - [Feature test checklist](feature-test-checklist.md)
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
 - [Local network test lab](../test-lab/README.md)
