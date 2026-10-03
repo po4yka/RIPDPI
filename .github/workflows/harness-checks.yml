@@ -78,5 +78,6 @@ jobs:
         run: python3 -m unittest
           scripts.tests.test_check_harness_cargo_locked
           scripts.tests.test_check_harness_links
+          scripts.tests.test_check_harness_manifests
           scripts.tests.test_network_surface_scanner
           scripts.tests.test_checkout_doctor

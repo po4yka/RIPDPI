@@ -27,6 +27,7 @@ Applies when editing agent instructions, skills, subagents, rules, hooks, or the
 - `CLAUDE.md` starts with `@AGENTS.md` (CI-checked) and adds only Claude Code-specific notes.
 - `.claude/rules/*.md` hold file-area guidance. Claude Code reads only the `paths` frontmatter key (CI rejects any other key) and loads a rule when a matching file is read. Codex does not load these; the routing table in `AGENTS.md` points it at them, so add a row there for every new rule.
 - `.agents/skills/` is the canonical skill root and the location Codex scans. `.claude/skills/` (Claude Code) and `.github/skills/` (GitHub Copilot) are symlink mirrors; CI requires every skill to appear in both.
+- Local-only mirror directories are exempt only when untracked and named by an exact directory rule in the tracked repository-root `.gitignore`. Broad patterns, personal Git exclusions, and tracked content do not exempt entries; a local skill cannot shadow a canonical skill.
 - Security enforcement lives in committed hooks, committed settings, or blocking CI; local settings (`.claude/settings.local.json`, personal Codex config) are never the enforcement boundary. Deterministic requirements belong in hooks or CI, not prose. `.claude/settings.json` and `.codex/hooks.json` stay equivalent (only the edit-tool matcher differs: Claude Code uses `Edit|Write`; Codex uses `Edit|Write|apply_patch` because its edits arrive as `apply_patch`); `scripts/tests/test_agent_hooks.py` checks both.
 
 ## Skills

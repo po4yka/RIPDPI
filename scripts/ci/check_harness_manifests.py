@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import configparser
 import json
+import os
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -196,9 +198,48 @@ def validate_central_rust_skills(names: set[str]) -> None:
             )
 
 
+def repository_git(*arguments: str, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+    # Inspect this repository's policy/index even when invoked from a Git hook.
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
+    try:
+        return subprocess.run(
+            ["git", "-C", str(REPO_ROOT), *arguments], input=input_text,
+            env=environment, text=True, capture_output=True, check=False, timeout=10,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("timed out inspecting local skill policy") from error
+
+
+def is_declared_local_skill(path: Path) -> bool:
+    relative = path.relative_to(REPO_ROOT).as_posix()
+    # Only literal directory rules declare local skills; Git glob syntax is not a declaration.
+    if not path.is_dir() or path.is_symlink() or any(character in relative for character in "*?[]\\"):
+        return False
+    ignored = repository_git("check-ignore", "--verbose", "-z", "--stdin", input_text=relative + "\0")
+    if ignored.returncode == 1:
+        return False
+    if ignored.returncode:
+        raise ValueError(f"cannot inspect local skill ignore policy: git exited {ignored.returncode}")
+    fields = ignored.stdout.rstrip("\0").split("\0")
+    if len(fields) != 4:
+        raise ValueError("unexpected git check-ignore response for local skill policy")
+    source, _, pattern, _ = fields
+    if source != ".gitignore" or pattern not in {relative + "/", "/" + relative + "/"}:
+        return False
+    indexed = repository_git("--literal-pathspecs", "ls-files", "--cached", "-z", "--", ".gitignore", relative)
+    if indexed.returncode:
+        raise ValueError(f"cannot inspect local skill tracking: git exited {indexed.returncode}")
+    return indexed.stdout == ".gitignore\0"
+
+
 def validate_mirrors(names: set[str]) -> None:
     for mirror in SKILL_MIRRORS:
-        entries = {path.name: path for path in mirror.iterdir() if not path.name.startswith(".")}
+        entries = {
+            path.name: path for path in mirror.iterdir()
+            if not path.name.startswith(".")
+            and not (path.name not in names and is_declared_local_skill(path))
+        }
         missing = sorted(names - entries.keys())
         extra = sorted(entries.keys() - names)
         if missing or extra:
