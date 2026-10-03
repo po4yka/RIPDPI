@@ -1,4 +1,4 @@
-use ripdpi_monitor_adapter::failure::ClassifiedFailure;
+use ripdpi_failure_classifier::ClassifiedFailure;
 
 use crate::types::{
     ConnectionConcurrencyAssessment, DomainTarget, QuicTarget, StrategyProbeCandidateSummary, StrategyProbeReport,

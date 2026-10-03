@@ -71,8 +71,6 @@ DISCOURAGED_EDGES = {
         "ripdpi-diagnostics-telegram": 3,
         "ripdpi-diagnostics-tls": 3,
         "ripdpi-diagnostics-transport": 3,
-        "ripdpi-failure-classifier": 3,
-        "ripdpi-proxy-config": 3,
     },
 }
 

@@ -1,5 +1,5 @@
-use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
-use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
+use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 use crate::candidates::{StrategyProbeSuite, build_strategy_probe_suite};
 use crate::types::ScanRequest;

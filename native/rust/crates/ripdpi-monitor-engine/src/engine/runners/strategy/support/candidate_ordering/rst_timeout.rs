@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ripdpi_monitor_adapter::failure::{ClassifiedFailure, FailureClass};
+use ripdpi_failure_classifier::{ClassifiedFailure, FailureClass};
 
 pub(in crate::engine::runners::strategy) fn compute_rst_adaptive_timeout(
     baseline_failure: &ClassifiedFailure,

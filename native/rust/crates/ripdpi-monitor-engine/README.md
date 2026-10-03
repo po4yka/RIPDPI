@@ -12,7 +12,7 @@ monolithic `ripdpi-monitor` became — it is reached over JNI through
 
 ## Main dependencies
 
-`ripdpi-diagnostics-contracts`, `ripdpi-monitor-adapter`,
+`ripdpi-diagnostics-contracts`, `ripdpi-failure-classifier`, `ripdpi-proxy-config`,
 `ripdpi-monitor-lane-adapter`, `ripdpi-config`, `ripdpi-packets`,
 `ripdpi-runtime-platform`, `ripdpi-telemetry`; `rustls`, `tokio`.
 

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use rustls::client::danger::ServerCertVerifier;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
-use ripdpi_monitor_adapter::failure::{
+use ripdpi_failure_classifier::{
     ConnectionConcurrencyCell as ClassifierCell, ConnectionConcurrencyCellStatus as ClassifierStatus,
     ConnectionConcurrencyVerdict as ClassifierVerdict, classify_connection_concurrency_matrix,
 };
@@ -188,9 +188,9 @@ fn current_profile(plan: &ExecutionPlan) -> String {
         .strategy_probe
         .as_ref()
         .and_then(|request| request.base_proxy_config_json.as_deref())
-        .and_then(|config| ripdpi_monitor_adapter::proxy_config::parse_proxy_config_json(config).ok())
+        .and_then(|config| ripdpi_proxy_config::parse_proxy_config_json(config).ok())
         .and_then(|payload| {
-            if let ripdpi_monitor_adapter::proxy_config::ProxyConfigPayload::Ui { config, .. } = payload {
+            if let ripdpi_proxy_config::ProxyConfigPayload::Ui { config, .. } = payload {
                 Some(config.fake_packets.tls_fingerprint_profile)
             } else {
                 None

@@ -1,4 +1,4 @@
-use ripdpi_monitor_adapter::failure::FailureClass;
+use ripdpi_failure_classifier::FailureClass;
 
 use crate::candidates::{CandidateEligibility, StrategyCandidateSpec};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};

@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_config::ProxyRuntimeContext;
 
 use crate::candidates::{StrategyCandidateSpec, target_probe_pause_ms};
 use crate::types::QuicTarget;

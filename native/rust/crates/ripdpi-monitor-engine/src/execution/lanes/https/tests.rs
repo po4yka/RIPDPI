@@ -16,12 +16,8 @@ fn https_probe_details_export_typed_failure_stage_and_duration() {
         latency_ms: 17,
         https_port: 443,
     };
-    let candidate = crate::candidates::candidate_spec(
-        "test",
-        "Test",
-        "test",
-        ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
-    );
+    let candidate =
+        crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
 
     let details = build_https_probe_details(&candidate, &observations, "tls_handshake_failed");
 

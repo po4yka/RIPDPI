@@ -304,7 +304,7 @@ declaration is load-bearing for the Play Store Data Safety surface.
 | **Probe-task execution** | `ripdpi-diagnostics-probes` — the `Probe` trait + concrete probe tasks |
 | **Scan runner** | `ripdpi-diagnostics-runner` — connectivity / strategy / domain scans, budget, winner selection |
 | **Monitor engine** | `ripdpi-monitor-engine` — the active-scan engine (sessions, the `ExecutionStageRunner` loop) |
-| **Monitor adapters** | `ripdpi-monitor-adapter` (↔ contracts), `ripdpi-monitor-lane-adapter` (probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |
+| **Monitor adapters** | `ripdpi-monitor-lane-adapter` (probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |
 
 All of the above are JNI-free; `ripdpi-android-diagnostics-adapter` (L8) is the
 only JNI surface. Dependencies point inward — probe crates depend on contracts

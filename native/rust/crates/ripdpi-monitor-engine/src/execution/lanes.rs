@@ -60,12 +60,8 @@ mod tests {
     #[test]
     fn execute_tcp_candidate_returns_failed_when_launcher_fails() {
         let launcher = FailingRuntimeLauncher::new();
-        let spec = crate::candidates::candidate_spec(
-            "test",
-            "Test",
-            "test",
-            ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
-        );
+        let spec =
+            crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
         let targets = vec![DomainTarget {
             host: "example.test".to_string(),
             connect_ip: None,
@@ -102,12 +98,8 @@ mod tests {
     #[test]
     fn execute_quic_candidate_without_targets_does_not_start_launcher() {
         let launcher = FailingRuntimeLauncher::new();
-        let spec = crate::candidates::candidate_spec(
-            "test",
-            "Test",
-            "test",
-            ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
-        );
+        let spec =
+            crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
         let cancel = AtomicBool::new(false);
         let supervisor = CandidateRuntimeSupervisor::default();
 

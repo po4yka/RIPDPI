@@ -1,4 +1,4 @@
-use ripdpi_monitor_adapter::proxy_config::{ProxyUiActivationFilter, ProxyUiConfig, ProxyUiTcpRotationConfig};
+use ripdpi_proxy_config::{ProxyUiActivationFilter, ProxyUiConfig, ProxyUiTcpRotationConfig};
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::types::{

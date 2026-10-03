@@ -108,6 +108,29 @@ ripdpi-j = { path = "../ripdpi-j" }
         self.assertIn("discouraged-dependency-edge", rules)
         self.assertTrue(any("ripdpi-runtime-adaptive" in indicator.id for indicator in indicators))
 
+    def test_monitor_canonical_model_edges_are_allowed_without_allowing_probe_crate_edges(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            self._write(
+                repo / "native/rust/crates/ripdpi-monitor-engine/Cargo.toml",
+                """
+[package]
+name = "ripdpi-monitor-engine"
+version = "0.1.0"
+
+[dependencies]
+ripdpi-failure-classifier = { path = "../ripdpi-failure-classifier" }
+ripdpi-proxy-config = { path = "../ripdpi-proxy-config" }
+ripdpi-diagnostics-tls = { path = "../ripdpi-diagnostics-tls" }
+""",
+            )
+            indicators = sut.collect_dependency_indicators(repo, None)
+
+        self.assertEqual(
+            {"ripdpi-monitor-engine depends directly on ripdpi-diagnostics-tls"},
+            {indicator.message for indicator in indicators if indicator.rule == "discouraged-dependency-edge"},
+        )
+
     def test_native_composition_caps_count_production_dependencies_only(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)

@@ -75,7 +75,7 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex};
 
-    use ripdpi_monitor_adapter::proxy_config::NetworkSnapshot;
+    use ripdpi_proxy_config::NetworkSnapshot;
 
     use super::EnvironmentRunner;
     use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageRunner, RunnerOutcome};

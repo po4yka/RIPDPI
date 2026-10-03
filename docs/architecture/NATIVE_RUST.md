@@ -88,7 +88,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L3 | **domain logic** | 19 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry`, `ripdpi-traffic-shape` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 9 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
-| L6 | **diagnostics / monitor** | 14 | 10 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
+| L6 | **diagnostics / monitor** | 13 | 10 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 22 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-wireguard-ws`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 13 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android` |
 
@@ -275,8 +275,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-diagnostics-telegram` | Telegram-availability probes | Probe API | `ripdpi-diagnostics-{contracts,http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-tls` | TLS reachability probes | Probe API | `ripdpi-diagnostics-{contracts,dns,transport}`, `ripdpi-tls-profiles` | Fan-in 6 | Keep |
 | `ripdpi-diagnostics-transport` | Transport-layer probe primitives | Probe primitives | `ripdpi-diagnostics-contracts`, `ripdpi-socks5-core` | Fan-in 9 | Keep |
-| `ripdpi-monitor-engine` | Active-scan engine | Engine API | `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-runtime-platform`, … | Core diagnostics engine | Keep |
-| `ripdpi-monitor-adapter` | Monitor ↔ diagnostics-contracts adapter | Adapter API | `ripdpi-diagnostics-contracts`, `ripdpi-failure-classifier`, `ripdpi-proxy-config` | — | Keep |
+| `ripdpi-monitor-engine` | Active-scan engine | Engine API | `ripdpi-failure-classifier`, `ripdpi-proxy-config`, `ripdpi-monitor-lane-adapter`, `ripdpi-runtime-platform`, … | Core diagnostics engine | Keep |
 | `ripdpi-monitor-lane-adapter` | Probe-lane adapter over diagnostics crates | Adapter API | 8 × `ripdpi-diagnostics-*` | High fan-out — wiring crate | Keep thin |
 | `ripdpi-monitor-proxy-runtime` | Monitor ↔ proxy-runtime passive-telemetry adapter | Adapter API | `ripdpi-monitor-engine`, `ripdpi-proxy-runtime`, `ripdpi-runtime-api` | Monitor observes L4 — outer adapter | Keep |
 
@@ -355,7 +354,7 @@ Every crate **except the 13 L8 crates** must not depend on `jni`,
 > `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`,
 > `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`,
 > `ripdpi-root-helper`, the 10 `ripdpi-diagnostics-*` crates (all except
-> `-contracts`, which is L2 and also JNI-free), the 4 `ripdpi-monitor-*`
+> `-contracts`, which is L2 and also JNI-free), the 3 `ripdpi-monitor-*`
 > crates, and the L7 relay-transport crates.
 
 Load-bearing cases: `ripdpi-runtime-platform` and `ripdpi-native-protect` are

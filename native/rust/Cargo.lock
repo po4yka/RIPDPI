@@ -5863,15 +5863,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-monitor-adapter"
-version = "0.1.0"
-dependencies = [
- "ripdpi-diagnostics-contracts",
- "ripdpi-failure-classifier",
- "ripdpi-proxy-config",
-]
-
-[[package]]
 name = "ripdpi-monitor-engine"
 version = "0.1.0"
 dependencies = [
@@ -5886,9 +5877,10 @@ dependencies = [
  "rcgen",
  "ripdpi-config",
  "ripdpi-diagnostics-contracts",
- "ripdpi-monitor-adapter",
+ "ripdpi-failure-classifier",
  "ripdpi-monitor-lane-adapter",
  "ripdpi-packets",
+ "ripdpi-proxy-config",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
  "ripdpi-tls-profiles",

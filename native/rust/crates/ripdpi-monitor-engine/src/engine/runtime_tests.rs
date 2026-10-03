@@ -21,7 +21,7 @@ use crate::types::{
     StrategyEmitterTier, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
     StrategyProbeRequest,
 };
-use ripdpi_monitor_adapter::proxy_config::ProxyUiConfig;
+use ripdpi_proxy_config::ProxyUiConfig;
 
 #[test]
 fn parallel_group_contains_expected_stages() {

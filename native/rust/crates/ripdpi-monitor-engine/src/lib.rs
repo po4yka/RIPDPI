@@ -19,7 +19,7 @@ mod session;
 pub mod contracts;
 pub mod wire;
 
-use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
+use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 pub(crate) use probes::{
     blockpage_fingerprints, candidates, cdn_ech, classification, connectivity, http, observations, strategy, telegram,

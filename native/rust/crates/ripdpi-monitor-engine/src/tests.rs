@@ -23,8 +23,8 @@ use crate::{
     CandidateRuntimeLauncher, CandidateRuntimeTerminalReceipt, MonitorSession, PreparedCandidateRuntime,
 };
 
-use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
-use ripdpi_monitor_adapter::proxy_config::{
+use ripdpi_failure_classifier::{FailureAction, FailureClass};
+use ripdpi_proxy_config::{
     ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig, ProxyUiDestinationRoutingConfig,
 };
 

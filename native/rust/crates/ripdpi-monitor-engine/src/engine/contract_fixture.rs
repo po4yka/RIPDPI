@@ -219,7 +219,7 @@ fn connectivity_partial_report_request() -> ScanRequest {
         telegram_target: None,
         strategy_probe: None,
         confirm_good_dpi_evidence: None,
-        network_snapshot: Some(ripdpi_monitor_adapter::proxy_config::NetworkSnapshot {
+        network_snapshot: Some(ripdpi_proxy_config::NetworkSnapshot {
             transport: "wifi".to_string(),
             validated: true,
             private_dns_mode: "system".to_string(),

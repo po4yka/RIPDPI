@@ -182,7 +182,6 @@ DIAGNOSTICS_UPWARD_DEPENDENCIES = frozenset(
     {
         "ripdpi-android-diagnostics-adapter",
         "ripdpi-diagnostics-runner",
-        "ripdpi-monitor-adapter",
         "ripdpi-monitor-engine",
         "ripdpi-monitor-lane-adapter",
         "ripdpi-monitor-proxy-runtime",

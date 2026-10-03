@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
+use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 use crate::types::{ScanKind, ScanPathMode};
 use ripdpi_diagnostics_contracts::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire};
