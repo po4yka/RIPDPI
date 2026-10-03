@@ -953,8 +953,6 @@ app:debug_bundle_failed
 app:desync_http
 app:desync_https
 app:desync_udp
-app:detection_auto_tune_apply
-app:detection_auto_tune_title
 app:detection_cdn_trace_mitm_label
 app:detection_check_category_bypass
 app:detection_check_category_call_transport
@@ -1036,6 +1034,11 @@ app:detection_permission_title
 app:detection_privacy_mode
 app:detection_probe_outcome_format
 app:detection_protanopia_unlocked_message
+app:detection_recommendation_open_advanced
+app:detection_recommendation_open_dns
+app:detection_recommendation_open_mode
+app:detection_recommendation_open_proxy
+app:detection_recommendation_open_settings
 app:detection_resistance_active_title
 app:detection_resistance_badge_default
 app:detection_resistance_badge_evolution
