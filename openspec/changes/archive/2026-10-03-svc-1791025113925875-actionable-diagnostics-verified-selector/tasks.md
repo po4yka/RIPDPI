@@ -17,5 +17,5 @@ Use build-gate for compiler-backed checks. Record exact local, hosted CI and dev
 - [x] SVC-1791025379880611 Remove diagnostics compatibility and trivial coroutine wrappers #chore !high @item:SVC-1791025113925875
 - [x] SVC-1791025380381572 Expose typed diagnostic recommendation actions and remove empty fixes #feature !high @item:SVC-1791025113925875
 - [x] SVC-1791025380877118 Reconcile durable selector choices and switch active sessions safely #feature !high @item:SVC-1791025113925875
-- [ ] SVC-1791025381376340 Validate candidate transport payload before selector ranking #feature !high @item:SVC-1791025113925875
-- [ ] SVC-1791025381882198 Verify combined tree, hosted CI and available device behavior #chore !high @item:SVC-1791025113925875
+- [x] SVC-1791025381376340 Validate candidate transport payload before selector ranking #feature !high @item:SVC-1791025113925875
+- [x] SVC-1791025381882198 Verify combined tree, hosted CI and available device behavior #chore !high @item:SVC-1791025113925875

@@ -1,0 +1,11 @@
+{
+  "change": "svc-1791025113925875-actionable-diagnostics-verified-selector",
+  "evidence_summary": "Source 335336b5eac0c29cd3185c46f05d8bbf8f885358; CI 37128129033 terminal SUCCESS, all five required Android APIs succeeded; local static/locale/architecture and Kotlin/Rust gates passed; API37 actual JNI3 plus Android lifecycle24 passed.",
+  "execution_sha256": "d0ddd250658c9ae6af124b8d13fea29303af2036203b25960a7fcf18f3296a61",
+  "issue_sha256": "7b101c15c25d1dad105e125c8856960a52b8af62a373e0ca2d2df29d46e6c2a9",
+  "outcome": "done",
+  "prepared_at": "2026-10-03T14:41:34Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1791025113925875"
+}
