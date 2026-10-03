@@ -4,7 +4,7 @@ package com.poyka.ripdpi.services
 data class CandidateRelayProbeEnvironment(
     val vpnProtectionRequired: Boolean,
     val tlsProfile: String,
-    val experiments: RuntimeExperimentSelection,
+    val featureFlags: Map<String, Boolean>,
     val quicBindLowPort: Boolean,
     val quicMigrateAfterHandshake: Boolean,
 )

@@ -232,7 +232,7 @@ class CandidateRelayPayloadProbeTest {
         CandidateRelayProbeEnvironment(
             false,
             "chrome_stable",
-            RuntimeExperimentSelection(),
+            emptyMap(),
             false,
             false,
         )

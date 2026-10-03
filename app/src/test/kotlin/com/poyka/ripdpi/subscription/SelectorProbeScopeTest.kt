@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.services.CandidateRelayProbeEnvironment
-import com.poyka.ripdpi.services.RuntimeExperimentSelection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -145,7 +144,7 @@ class SelectorProbeScopeTest {
         CandidateRelayProbeEnvironment(
             false,
             "chrome_stable",
-            RuntimeExperimentSelection(),
+            emptyMap(),
             false,
             false,
         )

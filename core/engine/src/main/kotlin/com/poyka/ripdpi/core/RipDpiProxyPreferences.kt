@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
 
 sealed interface RipDpiProxyPreferences {
@@ -180,6 +181,17 @@ private fun RipDpiProxyUIPreferences.withRuntimeConfig(
         destinationRouting = destinationRouting,
         awg = awg,
     )
+
+/** Projects owned relay QUIC inputs without resolving unrelated proxy transports or credentials. */
+fun AppSettings.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrationConfig =
+    if (enableCmdSettings) {
+        OwnedRelayQuicMigrationConfig()
+    } else {
+        OwnedRelayQuicMigrationConfig(
+            bindLowPort = quicBindLowPort,
+            migrateAfterHandshake = quicMigrateAfterHandshake,
+        )
+    }
 
 fun RipDpiProxyPreferences.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrationConfig =
     when (this) {

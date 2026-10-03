@@ -103,12 +103,34 @@ class SelectorUrltestProberTest {
             com.poyka.ripdpi.services.CandidateRelayProbeEnvironment(
                 false,
                 "chrome_stable",
-                com.poyka.ripdpi.services
-                    .RuntimeExperimentSelection(),
+                emptyMap(),
                 false,
                 false,
             ),
         )
+
+    @Test
+    fun `resolver feature flag change fences a completed candidate probe`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            var scope = testScope(group)
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { profile, _ ->
+                        if (profile.id == "fast") {
+                            scope =
+                                scope.copy(environment = scope.environment.copy(featureFlags = mapOf("flag" to true)))
+                        }
+                        if (profile.id == "fast") 1L else 100L
+                    },
+                    SelectorProbeScopeProvider { scope },
+                )
+            prober.runProbePass(group, "https://probe", 0)
+            assertEquals("slow", store.selectedProfileId("g").value)
+        }
 
     @Test
     fun `network generation change fences a completed candidate probe`() =
