@@ -152,7 +152,7 @@ class RipDpiVpnService :
         shellDelegate = sessionLifecycle.createShellDelegate()
         // Start the selector-runtime loops (member hot-reload + latency failover)
         // for the lifetime of the service. Each listener is idempotent.
-        selectorRuntimeLifecycleListeners.forEach { it.start() }
+        selectorRuntimeLifecycleListeners.forEach { it.start(Mode.VPN) }
         refreshHardKillSwitchState()
     }
 
@@ -161,7 +161,7 @@ class RipDpiVpnService :
         recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
         activeRecoveryGeneration = null
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
-        selectorRuntimeLifecycleListeners.forEach { it.stop() }
+        selectorRuntimeLifecycleListeners.forEach { it.stop(Mode.VPN) }
         sessionLifecycle.destroy()
         vpnRouteObservationAuthority.stop()
         underlyingNetworkBinder.stop()

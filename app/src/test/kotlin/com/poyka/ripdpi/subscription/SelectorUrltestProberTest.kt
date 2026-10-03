@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.activities.TestEmptyProxyGroupRepository
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -10,11 +11,18 @@ import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -173,6 +181,77 @@ class SelectorUrltestProberTest {
         }
 
     @Test
+    fun `failed group watcher cancels its owned probes`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val failWatcher = CompletableDeferred<Unit>()
+            val failures = mutableListOf<Throwable>()
+            val group = urltestGroup(listOf(member("slow"), member("fast")), intervalSeconds = 10)
+            val repository =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override fun groups() =
+                        flow {
+                            emit(listOf(group))
+                            failWatcher.await()
+                            error("Group source failed")
+                        }
+                }
+            val scope =
+                CoroutineScope(
+                    SupervisorJob(backgroundScope.coroutineContext[Job]) + StandardTestDispatcher(testScheduler) +
+                        CoroutineExceptionHandler { _, failure -> failures.add(failure) },
+                )
+            val coordinator =
+                SelectorUrltestCoordinator(
+                    scope,
+                    repository,
+                    SelectorUrltestProber(store, FakeLatencyProbe(mapOf("fast" to 100L))),
+                )
+            coordinator.start(Mode.VPN)
+            runCurrent()
+            failWatcher.complete(Unit)
+            runCurrent()
+            advanceTimeBy(10_001)
+            runCurrent()
+            assertEquals(1, failures.size)
+            assertEquals("slow", store.selectedProfileId("g").value)
+            coordinator.stop(Mode.VPN)
+        }
+
+    @Test
+    fun `old service stop keeps probes running for new mode owner`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val group = urltestGroup(listOf(member("slow"), member("fast")), intervalSeconds = 10)
+            val groups = MutableStateFlow(listOf(group))
+            val repository =
+                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
+                    override fun groups() = groups
+                }
+            val coordinator =
+                SelectorUrltestCoordinator(
+                    backgroundScope,
+                    repository,
+                    SelectorUrltestProber(store, FakeLatencyProbe(mapOf("fast" to 100L))),
+                )
+            coordinator.start(Mode.VPN)
+            runCurrent()
+            coordinator.start(Mode.Proxy)
+            coordinator.start(Mode.Proxy)
+            coordinator.stop(Mode.VPN)
+            advanceTimeBy(10_001)
+            runCurrent()
+            assertEquals("fast", store.selectedProfileId("g").value)
+            coordinator.stop(Mode.Proxy)
+            store.select("g", "slow")
+            advanceTimeBy(10_001)
+            runCurrent()
+            assertEquals("slow", store.selectedProfileId("g").value)
+        }
+
+    @Test
     fun `coordinator restarts probing when refreshed classification changes`() =
         runTest {
             val store = FakeSelectorSelectionStore()
@@ -184,7 +263,7 @@ class SelectorUrltestProberTest {
                 }
             val prober = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
             val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
             advanceTimeBy(10_001)
             runCurrent()
@@ -196,7 +275,7 @@ class SelectorUrltestProberTest {
             runCurrent()
 
             assertEquals("slow", store.selectedProfileId("g").value)
-            coordinator.stop()
+            coordinator.stop(Mode.VPN)
         }
 
     @Test
@@ -226,7 +305,7 @@ class SelectorUrltestProberTest {
                 }
             val prober = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
             val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
             advanceTimeBy(5_000)
             groups.value = listOf(group.copy(name = "Refreshed name"))
@@ -235,7 +314,7 @@ class SelectorUrltestProberTest {
             runCurrent()
 
             assertEquals("fast", store.selectedProfileId("g").value)
-            coordinator.stop()
+            coordinator.stop(Mode.VPN)
         }
 
     @Test
@@ -267,7 +346,7 @@ class SelectorUrltestProberTest {
             val prober =
                 SelectorUrltestProber(interceptedStore, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
             val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
             advanceTimeBy(10_001)
             runCurrent()
@@ -276,7 +355,7 @@ class SelectorUrltestProberTest {
             advanceTimeBy(10_001)
             runCurrent()
             assertEquals("slow", store.selectedProfileId("g").value)
-            coordinator.stop()
+            coordinator.stop(Mode.VPN)
         }
 
     // bestSwitchCandidate — the pure decision the loop applies.

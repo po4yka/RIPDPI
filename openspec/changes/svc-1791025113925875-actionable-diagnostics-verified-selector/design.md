@@ -19,7 +19,7 @@ Task SVC-1791025113925875 follows a code-based deletion audit. The working selec
 
 ## Contracts and ownership
 
-- Root owns selector app/service/data integration and diagnostics compatibility/wrappers, portfolio/spec state and integration. Native writer owns Rust/manifests/lock and native docs. Detection writer owns detection/navigation and all locales. Exact ownership is recorded in the portfolio task.
+- Root owns selector app/service/data integration and diagnostics compatibility/wrappers, portfolio/spec state and integration. Native writer owns Rust/manifests/lock and native docs. A separate payload worktree owns app/subscription, pure RelayProfileActivator mapping extraction and the transient service candidate resolver/probe. Detection writer owns detection/navigation and all locales. Exact ownership is recorded in the portfolio task.
 - Existing persistence keys/provenance remain; no schema migration is planned. Runtime commands must carry current selection identity and report non-success on stale or rejected apply.
 - All outbound candidate sockets retain existing VPN protection/owned-UID routing rules; exports retain redaction. No platform adapter or real bootstrap recovery interface is removed.
 

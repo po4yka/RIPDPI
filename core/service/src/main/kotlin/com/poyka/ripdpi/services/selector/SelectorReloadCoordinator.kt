@@ -1,11 +1,18 @@
 package com.poyka.ripdpi.services.selector
 
+import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.Mode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 /**
@@ -49,25 +56,48 @@ class SelectorReloadCoordinator(
     private val trigger: SelectorReloadTrigger,
 ) {
     private var watchJob: Job? = null
+    private val owners = mutableSetOf<Mode>()
+    private var subscriptionReady = CompletableDeferred<Unit>()
+
+    /** Waits for the seed before startup snapshots; cancellation before a seed fails preparation. */
+    suspend fun awaitSubscription() = subscriptionReady.await()
 
     /** Begins watching the selection signal. Idempotent: a second call is a no-op. */
-    fun start() {
-        if (watchJob != null) return
+    @Suppress("TooGenericExceptionCaught")
+    fun start(owner: Mode) {
+        owners.add(owner)
+        if (watchJob?.isActive == true) return
+        val ready = CompletableDeferred<Unit>()
+        subscriptionReady = ready
         watchJob =
             scope.launch {
-                selectedProfileId
-                    .distinctUntilChanged()
-                    // Drop the seed value: only honest changes drive a reload.
-                    .drop(1)
-                    .filterNotNull()
-                    .collect { profileId ->
-                        trigger.hotReload(profileId)
-                    }
+                try {
+                    selectedProfileId
+                        .distinctUntilChanged()
+                        .onEach { ready.complete(Unit) }
+                        // Startup waits for this seed before reading the durable selection.
+                        .drop(1)
+                        .filterNotNull()
+                        .collect { profileId ->
+                            try {
+                                trigger.hotReload(profileId)
+                            } catch (cancelled: CancellationException) {
+                                currentCoroutineContext().ensureActive()
+                                Logger.e(cancelled) { "Selector runtime reload timed out" }
+                            } catch (failure: Exception) {
+                                Logger.e(failure) { "Selector runtime reload failed" }
+                            }
+                        }
+                } finally {
+                    ready.cancel()
+                }
             }
+        watchJob?.invokeOnCompletion { ready.cancel() }
     }
 
     /** Stops watching the selection signal; subsequent changes are ignored. */
-    fun stop() {
+    fun stop(owner: Mode) {
+        if (!owners.remove(owner) || owners.isNotEmpty()) return
         watchJob?.cancel()
         watchJob = null
     }

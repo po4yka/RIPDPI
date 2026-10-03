@@ -22,6 +22,9 @@ interface ServiceRuntimeHandle {
     val runtimeId: String
     val mode: Mode
     val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?>
+
+    suspend fun reloadConnectionPolicy(isCurrent: suspend () -> Boolean): Boolean
+
     val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
         get() = null
 }
@@ -31,6 +34,11 @@ abstract class ServiceRuntimeSession
         final override val mode: Mode,
         final override val runtimeId: String = UUID.randomUUID().toString(),
     ) : ServiceRuntimeHandle {
+        internal var reloadPolicy: suspend (suspend () -> Boolean) -> Boolean = { false }
+
+        final override suspend fun reloadConnectionPolicy(isCurrent: suspend () -> Boolean): Boolean =
+            reloadPolicy(isCurrent)
+
         private var autolearnActivationGeneration: Long = 0L
         private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
         var localNetworkDependent: Boolean = false

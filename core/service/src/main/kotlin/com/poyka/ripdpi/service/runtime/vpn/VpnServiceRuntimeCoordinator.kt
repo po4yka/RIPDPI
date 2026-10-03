@@ -1,24 +1,15 @@
 package com.poyka.ripdpi.service.runtime.vpn
 
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
-import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
-import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
-import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
-import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.AutolearnActivationReceiptPublisher
 import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
@@ -32,7 +23,6 @@ import com.poyka.ripdpi.services.PermissionChangeEvent
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeStartResult
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
-import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.RuntimeCleanupPendingException
 import com.poyka.ripdpi.services.RuntimeStartEvidence
@@ -48,15 +38,12 @@ import com.poyka.ripdpi.services.ServiceRuntimeStartHooks
 import com.poyka.ripdpi.services.ServiceRuntimeStatusHooks
 import com.poyka.ripdpi.services.ServiceRuntimeStopHooks
 import com.poyka.ripdpi.services.ServiceStatusReporter
-import com.poyka.ripdpi.services.ServiceStatusReporterFactory
 import com.poyka.ripdpi.services.SharedProxyRuntimeStack
 import com.poyka.ripdpi.services.SystemServiceClock
-import com.poyka.ripdpi.services.TelemetryFingerprintHasher
 import com.poyka.ripdpi.services.TelemetryJobReplacer
 import com.poyka.ripdpi.services.TransportFailoverApplyTracker
 import com.poyka.ripdpi.services.TransportFailoverTarget
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
-import com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
 import com.poyka.ripdpi.services.VpnCoordinatorHost
 import com.poyka.ripdpi.services.VpnDnsPolicyCoordinator
 import com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController
@@ -70,10 +57,9 @@ import com.poyka.ripdpi.services.VpnTunnelRefreshCallbacks
 import com.poyka.ripdpi.services.VpnTunnelRefreshCoordinator
 import com.poyka.ripdpi.services.VpnTunnelRefreshDependencies
 import com.poyka.ripdpi.services.VpnTunnelRuntime
-import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
-import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.XrayProviderSessionController
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import com.poyka.ripdpi.services.toRuntimeStartEvidence
 import com.poyka.ripdpi.services.transportFailoverTargetOrNull
 import kotlinx.coroutines.CancellationException
@@ -84,7 +70,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import javax.inject.Inject
 
 /**
  * Concrete VPN-mode runtime coordinator. Composes the VPN tunnel, the proxy
@@ -128,6 +113,7 @@ internal class VpnServiceRuntimeCoordinator(
      */
     private val xrayProviderSessionController: XrayProviderSessionController? = null,
     private val initialRelayRacePolicy: InitialRelayRacePolicy? = null,
+    selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
 ) : BaseServiceRuntimeCoordinator<VpnRuntimeSession>(
         mode = Mode.VPN,
         host = vpnHost,
@@ -139,6 +125,7 @@ internal class VpnServiceRuntimeCoordinator(
         permissionWatchdog = permissionWatchdog,
         ioDispatcher = ioDispatcher,
         clock = clock,
+        selectorListeners = selectorListeners,
     ) {
     private val proxyRuntimeStack =
         SharedProxyRuntimeStack(
@@ -413,6 +400,21 @@ internal class VpnServiceRuntimeCoordinator(
     private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
         telemetryCoordinator.start(tunnelRefreshCoordinator, replaceTelemetryJob)
         monitorNfqws(rootHelperManager, ::retainProviderFailClosedBarrierIfActiveLocked)
+    }
+
+    override suspend fun reloadResolvedRuntime(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        appliedAt: Long,
+    ) {
+        val result =
+            runtimeCompositionCoordinator.restartAfterPolicyChange(
+                session,
+                resolution,
+                appliedAt,
+                "selector_reload",
+            )
+        publishReplacementEvidence(session, resolution, result)
     }
 
     private suspend fun restartAfterHandover(
@@ -718,43 +720,3 @@ internal class VpnServiceRuntimeCoordinator(
         runtimeCompositionCoordinator.resetAfterStop(session)
     }
 }
-
-@Suppress("LongParameterList")
-internal class VpnServiceRuntimeRuntimeDependencies
-    @Inject
-    constructor(
-        val appSettingsRepository: AppSettingsRepository,
-        val proxyGroupRepository: ProxyGroupRepository,
-        val connectionPolicyResolver: ConnectionPolicyResolver,
-        val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
-        val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
-        val resolverOverrideStore: ResolverOverrideStore,
-        val serviceRuntimeRegistry: ServiceRuntimeRegistry,
-        val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        val networkHandoverMonitor: NetworkHandoverMonitor,
-        val policyHandoverEventStore: PolicyHandoverEventStore,
-        val networkSnapshotProvider: NativeNetworkSnapshotProvider,
-        val dnsDependencies: VpnServiceRuntimeDnsDependencies,
-        val upstreamRelaySupervisorFactory: UpstreamRelaySupervisorFactory,
-        val warpRuntimeSupervisorFactory: WarpRuntimeSupervisorFactory,
-        val amneziaWgRuntimeSupervisorFactory: AmneziaWgRuntimeSupervisorFactory,
-        val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
-        val screenStateObserver: ScreenStateObserver,
-    )
-
-internal class VpnServiceRuntimeDnsDependencies
-    @Inject
-    constructor(
-        val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
-        val networkDnsBlockedPathStore: NetworkDnsBlockedPathStore,
-        val resolverRefreshPlanner: VpnResolverRefreshPlanner,
-    )
-
-internal class VpnServiceRuntimeStatusDependencies
-    @Inject
-    constructor(
-        val serviceStateStore: ServiceStateStore,
-        val networkFingerprintProvider: NetworkFingerprintProvider,
-        val telemetryFingerprintHasher: TelemetryFingerprintHasher,
-        val serviceStatusReporterFactory: ServiceStatusReporterFactory,
-    )

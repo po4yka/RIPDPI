@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
@@ -99,11 +100,19 @@ abstract class SelectorReloadModule {
         @IntoSet
         fun provideSelectorReloadLifecycleListener(
             coordinator: SelectorReloadCoordinator,
+            trigger: RelayActivationSelectorReloadTrigger,
         ): SelectorRuntimeLifecycleListener =
             object : SelectorRuntimeLifecycleListener {
-                override fun start() = coordinator.start()
+                override suspend fun prepare() {
+                    coordinator.awaitSubscription()
+                    trigger.prepare()
+                }
 
-                override fun stop() = coordinator.stop()
+                override suspend fun afterStart() = trigger.afterStart()
+
+                override fun start(owner: Mode) = coordinator.start(owner)
+
+                override fun stop(owner: Mode) = coordinator.stop(owner)
             }
     }
 }

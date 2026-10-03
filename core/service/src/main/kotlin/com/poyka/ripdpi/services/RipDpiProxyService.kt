@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import com.poyka.ripdpi.utility.NotificationContentBuilder
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
@@ -60,6 +61,9 @@ class RipDpiProxyService :
 
     @Inject
     internal lateinit var serviceStopProvenanceRecorder: RoomServiceStopProvenanceRecorder
+
+    @Inject
+    lateinit var selectorRuntimeLifecycleListeners: Set<@JvmSuppressWildcards SelectorRuntimeLifecycleListener>
 
     private var sessionComponent: ProxyServiceSessionComponent? = null
     private var stateInitializer: ServiceSessionStateInitializer? = null
@@ -112,9 +116,11 @@ class RipDpiProxyService :
             stateInitializer?.close()
             clearSessionReferences()
         }.getOrThrow()
+        selectorRuntimeLifecycleListeners.forEach { it.start(Mode.Proxy) }
     }
 
     override fun onDestroy() {
+        selectorRuntimeLifecycleListeners.forEach { it.stop(Mode.Proxy) }
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
         try {
             coordinator?.onDestroy()

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +28,110 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BaseServiceRuntimeCoordinatorTest {
+    @Test
+    fun `registered session reload keeps session and service alive`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(handle.reloadConnectionPolicy { true })
+            assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(1, env.coordinator.restartCalls)
+            assertEquals(0, env.coordinator.stopCalls)
+            assertTrue(env.host.stopRequests.isEmpty())
+            env.coordinator.stop()
+            assertFalse(handle.reloadConnectionPolicy { true })
+            assertEquals(1, env.coordinator.restartCalls)
+        }
+
+    @Test
+    fun `stale selector command does not replace running runtime`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            var current = true
+            env.coordinator.beforeResolve = { current = false }
+            assertFalse(handle.reloadConnectionPolicy { current })
+            assertEquals(0, env.coordinator.restartCalls)
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+        }
+
+    @Test
+    fun `cancelled replacement completes before queued stop`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            val gate = CompletableDeferred<Unit>()
+            env.coordinator.handoverRestartGate = gate
+            val reload = backgroundScope.launch { handle.reloadConnectionPolicy { true } }
+            runCurrent()
+            reload.cancel()
+            val stop = backgroundScope.launch { env.coordinator.stop() }
+            runCurrent()
+            assertFalse(reload.isCompleted)
+            assertFalse(stop.isCompleted)
+            assertEquals(0, env.coordinator.stopCalls)
+            gate.complete(Unit)
+            runCurrent()
+            assertTrue(reload.isCompleted)
+            assertTrue(stop.isCompleted)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `replacement failure retains barrier and never reports success`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            env.coordinator.handoverFailuresRemaining = 1
+            env.coordinator.handoverRetainResult = true
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            val result = runCatching { handle.reloadConnectionPolicy { true } }
+            assertTrue(result.isFailure)
+            assertEquals(1, env.coordinator.handoverRetainCalls)
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
+            assertFalse(handle.reloadConnectionPolicy { true })
+        }
+
+    @Test
+    fun `failed replacement without confirmed barrier cleans up owning session`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            env.coordinator.handoverFailuresRemaining = 1
+            env.coordinator.handoverRetainResult = false
+            val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(runCatching { handle.reloadConnectionPolicy { true } }.isFailure)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(1, env.host.stopRequests.size)
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+        }
+
+    @Test
+    fun `startup prepares durable selector before resolving and starting runtime`() =
+        runTest {
+            var prepared = false
+            val listener =
+                object : SelectorRuntimeLifecycleListener {
+                    override suspend fun prepare() {
+                        prepared = true
+                    }
+
+                    override fun start(owner: Mode) = Unit
+
+                    override fun stop(owner: Mode) = Unit
+                }
+            val env = newEnv(selectorListeners = setOf(listener))
+            env.coordinator.beforeResolve = { assertTrue(prepared) }
+            env.coordinator.start()
+            assertEquals(1, env.coordinator.startCalls)
+        }
+
     @Test
     fun duplicateStartIsIgnoredUntilStopCompletes() =
         runTest {
@@ -883,7 +988,10 @@ class RetainedRuntimeCleanupTest {
 }
 
 @Suppress("UnusedParameter")
-private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
+private fun TestScope.newEnv(
+    fingerprint: NetworkFingerprint? = sampleFingerprint(),
+    selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
+): Env {
     val dispatcher = StandardTestDispatcher(testScheduler)
     val host = TestProxyServiceHost(backgroundScope)
     val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy))
@@ -903,6 +1011,7 @@ private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprin
             permissionWatchdog = TestPermissionWatchdog(),
             dispatcher = dispatcher,
             clock = clock,
+            selectorListeners = selectorListeners,
         )
     return Env(
         coordinator = coordinator,
@@ -936,6 +1045,7 @@ private class TestCoordinator(
     permissionWatchdog: PermissionWatchdog,
     dispatcher: kotlinx.coroutines.test.TestDispatcher,
     clock: TestServiceClock,
+    selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
         mode = Mode.Proxy,
         host = host,
@@ -947,7 +1057,9 @@ private class TestCoordinator(
         permissionWatchdog = permissionWatchdog,
         ioDispatcher = dispatcher,
         clock = clock,
+        selectorListeners = selectorListeners,
     ) {
+    var beforeResolve: () -> Unit = {}
     var failOnStart: Boolean = false
     var failOnStop: Boolean = false
     var cleanupPending: Boolean = false
@@ -973,6 +1085,12 @@ private class TestCoordinator(
     val statusTransitions = mutableListOf<ServiceStatus>()
     val startLifecycleEvents = mutableListOf<String>()
     val stopLifecycleEvents = mutableListOf<String>()
+
+    override suspend fun reloadResolvedRuntime(
+        session: ProxyRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        appliedAt: Long,
+    ) = restartAfterHandover(session, resolution, appliedAt)
 
     override val runtimeHooks: ServiceRuntimeModeHooks<ProxyRuntimeSession> =
         ServiceRuntimeModeHooks(
@@ -1007,8 +1125,10 @@ private class TestCoordinator(
 
     private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
-    private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
-        sampleResolution(mode = Mode.Proxy).copy(matchedNetworkPolicy = rememberedPolicy)
+    private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution {
+        beforeResolve()
+        return sampleResolution(mode = Mode.Proxy).copy(matchedNetworkPolicy = rememberedPolicy)
+    }
 
     @Suppress("UnusedParameter")
     private suspend fun resolveHandoverConnectionPolicy(

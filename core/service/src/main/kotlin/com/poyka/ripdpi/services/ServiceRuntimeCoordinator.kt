@@ -7,10 +7,15 @@ import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 internal interface ServiceCoordinatorHost {
     val serviceScope: CoroutineScope
@@ -68,6 +73,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     permissionWatchdog: PermissionWatchdog,
     protected val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     protected val clock: ServiceClock = SystemServiceClock,
+    private val selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
     protected val mutex = Mutex()
     protected val lifecycleState = ServiceLifecycleStateMachine()
@@ -80,6 +86,12 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 
     protected var status: ServiceStatus = ServiceStatus.Disconnected
     protected var runtimeSession: TSession? = null
+
+    protected abstract suspend fun reloadResolvedRuntime(
+        session: TSession,
+        resolution: ConnectionPolicyResolution,
+        appliedAt: Long,
+    )
 
     protected abstract val runtimeHooks: ServiceRuntimeModeHooks<TSession>
 
@@ -116,14 +128,42 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                     lifecycleState = lifecycleState,
                     state = sharedState,
                 ),
-            hooks = runtimeHooks,
+            hooks =
+                ServiceRuntimeModeHooks(
+                    serviceLabel = runtimeHooks.serviceLabel,
+                    startHooks =
+                        ServiceRuntimeStartHooks(
+                            createRuntimeSession = {
+                                runtimeHooks.startHooks.createRuntimeSession().also { session ->
+                                    session.reloadPolicy = { isCurrent -> reloadConnectionPolicy(session, isCurrent) }
+                                }
+                            },
+                            resolveInitialConnectionPolicy = {
+                                selectorListeners.forEach { it.prepare() }
+                                runtimeHooks.startHooks.resolveInitialConnectionPolicy()
+                            },
+                            applyActiveConnectionPolicy = runtimeHooks.startHooks.applyActiveConnectionPolicy,
+                            startResolvedRuntime = runtimeHooks.startHooks.startResolvedRuntime,
+                            publishRuntimeStartEvidence = runtimeHooks.startHooks.publishRuntimeStartEvidence,
+                            startModeTelemetryUpdates = runtimeHooks.startHooks.startModeTelemetryUpdates,
+                        ),
+                    stopHooks = runtimeHooks.stopHooks,
+                    handoverHooks = runtimeHooks.handoverHooks,
+                    statusHooks = runtimeHooks.statusHooks,
+                    permissionHooks = runtimeHooks.permissionHooks,
+                ),
         )
     }
 
-    suspend fun start(stopSelfStartId: Int? = null) = sessionLifecycle.start(stopSelfStartId = stopSelfStartId)
+    suspend fun start(stopSelfStartId: Int? = null) {
+        sessionLifecycle.start(stopSelfStartId = stopSelfStartId)
+        selectorListeners.forEach { it.afterStart() }
+    }
 
-    protected suspend fun startTransaction(transaction: RuntimeStartTransaction) =
+    protected suspend fun startTransaction(transaction: RuntimeStartTransaction) {
         sessionLifecycle.start(transaction = transaction)
+        selectorListeners.forEach { it.afterStart() }
+    }
 
     suspend fun stop(
         stopSelfStartId: Int? = null,
@@ -159,6 +199,61 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         }
     }
 
+    /**
+     * Replaces a running stack inside its owning session. Stop and handover share this mutex.
+     * Cancellation before replacement has no runtime effect; once replacement begins, cleanup
+     * completes before cancellation propagates. The VPN hook retains the installed TUN barrier.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun reloadConnectionPolicy(
+        observedSession: TSession,
+        isCurrent: suspend () -> Boolean,
+    ): Boolean {
+        var cleanupRequired = false
+        var failureReason: FailureReason? = null
+        try {
+            return mutex.withLock {
+                val lifecycleReady = status == ServiceStatus.Connected && !stopping && !handoverRestarting
+                if (runtimeSession?.runtimeId != observedSession.runtimeId || !lifecycleReady) return@withLock false
+                if (!isCurrent()) return@withLock false
+                val resolution = runtimeHooks.startHooks.resolveInitialConnectionPolicy()
+                if (!isCurrent()) return@withLock false
+                handoverRestarting = true
+                try {
+                    withContext(NonCancellable) {
+                        try {
+                            withTimeout(SelectorRuntimeReloadTimeoutMillis) {
+                                reloadResolvedRuntime(observedSession, resolution, clock.nowMillis())
+                            }
+                            true
+                        } catch (failure: Exception) {
+                            failureReason = runtimeHooks.handoverHooks.classifyFailure(failure)
+                            cleanupRequired = true
+                            cleanupRequired = !runtimeHooks.handoverHooks.retainFailClosedAfterExhaustion()
+                            runtimeHooks.statusHooks.updateStatus(ServiceStatus.Failed, failureReason)
+                            throw failure
+                        }
+                    }
+                } finally {
+                    handoverRestarting = false
+                }
+            }
+        } catch (failure: Exception) {
+            if (cleanupRequired) {
+                withContext(NonCancellable) {
+                    stop(
+                        guard =
+                            RuntimeStopGuard(
+                                isCurrent = { runtimeSession?.runtimeId == observedSession.runtimeId },
+                                failureReason = failureReason,
+                            ),
+                    )
+                }
+            }
+            throw failure
+        }
+    }
+
     open fun onDestroy() {
         sessionLifecycle.onDestroy()
     }
@@ -166,3 +261,5 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     protected fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot =
         sessionLifecycle.applyPendingNetworkHandoverClass(snapshot)
 }
+
+private const val SelectorRuntimeReloadTimeoutMillis = 45_000L

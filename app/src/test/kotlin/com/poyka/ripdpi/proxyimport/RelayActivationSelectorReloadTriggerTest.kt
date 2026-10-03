@@ -2,6 +2,7 @@ package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -10,6 +11,8 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
+import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,12 +58,44 @@ class RelayActivationSelectorReloadTriggerTest {
         )
 
     @Test
+    fun `same id profile replacement rejects in flight runtime reload`() =
+        runTest {
+            val original = member("b")
+            val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(original))) }
+            val selections = TestSelections("b")
+            var guardAccepted: Boolean? = null
+            val refresher =
+                object : RunningRelayRefresher {
+                    override suspend fun refresh(isCurrent: suspend () -> Boolean) {
+                        groups.update(selectorGroup(listOf(original.copy(server = "replacement.example.com"))))
+                        guardAccepted = isCurrent()
+                    }
+
+                    override suspend fun teardown() = Unit
+                }
+            val trigger =
+                RelayActivationSelectorReloadTrigger(
+                    groups,
+                    RelayProfileActivator(
+                        FakeRelayProfileStore(),
+                        FakeRelayCredentialStore(),
+                        FakeAppSettingsRepository(),
+                    ),
+                    refresher,
+                    ActiveSelectorSelectionProvider(groups, selections),
+                )
+            trigger.hotReload("b")
+            assertFalse(guardAccepted ?: error("Runtime refresh was never requested"))
+        }
+
+    @Test
     fun `hotReload activates the selected member and refreshes the runtime`() =
         runTest {
             val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(member("a"), member("b")))) }
             val profileStore = FakeRelayProfileStore()
             val settings = FakeAppSettingsRepository()
             val refresher = RecordingRelayRefresher()
+            val selections = TestSelections("b")
             val trigger =
                 RelayActivationSelectorReloadTrigger(
                     groupRepository = groups,
@@ -70,6 +106,7 @@ class RelayActivationSelectorReloadTriggerTest {
                             settingsRepository = settings,
                         ),
                     relayRefresher = refresher,
+                    selectionProvider = ActiveSelectorSelectionProvider(groups, selections),
                 )
 
             trigger.hotReload("b")
@@ -88,6 +125,7 @@ class RelayActivationSelectorReloadTriggerTest {
             val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(member("a")))) }
             val profileStore = FakeRelayProfileStore()
             val refresher = RecordingRelayRefresher()
+            val selections = TestSelections("b")
             val trigger =
                 RelayActivationSelectorReloadTrigger(
                     groupRepository = groups,
@@ -98,6 +136,7 @@ class RelayActivationSelectorReloadTriggerTest {
                             settingsRepository = FakeAppSettingsRepository(),
                         ),
                     relayRefresher = refresher,
+                    selectionProvider = ActiveSelectorSelectionProvider(groups, selections),
                 )
 
             trigger.hotReload("ghost")
@@ -113,6 +152,7 @@ class RelayActivationSelectorReloadTriggerTest {
             val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(member("a"), member("b")))) }
             val profileStore = FakeRelayProfileStore()
             val refresher = RecordingRelayRefresher()
+            val selections = TestSelections("b")
             val trigger =
                 RelayActivationSelectorReloadTrigger(
                     groupRepository = groups,
@@ -123,8 +163,10 @@ class RelayActivationSelectorReloadTriggerTest {
                             settingsRepository = FakeAppSettingsRepository(),
                         ),
                     relayRefresher = refresher,
+                    selectionProvider = ActiveSelectorSelectionProvider(groups, selections),
                 )
-            val selection = MutableStateFlow<String?>("a")
+            selections.select("selector", "a")
+            val selection = selections.state
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
@@ -132,7 +174,7 @@ class RelayActivationSelectorReloadTriggerTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
             // Seed value must not reload.
             assertEquals(0, refresher.refreshCount)
@@ -144,12 +186,114 @@ class RelayActivationSelectorReloadTriggerTest {
             assertEquals(1, refresher.refreshCount)
         }
 
+    @Test
+    fun `prepare applies persisted choice without refreshing or starting service`() =
+        runTest {
+            val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(member("a"), member("b")))) }
+            val profiles = FakeRelayProfileStore()
+            val settings = FakeAppSettingsRepository()
+            val refresher = RecordingRelayRefresher()
+            val trigger =
+                RelayActivationSelectorReloadTrigger(
+                    groups,
+                    RelayProfileActivator(profiles, FakeRelayCredentialStore(), settings),
+                    refresher,
+                    ActiveSelectorSelectionProvider(groups, TestSelections("b")),
+                )
+            trigger.prepare()
+            assertEquals("b", settings.snapshot().relayProfileId)
+            assertEquals("b.example.com", profiles.load("b")?.server)
+            assertEquals(0, refresher.refreshCount)
+            assertEquals(0, refresher.teardownCount)
+        }
+
+    @Test
+    fun `choice changing during startup is applied after session registration`() =
+        runTest {
+            val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(member("a"), member("b")))) }
+            val settings = FakeAppSettingsRepository()
+            val refresher = RecordingRelayRefresher()
+            val selections = TestSelections("a")
+            val trigger =
+                RelayActivationSelectorReloadTrigger(
+                    groups,
+                    RelayProfileActivator(FakeRelayProfileStore(), FakeRelayCredentialStore(), settings),
+                    refresher,
+                    ActiveSelectorSelectionProvider(groups, selections),
+                )
+            trigger.prepare()
+            trigger.afterStart()
+            assertEquals(0, refresher.refreshCount)
+            selections.select("selector", "b")
+            trigger.afterStart()
+            assertEquals("b", settings.snapshot().relayProfileId)
+            assertEquals(1, refresher.refreshCount)
+            assertEquals(0, refresher.teardownCount)
+        }
+
+    @Test
+    fun `lifecycle preparation establishes seed before a delayed watcher can miss selection`() =
+        runTest {
+            val groups = FakeProxyGroupRepository().apply { add(selectorGroup(listOf(member("a"), member("b")))) }
+            val settings = FakeAppSettingsRepository()
+            val refresher = RecordingRelayRefresher()
+            val selections = TestSelections("a")
+            val provider = ActiveSelectorSelectionProvider(groups, selections)
+            val trigger =
+                RelayActivationSelectorReloadTrigger(
+                    groups,
+                    RelayProfileActivator(FakeRelayProfileStore(), FakeRelayCredentialStore(), settings),
+                    refresher,
+                    provider,
+                )
+            val coordinator = SelectorReloadCoordinator(backgroundScope, provider.selectedProfileId(), trigger)
+            val listener = SelectorReloadModule.provideSelectorReloadLifecycleListener(coordinator, trigger)
+            listener.start(Mode.VPN)
+            // Intentionally do not runCurrent before production preparation.
+            listener.prepare()
+            listener.afterStart()
+            selections.select("selector", "b")
+            runCurrent()
+            assertEquals("b", settings.snapshot().relayProfileId)
+            assertEquals(1, refresher.refreshCount)
+        }
+
+    private class TestSelections(
+        initial: String?,
+    ) : SelectorSelectionStore {
+        val state = MutableStateFlow(initial)
+
+        override fun selectedProfileId(groupId: String) = state.asStateFlow()
+
+        override fun snapshot(groupId: String) = SelectorSelectionSnapshot(state.value, true, 0)
+
+        override fun invalidatePendingSelection(groupId: String) = Unit
+
+        override fun selectAutomatically(
+            groupId: String,
+            expected: SelectorSelectionSnapshot,
+            profileId: String,
+        ): Boolean = false
+
+        override fun select(
+            groupId: String,
+            profileId: String,
+        ) {
+            state.value = profileId
+        }
+
+        override fun clearSelection(groupId: String) {
+            state.value = null
+        }
+    }
+
     /** Records refresh / teardown calls instead of touching a real Android service. */
     private class RecordingRelayRefresher : RunningRelayRefresher {
         var refreshCount = 0
         var teardownCount = 0
 
-        override suspend fun refresh() {
+        override suspend fun refresh(isCurrent: suspend () -> Boolean) {
+            if (!isCurrent()) return
             refreshCount += 1
         }
 

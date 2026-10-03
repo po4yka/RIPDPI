@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -27,37 +29,52 @@ class SelectorUrltestCoordinator(
     private val groupRepository: ProxyGroupRepository,
     private val prober: SelectorUrltestProber,
 ) {
+    private val lock = Any()
+    private var generation = 0L
     private var watchJob: Job? = null
+    private val owners = mutableSetOf<Mode>()
     private val proberJobs = mutableMapOf<String, RunningProbe>()
 
-    /** Begins watching for urltest selector groups. Idempotent. */
-    fun start() {
-        if (watchJob != null) return
-        watchJob =
-            scope.launch {
-                groupRepository
-                    .groups()
-                    .map(::urltestGroups)
-                    .distinctUntilChanged()
-                    .collect(::reconcile)
-            }
-    }
-
-    /** Stops watching and cancels every running prober loop. */
-    fun stop() {
-        watchJob?.cancel()
-        watchJob = null
-        proberJobs.forEach { (id, running) ->
-            running.job.cancel()
-            prober.invalidatePendingSelection(id)
+    /** Begins watching for urltest groups while any service owner is alive. */
+    fun start(owner: Mode) =
+        synchronized(lock) {
+            owners.add(owner)
+            if (watchJob?.isActive == true) return@synchronized
+            val observedGeneration = ++generation
+            watchJob =
+                scope.launch {
+                    coroutineScope {
+                        val watcherScope = this
+                        groupRepository.groups().map(::urltestGroups).distinctUntilChanged().collect {
+                            reconcile(it, observedGeneration, watcherScope)
+                        }
+                    }
+                }
         }
-        proberJobs.clear()
-    }
+
+    /** Last-owner stop fences reconciliation and cancels the watcher and its child probes. */
+    fun stop(owner: Mode) =
+        synchronized(lock) {
+            if (!owners.remove(owner) || owners.isNotEmpty()) return@synchronized
+            generation++
+            watchJob?.cancel()
+            watchJob = null
+            proberJobs.forEach { (id, running) ->
+                running.job.cancel()
+                prober.invalidatePendingSelection(id)
+            }
+            proberJobs.clear()
+        }
 
     private fun urltestGroups(groups: List<ProxyGroup>): List<ProxyGroup> =
         groups.filter { it.failover != null && it.members.size >= MinMembers }
 
-    private fun reconcile(groups: List<ProxyGroup>) {
+    private fun reconcile(
+        groups: List<ProxyGroup>,
+        observedGeneration: Long,
+        watcherScope: CoroutineScope,
+    ) = synchronized(lock) {
+        if (owners.isEmpty() || generation != observedGeneration) return@synchronized
         val wanted = groups.associateBy { it.id }
         // Cancel probers for groups that disappeared or lost their urltest policy.
         (proberJobs.keys - wanted.keys).forEach { id ->
@@ -73,7 +90,7 @@ class SelectorUrltestCoordinator(
                 // in the interval between invalidation and cancellation.
                 previous?.job?.cancel()
                 prober.invalidatePendingSelection(id)
-                proberJobs[id] = RunningProbe(group, scope.launch { prober.run(group) })
+                proberJobs[id] = RunningProbe(group, watcherScope.launch { prober.run(group) })
             }
         }
     }

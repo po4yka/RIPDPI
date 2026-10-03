@@ -43,6 +43,7 @@ import com.poyka.ripdpi.services.TelemetryJobReplacer
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.buildLogContext
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import com.poyka.ripdpi.services.withLogContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -83,6 +84,7 @@ internal class ProxyServiceRuntimeCoordinator(
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
     private val rootHelperManager: RootHelperManager = RootHelperManager(),
+    selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
         mode = Mode.Proxy,
         host = host,
@@ -94,6 +96,7 @@ internal class ProxyServiceRuntimeCoordinator(
         permissionWatchdog = permissionWatchdog,
         ioDispatcher = ioDispatcher,
         clock = clock,
+        selectorListeners = selectorListeners,
     ) {
     private val upstreamRelaySupervisor = supervisors.upstreamRelaySupervisor
     private val warpRuntimeSupervisor = supervisors.warpRuntimeSupervisor
@@ -142,7 +145,7 @@ internal class ProxyServiceRuntimeCoordinator(
             startHooks =
                 ServiceRuntimeStartHooks(
                     createRuntimeSession = ::createRuntimeSession,
-                    resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
+                    resolveInitialConnectionPolicy = { connectionPolicyResolver.resolve(mode = Mode.Proxy) },
                     applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
                     startResolvedRuntime = ::startResolvedRuntime,
                     publishRuntimeStartEvidence = ::publishRuntimeStartEvidence,
@@ -156,7 +159,9 @@ internal class ProxyServiceRuntimeCoordinator(
             handoverHooks =
                 ServiceRuntimeHandoverHooks(
                     resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
-                    restartAfterHandover = ::restartAfterHandover,
+                    restartAfterHandover = { session, resolution, appliedAt ->
+                        restartResolvedRuntime(session, resolution, appliedAt, "network_handover")
+                    },
                     classifyFailure = ::classifyHandoverFailure,
                 ),
             statusHooks =
@@ -168,9 +173,6 @@ internal class ProxyServiceRuntimeCoordinator(
         )
 
     private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
-
-    private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
-        connectionPolicyResolver.resolve(mode = Mode.Proxy)
 
     private suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,
@@ -262,16 +264,23 @@ internal class ProxyServiceRuntimeCoordinator(
         monitorNfqws(rootHelperManager)
     }
 
-    private suspend fun restartAfterHandover(
+    override suspend fun reloadResolvedRuntime(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
+    ) = restartResolvedRuntime(session, resolution, appliedAt, "selector_reload")
+
+    private suspend fun restartResolvedRuntime(
+        session: ProxyRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+        appliedAt: Long,
+        restartReason: String,
     ) {
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,
-            restartReason = "network_handover",
+            restartReason = restartReason,
             appliedAt = appliedAt,
         )
         val startResult =

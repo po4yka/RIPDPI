@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.subscription
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.proxyimport.SelectorReloadScope
@@ -54,9 +55,9 @@ abstract class SelectorUrltestModule {
             coordinator: SelectorUrltestCoordinator,
         ): SelectorRuntimeLifecycleListener =
             object : SelectorRuntimeLifecycleListener {
-                override fun start() = coordinator.start()
+                override fun start(owner: Mode) = coordinator.start(owner)
 
-                override fun stop() = coordinator.stop()
+                override fun stop(owner: Mode) = coordinator.stop(owner)
             }
     }
 }

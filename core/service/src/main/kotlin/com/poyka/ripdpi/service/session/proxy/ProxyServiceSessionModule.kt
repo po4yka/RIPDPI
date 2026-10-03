@@ -33,6 +33,7 @@ import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -117,6 +118,7 @@ internal object ProxyServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideProxyCoordinator(
+        selectorListeners: Set<@JvmSuppressWildcards SelectorRuntimeLifecycleListener>,
         host: ServiceCoordinatorHost,
         connectionPolicyResolver: ConnectionPolicyResolver,
         serviceRuntimeRegistry: ServiceRuntimeRegistry,
@@ -132,6 +134,7 @@ internal object ProxyServiceSessionModule {
         rootHelperManager: RootHelperManager,
     ): ProxyServiceRuntimeCoordinator =
         ProxyServiceRuntimeCoordinator(
+            selectorListeners = selectorListeners,
             host = host,
             connectionPolicyResolver = connectionPolicyResolver,
             serviceRuntimeRegistry = serviceRuntimeRegistry,

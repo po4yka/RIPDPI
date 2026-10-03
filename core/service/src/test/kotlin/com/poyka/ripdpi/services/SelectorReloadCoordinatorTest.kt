@@ -1,11 +1,16 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
 import com.poyka.ripdpi.services.selector.SelectorReloadTrigger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,6 +37,65 @@ class SelectorReloadCoordinatorTest {
     }
 
     @Test
+    fun `stop before first dispatch cancels startup readiness`() =
+        runTest {
+            val coordinator =
+                SelectorReloadCoordinator(backgroundScope, MutableStateFlow("a"), RecordingReloadTrigger())
+            coordinator.start(Mode.VPN)
+            coordinator.stop(Mode.VPN)
+            runCurrent()
+            val failure = runCatching { coordinator.awaitSubscription() }.exceptionOrNull()
+            assertTrue(failure is CancellationException)
+        }
+
+    @Test
+    fun `old service destruction retains the new mode owner`() =
+        runTest {
+            val selection = MutableStateFlow<String?>("a")
+            val trigger = RecordingReloadTrigger()
+            val coordinator = SelectorReloadCoordinator(backgroundScope, selection, trigger)
+            coordinator.start(Mode.VPN)
+            runCurrent()
+            coordinator.start(Mode.Proxy)
+            coordinator.start(Mode.Proxy)
+            coordinator.stop(Mode.VPN)
+            selection.value = "b"
+            runCurrent()
+            assertEquals(listOf("b"), trigger.reloadedProfileIds)
+            coordinator.stop(Mode.Proxy)
+            selection.value = "c"
+            runCurrent()
+            assertEquals(listOf("b"), trigger.reloadedProfileIds)
+        }
+
+    @Test
+    fun `internal reload timeout does not lose later selection changes`() =
+        runTest {
+            val selection = MutableStateFlow<String?>("a")
+            val calls = mutableListOf<String>()
+            val trigger =
+                object : SelectorReloadTrigger {
+                    override suspend fun hotReload(profileId: String) {
+                        calls += profileId
+                        if (profileId == "b") withTimeout(100L) { awaitCancellation() }
+                    }
+
+                    override suspend fun teardown() = Unit
+                }
+            val coordinator = SelectorReloadCoordinator(backgroundScope, selection, trigger)
+            coordinator.start(Mode.VPN)
+            runCurrent()
+            selection.value = "b"
+            runCurrent()
+            advanceTimeBy(100L)
+            runCurrent()
+            coordinator.start(Mode.VPN)
+            selection.value = "c"
+            runCurrent()
+            assertEquals(listOf("b", "c"), calls)
+        }
+
+    @Test
     fun `changing the selected profile while running triggers a hot reload`() =
         runTest {
             val selection = MutableStateFlow<String?>("profile-1")
@@ -43,7 +107,7 @@ class SelectorReloadCoordinatorTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
 
             selection.value = "profile-2"
@@ -66,7 +130,7 @@ class SelectorReloadCoordinatorTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
 
             // No change yet — the coordinator must not reload on the seed value.
@@ -85,7 +149,7 @@ class SelectorReloadCoordinatorTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
 
             selection.value = "profile-2"
@@ -108,7 +172,7 @@ class SelectorReloadCoordinatorTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
 
             selection.value = "profile-2"
@@ -132,7 +196,7 @@ class SelectorReloadCoordinatorTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
 
             selection.value = null
@@ -153,9 +217,9 @@ class SelectorReloadCoordinatorTest {
                     trigger = trigger,
                 )
 
-            coordinator.start()
+            coordinator.start(Mode.VPN)
             runCurrent()
-            coordinator.stop()
+            coordinator.stop(Mode.VPN)
             runCurrent()
 
             selection.value = "profile-2"

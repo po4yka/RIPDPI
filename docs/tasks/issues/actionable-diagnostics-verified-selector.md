@@ -28,7 +28,9 @@ Deliver user-directed diagnostic recommendation navigation and selector selectio
 
 ## Ownership
 
-- Root (`codex/selector-integration`): selector activation/reconciliation, candidate payload probes, diagnostics compatibility and coroutine-wrapper consolidation; portfolio/OpenSpec/board state and main integration.
+- Root (`codex/selector-integration`): selector activation/reconciliation, diagnostics compatibility and coroutine-wrapper consolidation; portfolio/OpenSpec/board state and main integration.
 - Native writer (`codex/native-module-prune`): native crate/module deletions, canonical dependencies and their native architecture documentation; sole Cargo.toml/Cargo.lock writer.
 - Detection writer (`codex/actionable-detection`): core/detection recommendation model and app detection UI/navigation; sole locale resource writer.
 - Serialized lanes: root owns task/spec state and integration; native owns Cargo manifests/lock; detection owns locales. No baseline, golden fixture, JNI/protobuf/wire schema or signing changes.
+
+- Payload writer (`codex/selector-payload-probe`): app/subscription probe and stale-evidence guards, pure RelayProfileActivator mapping extraction, transient service candidate resolver/probe and their tests; no runtime coordinator, registry, locale, Rust manifest or task-state writes.

@@ -74,6 +74,7 @@ class ServiceSessionModuleTest {
                 )
             val coordinator =
                 ProxyServiceSessionModule.provideProxyCoordinator(
+                    selectorListeners = emptySet(),
                     host = host,
                     connectionPolicyResolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy)),
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
@@ -208,6 +209,7 @@ class ServiceSessionModuleTest {
             val vpnProtectFailureMonitor = VpnServiceSessionModule.provideVpnProtectFailureMonitor()
             val coordinator =
                 VpnServiceSessionModule.provideVpnCoordinator(
+                    selectorListeners = emptySet(),
                     host = host,
                     runtimeDependencies = runtimeDependencies,
                     permissionWatchdog = TestPermissionWatchdog(),

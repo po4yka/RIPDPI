@@ -59,6 +59,7 @@ import com.poyka.ripdpi.services.XrayProviderSnapshotDeriver
 import com.poyka.ripdpi.services.XrayRenderedConfigHolder
 import com.poyka.ripdpi.services.XraySelectedProfile
 import com.poyka.ripdpi.services.XrayTunnelStartParamsHolder
+import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -386,6 +387,7 @@ internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideVpnCoordinator(
+        selectorListeners: Set<@JvmSuppressWildcards SelectorRuntimeLifecycleListener>,
         host: VpnCoordinatorHost,
         runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
         permissionWatchdog: PermissionWatchdog,
@@ -397,6 +399,7 @@ internal object VpnServiceSessionModule {
         initialRelayRacePolicy: Optional<InitialRelayRacePolicy> = Optional.empty(),
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
+            selectorListeners = selectorListeners,
             vpnHost = host,
             connectionPolicyResolver = runtimeDependencies.connectionPolicyResolver,
             resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
