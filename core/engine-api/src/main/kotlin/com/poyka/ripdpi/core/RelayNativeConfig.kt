@@ -6,6 +6,7 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /** Runtime-owned policy for protecting relay carrier sockets from the app TUN. */
 @Serializable
@@ -206,10 +207,11 @@ data class ResolvedRipDpiRelayConfig(
     val sshPrivateKeyPassphrase: String? = null,
     val sshHostKeyFingerprint: String? = null,
     val sshStrictHostKey: Boolean = false,
-    val ptBridgeLine: String = "",
-    val ptWebTunnelUrl: String = "",
-    val ptSnowflakeBrokerUrl: String = "",
-    val ptSnowflakeFrontDomain: String = "",
+    // Android helper launch inputs; the native flat schema has no such fields.
+    @Transient val ptBridgeLine: String = "",
+    @Transient val ptWebTunnelUrl: String = "",
+    @Transient val ptSnowflakeBrokerUrl: String = "",
+    @Transient val ptSnowflakeFrontDomain: String = "",
     val torStateDir: String = "",
     val torCacheDir: String = "",
     val torBridgeLines: List<String> = emptyList(),

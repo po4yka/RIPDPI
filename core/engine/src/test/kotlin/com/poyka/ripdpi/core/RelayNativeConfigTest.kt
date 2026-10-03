@@ -291,11 +291,32 @@ class RelayNativeConfigTest {
     }
 
     @Test
-    fun `resolved relay config survives a JSON encode-decode round-trip`() {
+    fun `resolved relay native fields survive a JSON encode-decode round-trip`() {
         for (config in representativeConfigs()) {
             val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
             val decoded = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
-            assertEquals("kind=${config.kind} must survive a JSON round-trip", config, decoded)
+            val nativeFields =
+                config.copy(
+                    ptBridgeLine = "",
+                    ptWebTunnelUrl = "",
+                    ptSnowflakeBrokerUrl = "",
+                    ptSnowflakeFrontDomain = "",
+                )
+            assertEquals("kind=${config.kind} native fields must survive a JSON round-trip", nativeFields, decoded)
+        }
+    }
+
+    @Test
+    fun `managed transport launch inputs stay in memory and never enter native JSON`() {
+        val config = fullyPopulatedRelayConfig()
+        assertEquals(config, config.toSections().toResolvedConfig())
+        val encodeDefaults = Json { encodeDefaults = true }
+        for (encoder in listOf(json, encodeDefaults)) {
+            val encoded = encoder.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
+            val keys = (encoder.parseToJsonElement(encoded) as JsonObject).keys
+            for (field in listOf("ptBridgeLine", "ptWebTunnelUrl", "ptSnowflakeBrokerUrl", "ptSnowflakeFrontDomain")) {
+                assertTrue("Android launch input $field is rejected by the native schema", field !in keys)
+            }
         }
     }
 
@@ -650,7 +671,7 @@ class RelayNativeConfigTest {
         )
 
     private companion object {
-        // The 25 always-emitted keys of ResolvedRipDpiRelayConfig.
+        // The always-emitted keys of ResolvedRipDpiRelayConfig.
         private val requiredWireKeys =
             setOf(
                 "enabled",
@@ -681,7 +702,7 @@ class RelayNativeConfigTest {
                 "schemaVersion",
             )
 
-        // The 61 keys carrying a default; emitted only when set off-default.
+        // Keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -706,10 +727,6 @@ class RelayNativeConfigTest {
                 "shadowTlsInnerProfileId",
                 "shadowTlsInner",
                 "naivePath",
-                "ptBridgeLine",
-                "ptWebTunnelUrl",
-                "ptSnowflakeBrokerUrl",
-                "ptSnowflakeFrontDomain",
                 "quicBindLowPort",
                 "quicMigrateAfterHandshake",
                 "vlessUuid",
@@ -747,7 +764,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 87 keys.
+        // The complete flat wire object contains exactly required + defaulted keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }
