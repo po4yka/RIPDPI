@@ -15,6 +15,11 @@ default:
 
 # ─── Setup ────────────────────────────────────────────────────────
 
+# Discover the invoking directory's actual Git checkout and agent prerequisites
+[group('setup')]
+checkout-doctor:
+    python3 scripts/checkout_doctor.py {{quote(invocation_directory())}}
+
 # Install git hooks and dev tooling
 [group('setup')]
 setup:
@@ -203,7 +208,7 @@ harness-check:
     python3 scripts/ci/check_harness_policy.py
     python3 scripts/ci/check_harness_cargo_locked.py
     python3 scripts/tests/test_agent_hooks.py
-    python3 -m unittest scripts.tests.test_check_harness_cargo_locked scripts.tests.test_check_harness_links scripts.tests.test_network_surface_scanner
+    python3 -m unittest scripts.tests.test_check_harness_cargo_locked scripts.tests.test_check_harness_links scripts.tests.test_network_surface_scanner scripts.tests.test_checkout_doctor
 
 # Regenerate the module dependency graph (docs/architecture/MODULE_GRAPH.md)
 [group('lint')]

@@ -18,6 +18,8 @@ on:
       - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/tests/test_agent_hooks.py'
+      - 'scripts/checkout_doctor.py'
+      - 'scripts/tests/test_checkout_doctor.py'
       - 'tools/tasking/generated-assets.lock.json'
       - 'scripts/tests/test_check_harness_*.py'
       - 'justfile'
@@ -39,6 +41,8 @@ on:
       - 'quality/release-gates/cross-language-runtime-contracts.json'
       - 'scripts/ci/check_harness_*.py'
       - 'scripts/tests/test_agent_hooks.py'
+      - 'scripts/checkout_doctor.py'
+      - 'scripts/tests/test_checkout_doctor.py'
       - 'tools/tasking/generated-assets.lock.json'
       - 'scripts/tests/test_check_harness_*.py'
       - 'justfile'
@@ -75,3 +79,4 @@ jobs:
           scripts.tests.test_check_harness_cargo_locked
           scripts.tests.test_check_harness_links
           scripts.tests.test_network_surface_scanner
+          scripts.tests.test_checkout_doctor
