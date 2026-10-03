@@ -8,6 +8,10 @@ or Intel) running Android Studio Quail with the emulator.
 The committed defaults aim for: fast Gradle sync, fast incremental
 debug builds, and CI parity (CI behavior is unchanged).
 
+For local builds on this Mac, apply the [machine gate and worker limits](#concurrency-ceiling)
+before using the commands below. Gate admission, tool parallelism, and per-worktree
+cache isolation are separate controls.
+
 ## Committed defaults (`gradle.properties`)
 
 | Setting | Value | What it does |
@@ -54,9 +58,9 @@ ripdpi.localNativeAbis=arm64-v8a,x86_64
 
 ## Per-user overrides
 
-Copy any subset of `gradle.properties.user.example` into your
-`~/.gradle/gradle.properties`. The file is documentation-only; Gradle
-does not read it directly.
+Copy the relevant settings from `gradle.properties.user.example` into
+`gradle.properties` under the effective `GRADLE_USER_HOME` (normally
+`~/.gradle`). The example file is documentation-only; Gradle does not read it directly.
 
 Recommended opt-ins on a healthy 32 GB host:
 
@@ -66,11 +70,16 @@ Recommended opt-ins on a healthy 32 GB host:
 org.gradle.unsafe.isolated-projects=true
 ```
 
-If you have 64 GB+ headroom, bump heaps:
+On this Mac, the user-owned Gradle init script under `~/.gradle/init.d/`
+enforces a 5 GiB Gradle heap and 3 GiB Kotlin heap ceiling, even inside an
+already-held gate. The committed 6 GiB Gradle default therefore needs this
+local override; extra RAM does not authorize raising the machine limits:
 
 ```properties
-org.gradle.jvmargs=-Xmx10g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
-kotlin.daemon.jvmargs=-Xmx5g -XX:+UseG1GC -Dfile.encoding=UTF-8
+org.gradle.jvmargs=-Xmx5g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+kotlin.daemon.jvmargs=-Xmx3g -XX:+UseG1GC -Dfile.encoding=UTF-8
+org.gradle.workers.max=4
+ripdpi.nativeCpuBudget=4
 ```
 
 ## Local Rust sccache
@@ -123,17 +132,51 @@ export GRADLE_USER_HOME="$PWD/.gradle-home"
 ```
 
 Each home re-warms and retains its own cache, so account for that disk cost
-when creating worktrees. Heavy builds still use the gate below.
+when creating worktrees. It also changes where Gradle reads user properties
+and init scripts: install the local overrides there and load the machine's
+existing guard with `--init-script "$HOME/.gradle/init.d/00-heavy-build-gate.gradle"`
+when using an isolated home on this Mac. Keep that user-owned guard as the
+source of truth rather than copying its body into the repository. Heavy builds
+still use the top-level gate below.
 
 ### Concurrency ceiling
 
-Serialize heavy local builds and compiler-backed tests across all worktrees
-through the machine-wide gate: `build-gate -- <command>`. Acquire it once at
-the top level; nested tools reuse the held gate. This includes Gradle,
-Cargo/Rust compilation, Xcode, CMake builds, Ninja, and parallel Make.
-Keep Gradle workers and Cargo/CMake jobs at or below four; Rust release or
-LTO compilation uses at most two jobs. Read-only inspection can run alongside
-the gated build; it needs neither a worktree nor a Gradle home.
+Run heavy local builds and compiler-backed tests across all worktrees through
+the same machine-wide gate: `build-gate -- <command>`. This includes Gradle,
+Cargo/Rust compilation, `xcodebuild`, CMake builds, Ninja, and parallel Make.
+Inspect current slot capacity, holders, and queued commands with `build-gate --status`;
+use `build-gate --help` for the current interface. A full gate makes `--status`
+exit nonzero; wait for admission through the normal build command.
+
+Acquire the gate once at the top level. Nested tools inherit `BUILD_GATE_HELD=1`
+and reuse it; let the gate set that marker. Cargo wrappers can add automatic
+guarding, but the explicit top-level command also covers different `PATH`
+ordering and tools launched by Gradle.
+
+The installed wrapper's defaults can exceed the repository's local build limits.
+Keep Gradle workers and Cargo/CMake jobs at or below four; Rust release or LTO
+compilation uses at most two jobs. Set tool limits explicitly: Gradle's
+`--max-workers` does not bound child Cargo processes. The [native build policy](../../build-logic/convention/src/main/kotlin/NativeBuildPolicy.kt)
+distributes `ripdpi.nativeCpuBudget` across ABI workers and passes an explicit
+Cargo job count, so set that property as well as the environment limits.
+
+```sh
+# Local debug; use the per-user heap overrides described above.
+CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 \
+  build-gate -- ./gradlew :app:assembleDebug --max-workers=4 -Pripdpi.nativeCpuBudget=4
+
+# Release/LTO: cap the combined native ABI budget at two.
+CARGO_BUILD_JOBS=2 CMAKE_BUILD_PARALLEL_LEVEL=2 \
+  build-gate -- ./gradlew :app:assembleRelease --max-workers=4 -Pripdpi.nativeCpuBudget=2
+```
+
+For direct Cargo commands, retain `--locked` whenever dependencies resolve and
+set `--jobs` to the applicable limit. Use the repository's
+[`cargo-guarded.sh`](../../scripts/ci/cargo-guarded.sh) for external subcommands
+when the machine's Cargo wrapper requires it; it reuses an already-held gate.
+Lightweight inspection such as `cargo metadata --locked`, `cargo fmt`, Gradle
+`tasks`, or CMake configuration can run alongside gated work without acquiring
+a slot. Compilation or tests triggered by an inspection command still need the gate.
 
 ### Device / emulator work is single-lane
 
@@ -179,27 +222,36 @@ Project JDK stays at `jbr-21`; language level stays at `JDK_17`.
 
 After changing any committed knob:
 
-```sh
+```bash
+set -o pipefail
+export CARGO_BUILD_JOBS=2 CMAKE_BUILD_PARALLEL_LEVEL=2
+
 # Property propagation + parallel CC active.
-./gradlew help --info 2>&1 | grep -E 'configuration cache|parallel'
+build-gate -- ./gradlew help --info --max-workers=4 -Pripdpi.nativeCpuBudget=2 \
+  2>&1 | rg 'configuration cache|parallel'
 
 # Single-ABI debug on Apple Silicon.
-./gradlew :app:assembleDebug --dry-run --info 2>&1 \
-  | grep 'Using default local native ABI'
+build-gate -- ./gradlew :app:assembleDebug --dry-run --info --max-workers=4 \
+  -Pripdpi.nativeCpuBudget=2 2>&1 | rg 'Using default local native ABI'
 
 # CI behavior unchanged.
-CI=true ./gradlew :app:assembleDebug --dry-run --info 2>&1 \
-  | grep -i 'native ABI'
+CI=true build-gate -- ./gradlew :app:assembleDebug --dry-run --info --max-workers=4 \
+  -Pripdpi.nativeCpuBudget=2
 
 # Daemon heap.
-./gradlew --status   # then `jps -v | grep GradleDaemon` for -Xmx
+./gradlew --status   # then `jps -v | rg GradleDaemon` for -Xmx
 
 # Static analysis clean.
-./gradlew staticAnalysis
+build-gate -- ./gradlew staticAnalysis --max-workers=4 -Pripdpi.nativeCpuBudget=2
 
 # Locale parity across all resource XML files (including Hindi strings2.xml).
-./gradlew :app:lintGithubFullDebug :core:service:lintDebug
+build-gate -- ./gradlew :app:lintGithubFullDebug :core:service:lintDebug \
+  --max-workers=4 -Pripdpi.nativeCpuBudget=2
 ```
+
+The CI-mode dry run checks configuration and task selection; verify all-ABI
+selection against `resolvedNativeAbis()` in the native build policy and actual
+build outputs. CI mode does not emit the local-default ABI log message.
 
 ## Things that intentionally did NOT change
 

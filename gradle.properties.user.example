@@ -17,13 +17,16 @@
 # auto-picks arm64-v8a on Apple Silicon and x86_64 on Intel.)
 # ripdpi.localNativeAbis=arm64-v8a
 
-# --- Bound child Cargo/rustc work when Gradle runs other tasks in parallel.
-# Omit to keep the current auto policy based on all processors visible to Gradle.
-# ripdpi.nativeCpuBudget=8
+# --- Machine-wide gate: bound Gradle workers and the combined native ABI budget.
+# Use ripdpi.nativeCpuBudget=2 for release/LTO builds (or pass -P on the command line).
+# The native plugin passes explicit Cargo --jobs; the environment alone cannot cap it.
+# org.gradle.workers.max=4
+# ripdpi.nativeCpuBudget=4
 
-# --- Bigger daemons (only if you have RAM headroom — defaults target 32 GB).
-# org.gradle.jvmargs=-Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
-# kotlin.daemon.jvmargs=-Xmx4g -XX:+UseG1GC -Dfile.encoding=UTF-8
+# --- Local heap ceilings enforced by this Mac's Gradle init guard (5 GiB / 3 GiB).
+# Copy into gradle.properties under the effective GRADLE_USER_HOME.
+# org.gradle.jvmargs=-Xmx5g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:SoftRefLRUPolicyMSPerMB=50 -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+# kotlin.daemon.jvmargs=-Xmx3g -XX:+UseG1GC -Dfile.encoding=UTF-8
 
 # --- Local Rust sccache.
 # After `brew install sccache`, set in your shell profile (not here):
