@@ -132,15 +132,12 @@ which binds a runner type to a `ConnectivityProbeFamily` and an
 ### 2. Lane adapters — the probe-crate wiring seam
 
 `ripdpi-monitor-lane-adapter` is the seam between the `ripdpi-diagnostics-*`
-probe crates and the engine. It exposes a **static descriptor table**,
-`LANE_ADAPTERS: &[LaneAdapter]`, in
-`ripdpi-monitor-lane-adapter/src/lanes.rs` — one `LaneAdapter { name,
-module_path, source_crate }` row per adapter module (`candidates`, `http`,
-`tls`, `telegram`, `transport`, `connectivity`, `strategy`,
-`blockpage_fingerprints`, `cdn_ech`, `classification`, `observations`). The
-`adapters` module re-exports each probe crate behind an engine-compatible
-function surface. The table is metadata for inventory and audit; the engine
-calls the adapter functions directly.
+probe crates and the engine. Its `adapters` module re-exports each probe crate
+behind an engine-compatible function surface (`candidates`, `http`, `tls`,
+`telegram`, `transport`, `connectivity`, `strategy`, `blockpage_fingerprints`,
+`cdn_ech`, `classification`, `observations`). The engine calls these functions
+through `ripdpi-monitor-engine/src/probes.rs`; the module declarations are the
+wiring inventory.
 
 ### 3. Concrete probes — the `Probe` trait
 
@@ -190,7 +187,6 @@ table. The descriptor-shaped types that exist, by layer:
 | Layer | Descriptor-shaped type | Shape |
 |-------|------------------------|-------|
 | Strategy candidate | `StrategyCandidateSpec` (`ripdpi-diagnostics-candidates`) | A full static descriptor — id, label, family, emitter tier, `requires_fake_ttl` / `requires_tcp_fast_open` / `requires_capabilities`, eligibility, warmup, config. **This is the canonical descriptor pattern in diagnostics.** |
-| Lane adapter | `LaneAdapter` + `LANE_ADAPTERS` (`ripdpi-monitor-lane-adapter`) | A static `&[LaneAdapter]` inventory table — name, module path, source crate. Read-only metadata. |
 | Concrete connectivity probe | the `Probe` trait + per-probe `*_PROBE_ID` const | Backing contract for each scheduled connectivity stage. |
 | Scheduled connectivity stage | `ProbeDescriptor` + `PROBE_DESCRIPTORS` (`ripdpi-diagnostics-probes`) | One static row per scheduled connectivity stage: probe id, family, scheduled `probe_type`, runner name, path-mode requirement, and label. Drift tests pin the table to `SCHEDULED_PROBE_INVENTORY`. |
 | Monitor-engine stage runner | `ProbeStageRegistration` (`ripdpi-monitor-engine`) | The runtime scheduler registry. It mirrors descriptor fields without importing the probes crate; parity tests and the probes crate drift tests pin the seam. |
@@ -308,7 +304,7 @@ declaration is load-bearing for the Play Store Data Safety surface.
 | **Probe-task execution** | `ripdpi-diagnostics-probes` — the `Probe` trait + concrete probe tasks |
 | **Scan runner** | `ripdpi-diagnostics-runner` — connectivity / strategy / domain scans, budget, winner selection |
 | **Monitor engine** | `ripdpi-monitor-engine` — the active-scan engine (sessions, the `ExecutionStageRunner` loop) |
-| **Monitor adapters** | `ripdpi-monitor-adapter` (↔ contracts), `ripdpi-monitor-lane-adapter` (`LANE_ADAPTERS` probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |
+| **Monitor adapters** | `ripdpi-monitor-adapter` (↔ contracts), `ripdpi-monitor-lane-adapter` (probe wiring), `ripdpi-monitor-proxy-runtime` (↔ passive proxy-runtime telemetry) |
 
 All of the above are JNI-free; `ripdpi-android-diagnostics-adapter` (L8) is the
 only JNI surface. Dependencies point inward — probe crates depend on contracts

@@ -1,8 +1,9 @@
 use std::io::{self, Read};
 
+use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
+
 use super::autolearn::{advance_after_failure, record_route_success};
 use super::block_signal::record_block_signal;
-use super::platform as warmup_platform;
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
 use crate::runtime::desync::DesyncSendRequest;

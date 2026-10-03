@@ -305,7 +305,7 @@ Edit the seam required by the probe:
 | Seam | Where | Edit it for |
 |------|-------|-------------|
 | Scan stage runner | `PROBE_STAGE_REGISTRATIONS` in `ripdpi-monitor-engine/src/engine/runners/registry.rs` | a new connectivity stage the engine schedules |
-| Lane adapter | the `LANE_ADAPTERS` table + an `adapters` module in `ripdpi-monitor-lane-adapter` | surfacing a new `ripdpi-diagnostics-*` crate into the engine |
+| Lane adapter | an `adapters` module in `ripdpi-monitor-lane-adapter` and its engine import in `ripdpi-monitor-engine/src/probes.rs` | surfacing a new `ripdpi-diagnostics-*` crate into the engine |
 | Concrete probe | a `Probe` impl, scheduled inventory row, and `ProbeDescriptor` in `ripdpi-diagnostics-probes` | a single named offline/online check |
 | Strategy candidate | a `StrategyCandidateSpec` planned by `build_strategy_probe_suite()` in `ripdpi-diagnostics-candidates` | a new strategy configuration in the TCP/QUIC matrix |
 
