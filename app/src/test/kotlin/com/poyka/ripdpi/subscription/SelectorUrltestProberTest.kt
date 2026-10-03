@@ -49,7 +49,7 @@ class SelectorUrltestProberTest {
                     .copy(cloudflareMemberIds = setOf("edge"))
             var calls = 0
             val prober =
-                SelectorUrltestProber(store) { _, _ ->
+                prober(store) { _, _ ->
                     calls++
                     store.select("g", "edge")
                     100L
@@ -75,7 +75,7 @@ class SelectorUrltestProberTest {
             val group = requireNotNull(parsed.group)
             val store = FakeSelectorSelectionStore()
             val prober =
-                SelectorUrltestProber(
+                prober(
                     store,
                     FakeLatencyProbe(
                         parsed.profiles.associate { it.id to if (it.displayName == "edge") 1L else 100L },
@@ -85,6 +85,112 @@ class SelectorUrltestProberTest {
             prober.runProbePass(group, "https://probe.example", 0)
 
             assertEquals(parsed.profiles.single { it.displayName == "origin" }.id, store.selectedProfileId("g").value)
+        }
+
+    private fun prober(
+        store: SelectorSelectionStore,
+        probe: MemberLatencyProbe,
+    ) = SelectorUrltestProber(store, probe, SelectorProbeScopeProvider { group -> testScope(group) })
+
+    private fun testScope(group: ProxyGroup) =
+        SelectorProbeScope(
+            group.members,
+            group.failover,
+            group.cloudflareMemberIds,
+            "opaque-test-network",
+            1L,
+            1L to 1L,
+            com.poyka.ripdpi.services.CandidateRelayProbeEnvironment(
+                false,
+                "chrome_stable",
+                com.poyka.ripdpi.services
+                    .RuntimeExperimentSelection(),
+                false,
+                false,
+            ),
+        )
+
+    @Test
+    fun `network generation change fences a completed candidate probe`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            var scope = testScope(group)
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { profile, _ ->
+                        if (profile.id == "fast") scope = scope.copy(underlayGeneration = 2L)
+                        if (profile.id == "fast") 1L else 100L
+                    },
+                    SelectorProbeScopeProvider { scope },
+                )
+            prober.runProbePass(group, "https://probe", 0)
+            assertEquals("slow", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `network ABA with identical final fingerprint still fences completed probe`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            val original = testScope(group)
+            var scope = original
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { profile, _ ->
+                        if (profile.id == "fast") {
+                            scope = original.copy(networkEpoch = 3L to 1L)
+                        }
+                        if (profile.id == "fast") 1L else 100L
+                    },
+                    SelectorProbeScopeProvider { scope },
+                )
+            prober.runProbePass(group, "https://probe", 0)
+            assertEquals("slow", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `removed or changed group fences a completed probe before selection`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            var current: SelectorProbeScope? = testScope(group)
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { _, _ ->
+                        current = null
+                        1L
+                    },
+                    SelectorProbeScopeProvider { current },
+                )
+            prober.runProbePass(group, "https://probe", 0)
+            assertEquals("slow", store.selectedProfileId("g").value)
+        }
+
+    @Test
+    fun `runtime environment change invalidates payload evidence`() =
+        runTest {
+            val store = FakeSelectorSelectionStore()
+            store.select("g", "slow")
+            val group = urltestGroup(listOf(member("slow"), member("fast")))
+            var scope = testScope(group)
+            val prober =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { profile, _ ->
+                        scope = scope.copy(environment = scope.environment.copy(tlsProfile = "changed"))
+                        if (profile.id == "fast") 1L else 100L
+                    },
+                    SelectorProbeScopeProvider { scope },
+                )
+            prober.runProbePass(group, "https://probe", 0)
+            assertEquals("slow", store.selectedProfileId("g").value)
         }
 
     private fun member(id: String) =
@@ -122,7 +228,7 @@ class SelectorUrltestProberTest {
             val store = FakeSelectorSelectionStore()
             store.select("g", "slow")
             val probe = FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
-            val prober = SelectorUrltestProber(store, probe)
+            val prober = prober(store, probe)
 
             prober.runProbePass(urltestGroup(listOf(member("slow"), member("fast"))), "https://probe", toleranceMs = 50)
 
@@ -137,7 +243,7 @@ class SelectorUrltestProberTest {
             store.select("g", "current")
             // 120 vs 100: the candidate is faster, but only by 20ms — inside the 50ms band.
             val probe = FakeLatencyProbe(mapOf("current" to 120L, "candidate" to 100L))
-            val prober = SelectorUrltestProber(store, probe)
+            val prober = prober(store, probe)
 
             prober.runProbePass(
                 urltestGroup(listOf(member("current"), member("candidate"))),
@@ -154,7 +260,7 @@ class SelectorUrltestProberTest {
             val store = FakeSelectorSelectionStore()
             store.select("g", "down")
             val probe = FakeLatencyProbe(mapOf("down" to null, "up" to 200L))
-            val prober = SelectorUrltestProber(store, probe)
+            val prober = prober(store, probe)
 
             prober.runProbePass(urltestGroup(listOf(member("down"), member("up"))), "https://probe", toleranceMs = 50)
 
@@ -167,7 +273,7 @@ class SelectorUrltestProberTest {
             val store = FakeSelectorSelectionStore()
             store.select("g", "slow")
             val probe = FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
-            val prober = SelectorUrltestProber(store, probe)
+            val prober = prober(store, probe)
             val group = urltestGroup(listOf(member("slow"), member("fast")), intervalSeconds = 10)
             backgroundScope.launch { prober.run(group) }
             runCurrent()
@@ -206,7 +312,7 @@ class SelectorUrltestProberTest {
                 SelectorUrltestCoordinator(
                     scope,
                     repository,
-                    SelectorUrltestProber(store, FakeLatencyProbe(mapOf("fast" to 100L))),
+                    prober(store, FakeLatencyProbe(mapOf("fast" to 100L))),
                 )
             coordinator.start(Mode.VPN)
             runCurrent()
@@ -234,7 +340,7 @@ class SelectorUrltestProberTest {
                 SelectorUrltestCoordinator(
                     backgroundScope,
                     repository,
-                    SelectorUrltestProber(store, FakeLatencyProbe(mapOf("fast" to 100L))),
+                    prober(store, FakeLatencyProbe(mapOf("fast" to 100L))),
                 )
             coordinator.start(Mode.VPN)
             runCurrent()
@@ -261,7 +367,7 @@ class SelectorUrltestProberTest {
                 object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
                     override fun groups() = groups
                 }
-            val prober = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val prober = prober(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
             val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
             coordinator.start(Mode.VPN)
             runCurrent()
@@ -284,11 +390,11 @@ class SelectorUrltestProberTest {
             val store = FakeSelectorSelectionStore()
             store.selectAutomatically("g", store.snapshot("g"), "edge")
             val group = urltestGroup(listOf(member("edge"), member("direct"))).copy(cloudflareMemberIds = setOf("edge"))
-            val unavailable = SelectorUrltestProber(store, FakeLatencyProbe(emptyMap()))
+            val unavailable = prober(store, FakeLatencyProbe(emptyMap()))
             unavailable.runProbePass(group, "https://probe", toleranceMs = 50)
             assertEquals("edge", store.selectedProfileId("g").value)
 
-            val recovered = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("direct" to 100L)))
+            val recovered = prober(store, FakeLatencyProbe(mapOf("direct" to 100L)))
             recovered.runProbePass(group, "https://probe", toleranceMs = 50)
             assertEquals("direct", store.selectedProfileId("g").value)
         }
@@ -303,7 +409,7 @@ class SelectorUrltestProberTest {
                 object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
                     override fun groups() = groups
                 }
-            val prober = SelectorUrltestProber(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+            val prober = prober(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
             val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
             coordinator.start(Mode.VPN)
             runCurrent()
@@ -344,7 +450,7 @@ class SelectorUrltestProberTest {
                     }
                 }
             val prober =
-                SelectorUrltestProber(interceptedStore, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
+                prober(interceptedStore, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
             val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
             coordinator.start(Mode.VPN)
             runCurrent()

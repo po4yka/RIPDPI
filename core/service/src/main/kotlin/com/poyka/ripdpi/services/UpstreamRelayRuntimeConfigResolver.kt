@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindTor
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
@@ -177,14 +178,41 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
         ): ResolvedRipDpiRelayConfig {
             val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
             val persisted = relayRuntimeProfileReader.read(profileId)
-            val storedProfile = persisted.profile
+            return resolveProfile(config, persisted.profile, persisted.credentials, quicMigrationConfig)
+        }
+
+        /** Resolves a candidate without reading or writing the active profile stores. */
+        suspend fun resolveTransient(
+            profile: RelayProfileRecord,
+            credentials: RelayCredentialRecord,
+            quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+            defaultTlsProfile: String,
+            featureFlags: Map<String, Boolean>,
+        ): ResolvedRipDpiRelayConfig =
+            resolveProfile(
+                RipDpiRelayConfig(enabled = true, profileId = profile.id, kind = profile.kind),
+                profile,
+                credentials,
+                quicMigrationConfig,
+                defaultTlsProfile,
+                featureFlags,
+            )
+
+        private suspend fun resolveProfile(
+            config: RipDpiRelayConfig,
+            storedProfile: RelayProfileRecord?,
+            credentials: RelayCredentialRecord?,
+            quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+            defaultTlsProfile: String = tlsFingerprintProfileProvider.currentProfile(),
+            featureFlags: Map<String, Boolean> = runtimeExperimentSelectionProvider.current().featureFlags,
+        ): ResolvedRipDpiRelayConfig {
+            val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
             val requestedTlsProfile =
                 storedProfile
                     ?.vlessFingerprint
                     ?.takeIf { it.isNotBlank() }
                     ?.let(::normalizeImportedTlsFingerprint)
-                    ?: normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
-            val credentials = persisted.credentials
+                    ?: normalizeTlsFingerprintProfile(defaultTlsProfile)
             val resolution =
                 relayKindResolverRegistry.resolve(
                     RelayResolverRequest(
@@ -192,36 +220,19 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
                         mergedConfig = mergeRelayConfig(config, storedProfile),
                         credentials = credentials,
                         requestedTlsProfile = requestedTlsProfile,
-                        featureFlags = runtimeExperimentSelectionProvider.current().featureFlags,
+                        featureFlags = featureFlags,
                     ),
                 )
-            return buildResolvedRelayConfig(
+            return ResolvedRelayConfigBuilder(
                 profileId = profileId,
                 resolution = resolution,
                 credentials = credentials,
                 quicMigrationConfig = quicMigrationConfig,
                 torRuntimePathProvider = torRuntimePathProvider,
                 torPluggableTransportProvider = torPluggableTransportProvider,
-            )
+            ).build()
         }
     }
-
-private fun buildResolvedRelayConfig(
-    profileId: String,
-    resolution: RelayResolverResult,
-    credentials: RelayCredentialRecord?,
-    quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-    torRuntimePathProvider: TorRuntimePathProvider,
-    torPluggableTransportProvider: TorPluggableTransportProvider,
-): ResolvedRipDpiRelayConfig =
-    ResolvedRelayConfigBuilder(
-        profileId = profileId,
-        resolution = resolution,
-        credentials = credentials,
-        quicMigrationConfig = quicMigrationConfig,
-        torRuntimePathProvider = torRuntimePathProvider,
-        torPluggableTransportProvider = torPluggableTransportProvider,
-    ).build()
 
 private class ResolvedRelayConfigBuilder(
     private val profileId: String,

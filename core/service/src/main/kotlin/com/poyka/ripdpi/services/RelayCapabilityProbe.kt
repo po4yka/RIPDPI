@@ -191,7 +191,9 @@ class RelayCapabilityProbe internal constructor(
     ): RelayUdpPayloadHealthEvidence = payloadHealthProbe.probe(endpoint, families, targets)
 }
 
-private class OkHttpRelayTcpProbe : RelayTcpProbe {
+internal class OkHttpRelayTcpProbe(
+    private val timeoutMillis: Long = TcpProbeTimeoutMillis,
+) : RelayTcpProbe {
     override suspend fun probe(
         endpoint: RelayProbeEndpoint,
         url: String,
@@ -207,7 +209,7 @@ private class OkHttpRelayTcpProbe : RelayTcpProbe {
                 ).followRedirects(false)
                 .followSslRedirects(false)
                 .retryOnConnectionFailure(false)
-                .callTimeout(TcpProbeTimeoutSeconds, TimeUnit.SECONDS)
+                .callTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
                 .build()
         val call =
             client.newCall(
@@ -239,22 +241,51 @@ private class OkHttpRelayTcpProbe : RelayTcpProbe {
                         call: Call,
                         response: Response,
                     ) {
-                        response.use {
-                            val succeeded = response.code in SuccessfulStatusRange
-                            if (continuation.isActive) {
-                                continuation.resume(
-                                    RelayTcpProbeResult(
-                                        succeeded = succeeded,
-                                        statusCode = response.code,
-                                        failure = if (succeeded) null else RelayProbeFailure.TcpHttpStatus,
-                                    ),
-                                )
+                        val result =
+                            response.use {
+                                when {
+                                    response.code !in SuccessfulStatusRange -> {
+                                        RelayTcpProbeResult(false, response.code, RelayProbeFailure.TcpHttpStatus)
+                                    }
+
+                                    else -> {
+                                        val complete =
+                                            try {
+                                                consumeBoundedPayload(response)
+                                            } catch (_: IOException) {
+                                                false
+                                            }
+                                        RelayTcpProbeResult(
+                                            complete,
+                                            response.code,
+                                            if (complete) null else RelayProbeFailure.TcpConnect,
+                                        )
+                                    }
+                                }
                             }
-                        }
+                        if (continuation.isActive) continuation.resume(result)
                     }
                 },
             )
         }
+    }
+}
+
+/** Success requires EOF, a complete declared body, and a bounded decoded payload. */
+private fun consumeBoundedPayload(response: Response): Boolean {
+    val body = response.body
+    val declaredSize = response.header("Content-Length")?.toLongOrNull() ?: body.contentLength()
+    if (declaredSize > MaximumTcpPayloadBytes) return false
+    return body.byteStream().use { input ->
+        var received = 0L
+        val buffer = ByteArray(TcpPayloadReadBufferBytes)
+        var count = input.read(buffer)
+        while (count != -1) {
+            received += count
+            if (received > MaximumTcpPayloadBytes) break
+            count = input.read(buffer, 0, minOf(buffer.size.toLong(), MaximumTcpPayloadBytes - received + 1).toInt())
+        }
+        received <= MaximumTcpPayloadBytes && (declaredSize < 0 || received == declaredSize)
     }
 }
 
@@ -470,7 +501,9 @@ private fun DataInputStream.readNBytesExact(size: Int): ByteArray = ByteArray(si
 
 private fun elapsedMillis(startedAt: Long): Long = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
 
-private const val TcpProbeTimeoutSeconds = 10L
+private const val TcpProbeTimeoutMillis = 10_000L
+private const val MaximumTcpPayloadBytes = 65_536L
+private const val TcpPayloadReadBufferBytes = 8_192
 private const val UdpProbeTimeoutMillis = 5_000
 private const val Ipv4AddressBytes = 4
 private const val Ipv6AddressBytes = 16

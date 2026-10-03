@@ -19,7 +19,7 @@ data class MemberLatency(
 /**
  * Measures a single selector member's reachability latency against the group's
  * `probeUrl`. Injectable so the prober is testable without a real network: the
- * production impl measures TCP connect only; this does not prove payload health.
+ * production implementation verifies a complete bounded HTTP payload through the candidate relay.
  */
 fun interface MemberLatencyProbe {
     /**
@@ -46,9 +46,10 @@ fun interface MemberLatencyProbe {
  * [MemberLatencyProbe], so the prober is fully testable offline.
  */
 @Singleton
-class SelectorUrltestProber(
+class SelectorUrltestProber internal constructor(
     private val selectionStore: SelectorSelectionStore,
     private val probe: MemberLatencyProbe,
+    private val scopeProvider: SelectorProbeScopeProvider,
 ) {
     private val log = Logger.withTag("selector-urltest")
 
@@ -86,6 +87,7 @@ class SelectorUrltestProber(
         probeUrl: String,
         toleranceMs: Int,
     ) {
+        val scope = scopeProvider.capture(group) ?: return
         val selection = selectionStore.snapshot(group.id)
         if (selection.isManual && selection.profileId in group.cloudflareMemberIds) return
         val latencies =
@@ -93,12 +95,17 @@ class SelectorUrltestProber(
                 MemberLatency(profileId = member.id, latencyMillis = probe.measure(member, probeUrl))
             }
         currentCoroutineContext().ensureActive()
-        // Keep the last active exit when no direct candidate is reachable. A prior automatic
-        // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
-        val current = selection.profileId
-        val winner = bestSwitchCandidate(latencies, current, toleranceMs)
-        if (winner != null && winner != current && selectionStore.selectAutomatically(group.id, selection, winner)) {
-            log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
+        if (scopeProvider.capture(group) == scope) {
+            currentCoroutineContext().ensureActive()
+            // Keep the last active exit when no direct candidate is reachable. A prior automatic
+            // Cloudflare choice is displaced as soon as a direct candidate recovers, never re-promoted.
+            val current = selection.profileId
+            val winner = bestSwitchCandidate(latencies, current, toleranceMs)
+            if (winner != null && winner != current &&
+                selectionStore.selectAutomatically(group.id, selection, winner)
+            ) {
+                log.i { "urltest selecting lower-latency member $winner for group ${group.id}" }
+            }
         }
     }
 

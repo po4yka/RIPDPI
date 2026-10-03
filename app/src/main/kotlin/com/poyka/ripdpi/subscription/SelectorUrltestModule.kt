@@ -20,18 +20,20 @@ import javax.inject.Singleton
 abstract class SelectorUrltestModule {
     @Binds
     @Singleton
-    abstract fun bindMemberLatencyProbe(probe: TcpConnectMemberLatencyProbe): MemberLatencyProbe
+    abstract fun bindMemberLatencyProbe(probe: RelayPayloadMemberLatencyProbe): MemberLatencyProbe
 
     companion object {
         @Provides
         @Singleton
-        fun provideSelectorUrltestProber(
+        internal fun provideSelectorUrltestProber(
             selectionStore: SelectorSelectionStore,
             probe: MemberLatencyProbe,
+            scopeProvider: CurrentSelectorProbeScopeProvider,
         ): SelectorUrltestProber =
             SelectorUrltestProber(
                 selectionStore = selectionStore,
                 probe = probe,
+                scopeProvider = scopeProvider,
             )
 
         @Provides
