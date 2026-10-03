@@ -4,7 +4,6 @@ import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRefreshResult
 import com.poyka.ripdpi.util.MainDispatcherRule
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -311,28 +310,6 @@ class DetectionAuxStateOwnerTest {
 
             assertEquals("unknown", history.saved.first().networkFingerprint)
             assertEquals("Unknown", history.saved.first().networkSummary)
-        }
-
-    @Test
-    fun `applyAllFixes clears suggested fixes`() =
-        runTest {
-            val (flow, red) =
-                reducer(DetectionCheckUiState(suggestedFixes = persistentListOf()))
-            val owner =
-                DetectionAuxStateOwner(
-                    scope = testScope,
-                    reducer = red,
-                    appSettingsRepository = FakeDetectionAppSettingsRepository(),
-                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    historyStore = FakeDetectionHistoryRepository(),
-                    communityStatsRepository = FakeCommunityStatsRepository(),
-                    detectionCheckPreferences = FakeDetectionCheckPreferenceStore(),
-                )
-
-            owner.applyAllFixes()
-            advanceUntilIdle()
-
-            assertTrue(flow.value.suggestedFixes.isEmpty())
         }
 
     @Test

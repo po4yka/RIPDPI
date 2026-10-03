@@ -9,7 +9,6 @@ import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -126,15 +125,6 @@ internal class DetectionAuxStateOwner(
     fun dismissOnboarding() {
         detectionCheckPreferences.markOnboardingShown()
         reducer.mutate { it.copy(showOnboarding = false) }
-    }
-
-    fun applyAllFixes() {
-        scope.launch {
-            appSettingsRepository.update {
-                applyDetectionFixes(reducer.value.suggestedFixes)
-            }
-            reducer.mutate { it.copy(suggestedFixes = persistentListOf()) }
-        }
     }
 
     suspend fun saveToHistory(

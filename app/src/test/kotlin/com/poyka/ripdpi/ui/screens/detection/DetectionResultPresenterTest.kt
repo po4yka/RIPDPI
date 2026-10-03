@@ -165,11 +165,4 @@ class DetectionResultPresenterTest {
                 .generate(result)
         assertEquals(generated, recommendations)
     }
-
-    @Test
-    fun `suggestedFixes delegates to AppSettings extension`() {
-        val result = detectionResult()
-        val expected = settings().suggestDetectionFixes(result)
-        assertEquals(expected, DetectionResultPresenter.suggestedFixes(settings(), result))
-    }
 }

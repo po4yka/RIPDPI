@@ -1184,7 +1184,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_local_database">所有数据均保留在您设备本地数据库中</string>
     <string name="data_transparency_no_browsing">No browsing history, URL content, packet payloads, credentials, or TLS secrets in normal diagnostics</string>
     <string name="data_transparency_performance_metrics">性能指标:RTT 测量、重试次数、流量统计</string>
-    <string name="detection_auto_tune_apply">应用所有修复</string>
     <string name="detection_check_category_dns_leak">DNS 泄漏</string>
     <string name="detection_check_category_ip_comparison">IP 比对</string>
     <string name="detection_check_category_tls">TLS 指纹</string>
@@ -1763,7 +1762,6 @@ fake_burst 3</string>
     <string name="data_transparency_retention_period">可配置保留期(1–365 天)</string>
     <string name="debug_bundle_failed">支持包准备失败</string>
     <string name="desync_https">HTTPS 绕过策略</string>
-    <string name="detection_auto_tune_title">推荐修复</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_location">位置信号</string>
     <string name="detection_check_category_webrtc">WebRTC 泄漏</string>

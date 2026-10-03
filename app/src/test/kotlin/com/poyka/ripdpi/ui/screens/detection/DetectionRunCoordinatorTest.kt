@@ -1,11 +1,17 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.DetectionStage
+import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.EvidenceItem
+import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -16,6 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -83,13 +91,14 @@ class DetectionRunCoordinatorTest {
         flow: MutableStateFlow<DetectionCheckUiState>,
         probe: DetectionProbeRunner,
         scope: CoroutineScope = testScope,
+        settingsRepository: FakeDetectionAppSettingsRepository = FakeDetectionAppSettingsRepository(),
         onSaveHistory: suspend (DetectionCheckResult, Int) -> Unit = { _, _ -> },
         onRefreshCommunity: () -> Unit = {},
     ): DetectionRunCoordinator =
         DetectionRunCoordinator(
             scope = scope,
             reducer = DetectionCheckStateReducer(flow),
-            appSettingsRepository = FakeDetectionAppSettingsRepository(),
+            appSettingsRepository = settingsRepository,
             detectionCheckRunner = NoopDetectionCheckRunner(),
             probeRunner = probe,
             routingProtectionCatalogService = NoopRoutingCatalog(),
@@ -97,6 +106,50 @@ class DetectionRunCoordinatorTest {
             onSaveHistory = onSaveHistory,
             onRefreshCommunity = onRefreshCommunity,
         )
+
+    @Test
+    fun `recommendation generation preserves settings without automatic fixes`() =
+        runTest {
+            val initial =
+                AppSettings
+                    .newBuilder()
+                    .setDnsMode("plain")
+                    .setFullTunnelMode(false)
+                    .setEntropyMode(0)
+                    .setStrategyEvolution(false)
+                    .build()
+            val settings = FakeDetectionAppSettingsRepository(initial)
+            val result =
+                detectionResult(Verdict.DETECTED).copy(
+                    directSigns =
+                        CategoryResult(
+                            name = "Direct",
+                            detected = true,
+                            findings = emptyList(),
+                            evidence =
+                                listOf(
+                                    EvidenceItem(
+                                        source = EvidenceSource.NETWORK_CAPABILITIES,
+                                        detected = true,
+                                        confidence = EvidenceConfidence.HIGH,
+                                        description = "TRANSPORT_VPN",
+                                    ),
+                                ),
+                        ),
+                )
+            val flow = MutableStateFlow(DetectionCheckUiState())
+
+            coordinator(flow, FakeProbeRunner(result), settingsRepository = settings).startCheck()
+            advanceUntilIdle()
+
+            assertEquals(initial, settings.snapshot())
+            assertEquals(0, settings.updateCount)
+            assertTrue(
+                flow.value.recommendations.any {
+                    it.destination == RecommendationDestination.MODE_SETTINGS
+                },
+            )
+        }
 
     @Test
     fun `startCheck is no-op while already running`() {

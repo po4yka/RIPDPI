@@ -21,12 +21,15 @@ internal class FakeDetectionAppSettingsRepository(
     initial: AppSettings = AppSettings.getDefaultInstance(),
 ) : AppSettingsRepository {
     private val state = MutableStateFlow(initial)
+    var updateCount = 0
+        private set
 
     override val settings: Flow<AppSettings> = state
 
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        updateCount++
         state.value =
             state.value
                 .toBuilder()

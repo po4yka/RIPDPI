@@ -1713,7 +1713,6 @@ Source : %2$s</string>
     <string name="data_transparency_local_database">Toutes les données restent sur votre appareil dans une base de données locale</string>
     <string name="data_transparency_no_external_servers">Aucune donnée n\'est envoyée automatiquement à des serveurs externes</string>
     <string name="data_transparency_what_we_collect_section">Ce que nous collectons</string>
-    <string name="detection_auto_tune_apply">Appliquer tous les correctifs</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">Triangulation RTT</string>
     <string name="detection_check_recommendations">Recommandations</string>
@@ -2350,7 +2349,6 @@ Source : %2$s</string>
     <string name="data_transparency_no_personal_data">No accounts or credentials; PCAP is only created by the advanced packet capture control and may contain raw packet payload bytes</string>
     <string name="data_transparency_what_we_do_not_collect_section">Ce que nous ne collectons PAS</string>
     <string name="desync_https">Stratégie de contournement HTTPS</string>
-    <string name="detection_auto_tune_title">Correctifs recommandés</string>
     <string name="detection_check_category_icmp_spoofing">Usurpation ICMP</string>
     <string name="detection_check_category_timing">Analyse temporelle</string>
     <string name="detection_check_running">Exécution des vérifications de détection…</string>

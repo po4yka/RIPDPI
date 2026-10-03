@@ -826,8 +826,6 @@
     <string name="detection_permission_settings">अनुमतियाँ अस्वीकार कर दी गईं। सेटिंग्स केवल तभी खोलें जब आप चाहते हैं कि डिटेक्शन जाँचें Wi-Fi या सेलुलर पहचान पढ़ें; कच्चे पहचानकर्ता संग्रहीत नहीं किए जाते और डायग्नोस्टिक्स निर्यात उन्हें छिपा देते हैं।</string>
     <string name="detection_permission_open_settings">सेटिंग्स खोलें</string>
     <string name="detection_stealth_score">दृश्यता</string>
-    <string name="detection_auto_tune_title">अनुशंसित सुधार</string>
-    <string name="detection_auto_tune_apply">सभी सुधार लागू करें</string>
     <string name="detection_privacy_mode">गोपनीयता मोड</string>
     <string name="detection_history_title">इतिहास</string>
     <string name="detection_check_category_dns_leak">DNS लीक</string>

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,6 +39,7 @@ class DetectionRecommendationsTest {
         val recs = DetectionRecommendations.generate(result)
         assertEquals(1, recs.size)
         assertTrue(recs[0].title.contains("No issues"))
+        assertNull(recs.single().destination)
     }
 
     @Test
@@ -60,7 +62,7 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("VPN transport") })
-        assertTrue(recs.any { it.actionRoute == "settings" })
+        assertEquals(RecommendationDestination.MODE_SETTINGS, recs.single().destination)
         assertTrue(recs.none { it.description.contains("TLS") || it.description.contains("padding") })
     }
 
@@ -84,6 +86,7 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("Xray") })
+        assertNull(recs.single().destination)
     }
 
     @Test
@@ -106,6 +109,7 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("localhost proxy") })
+        assertEquals(RecommendationDestination.PROXY_SETTINGS, recs.single().destination)
         assertTrue(recs.none { it.description.contains("full tunnel") })
     }
 
@@ -129,6 +133,7 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("DNS") })
+        assertEquals(RecommendationDestination.DNS_SETTINGS, recs.single().destination)
         assertTrue(recs.none { it.description.contains("encrypted DNS") })
     }
 
@@ -155,5 +160,76 @@ class DetectionRecommendationsTest {
             )
         val recs = DetectionRecommendations.generate(result)
         assertTrue(recs.any { it.title.contains("bypass app") })
+        assertNull(recs.single().destination)
     }
+
+    @Test
+    fun `negative high confidence evidence does not recommend a remedy`() {
+        val result =
+            emptyResult().copy(
+                directSigns =
+                    emptyCategory("Direct").copy(
+                        evidence = listOf(evidence(EvidenceSource.NETWORK_CAPABILITIES, detected = false)),
+                    ),
+                indirectSigns =
+                    emptyCategory("Indirect").copy(
+                        evidence = listOf(evidence(EvidenceSource.DNS, detected = false)),
+                    ),
+            )
+
+        val recommendations = DetectionRecommendations.generate(result)
+
+        assertEquals("No issues detected", recommendations.single().title)
+        assertNull(recommendations.single().destination)
+    }
+
+    @Test
+    fun `insufficient evidence does not offer a settings action`() {
+        val result =
+            emptyResult().copy(
+                directSigns =
+                    emptyCategory("Direct").copy(
+                        evidence =
+                            listOf(
+                                evidence(EvidenceSource.NETWORK_CAPABILITIES).copy(confidence = EvidenceConfidence.LOW),
+                            ),
+                    ),
+                indirectSigns =
+                    emptyCategory("Indirect").copy(
+                        evidence = listOf(evidence(EvidenceSource.DNS).copy(confidence = EvidenceConfidence.LOW)),
+                    ),
+                verdict = Verdict.NEEDS_REVIEW,
+            )
+
+        assertTrue(DetectionRecommendations.generate(result).isEmpty())
+    }
+
+    @Test
+    fun `unrelated network observations do not invent universal traffic fixes`() {
+        val result =
+            emptyResult().copy(
+                indirectSigns =
+                    emptyCategory("Indirect").copy(
+                        evidence =
+                            listOf(
+                                evidence(EvidenceSource.RTT_TRIANGULATION),
+                                evidence(EvidenceSource.CDN_PULLING),
+                            ),
+                    ),
+                verdict = Verdict.NEEDS_REVIEW,
+            )
+
+        assertTrue(DetectionRecommendations.generate(result).isEmpty())
+    }
+
+    private fun evidence(
+        source: EvidenceSource,
+        detected: Boolean = true,
+    ): EvidenceItem =
+        EvidenceItem(
+            source = source,
+            detected = detected,
+            confidence = EvidenceConfidence.HIGH,
+            description = "Observed test evidence",
+        )
 }

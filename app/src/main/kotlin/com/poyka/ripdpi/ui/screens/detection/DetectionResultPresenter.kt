@@ -17,7 +17,7 @@ import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 /**
  * Pure, stateless mapping from a [DetectionCheckResult] (+ the [AppSettings] snapshot and the
  * routing-protection catalog) to the presentation artifacts the UI renders: runner/debug config,
- * report text, debug report text, recommendations and suggested fixes.
+ * report text, debug report text, recommendations.
  *
  * No dependencies; [StringResolver] is passed per-call. Behavior is byte-identical to the original
  * inline VM logic.
@@ -67,11 +67,6 @@ internal object DetectionResultPresenter {
                 snapshot = snapshot,
                 strings = RoutingProtectionRecommendationStrings.resolve(stringResolver),
             )
-
-    fun suggestedFixes(
-        settings: AppSettings,
-        result: DetectionCheckResult,
-    ): List<DetectionSuggestedFix> = settings.suggestDetectionFixes(result)
 }
 
 private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionRunnerConfig =

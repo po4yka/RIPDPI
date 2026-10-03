@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Owns the cancellable probe-run lifecycle for the detection screen: reset -> probe (progress) ->
- * score/label -> recommendations -> report/debug-report -> suggested fixes -> save history ->
+ * score/label -> recommendations -> report/debug-report -> save history ->
  * community refresh -> terminal result, plus error/cancellation handling and [stopCheck].
  *
  * Mutates the screen state exclusively through the shared [DetectionCheckStateReducer], on [scope]
@@ -91,7 +91,6 @@ internal class DetectionRunCoordinator(
         val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
         val reportText = DetectionResultPresenter.reportText(result, privacyModeEnabled)
         val debugReportText = DetectionResultPresenter.debugReportText(result, settings, privacyModeEnabled)
-        val fixes = DetectionResultPresenter.suggestedFixes(settings, result)
 
         onSaveHistory(result, score)
         onRefreshCommunity()
@@ -102,7 +101,6 @@ internal class DetectionRunCoordinator(
                 score = score,
                 label = label,
                 recommendations = recommendations,
-                fixes = fixes,
                 reportText = reportText,
                 debugReportText = debugReportText,
             )
@@ -118,7 +116,6 @@ internal class DetectionRunCoordinator(
             stealthScore = null,
             stealthLabel = null,
             recommendations = persistentListOf(),
-            suggestedFixes = persistentListOf(),
             reportText = null,
             debugReportText = null,
             error = null,
@@ -129,7 +126,6 @@ internal class DetectionRunCoordinator(
         score: Int,
         label: String,
         recommendations: List<Recommendation>,
-        fixes: List<DetectionSuggestedFix>,
         reportText: String,
         debugReportText: String?,
     ): DetectionCheckUiState =
@@ -141,7 +137,6 @@ internal class DetectionRunCoordinator(
             stealthScore = score,
             stealthLabel = label,
             recommendations = recommendations.toImmutableList(),
-            suggestedFixes = fixes.toImmutableList(),
             reportText = reportText,
             debugReportText = debugReportText,
         )

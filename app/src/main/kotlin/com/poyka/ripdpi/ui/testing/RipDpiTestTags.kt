@@ -383,7 +383,8 @@ internal object RipDpiTestTags {
     const val DetectionVisibilityScale = "detection_visibility_scale"
     const val DetectionCopy = "detection_copy"
     const val DetectionShare = "detection_share"
-    const val DetectionApplyFixes = "detection_apply_fixes"
+
+    const val DetectionRecommendationActionPrefix = "detection_recommendation_action_"
 
     const val HostPackApplyDialog = "host-pack-apply-dialog"
     const val HostPackApplyDismiss = "host-pack-apply-dismiss"

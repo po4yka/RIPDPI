@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detection_recommendation_open_mode">Ajustes de modo</string>
+    <string name="detection_recommendation_open_proxy">Ajustes del proxy</string>
+    <string name="detection_recommendation_open_dns">Ajustes DNS</string>
+    <string name="detection_recommendation_open_settings">Ajustes</string>
+    <string name="detection_recommendation_open_advanced">Ajustes avanzados</string>
+</resources>

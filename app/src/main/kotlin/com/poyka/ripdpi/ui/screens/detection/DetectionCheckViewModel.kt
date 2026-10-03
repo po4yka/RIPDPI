@@ -32,7 +32,6 @@ data class DetectionCheckUiState(
     val stealthScore: Int? = null,
     val stealthLabel: String? = null,
     val recommendations: ImmutableList<Recommendation> = persistentListOf(),
-    val suggestedFixes: ImmutableList<DetectionSuggestedFix> = persistentListOf(),
     val reportText: String? = null,
     val debugReportText: String? = null,
     val error: String? = null,
@@ -123,8 +122,6 @@ class DetectionCheckViewModel
         fun reloadCommunityStats() = auxStateOwner.reloadCommunityStats()
 
         fun dismissOnboarding() = auxStateOwner.dismissOnboarding()
-
-        fun applyAllFixes() = auxStateOwner.applyAllFixes()
 
         fun onPermissionsResult() = permissionStateOwner.onPermissionsResult()
 

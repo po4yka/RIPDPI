@@ -2,10 +2,18 @@
 
 package com.poyka.ripdpi.core.detection
 
+enum class RecommendationDestination {
+    MODE_SETTINGS,
+    PROXY_SETTINGS,
+    DNS_SETTINGS,
+    GENERAL_SETTINGS,
+    ADVANCED_SETTINGS,
+}
+
 data class Recommendation(
     val title: String,
     val description: String,
-    val actionRoute: String? = null,
+    val destination: RecommendationDestination? = null,
 )
 
 object DetectionRecommendations {
@@ -13,7 +21,8 @@ object DetectionRecommendations {
         buildList {
             val hasTransportVpn =
                 result.directSigns.evidence.any {
-                    it.source == EvidenceSource.NETWORK_CAPABILITIES && it.confidence == EvidenceConfidence.HIGH
+                    it.source == EvidenceSource.NETWORK_CAPABILITIES && it.detected &&
+                        it.confidence == EvidenceConfidence.HIGH
                 }
             if (hasTransportVpn) {
                 add(
@@ -22,7 +31,7 @@ object DetectionRecommendations {
                         description =
                             "Android reports VPN routing on the active network. " +
                                 "Use a non-VPN mode if this local signal must be absent.",
-                        actionRoute = "settings",
+                        destination = RecommendationDestination.MODE_SETTINGS,
                     ),
                 )
             }
@@ -36,7 +45,8 @@ object DetectionRecommendations {
                     Recommendation(
                         title = "Open localhost proxy detected",
                         description =
-                            "A proxy responds on localhost. Disable its listener when it is not needed.",
+                            "A proxy responds on localhost. Review the listener and disable it when it is not needed.",
+                        destination = RecommendationDestination.PROXY_SETTINGS,
                     ),
                 )
             }
@@ -59,7 +69,7 @@ object DetectionRecommendations {
 
             val hasLoopbackDns =
                 result.indirectSigns.evidence.any {
-                    it.source == EvidenceSource.DNS && it.confidence == EvidenceConfidence.HIGH
+                    it.source == EvidenceSource.DNS && it.detected && it.confidence == EvidenceConfidence.HIGH
                 }
             if (hasLoopbackDns) {
                 add(
@@ -68,6 +78,7 @@ object DetectionRecommendations {
                         description =
                             "The active network lists a loopback DNS resolver. " +
                                 "Check the DNS configuration if this is unexpected.",
+                        destination = RecommendationDestination.DNS_SETTINGS,
                     ),
                 )
             }

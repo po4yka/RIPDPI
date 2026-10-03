@@ -2677,8 +2677,6 @@ Fonte: %2$s</string>
     <string name="detection_permission_settings">As permissões foram negadas. Abra as configurações apenas se quiser que as verificações de detecção leiam a identidade de Wi-Fi ou celular; identificadores brutos não são persistidos e as exportações de diagnóstico os ocultam.</string>
     <string name="detection_permission_open_settings">Abrir configurações</string>
     <string name="detection_stealth_score">Visibilidade</string>
-    <string name="detection_auto_tune_title">Correções recomendadas</string>
-    <string name="detection_auto_tune_apply">Aplicar todas as correções</string>
     <string name="detection_privacy_mode">Modo de privacidade</string>
     <string name="detection_history_title">Histórico</string>
     <string name="detection_check_category_dns_leak">Vazamento de DNS</string>

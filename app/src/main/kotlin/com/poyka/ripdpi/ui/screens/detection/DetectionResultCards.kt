@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionProgress
@@ -39,6 +38,7 @@ import com.poyka.ripdpi.core.detection.ExposureVerdict
 import com.poyka.ripdpi.core.detection.ExposureVerdictBuilder
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
+import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
@@ -48,6 +48,7 @@ import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
@@ -411,35 +412,10 @@ private fun NarrativeRow(
 }
 
 @Composable
-internal fun AutoTuneCard(
-    fixes: List<AutoTuneFix>,
-    onApplyAll: () -> Unit,
-    applyTestTag: String? = null,
+internal fun DetectionRecommendations(
+    recommendations: List<Recommendation>,
+    onOpenRecommendation: (RecommendationDestination) -> Unit,
 ) {
-    val type = RipDpiThemeTokens.type
-    val colors = RipDpiThemeTokens.colors
-    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-        Text(
-            text = stringResource(R.string.detection_auto_tune_title).uppercase(),
-            style = type.sectionTitle,
-            color = colors.mutedForeground,
-        )
-        for (fix in fixes) {
-            Text(text = fix.title, style = type.body, color = colors.foreground)
-        }
-        RipDpiButton(
-            text = stringResource(R.string.detection_auto_tune_apply),
-            onClick = onApplyAll,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(applyTestTag),
-        )
-    }
-}
-
-@Composable
-internal fun DetectionRecommendations(recommendations: List<Recommendation>) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
@@ -452,6 +428,17 @@ internal fun DetectionRecommendations(recommendations: List<Recommendation>) {
             Column {
                 Text(text = rec.title, style = type.bodyEmphasis, color = colors.foreground)
                 Text(text = rec.description, style = type.caption, color = colors.mutedForeground)
+                rec.destination?.let { destination ->
+                    RipDpiButton(
+                        text = stringResource(destination.actionLabelRes()),
+                        onClick = { onOpenRecommendation(destination) },
+                        variant = RipDpiButtonVariant.Outline,
+                        modifier =
+                            Modifier.ripDpiTestTag(
+                                "${RipDpiTestTags.DetectionRecommendationActionPrefix}${destination.name}",
+                            ),
+                    )
+                }
             }
         }
     }

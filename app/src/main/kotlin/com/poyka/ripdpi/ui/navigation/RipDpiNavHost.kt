@@ -752,6 +752,12 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
         DetectionCheckRoute(
             onBack = { navController.popBackStack() },
             onOpenSettings = { navController.navigate(Route.DetectionSettings) },
+            onOpenRecommendation = { destination ->
+                navController.navigate(destination.toRoute()) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
         )
     }
     composable<Route.DetectionSettings> {

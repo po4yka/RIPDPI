@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.proto.AppSettings
@@ -49,7 +50,8 @@ class RoutingProtectionRecommendationsTest {
                     ),
             )
 
-        assertTrue(recommendations.any { it.title.contains("Anti-correlation") })
+        val recommendation = recommendations.single { it.title.contains("Anti-correlation") }
+        assertEquals(RecommendationDestination.ADVANCED_SETTINGS, recommendation.destination)
     }
 
     @Test
@@ -113,6 +115,37 @@ class RoutingProtectionRecommendationsTest {
             1,
             recommendations.count { it.title.contains("DHT mitigation") },
         )
+    }
+
+    @Test
+    fun `negative transport observation does not offer anti correlation`() {
+        val detected = detectionResultWithTransportVpn()
+        val recommendations =
+            buildRoutingProtectionRecommendations(
+                result =
+                    detected.copy(
+                        directSigns =
+                            detected.directSigns.copy(
+                                evidence = detected.directSigns.evidence.map { it.copy(detected = false) },
+                            ),
+                    ),
+                settings = AppSettings.getDefaultInstance(),
+                snapshot =
+                    RoutingProtectionCatalogSnapshot(
+                        detectedApps =
+                            listOf(
+                                RoutingProtectionDetectedApp(
+                                    packageName = "ru.example.bank",
+                                    presetId = "ru-apps",
+                                    presetTitle = "Russian apps",
+                                    detectionMethod = "transport_vpn",
+                                    fixCoverage = "direct routing",
+                                ),
+                            ),
+                    ),
+            )
+
+        assertTrue(recommendations.none { it.title.contains("Anti-correlation") })
     }
 
     private fun detectionResultWithTransportVpn(): DetectionCheckResult =

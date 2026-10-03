@@ -38,12 +38,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.launchDiagnosticsExport
-import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import com.poyka.ripdpi.core.detection.MethodologyVersion
 import com.poyka.ripdpi.core.detection.Recommendation
+import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
@@ -74,6 +74,7 @@ private const val ProtanopiaUnlockTapCount = 10
 internal fun DetectionCheckRoute(
     onBack: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onOpenRecommendation: (RecommendationDestination) -> Unit = {},
     viewModel: DetectionCheckViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -87,8 +88,8 @@ internal fun DetectionCheckRoute(
             onStop = remember(viewModel) { viewModel::stopCheck },
             onBack = onBack,
             onOpenSettings = onOpenSettings,
+            onOpenRecommendation = onOpenRecommendation,
             onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
-            onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
             onPrivacyModeChange = remember(viewModel) { viewModel.setPrivacyModeEnabled },
             onCdnPullingChange = remember(viewModel) { viewModel.setCdnPullingEnabled },
             onDebugModeChange = remember(viewModel) { viewModel.setDebugModeEnabled },
@@ -141,8 +142,8 @@ internal fun DetectionCheckScreen(
     onStop: () -> Unit,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onOpenRecommendation: (RecommendationDestination) -> Unit = {},
     onDismissOnboarding: () -> Unit,
-    onApplyFixes: () -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
     onCdnPullingChange: (Boolean) -> Unit = {},
     onDebugModeChange: (Boolean) -> Unit = {},
@@ -198,7 +199,7 @@ internal fun DetectionCheckScreen(
                 uiState = uiState,
                 onStart = onStart,
                 onStop = onStop,
-                onApplyFixes = onApplyFixes,
+                onOpenRecommendation = onOpenRecommendation,
                 onPrivacyModeChange = onPrivacyModeChange,
                 onCdnPullingChange = onCdnPullingChange,
                 onDebugModeChange = onDebugModeChange,
@@ -217,7 +218,7 @@ private fun DetectionCheckScreenContent(
     uiState: DetectionCheckUiState,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onApplyFixes: () -> Unit,
+    onOpenRecommendation: (RecommendationDestination) -> Unit,
     onPrivacyModeChange: (Boolean) -> Unit,
     onCdnPullingChange: (Boolean) -> Unit,
     onDebugModeChange: (Boolean) -> Unit,
@@ -269,14 +270,13 @@ private fun DetectionCheckScreenContent(
             narrative = uiState.narrative,
             stealthScore = uiState.stealthScore,
             stealthLabel = uiState.stealthLabel,
-            autoTuneFixes = uiState.suggestedFixes,
             recommendations = uiState.recommendations,
             reportText = uiState.reportText,
             debugReportText = uiState.debugReportText,
             privacyModeEnabled = uiState.privacyModeEnabled,
             colorVisionMode = uiState.colorVisionMode,
             protanopiaVariantUnlocked = uiState.redGreenAltEnabled,
-            onApplyFixes = onApplyFixes,
+            onOpenRecommendation = onOpenRecommendation,
             onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
             performHaptic = performHaptic,
         )
@@ -559,14 +559,13 @@ private fun DetectionResultSummary(
     narrative: com.poyka.ripdpi.core.detection.VerdictNarrative?,
     stealthScore: Int?,
     stealthLabel: String?,
-    autoTuneFixes: List<AutoTuneFix>,
     recommendations: List<Recommendation>,
+    onOpenRecommendation: (RecommendationDestination) -> Unit,
     reportText: String?,
     debugReportText: String?,
     privacyModeEnabled: Boolean,
     colorVisionMode: DetectionColorVisionMode,
     protanopiaVariantUnlocked: Boolean,
-    onApplyFixes: () -> Unit,
     onUnlockProtanopiaVariant: () -> Unit,
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
@@ -590,19 +589,8 @@ private fun DetectionResultSummary(
             onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
         )
 
-        if (autoTuneFixes.isNotEmpty()) {
-            AutoTuneCard(
-                fixes = autoTuneFixes,
-                onApplyAll = {
-                    performHaptic(RipDpiHapticFeedback.Confirm)
-                    onApplyFixes()
-                },
-                applyTestTag = RipDpiTestTags.DetectionApplyFixes,
-            )
-        }
-
         if (recommendations.isNotEmpty()) {
-            DetectionRecommendations(recommendations)
+            DetectionRecommendations(recommendations, onOpenRecommendation)
         }
 
         DetectionReportActions(

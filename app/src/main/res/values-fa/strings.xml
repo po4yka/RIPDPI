@@ -1934,7 +1934,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_performance_metrics">معیارهای عملکرد: اندازه‌گیری RTT، تعداد تلاش‌های مجدد، آمار ترافیک</string>
     <string name="data_transparency_what_we_do_not_collect_section">آنچه ما جمع‌آوری نمی‌کنیم</string>
     <string name="desync_https">راهبرد عبور HTTPS</string>
-    <string name="detection_auto_tune_apply">اعمال همه اصلاحات</string>
     <string name="detection_check_category_direct">نشانه‌های مستقیم</string>
     <string name="detection_check_category_icmp_spoofing">جعل ICMP</string>
     <string name="detection_check_category_location">سیگنال‌های مکان</string>
@@ -2363,7 +2362,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_no_personal_data">No accounts or credentials; PCAP is only created by the advanced packet capture control and may contain raw packet payload bytes</string>
     <string name="data_transparency_retention_period">دوره نگه‌داری قابل پیکربندی (1–365 روز)</string>
     <string name="desync_http">راهبرد عبور HTTP</string>
-    <string name="detection_auto_tune_title">اصلاحات توصیه‌شده</string>
     <string name="detection_check_category_dns_leak">نشت DNS</string>
     <string name="detection_check_category_indirect">نشانه‌های غیرمستقیم</string>
     <string name="detection_check_category_rtt_triangulation">مثلث‌بندی RTT</string>

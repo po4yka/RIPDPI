@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Recommendation
+import com.poyka.ripdpi.core.detection.RecommendationDestination
 import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
 import com.poyka.ripdpi.data.normalizeDhtMitigationMode
@@ -25,7 +26,7 @@ internal fun buildRoutingProtectionRecommendations(
     val enabledPresetIds = settings.effectiveAppRoutingEnabledPresetIds().toSet()
     val hasTransportVpn =
         result.directSigns.evidence.any {
-            it.source == EvidenceSource.NETWORK_CAPABILITIES && it.confidence == EvidenceConfidence.HIGH
+            it.source == EvidenceSource.NETWORK_CAPABILITIES && it.detected && it.confidence == EvidenceConfidence.HIGH
         }
     val hasSplitBypass =
         result.bypassResult.evidence.any {
@@ -41,7 +42,7 @@ internal fun buildRoutingProtectionRecommendations(
                 Recommendation(
                     title = strings.appRoutingAvailableTitle,
                     description = strings.appRoutingAvailableDescription,
-                    actionRoute = "advanced_settings",
+                    destination = RecommendationDestination.ADVANCED_SETTINGS,
                 ),
             )
         }
@@ -50,7 +51,7 @@ internal fun buildRoutingProtectionRecommendations(
                 Recommendation(
                     title = strings.fullTunnelTitle,
                     description = strings.fullTunnelDescription,
-                    actionRoute = "settings",
+                    destination = RecommendationDestination.GENERAL_SETTINGS,
                 ),
             )
         }
@@ -59,7 +60,7 @@ internal fun buildRoutingProtectionRecommendations(
                 Recommendation(
                     title = strings.antiCorrelationTitle,
                     description = strings.antiCorrelationDescription,
-                    actionRoute = "advanced_settings",
+                    destination = RecommendationDestination.ADVANCED_SETTINGS,
                 ),
             )
         }
@@ -71,7 +72,7 @@ internal fun buildRoutingProtectionRecommendations(
                 Recommendation(
                     title = strings.dhtMitigationTitle,
                     description = strings.dhtMitigationDescription,
-                    actionRoute = "advanced_settings",
+                    destination = RecommendationDestination.ADVANCED_SETTINGS,
                 ),
             )
         }
