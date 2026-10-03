@@ -2,6 +2,8 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
+
 internal data class ActiveScanCancellation(
     val sessionId: String,
     val partialReportJson: String?,

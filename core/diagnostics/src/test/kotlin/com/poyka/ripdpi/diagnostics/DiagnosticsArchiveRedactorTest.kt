@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsArchiveText
 import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsLogcat
 import kotlinx.serialization.json.Json

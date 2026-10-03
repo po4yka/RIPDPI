@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.decodedSource
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

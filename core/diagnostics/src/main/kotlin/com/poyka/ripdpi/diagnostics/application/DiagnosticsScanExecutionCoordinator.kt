@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.RawPathExecutionOutcome
 import com.poyka.ripdpi.data.RawPathExecutionResult
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

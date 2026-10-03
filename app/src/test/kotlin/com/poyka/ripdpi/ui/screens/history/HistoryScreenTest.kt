@@ -14,7 +14,7 @@ import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf

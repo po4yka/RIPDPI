@@ -20,6 +20,9 @@ import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.RawPathSettlementDurableStatePrefix
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineInPathRouteWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProxyCredentialsWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire

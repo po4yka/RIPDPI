@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeEventComplete
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveNativeEventSelection
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePayload
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePrimarySessionCounts
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRelayAttemptKey
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest

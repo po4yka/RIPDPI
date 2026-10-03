@@ -2,9 +2,9 @@ package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchTrigger
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanTriggerType
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

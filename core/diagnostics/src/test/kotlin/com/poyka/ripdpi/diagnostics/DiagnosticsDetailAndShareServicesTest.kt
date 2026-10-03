@@ -8,6 +8,11 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.xray.XrayProviderDiagnosticsFixtures
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -602,6 +603,7 @@ class DiagnosticsScanControllerHiddenProbeTest {
             artifactWriteStore = stores,
             serviceStateStore = serviceStateStore,
             json = json,
+            deferTerminal = false,
         )
     }
 }

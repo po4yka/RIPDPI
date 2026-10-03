@@ -22,6 +22,8 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind

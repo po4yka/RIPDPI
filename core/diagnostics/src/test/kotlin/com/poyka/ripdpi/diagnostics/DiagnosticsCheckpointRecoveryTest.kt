@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RawPathExecutionCancelledException
 import com.poyka.ripdpi.data.RawPathExecutionOutcome
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition

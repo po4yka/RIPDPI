@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompletenessPayload
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive

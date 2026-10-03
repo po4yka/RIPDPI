@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import android.net.Uri
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

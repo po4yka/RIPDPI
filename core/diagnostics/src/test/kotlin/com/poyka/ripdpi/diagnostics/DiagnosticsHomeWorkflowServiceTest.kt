@@ -14,6 +14,8 @@ import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals

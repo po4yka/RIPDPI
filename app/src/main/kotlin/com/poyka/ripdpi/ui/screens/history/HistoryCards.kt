@@ -17,7 +17,7 @@ import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.displayTriggerClassification
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator

@@ -13,7 +13,10 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.policyHandoverScanSessionId
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
+import com.poyka.ripdpi.diagnostics.application.toLaunchTrigger
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

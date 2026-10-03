@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSelection
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 import kotlinx.serialization.Serializable
 
 @Serializable

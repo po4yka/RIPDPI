@@ -62,7 +62,7 @@ internal class DiagnosticsSessionDetailUiFactory
                         }
                     }
                     if (detail.session.launchOrigin !=
-                        com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin.UNKNOWN
+                        com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin.UNKNOWN
                     ) {
                         add(
                             DiagnosticsFieldUiModel(

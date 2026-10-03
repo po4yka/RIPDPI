@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred

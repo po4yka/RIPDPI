@@ -34,7 +34,6 @@ import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
@@ -49,6 +48,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar

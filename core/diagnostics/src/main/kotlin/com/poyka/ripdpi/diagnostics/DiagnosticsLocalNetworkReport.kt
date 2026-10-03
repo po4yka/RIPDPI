@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
 import kotlinx.serialization.json.Json

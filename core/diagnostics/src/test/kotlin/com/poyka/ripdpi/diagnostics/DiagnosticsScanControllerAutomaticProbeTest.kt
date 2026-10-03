@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle

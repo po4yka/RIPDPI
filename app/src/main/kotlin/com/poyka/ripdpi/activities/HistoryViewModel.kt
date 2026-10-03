@@ -32,11 +32,9 @@ class HistoryViewModel
         private val detailState = MutableStateFlow(HistoryDetailState())
         private val refreshing = MutableStateFlow(false)
 
-        private val mutations = HistoryMutationRunner(scope = viewModelScope)
-
         private val connectionActions =
             HistoryConnectionActions(
-                mutations = mutations,
+                scope = viewModelScope,
                 connectionFilters = connectionFilters,
                 detailState = detailState,
                 loadConnectionDetail = historyDetailLoader::loadConnectionDetail,
@@ -44,7 +42,7 @@ class HistoryViewModel
 
         private val diagnosticsActions =
             HistoryDiagnosticsActions(
-                mutations = mutations,
+                scope = viewModelScope,
                 diagnosticsFilters = diagnosticsFilters,
                 detailState = detailState,
                 loadSessionDetail = historyDetailLoader::loadDiagnosticsDetail,

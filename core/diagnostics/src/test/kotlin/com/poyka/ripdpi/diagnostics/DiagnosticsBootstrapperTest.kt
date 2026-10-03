@@ -5,11 +5,14 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi

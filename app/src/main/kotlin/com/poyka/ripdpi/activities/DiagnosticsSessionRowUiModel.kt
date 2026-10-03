@@ -4,7 +4,7 @@ import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import kotlinx.collections.immutable.ImmutableList
 
 @Stable

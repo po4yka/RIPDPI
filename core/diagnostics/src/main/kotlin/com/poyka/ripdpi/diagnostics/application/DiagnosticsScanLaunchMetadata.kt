@@ -2,7 +2,7 @@ package com.poyka.ripdpi.diagnostics.application
 
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHomeDetectionLaunchOriginStorageValue
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
 import kotlinx.serialization.Serializable
 import java.util.Locale
 

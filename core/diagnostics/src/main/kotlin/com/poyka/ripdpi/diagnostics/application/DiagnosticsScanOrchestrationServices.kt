@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.export.buildRelaySequenceGaps
 import com.poyka.ripdpi.diagnostics.export.selectRelayAttemptTraceEvents
 import kotlinx.coroutines.test.runTest

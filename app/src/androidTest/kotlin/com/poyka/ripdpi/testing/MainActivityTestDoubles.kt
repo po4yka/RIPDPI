@@ -38,7 +38,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
@@ -57,6 +56,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar

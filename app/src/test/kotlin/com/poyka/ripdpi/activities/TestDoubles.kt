@@ -22,7 +22,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeAuditOutcome
@@ -44,6 +43,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.diagnostics.NetworkPathValidationSource
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.LauncherIconController
@@ -376,7 +376,7 @@ class StubDiagnosticsShareService : DiagnosticsShareService {
     }
 
     override suspend fun createArchive(
-        request: com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest,
+        request: com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest,
     ): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
         archiveRequest = request
         archiveFailure?.let { throw it }

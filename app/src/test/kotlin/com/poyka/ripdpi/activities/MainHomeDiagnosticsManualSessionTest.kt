@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.util.MainDispatcherRule

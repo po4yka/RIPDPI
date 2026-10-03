@@ -12,12 +12,12 @@ import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchTrigger
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.toImmutableList

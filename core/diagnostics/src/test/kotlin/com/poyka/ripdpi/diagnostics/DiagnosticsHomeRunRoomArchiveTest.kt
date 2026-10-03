@@ -7,6 +7,8 @@ import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsDatabase
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHomeDetectionLaunchOriginStorageValue
 import com.poyka.ripdpi.data.diagnostics.RoomHomeDiagnosticsRunStore
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonArray

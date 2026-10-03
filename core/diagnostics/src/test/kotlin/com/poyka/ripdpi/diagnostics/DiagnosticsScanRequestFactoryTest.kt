@@ -17,6 +17,11 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
+import com.poyka.ripdpi.diagnostics.application.toLaunchTrigger
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent

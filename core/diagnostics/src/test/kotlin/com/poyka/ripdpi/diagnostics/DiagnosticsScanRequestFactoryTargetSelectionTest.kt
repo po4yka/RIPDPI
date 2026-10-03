@@ -7,6 +7,9 @@ import com.poyka.ripdpi.data.PreferredEdgeTransportQuic
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.PreferredEdgeTransportThroughput
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
+import com.poyka.ripdpi.diagnostics.application.selectStrategyProbeTargetsForSession
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy

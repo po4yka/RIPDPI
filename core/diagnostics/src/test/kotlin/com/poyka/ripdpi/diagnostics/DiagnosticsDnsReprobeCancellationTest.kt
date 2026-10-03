@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job

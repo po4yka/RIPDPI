@@ -24,5 +24,5 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-ADS-SELECTION | SVC-1791025380877118 | Pending offline-choice/start and active-switch/cancellation tests plus device smoke. | required |
 | REQ-ADS-PAYLOAD | SVC-1791025381376340 | Pending candidate transport fixtures for valid response, stall, failure and stale evidence. | required |
 | REQ-ADS-LOCALITY | SVC-1791025379377245 | Pending native tests, metadata and architecture checks. | required |
-| REQ-ADS-LOCALITY | SVC-1791025379880611 | Pending diagnostics/app behavior tests after canonical-interface migration. | required |
+| REQ-ADS-LOCALITY | SVC-1791025379880611 | `build-gate -- env CARGO_BUILD_JOBS=3 ./gradlew :core:diagnostics:testDebugUnitTest :app:testGithubFullDebugUnitTest -Pripdpi.skipNativeBuild=true --max-workers=4`: passed; standalone ktlint and independent semantic review passed. | passed |
 | REQ-ADS-LOCALITY | SVC-1791025381882198 | Pending combined static analysis, architecture, hosted CI and device evidence. | required |

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test

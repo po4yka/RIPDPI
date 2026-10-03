@@ -8,8 +8,6 @@ import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
@@ -21,11 +19,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState

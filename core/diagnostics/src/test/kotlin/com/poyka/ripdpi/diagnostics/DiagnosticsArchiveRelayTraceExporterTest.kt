@@ -5,6 +5,9 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompletenessPayload
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.export.buildRelaySequenceGaps
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.test.runTest

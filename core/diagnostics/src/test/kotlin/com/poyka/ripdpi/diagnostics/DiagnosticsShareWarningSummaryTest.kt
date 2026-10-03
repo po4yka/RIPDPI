@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 import java.io.File
 
 /**

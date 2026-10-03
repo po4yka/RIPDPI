@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveEntry
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSelection
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveEntry
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json

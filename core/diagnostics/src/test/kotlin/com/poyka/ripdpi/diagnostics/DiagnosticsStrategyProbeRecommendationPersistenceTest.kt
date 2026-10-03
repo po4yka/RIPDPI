@@ -23,6 +23,8 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.decodedSource
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
 import com.poyka.ripdpi.data.strategyFamily
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanOrigin
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy

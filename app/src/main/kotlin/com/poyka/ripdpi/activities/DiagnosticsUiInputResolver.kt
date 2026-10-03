@@ -3,8 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel

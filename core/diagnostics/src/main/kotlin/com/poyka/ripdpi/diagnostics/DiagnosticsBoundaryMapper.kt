@@ -17,6 +17,8 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.decodedSource
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementContextKind
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.KSerializer

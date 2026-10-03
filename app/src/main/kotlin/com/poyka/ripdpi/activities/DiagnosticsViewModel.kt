@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
 import com.poyka.ripdpi.data.xray.XrayProviderProbeReport
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @Suppress("TooManyFunctions")
@@ -30,7 +32,7 @@ class DiagnosticsViewModel
         savedStateHandle: SavedStateHandle,
         private val diagnosticsInteractionDependencies: DiagnosticsInteractionDependencies,
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
-        private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
+        private val diagnosticsBootstrapper: DiagnosticsBootstrapper,
         private val diagnosticsFiles: DiagnosticsFiles,
         private val stringResolver: StringResolver,
         private val appSettingsRepository: AppSettingsRepository,
@@ -207,10 +209,8 @@ class DiagnosticsViewModel
                 return
             }
             initialized = true
-            diagnosticsViewModelBootstrapper.initialize(
-                scope = viewModelScope,
-                initializeScanActions = scanActions::initialize,
-            )
+            viewModelScope.launch { diagnosticsBootstrapper.initialize() }
+            scanActions.initialize()
             if (autoStartScan && !autoStartScanHandled) {
                 autoStartScanHandled = true
                 runScan()

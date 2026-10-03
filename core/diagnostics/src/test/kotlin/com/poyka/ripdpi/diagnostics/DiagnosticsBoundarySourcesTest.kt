@@ -13,6 +13,8 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi

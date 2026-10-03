@@ -93,7 +93,7 @@ internal fun createDiagnosticsViewModel(
                     activeConnectionPolicySource = activeConnectionPolicySource,
                     serviceStateStore = serviceStateStore,
                 ),
-            diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
+            diagnosticsBootstrapper = diagnosticsBootstrapper,
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             xrayProviderProbeCoordinator =

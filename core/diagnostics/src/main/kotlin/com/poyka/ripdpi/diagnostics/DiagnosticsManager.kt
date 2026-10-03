@@ -13,6 +13,10 @@ import com.poyka.ripdpi.diagnostics.exit.ProcessExitHistorySource
 import com.poyka.ripdpi.diagnostics.exit.ProcessExitRuntimeReconciler
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.memory.DefaultNativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar

@@ -34,7 +34,7 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.displayTriggerClassification
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard

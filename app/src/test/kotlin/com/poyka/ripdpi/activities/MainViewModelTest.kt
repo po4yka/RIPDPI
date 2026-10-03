@@ -27,7 +27,6 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
@@ -36,6 +35,7 @@ import com.poyka.ripdpi.diagnostics.NetworkPathValidationEvidence
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.stableId
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.permissions.PermissionCoordinator

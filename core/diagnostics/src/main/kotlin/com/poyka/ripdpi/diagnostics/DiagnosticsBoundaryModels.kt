@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.serialization.RipDpiContractJson

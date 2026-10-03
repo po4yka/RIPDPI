@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 

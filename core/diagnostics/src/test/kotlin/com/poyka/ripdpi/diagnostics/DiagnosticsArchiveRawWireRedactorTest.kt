@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive

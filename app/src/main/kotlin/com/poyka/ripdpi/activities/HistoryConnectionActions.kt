@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.activities
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 internal class HistoryConnectionActions(
-    private val mutations: HistoryMutationRunner,
+    private val scope: CoroutineScope,
     private val connectionFilters: MutableStateFlow<HistoryConnectionFilterState>,
     private val detailState: MutableStateFlow<HistoryDetailState>,
     private val loadConnectionDetail: suspend (String) -> HistoryConnectionDetailUiModel?,
@@ -26,7 +28,7 @@ internal class HistoryConnectionActions(
     }
 
     fun selectConnection(sessionId: String) {
-        mutations.launch {
+        scope.launch {
             val detail = loadConnectionDetail(sessionId)
             detailState.update { it.copy(selectedConnectionDetail = detail) }
         }
@@ -38,7 +40,7 @@ internal class HistoryConnectionActions(
 }
 
 internal class HistoryDiagnosticsActions(
-    private val mutations: HistoryMutationRunner,
+    private val scope: CoroutineScope,
     private val diagnosticsFilters: MutableStateFlow<HistoryDiagnosticsFilterState>,
     private val detailState: MutableStateFlow<HistoryDetailState>,
     private val loadSessionDetail: suspend (String) -> DiagnosticsSessionDetailUiModel?,
@@ -60,7 +62,7 @@ internal class HistoryDiagnosticsActions(
     }
 
     fun selectSession(sessionId: String) {
-        mutations.launch {
+        scope.launch {
             detailState.update { it.copy(selectedDiagnosticsDetail = loadSessionDetail(sessionId)) }
         }
     }

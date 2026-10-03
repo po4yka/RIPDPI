@@ -17,7 +17,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 
 internal class FakeDiagnosticsManager(

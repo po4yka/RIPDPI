@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.Serializable
@@ -431,6 +432,7 @@ class DiagnosticsOutcomeTaxonomyTest {
                 artifactWriteStore = stores,
                 serviceStateStore = serviceStateStore,
                 json = json,
+                deferTerminal = false,
             )
 
             val sessionEvents = stores.nativeEventsState.value.filter { it.sessionId == "session-1" }
@@ -478,6 +480,7 @@ class DiagnosticsOutcomeTaxonomyTest {
                 artifactWriteStore = stores,
                 serviceStateStore = FakeServiceStateStore(),
                 json = json,
+                deferTerminal = false,
             )
 
             val session = requireNotNull(stores.getScanSession(report.sessionId))

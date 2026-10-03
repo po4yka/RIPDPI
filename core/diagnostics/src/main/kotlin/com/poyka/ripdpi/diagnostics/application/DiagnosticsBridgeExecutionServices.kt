@@ -5,6 +5,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable

@@ -3,6 +3,8 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

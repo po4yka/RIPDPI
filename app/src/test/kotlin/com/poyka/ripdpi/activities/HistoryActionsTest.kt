@@ -17,7 +17,7 @@ class HistoryActionsTest {
             val details = MutableStateFlow(HistoryDetailState())
             val actions =
                 HistoryConnectionActions(
-                    mutations = HistoryMutationRunner(this),
+                    scope = this,
                     connectionFilters = filters,
                     detailState = details,
                     loadConnectionDetail = { historyConnectionDetailUi(it) },
@@ -51,7 +51,7 @@ class HistoryActionsTest {
             val details = MutableStateFlow(HistoryDetailState())
             val actions =
                 HistoryDiagnosticsActions(
-                    mutations = HistoryMutationRunner(this),
+                    scope = this,
                     diagnosticsFilters = filters,
                     detailState = details,
                     loadSessionDetail = { historyDiagnosticsDetailUi(it) },
@@ -126,13 +126,13 @@ class HistoryActionsTest {
             val details = MutableStateFlow(HistoryDetailState())
 
             HistoryConnectionActions(
-                mutations = HistoryMutationRunner(this),
+                scope = this,
                 connectionFilters = connectionFilters,
                 detailState = details,
                 loadConnectionDetail = { null },
             ).clearFilters()
             HistoryDiagnosticsActions(
-                mutations = HistoryMutationRunner(this),
+                scope = this,
                 diagnosticsFilters = diagnosticsFilters,
                 detailState = details,
                 loadSessionDetail = { null },

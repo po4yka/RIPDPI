@@ -2,7 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.net.Uri
 import android.os.Bundle
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.serialization.json.Json
 
 internal const val PendingDiagnosticsArchiveStateKey = "pending-diagnostics-archive"

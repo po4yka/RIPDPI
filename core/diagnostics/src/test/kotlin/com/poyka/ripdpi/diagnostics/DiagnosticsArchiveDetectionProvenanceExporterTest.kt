@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.detection.DetectionScope
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray

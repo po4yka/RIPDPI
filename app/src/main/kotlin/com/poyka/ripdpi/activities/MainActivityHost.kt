@@ -12,11 +12,11 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
