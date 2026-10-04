@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.RawPathExecutionResult
@@ -423,7 +425,7 @@ internal class DefaultDiagnosticsScanController
             if (ownerId != null) {
                 prepared
                     .inPathPreflightFailure(serviceStateStore.status.value)
-                    ?.let { failure -> throw InPathRuntimeUnavailableException(failure.summary, failure.reason) }
+                    ?.let { failure -> throw inPathStartRejected(failure.reason) }
             }
             activeScanRegistry.rememberPreparedScan(prepared, ownerId)
             ensureStartupActive(scope)
@@ -442,7 +444,7 @@ internal class DefaultDiagnosticsScanController
                 failure.summary,
                 scanRecordStore,
             )
-            throw IllegalStateException(failure.summary)
+            throw inPathStartRejected(failure.reason)
         }
 
         private suspend fun createStartedBridge(
@@ -460,11 +462,8 @@ internal class DefaultDiagnosticsScanController
             if (startBridgeBeforeAwait) return PreparedBridgeSession(handle, true)
 
             prepared.inPathRouteLease?.let { lease ->
-                if (!runtimeCoordinator.isInPathRouteLeaseCurrent(lease)) {
-                    throw InPathRuntimeUnavailableException(
-                        "In-path diagnostics unavailable: the active VPN route changed before scan start",
-                        DiagnosticsHomeCompositeStageUnavailableReason.RUNTIME_CHANGED_OR_UNAVAILABLE,
-                    )
+                runtimeCoordinator.validateInPathRouteLease(lease)?.let { unavailable ->
+                    throw inPathStartRejected(DiagnosticsInPathUnavailableReason.Route(unavailable))
                 }
             }
 
@@ -604,17 +603,9 @@ internal suspend fun persistPartialScanSession(
     )
 }
 
-private const val InPathServiceUnavailableAction = "start the RIPDPI service before scanning"
-
-internal class InPathRuntimeUnavailableException(
-    message: String,
-    val reason: DiagnosticsHomeCompositeStageUnavailableReason =
-        DiagnosticsHomeCompositeStageUnavailableReason.RUNTIME_CHANGED_OR_UNAVAILABLE,
-) : IllegalStateException(message)
-
 private data class InPathPreflightFailure(
     val summary: String,
-    val reason: DiagnosticsHomeCompositeStageUnavailableReason,
+    val reason: DiagnosticsInPathUnavailableReason,
 )
 
 internal suspend fun PreparedDiagnosticsScan.bindCurrentInPathRoute(
@@ -629,11 +620,15 @@ internal suspend fun PreparedDiagnosticsScan.bindCurrentInPathRoute(
             liveRuntime.second == Mode.VPN
     return if (needsOwnedVpnRoute) {
         val lease =
-            runtimeCoordinator.acquireInPathRouteLease()
-                ?: throw InPathRuntimeUnavailableException(
-                    "In-path diagnostics unavailable: the active VPN route is not currently observable",
-                    DiagnosticsHomeCompositeStageUnavailableReason.ACTIVE_VPN_PATH_NOT_OBSERVED,
-                )
+            when (val acquisition = runtimeCoordinator.acquireInPathRouteLease()) {
+                is InPathRouteLeaseAcquisition.Acquired -> {
+                    acquisition.lease
+                }
+
+                is InPathRouteLeaseAcquisition.Unavailable -> {
+                    throw inPathStartRejected(DiagnosticsInPathUnavailableReason.Route(acquisition))
+                }
+            }
         scanRequestFactory.bindInPathRoute(this, lease)
     } else {
         this
@@ -654,29 +649,28 @@ private fun PreparedDiagnosticsScan.inPathPreflightFailure(
 
         liveStatus != null && liveStatus != AppStatus.Running -> {
             InPathPreflightFailure(
-                summary =
-                    "In-path diagnostics unavailable: local proxy service is ${liveStatus.name}; " +
-                        InPathServiceUnavailableAction,
-                reason = DiagnosticsHomeCompositeStageUnavailableReason.SERVICE_NOT_RUNNING,
+                summary = "In-path diagnostics unavailable: RuntimeAbsent",
+                reason =
+                    DiagnosticsInPathUnavailableReason.Route(
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent),
+                    ),
             )
         }
 
         liveStatus == null && !service.serviceStatus.equals(AppStatus.Running.name, ignoreCase = true) -> {
-            val status = service.serviceStatus
             InPathPreflightFailure(
-                summary =
-                    "In-path diagnostics unavailable: local proxy service is $status; " +
-                        InPathServiceUnavailableAction,
-                reason = DiagnosticsHomeCompositeStageUnavailableReason.SERVICE_NOT_RUNNING,
+                summary = "In-path diagnostics unavailable: RuntimeAbsent",
+                reason =
+                    DiagnosticsInPathUnavailableReason.Route(
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent),
+                    ),
             )
         }
 
         preparedRouteAbsent() && listenerAddress != null && listenerAddress != expectedEndpoint -> {
             InPathPreflightFailure(
-                summary =
-                    "In-path diagnostics unavailable: proxy listener is $listenerAddress, " +
-                        "expected $expectedEndpoint",
-                reason = DiagnosticsHomeCompositeStageUnavailableReason.PROXY_ENDPOINT_MISMATCH,
+                summary = "In-path diagnostics unavailable: ProxyEndpointMismatch",
+                reason = DiagnosticsInPathUnavailableReason.ProxyEndpointMismatch,
             )
         }
 

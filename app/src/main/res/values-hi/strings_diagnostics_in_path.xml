@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">कोई सक्रिय कनेक्शन उपलब्ध नहीं है। स्कैन से पहले सेवा की स्थिति जाँचें।</string>
+    <string name="diagnostics_in_path_lease_unpublished">सक्रिय VPN में निदान मार्ग उपलब्ध नहीं है। कनेक्शन की कॉन्फ़िगरेशन जाँचें।</string>
+    <string name="diagnostics_in_path_route_changed">स्कैन से पहले VPN मार्ग बदल गया। वर्तमान कनेक्शन तैयार होने तक प्रतीक्षा करें।</string>
+    <string name="diagnostics_in_path_route_unverified">सक्रिय VPN मार्ग की पुष्टि नहीं हो सकी। VPN कनेक्शन की स्थिति जाँचें।</string>
+    <string name="diagnostics_in_path_route_revoked">VPN निदान मार्ग का उपयोग रद्द कर दिया गया है। अगले स्कैन से पहले कनेक्शन जाँचें।</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">स्थानीय प्रॉक्सी स्कैन की कॉन्फ़िगरेशन से अलग है। प्रॉक्सी सेटिंग जाँचें।</string>
+</resources>

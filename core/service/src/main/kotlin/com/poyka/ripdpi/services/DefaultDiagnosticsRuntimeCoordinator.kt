@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RawPathExecutionCancelledException
 import com.poyka.ripdpi.data.RawPathExecutionOutcome
@@ -13,7 +14,6 @@ import com.poyka.ripdpi.data.RawPathExecutionSettlement
 import com.poyka.ripdpi.data.RawPathExecutionSettlementOutcome
 import com.poyka.ripdpi.data.RawPathRuntimeContext
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.VpnRouteEvidence
 import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
 import com.poyka.ripdpi.data.toRawPathRuntimeStatus
 import com.poyka.ripdpi.data.toSettingsSections
@@ -58,9 +58,11 @@ internal class DefaultDiagnosticsRuntimeCoordinator
         private val appSettingsRepository: AppSettingsRepository,
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceController: ServiceController,
-        private val serviceRuntimeRegistry: ServiceRuntimeRegistry,
-        private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
+        serviceRuntimeRegistry: ServiceRuntimeRegistry,
+        vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
     ) : DiagnosticsRuntimeCoordinator {
+        private val inPathRouteLeaseAccess =
+            DiagnosticsInPathRouteLeaseAccess(serviceRuntimeRegistry, serviceStateStore, vpnRouteEvidenceProvider)
         private var waitAttempts: Int = 50
         private var waitDelayMs: Long = 200L
         private val rawPathWindowMutex = Mutex()
@@ -108,31 +110,11 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 block = block,
             )
 
-        override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? {
-            val published = serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease ?: return null
-            val evidence = vpnRouteEvidenceProvider.capture()
-            return if (isRouteEligible(published, evidence)) {
-                published.copy(issuedRevision = evidence.callbackRevision).takeIf(::isInPathRouteLeaseCurrent)
-            } else {
-                null
-            }
-        }
+        override suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition = inPathRouteLeaseAccess.acquire()
 
-        override fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean {
-            if (lease.issuedRevision == null) return false
-            val evidence = vpnRouteEvidenceProvider.capture()
-            return isRouteEligible(lease, evidence) && lease.issuedRevision == evidence.callbackRevision &&
-                serviceRuntimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease ==
-                lease.copy(issuedRevision = null)
-        }
-
-        private fun isRouteEligible(
+        override fun validateInPathRouteLease(
             lease: DiagnosticsInPathRouteLease,
-            evidence: VpnRouteEvidence,
-        ): Boolean =
-            serviceStateStore.status.value == (AppStatus.Running to Mode.VPN) &&
-                evidence.lifecycle?.generation == lease.routeGeneration &&
-                evidence.isEligibleForInPathLease()
+        ): InPathRouteLeaseAcquisition.Unavailable? = inPathRouteLeaseAccess.validate(lease)
 
         @Suppress("TooGenericExceptionCaught")
         private suspend fun runInRawPathWindow(

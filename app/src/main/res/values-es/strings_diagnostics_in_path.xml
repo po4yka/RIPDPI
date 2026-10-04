@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">No hay una conexión activa disponible. Comprueba el estado del servicio antes del análisis.</string>
+    <string name="diagnostics_in_path_lease_unpublished">La VPN activa no tiene una ruta de diagnóstico disponible. Comprueba la configuración de la conexión.</string>
+    <string name="diagnostics_in_path_route_changed">La ruta VPN cambió antes del análisis. Espera a que la conexión actual esté lista.</string>
+    <string name="diagnostics_in_path_route_unverified">No se pudo verificar la ruta VPN activa. Comprueba el estado de la conexión VPN.</string>
+    <string name="diagnostics_in_path_route_revoked">Se revocó el acceso a la ruta de diagnóstico VPN. Comprueba la conexión antes de otro análisis.</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">El proxy local difiere de la configuración del análisis. Comprueba los ajustes del proxy.</string>
+</resources>

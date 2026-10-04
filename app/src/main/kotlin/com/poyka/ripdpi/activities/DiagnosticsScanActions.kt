@@ -549,7 +549,11 @@ private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(
     emit(
         DiagnosticsEffect.ScanStartFailed(
             message =
-                when ((error as? DiagnosticsScanStartRejectedException)?.reason) {
+                when (val reason = (error as? DiagnosticsScanStartRejectedException)?.reason) {
+                    is DiagnosticsScanStartRejectionReason.InPathUnavailable -> {
+                        stringResolver.getString(reason.reason.inPathFailureMessageResource())
+                    }
+
                     DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning -> {
                         stringResolver.getString(R.string.diagnostics_error_hidden_probe_running)
                     }

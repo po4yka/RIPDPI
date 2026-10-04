@@ -5,10 +5,38 @@ interface DiagnosticsRuntimeCoordinator {
 
     suspend fun runAutomaticRawPathScan(block: suspend () -> Unit): RawPathExecutionResult
 
-    suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? = null
+    suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition
 
-    fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean = false
+    fun validateInPathRouteLease(lease: DiagnosticsInPathRouteLease): InPathRouteLeaseAcquisition.Unavailable?
 }
+
+sealed interface InPathRouteLeaseAcquisition {
+    data class Acquired(
+        val lease: DiagnosticsInPathRouteLease,
+    ) : InPathRouteLeaseAcquisition
+
+    data class Unavailable(
+        val reason: InPathRouteUnavailableReason,
+        val evidence: InPathRouteEvidenceAxes? = null,
+    ) : InPathRouteLeaseAcquisition
+}
+
+enum class InPathRouteUnavailableReason {
+    RuntimeAbsent,
+    LeaseUnpublished,
+    RouteGenerationMismatch,
+    RouteEvidenceUnavailable,
+    LeaseRevoked,
+}
+
+/** Only identifier-free enum axes; no endpoint, runtime identity or route revision. */
+data class InPathRouteEvidenceAxes(
+    val lifecycle: VpnRouteLifecycleState?,
+    val callback: VpnRouteCallbackState,
+    val ownerVerification: VpnRouteOwnerVerification,
+    val consistency: VpnRouteConsistency,
+    val forwardingTerminal: Boolean?,
+)
 
 data class DiagnosticsProxyCredentials(
     val username: String,

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">Нет доступного активного соединения. Проверьте состояние службы перед сканированием.</string>
+    <string name="diagnostics_in_path_lease_unpublished">У активного VPN нет доступного маршрута диагностики. Проверьте конфигурацию соединения.</string>
+    <string name="diagnostics_in_path_route_changed">Маршрут VPN изменился до сканирования. Дождитесь готовности текущего соединения.</string>
+    <string name="diagnostics_in_path_route_unverified">Не удалось проверить активный маршрут VPN. Проверьте состояние соединения VPN.</string>
+    <string name="diagnostics_in_path_route_revoked">Доступ к маршруту диагностики VPN отозван. Проверьте соединение перед новым сканированием.</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">Адрес локального прокси отличается от конфигурации сканирования. Проверьте настройки прокси.</string>
+</resources>

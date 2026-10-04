@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">اتصال فعالی در دسترس نیست. پیش از بررسی، وضعیت سرویس را بررسی کنید.</string>
+    <string name="diagnostics_in_path_lease_unpublished">VPN فعال مسیر عیب‌یابی در دسترس ندارد. پیکربندی اتصال را بررسی کنید.</string>
+    <string name="diagnostics_in_path_route_changed">مسیر VPN پیش از بررسی تغییر کرد. تا آماده شدن اتصال فعلی صبر کنید.</string>
+    <string name="diagnostics_in_path_route_unverified">مسیر فعال VPN قابل تأیید نبود. وضعیت اتصال VPN را بررسی کنید.</string>
+    <string name="diagnostics_in_path_route_revoked">دسترسی به مسیر عیب‌یابی VPN لغو شد. پیش از بررسی دوباره، اتصال را بررسی کنید.</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">پراکسی محلی با تنظیمات بررسی متفاوت است. تنظیمات پراکسی را بررسی کنید.</string>
+</resources>

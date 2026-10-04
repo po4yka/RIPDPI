@@ -3,6 +3,8 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -387,7 +389,11 @@ private open class RuntimeUnavailableController : DiagnosticsScanController {
         targetOverrides: DiagnosticsScanTargetOverrides?,
         resumeRuntimeAfterRawPath: Boolean,
     ): DiagnosticsManualScanStartResult =
-        throw InPathRuntimeUnavailableException("runtime changed before in-path start")
+        throw inPathStartRejected(
+            DiagnosticsInPathUnavailableReason.Route(
+                InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseRevoked),
+            ),
+        )
 
     override suspend fun resolveHiddenProbeConflict(
         requestId: String,

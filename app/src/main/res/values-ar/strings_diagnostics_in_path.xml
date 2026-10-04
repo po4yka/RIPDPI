@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">لا يوجد اتصال نشط متاح. تحقق من حالة الخدمة قبل الفحص.</string>
+    <string name="diagnostics_in_path_lease_unpublished">لا يتوفر مسار تشخيص لشبكة VPN النشطة. تحقق من إعدادات الاتصال.</string>
+    <string name="diagnostics_in_path_route_changed">تغير مسار VPN قبل الفحص. انتظر حتى يصبح الاتصال الحالي جاهزًا.</string>
+    <string name="diagnostics_in_path_route_unverified">تعذر التحقق من مسار VPN النشط. تحقق من حالة اتصال VPN.</string>
+    <string name="diagnostics_in_path_route_revoked">أُلغي الوصول إلى مسار تشخيص VPN. تحقق من الاتصال قبل بدء فحص آخر.</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">يختلف الوكيل المحلي عن إعدادات الفحص. تحقق من إعدادات الوكيل.</string>
+</resources>

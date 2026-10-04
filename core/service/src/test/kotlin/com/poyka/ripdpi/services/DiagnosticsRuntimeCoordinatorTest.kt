@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RawPathExecutionCancelledException
 import com.poyka.ripdpi.data.RawPathExecutionOutcome
@@ -47,6 +49,23 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsRuntimeCoordinatorTest {
     @Test
+    fun `missing runtime and unpublished lease have distinct acquisition reasons`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
+            val registry = DefaultServiceRuntimeRegistry()
+            val coordinator = buildCoordinator(FakeServiceController(stateStore), stateStore, registry = registry)
+            assertEquals(
+                InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent),
+                coordinator.acquireInPathRouteLease(),
+            )
+            registry.register(VpnRuntimeSession("runtime-private"))
+            assertEquals(
+                InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseUnpublished),
+                coordinator.acquireInPathRouteLease(),
+            )
+        }
+
+    @Test
     fun `published proxy endpoint without verified VPN evidence cannot issue a route lease`() =
         runTest {
             val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
@@ -56,7 +75,10 @@ class DiagnosticsRuntimeCoordinatorTest {
             registry.register(session)
             val coordinator = buildCoordinator(FakeServiceController(stateStore), stateStore, registry = registry)
 
-            assertEquals(null, coordinator.acquireInPathRouteLease())
+            assertEquals(
+                InPathRouteUnavailableReason.RouteEvidenceUnavailable,
+                (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Unavailable).reason,
+            )
         }
 
     @Test
@@ -80,27 +102,32 @@ class DiagnosticsRuntimeCoordinatorTest {
                     evidenceProvider = evidenceStore,
                 )
 
-            val initialLease = requireNotNull(coordinator.acquireInPathRouteLease())
+            val initialLease = (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Acquired).lease
             assertEquals(evidenceStore.capture().callbackRevision, initialLease.issuedRevision)
             assertEquals(false, evidenceStore.capture().validated)
             assertEquals("stale", evidenceStore.capture().evidenceAgeBand)
-            assertTrue(coordinator.isInPathRouteLeaseCurrent(initialLease))
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(requireNotNull(session.diagnosticsInPathRouteLease)))
+            assertTrue((coordinator.validateInPathRouteLease(initialLease) == null))
+            assertFalse(
+                (
+                    coordinator.validateInPathRouteLease(requireNotNull(session.diagnosticsInPathRouteLease)) ==
+                        null
+                ),
+            )
 
             evidenceStore.observeLost("vpn-a")
-            assertEquals(null, coordinator.acquireInPathRouteLease())
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(initialLease))
+            assertTrue(coordinator.acquireInPathRouteLease() is InPathRouteLeaseAcquisition.Unavailable)
+            assertFalse((coordinator.validateInPathRouteLease(initialLease) == null))
             evidenceStore.observeReadyRouteCallbacks()
-            val restoredLease = requireNotNull(coordinator.acquireInPathRouteLease())
+            val restoredLease = (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Acquired).lease
             assertTrue(requireNotNull(restoredLease.issuedRevision) > requireNotNull(initialLease.issuedRevision))
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(initialLease))
-            assertTrue(coordinator.isInPathRouteLeaseCurrent(restoredLease))
+            assertFalse((coordinator.validateInPathRouteLease(initialLease) == null))
+            assertTrue((coordinator.validateInPathRouteLease(restoredLease) == null))
 
             evidenceStore.recordForwardingOutcome(generation, "tun_ingress_no_upstream", terminal = true, revision = 2L)
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(restoredLease))
+            assertFalse((coordinator.validateInPathRouteLease(restoredLease) == null))
             evidenceStore.recordForwardingOutcome(generation, "no_flow", terminal = false, revision = 3L)
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(restoredLease))
-            val recoveredLease = requireNotNull(coordinator.acquireInPathRouteLease())
+            assertFalse((coordinator.validateInPathRouteLease(restoredLease) == null))
+            val recoveredLease = (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Acquired).lease
             assertTrue(requireNotNull(recoveredLease.issuedRevision) > requireNotNull(restoredLease.issuedRevision))
         }
 
@@ -134,7 +161,10 @@ class DiagnosticsRuntimeCoordinatorTest {
                     evidenceProvider = provider,
                 )
 
-            assertEquals(null, coordinator.acquireInPathRouteLease())
+            assertEquals(
+                InPathRouteUnavailableReason.LeaseRevoked,
+                (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Unavailable).reason,
+            )
             assertEquals(2, captures)
         }
 
@@ -163,7 +193,7 @@ class DiagnosticsRuntimeCoordinatorTest {
                     registry = registry,
                     evidenceProvider = provider,
                 )
-            val issued = requireNotNull(coordinator.acquireInPathRouteLease())
+            val issued = (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Acquired).lease
             val lifecycle = requireNotNull(ready.lifecycle)
             val invalidEvidence =
                 listOf(
@@ -177,18 +207,43 @@ class DiagnosticsRuntimeCoordinatorTest {
                 )
             for (invalid in invalidEvidence) {
                 current = invalid
-                assertEquals(null, coordinator.acquireInPathRouteLease())
-                assertFalse(coordinator.isInPathRouteLeaseCurrent(issued))
+                val expected =
+                    if (invalid.lifecycle?.generation != lifecycle.generation) {
+                        InPathRouteUnavailableReason.RouteGenerationMismatch
+                    } else {
+                        InPathRouteUnavailableReason.RouteEvidenceUnavailable
+                    }
+                assertEquals(
+                    expected,
+                    (coordinator.acquireInPathRouteLease() as InPathRouteLeaseAcquisition.Unavailable).reason,
+                )
+                assertEquals(expected, requireNotNull(coordinator.validateInPathRouteLease(issued)).reason)
             }
             current = ready
             stateStore.setStatus(AppStatus.Halted, Mode.VPN)
-            assertEquals(null, coordinator.acquireInPathRouteLease())
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(issued))
+            assertEquals(
+                InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent),
+                coordinator.acquireInPathRouteLease(),
+            )
+            assertEquals(
+                InPathRouteUnavailableReason.RuntimeAbsent,
+                requireNotNull(coordinator.validateInPathRouteLease(issued)).reason,
+            )
             stateStore.setStatus(AppStatus.Running, Mode.Proxy)
-            assertEquals(null, coordinator.acquireInPathRouteLease())
+            assertEquals(
+                InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent),
+                coordinator.acquireInPathRouteLease(),
+            )
             stateStore.setStatus(AppStatus.Running, Mode.VPN)
             session.revokeInPathLease()
-            assertFalse(coordinator.isInPathRouteLeaseCurrent(issued))
+            assertEquals(
+                InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseUnpublished),
+                coordinator.acquireInPathRouteLease(),
+            )
+            assertEquals(
+                InPathRouteUnavailableReason.LeaseRevoked,
+                requireNotNull(coordinator.validateInPathRouteLease(issued)).reason,
+            )
         }
 
     @Test

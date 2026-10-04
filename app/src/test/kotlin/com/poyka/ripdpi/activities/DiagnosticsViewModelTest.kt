@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
@@ -16,10 +18,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticsInPathUnavailableReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -1841,6 +1846,70 @@ class DiagnosticsViewModelTest {
                 viewModel.uiState.value.scan.policyNoticeMessage,
             )
             collector.cancel()
+        }
+
+    @Test
+    fun `typed in-path start rejections emit exact localized guidance and keep scan idle`() =
+        runTest {
+            val appContext = RuntimeEnvironment.getApplication()
+            val resources =
+                mapOf(
+                    InPathRouteUnavailableReason.RuntimeAbsent to
+                        R.string.diagnostics_in_path_runtime_absent,
+                    InPathRouteUnavailableReason.LeaseUnpublished to
+                        R.string.diagnostics_in_path_lease_unpublished,
+                    InPathRouteUnavailableReason.RouteGenerationMismatch to
+                        R.string.diagnostics_in_path_route_changed,
+                    InPathRouteUnavailableReason.RouteEvidenceUnavailable to
+                        R.string.diagnostics_in_path_route_unverified,
+                    InPathRouteUnavailableReason.LeaseRevoked to
+                        R.string.diagnostics_in_path_route_revoked,
+                )
+            val cases =
+                resources.map { (reason, resource) ->
+                    DiagnosticsInPathUnavailableReason.Route(
+                        InPathRouteLeaseAcquisition
+                            .Unavailable(reason),
+                    ) to resource
+                } +
+                    (
+                        DiagnosticsInPathUnavailableReason.ProxyEndpointMismatch to
+                            R.string.diagnostics_in_path_endpoint_mismatch
+                    )
+            for ((reason, resource) in cases) {
+                val manager =
+                    FakeDiagnosticsManager().apply {
+                        scanController.onStartScan = { _, _ ->
+                            throw DiagnosticsScanStartRejectedException(
+                                DiagnosticsScanStartRejectionReason
+                                    .InPathUnavailable(reason),
+                            )
+                        }
+                    }
+                val viewModel =
+                    createDiagnosticsViewModel(
+                        appContext,
+                        manager,
+                        FakeAppSettingsRepository(),
+                        serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
+                    )
+                val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+                advanceUntilIdle()
+                val effectDeferred = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+                viewModel.startInPathScan()
+                advanceUntilIdle()
+                val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
+                assertEquals(appContext.getString(resource), effect.message)
+                if (resource == R.string.diagnostics_in_path_runtime_absent) {
+                    assertEquals(
+                        "No active connection is available. Check the service status before scanning.",
+                        effect.message,
+                    )
+                }
+                assertFalse(viewModel.uiState.value.scan.isBusy)
+                assertNull(viewModel.uiState.value.selectedSessionDetail)
+                collector.cancel()
+            }
         }
 
     @Test

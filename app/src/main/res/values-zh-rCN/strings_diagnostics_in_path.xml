@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">没有可用的活动连接。扫描前请检查服务状态。</string>
+    <string name="diagnostics_in_path_lease_unpublished">活动 VPN 没有可用的诊断路径。请检查连接配置。</string>
+    <string name="diagnostics_in_path_route_changed">扫描前 VPN 路径发生了变化。请等待当前连接就绪。</string>
+    <string name="diagnostics_in_path_route_unverified">无法验证活动 VPN 路径。请检查 VPN 连接状态。</string>
+    <string name="diagnostics_in_path_route_revoked">VPN 诊断路径的访问权限已撤销。再次扫描前请检查连接。</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">本地代理与扫描配置不同。请检查代理设置。</string>
+</resources>

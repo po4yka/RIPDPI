@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.RawPathExecutionResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -22,6 +25,14 @@ class DiagnosticsScanControllerRawPathStartTest {
             var rawPathRunnerEntered = false
             val runtimeCoordinator =
                 object : DiagnosticsRuntimeCoordinator {
+                    override suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition =
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent)
+
+                    override fun validateInPathRouteLease(
+                        lease: DiagnosticsInPathRouteLease,
+                    ): InPathRouteLeaseAcquisition.Unavailable =
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent)
+
                     override suspend fun runRawPathScan(block: suspend () -> Unit): RawPathExecutionResult {
                         rawPathRunnerEntered = true
                         assertNull(bridgeFactory.bridge.startedRequestJson)

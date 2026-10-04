@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -1224,10 +1226,18 @@ internal class FakeDiagnosticsRuntimeCoordinator(
         return runSettledRawPathBlock(block)
     }
 
-    override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease? = inPathRouteLease
+    override suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition =
+        inPathRouteLease?.let(InPathRouteLeaseAcquisition::Acquired)
+            ?: InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseUnpublished)
 
-    override fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean =
-        scriptedLeaseValidationResults.removeFirstOrNull() ?: (inPathRouteLease == lease)
+    override fun validateInPathRouteLease(
+        lease: DiagnosticsInPathRouteLease,
+    ): InPathRouteLeaseAcquisition.Unavailable? =
+        if (scriptedLeaseValidationResults.removeFirstOrNull() ?: (inPathRouteLease == lease)) {
+            null
+        } else {
+            InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseRevoked)
+        }
 
     fun enqueueLeaseValidationResults(vararg results: Boolean) {
         scriptedLeaseValidationResults.addAll(results.toList())

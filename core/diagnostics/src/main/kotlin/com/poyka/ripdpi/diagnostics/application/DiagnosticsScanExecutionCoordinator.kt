@@ -125,7 +125,7 @@ internal class DiagnosticsScanExecutionCoordinator
         private fun routePollingState(prepared: PreparedDiagnosticsScan): BridgeReportPollingState =
             BridgeReportPollingState {
                 prepared.pathMode == ScanPathMode.IN_PATH &&
-                    prepared.inPathRouteLease?.let(runtimeCoordinator::isInPathRouteLeaseCurrent) == true
+                    prepared.inPathRouteLease?.let { runtimeCoordinator.validateInPathRouteLease(it) == null } == true
             }
 
         private suspend fun runPrimaryScan(

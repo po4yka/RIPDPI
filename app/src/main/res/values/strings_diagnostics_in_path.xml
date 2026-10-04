@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_in_path_runtime_absent">No active connection is available. Check the service status before scanning.</string>
+    <string name="diagnostics_in_path_lease_unpublished">The active VPN has no diagnostics route available. Check the connection configuration.</string>
+    <string name="diagnostics_in_path_route_changed">The VPN route changed before scanning. Wait until the current connection is ready.</string>
+    <string name="diagnostics_in_path_route_unverified">The active VPN route could not be verified. Check the VPN connection status.</string>
+    <string name="diagnostics_in_path_route_revoked">Access to the VPN diagnostics route was revoked. Check the connection before starting another scan.</string>
+    <string name="diagnostics_in_path_endpoint_mismatch">The proxy listener differs from the scan configuration. Check your proxy settings.</string>
+</resources>

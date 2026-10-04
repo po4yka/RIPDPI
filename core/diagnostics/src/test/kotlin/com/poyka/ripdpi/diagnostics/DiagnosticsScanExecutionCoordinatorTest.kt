@@ -1469,7 +1469,7 @@ class DiagnosticsInPathRouteAuthorityTest {
         assertEquals("completed", session.status)
         val persisted = json.decodeEngineScanReportWire(requireNotNull(session.reportJson))
         assertEquals(expected, persisted.strategyProbeReport?.activePathObservation?.activePathAuthority)
-        assertEquals(change == RouteChange.None, fixtures.runtimeCoordinator.isInPathRouteLeaseCurrent(lease))
+        assertEquals(change == RouteChange.None, (fixtures.runtimeCoordinator.validateInPathRouteLease(lease) == null))
     }
 
     private enum class RouteChange { None, BeforeTerminal, DuringPersistence }

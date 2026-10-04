@@ -5,6 +5,8 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.finalization.RawPathHomeSettlementDisposition
@@ -87,8 +89,9 @@ internal class HomeCompositeStageExecutor
         }
 
         private suspend fun currentVpnInPathRouteIsAvailable(): Boolean {
-            val lease = runtimeCoordinator.acquireInPathRouteLease() ?: return false
-            return runtimeCoordinator.isInPathRouteLeaseCurrent(lease)
+            val acquisition = runtimeCoordinator.acquireInPathRouteLease()
+            return acquisition is InPathRouteLeaseAcquisition.Acquired &&
+                runtimeCoordinator.validateInPathRouteLease(acquisition.lease) == null
         }
 
         suspend fun cancelRunStages(
@@ -270,13 +273,16 @@ internal class HomeCompositeStageExecutor
                     if (failure is CancellationException) {
                         throw failure
                     }
-                    if (failure is InPathRuntimeUnavailableException) {
+                    val inPathReason =
+                        (failure as? DiagnosticsScanStartRejectedException)?.reason
+                            as? DiagnosticsScanStartRejectionReason.InPathUnavailable
+                    if (inPathReason != null) {
                         updateStage(progressState, runId, stageIndex) { current ->
                             current.copy(
                                 status = DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
                                 headline = "${spec.label} unavailable",
                                 summary = failure.message ?: "The in-path runtime became unavailable.",
-                                unavailableReason = failure.reason,
+                                unavailableReason = inPathReason.reason.toHomeStageReason(),
                             )
                         }
                     } else {
@@ -568,6 +574,14 @@ internal class HomeCompositeStageExecutor
     }
 
 private object UnavailableInPathRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
+    override suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition =
+        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent)
+
+    override fun validateInPathRouteLease(
+        lease: com.poyka.ripdpi.data.DiagnosticsInPathRouteLease,
+    ): InPathRouteLeaseAcquisition.Unavailable =
+        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent)
+
     override suspend fun runRawPathScan(block: suspend () -> Unit) = unavailableRawPathResult(block)
 
     override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) = unavailableRawPathResult(block)

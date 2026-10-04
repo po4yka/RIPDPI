@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
+import com.poyka.ripdpi.data.InPathRouteUnavailableReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,7 +20,7 @@ class DiagnosticsScanControllerInPathPreflightTest {
     private val json = diagnosticsTestJson()
 
     @Test
-    fun `in-path scan launch fails before bridge when proxy service is halted`() =
+    fun `in-path scan launch fails before bridge when proxy service is halted with a mode neutral rejection`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
@@ -32,30 +34,72 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(serviceStatus = "Halted"),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
                     scope = backgroundScope,
                     controllerScope = this,
                     json = json,
                 )
 
             val failure =
-                assertSuspendFailsWith<IllegalStateException> {
+                assertSuspendFailsWith<DiagnosticsScanStartRejectedException> {
                     services.scanController.startScan(ScanPathMode.IN_PATH)
                 }
             advanceUntilIdle()
 
             val expectedSummary =
-                "In-path diagnostics unavailable: local proxy service is Halted; " +
-                    "start the RIPDPI service before scanning"
+                "In-path diagnostics unavailable: RuntimeAbsent"
             assertEquals(
                 expectedSummary,
                 failure.message,
+            )
+            assertEquals(
+                DiagnosticsScanStartRejectionReason.InPathUnavailable(
+                    DiagnosticsInPathUnavailableReason.Route(
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.RuntimeAbsent),
+                    ),
+                ),
+                failure.reason,
             )
             assertNull(bridgeFactory.bridge.startedRequestJson)
             val session = stores.sessionsState.value.single()
             assertEquals("failed", session.status)
             assertEquals(failure.message, session.summary)
             assertEquals(0, runtimeCoordinator.rawScanCount.get())
+        }
+
+    @Test
+    fun `running VPN without a published route rejects with typed reason before persistence or native start`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val services =
+                createDiagnosticsServices(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(activeMode = "VPN"),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    scope = backgroundScope,
+                    controllerScope = this,
+                    json = json,
+                )
+            val failure =
+                assertSuspendFailsWith<DiagnosticsScanStartRejectedException> {
+                    services.scanController.startScan(ScanPathMode.IN_PATH)
+                }
+            assertEquals(
+                DiagnosticsScanStartRejectionReason.InPathUnavailable(
+                    DiagnosticsInPathUnavailableReason.Route(
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseUnpublished),
+                    ),
+                ),
+                failure.reason,
+            )
+            assertEquals(0, stores.sessionsState.value.size)
+            assertNull(bridgeFactory.bridge.startedRequestJson)
         }
 
     @Test
@@ -93,11 +137,18 @@ class DiagnosticsScanControllerInPathPreflightTest {
                         return completedRawPathExecutionResult()
                     }
 
-                    override suspend fun acquireInPathRouteLease(): DiagnosticsInPathRouteLease = routeLease
+                    override suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition =
+                        InPathRouteLeaseAcquisition.Acquired(routeLease)
 
-                    override fun isInPathRouteLeaseCurrent(lease: DiagnosticsInPathRouteLease): Boolean {
+                    override fun validateInPathRouteLease(
+                        lease: DiagnosticsInPathRouteLease,
+                    ): InPathRouteLeaseAcquisition.Unavailable? {
                         leaseValidationCount += 1
-                        return lease == routeLease
+                        return if (lease == routeLease) {
+                            null
+                        } else {
+                            InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseRevoked)
+                        }
                     }
                 }
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
@@ -179,9 +230,18 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     json = json,
                 )
 
-            assertSuspendFailsWith<InPathRuntimeUnavailableException> {
-                services.scanController.startScan(ScanPathMode.IN_PATH)
-            }
+            val failure =
+                assertSuspendFailsWith<DiagnosticsScanStartRejectedException> {
+                    services.scanController.startScan(ScanPathMode.IN_PATH)
+                }
+            assertEquals(
+                DiagnosticsScanStartRejectionReason.InPathUnavailable(
+                    DiagnosticsInPathUnavailableReason.Route(
+                        InPathRouteLeaseAcquisition.Unavailable(InPathRouteUnavailableReason.LeaseRevoked),
+                    ),
+                ),
+                failure.reason,
+            )
             advanceUntilIdle()
             assertNull(bridgeFactory.bridge.startedRequestJson)
             assertEquals(1, bridgeFactory.bridge.destroyCount)
@@ -208,7 +268,7 @@ class DiagnosticsScanControllerInPathPreflightTest {
                 )
 
             val failure =
-                assertSuspendFailsWith<InPathRuntimeUnavailableException> {
+                assertSuspendFailsWith<DiagnosticsScanStartRejectedException> {
                     services.scanController.startScanOwnedBy(
                         ownerId = "home-run",
                         pathMode = ScanPathMode.IN_PATH,
@@ -220,8 +280,7 @@ class DiagnosticsScanControllerInPathPreflightTest {
 
             assertEquals(
                 listOf(
-                    "In-path diagnostics unavailable: local proxy service is Halted; " +
-                        "start the RIPDPI service before scanning",
+                    "In-path diagnostics unavailable: RuntimeAbsent",
                     null,
                     0,
                 ),
