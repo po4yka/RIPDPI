@@ -351,7 +351,7 @@ class MainActivityShellInstrumentedTest {
                 composeRule
                     .onAllNodes(
                         hasTestTag(RipDpiTestTags.VpnPermissionDialog),
-                    ).fetchSemanticsNodes()
+                    ).fetchSemanticsNodes(atLeastOneRootRequired = false)
                     .isNotEmpty()
             }
             composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogContinue).performClick()
@@ -397,7 +397,7 @@ class MainActivityShellInstrumentedTest {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule
                 .onAllNodes(hasTestTag(RipDpiTestTags.bottomNav(Route.Home)))
-                .fetchSemanticsNodes()
+                .fetchSemanticsNodes(atLeastOneRootRequired = false)
                 .isNotEmpty()
         }
     }
