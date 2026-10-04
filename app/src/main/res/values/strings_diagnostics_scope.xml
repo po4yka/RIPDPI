@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">Measurement scope</string>
+    <string name="diagnostics_scope_direct_label">Direct network</string>
+    <string name="diagnostics_scope_active_label">Active connection path</string>
+    <string name="diagnostics_scope_direct_description">Measures the underlying network. A running RIPDPI VPN or proxy stops before the scan, which can interrupt calls and downloads.</string>
+    <string name="diagnostics_scope_active_description">Requested scope: through the active RIPDPI VPN or local proxy. Results cover the tested targets, not every app.</string>
+    <string name="diagnostics_scope_resume_disabled">Automatic resume is off. Restart the connection after the scan.</string>
+    <string name="diagnostics_scope_resume_enabled">Automatic resume is on. RIPDPI will try to restore the previous connection after the scan unless you stop it; restoration can fail.</string>
+    <string name="diagnostics_scope_direct_result">Requested scope: the underlying network without the active RIPDPI connection. Strategy trials can use temporary candidates; this does not establish active VPN connectivity.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · direct network only</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · direct network only · unavailable in command-line mode</string>
+    <string name="diagnostics_scope_connectivity">Connectivity profile</string>
+    <string name="diagnostics_scope_active_vpn_label">Active VPN path</string>
+    <string name="diagnostics_scope_active_proxy_label">Active proxy path</string>
+    <string name="diagnostics_scope_active_vpn_description">Tests the running RIPDPI VPN path. The active VPN route must be observable at launch; results cover the tested targets, not every app.</string>
+    <string name="diagnostics_scope_active_proxy_description">Tests through the running RIPDPI local proxy. Its listener must match the planned endpoint; results cover the tested targets, not every app.</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI is reconnecting. Wait for the connection to finish before testing its active path.</string>
+</resources>

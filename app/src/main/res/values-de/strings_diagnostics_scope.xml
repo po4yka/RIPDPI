@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">Messbereich</string>
+    <string name="diagnostics_scope_direct_label">Direktes Netzwerk</string>
+    <string name="diagnostics_scope_active_label">Aktiver Verbindungspfad</string>
+    <string name="diagnostics_scope_direct_description">Misst das zugrunde liegende Netzwerk. Ein laufendes RIPDPI-VPN oder ein Proxy wird vor dem Scan gestoppt; Anrufe und Downloads können unterbrochen werden.</string>
+    <string name="diagnostics_scope_active_description">Angeforderter Bereich: über das aktive RIPDPI-VPN oder den lokalen Proxy. Ergebnisse gelten für geprüfte Ziele, nicht für jede App.</string>
+    <string name="diagnostics_scope_resume_disabled">Automatische Wiederaufnahme ist aus. Starte die Verbindung nach dem Scan erneut.</string>
+    <string name="diagnostics_scope_resume_enabled">Automatische Wiederaufnahme ist an. RIPDPI versucht nach dem Scan, die vorherige Verbindung wiederherzustellen, sofern du sie nicht stoppst; dies kann fehlschlagen.</string>
+    <string name="diagnostics_scope_direct_result">Angeforderter Bereich: das zugrunde liegende Netzwerk ohne aktive RIPDPI-Verbindung. Strategietests können temporäre Kandidaten verwenden; dies belegt keine aktive VPN-Verbindung.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · nur direktes Netzwerk</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · nur direktes Netzwerk · im Befehlszeilenmodus nicht verfügbar</string>
+    <string name="diagnostics_scope_connectivity">Verbindungsprofil</string>
+    <string name="diagnostics_scope_active_vpn_label">Aktiver VPN-Pfad</string>
+    <string name="diagnostics_scope_active_proxy_label">Aktiver Proxy-Pfad</string>
+    <string name="diagnostics_scope_active_vpn_description">Prüft den laufenden RIPDPI-VPN-Pfad. Die aktive VPN-Route muss beim Start beobachtbar sein; Ergebnisse gelten für geprüfte Ziele, nicht für jede App.</string>
+    <string name="diagnostics_scope_active_proxy_description">Prüft über den laufenden lokalen RIPDPI-Proxy. Sein Listener muss dem geplanten Endpunkt entsprechen; Ergebnisse gelten für geprüfte Ziele, nicht für jede App.</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI verbindet sich erneut. Warte auf den Abschluss, bevor du den aktiven Pfad prüfst.</string>
+</resources>

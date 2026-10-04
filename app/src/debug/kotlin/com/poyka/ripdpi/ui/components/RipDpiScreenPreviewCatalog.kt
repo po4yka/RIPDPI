@@ -4,7 +4,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
@@ -344,7 +346,13 @@ internal fun RipDpiDiagnosticsScanPreviewScene() {
             uiState =
                 DiagnosticsUiState(
                     selectedSection = DiagnosticsSection.Scan,
-                    scan = diagnosticsScanState,
+                    scan =
+                        diagnosticsScanState.copy(
+                            runRawHint =
+                                stringResource(R.string.diagnostics_scope_direct_description) + " " +
+                                    stringResource(R.string.diagnostics_scope_resume_enabled),
+                            runInPathHint = stringResource(R.string.diagnostics_scope_active_description),
+                        ),
                 ),
             initialPage = DiagnosticsSection.Scan.ordinal,
         )

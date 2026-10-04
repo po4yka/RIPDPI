@@ -119,7 +119,20 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
     ) {
         config.options.forEach { option ->
             RipDpiChip(
-                text = option.replaceFirstChar { it.uppercase() },
+                text =
+                    when (option) {
+                        com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH.name -> {
+                            stringResource(R.string.diagnostics_scope_direct_label)
+                        }
+
+                        com.poyka.ripdpi.diagnostics.ScanPathMode.IN_PATH.name -> {
+                            stringResource(R.string.diagnostics_scope_active_label)
+                        }
+
+                        else -> {
+                            option.replaceFirstChar { it.uppercase() }
+                        }
+                    },
                 selected = config.selected == option,
                 onClick = { config.onSelect(option) },
                 modifier = Modifier.ripDpiTestTag(config.tagForOption(option)),

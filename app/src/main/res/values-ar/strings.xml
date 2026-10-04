@@ -112,8 +112,8 @@
     <string name="diagnostics_approaches_signature_title">توقيع الإعداد</string>
     <string name="diagnostics_history_section">السجل</string>
     <string name="diagnostics_status_running">قيد التشغيل</string>
-    <string name="diagnostics_action_raw">تشغيل فحص المسار الخام</string>
-    <string name="diagnostics_action_in_path">تشغيل فحص داخل المسار</string>
+    <string name="diagnostics_action_raw">فحص الشبكة المباشرة</string>
+    <string name="diagnostics_action_in_path">فحص الاتصال النشط</string>
     <string name="diagnostics_action_cancel">إلغاء الفحص النشط</string>
     <string name="diagnostics_profiles_title">الملف الشخصي النشط</string>
     <string name="diagnostics_profiles_body">اختر ما إذا كانت التشخيصات ستتحقق من المسار الحالي أو تُجري تجارب استراتيجية معزولة تُعيد توصية يدوية.</string>
@@ -181,7 +181,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">الفحص التلقائي يعمل فقط مع إعدادات RIPDPI المرئية. أوقف وضع سطر الأوامر الخام قبل تشغيل هذا المسار.</string>
     <string name="diagnostics_profile_audit_badge">تدقيق</string>
     <string name="diagnostics_profile_audit_body">تشغيل مصفوفة الاستراتيجية الكاملة المدمجة لـ HTTP و HTTPS و QUIC على الشبكة الحالية. يُسجِّل RIPDPI ما نجح وما نجح جزئيًا وما فشل وما لم ينطبق دون تغيير الإعدادات المحفوظة.</string>
-    <string name="diagnostics_profile_audit_running_body">يُشغِّل RIPDPI مصفوفة الاستراتيجية الكاملة المدمجة على المسار الخام فقط. تُوقف جلسة VPN أو البروكسي الحالية وتُستأنف حول التدقيق.</string>
+    <string name="diagnostics_profile_audit_running_body">يختبر RIPDPI مصفوفة الاستراتيجيات الكاملة باستخدام خيارات مؤقتة. يتوقف VPN أو الوكيل النشط؛ تتبع الاستعادة إعداد الاستئناف التلقائي وقد تفشل.</string>
     <string name="diagnostics_profile_audit_ready_body">اكتمل أحدث تدقيق تلقائي بمصفوفة كاملة وأدلة لكل مرشح وتوصية يدوية.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">تم اكتشاف تلاعب بـ DNS قبل تشغيل مصفوفة التدقيق. أوقف RIPDPI التجارب البديلة مبكرًا وأعاد نتيجة منخفضة الثقة موجهة نحو المحلل.</string>
     <string name="diagnostics_profile_probe_partial_results_body">نفد وقت الفحص قبل اختبار جميع المرشحين. النتائج مبنية على %1$d من أصل %2$d مرشحًا.</string>
@@ -232,8 +232,8 @@
     <string name="diagnostics_remediation_no_hint_step_retry">أعد المحاولة بعد جمع تشغيل آخر على نفس الشبكة.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">فتح محرر الوضع</string>
     <string name="diagnostics_profile_badge_all_builtin">جميع الطرق المدمجة</string>
-    <string name="diagnostics_profile_badge_raw_only">المسار الخام فقط</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">خام + داخل المسار</string>
+    <string name="diagnostics_profile_badge_raw_only">الشبكة المباشرة فقط</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">مباشر أو اتصال نشط</string>
     <string name="diagnostics_profile_badge_manual_apply">تطبيق يدوي</string>
     <string name="diagnostics_profile_badge_manual_only">يدوي فقط</string>
     <string name="diagnostics_profile_badge_region_net">Russia Net</string>
@@ -2379,8 +2379,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_live_feed_quiet">تغذية بيئة التشغيل هادئة</string>
     <string name="diagnostics_scan_automatic_audit">تدقيق تلقائي</string>
     <string name="diagnostics_scan_automatic_probing">اختبار تلقائي</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s يُشغِّل بيئة RIPDPI مؤقتة بمسار خام ويُعيد توصية يدوية.</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s مخصص للمسار الخام فقط لأنه يُطلق تجارب استراتيجية مؤقتة معزولة.</string>
+    <string name="diagnostics_scan_raw_path_format">يختبر %1$s خيارات استراتيجيات مؤقتة ويقدم توصية للتطبيق اليدوي.</string>
+    <string name="diagnostics_scan_raw_only_format">يتطلب %1$s فحص الشبكة المباشرة لأنه يشغّل تجارب استراتيجيات مؤقتة ومعزولة.</string>
     <string name="diagnostics_scan_in_path_service_halted">شغِّل خدمة RIPDPI قبل تشغيل التشخيصات عبر المسار.</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s محجوب لأن %2$s مفعَّل. أوقف تشغيله في الإعدادات المتقدمة قبل تشغيل هذا سير العمل حتى يتمكن RIPDPI من إطلاق تجارب استراتيجية مؤقتة معزولة بالإعداد المرئي.</string>
     <string name="diagnostics_scan_blocked_setting_label">الإعداد المحجوب</string>

@@ -114,8 +114,8 @@
     <string name="diagnostics_history_section">History</string>
 
     <string name="diagnostics_status_running">Running</string>
-    <string name="diagnostics_action_raw">Run raw-path scan</string>
-    <string name="diagnostics_action_in_path">Run in-path scan</string>
+    <string name="diagnostics_action_raw">Scan direct network</string>
+    <string name="diagnostics_action_in_path">Scan active connection</string>
     <string name="diagnostics_action_cancel">Cancel active scan</string>
     <string name="diagnostics_profiles_title">Active profile</string>
     <string name="diagnostics_profiles_body">Choose whether Diagnostics should validate the current path or run isolated strategy trials that return a manual recommendation.</string>
@@ -183,7 +183,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">Automatic probing only works with visual RIPDPI settings. Turn off raw command-line mode before running this workflow.</string>
     <string name="diagnostics_profile_audit_badge">Audit</string>
     <string name="diagnostics_profile_audit_body">Run the full built-in HTTP, HTTPS, and QUIC strategy matrix against the current network. RIPDPI records what worked, what partially worked, what failed, and what was not applicable without changing saved settings.</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI is running the full built-in strategy matrix on raw path only. The current VPN or proxy session is paused and restored around the audit.</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI is testing the full built-in strategy matrix with temporary candidates. The active VPN or proxy stops; restoration follows the automatic resume setting and can fail.</string>
     <string name="diagnostics_profile_audit_ready_body">The latest automatic audit finished with a full matrix, per-candidate evidence, and a manual recommendation.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">DNS tampering was detected before the audit matrix ran. RIPDPI stopped the fallback trials early and returned a low-confidence resolver-oriented result.</string>
     <string name="diagnostics_profile_probe_partial_results_body">The scan ran out of time before all candidates could be tested. Results are based on %1$d of %2$d candidates.</string>
@@ -236,8 +236,8 @@
     <string name="diagnostics_profile_badge_dns_http_https_tcp" translatable="false">DNS + HTTP + HTTPS + TCP</string>
     <string name="diagnostics_profile_badge_http_https_quic" translatable="false">HTTP + HTTPS + QUIC</string>
     <string name="diagnostics_profile_badge_all_builtin">All built-in methods</string>
-    <string name="diagnostics_profile_badge_raw_only">Raw path only</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">Raw + in-path</string>
+    <string name="diagnostics_profile_badge_raw_only">Direct network only</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">Direct or active connection</string>
     <string name="diagnostics_profile_badge_manual_apply">Manual apply</string>
     <string name="diagnostics_profile_badge_manual_only">Manual only</string>
     <string name="diagnostics_profile_badge_region_net">Russia Net</string>
@@ -2509,8 +2509,8 @@ Source: %2$s</string>
     <string name="diagnostics_scan_automatic_audit">Automatic audit</string>
     <string name="diagnostics_scan_automatic_probing">Automatic probing</string>
 
-    <string name="diagnostics_scan_raw_path_format">%1$s starts a temporary raw-path RIPDPI runtime and returns a manual recommendation.</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s is raw-path only because it launches isolated temporary strategy trials.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s tests temporary strategy candidates and returns a manual recommendation.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s requires direct-network scanning because it launches isolated temporary strategy trials.</string>
     <string name="diagnostics_scan_in_path_service_halted">Start the RIPDPI service before running in-path diagnostics.</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in Advanced Settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
     <string name="diagnostics_scan_blocked_setting_label">Blocked setting</string>

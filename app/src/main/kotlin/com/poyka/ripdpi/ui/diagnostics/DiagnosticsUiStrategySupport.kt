@@ -380,27 +380,26 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
 ): String? =
     when (request?.kind) {
         ScanKind.STRATEGY_PROBE -> {
-            when {
-                rawArgsEnabled && request.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1 -> {
-                    "Automatic audit · raw-path only · blocked by command-line mode"
-                }
-
-                rawArgsEnabled -> {
-                    "Automatic probing · raw-path only · blocked by command-line mode"
-                }
-
-                request.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1 -> {
-                    "Automatic audit · raw-path only"
-                }
-
-                else -> {
-                    "Automatic probing · raw-path only"
-                }
-            }
+            val workflowLabel =
+                context.getString(
+                    if (request.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1) {
+                        R.string.diagnostics_scan_automatic_audit
+                    } else {
+                        R.string.diagnostics_scan_automatic_probing
+                    },
+                )
+            context.getString(
+                if (rawArgsEnabled) {
+                    R.string.diagnostics_scope_strategy_blocked_format
+                } else {
+                    R.string.diagnostics_scope_strategy_format
+                },
+                workflowLabel,
+            )
         }
 
         ScanKind.CONNECTIVITY -> {
-            "Connectivity profile"
+            context.getString(R.string.diagnostics_scope_connectivity)
         }
 
         null -> {

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">محدوده اندازه‌گیری</string>
+    <string name="diagnostics_scope_direct_label">شبکه مستقیم</string>
+    <string name="diagnostics_scope_active_label">مسیر اتصال فعال</string>
+    <string name="diagnostics_scope_direct_description">شبکه زیربنایی را اندازه‌گیری می‌کند. VPN یا پراکسی فعال RIPDPI پیش از اسکن متوقف می‌شود و ممکن است تماس‌ها و دانلودها قطع شوند.</string>
+    <string name="diagnostics_scope_active_description">محدوده درخواستی: از طریق VPN یا پراکسی محلی فعال RIPDPI. نتایج مربوط به مقصدهای آزمایش‌شده است، نه همه برنامه‌ها.</string>
+    <string name="diagnostics_scope_resume_disabled">ادامه خودکار خاموش است. پس از اسکن اتصال را دوباره راه‌اندازی کنید.</string>
+    <string name="diagnostics_scope_resume_enabled">ادامه خودکار روشن است. RIPDPI پس از اسکن برای بازیابی اتصال قبلی تلاش می‌کند، مگر آن را متوقف کنید؛ بازیابی ممکن است ناموفق باشد.</string>
+    <string name="diagnostics_scope_direct_result">محدوده درخواستی: شبکه زیربنایی بدون اتصال فعال RIPDPI. آزمایش راهبردها ممکن است از گزینه‌های موقت استفاده کند؛ این امر اتصال VPN فعال را تأیید نمی‌کند.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · فقط شبکه مستقیم</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · فقط شبکه مستقیم · در حالت خط فرمان در دسترس نیست</string>
+    <string name="diagnostics_scope_connectivity">نمایه اتصال</string>
+    <string name="diagnostics_scope_active_vpn_label">مسیر VPN فعال</string>
+    <string name="diagnostics_scope_active_proxy_label">مسیر پراکسی فعال</string>
+    <string name="diagnostics_scope_active_vpn_description">مسیر VPN در حال اجرای RIPDPI را آزمایش می‌کند. مسیر فعال VPN باید هنگام شروع قابل مشاهده باشد؛ نتایج مربوط به مقصدهای آزمایش‌شده است، نه همه برنامه‌ها.</string>
+    <string name="diagnostics_scope_active_proxy_description">از طریق پراکسی محلی در حال اجرای RIPDPI آزمایش می‌کند. شنونده باید با نقطه پایانی برنامه‌ریزی‌شده مطابقت داشته باشد؛ نتایج مربوط به مقصدهای آزمایش‌شده است، نه همه برنامه‌ها.</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI در حال اتصال مجدد است. پیش از آزمایش مسیر فعال منتظر تکمیل اتصال بمانید.</string>
+</resources>

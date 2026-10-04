@@ -1091,6 +1091,7 @@ internal data class ConfigSnapshot(
     val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
     val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
     val serviceStatus: com.poyka.ripdpi.data.AppStatus,
+    val serviceMode: com.poyka.ripdpi.data.Mode = com.poyka.ripdpi.data.Mode.VPN,
 )
 
 internal data class UiControlState(

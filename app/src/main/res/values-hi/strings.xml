@@ -111,8 +111,8 @@
     <string name="diagnostics_approaches_signature_title">कॉन्फ़िगरेशन हस्ताक्षर</string>
     <string name="diagnostics_history_section">इतिहास</string>
     <string name="diagnostics_status_running">चल रहा है</string>
-    <string name="diagnostics_action_raw">रॉ-पथ स्कैन चलाएँ</string>
-    <string name="diagnostics_action_in_path">इन-पथ स्कैन चलाएँ</string>
+    <string name="diagnostics_action_raw">सीधा नेटवर्क स्कैन करें</string>
+    <string name="diagnostics_action_in_path">सक्रिय कनेक्शन स्कैन करें</string>
     <string name="diagnostics_action_cancel">सक्रिय स्कैन रद्द करें</string>
     <string name="diagnostics_profiles_title">सक्रिय प्रोफ़ाइल</string>
     <string name="diagnostics_profiles_body">चुनें कि Diagnostics को वर्तमान पथ को सत्यापित करना चाहिए या पृथक रणनीति परीक्षण चलाने चाहिए जो एक मैनुअल अनुशंसा लौटाते हैं।</string>
@@ -180,7 +180,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">स्वचालित प्रोबिंग केवल विज़ुअल RIPDPI सेटिंग्स के साथ काम करती है। इस वर्कफ़्लो को चलाने से पहले कच्चा कमांड-लाइन मोड बंद करें।</string>
     <string name="diagnostics_profile_audit_badge">ऑडिट</string>
     <string name="diagnostics_profile_audit_body">वर्तमान नेटवर्क के विरुद्ध पूरा अंतर्निहित HTTP, HTTPS और QUIC रणनीति मैट्रिक्स चलाएँ। RIPDPI रिकॉर्ड करता है कि क्या काम किया, क्या आंशिक रूप से काम किया, क्या विफल हुआ, और सहेजी गई सेटिंग्स बदले बिना क्या लागू नहीं था।</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI केवल कच्चे पथ पर पूरा अंतर्निहित रणनीति मैट्रिक्स चला रहा है। वर्तमान VPN या प्रॉक्सी सत्र ऑडिट के दौरान रोका और फिर बहाल किया जाता है।</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI अस्थायी विकल्पों के साथ पूरी रणनीति मैट्रिक्स जाँच रहा है। सक्रिय VPN या प्रॉक्सी रुक जाता है; बहाली अपने आप फिर शुरू करने की सेटिंग पर निर्भर करती है और विफल हो सकती है।</string>
     <string name="diagnostics_profile_audit_ready_body">नवीनतम स्वचालित ऑडिट एक पूरे मैट्रिक्स, प्रति-उम्मीदवार साक्ष्य और एक मैन्युअल अनुशंसा के साथ पूरा हुआ।</string>
     <string name="diagnostics_profile_audit_short_circuit_body">ऑडिट मैट्रिक्स चलने से पहले DNS छेड़छाड़ का पता चला। RIPDPI ने फ़ॉलबैक परीक्षण जल्दी रोक दिए और एक कम-विश्वास वाला रिज़ॉल्वर-उन्मुख परिणाम लौटाया।</string>
     <string name="diagnostics_profile_probe_partial_results_body">सभी उम्मीदवारों का परीक्षण होने से पहले ही स्कैन का समय समाप्त हो गया। परिणाम %2$d में से %1$d उम्मीदवारों पर आधारित हैं।</string>
@@ -231,8 +231,8 @@
     <string name="diagnostics_remediation_no_hint_step_retry">उसी नेटवर्क पर एक और रन एकत्र करने के बाद दोबारा प्रयास करें.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">Mode Editor खोलें</string>
     <string name="diagnostics_profile_badge_all_builtin">सभी अंतर्निहित विधियाँ</string>
-    <string name="diagnostics_profile_badge_raw_only">केवल रॉ पथ</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">रॉ + इन-पथ</string>
+    <string name="diagnostics_profile_badge_raw_only">केवल सीधा नेटवर्क</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">सीधा या सक्रिय कनेक्शन</string>
     <string name="diagnostics_profile_badge_manual_apply">मैन्युअल लागू करें</string>
     <string name="diagnostics_profile_badge_manual_only">केवल मैन्युअल</string>
     <string name="diagnostics_profile_badge_region_net">Russia Net</string>

@@ -639,7 +639,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="bottom_nav_config_maximum">Netz</string>
     <string name="bottom_nav_diagnostics_maximum">Tests</string>
     <string name="bottom_nav_settings_maximum">Setup</string>
-    <string name="diagnostics_action_raw">Raw-Pfad-Scan ausführen</string>
+    <string name="diagnostics_action_raw">Direktes Netzwerk prüfen</string>
     <string name="diagnostics_approaches_strategies">Strategien</string>
     <string name="diagnostics_audit_candidate_open_hint">Tippen Sie auf einen Kandidaten, um zielspezifische Belege und Konfigurationsdetails zu sehen.</string>
     <string name="diagnostics_audit_hide_full_matrix">Vollständige Matrix ausblenden</string>
@@ -1295,7 +1295,7 @@ fake_burst 3</string>
     <string name="diagnostics_probe_status_skipped">Übersprungen</string>
     <string name="diagnostics_profile_audit_ready_body">Das letzte automatische Audit wurde mit einer vollständigen Matrix, Evidenz pro Kandidat und einer manuellen Empfehlung abgeschlossen.</string>
     <string name="diagnostics_profile_badge_consent">Einwilligung</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">Raw + In-Path</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">Direkt oder aktive Verbindung</string>
     <string name="diagnostics_profile_badge_ru_msg">RU MSG</string>
     <string name="diagnostics_profile_connectivity_body">Schnelle DNS-, HTTP-, HTTPS- und TCP-Konnektivitätsprüfung auf dem aktuellen Pfad.</string>
     <string name="diagnostics_profile_desc_network_full">Deep Packet Inspection-Erkennung über mehrere Dienste und Protokolle hinweg.</string>
@@ -1315,7 +1315,7 @@ fake_burst 3</string>
     <string name="diagnostics_scan_automatic_probing">Automatische Probe</string>
     <string name="diagnostics_scan_launch_unknown">Gespeicherte Diagnostik</string>
     <string name="diagnostics_scan_metadata_previous_fingerprint">Vorheriger Fingerabdruck</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s ist nur Raw-Pfad, weil isolierte temporäre Strategieversuche gestartet werden.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s erfordert eine direkte Netzwerkprüfung, da isolierte temporäre Strategietests gestartet werden.</string>
     <string name="diagnostics_scan_in_path_service_halted">Starte den RIPDPI-Dienst, bevor du In-Path-Diagnosen ausführst.</string>
     <string name="diagnostics_scan_trigger_unknown">Unbekannter Auslöser</string>
     <string name="diagnostics_search_placeholder">Sitzungen suchen</string>
@@ -1797,8 +1797,8 @@ Quelle: %2$s</string>
     <string name="diagnostics_probe_ready_title">Empfehlung bereit</string>
     <string name="diagnostics_probe_short_circuit_title">Resolver-Empfehlung bereit</string>
     <string name="diagnostics_probe_unavailable_title">Automatische Probe nicht verfügbar</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI führt die vollständige integrierte Strategiematrix nur auf dem Raw-Pfad aus. Die aktuelle VPN- oder Proxy-Sitzung wird während des Audits pausiert und danach wiederhergestellt.</string>
-    <string name="diagnostics_profile_badge_raw_only">Nur Raw-Pfad</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI prüft die vollständige Strategiematrix mit temporären Kandidaten. Das aktive VPN oder der Proxy wird gestoppt; die Wiederherstellung folgt der Einstellung zur automatischen Wiederaufnahme und kann fehlschlagen.</string>
+    <string name="diagnostics_profile_badge_raw_only">Nur direktes Netzwerk</string>
     <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
     <string name="diagnostics_profile_connectivity_running_body">Die Diagnose validiert gerade den gewählten Pfad. Die neuesten Probe-Ergebnisse und die Sitzungszusammenfassung werden nach Abschluss des Laufs aktualisiert.</string>
     <string name="diagnostics_profile_desc_throttling">Manuelle Durchsatzfenster gegen neutrale Kontroll-Endpunkte.</string>
@@ -1818,7 +1818,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_scan_blocked_setting_label">Blockierte Einstellung</string>
     <string name="diagnostics_scan_launch_user_initiated">Manuelle Diagnose</string>
     <string name="diagnostics_scan_metadata_trigger">Auslöser</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s startet eine temporäre Raw-Pfad-RIPDPI-Laufzeit und gibt eine manuelle Empfehlung zurück.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s prüft temporäre Strategiekandidaten und gibt eine Empfehlung zur manuellen Anwendung zurück.</string>
     <string name="diagnostics_scan_vpn_permission_warning_body_format">%1$s-Empfehlungen setzen VPN-Routing voraus. Ohne VPN-Berechtigung kann die empfohlene Strategie im VPN-Modus nicht angewendet werden. Erteilen Sie die Berechtigung vor diesem Audit, um umsetzbare Ergebnisse zu erhalten.</string>
     <string name="diagnostics_section_carrier">Mobilfunkanbieter</string>
     <string name="diagnostics_sensitive_hide">Sensible Details ausblenden</string>
@@ -2371,7 +2371,7 @@ Quelle: %2$s</string>
     <string name="detection_score_unchanged">Unverändert</string>
     <string name="detection_stealth_score_a11y">Tarnwert %1$d</string>
     <string name="detection_stealth_score">Sichtbarkeit</string>
-    <string name="diagnostics_action_in_path">In-Path-Scan ausführen</string>
+    <string name="diagnostics_action_in_path">Aktive Verbindung prüfen</string>
     <string name="diagnostics_approaches_profiles">Profile</string>
     <string name="diagnostics_attention_section">Beobachtungsliste</string>
     <string name="diagnostics_audit_confidence_title">Audit-Vertrauensgrad</string>

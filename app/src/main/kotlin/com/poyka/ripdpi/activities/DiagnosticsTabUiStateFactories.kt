@@ -58,6 +58,8 @@ internal class DiagnosticsScanUiStateFactory
                     progress = input.progress,
                     rawArgsEnabled = input.settings.enableCmdSettings,
                     serviceStatus = input.serviceStatus,
+                    serviceMode = input.serviceMode,
+                    autoResumeAfterRawScan = input.settings.diagnosticsAutoResumeAfterRawScan,
                     vpnPermissionDisabled =
                         resolvedInput.latestContext
                             ?.permissions

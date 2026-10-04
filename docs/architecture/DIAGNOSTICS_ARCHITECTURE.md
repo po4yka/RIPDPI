@@ -30,7 +30,7 @@ seen again ([`GLOSSARY.md`](GLOSSARY.md)):
 
 Scans run in two path modes (see [`RUNTIME_MODES.md`](RUNTIME_MODES.md) §3):
 **raw-path** (VPN stopped, direct connection) and **in-path** (through the
-active proxy/VPN). Scan kinds include `quick_v1` (fast recommendation) and
+active RIPDPI VPN or local proxy on Android). Scan kinds include `quick_v1` (fast recommendation) and
 `full_matrix_v1` (audit with rotating target cohorts).
 
 ## Scan pipeline
@@ -213,6 +213,11 @@ pub enum ScanPathMode { RawPath, InPath }
 
 **Raw-path** (`RAW_PATH`). The diagnostics path **stops the VPN service
 before probing** and connects **directly** — there is no TUN device.
+The Android coordinator also stops an active proxy runtime. Manual scans follow
+`diagnostics_auto_resume_after_raw_scan` (enabled in app defaults); enabling it requests
+restoration of the previous runtime, which can fail or be superseded by a user
+stop. Strategy scans run isolated temporary candidates and return a manual
+recommendation; they do not establish connectivity through the active VPN.
 Consequences a probe author must honour:
 
 - `setsockopt(IP_TTL)` and fake-packet techniques work **without** a
@@ -228,9 +233,11 @@ Consequences a probe author must honour:
   against a live capability lookup before a winner is promoted — a candidate
   whose capability is unavailable is skipped, never failed.
 
-**In-path** (`IN_PATH`). Probes run **through the active proxy or VPN path**,
-measuring targets exactly as the user's traffic experiences them; the running
-service is left intact. Outbound sockets a probe opens are therefore subject
+**In-path** (`IN_PATH`). On Android, admission requires a running RIPDPI
+service. VPN mode additionally requires an eligible active route lease from
+`DefaultDiagnosticsRuntimeCoordinator`; proxy mode checks the local listener
+against the planned endpoint. The service stays running. This is scoped
+diagnostic evidence, not verification of every application's connectivity. Outbound sockets a probe opens are therefore subject
 to the normal `protect()` invariant and the active desync/relay policy.
 
 In both modes a probe **must classify cleanly on non-rooted devices** — the

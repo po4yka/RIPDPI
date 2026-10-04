@@ -113,7 +113,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
         subtitle =
             strings.getString(
                 R.string.diagnostics_session_subtitle_format,
-                session.pathMode,
+                pathModeLabel(session.pathMode, session.serviceMode),
                 session.serviceMode ?: strings.getString(R.string.diagnostics_field_unknown),
                 formatTimestamp(session.startedAt),
             ),
@@ -128,7 +128,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                 add(
                     DiagnosticsMetricUiModel(
                         label = strings.getString(R.string.diagnostics_metric_path),
-                        value = session.pathMode,
+                        value = pathModeLabel(session.pathMode, session.serviceMode),
                     ),
                 )
                 add(
@@ -342,6 +342,47 @@ internal fun DiagnosticsUiCoreSupport.toneForSessionStatus(status: String): Diag
         "cancelled" -> DiagnosticsTone.Neutral
         else -> DiagnosticsTone.Neutral
     }
+
+internal fun DiagnosticsUiCoreSupport.pathModeLabel(
+    value: String,
+    serviceMode: String?,
+): String =
+    strings.getString(
+        when (value) {
+            ScanPathMode.RAW_PATH.name -> {
+                R.string.diagnostics_scope_direct_label
+            }
+
+            ScanPathMode.IN_PATH.name -> {
+                when {
+                    serviceMode.equals(com.poyka.ripdpi.data.Mode.VPN.name, ignoreCase = true) -> {
+                        R.string.diagnostics_scope_active_vpn_label
+                    }
+
+                    serviceMode.equals(com.poyka.ripdpi.data.Mode.Proxy.name, ignoreCase = true) -> {
+                        R.string.diagnostics_scope_active_proxy_label
+                    }
+
+                    else -> {
+                        R.string.diagnostics_scope_active_label
+                    }
+                }
+            }
+
+            else -> {
+                R.string.diagnostics_field_unknown
+            }
+        },
+    )
+
+internal fun DiagnosticsUiCoreSupport.pathModeDescription(value: String): String =
+    strings.getString(
+        when (value) {
+            ScanPathMode.RAW_PATH.name -> R.string.diagnostics_scope_direct_result
+            ScanPathMode.IN_PATH.name -> R.string.diagnostics_scope_active_description
+            else -> R.string.diagnostics_field_unknown
+        },
+    )
 
 internal fun DiagnosticsUiCoreSupport.parsePathMode(value: String): ScanPathMode =
     runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)

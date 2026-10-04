@@ -11,11 +11,11 @@ The app MUST localize direct/raw and active/in-path scope labels and explain act
 #### Scenario: Direct measurement
 
 - **WHEN** a user selects a direct-path scan
-- **THEN** the UI explains interruption of an active VPN before probing and only promises restoration supported by that workflow.
+- **THEN** the UI explains interruption of an active RIPDPI VPN or proxy before probing and only promises restoration supported by that workflow.
 
 #### Scenario: Active path unavailable
 
-- **WHEN** there is no eligible active runtime
+- **WHEN** there is no eligible active RIPDPI runtime or its VPN route/local proxy listener is unavailable
 - **THEN** in-path scanning has a factual unavailable reason rather than implying universal reachability.
 
 ### Requirement: REQ-METRICS — Explain measured metrics and freshness

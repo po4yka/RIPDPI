@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">मापन का दायरा</string>
+    <string name="diagnostics_scope_direct_label">सीधा नेटवर्क</string>
+    <string name="diagnostics_scope_active_label">सक्रिय कनेक्शन पथ</string>
+    <string name="diagnostics_scope_direct_description">मूल नेटवर्क को मापता है। स्कैन से पहले चल रहा RIPDPI VPN या प्रॉक्सी रुक जाता है, जिससे कॉल और डाउनलोड बाधित हो सकते हैं।</string>
+    <string name="diagnostics_scope_active_description">अनुरोधित दायरा: सक्रिय RIPDPI VPN या स्थानीय प्रॉक्सी के माध्यम से। नतीजे जाँचे गए लक्ष्यों के हैं, हर ऐप के नहीं।</string>
+    <string name="diagnostics_scope_resume_disabled">अपने आप फिर शुरू करना बंद है। स्कैन के बाद कनेक्शन फिर शुरू करें।</string>
+    <string name="diagnostics_scope_resume_enabled">अपने आप फिर शुरू करना चालू है। स्कैन के बाद RIPDPI पिछले कनेक्शन को बहाल करने की कोशिश करेगा, जब तक आप उसे न रोकें; बहाली विफल हो सकती है।</string>
+    <string name="diagnostics_scope_direct_result">अनुरोधित दायरा: सक्रिय RIPDPI कनेक्शन के बिना मूल नेटवर्क। रणनीति परीक्षण अस्थायी विकल्पों का उपयोग कर सकते हैं; यह सक्रिय VPN कनेक्टिविटी सिद्ध नहीं करता।</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · केवल सीधा नेटवर्क</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · केवल सीधा नेटवर्क · कमांड लाइन मोड में अनुपलब्ध</string>
+    <string name="diagnostics_scope_connectivity">कनेक्टिविटी प्रोफ़ाइल</string>
+    <string name="diagnostics_scope_active_vpn_label">सक्रिय VPN पथ</string>
+    <string name="diagnostics_scope_active_proxy_label">सक्रिय प्रॉक्सी पथ</string>
+    <string name="diagnostics_scope_active_vpn_description">चल रहे RIPDPI VPN पथ को जाँचता है। शुरू करते समय सक्रिय VPN मार्ग दिखाई देना चाहिए; नतीजे जाँचे गए लक्ष्यों के हैं, हर ऐप के नहीं।</string>
+    <string name="diagnostics_scope_active_proxy_description">चल रहे RIPDPI स्थानीय प्रॉक्सी के माध्यम से जाँचता है। उसके लिसनर को नियोजित एंडपॉइंट से मेल खाना चाहिए; नतीजे जाँचे गए लक्ष्यों के हैं, हर ऐप के नहीं।</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI फिर से कनेक्ट हो रहा है। सक्रिय पथ जाँचने से पहले कनेक्शन पूरा होने की प्रतीक्षा करें।</string>
+</resources>

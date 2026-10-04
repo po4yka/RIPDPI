@@ -1552,6 +1552,33 @@ class DiagnosticsScreenTest {
     }
 
     @Test
+    fun connectivityWorkflowShowsScopeConsequencesBeforeScanActions() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val directDescription = context.getString(com.poyka.ripdpi.R.string.diagnostics_scope_direct_description)
+        val activeDescription = context.getString(com.poyka.ripdpi.R.string.diagnostics_scope_active_description)
+        setScanScreen(
+            scan =
+                DiagnosticsScanUiModel(
+                    selectedProfile =
+                        DiagnosticsProfileOptionUiModel(
+                            id = "connectivity",
+                            name = "Connectivity checks",
+                            source = "bundled",
+                            kind = ScanKind.CONNECTIVITY,
+                        ),
+                    runRawEnabled = true,
+                    runInPathEnabled = true,
+                    runRawHint = directDescription,
+                    runInPathHint = activeDescription,
+                ),
+        )
+        composeRule.onNodeWithText(directDescription).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(activeDescription).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).performScrollTo().assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunInPathAction).assertIsEnabled()
+    }
+
+    @Test
     fun vpnPermissionWarningRenderedForStrategyProbeWhenVpnDisabled() {
         var vpnPermissionClicks = 0
 

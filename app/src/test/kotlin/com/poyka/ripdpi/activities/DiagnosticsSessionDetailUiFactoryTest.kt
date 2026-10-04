@@ -42,6 +42,74 @@ class DiagnosticsSessionDetailUiFactoryTest {
     }
 
     @Test
+    fun `session paths localize display and scope while preserving machine contracts`() {
+        listOf(
+            "RAW_PATH" to R.string.diagnostics_scope_direct_label,
+            "IN_PATH" to R.string.diagnostics_scope_active_vpn_label,
+            "FUTURE_PATH" to R.string.diagnostics_field_unknown,
+        ).forEach { (path, labelResource) ->
+            val input = historyDiagnosticsDetail("scope-$path")
+            val detail =
+                factory.toSessionDetailUiModel(
+                    detail = input.copy(session = input.session.copy(pathMode = path)),
+                    showSensitiveDetails = false,
+                )
+            val label = support.context.getString(labelResource)
+            assertEquals(path, detail.session.pathMode)
+            assertTrue(detail.session.subtitle.startsWith(label))
+            assertEquals(
+                label,
+                detail.session.metrics
+                    .first {
+                        it.label == support.context.getString(R.string.diagnostics_metric_path)
+                    }.value,
+            )
+            assertTrue(
+                detail.reportMetadata.contains(
+                    DiagnosticsFieldUiModel(
+                        support.context.getString(R.string.diagnostics_scope_title),
+                        support.context.getString(
+                            when (path) {
+                                "RAW_PATH" -> R.string.diagnostics_scope_direct_result
+                                "IN_PATH" -> R.string.diagnostics_scope_active_description
+                                else -> R.string.diagnostics_field_unknown
+                            },
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `historical proxy scan identifies proxy scope without asserting successful measurements`() {
+        val input = historyDiagnosticsDetail("proxy-scope")
+        val detail =
+            factory.toSessionDetailUiModel(
+                detail =
+                    input.copy(
+                        session = input.session.copy(pathMode = "IN_PATH", serviceMode = "Proxy", status = "failed"),
+                        results = emptyList(),
+                    ),
+                showSensitiveDetails = false,
+            )
+        assertEquals("IN_PATH", detail.session.pathMode)
+        assertTrue(
+            detail.session.subtitle.startsWith(
+                support.context.getString(R.string.diagnostics_scope_active_proxy_label),
+            ),
+        )
+        assertTrue(
+            detail.reportMetadata.contains(
+                DiagnosticsFieldUiModel(
+                    support.context.getString(R.string.diagnostics_scope_title),
+                    support.context.getString(R.string.diagnostics_scope_active_description),
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun `confirm good diagnosis uses suspected behavioral wording and transport pivot action`() {
         val diagnosis =
             support.toDiagnosisUiModel(

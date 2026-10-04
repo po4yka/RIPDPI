@@ -221,7 +221,7 @@ internal class DiagnosticsUiStateAssembler
                         serviceMode = activeMode,
                         activePolicies = activePolicies,
                     )
-                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy, status)
+                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy, status, activeMode)
             }.stateIn(
                 scope,
                 SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
@@ -285,6 +285,7 @@ internal class DiagnosticsUiStateAssembler
                 rememberedPolicies = config.rememberedPolicies,
                 activeConnectionPolicy = config.activeConnectionPolicy,
                 serviceStatus = config.serviceStatus,
+                serviceMode = config.serviceMode,
                 selectedSectionRequest = controls.selection.selectedSectionRequest,
                 selectedProfileId =
                     controls.selection.selectedProfileId

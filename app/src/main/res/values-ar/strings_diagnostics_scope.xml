@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">نطاق القياس</string>
+    <string name="diagnostics_scope_direct_label">الشبكة المباشرة</string>
+    <string name="diagnostics_scope_active_label">مسار الاتصال النشط</string>
+    <string name="diagnostics_scope_direct_description">يقيس الشبكة الأساسية. يتوقف VPN أو وكيل RIPDPI قيد التشغيل قبل الفحص، وقد يؤدي ذلك إلى مقاطعة المكالمات والتنزيلات.</string>
+    <string name="diagnostics_scope_active_description">النطاق المطلوب: عبر VPN أو وكيل RIPDPI المحلي النشط. تشمل النتائج الوجهات المختبرة، وليس كل تطبيق.</string>
+    <string name="diagnostics_scope_resume_disabled">الاستئناف التلقائي معطل. أعد تشغيل الاتصال بعد الفحص.</string>
+    <string name="diagnostics_scope_resume_enabled">الاستئناف التلقائي مفعل. سيحاول RIPDPI استعادة الاتصال السابق بعد الفحص ما لم توقفه؛ قد تفشل الاستعادة.</string>
+    <string name="diagnostics_scope_direct_result">النطاق المطلوب: الشبكة الأساسية دون اتصال RIPDPI النشط. قد تستخدم تجارب الاستراتيجيات خيارات مؤقتة؛ هذا لا يثبت اتصال VPN النشط.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · الشبكة المباشرة فقط</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · الشبكة المباشرة فقط · غير متاح في وضع سطر الأوامر</string>
+    <string name="diagnostics_scope_connectivity">ملف الاتصال</string>
+    <string name="diagnostics_scope_active_vpn_label">مسار VPN النشط</string>
+    <string name="diagnostics_scope_active_proxy_label">مسار الوكيل النشط</string>
+    <string name="diagnostics_scope_active_vpn_description">يختبر مسار VPN الخاص بـ RIPDPI قيد التشغيل. يجب أن يكون مسار VPN النشط قابلاً للرصد عند البدء؛ تشمل النتائج الوجهات المختبرة، وليس كل تطبيق.</string>
+    <string name="diagnostics_scope_active_proxy_description">يختبر عبر وكيل RIPDPI المحلي قيد التشغيل. يجب أن يتطابق المستمع مع نقطة الاتصال المخططة؛ تشمل النتائج الوجهات المختبرة، وليس كل تطبيق.</string>
+    <string name="diagnostics_scope_reconnecting">يعيد RIPDPI الاتصال. انتظر اكتمال الاتصال قبل اختبار المسار النشط.</string>
+</resources>

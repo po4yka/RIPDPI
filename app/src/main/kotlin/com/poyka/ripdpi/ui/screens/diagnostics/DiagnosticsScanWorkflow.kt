@@ -4,14 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
@@ -33,8 +30,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
-
-private const val DiagnosticsBadgeWrapFontScale = 1.5f
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
@@ -93,30 +88,7 @@ internal fun DiagnosticsScanWorkflowCard(
             onOpenModeEditor = onOpenModeEditor,
             onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         )
-        scan.runRawHint?.let { hint ->
-            WarningBanner(
-                title =
-                    if (isFullAudit) {
-                        stringResource(R.string.diagnostics_audit_profile_title)
-                    } else {
-                        stringResource(R.string.diagnostics_probe_profile_title)
-                    },
-                message = hint,
-                tone =
-                    if (scan.runRawEnabled) {
-                        WarningBannerTone.Info
-                    } else {
-                        WarningBannerTone.Restricted
-                    },
-            )
-        }
-        scan.runInPathHint?.let { hint ->
-            WarningBanner(
-                title = stringResource(R.string.diagnostics_probe_path_title),
-                message = hint,
-                tone = WarningBannerTone.Restricted,
-            )
-        }
+        WorkflowScopeGuidance(scan, strategyProbeSelected, isFullAudit)
         WorkflowActionRow(
             strategyProbeSelected = strategyProbeSelected,
             scan = scan,
@@ -136,6 +108,47 @@ internal fun DiagnosticsScanWorkflowCard(
                         .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
             )
         }
+    }
+}
+
+@Composable
+private fun WorkflowScopeGuidance(
+    scan: DiagnosticsScanUiModel,
+    strategyProbeSelected: Boolean,
+    isFullAudit: Boolean,
+) {
+    scan.runRawHint?.let { hint ->
+        WarningBanner(
+            title =
+                if (isFullAudit) {
+                    stringResource(R.string.diagnostics_audit_profile_title)
+                } else if (strategyProbeSelected) {
+                    stringResource(R.string.diagnostics_probe_profile_title)
+                } else {
+                    stringResource(R.string.diagnostics_scope_direct_label)
+                },
+            message = hint,
+            tone =
+                if (scan.runRawEnabled) {
+                    WarningBannerTone.Info
+                } else {
+                    WarningBannerTone.Restricted
+                },
+        )
+    }
+    scan.runInPathHint?.let { hint ->
+        WarningBanner(
+            title =
+                stringResource(
+                    if (scan.runInPathEnabled) {
+                        R.string.diagnostics_scope_active_label
+                    } else {
+                        R.string.diagnostics_probe_path_title
+                    },
+                ),
+            message = hint,
+            tone = if (scan.runInPathEnabled) WarningBannerTone.Info else WarningBannerTone.Restricted,
+        )
     }
 }
 
@@ -191,25 +204,13 @@ private fun WorkflowRemediationLadder(
 @Composable
 private fun WorkflowBadgeRow(badges: List<DiagnosticsScanWorkflowBadgeUiModel>) {
     val spacing = RipDpiThemeTokens.spacing
-    if (LocalDensity.current.fontScale >= DiagnosticsBadgeWrapFontScale) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs),
-        ) {
-            badges.forEach { badge ->
-                EventBadge(text = badge.text, tone = badge.tone)
-            }
-        }
-    } else {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            items(
-                items = badges,
-                key = { it.text },
-                contentType = { "workflow_badge" },
-            ) { badge ->
-                EventBadge(text = badge.text, tone = badge.tone)
-            }
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        badges.forEach { badge ->
+            EventBadge(text = badge.text, tone = badge.tone)
         }
     }
 }

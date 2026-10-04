@@ -2,9 +2,11 @@ package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionFiltersUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
@@ -106,6 +108,48 @@ class HistoryScreenTest {
                 useUnmergedTree = true,
             ).assertIsDisplayed()
         composeRule.onAllNodesWithText("Частичные результаты").assertCountEquals(2)
+    }
+
+    @Test
+    fun historyPathFiltersDisplayLocalizedScopeAndPreserveMachineSelection() {
+        var selectedPath: String? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                FilterCard(
+                    title = "Diagnostics",
+                    searchValue = "",
+                    searchPlaceholder = "Search",
+                    onSearch = {},
+                    searchTestTag = RipDpiTestTags.HistoryDiagnosticsSearch,
+                    primaryFilter =
+                        HistoryFilterChipsConfig(
+                            options = listOf("RAW_PATH", "IN_PATH"),
+                            selected = null,
+                            onSelect = { selectedPath = it },
+                            tagForOption = { RipDpiTestTags.historyDiagnosticsPathFilter(it) },
+                        ),
+                    secondaryFilter =
+                        HistoryFilterChipsConfig(
+                            options = emptyList(),
+                            selected = null,
+                            onSelect = {},
+                            tagForOption = { it },
+                        ),
+                    onClearFilters = {},
+                )
+            }
+        }
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        listOf(
+            "RAW_PATH" to com.poyka.ripdpi.R.string.diagnostics_scope_direct_label,
+            "IN_PATH" to com.poyka.ripdpi.R.string.diagnostics_scope_active_label,
+        ).forEach { (machineValue, labelResource) ->
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.historyDiagnosticsPathFilter(machineValue))
+                .assertTextEquals(context.getString(labelResource))
+                .performClick()
+            org.junit.Assert.assertEquals(machineValue, selectedPath)
+        }
     }
 
     @Test

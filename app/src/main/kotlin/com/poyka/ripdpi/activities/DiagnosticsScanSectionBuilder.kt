@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -24,6 +25,8 @@ internal data class BuildScanUiModelParams(
     val progress: ScanProgress?,
     val rawArgsEnabled: Boolean,
     val serviceStatus: AppStatus,
+    val serviceMode: Mode = Mode.VPN,
+    val autoResumeAfterRawScan: Boolean = false,
     val scanStartedAt: Long?,
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
     val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
@@ -44,17 +47,14 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning
     val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
     val workflowLabel = buildWorkflowLabel(selectedProfile)
-    val runRawHint =
-        if (strategyProbeSelected) {
-            context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
-        } else {
-            null
-        }
+    val runRawHint = buildRawScanHint(strategyProbeSelected, workflowLabel, params.autoResumeAfterRawScan)
     val runInPathHint =
         when {
             strategyProbeSelected -> context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
+            params.serviceStatus == AppStatus.Reconnecting -> context.getString(R.string.diagnostics_scope_reconnecting)
             !serviceRunning -> context.getString(R.string.diagnostics_scan_in_path_service_halted)
-            else -> null
+            params.serviceMode == Mode.VPN -> context.getString(R.string.diagnostics_scope_active_vpn_description)
+            else -> context.getString(R.string.diagnostics_scope_active_proxy_description)
         }
     val remediationLadder =
         buildScanRemediationLadder(
@@ -116,6 +116,27 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         isBusy = params.progress != null,
     )
 }
+
+private fun DiagnosticsUiFactorySupport.buildRawScanHint(
+    strategyProbeSelected: Boolean,
+    workflowLabel: String,
+    autoResumeAfterRawScan: Boolean,
+): String =
+    listOfNotNull(
+        context.getString(R.string.diagnostics_scope_direct_description),
+        if (strategyProbeSelected) {
+            context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
+        } else {
+            null
+        },
+        context.getString(
+            if (autoResumeAfterRawScan) {
+                R.string.diagnostics_scope_resume_enabled
+            } else {
+                R.string.diagnostics_scope_resume_disabled
+            },
+        ),
+    ).joinToString(" ")
 
 private fun DiagnosticsUiFactorySupport.buildActiveScanProgress(
     params: BuildScanUiModelParams,

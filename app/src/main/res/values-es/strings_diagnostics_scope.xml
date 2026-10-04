@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">Alcance de la medición</string>
+    <string name="diagnostics_scope_direct_label">Red directa</string>
+    <string name="diagnostics_scope_active_label">Ruta de conexión activa</string>
+    <string name="diagnostics_scope_direct_description">Mide la red subyacente. El VPN o proxy RIPDPI en ejecución se detiene antes del análisis, lo que puede interrumpir llamadas y descargas.</string>
+    <string name="diagnostics_scope_active_description">Alcance solicitado: a través del VPN o proxy local RIPDPI activo. Los resultados cubren los destinos probados, no todas las aplicaciones.</string>
+    <string name="diagnostics_scope_resume_disabled">La reanudación automática está desactivada. Reinicia la conexión después del análisis.</string>
+    <string name="diagnostics_scope_resume_enabled">La reanudación automática está activada. RIPDPI intentará restaurar la conexión anterior después del análisis, salvo que la detengas; la restauración puede fallar.</string>
+    <string name="diagnostics_scope_direct_result">Alcance solicitado: la red subyacente sin la conexión RIPDPI activa. Las pruebas de estrategias pueden usar candidatos temporales; esto no demuestra conectividad del VPN activo.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · solo red directa</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · solo red directa · no disponible en modo de línea de comandos</string>
+    <string name="diagnostics_scope_connectivity">Perfil de conectividad</string>
+    <string name="diagnostics_scope_active_vpn_label">Ruta del VPN activo</string>
+    <string name="diagnostics_scope_active_proxy_label">Ruta del proxy activo</string>
+    <string name="diagnostics_scope_active_vpn_description">Prueba la ruta del VPN RIPDPI en ejecución. La ruta VPN activa debe ser observable al inicio; los resultados cubren los destinos probados, no todas las aplicaciones.</string>
+    <string name="diagnostics_scope_active_proxy_description">Prueba el proxy local RIPDPI en ejecución. Su escucha debe coincidir con el destino previsto; los resultados cubren los destinos probados, no todas las aplicaciones.</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI se está reconectando. Espera a que termine antes de probar la ruta activa.</string>
+</resources>

@@ -45,6 +45,12 @@ internal class DiagnosticsSessionDetailUiFactory
             val diagnoses = report?.diagnoses?.map(support::toDiagnosisUiModel).orEmpty()
             val reportMetadata =
                 buildList {
+                    add(
+                        DiagnosticsFieldUiModel(
+                            support.context.getString(R.string.diagnostics_scope_title),
+                            support.core.pathModeDescription(detail.session.pathMode),
+                        ),
+                    )
                     report?.let {
                         add(
                             DiagnosticsFieldUiModel(

@@ -12,6 +12,7 @@ class DiagnosticsUiFactoryLocalizationContractTest {
                 "HistoryConnectionDetailUiFactory.kt",
                 "DiagnosticsSessionDetailUiFactory.kt",
                 "DiagnosticsUiCoreSupport.kt",
+                "DiagnosticsScanSectionBuilder.kt",
             ).map(::activitySource)
         val displayLiteral = Regex("\\\"[A-Z][A-Za-z][A-Za-z ]+\\\"")
 

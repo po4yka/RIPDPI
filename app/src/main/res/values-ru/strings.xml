@@ -112,8 +112,8 @@
     <string name="diagnostics_approaches_signature_title">Сигнатура конфигурации</string>
     <string name="diagnostics_history_section">История</string>
     <string name="diagnostics_status_running">Выполняется</string>
-    <string name="diagnostics_action_raw">Запустить сканирование напрямую</string>
-    <string name="diagnostics_action_in_path">Запустить сканирование по маршруту</string>
+    <string name="diagnostics_action_raw">Проверить сеть напрямую</string>
+    <string name="diagnostics_action_in_path">Проверить активное соединение</string>
     <string name="diagnostics_action_cancel">Отменить активное сканирование</string>
     <string name="diagnostics_profiles_title">Активный профиль</string>
     <string name="diagnostics_profiles_body">Выберите, должна ли Диагностика проверять текущий маршрут или запускать изолированные испытания стратегий с возвратом ручной рекомендации.</string>
@@ -171,7 +171,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">Автоматическое зондирование работает только с визуальными настройками RIPDPI. Отключите режим командной строки перед запуском этого процесса.</string>
     <string name="diagnostics_profile_audit_badge">Аудит</string>
     <string name="diagnostics_profile_audit_body">Запустить полную встроенную матрицу стратегий HTTP, HTTPS и QUIC для текущей сети. RIPDPI фиксирует, что сработало, что сработало частично, что не сработало и что неприменимо — без изменения сохранённых настроек.</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI выполняет полную встроенную матрицу стратегий только по прямому пути. Текущая сессия VPN или прокси приостанавливается на время аудита и восстанавливается после.</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI проверяет полную встроенную матрицу стратегий с временными конфигурациями. Активный VPN или прокси останавливается; восстановление зависит от настройки автовозобновления и может не удаться.</string>
     <string name="diagnostics_profile_audit_ready_body">Последний автоматический аудит завершён: сформированы полная матрица, доказательства по каждому кандидату и ручная рекомендация.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">Подмена DNS была обнаружена до запуска матрицы аудита. RIPDPI досрочно остановил резервные испытания и вернул ориентированный на резолвер результат с низкой уверенностью.</string>
     <string name="diagnostics_profile_probe_partial_results_body">Время сканирования истекло до проверки всех кандидатов. Результаты основаны на %1$d из %2$d кандидатов.</string>
@@ -222,8 +222,8 @@
     <string name="diagnostics_remediation_no_hint_step_retry">Повторите запуск после ещё одного прогона на той же сети.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">Открыть Mode Editor</string>
     <string name="diagnostics_profile_badge_all_builtin">Все встроенные методы</string>
-    <string name="diagnostics_profile_badge_raw_only">Только прямой путь</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">Прямой + по маршруту</string>
+    <string name="diagnostics_profile_badge_raw_only">Только напрямую через сеть</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">Напрямую или через активное соединение</string>
     <string name="diagnostics_profile_badge_manual_apply">Применить вручную</string>
     <string name="diagnostics_profile_badge_manual_only">Только вручную</string>
     <string name="diagnostics_profile_badge_region_net">Россия Сеть</string>
@@ -1878,8 +1878,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_live_feed_quiet">Поток событий спокоен</string>
     <string name="diagnostics_scan_automatic_audit">Автоматический аудит</string>
     <string name="diagnostics_scan_automatic_probing">Автоматическое зондирование</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI по прямому пути и возвращает ручную рекомендацию.</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s работает только по прямому пути, так как запускает изолированные временные испытания стратегий.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s проверяет временные конфигурации стратегий и возвращает рекомендацию для ручного применения.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s требует прямой проверки сети, поскольку запускает изолированные временные испытания стратегий.</string>
     <string name="diagnostics_scan_in_path_service_halted">Запустите службу RIPDPI перед диагностикой внутри пути.</string>
     <string name="diagnostics_share_title">Диагностика RIPDPI</string>
     <string name="diagnostics_share_no_session">Выберите сессию диагностики для создания сводки.</string>

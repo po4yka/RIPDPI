@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">Portée de la mesure</string>
+    <string name="diagnostics_scope_direct_label">Réseau direct</string>
+    <string name="diagnostics_scope_active_label">Chemin de connexion active</string>
+    <string name="diagnostics_scope_direct_description">Mesure le réseau sous-jacent. Le VPN ou proxy RIPDPI en cours est arrêté avant le diagnostic, ce qui peut interrompre les appels et téléchargements.</string>
+    <string name="diagnostics_scope_active_description">Portée demandée : via le VPN ou proxy local RIPDPI actif. Les résultats concernent les destinations testées, pas chaque application.</string>
+    <string name="diagnostics_scope_resume_disabled">La reprise automatique est désactivée. Redémarrez la connexion après le diagnostic.</string>
+    <string name="diagnostics_scope_resume_enabled">La reprise automatique est activée. RIPDPI tentera de restaurer la connexion précédente après le diagnostic, sauf si vous l’arrêtez ; la restauration peut échouer.</string>
+    <string name="diagnostics_scope_direct_result">Portée demandée : le réseau sous-jacent sans connexion RIPDPI active. Les essais de stratégies peuvent utiliser des candidats temporaires ; cela ne prouve pas la connectivité du VPN actif.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · réseau direct uniquement</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · réseau direct uniquement · indisponible en mode ligne de commande</string>
+    <string name="diagnostics_scope_connectivity">Profil de connectivité</string>
+    <string name="diagnostics_scope_active_vpn_label">Chemin du VPN actif</string>
+    <string name="diagnostics_scope_active_proxy_label">Chemin du proxy actif</string>
+    <string name="diagnostics_scope_active_vpn_description">Teste le chemin du VPN RIPDPI en cours. La route VPN active doit être observable au lancement ; les résultats concernent les destinations testées, pas chaque application.</string>
+    <string name="diagnostics_scope_active_proxy_description">Teste via le proxy local RIPDPI en cours. Son écoute doit correspondre au point prévu ; les résultats concernent les destinations testées, pas chaque application.</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI se reconnecte. Attendez la fin de la connexion avant de tester le chemin actif.</string>
+</resources>

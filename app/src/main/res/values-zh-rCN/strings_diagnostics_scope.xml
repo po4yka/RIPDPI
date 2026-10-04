@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">测量范围</string>
+    <string name="diagnostics_scope_direct_label">直连网络</string>
+    <string name="diagnostics_scope_active_label">活动连接路径</string>
+    <string name="diagnostics_scope_direct_description">测量底层网络。扫描前会停止正在运行的 RIPDPI VPN 或代理，可能中断通话和下载。</string>
+    <string name="diagnostics_scope_active_description">请求范围：通过活动 RIPDPI VPN 或本地代理。结果仅涵盖已测试的目标，不代表每个应用。</string>
+    <string name="diagnostics_scope_resume_disabled">自动恢复已关闭。扫描后请重新启动连接。</string>
+    <string name="diagnostics_scope_resume_enabled">自动恢复已开启。扫描后 RIPDPI 会尝试恢复之前的连接，除非您将其停止；恢复可能失败。</string>
+    <string name="diagnostics_scope_direct_result">请求范围：不经过活动 RIPDPI 连接的底层网络。策略试验可能使用临时候选配置；这不能证明活动 VPN 连接可用。</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · 仅直连网络</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · 仅直连网络 · 命令行模式下不可用</string>
+    <string name="diagnostics_scope_connectivity">连接配置</string>
+    <string name="diagnostics_scope_active_vpn_label">活动 VPN 路径</string>
+    <string name="diagnostics_scope_active_proxy_label">活动代理路径</string>
+    <string name="diagnostics_scope_active_vpn_description">测试正在运行的 RIPDPI VPN 路径。启动时必须能观察到活动 VPN 路由；结果仅涵盖已测试的目标，不代表每个应用。</string>
+    <string name="diagnostics_scope_active_proxy_description">通过正在运行的 RIPDPI 本地代理测试。监听地址必须与计划端点匹配；结果仅涵盖已测试的目标，不代表每个应用。</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI 正在重新连接。请等待连接完成后再测试活动路径。</string>
+</resources>

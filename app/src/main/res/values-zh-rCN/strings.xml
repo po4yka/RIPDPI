@@ -112,8 +112,8 @@
     <string name="diagnostics_history_section">历史</string>
 
     <string name="diagnostics_status_running">运行中</string>
-    <string name="diagnostics_action_raw">运行原始路径扫描</string>
-    <string name="diagnostics_action_in_path">运行路径内扫描</string>
+    <string name="diagnostics_action_raw">扫描直连网络</string>
+    <string name="diagnostics_action_in_path">扫描活动连接</string>
     <string name="diagnostics_action_cancel">取消当前扫描</string>
     <string name="diagnostics_profiles_title">活动配置文件</string>
     <string name="diagnostics_profiles_body">选择诊断应验证当前路径，还是运行返回手动建议的隔离策略试验。</string>
@@ -181,7 +181,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">自动探测仅适用于可视化 RIPDPI 设置。在运行此工作流之前请关闭原始命令行模式。</string>
     <string name="diagnostics_profile_audit_badge">审计</string>
     <string name="diagnostics_profile_audit_body">针对当前网络运行完整的内置 HTTP、HTTPS 和 QUIC 策略矩阵。RIPDPI 记录了什么有效、什么部分有效、什么失败以及在不更改已保存设置的情况下什么不适用。</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI 正在仅在原始路径上运行完整的内置策略矩阵。当前 VPN 或代理会话在审计周围暂停并恢复。</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI 正使用临时候选配置测试完整策略矩阵。活动 VPN 或代理会停止；恢复取决于自动恢复设置，且可能失败。</string>
     <string name="diagnostics_profile_audit_ready_body">最新的自动审计已完成，提供完整矩阵、每个候选项的证据和手动建议。</string>
     <string name="diagnostics_profile_audit_short_circuit_body">在审计矩阵运行之前检测到 DNS 篡改。RIPDPI 提前停止了备用试验，并返回了低置信度的面向解析器的结果。</string>
     <string name="diagnostics_profile_probe_partial_results_body">扫描在所有候选项测试完成之前用尽了时间。结果基于 %2$d 个候选项中的 %1$d 个。</string>
@@ -232,8 +232,8 @@
     <string name="diagnostics_remediation_no_hint_step_retry">在同一网络上收集另一次运行后重试。</string>
     <string name="diagnostics_remediation_open_mode_editor_action">打开模式编辑器</string>
     <string name="diagnostics_profile_badge_all_builtin">所有内置方法</string>
-    <string name="diagnostics_profile_badge_raw_only">仅原始路径</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">原始 + 路径内</string>
+    <string name="diagnostics_profile_badge_raw_only">仅直连网络</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">直连或活动连接</string>
     <string name="diagnostics_profile_badge_manual_apply">手动应用</string>
     <string name="diagnostics_profile_badge_manual_only">仅手动</string>
     <string name="diagnostics_profile_badge_region_net">俄罗斯网络</string>
@@ -667,7 +667,7 @@
     <string name="diagnostics_metric_telemetry_error">遥测错误</string>
     <string name="diagnostics_metric_winning_strategy">胜出策略</string>
     <string name="diagnostics_scan_blocked_setting_label">被阻止的设置</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s 会启动一个临时的原始路径 RIPDPI 运行时,并返回手动建议。</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s 测试临时候选策略，并返回供手动应用的建议。</string>
     <string name="diagnostics_section_carrier">运营商</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>
     <string name="diagnostics_share_metric_mode">模式</string>
@@ -2378,7 +2378,7 @@ fake_burst 3</string>
     <string name="diagnostics_metric_strategy">策略</string>
     <string name="diagnostics_metric_warnings">警告</string>
     <string name="diagnostics_scan_automatic_probing">自动探测</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s 仅支持原始路径,因为它会启动隔离的临时策略试运行。</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s 需要直连网络扫描，因为它会运行隔离的临时策略试验。</string>
     <string name="diagnostics_scan_in_path_service_halted">运行路径内诊断前,请先启动 RIPDPI 服务。</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s 被阻止,因为 %2$s 已启用。请先在「高级设置」中关闭它,然后运行此工作流,这样 RIPDPI 才能使用可视化配置启动隔离的临时策略试运行。</string>
     <string name="diagnostics_section_transport">传输</string>

@@ -112,8 +112,8 @@
     <string name="diagnostics_approaches_signature_title">Assinatura de configuração</string>
     <string name="diagnostics_history_section">Histórico</string>
     <string name="diagnostics_status_running">Em execução</string>
-    <string name="diagnostics_action_raw">Executar varredura de caminho bruto</string>
-    <string name="diagnostics_action_in_path">Executar varredura no caminho ativo</string>
+    <string name="diagnostics_action_raw">Analisar rede direta</string>
+    <string name="diagnostics_action_in_path">Analisar conexão ativa</string>
     <string name="diagnostics_action_cancel">Cancelar varredura ativa</string>
     <string name="diagnostics_profiles_title">Perfil ativo</string>
     <string name="diagnostics_profiles_body">Escolha se o Diagnóstico deve validar o caminho atual ou executar testes isolados de estratégias que retornam uma recomendação manual.</string>
@@ -181,7 +181,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">A sondagem automática funciona apenas com as configurações visuais do RIPDPI. Desative o modo de linha de comando antes de executar este fluxo.</string>
     <string name="diagnostics_profile_audit_badge">Auditoria</string>
     <string name="diagnostics_profile_audit_body">Executa a matriz completa integrada de estratégias HTTP, HTTPS e QUIC contra a rede atual. O RIPDPI registra o que funcionou, o que funcionou parcialmente, o que falhou e o que não era aplicável, sem alterar as configurações salvas.</string>
-    <string name="diagnostics_profile_audit_running_body">O RIPDPI está executando a matriz completa integrada de estratégias apenas no caminho bruto. A sessão atual de VPN ou proxy é pausada e restaurada em torno da auditoria.</string>
+    <string name="diagnostics_profile_audit_running_body">O RIPDPI testa a matriz completa de estratégias com candidatos temporários. A VPN ou o proxy ativo para; a restauração segue a configuração de retomada automática e pode falhar.</string>
     <string name="diagnostics_profile_audit_ready_body">A última auditoria automática terminou com a matriz completa, evidências por candidato e uma recomendação manual.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">Adulteração de DNS foi detectada antes da execução da matriz de auditoria. O RIPDPI interrompeu os testes alternativos mais cedo e retornou um resultado orientado a resolvedor, de baixa confiança.</string>
     <string name="diagnostics_profile_probe_partial_results_body">A varredura esgotou o tempo antes que todos os candidatos fossem testados. Os resultados são baseados em %1$d de %2$d candidatos.</string>
@@ -232,8 +232,8 @@
     <string name="diagnostics_remediation_no_hint_step_retry">Tente novamente após coletar mais uma execução na mesma rede.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">Abrir o Editor de modos</string>
     <string name="diagnostics_profile_badge_all_builtin">Todos os métodos integrados</string>
-    <string name="diagnostics_profile_badge_raw_only">Somente caminho bruto</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">Bruto + caminho ativo</string>
+    <string name="diagnostics_profile_badge_raw_only">Somente rede direta</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">Direta ou conexão ativa</string>
     <string name="diagnostics_profile_badge_manual_apply">Aplicação manual</string>
     <string name="diagnostics_profile_badge_manual_only">Somente manual</string>
     <string name="diagnostics_profile_badge_region_net">Rede Rússia</string>
@@ -2457,8 +2457,8 @@ Fonte: %2$s</string>
     <string name="diagnostics_scan_automatic_audit">Auditoria automática</string>
     <string name="diagnostics_scan_automatic_probing">Sondagem automática</string>
 
-    <string name="diagnostics_scan_raw_path_format">%1$s inicia um runtime RIPDPI temporário de caminho bruto e retorna uma recomendação manual.</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s funciona apenas no caminho bruto porque executa testes de estratégia temporários isolados.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s testa candidatos temporários de estratégias e retorna uma recomendação para aplicação manual.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s exige uma análise direta da rede porque executa testes de estratégias temporários e isolados.</string>
     <string name="diagnostics_scan_in_path_service_halted">Inicie o serviço RIPDPI antes de executar diagnósticos no caminho ativo.</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s está bloqueado porque %2$s está ativado. Desative essa opção nas Configurações avançadas antes de executar este fluxo para que o RIPDPI possa realizar testes de estratégia temporários isolados com a configuração visual.</string>
     <string name="diagnostics_scan_blocked_setting_label">Configuração bloqueada</string>

@@ -684,7 +684,7 @@ class DiagnosticsViewModelTest {
             val scan = viewModel.uiState.value.scan
             assertFalse(scan.runRawEnabled)
             assertFalse(scan.runInPathEnabled)
-            assertTrue(scan.selectedProfileScopeLabel.orEmpty().contains("raw-path only"))
+            assertTrue(scan.selectedProfileScopeLabel.orEmpty().contains("direct network only"))
             assertNotNull(scan.runRawHint)
             assertNotNull(scan.workflowRestriction)
             assertNotNull(scan.remediationLadder)
@@ -732,7 +732,7 @@ class DiagnosticsViewModelTest {
             assertTrue(scan.runRawEnabled)
             assertFalse(scan.runInPathEnabled)
             assertTrue(scan.runRawHint.orEmpty().contains("manual recommendation", ignoreCase = true))
-            assertTrue(scan.runInPathHint.orEmpty().contains("raw-path only", ignoreCase = true))
+            assertTrue(scan.runInPathHint.orEmpty().contains("isolated temporary strategy trials", ignoreCase = true))
             assertNull(scan.workflowRestriction)
             collector.cancel()
         }
@@ -809,6 +809,101 @@ class DiagnosticsViewModelTest {
             assertTrue(scan.runRawEnabled)
             assertFalse(scan.runInPathEnabled)
             assertTrue(scan.runInPathHint.orEmpty().contains("service", ignoreCase = true))
+            collector.cancel()
+        }
+
+    @Test
+    fun `running proxy offers scoped local proxy measurement`() =
+        runTest {
+            val manager = connectivityScanManager()
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val scan = viewModel.uiState.value.scan
+            assertTrue(scan.runInPathEnabled)
+            assertEquals(
+                RuntimeEnvironment.getApplication().getString(
+                    R.string.diagnostics_scope_active_proxy_description,
+                ),
+                scan.runInPathHint,
+            )
+            assertTrue(scan.runRawHint.orEmpty().contains("VPN or proxy stops"))
+            assertTrue(
+                scan.runRawHint.orEmpty().endsWith(
+                    RuntimeEnvironment.getApplication().getString(R.string.diagnostics_scope_resume_enabled),
+                ),
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `active VPN scope and raw resume policy follow live state and settings`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val settingsRepository =
+                FakeAppSettingsRepository(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setDiagnosticsAutoResumeAfterRawScan(false)
+                        .build(),
+                )
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    connectivityScanManager(),
+                    settingsRepository,
+                    serviceStateStore = serviceStateStore,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            val context = RuntimeEnvironment.getApplication()
+            assertTrue(viewModel.uiState.value.scan.runInPathEnabled)
+            assertEquals(
+                context.getString(R.string.diagnostics_scope_active_vpn_description),
+                viewModel.uiState.value.scan.runInPathHint,
+            )
+            assertTrue(
+                viewModel.uiState.value.scan.runRawHint.orEmpty().endsWith(
+                    context.getString(R.string.diagnostics_scope_resume_disabled),
+                ),
+            )
+
+            settingsRepository.update { setDiagnosticsAutoResumeAfterRawScan(true) }
+            advanceUntilIdle()
+            assertTrue(
+                viewModel.uiState.value.scan.runRawHint.orEmpty().endsWith(
+                    context.getString(R.string.diagnostics_scope_resume_enabled),
+                ),
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `reconnecting runtime explains why active path scanning is unavailable`() =
+        runTest {
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    connectivityScanManager(),
+                    FakeAppSettingsRepository(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Reconnecting to Mode.VPN),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.scan.runInPathEnabled)
+            assertEquals(
+                RuntimeEnvironment.getApplication().getString(
+                    R.string.diagnostics_scope_reconnecting,
+                ),
+                viewModel.uiState.value.scan.runInPathHint,
+            )
             collector.cancel()
         }
 
@@ -3020,6 +3115,21 @@ class DiagnosticsViewModelTest {
                     )
                 },
         )
+
+    private fun connectivityScanManager(): FakeDiagnosticsManager =
+        FakeDiagnosticsManager().apply {
+            profilesState.value =
+                listOf(
+                    DiagnosticProfileEntity(
+                        id = "default",
+                        name = "Default",
+                        source = "bundled",
+                        version = 1,
+                        requestJson = profileRequest(profileId = "default", displayName = "Default"),
+                        updatedAt = 1L,
+                    ),
+                )
+        }
 
     private fun profileRequest(
         profileId: String,

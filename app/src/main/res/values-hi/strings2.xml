@@ -597,8 +597,8 @@
     <string name="diagnostics_live_feed_quiet">रनटाइम फ़ीड शांत है</string>
     <string name="diagnostics_scan_automatic_audit">स्वचालित ऑडिट</string>
     <string name="diagnostics_scan_automatic_probing">स्वचालित प्रोबिंग</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s एक अस्थायी रॉ-पथ RIPDPI रनटाइम शुरू करता है और एक मैनुअल अनुशंसा लौटाता है।</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s केवल रॉ-पथ है क्योंकि यह पृथक अस्थायी रणनीति परीक्षण लॉन्च करता है।</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s अस्थायी रणनीति विकल्पों को जाँचता है और हाथ से लागू करने के लिए सुझाव देता है।</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s के लिए सीधे नेटवर्क का स्कैन आवश्यक है, क्योंकि यह अलग-थलग अस्थायी रणनीति परीक्षण चलाता है।</string>
     <string name="diagnostics_scan_in_path_service_halted">इन-पथ डायग्नोस्टिक्स चलाने से पहले RIPDPI सेवा शुरू करें।</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s अवरुद्ध है क्योंकि %2$s सक्षम है। इस वर्कफ़्लो को चलाने से पहले इसे Advanced Settings में बंद करें ताकि RIPDPI विज़ुअल कॉन्फ़िगरेशन के साथ पृथक अस्थायी रणनीति परीक्षण लॉन्च कर सके।</string>
     <string name="diagnostics_scan_blocked_setting_label">अवरुद्ध सेटिंग</string>

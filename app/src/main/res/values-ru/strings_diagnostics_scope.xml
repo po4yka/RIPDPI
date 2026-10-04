@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_scope_title">Область измерения</string>
+    <string name="diagnostics_scope_direct_label">Напрямую через сеть</string>
+    <string name="diagnostics_scope_active_label">Путь активного соединения</string>
+    <string name="diagnostics_scope_direct_description">Проверяет исходную сеть. Работающий VPN или прокси RIPDPI останавливается перед проверкой; звонки и загрузки могут прерваться.</string>
+    <string name="diagnostics_scope_active_description">Запрошенная область: через активный VPN или локальный прокси RIPDPI. Результаты относятся к проверенным адресам, а не ко всем приложениям.</string>
+    <string name="diagnostics_scope_resume_disabled">Автовозобновление выключено. После проверки запустите соединение снова.</string>
+    <string name="diagnostics_scope_resume_enabled">Автовозобновление включено. После проверки RIPDPI попытается восстановить прежнее соединение, если вы его не остановите; восстановление может не удаться.</string>
+    <string name="diagnostics_scope_direct_result">Запрошенная область: исходная сеть без активного соединения RIPDPI. Испытания стратегий могут использовать временные конфигурации; это не подтверждает доступность через активный VPN.</string>
+    <string name="diagnostics_scope_strategy_format">%1$s · только напрямую через сеть</string>
+    <string name="diagnostics_scope_strategy_blocked_format">%1$s · только напрямую через сеть · недоступно в режиме командной строки</string>
+    <string name="diagnostics_scope_connectivity">Профиль проверки соединения</string>
+    <string name="diagnostics_scope_active_vpn_label">Путь активного VPN</string>
+    <string name="diagnostics_scope_active_proxy_label">Путь активного прокси</string>
+    <string name="diagnostics_scope_active_vpn_description">Проверяет путь работающего VPN RIPDPI. При запуске должен наблюдаться активный маршрут VPN; результаты относятся к проверенным адресам, а не ко всем приложениям.</string>
+    <string name="diagnostics_scope_active_proxy_description">Проверяет путь через работающий локальный прокси RIPDPI. Его слушатель должен соответствовать запланированному адресу; результаты относятся к проверенным адресам, а не ко всем приложениям.</string>
+    <string name="diagnostics_scope_reconnecting">RIPDPI переподключается. Дождитесь завершения подключения перед проверкой активного пути.</string>
+</resources>

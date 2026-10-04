@@ -112,8 +112,8 @@
     <string name="diagnostics_history_section">تاریخچه</string>
 
     <string name="diagnostics_status_running">در حال اجرا</string>
-    <string name="diagnostics_action_raw">اجرای پویش مسیر خام</string>
-    <string name="diagnostics_action_in_path">اجرای پویش درون‌مسیر</string>
+    <string name="diagnostics_action_raw">اسکن شبکه مستقیم</string>
+    <string name="diagnostics_action_in_path">اسکن اتصال فعال</string>
     <string name="diagnostics_action_cancel">لغو پویش فعال</string>
     <string name="diagnostics_profiles_title">پروفایل فعال</string>
     <string name="diagnostics_profiles_body">انتخاب کنید که تشخیص باید مسیر فعلی را اعتبارسنجی کند یا آزمایش‌های جداگانهٔ راهبرد را اجرا کند که یک توصیهٔ دستی برمی‌گرداند.</string>
@@ -181,7 +181,7 @@
     <string name="diagnostics_profile_probe_unavailable_body">کاوش خودکار فقط با تنظیمات بصری RIPDPI کار می‌کند. قبل از اجرای این جریان کاری، حالت خط فرمان خام را خاموش کنید.</string>
     <string name="diagnostics_profile_audit_badge">حسابرسی</string>
     <string name="diagnostics_profile_audit_body">ماتریس کامل داخلی راهبردهای HTTP، HTTPS و QUIC را در برابر شبکهٔ فعلی اجرا کنید. RIPDPI ثبت می‌کند که چه چیزی کار کرد، چه چیزی نسبتاً کار کرد، چه چیزی شکست خورد و چه چیزی بدون تغییر تنظیمات ذخیره‌شده قابل اعمال نبود.</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI در حال اجرای ماتریس کامل راهبرد داخلی فقط روی مسیر خام است. نشست فعلی VPN یا پراکسی متوقف شده و در اطراف حسابرسی بازیابی می‌شود.</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI ماتریس کامل راهبردها را با گزینه‌های موقت آزمایش می‌کند. VPN یا پراکسی فعال متوقف می‌شود؛ بازیابی تابع تنظیم ادامه خودکار است و ممکن است ناموفق باشد.</string>
     <string name="diagnostics_profile_audit_ready_body">آخرین حسابرسی خودکار با یک ماتریس کامل، شواهد به ازای هر نامزد و یک توصیهٔ دستی به پایان رسید.</string>
     <string name="diagnostics_profile_audit_short_circuit_body">پیش از اجرای ماتریس حسابرسی، دستکاری DNS شناسایی شد. RIPDPI آزمایش‌های پشتیبان را زودتر متوقف کرد و یک نتیجهٔ کم‌اعتماد متمرکز بر تحلیل‌گر نام برگرداند.</string>
     <string name="diagnostics_profile_probe_partial_results_body">پویش پیش از آنکه همهٔ نامزدها آزمایش شوند، زمانش به پایان رسید. نتایج بر اساس %1$d از %2$d نامزد است.</string>
@@ -232,8 +232,8 @@
     <string name="diagnostics_remediation_no_hint_step_retry">پس از جمع‌آوری اجرای دیگری در همان شبکه، دوباره امتحان کنید.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">باز کردن ویرایشگر حالت</string>
     <string name="diagnostics_profile_badge_all_builtin">همهٔ روش‌های داخلی</string>
-    <string name="diagnostics_profile_badge_raw_only">فقط مسیر خام</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">خام + درون‌مسیر</string>
+    <string name="diagnostics_profile_badge_raw_only">فقط شبکه مستقیم</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">مستقیم یا اتصال فعال</string>
     <string name="diagnostics_profile_badge_manual_apply">اعمال دستی</string>
     <string name="diagnostics_profile_badge_manual_only">فقط دستی</string>
     <string name="diagnostics_profile_badge_region_net">شبکهٔ روسیه</string>
@@ -1598,7 +1598,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_metric_warnings">هشدارها</string>
     <string name="diagnostics_scan_automatic_audit">ممیزی خودکار</string>
     <string name="diagnostics_scan_grant_vpn_permission">اعطای مجوز VPN</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s یک زمان اجرای RIPDPI با مسیر خام موقتی را شروع می‌کند و یک توصیه دستی برمی‌گرداند.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s گزینه‌های موقت راهبردها را آزمایش می‌کند و توصیه‌ای برای اعمال دستی ارائه می‌دهد.</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s مسدود شده زیرا %2$s فعال است. آن را در تنظیمات پیشرفته خاموش کنید تا RIPDPI بتواند آزمایش‌های راهبرد موقتی منزوی را با پیکربندی بصری اجرا کند.</string>
     <string name="diagnostics_section_network">شبکه</string>
     <string name="diagnostics_share_approach_format">آرشیو شامل تحلیل رویکرد برای %1$s با اعتبارسنجی %2$s و زمینه سلامت زمان اجرا است.</string>
@@ -2458,7 +2458,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_metric_tx">TX</string>
     <string name="diagnostics_probe_copy_action">کپی نتیجه</string>
     <string name="diagnostics_scan_blocked_setting_label">تنظیم مسدودشده</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s فقط مسیر خام است، زیرا آزمایش‌های استراتژی موقت ایزوله‌شده را راه‌اندازی می‌کند.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s به اسکن مستقیم شبکه نیاز دارد، زیرا آزمایش‌های موقت و جداگانه راهبردها را اجرا می‌کند.</string>
     <string name="diagnostics_scan_in_path_service_halted">پیش از اجرای عیب‌یابی درون‌مسیر، سرویس RIPDPI را راه‌اندازی کنید.</string>
     <string name="diagnostics_scan_vpn_permission_warning_title">مجوز VPN توصیه می‌شود</string>
     <string name="diagnostics_section_device">دستگاه</string>

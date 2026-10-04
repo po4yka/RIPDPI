@@ -10,7 +10,7 @@ The approved research defines seven sequential feature slices. Existing RDS cont
 
 ## Decisions
 
-- Preserve RAW_PATH/IN_PATH as machine data; localize presentation and explain the actual direct-path interruption without unconditional restoration promises.
+- Preserve RAW_PATH/IN_PATH as machine data; localize presentation and explain the actual direct-path interruption of VPN or proxy without unconditional restoration promises. Manual restoration follows the auto-resume setting (enabled in app defaults); strategy trials are isolated measurements. In-path admission on Android requires a running RIPDPI runtime; VPN mode additionally requires an eligible active route lease and proxy mode checks its local listener against the planned endpoint.
 - Publish measurement timestamps/windows from the owning service DTO. Do not reuse the five-minute connection-health window for cumulative DNS/latency aggregates.
 - Capture an immutable applied configuration summary in service ownership when the runtime starts; compare saved settings to the applied summary. Do not infer applied config from a UI observation of Connected.
 - Reuse diagnostic family grouping and existing relay types. Search is local/saveable; filtering or closing never changes selection.

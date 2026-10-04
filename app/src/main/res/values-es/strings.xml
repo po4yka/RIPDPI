@@ -639,7 +639,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="bottom_nav_config_maximum">Red</string>
     <string name="bottom_nav_diagnostics_maximum">Test</string>
     <string name="bottom_nav_settings_maximum">Ajustes</string>
-    <string name="diagnostics_action_raw">Ejecutar escaneo de ruta cruda</string>
+    <string name="diagnostics_action_raw">Analizar red directa</string>
     <string name="diagnostics_approaches_strategies">Estrategias</string>
     <string name="diagnostics_audit_candidate_open_hint">Toca un candidato para ver la evidencia por objetivo y los detalles de configuración.</string>
     <string name="diagnostics_audit_hide_full_matrix">Ocultar matriz completa</string>
@@ -1295,7 +1295,7 @@ fake_burst 3</string>
     <string name="diagnostics_probe_status_skipped">Omitido</string>
     <string name="diagnostics_profile_audit_ready_body">La última auditoría automática terminó con una matriz completa, evidencia por candidato y una recomendación manual.</string>
     <string name="diagnostics_profile_badge_consent">Consentimiento</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">Raw + en ruta</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">Red directa o conexión activa</string>
     <string name="diagnostics_profile_badge_ru_msg">RU MSG</string>
     <string name="diagnostics_profile_connectivity_body">Comprobación rápida de conectividad DNS, HTTP, HTTPS y TCP en la ruta actual.</string>
     <string name="diagnostics_profile_desc_network_full">Detección de inspección profunda de paquetes en varios servicios y protocolos.</string>
@@ -1315,7 +1315,7 @@ fake_burst 3</string>
     <string name="diagnostics_scan_automatic_probing">Sondeo automático</string>
     <string name="diagnostics_scan_launch_unknown">Diagnóstico guardado</string>
     <string name="diagnostics_scan_metadata_previous_fingerprint">Fingerprint anterior</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s es solo de ruta raw porque lanza pruebas temporales aisladas de estrategias.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s requiere un análisis directo de la red porque ejecuta pruebas aisladas temporales de estrategias.</string>
     <string name="diagnostics_scan_in_path_service_halted">Inicia el servicio RIPDPI antes de ejecutar diagnósticos en ruta.</string>
     <string name="diagnostics_scan_trigger_unknown">Disparador desconocido</string>
     <string name="diagnostics_search_placeholder">Buscar sesiones</string>
@@ -1797,8 +1797,8 @@ Origen: %2$s</string>
     <string name="diagnostics_probe_ready_title">Recomendación lista</string>
     <string name="diagnostics_probe_short_circuit_title">Recomendación del resolvedor lista</string>
     <string name="diagnostics_probe_unavailable_title">Sondeo automático no disponible</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI está ejecutando la matriz completa de estrategias integradas solo en la ruta sin procesar. La sesión actual de VPN o proxy se pausa y se restaura alrededor de la auditoría.</string>
-    <string name="diagnostics_profile_badge_raw_only">Solo ruta sin procesar</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI prueba la matriz completa de estrategias con candidatos temporales. El VPN o proxy activo se detiene; la restauración depende de la reanudación automática y puede fallar.</string>
+    <string name="diagnostics_profile_badge_raw_only">Solo red directa</string>
     <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
     <string name="diagnostics_profile_connectivity_running_body">Diagnósticos está validando la ruta seleccionada en este momento. Los últimos resultados de sondeo y el resumen de la sesión se actualizarán cuando finalice la ejecución.</string>
     <string name="diagnostics_profile_desc_throttling">Ventanas manuales de rendimiento contra puntos de control neutrales.</string>
@@ -1818,7 +1818,7 @@ Origen: %2$s</string>
     <string name="diagnostics_scan_blocked_setting_label">Ajuste bloqueado</string>
     <string name="diagnostics_scan_launch_user_initiated">Diagnóstico manual</string>
     <string name="diagnostics_scan_metadata_trigger">Disparador</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s inicia un entorno de ejecución temporal de RIPDPI en ruta sin procesar y devuelve una recomendación manual.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s prueba candidatos temporales de estrategias y devuelve una recomendación manual.</string>
     <string name="diagnostics_scan_vpn_permission_warning_body_format">Las recomendaciones de %1$s asumen enrutamiento VPN. Sin permiso VPN, la estrategia recomendada no se puede aplicar en modo VPN. Concede el permiso antes de ejecutar esta auditoría para obtener resultados accionables.</string>
     <string name="diagnostics_section_carrier">Operador</string>
     <string name="diagnostics_sensitive_hide">Ocultar detalles sensibles</string>
@@ -2371,7 +2371,7 @@ Origen: %2$s</string>
     <string name="detection_score_unchanged">Sin cambios</string>
     <string name="detection_stealth_score_a11y">Puntuación de sigilo %1$d</string>
     <string name="detection_stealth_score">Visibilidad</string>
-    <string name="diagnostics_action_in_path">Ejecutar escaneo en ruta</string>
+    <string name="diagnostics_action_in_path">Analizar conexión activa</string>
     <string name="diagnostics_approaches_profiles">Perfiles</string>
     <string name="diagnostics_attention_section">Lista de vigilancia</string>
     <string name="diagnostics_audit_confidence_title">Confianza de la auditoría</string>
