@@ -37,8 +37,10 @@ Implement the seven approved Mobbin research improvements as sequential, runnabl
 - One implementation sub-agent at a time owns the active feature slice in its own worktree; root never edits its production files concurrently.
 - Locale sets, persistence schemas, and golden fixtures have exactly one writer at a time.
 - Independent review agents are read-only. Heavy commands use build-gate and four workers/jobs maximum.
+- Root owns only the Xray acceptance fixture, instrumentation evidence and CI failure capture in the isolated network-ux-xray-evidence worktree while the implementation agent owns the configuration slice. This lane gates real provider acceptance without changing routing or test assertions.
 - Research source: docs/design/mobbin-network-ux-research-2026-10-04.md.
 
 ## Acceptance incident
 
 - 2026-10-04: Reopened scope step EPC-1791124243600668 after real API 37 device validation. Scope controls and explanations passed, but an active-VPN scan failed before session persistence with a generic start error. Local UI tests had not exercised the public error projection for unavailable route evidence. The recovery slice must preserve typed unavailable reasons and observe a real scan retry without weakening authenticated route eligibility. Positive active-path acceptance remains unverified.
+- 2026-10-04: Reopened metrics step EPC-1791124244103077 after real API 37 Home inspection showed nominal quality and zero RTT/jitter with zero samples. Health/detail fixtures and local tests did not exercise this Home projection. The correction must distinguish absent and partial measurements on Home and observe the real no-sample state.

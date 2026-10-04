@@ -71,7 +71,7 @@ func TestDirectSentinelReceiptsAreIndependent(t *testing.T) {
 	if count := readReceiptCount(t, client, control.URL+"/direct-receipts"); count != 0 {
 		t.Fatalf("unexpected initial direct receipts: %d", count)
 	}
-	response, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/direct", p.manifest.DirectPort))
+	response, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/before-tcp", p.manifest.DirectPort))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,6 +90,19 @@ func TestDirectSentinelReceiptsAreIndependent(t *testing.T) {
 	}
 	if count := readReceiptCount(t, client, control.URL+"/direct-receipts"); count != 1 {
 		t.Fatal("provider traffic changed direct receipts")
+	}
+	response, err = client.Get(control.URL + "/request-receipts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var requests []requestReceipt
+	if err := json.NewDecoder(response.Body).Decode(&requests); err != nil {
+		t.Fatal(err)
+	}
+	if len(requests) != 2 || requests[0].Target != "Direct" || requests[0].Label != "before-tcp" ||
+		requests[1].Target != "Provider" || requests[1].Sequence != 2 {
+		t.Fatalf("control must expose independent HTTP receipt origins: %+v", requests)
 	}
 }
 

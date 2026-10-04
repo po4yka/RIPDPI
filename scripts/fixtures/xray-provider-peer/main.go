@@ -51,6 +51,7 @@ type peer struct {
 	directCount  atomic.Int64
 	dnsCount     atomic.Int64
 	dnsLastQuery atomic.Value
+	requests     requestReceipts
 	closers      []io.Closer
 }
 
@@ -58,7 +59,7 @@ func startPeer(ctx context.Context) (*peer, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	p := &peer{}
+	p := &peer{requests: requestReceipts{startedAt: time.Now()}}
 	ready := false
 	defer func() {
 		if !ready {
@@ -89,8 +90,9 @@ func startPeer(ctx context.Context) (*peer, error) {
 		return nil, err
 	}
 	echo := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 			p.count.Add(1)
+			p.requests.record("Provider", request.URL.Path)
 			w.Header().Set("Connection", "close")
 			_, _ = io.WriteString(w, "xray-owned-echo\n")
 		}),
@@ -103,8 +105,9 @@ func startPeer(ctx context.Context) (*peer, error) {
 		return nil, err
 	}
 	direct := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 			p.directCount.Add(1)
+			p.requests.record("Direct", request.URL.Path)
 			w.Header().Set("Connection", "close")
 			_, _ = io.WriteString(w, "xray-direct-sentinel\n")
 		}),
@@ -317,6 +320,9 @@ func (p *peer) controlHandler() http.Handler {
 	mux.HandleFunc("GET /dns-receipts", func(w http.ResponseWriter, _ *http.Request) {
 		lastQuery, _ := p.dnsLastQuery.Load().(string)
 		_ = json.NewEncoder(w).Encode(map[string]any{"count": p.dnsCount.Load(), "lastQuery": lastQuery})
+	})
+	mux.HandleFunc("GET /request-receipts", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(p.requests.snapshot())
 	})
 	return mux
 }

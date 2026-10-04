@@ -2429,16 +2429,45 @@ jobs:
           set -euo pipefail
           evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/xray-provider"
           mkdir -p "$evidence_dir"
+          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
           "$RUNNER_TEMP/xray-provider-peer" --ready-file "$evidence_dir/peer-ready.json" > "$evidence_dir/peer.log" 2>&1 &
           peer_pid=$!
-          trap 'kill "$peer_pid" 2>/dev/null || true; wait "$peer_pid" || true' EXIT
+          fixture_port=""
+          capture_xray_evidence() {
+            local failed=0
+            if [ -n "$fixture_port" ]; then
+              for receipt in receipts direct-receipts dns-receipts request-receipts; do
+                local receipt_path="$evidence_dir/$receipt.json"
+                if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 \
+                  "http://127.0.0.1:$fixture_port/$receipt" > "$receipt_path.tmp"; then
+                  mv "$receipt_path.tmp" "$receipt_path" || failed=1
+                else
+                  rm -f "$receipt_path.tmp"
+                  failed=1
+                fi
+              done
+            fi
+            local results=app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
+            if [ -d "$results" ]; then
+              cp -R "$results/." "$evidence_dir/" || failed=1
+            fi
+            return "$failed"
+          }
+          cleanup_xray_peer() {
+            local result=$?
+            set +e
+            capture_xray_evidence
+            kill "$peer_pid" 2>/dev/null
+            wait "$peer_pid"
+            exit "$result"
+          }
+          trap cleanup_xray_peer EXIT
           for _ in $(seq 1 30); do
             if test -s "$evidence_dir/peer-ready.json"; then break; fi
             kill -0 "$peer_pid"
             sleep 1
           done
           fixture_port="$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1]))["controlPort"]; assert isinstance(p,int) and 0<p<65536; print(p)' "$evidence_dir/peer-ready.json")"
-          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
           python3 scripts/ci/prebuilt_android_instrumentation.py run \
             --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
             --variant githubFullDebug --api ${{ matrix.api }} \
@@ -2451,10 +2480,7 @@ jobs:
               --require-test "com.poyka.ripdpi.e2e.XrayProviderE2ETest#$method" \
               --expected-count 1 --expected-total-count 2 --forbid-skips
           done
-          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/receipts" > "$evidence_dir/receipts.json"
-          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/direct-receipts" > "$evidence_dir/direct-receipts.json"
-          curl --fail --silent --show-error "http://127.0.0.1:$fixture_port/dns-receipts" > "$evidence_dir/dns-receipts.json"
-          cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
+          capture_xray_evidence
 
       - name: Capture Android instrumented-test emulator diagnostics
         timeout-minutes: 3
