@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.LatencyDistributions
 import com.poyka.ripdpi.data.LatencyPercentiles
 import com.poyka.ripdpi.service.telemetry.DnsCounterSnapshot
+import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsights
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryInsightsRepository
 import com.poyka.ripdpi.services.ConnectionHealthBucket
 import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
+import com.poyka.ripdpi.services.ConnectionHealthObservationPolicy
 import com.poyka.ripdpi.services.ConnectionHealthRepository
 import com.poyka.ripdpi.services.ConnectionHealthSnapshot
+import com.poyka.ripdpi.services.hasObservedMeasurements
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -27,14 +30,25 @@ data class ConnectionHealthUiState(
             .map { destinationClass ->
                 ConnectionHealthRowUiState(destinationClass = destinationClass)
             }.toImmutableList(),
-    val qualityLossPercent: Int? = null,
+    val qualityLossPercent: Float? = null,
     val qualityRttP50Ms: Long? = null,
+    val qualityRttP95Ms: Long? = null,
+    val qualityJitterMs: Long? = null,
+    val qualitySampleCount: Long? = null,
+    val qualityWindowStartAtMs: Long? = null,
+    val qualitySource: RuntimeMeasurementSource? = null,
+    val latencySource: RuntimeMeasurementSource? = null,
+    val dnsSource: RuntimeMeasurementSource? = null,
+    val observationWindowMillis: Long = ConnectionHealthObservationPolicy.WindowMillis,
+    val observationLimit: Int = ConnectionHealthObservationPolicy.Limit,
     val latencyDistributions: ImmutableList<LatencyDistributionUiState> = persistentListOf(),
     val dnsCounters: DnsCountersUiState? = null,
     val observedAt: Long = 0L,
 ) {
     val hasData: Boolean
-        get() = rows.any { it.totalCount > 0L }
+        get() =
+            rows.any { it.totalCount > 0L } || qualityLossPercent != null || qualityRttP50Ms != null ||
+                hasRuntimeTelemetry
 
     val hasRuntimeTelemetry: Boolean
         get() = latencyDistributions.isNotEmpty() || dnsCounters != null
@@ -108,15 +122,26 @@ class ConnectionHealthViewModel
 private fun toUiState(
     snapshot: ConnectionHealthSnapshot,
     insights: RuntimeTelemetryInsights,
-): ConnectionHealthUiState =
-    ConnectionHealthUiState(
+): ConnectionHealthUiState {
+    val quality = snapshot.quality?.takeIf { it.hasObservedMeasurements() }
+    return ConnectionHealthUiState(
         rows = snapshot.buckets.map(ConnectionHealthBucket::toRowUiState).toImmutableList(),
-        qualityLossPercent = snapshot.quality?.lossPct?.toInt(),
-        qualityRttP50Ms = snapshot.quality?.rttP50Ms,
+        qualityLossPercent = quality?.lossPct,
+        qualityRttP50Ms = quality?.takeIf { it.sampleCount > 0L }?.rttP50Ms,
+        qualityRttP95Ms = quality?.takeIf { it.sampleCount > 0L }?.rttP95Ms,
+        qualityJitterMs = quality?.takeIf { it.sampleCount > 0L }?.jitterMs,
+        qualitySampleCount = quality?.sampleCount,
+        qualityWindowStartAtMs = quality?.windowStartAtMs?.takeIf { it > 0L },
+        qualitySource = snapshot.qualitySource,
+        latencySource = insights.latencySource,
+        dnsSource = insights.dnsSource,
+        observationWindowMillis = snapshot.observationWindowMillis,
+        observationLimit = snapshot.observationLimit,
         latencyDistributions = insights.latencyDistributions.toUiStates().toImmutableList(),
-        dnsCounters = insights.dnsCounters?.toUiState(),
+        dnsCounters = insights.dnsCounters?.takeIf { it.hasData }?.toUiState(),
         observedAt = snapshot.observedAt,
     )
+}
 
 private fun LatencyDistributions?.toUiStates(): List<LatencyDistributionUiState> {
     if (this == null) return emptyList()

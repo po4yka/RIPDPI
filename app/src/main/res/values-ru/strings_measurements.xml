@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50: %1$d мс.</string>
+    <string name="measurement_quality_meaning">RTT — время туда и обратно; джиттер — его изменение. Потери оцениваются по ошибкам соединения и повторным передачам, а не по сбоям отдельных сайтов.</string>
+    <string name="measurement_quality_samples">%1$d образцов RTT · джиттер %2$s мс</string>
+    <string name="measurement_quality_window">Начало окна качества: %1$s</string>
+    <string name="measurement_window_unknown">Начало окна качества неизвестно</string>
+    <string name="measurement_observation_scope">События адресатов: окно %1$d мин до %3$s, не более %2$d событий. Учитываются только реальные сигналы прямого пути.</string>
+    <string name="measurement_runtime_scope">Накоплено за время работы этого нативного модуля; время первого образца неизвестно.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: 50/95/99% задержек не превышают эти приблизительные значения в миллисекундах.</string>
+    <string name="measurement_snapshot">Снимок: %1$s</string>
+    <string name="measurement_source">Источник: %1$s</string>
+    <string name="measurement_current">Актуальный снимок</string>
+    <string name="measurement_stopped">Сервис остановлен</string>
+    <string name="measurement_error">Ошибка телеметрии</string>
+    <string name="measurement_unknown">Актуальность неизвестна</string>
+    <string name="measurement_stale">Обновления задерживаются</string>
+    <string name="measurement_loaded_view">Число в загруженном представлении истории</string>
+    <string name="measurement_byte_total">Переданные байты, а не скорость передачи</string>
+    <string name="measurement_counter_total">Накопительный счётчик модуля</string>
+    <string name="measurement_rtt_band">Категория RTT, а не измеренный процентиль</string>
+    <string name="measurement_dns_last">Последняя опубликованная задержка DNS; измерение может быть старше снимка</string>
+    <string name="measurement_proxy">Прокси</string>
+    <string name="measurement_tunnel">Туннель</string>
+    <string name="measurement_quality_p95">RTT p95: %1$d мс.</string>
+    <string name="measurement_session_total">Сохранённый итог соединения</string>
+</resources>

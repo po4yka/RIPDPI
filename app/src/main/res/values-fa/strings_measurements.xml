@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50: %1$d میلی‌ثانیه.</string>
+    <string name="measurement_quality_meaning">RTT زمان رفت‌وبرگشت و جیتر تغییر آن است. اتلاف از خطاهای اتصال و ارسال مجدد برآورد می‌شود، نه نرخ خطای هر سایت.</string>
+    <string name="measurement_quality_samples">%1$d نمونهٔ RTT · جیتر %2$s میلی‌ثانیه</string>
+    <string name="measurement_quality_window">آغاز پنجرهٔ کیفیت: %1$s</string>
+    <string name="measurement_window_unknown">آغاز پنجرهٔ کیفیت مشخص نیست</string>
+    <string name="measurement_observation_scope">رویدادهای مقصد: پنجرهٔ %1$d دقیقه تا %3$s، حداکثر %2$d رویداد. فقط سیگنال‌های مشاهده‌شدهٔ مسیر مستقیم شمرده می‌شوند.</string>
+    <string name="measurement_runtime_scope">دادهٔ انباشته در این اجرای بومی؛ زمان نخستین نمونه مشخص نیست.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: 50/95/99% تأخیرها از این مقادیر تقریبی به میلی‌ثانیه بیشتر نیستند.</string>
+    <string name="measurement_snapshot">تصویر لحظه‌ای: %1$s</string>
+    <string name="measurement_source">منبع: %1$s</string>
+    <string name="measurement_current">تصویر لحظه‌ای جاری</string>
+    <string name="measurement_stopped">سرویس متوقف است</string>
+    <string name="measurement_error">خطای تله‌متری</string>
+    <string name="measurement_unknown">تازگی نامشخص</string>
+    <string name="measurement_stale">به‌روزرسانی با تأخیر</string>
+    <string name="measurement_loaded_view">تعداد در نمای تاریخچهٔ بارگیری‌شده</string>
+    <string name="measurement_byte_total">بایت‌های منتقل‌شده، نه نرخ انتقال</string>
+    <string name="measurement_counter_total">شمارندهٔ انباشتهٔ اجرا</string>
+    <string name="measurement_rtt_band">بازهٔ کیفی RTT، نه صدک اندازه‌گیری‌شده</string>
+    <string name="measurement_dns_last">آخرین تأخیر DNS منتشرشده؛ اندازه‌گیری ممکن است قدیمی‌تر از تصویر باشد</string>
+    <string name="measurement_proxy">پراکسی</string>
+    <string name="measurement_tunnel">تونل</string>
+    <string name="measurement_quality_p95">RTT p95: %1$d میلی‌ثانیه.</string>
+    <string name="measurement_session_total">مجموع ثبت‌شدهٔ اتصال</string>
+</resources>

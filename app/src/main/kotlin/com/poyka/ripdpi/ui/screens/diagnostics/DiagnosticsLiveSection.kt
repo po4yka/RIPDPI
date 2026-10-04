@@ -24,6 +24,7 @@ import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -35,7 +36,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 private const val liveHighlightsMaxCount = 4
 
@@ -45,7 +45,7 @@ private const val liveHighlightsMaxCount = 4
  * only meaningfully viewed in the foreground, so this is the "active poll
  * interval" the stale badge gates against (badge shows past 2× = 2 s).
  */
-private val LiveTelemetryActivePollInterval = 1.seconds
+private val LiveTelemetryActivePollInterval = RuntimeTelemetrySamplingPolicy.BackgroundIntervalMillis.milliseconds
 private const val StaleBadgeTickMs = 1_000L
 
 private const val HighlightCardHorizontalPaddingDp = 14
@@ -217,7 +217,12 @@ private fun FreshnessIndicator(live: DiagnosticsLiveUiModel) {
         }
     }
     val tier =
-        timestamp?.let { liveStaleBadgeTier(ageMs.milliseconds, LiveTelemetryActivePollInterval) }
+        timestamp
+            ?.takeIf { live.freshnessUnavailableLabel == null }
+            ?.let { liveStaleBadgeTier(ageMs.milliseconds, LiveTelemetryActivePollInterval) }
+    live.freshnessUnavailableLabel?.let { label ->
+        Text(text = label, style = RipDpiThemeTokens.type.caption, color = RipDpiThemeTokens.colors.mutedForeground)
+    }
     if (tier != null) {
         RipDpiStaleDataBadge(label = live.freshnessLabel, tier = tier)
     } else {
@@ -283,6 +288,7 @@ internal fun LiveHighlightCard(
                 style = RipDpiThemeTokens.type.monoValue,
                 color = contentColor,
             )
+            MetricMeasurementContext(metric, contentColor)
         }
     }
 }

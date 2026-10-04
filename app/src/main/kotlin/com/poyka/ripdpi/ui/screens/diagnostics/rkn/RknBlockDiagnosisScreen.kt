@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.screens.diagnostics.MetricMeasurementContext
 import com.poyka.ripdpi.ui.screens.diagnostics.statusTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
@@ -135,10 +136,13 @@ private fun RknMetricsRow(metrics: List<DiagnosticsMetricUiModel>) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         metrics.forEach { metric ->
-            StatusIndicator(
-                label = "${metric.label}: ${metric.value}",
-                tone = statusTone(metric.tone),
-            )
+            Column {
+                StatusIndicator(
+                    label = "${metric.label}: ${metric.value}",
+                    tone = statusTone(metric.tone),
+                )
+                MetricMeasurementContext(metric, RipDpiThemeTokens.colors.mutedForeground)
+            }
         }
     }
 }

@@ -42,10 +42,10 @@
     <string name="title_connection_health">صحة الاتصال</string>
     <string name="title_subscription_failover">خوادم الاشتراك</string>
     <string name="connection_health_open_action">فتح صحة الاتصال</string>
-    <string name="connection_health_summary_title">هل تنجح الاستراتيجية الحالية الآن؟</string>
-    <string name="connection_health_quality_format">جودة الوكيل: فقدان %1$d%%، p50 %2$d ms.</string>
-    <string name="connection_health_quality_loss_format">جودة الوكيل: فقدان %1$d%%.</string>
-    <string name="connection_health_quality_waiting">بانتظار عينات جودة الوكيل الحية.</string>
+    <string name="connection_health_summary_title">قياسات الاتصال</string>
+    <string name="connection_health_quality_format">الخسارة المقدرة: %1$s%% · RTT p50 %2$d مللي ثانية.</string>
+    <string name="connection_health_quality_loss_format">الخسارة المقدرة: %1$s%%.</string>
+    <string name="connection_health_quality_waiting">بانتظار قياسات الجودة.</string>
     <string name="connection_health_empty_title">بانتظار حركة مصنفة</string>
     <string name="connection_health_empty_body">تظهر المعدلات بعد رؤية وجهات VK أو YouTube أو Telegram أو TLS عام في الجلسة النشطة.</string>
     <string name="subscription_failover_summary_title">حالة الخوادم المباشرة</string>

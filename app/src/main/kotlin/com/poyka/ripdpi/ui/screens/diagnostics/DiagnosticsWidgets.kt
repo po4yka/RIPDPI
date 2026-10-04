@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
@@ -197,6 +198,7 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
                 style = RipDpiThemeTokens.type.monoValue,
                 color = contentColor,
             )
+            MetricMeasurementContext(metric, contentColor)
         }
     }
 }
@@ -261,6 +263,7 @@ private fun OverviewStatTile(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            MetricMeasurementContext(metric, contentColor)
         }
     }
 }
@@ -853,3 +856,18 @@ private fun Modifier.stateDescription(
     semantics {
         stateDescription = if (expanded) expandedLabel else collapsedLabel
     }
+
+@Composable
+internal fun MetricMeasurementContext(
+    metric: DiagnosticsMetricUiModel,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    listOfNotNull(metric.explanation, metric.scopeLabel).forEach { text ->
+        Text(
+            text = text,
+            modifier = Modifier.widthIn(max = 240.dp),
+            style = RipDpiThemeTokens.type.caption,
+            color = color.copy(alpha = 0.75f),
+        )
+    }
+}

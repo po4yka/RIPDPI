@@ -51,7 +51,7 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
                 ),
             )
         }
-    }
+    }.map { describeMeasurementMetric(it, currentTelemetry) }
 
 internal fun DiagnosticsUiFactorySupport.buildLiveMetrics(
     telemetry: DiagnosticTelemetrySample?,
@@ -157,7 +157,7 @@ internal fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
         telemetry.nativeHeapBytes?.takeIf { it > 0 }?.let { heap ->
             addInfoMetric(R.string.diagnostics_metric_native_heap, formatBytes(heap))
         }
-    }
+    }.map { describeMeasurementMetric(it, telemetry) }
 }
 
 internal fun DiagnosticTelemetrySample.telemetryErrorSummary(): String? =

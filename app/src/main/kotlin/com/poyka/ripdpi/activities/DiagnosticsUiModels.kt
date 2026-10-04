@@ -329,6 +329,8 @@ data class DiagnosticsMetricUiModel(
     val label: String,
     val value: String,
     val tone: DiagnosticsTone = DiagnosticsTone.Neutral,
+    val explanation: String? = null,
+    val scopeLabel: String? = null,
 )
 
 @Immutable
@@ -801,6 +803,7 @@ data class DiagnosticsLiveUiModel(
      * the formatted [freshnessLabel] because staleness needs the raw age.
      */
     val currentTelemetryTimestampMs: Long? = null,
+    val freshnessUnavailableLabel: String? = null,
     val headline: String = "",
     val body: String = "",
     val networkLabel: String? = null,

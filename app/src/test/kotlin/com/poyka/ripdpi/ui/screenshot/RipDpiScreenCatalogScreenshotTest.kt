@@ -243,31 +243,33 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
-    fun connectionHealthScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
-            RipDpiTheme {
-                ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
+    fun connectionHealthScreen() =
+        withUtcScreenshotTime {
+            captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
+                RipDpiTheme {
+                    ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
+                }
             }
         }
-    }
 
     @Test
-    fun connectionHealthMaximumFontScreen() {
-        val previewState = previewConnectionHealthUiState()
-        captureRipDpiScreenshot(widthDp = 411, heightDp = 891, fontScale = 2f) {
-            RipDpiTheme {
-                ConnectionHealthScreen(
-                    uiState =
-                        previewState.copy(
-                            rows = persistentListOf(previewState.rows.first()),
-                            latencyDistributions = persistentListOf(),
-                            dnsCounters = null,
-                        ),
-                    onBack = {},
-                )
+    fun connectionHealthMaximumFontScreen() =
+        withUtcScreenshotTime {
+            val previewState = previewConnectionHealthUiState()
+            captureRipDpiScreenshot(widthDp = 411, heightDp = 891, fontScale = 2f) {
+                RipDpiTheme {
+                    ConnectionHealthScreen(
+                        uiState =
+                            previewState.copy(
+                                rows = persistentListOf(previewState.rows.first()),
+                                latencyDistributions = persistentListOf(),
+                                dnsCounters = null,
+                            ),
+                        onBack = {},
+                    )
+                }
             }
         }
-    }
 
     @Test
     fun subscriptionFailoverScreen() {

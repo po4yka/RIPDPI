@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">p50 RTT: %1$d ms.</string>
+    <string name="measurement_quality_meaning">RTT is round-trip time; jitter is its variation. Loss is an estimate from connection failures and retransmissions, not a per-site failure rate.</string>
+    <string name="measurement_quality_samples">%1$d RTT samples · jitter %2$s ms</string>
+    <string name="measurement_quality_window">Quality window starts %1$s</string>
+    <string name="measurement_window_unknown">Quality window start unavailable</string>
+    <string name="measurement_observation_scope">Destination events: %1$d min window ending %3$s, at most %2$d events. Only observed direct-path signals are counted.</string>
+    <string name="measurement_runtime_scope">Cumulative for this native runtime; the first sample time is unavailable.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: 50/95/99% of sampled latencies fall at or below these approximate values in milliseconds.</string>
+    <string name="measurement_snapshot">Snapshot: %1$s</string>
+    <string name="measurement_source">Source: %1$s</string>
+    <string name="measurement_current">Current snapshot</string>
+    <string name="measurement_stopped">Service stopped</string>
+    <string name="measurement_error">Telemetry error</string>
+    <string name="measurement_unknown">Freshness unknown</string>
+    <string name="measurement_stale">Updates delayed</string>
+    <string name="measurement_loaded_view">Count in the loaded history view</string>
+    <string name="measurement_byte_total">Transferred bytes, not a transfer rate</string>
+    <string name="measurement_counter_total">Cumulative runtime counter</string>
+    <string name="measurement_rtt_band">Qualitative RTT range, not a measured percentile</string>
+    <string name="measurement_dns_last">Last published DNS latency; this snapshot may contain an earlier measurement</string>
+    <string name="measurement_proxy">Proxy</string>
+    <string name="measurement_tunnel">Tunnel</string>
+    <string name="measurement_quality_p95">p95 RTT: %1$d ms.</string>
+    <string name="measurement_session_total">Recorded connection total</string>
+</resources>

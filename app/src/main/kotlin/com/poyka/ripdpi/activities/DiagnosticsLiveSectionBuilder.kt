@@ -42,6 +42,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         // ~decades-long age and render Expired on a fresh session — coerce it to null
         // so FreshnessIndicator falls back to the plain label instead.
         currentTelemetryTimestampMs = currentTelemetry?.createdAt?.takeIf { it > 0L },
+        freshnessUnavailableLabel = liveUnavailableLabel(currentTelemetry),
         headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
         body = buildLiveBody(currentTelemetry, nativeEvents),
         networkLabel = currentTelemetry?.networkType ?: activeConnectionSession?.networkType,
@@ -55,4 +56,37 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty().toImmutableList(),
         passiveEvents = nativeEvents.take(MaxPassiveEvents).map(::toEventUiModel).toImmutableList(),
     )
+}
+
+internal fun DiagnosticsUiFactorySupport.liveUnavailableLabel(sample: DiagnosticTelemetrySample?): String? {
+    val resource =
+        when {
+            sample?.telemetryErrorSummary() != null -> {
+                R.string.measurement_error
+            }
+
+            sample?.connectionState in setOf("Halted", "Stopped", "Failed") -> {
+                R.string.measurement_stopped
+            }
+
+            sample == null || sample.createdAt <= 0L || sample.connectionState != "Running" -> {
+                R.string.measurement_unknown
+            }
+
+            listOf(
+                sample.proxyTelemetryState,
+                sample.tunnelTelemetryState,
+                sample.relayTelemetryState,
+                sample.warpTelemetryState,
+            ).none {
+                it == com.poyka.ripdpi.data.RuntimeTelemetryState.Snapshot.wireValue
+            } -> {
+                R.string.measurement_unknown
+            }
+
+            else -> {
+                return null
+            }
+        }
+    return context.getString(resource)
 }

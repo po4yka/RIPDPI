@@ -30,10 +30,12 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.collections.immutable.toImmutableList
+import java.text.NumberFormat
 
 private const val AccessibilityMetricFontScale = 1.5f
 private const val AccessibilityMetricColumns = 2
+private const val MillisPerMinute = 60_000L
+private const val LossFractionDigits = 9
 
 @Composable
 fun ConnectionHealthRoute(
@@ -63,11 +65,20 @@ fun ConnectionHealthScreen(
     ) {
         ConnectionHealthSummary(uiState)
         if (uiState.latencyDistributions.isNotEmpty()) {
-            LatencyDistributionsCard(distributions = uiState.latencyDistributions)
+            LatencyDistributionsCard(distributions = uiState.latencyDistributions, source = uiState.latencySource)
         }
         uiState.dnsCounters?.let { counters ->
-            DnsCountersCard(counters = counters)
+            DnsCountersCard(counters = counters, source = uiState.dnsSource)
         }
+        MeasurementCaption(
+            stringResource(
+                R.string.measurement_observation_scope,
+                uiState.observationWindowMillis / MillisPerMinute,
+                uiState.observationLimit,
+                uiState.observedAt.takeIf { it > 0L }?.let { measurementTimestamp(it) }
+                    ?: stringResource(R.string.diagnostics_field_unknown),
+            ),
+        )
         uiState.rows.forEach { row ->
             ConnectionHealthRow(row = row)
         }
@@ -82,18 +93,30 @@ fun ConnectionHealthScreen(
 
 @Composable
 private fun ConnectionHealthSummary(uiState: ConnectionHealthUiState) {
+    val loss =
+        uiState.qualityLossPercent?.let {
+            NumberFormat
+                .getNumberInstance(LocalLocale.current.platformLocale)
+                .apply {
+                    maximumFractionDigits = LossFractionDigits
+                }.format(it.toString().toBigDecimal())
+        }
     val qualityLine =
         when {
             uiState.qualityLossPercent != null && uiState.qualityRttP50Ms != null -> {
                 stringResource(
                     R.string.connection_health_quality_format,
-                    uiState.qualityLossPercent,
+                    loss ?: "—",
                     uiState.qualityRttP50Ms,
                 )
             }
 
             uiState.qualityLossPercent != null -> {
-                stringResource(R.string.connection_health_quality_loss_format, uiState.qualityLossPercent)
+                stringResource(R.string.connection_health_quality_loss_format, loss ?: "—")
+            }
+
+            uiState.qualityRttP50Ms != null -> {
+                stringResource(R.string.measurement_quality_rtt, uiState.qualityRttP50Ms)
             }
 
             else -> {
@@ -111,6 +134,25 @@ private fun ConnectionHealthSummary(uiState: ConnectionHealthUiState) {
             style = RipDpiThemeTokens.type.body,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
+        if (uiState.qualitySampleCount != null) {
+            MeasurementCaption(stringResource(R.string.measurement_quality_meaning))
+            MeasurementCaption(
+                stringResource(
+                    R.string.measurement_quality_samples,
+                    uiState.qualitySampleCount,
+                    uiState.qualityJitterMs?.toString() ?: "—",
+                ),
+            )
+            MeasurementCaption(
+                uiState.qualityWindowStartAtMs?.let {
+                    stringResource(R.string.measurement_quality_window, measurementTimestamp(it))
+                } ?: stringResource(R.string.measurement_window_unknown),
+            )
+            uiState.qualityRttP95Ms?.let {
+                MeasurementCaption(stringResource(R.string.measurement_quality_p95, it))
+            }
+            MeasurementSource(uiState.qualitySource)
+        }
     }
 }
 
@@ -236,7 +278,10 @@ private fun ConnectionHealthDestinationClass.label(): String =
     }
 
 @Composable
-private fun LatencyDistributionsCard(distributions: List<LatencyDistributionUiState>) {
+private fun LatencyDistributionsCard(
+    distributions: List<LatencyDistributionUiState>,
+    source: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource?,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
@@ -250,6 +295,9 @@ private fun LatencyDistributionsCard(distributions: List<LatencyDistributionUiSt
             style = RipDpiThemeTokens.type.caption,
             color = colors.mutedForeground,
         )
+        MeasurementCaption(stringResource(R.string.measurement_percentiles_meaning))
+        MeasurementCaption(stringResource(R.string.measurement_runtime_scope))
+        MeasurementSource(source)
         distributions.forEach { distribution ->
             Column(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
@@ -311,7 +359,10 @@ private fun PercentileBar(
 }
 
 @Composable
-private fun DnsCountersCard(counters: DnsCountersUiState) {
+private fun DnsCountersCard(
+    counters: DnsCountersUiState,
+    source: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource?,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
@@ -320,6 +371,8 @@ private fun DnsCountersCard(counters: DnsCountersUiState) {
             style = RipDpiThemeTokens.type.sectionTitle,
             color = colors.foreground,
         )
+        MeasurementCaption(stringResource(R.string.measurement_runtime_scope))
+        MeasurementSource(source)
         counters.cacheHitRatePercent?.let { rate ->
             Text(
                 text = stringResource(R.string.connection_health_dns_hit_rate_format, rate),
@@ -359,78 +412,3 @@ private fun ConnectionHealthScreenPreview() {
         ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
     }
 }
-
-fun previewConnectionHealthUiState(): ConnectionHealthUiState =
-    ConnectionHealthUiState(
-        rows =
-            listOf(
-                ConnectionHealthRowUiState(
-                    destinationClass = ConnectionHealthDestinationClass.VK,
-                    activeStrategy = "tcp:split2+hostfake",
-                    successCount = 18,
-                    failureCount = 2,
-                    attributedCount = 12,
-                ),
-                ConnectionHealthRowUiState(
-                    destinationClass = ConnectionHealthDestinationClass.YOUTUBE,
-                    activeStrategy = "quic:sni_split",
-                    successCount = 9,
-                    failureCount = 6,
-                    attributedCount = 7,
-                ),
-                ConnectionHealthRowUiState(
-                    destinationClass = ConnectionHealthDestinationClass.TELEGRAM,
-                    activeStrategy = "telegram_ws_cover",
-                    successCount = 21,
-                    failureCount = 0,
-                    attributedCount = 13,
-                ),
-                ConnectionHealthRowUiState(
-                    destinationClass = ConnectionHealthDestinationClass.GENERIC_TLS,
-                    activeStrategy = "tcp:record_split",
-                    successCount = 11,
-                    failureCount = 4,
-                    attributedCount = 5,
-                ),
-            ).toImmutableList(),
-        qualityLossPercent = 8,
-        qualityRttP50Ms = 61,
-        latencyDistributions =
-            listOf(
-                LatencyDistributionUiState(
-                    kind = LatencyDistributionKind.DnsResolution,
-                    p50Ms = 18,
-                    p95Ms = 44,
-                    p99Ms = 91,
-                    minMs = 6,
-                    maxMs = 102,
-                    count = 312,
-                ),
-                LatencyDistributionUiState(
-                    kind = LatencyDistributionKind.TcpConnect,
-                    p50Ms = 52,
-                    p95Ms = 140,
-                    p99Ms = 220,
-                    minMs = 31,
-                    maxMs = 240,
-                    count = 188,
-                ),
-                LatencyDistributionUiState(
-                    kind = LatencyDistributionKind.TlsHandshake,
-                    p50Ms = 96,
-                    p95Ms = 260,
-                    p99Ms = 410,
-                    minMs = 60,
-                    maxMs = 430,
-                    count = 174,
-                ),
-            ).toImmutableList(),
-        dnsCounters =
-            DnsCountersUiState(
-                queriesTotal = 1_204,
-                cacheHits = 938,
-                cacheMisses = 266,
-                failuresTotal = 12,
-            ),
-        observedAt = 1_000L,
-    )

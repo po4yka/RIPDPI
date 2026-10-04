@@ -86,6 +86,11 @@ internal fun MetricList(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
                     RipDpiTelemetryEntry(
                         label = metric.label,
                         value = metric.value,
+                        supporting =
+                            listOfNotNull(
+                                metric.explanation,
+                                metric.scopeLabel,
+                            ).joinToString(" · ").ifEmpty { null },
                         monospaceValue = metric.value.length > 18,
                     )
                 }.toImmutableList()

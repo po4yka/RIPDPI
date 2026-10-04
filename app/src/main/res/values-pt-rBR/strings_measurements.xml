@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50: %1$d ms.</string>
+    <string name="measurement_quality_meaning">RTT é o tempo de ida e volta; jitter é sua variação. A perda é estimada por falhas de conexão e retransmissões, não por site.</string>
+    <string name="measurement_quality_samples">%1$d amostras RTT · jitter %2$s ms</string>
+    <string name="measurement_quality_window">Início da janela de qualidade: %1$s</string>
+    <string name="measurement_window_unknown">Início da janela de qualidade indisponível</string>
+    <string name="measurement_observation_scope">Eventos por destino: janela de %1$d min até %3$s, até %2$d eventos. Apenas sinais observados do caminho direto são contados.</string>
+    <string name="measurement_runtime_scope">Acumulado nesta execução nativa; o horário da primeira amostra é desconhecido.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: 50/95/99% das latências não excedem esses valores aproximados em milissegundos.</string>
+    <string name="measurement_snapshot">Instantâneo: %1$s</string>
+    <string name="measurement_source">Origem: %1$s</string>
+    <string name="measurement_current">Instantâneo atual</string>
+    <string name="measurement_stopped">Serviço parado</string>
+    <string name="measurement_error">Erro de telemetria</string>
+    <string name="measurement_unknown">Atualidade desconhecida</string>
+    <string name="measurement_stale">Atualizações atrasadas</string>
+    <string name="measurement_loaded_view">Contagem na visualização de histórico carregada</string>
+    <string name="measurement_byte_total">Bytes transferidos, não taxa de transferência</string>
+    <string name="measurement_counter_total">Contador acumulado do motor</string>
+    <string name="measurement_rtt_band">Faixa qualitativa de RTT, não percentil medido</string>
+    <string name="measurement_dns_last">Última latência DNS publicada; a medição pode ser anterior ao instantâneo</string>
+    <string name="measurement_proxy">Proxy</string>
+    <string name="measurement_tunnel">Túnel</string>
+    <string name="measurement_quality_p95">RTT p95: %1$d ms.</string>
+    <string name="measurement_session_total">Total de conexão registrado</string>
+</resources>

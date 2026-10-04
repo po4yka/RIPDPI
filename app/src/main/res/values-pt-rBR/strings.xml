@@ -42,10 +42,10 @@
     <string name="title_connection_health">Saúde da conexão</string>
     <string name="title_subscription_failover">Servidores de assinatura</string>
     <string name="connection_health_open_action">Abrir saúde da conexão</string>
-    <string name="connection_health_summary_title">A estratégia atual está furando o bloqueio?</string>
-    <string name="connection_health_quality_format">Qualidade do proxy em tempo real: %1$d%% de perda, p50 %2$d ms.</string>
-    <string name="connection_health_quality_loss_format">Qualidade do proxy em tempo real: %1$d%% de perda.</string>
-    <string name="connection_health_quality_waiting">Aguardando amostras de qualidade do proxy em tempo real.</string>
+    <string name="connection_health_summary_title">Medições de conexão</string>
+    <string name="connection_health_quality_format">Perda estimada: %1$s%% · RTT p50 %2$d ms.</string>
+    <string name="connection_health_quality_loss_format">Perda estimada: %1$s%%.</string>
+    <string name="connection_health_quality_waiting">Aguardando medições de qualidade.</string>
     <string name="connection_health_empty_title">Aguardando tráfego classificado</string>
     <string name="connection_health_empty_body">As taxas aparecem depois que o RIPDPI vê destinos VK, YouTube, Telegram ou TLS genérico na sessão ativa.</string>
     <string name="subscription_failover_summary_title">Status do servidor em tempo real</string>

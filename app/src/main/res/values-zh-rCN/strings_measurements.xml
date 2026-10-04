@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50：%1$d 毫秒。</string>
+    <string name="measurement_quality_meaning">RTT 是往返时间，抖动是其变化。丢失率根据连接失败和重传估算，并非各网站的失败率。</string>
+    <string name="measurement_quality_samples">%1$d 个 RTT 样本 · 抖动 %2$s 毫秒</string>
+    <string name="measurement_quality_window">质量窗口起始时间：%1$s</string>
+    <string name="measurement_window_unknown">质量窗口起始时间未知</string>
+    <string name="measurement_observation_scope">目标事件：截至 %3$s 的 %1$d 分钟窗口，最多 %2$d 个事件。仅统计实际观察到的直连路径信号。</string>
+    <string name="measurement_runtime_scope">此原生运行期间的累计数据；首个样本时间未知。</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99：50/95/99% 的延迟不高于这些近似值，单位为毫秒。</string>
+    <string name="measurement_snapshot">快照：%1$s</string>
+    <string name="measurement_source">来源：%1$s</string>
+    <string name="measurement_current">当前快照</string>
+    <string name="measurement_stopped">服务已停止</string>
+    <string name="measurement_error">遥测错误</string>
+    <string name="measurement_unknown">时效未知</string>
+    <string name="measurement_stale">更新延迟</string>
+    <string name="measurement_loaded_view">已加载历史视图中的数量</string>
+    <string name="measurement_byte_total">已传输字节数，并非传输速率</string>
+    <string name="measurement_counter_total">运行期间的累计计数器</string>
+    <string name="measurement_rtt_band">RTT 定性区间，并非实测百分位</string>
+    <string name="measurement_dns_last">最近发布的 DNS 延迟；该测量可能早于此快照</string>
+    <string name="measurement_proxy">代理</string>
+    <string name="measurement_tunnel">隧道</string>
+    <string name="measurement_quality_p95">RTT p95：%1$d 毫秒。</string>
+    <string name="measurement_session_total">已记录的连接总量</string>
+</resources>

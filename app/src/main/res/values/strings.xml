@@ -42,10 +42,10 @@
     <string name="title_connection_health">Connection health</string>
     <string name="title_subscription_failover">Subscription servers</string>
     <string name="connection_health_open_action">Open connection health</string>
-    <string name="connection_health_summary_title">Does the current strategy punch through?</string>
-    <string name="connection_health_quality_format">Live proxy quality: %1$d%% loss, p50 %2$d ms.</string>
-    <string name="connection_health_quality_loss_format">Live proxy quality: %1$d%% loss.</string>
-    <string name="connection_health_quality_waiting">Waiting for live proxy quality samples.</string>
+    <string name="connection_health_summary_title">Connection measurements</string>
+    <string name="connection_health_quality_format">Estimated loss: %1$s%% · p50 RTT %2$d ms.</string>
+    <string name="connection_health_quality_loss_format">Estimated loss: %1$s%%.</string>
+    <string name="connection_health_quality_waiting">Waiting for quality measurements.</string>
     <string name="connection_health_empty_title">Waiting for classified traffic</string>
     <string name="connection_health_empty_body">Rates appear after RIPDPI sees VK, YouTube, Telegram, or generic TLS destinations in the active session.</string>
     <string name="subscription_failover_summary_title">Live server status</string>

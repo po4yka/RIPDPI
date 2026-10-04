@@ -26,6 +26,8 @@ internal class HistoryConnectionDetailUiFactory
         private val stringResolver: StringResolver,
         private val coreSupport: DiagnosticsUiCoreSupport,
     ) {
+        private val measurementSupport = DiagnosticsUiFactorySupport(stringResolver, coreSupport)
+
         fun toConnectionRowUiModel(session: DiagnosticConnectionSession): HistoryConnectionRowUiModel {
             val durationMs =
                 (session.finishedAt ?: session.updatedAt).coerceAtLeast(session.startedAt) - session.startedAt
@@ -150,7 +152,26 @@ internal class HistoryConnectionDetailUiFactory
                     ),
                 )
                 add(metric(R.string.diagnostics_metric_retries, retryCount.toString(), retryTone))
-            }.toImmutableList()
+            }.map { describeConnectionMetric(it, latestTelemetry) }.toImmutableList()
+        }
+
+        private fun describeConnectionMetric(
+            metric: DiagnosticsMetricUiModel,
+            latestTelemetry: DiagnosticTelemetrySample?,
+        ): DiagnosticsMetricUiModel {
+            val described = measurementSupport.describeMeasurementMetric(metric, latestTelemetry)
+            val connectionTotalLabels =
+                listOf(
+                    R.string.diagnostics_metric_tx,
+                    R.string.diagnostics_metric_rx,
+                    R.string.diagnostics_metric_errors,
+                    R.string.diagnostics_metric_route_changes,
+                ).map { stringResolver.getString(it) }
+            return if (metric.label in connectionTotalLabels) {
+                described.copy(scopeLabel = stringResolver.getString(R.string.measurement_session_total))
+            } else {
+                described
+            }
         }
 
         private fun buildConnectionContextGroups(

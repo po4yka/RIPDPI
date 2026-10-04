@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -24,6 +27,25 @@ import org.junit.Test
 class ConnectionHealthViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `empty quality does not assert zero loss or data`() =
+        runTest {
+            val viewModel =
+                ConnectionHealthViewModel(
+                    FakeConnectionHealthRepository(ConnectionHealthSnapshot(quality = ConnectionQualitySnapshot())),
+                    FakeRuntimeTelemetryInsightsRepository(),
+                )
+            viewModel.uiState.test {
+                val state = awaitItem()
+                assertFalse(state.hasData)
+                assertNull(state.qualityLossPercent)
+                assertNull(state.qualitySampleCount)
+                assertNull(state.qualityRttP50Ms)
+                assertNull(state.qualityRttP95Ms)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 
     @Test
     fun `ui state maps seeded repository rates and quality`() =
@@ -42,7 +64,13 @@ class ConnectionHealthViewModelTest {
                                     lastUpdatedAt = 1_000L,
                                 ),
                             ),
-                        quality = ConnectionQualitySnapshot(lossPct = 10f, rttP50Ms = 55, sampleCount = 9),
+                        quality =
+                            ConnectionQualitySnapshot(
+                                lossPct = 10f,
+                                rttP50Ms = 55,
+                                rttP95Ms = 90,
+                                sampleCount = 9,
+                            ),
                         observedAt = 1_000L,
                     ),
                 )
@@ -54,8 +82,9 @@ class ConnectionHealthViewModelTest {
                 assertEquals(ConnectionHealthDestinationClass.YOUTUBE, youtube.destinationClass)
                 assertEquals(90, youtube.successRatePercent)
                 assertEquals("quic:sni_split", youtube.activeStrategy)
-                assertEquals(10, state.qualityLossPercent)
+                assertEquals(10f, state.qualityLossPercent)
                 assertEquals(55L, state.qualityRttP50Ms)
+                assertEquals(90L, state.qualityRttP95Ms)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -88,12 +117,82 @@ class ConnectionHealthViewModelTest {
 
             viewModel.uiState.test {
                 val state = awaitItem()
+                assertTrue(state.hasData)
                 assertEquals(1, state.latencyDistributions.size)
                 val dns = state.latencyDistributions.single()
                 assertEquals(LatencyDistributionKind.DnsResolution, dns.kind)
                 assertEquals(91L, dns.p99Ms)
                 assertEquals(102L, dns.scaleMs)
                 assertEquals(77, state.dnsCounters?.cacheHitRatePercent)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `observed zero loss window is real data without rtt samples`() =
+        runTest {
+            val viewModel =
+                ConnectionHealthViewModel(
+                    FakeConnectionHealthRepository(
+                        ConnectionHealthSnapshot(quality = ConnectionQualitySnapshot(windowStartAtMs = 1_000L)),
+                    ),
+                    FakeRuntimeTelemetryInsightsRepository(),
+                )
+            viewModel.uiState.test {
+                val state = awaitItem()
+                assertTrue(state.hasData)
+                assertEquals(0f, state.qualityLossPercent)
+                assertEquals(1_000L, state.qualityWindowStartAtMs)
+                assertNull(state.qualityRttP50Ms)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `loss only quality preserves fractions without inventing rtt samples`() =
+        runTest {
+            val viewModel =
+                ConnectionHealthViewModel(
+                    FakeConnectionHealthRepository(
+                        ConnectionHealthSnapshot(
+                            quality = ConnectionQualitySnapshot(lossPct = 0.25f, rttP50Ms = 99L, sampleCount = 0L),
+                        ),
+                    ),
+                    FakeRuntimeTelemetryInsightsRepository(),
+                )
+            viewModel.uiState.test {
+                val state = awaitItem()
+                assertTrue(state.hasData)
+                assertEquals(0.25f, state.qualityLossPercent)
+                assertEquals(0L, state.qualitySampleCount)
+                assertNull(state.qualityRttP50Ms)
+                assertNull(state.qualityJitterMs)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `dns only snapshot counts as data and retains independent metadata`() =
+        runTest {
+            val source =
+                com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource(
+                    "tunnel",
+                    5_000L,
+                    com.poyka.ripdpi.data.AppStatus.Halted,
+                    com.poyka.ripdpi.data.RuntimeTelemetryStatus.NoData,
+                )
+            val viewModel =
+                ConnectionHealthViewModel(
+                    FakeConnectionHealthRepository(ConnectionHealthSnapshot()),
+                    FakeRuntimeTelemetryInsightsRepository(
+                        RuntimeTelemetryInsights(dnsCounters = DnsCounterSnapshot(1, 0, 1, 0), dnsSource = source),
+                    ),
+                )
+            viewModel.uiState.test {
+                val state = awaitItem()
+                assertTrue(state.hasData)
+                assertEquals(source, state.dnsSource)
+                assertNull(state.latencySource)
                 cancelAndIgnoreRemainingEvents()
             }
         }

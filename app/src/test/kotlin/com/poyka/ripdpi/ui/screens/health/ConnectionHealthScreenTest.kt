@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -31,6 +32,35 @@ import org.robolectric.annotation.GraphicsMode
 class ConnectionHealthScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun lossOnlyKeepsFractionAndDoesNotClaimRttOrEmptyData() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionHealthScreen(
+                    uiState = ConnectionHealthUiState(rows = persistentListOf(), qualityLossPercent = 0.25f),
+                    onBack = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("Estimated loss: 0.25%.").assertIsDisplayed()
+        composeRule.onNodeWithText("Waiting for classified traffic").assertDoesNotExist()
+    }
+
+    @Test
+    fun rttOnlyShowsItsUnitAndNeverClaimsLoss() {
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionHealthScreen(
+                    uiState = ConnectionHealthUiState(rows = persistentListOf(), qualityRttP50Ms = 18L),
+                    onBack = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("p50 RTT: 18 ms.").assertIsDisplayed()
+        composeRule.onNodeWithText("Waiting for quality measurements.").assertDoesNotExist()
+        composeRule.onNodeWithText("Waiting for classified traffic").assertDoesNotExist()
+    }
 
     @Test
     fun maximumFontKeepsMetricLabelsOnWholeLines() {

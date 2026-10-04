@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.toStatus
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -24,11 +25,6 @@ internal class ProxyTelemetryCoordinator(
     private val currentNetworkHandoverState: () -> String?,
     private val refreshDestinationRoutingPolicy: suspend () -> Unit = {},
 ) {
-    private companion object {
-        private const val TelemetryPollIntervalMs = 1_000L
-        private const val TelemetryPollIntervalBackgroundMs = 5_000L
-    }
-
     private val activeEvidenceCollector = AtomicReference<DataPlaneEvidenceCollector?>()
 
     fun start(replaceTelemetryJob: ((suspend CoroutineScope.() -> Unit) -> Unit)) {
@@ -125,9 +121,5 @@ internal class ProxyTelemetryCoordinator(
             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
 
     private fun nextTelemetryPollInterval(): Long =
-        if (screenStateObserver.isInteractive.value) {
-            TelemetryPollIntervalMs
-        } else {
-            TelemetryPollIntervalBackgroundMs
-        }
+        RuntimeTelemetrySamplingPolicy.intervalMillis(screenStateObserver.isInteractive.value)
 }

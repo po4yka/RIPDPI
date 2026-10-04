@@ -40,10 +40,10 @@
     <string name="title_connection_health">سلامت اتصال</string>
     <string name="title_subscription_failover">سرورهای اشتراک</string>
     <string name="connection_health_open_action">باز کردن سلامت اتصال</string>
-    <string name="connection_health_summary_title">آیا راهبرد فعلی اکنون عبور می‌کند؟</string>
-    <string name="connection_health_quality_format">کیفیت پروکسی: %1$d%% افت، p50 %2$d ms.</string>
-    <string name="connection_health_quality_loss_format">کیفیت پروکسی: %1$d%% افت.</string>
-    <string name="connection_health_quality_waiting">در انتظار نمونه‌های زنده کیفیت پروکسی.</string>
+    <string name="connection_health_summary_title">اندازه‌گیری اتصال</string>
+    <string name="connection_health_quality_format">اتلاف برآوردشده: %1$s%% · RTT p50 %2$d میلی‌ثانیه.</string>
+    <string name="connection_health_quality_loss_format">اتلاف برآوردشده: %1$s%%.</string>
+    <string name="connection_health_quality_waiting">در انتظار اندازه‌گیری کیفیت.</string>
     <string name="connection_health_empty_title">در انتظار ترافیک دسته‌بندی‌شده</string>
     <string name="connection_health_empty_body">نرخ‌ها پس از دیدن مقصدهای VK، YouTube، Telegram یا TLS عمومی در نشست فعال نمایش داده می‌شوند.</string>
     <string name="subscription_failover_summary_title">وضعیت زنده سرورها</string>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50: %1$d مللي ثانية.</string>
+    <string name="measurement_quality_meaning">RTT هو زمن الذهاب والإياب؛ والتذبذب هو تغيره. تُقدّر الخسارة من فشل الاتصال وإعادة الإرسال، لا من معدل فشل كل موقع.</string>
+    <string name="measurement_quality_samples">%1$d عينة RTT · تذبذب %2$s مللي ثانية</string>
+    <string name="measurement_quality_window">بداية نافذة الجودة: %1$s</string>
+    <string name="measurement_window_unknown">بداية نافذة الجودة غير متاحة</string>
+    <string name="measurement_observation_scope">أحداث الوجهات: نافذة %1$d دقائق حتى %3$s، بحد أقصى %2$d حدثًا. تُحسب إشارات المسار المباشر المرصودة فقط.</string>
+    <string name="measurement_runtime_scope">بيانات تراكمية خلال تشغيل المحرك الأصلي؛ وقت أول عينة غير متاح.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: لا تتجاوز 50/95/99% من أزمنة الاستجابة هذه القيم التقريبية بالمللي ثانية.</string>
+    <string name="measurement_snapshot">لقطة: %1$s</string>
+    <string name="measurement_source">المصدر: %1$s</string>
+    <string name="measurement_current">لقطة حالية</string>
+    <string name="measurement_stopped">الخدمة متوقفة</string>
+    <string name="measurement_error">خطأ في القياس عن بُعد</string>
+    <string name="measurement_unknown">حداثة البيانات غير معروفة</string>
+    <string name="measurement_stale">التحديثات متأخرة</string>
+    <string name="measurement_loaded_view">العدد في عرض السجل المحمّل</string>
+    <string name="measurement_byte_total">البايتات المنقولة، وليست سرعة النقل</string>
+    <string name="measurement_counter_total">عداد تراكمي للمحرك</string>
+    <string name="measurement_rtt_band">نطاق نوعي لزمن RTT، وليس مئينًا مقاسًا</string>
+    <string name="measurement_dns_last">آخر زمن DNS منشور؛ قد يكون القياس أقدم من اللقطة</string>
+    <string name="measurement_proxy">الوكيل</string>
+    <string name="measurement_tunnel">النفق</string>
+    <string name="measurement_quality_p95">RTT p95: %1$d مللي ثانية.</string>
+    <string name="measurement_session_total">إجمالي الاتصال المسجل</string>
+</resources>

@@ -85,5 +85,5 @@ internal fun DiagnosticsUiFactorySupport.buildLiveHighlights(
                 tone = if (errorCount > 0) DiagnosticsTone.Negative else DiagnosticsTone.Neutral,
             ),
         )
-    }
+    }.map { describeMeasurementMetric(it, telemetry) }
 }

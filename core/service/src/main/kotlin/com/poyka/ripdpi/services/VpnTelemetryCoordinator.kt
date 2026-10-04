@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.toStatus
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -62,11 +63,6 @@ internal class VpnTelemetryCoordinator(
     private val state: VpnTelemetryStateAccess,
     private val callbacks: VpnTelemetryFailureCallbacks,
 ) {
-    private companion object {
-        private const val TelemetryPollIntervalMs = 1_000L
-        private const val TelemetryPollIntervalBackgroundMs = 5_000L
-    }
-
     private val protectFailureWatcher =
         VpnProtectFailureWatcher(
             dependencies = dependencies,
@@ -191,11 +187,7 @@ internal class VpnTelemetryCoordinator(
     }
 
     private fun nextTelemetryPollInterval(): Long =
-        if (dependencies.screenStateObserver.isInteractive.value) {
-            TelemetryPollIntervalMs
-        } else {
-            TelemetryPollIntervalBackgroundMs
-        }
+        RuntimeTelemetrySamplingPolicy.intervalMillis(dependencies.screenStateObserver.isInteractive.value)
 
     private suspend fun observeBuilderAffectingSettings(tunnelRefreshCoordinator: VpnTunnelRefreshCoordinator) {
         dependencies.vpnTunnelRuntime.desiredInterfacePolicySignatures().collect {

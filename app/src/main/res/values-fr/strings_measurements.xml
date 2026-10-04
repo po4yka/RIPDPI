@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50 : %1$d ms.</string>
+    <string name="measurement_quality_meaning">Le RTT est le temps aller-retour ; la gigue est sa variation. La perte est estimée à partir des échecs de connexion et retransmissions, pas par site.</string>
+    <string name="measurement_quality_samples">%1$d échantillons RTT · gigue %2$s ms</string>
+    <string name="measurement_quality_window">Début de fenêtre de qualité : %1$s</string>
+    <string name="measurement_window_unknown">Début de fenêtre de qualité indisponible</string>
+    <string name="measurement_observation_scope">Événements par destination : fenêtre de %1$d min jusqu’au %3$s, au plus %2$d événements. Seuls les signaux observés du chemin direct sont comptés.</string>
+    <string name="measurement_runtime_scope">Cumulé pendant cette exécution native ; la date du premier échantillon est inconnue.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99 : 50/95/99% des latences ne dépassent pas ces valeurs approximatives en millisecondes.</string>
+    <string name="measurement_snapshot">Instantané : %1$s</string>
+    <string name="measurement_source">Source : %1$s</string>
+    <string name="measurement_current">Instantané actuel</string>
+    <string name="measurement_stopped">Service arrêté</string>
+    <string name="measurement_error">Erreur de télémétrie</string>
+    <string name="measurement_unknown">Actualité inconnue</string>
+    <string name="measurement_stale">Mises à jour retardées</string>
+    <string name="measurement_loaded_view">Nombre dans la vue historique chargée</string>
+    <string name="measurement_byte_total">Octets transférés, pas un débit</string>
+    <string name="measurement_counter_total">Compteur cumulatif du moteur</string>
+    <string name="measurement_rtt_band">Plage qualitative de RTT, pas un percentile mesuré</string>
+    <string name="measurement_dns_last">Dernière latence DNS publiée ; la mesure peut précéder cet instantané</string>
+    <string name="measurement_proxy">Proxy</string>
+    <string name="measurement_tunnel">Tunnel</string>
+    <string name="measurement_quality_p95">RTT p95 : %1$d ms.</string>
+    <string name="measurement_session_total">Total de connexion enregistré</string>
+</resources>

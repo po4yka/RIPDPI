@@ -38,9 +38,11 @@ data class DnsCounterSnapshot(
 data class RuntimeTelemetryInsights(
     val latencyDistributions: LatencyDistributions? = null,
     val dnsCounters: DnsCounterSnapshot? = null,
+    val latencySource: RuntimeMeasurementSource? = null,
+    val dnsSource: RuntimeMeasurementSource? = null,
 ) {
     val hasData: Boolean
-        get() = latencyDistributions != null || dnsCounters != null
+        get() = latencyDistributions?.hasSamples() == true || dnsCounters?.hasData == true
 }
 
 interface RuntimeTelemetryInsightsRepository {
@@ -49,7 +51,7 @@ interface RuntimeTelemetryInsightsRepository {
 
 /**
  * Projects [RuntimeTelemetryInsights] out of the shared service telemetry flow. Reuses the same
- * 1 Hz [ServiceStateStore.telemetry] feed that drives connection-health, so it adds no extra
+ * screen-aware [ServiceStateStore.telemetry] feed that drives connection-health, so it adds no extra
  * polling cost.
  */
 @Singleton
@@ -65,30 +67,61 @@ class DefaultRuntimeTelemetryInsightsRepository
         init {
             applicationScope.launch {
                 serviceStateStore.telemetry.collect { telemetry ->
-                    mutableInsights.value = project(telemetry)
+                    mutableInsights.value = projectRuntimeTelemetryInsights(telemetry)
                 }
             }
         }
-
-        private fun project(telemetry: ServiceTelemetrySnapshot): RuntimeTelemetryInsights {
-            val proxy = telemetry.proxyTelemetry
-            val tunnel = telemetry.tunnelTelemetry
-            // Resolver counters + histograms live on whichever engine snapshot actually ran the
-            // resolver: prefer the one reporting queries, falling back to the proxy snapshot.
-            val counterSource = if (tunnel.dnsQueriesTotal >= proxy.dnsQueriesTotal) tunnel else proxy
-            val counters =
-                DnsCounterSnapshot(
-                    queriesTotal = counterSource.dnsQueriesTotal,
-                    cacheHits = counterSource.dnsCacheHits,
-                    cacheMisses = counterSource.dnsCacheMisses,
-                    failuresTotal = counterSource.dnsFailuresTotal,
-                ).takeIf { it.hasData }
-            return RuntimeTelemetryInsights(
-                latencyDistributions = proxy.latencyDistributions ?: tunnel.latencyDistributions,
-                dnsCounters = counters,
-            )
-        }
     }
+
+internal fun projectRuntimeTelemetryInsights(telemetry: ServiceTelemetrySnapshot): RuntimeTelemetryInsights {
+    val proxy = telemetry.proxyTelemetry
+    val tunnel = telemetry.tunnelTelemetry
+    // Resolver counters + histograms live on whichever engine snapshot actually ran the
+    // resolver: prefer the one reporting queries, falling back to the proxy snapshot.
+    val counterSource =
+        if (tunnel.hasDnsCounters() &&
+            tunnel.dnsQueriesTotal >= proxy.dnsQueriesTotal
+        ) {
+            tunnel
+        } else {
+            proxy
+        }
+    val counters =
+        DnsCounterSnapshot(
+            queriesTotal = counterSource.dnsQueriesTotal,
+            cacheHits = counterSource.dnsCacheHits,
+            cacheMisses = counterSource.dnsCacheMisses,
+            failuresTotal = counterSource.dnsFailuresTotal,
+        ).takeIf { it.hasData }
+    val latencySource = listOf(proxy, tunnel).firstOrNull { it.latencyDistributions?.hasSamples() == true }
+    return RuntimeTelemetryInsights(
+        latencyDistributions = latencySource?.latencyDistributions,
+        dnsCounters = counters,
+        latencySource = latencySource?.measurementSource(telemetry),
+        dnsSource = counterSource.takeIf { counters != null }?.measurementSource(telemetry),
+    )
+}
+
+private fun LatencyDistributions.hasSamples(): Boolean =
+    listOf(dnsResolution, tcpConnect, tlsHandshake).any { (it?.count ?: 0L) > 0L }
+
+private fun NativeRuntimeSnapshot.hasDnsCounters(): Boolean =
+    dnsQueriesTotal > 0L || dnsFailuresTotal > 0L || dnsCacheHits > 0L || dnsCacheMisses > 0L
+
+private fun NativeRuntimeSnapshot.measurementSource(telemetry: ServiceTelemetrySnapshot): RuntimeMeasurementSource =
+    RuntimeMeasurementSource(
+        source = source,
+        capturedAt = capturedAt,
+        serviceStatus = telemetry.status,
+        telemetryStatus =
+            if (this ===
+                telemetry.proxyTelemetry
+            ) {
+                telemetry.proxyTelemetryStatus
+            } else {
+                telemetry.tunnelTelemetryStatus
+            },
+    )
 
 @Module
 @InstallIn(SingletonComponent::class)

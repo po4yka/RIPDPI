@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50: %1$d ms.</string>
+    <string name="measurement_quality_meaning">RTT ist die Hin- und Rücklaufzeit; Jitter ist ihre Schwankung. Verlust wird aus Verbindungsfehlern und Neuübertragungen geschätzt, nicht je Website.</string>
+    <string name="measurement_quality_samples">%1$d RTT-Messwerte · Jitter %2$s ms</string>
+    <string name="measurement_quality_window">Beginn des Qualitätsfensters: %1$s</string>
+    <string name="measurement_window_unknown">Beginn des Qualitätsfensters unbekannt</string>
+    <string name="measurement_observation_scope">Zielereignisse: %1$d-Min.-Fenster bis %3$s, höchstens %2$d Ereignisse. Nur beobachtete Signale des direkten Pfads zählen.</string>
+    <string name="measurement_runtime_scope">Kumuliert für diese native Laufzeit; der Zeitpunkt des ersten Messwerts ist unbekannt.</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: 50/95/99% der Latenzen liegen höchstens bei diesen Näherungswerten in Millisekunden.</string>
+    <string name="measurement_snapshot">Momentaufnahme: %1$s</string>
+    <string name="measurement_source">Quelle: %1$s</string>
+    <string name="measurement_current">Aktuelle Momentaufnahme</string>
+    <string name="measurement_stopped">Dienst angehalten</string>
+    <string name="measurement_error">Telemetriefehler</string>
+    <string name="measurement_unknown">Aktualität unbekannt</string>
+    <string name="measurement_stale">Verzögerte Aktualisierung</string>
+    <string name="measurement_loaded_view">Anzahl in der geladenen Verlaufsansicht</string>
+    <string name="measurement_byte_total">Übertragene Bytes, keine Übertragungsrate</string>
+    <string name="measurement_counter_total">Kumulativer Laufzeitzähler</string>
+    <string name="measurement_rtt_band">Qualitativer RTT-Bereich, kein gemessenes Perzentil</string>
+    <string name="measurement_dns_last">Zuletzt veröffentlichte DNS-Latenz; die Messung kann älter als die Momentaufnahme sein</string>
+    <string name="measurement_proxy">Proxy</string>
+    <string name="measurement_tunnel">Tunnel</string>
+    <string name="measurement_quality_p95">RTT p95: %1$d ms.</string>
+    <string name="measurement_session_total">Gespeicherte Verbindungssumme</string>
+</resources>

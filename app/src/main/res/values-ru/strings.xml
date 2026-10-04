@@ -41,10 +41,10 @@
     <string name="title_connection_health">Здоровье соединения</string>
     <string name="title_subscription_failover">Серверы подписки</string>
     <string name="connection_health_open_action">Открыть здоровье соединения</string>
-    <string name="connection_health_summary_title">Текущая стратегия проходит сейчас?</string>
-    <string name="connection_health_quality_format">Качество прокси: %1$d%% потерь, p50 %2$d мс.</string>
-    <string name="connection_health_quality_loss_format">Качество прокси: %1$d%% потерь.</string>
-    <string name="connection_health_quality_waiting">Ожидание live-сэмплов качества прокси.</string>
+    <string name="connection_health_summary_title">Измерения соединения</string>
+    <string name="connection_health_quality_format">Оценка потерь: %1$s%% · RTT p50 %2$d мс.</string>
+    <string name="connection_health_quality_loss_format">Оценка потерь: %1$s%%.</string>
+    <string name="connection_health_quality_waiting">Ожидание измерений качества.</string>
     <string name="connection_health_empty_title">Ожидание классифицированного трафика</string>
     <string name="connection_health_empty_body">Показатели появятся после трафика VK, YouTube, Telegram или обычного TLS в активной сессии.</string>
     <string name="subscription_failover_summary_title">Текущее состояние серверов</string>

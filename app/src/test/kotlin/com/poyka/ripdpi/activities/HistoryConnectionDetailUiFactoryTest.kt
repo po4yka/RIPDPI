@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.RememberedPolicyApplicationAudit
@@ -15,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshot
 
 @RunWith(RobolectricTestRunner::class)
 class HistoryConnectionDetailUiFactoryTest {
+    private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val factory =
         HistoryConnectionDetailUiFactory(
             context = ApplicationProvider.getApplicationContext(),
@@ -147,6 +149,14 @@ class HistoryConnectionDetailUiFactoryTest {
         assertTrue(detail.highlights.any { it.label == "Failure class" && it.value == "dns_tampering" })
         assertTrue(detail.highlights.any { it.label == "Strategy" && it.value == "hostfake + quic_burst" })
         assertTrue(detail.highlights.any { it.label == "Retries" && it.value == "3" })
+        val rtt = detail.highlights.single { it.label == context.getString(R.string.diagnostics_metric_rtt_band) }
+        assertEquals(context.getString(R.string.measurement_rtt_band), rtt.explanation)
+        val tx = detail.highlights.single { it.label == context.getString(R.string.diagnostics_metric_tx) }
+        assertEquals(context.getString(R.string.measurement_byte_total), tx.explanation)
+        assertEquals(context.getString(R.string.measurement_session_total), tx.scopeLabel)
+        val errors = detail.highlights.single { it.label == context.getString(R.string.diagnostics_metric_errors) }
+        assertEquals(context.getString(R.string.measurement_session_total), errors.scopeLabel)
+
         assertEquals(1, detail.snapshots.size)
         assertEquals(4, detail.contextGroups.size)
         assertEquals("Field telemetry", detail.contextGroups.last().title)

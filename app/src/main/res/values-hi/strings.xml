@@ -41,10 +41,10 @@
     <string name="title_connection_health">कनेक्शन स्वास्थ्य</string>
     <string name="title_subscription_failover">सब्सक्रिप्शन सर्वर</string>
     <string name="connection_health_open_action">कनेक्शन स्वास्थ्य खोलें</string>
-    <string name="connection_health_summary_title">क्या मौजूदा रणनीति आर-पार पहुँचती है?</string>
-    <string name="connection_health_quality_format">लाइव प्रॉक्सी गुणवत्ता: %1$d%% हानि, p50 %2$d ms.</string>
-    <string name="connection_health_quality_loss_format">लाइव प्रॉक्सी गुणवत्ता: %1$d%% हानि.</string>
-    <string name="connection_health_quality_waiting">लाइव प्रॉक्सी गुणवत्ता के नमूनों की प्रतीक्षा है।</string>
+    <string name="connection_health_summary_title">कनेक्शन माप</string>
+    <string name="connection_health_quality_format">अनुमानित हानि: %1$s%% · RTT p50 %2$d मिलीसेकंड।</string>
+    <string name="connection_health_quality_loss_format">अनुमानित हानि: %1$s%%।</string>
+    <string name="connection_health_quality_waiting">गुणवत्ता माप की प्रतीक्षा।</string>
     <string name="connection_health_empty_title">वर्गीकृत ट्रैफ़िक की प्रतीक्षा है</string>
     <string name="connection_health_empty_body">सक्रिय सत्र में RIPDPI द्वारा VK, YouTube, Telegram या सामान्य TLS गंतव्य देखे जाने के बाद दरें दिखाई देती हैं।</string>
     <string name="subscription_failover_summary_title">लाइव सर्वर स्थिति</string>

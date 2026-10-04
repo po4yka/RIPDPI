@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measurement_quality_rtt">RTT p50: %1$d मिलीसेकंड।</string>
+    <string name="measurement_quality_meaning">RTT आने-जाने का समय है; जिटर उसका बदलाव है। हानि का अनुमान कनेक्शन विफलताओं और पुनः प्रसारण से है, अलग-अलग साइट की विफलता दर से नहीं।</string>
+    <string name="measurement_quality_samples">%1$d RTT नमूने · जिटर %2$s मिलीसेकंड</string>
+    <string name="measurement_quality_window">गुणवत्ता विंडो की शुरुआत: %1$s</string>
+    <string name="measurement_window_unknown">गुणवत्ता विंडो की शुरुआत उपलब्ध नहीं</string>
+    <string name="measurement_observation_scope">गंतव्य घटनाएँ: %3$s तक %1$d मिनट की विंडो, अधिकतम %2$d घटनाएँ। केवल देखे गए सीधे पथ संकेत गिने जाते हैं।</string>
+    <string name="measurement_runtime_scope">इस नेटिव रनटाइम के दौरान संचयी डेटा; पहले नमूने का समय उपलब्ध नहीं।</string>
+    <string name="measurement_percentiles_meaning" formatted="false">p50/p95/p99: 50/95/99% विलंब इन अनुमानित मिलीसेकंड मानों से अधिक नहीं हैं।</string>
+    <string name="measurement_snapshot">स्नैपशॉट: %1$s</string>
+    <string name="measurement_source">स्रोत: %1$s</string>
+    <string name="measurement_current">वर्तमान स्नैपशॉट</string>
+    <string name="measurement_stopped">सेवा बंद है</string>
+    <string name="measurement_error">टेलीमेट्री त्रुटि</string>
+    <string name="measurement_unknown">ताज़गी अज्ञात</string>
+    <string name="measurement_stale">अपडेट में देरी</string>
+    <string name="measurement_loaded_view">लोड किए गए इतिहास दृश्य में संख्या</string>
+    <string name="measurement_byte_total">स्थानांतरित बाइट, स्थानांतरण दर नहीं</string>
+    <string name="measurement_counter_total">संचयी रनटाइम काउंटर</string>
+    <string name="measurement_rtt_band">RTT की गुणात्मक सीमा, मापा गया प्रतिशतक नहीं</string>
+    <string name="measurement_dns_last">अंतिम प्रकाशित DNS विलंब; माप स्नैपशॉट से पुराना हो सकता है</string>
+    <string name="measurement_proxy">प्रॉक्सी</string>
+    <string name="measurement_tunnel">टनल</string>
+    <string name="measurement_quality_p95">RTT p95: %1$d मिलीसेकंड।</string>
+    <string name="measurement_session_total">दर्ज कनेक्शन का कुल मान</string>
+</resources>

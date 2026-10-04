@@ -10,8 +10,8 @@ Root owns these planning records and integration. One implementation writer at a
 
 ## Execution
 
-- [x] EPC-1791124243600668 Explain scan scope and lifecycle consequences in controls and results #epic !high @item:EPC-1791124000119505
-- [ ] EPC-1791124244103077 Explain measured metrics with aggregation and freshness #epic !high @item:EPC-1791124000119505
+- [ ] EPC-1791124243600668 Explain scan scope and lifecycle consequences in controls and results #epic !high @item:EPC-1791124000119505
+- [x] EPC-1791124244103077 Explain measured metrics with aggregation and freshness #epic !high @item:EPC-1791124000119505
 - [ ] EPC-1791124244595215 Show applied configuration and actionable recovery states #epic !high @item:EPC-1791124000119505
 - [ ] EPC-1791124245093725 Search grouped diagnostic and saved relay profiles #epic !high @item:EPC-1791124000119505
 - [ ] EPC-1791124245588453 Preview diagnostic exports before explicit sharing or saving #epic !high @item:EPC-1791124000119505

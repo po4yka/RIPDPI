@@ -38,3 +38,7 @@ Implement the seven approved Mobbin research improvements as sequential, runnabl
 - Locale sets, persistence schemas, and golden fixtures have exactly one writer at a time.
 - Independent review agents are read-only. Heavy commands use build-gate and four workers/jobs maximum.
 - Research source: docs/design/mobbin-network-ux-research-2026-10-04.md.
+
+## Acceptance incident
+
+- 2026-10-04: Reopened scope step EPC-1791124243600668 after real API 37 device validation. Scope controls and explanations passed, but an active-VPN scan failed before session persistence with a generic start error. Local UI tests had not exercised the public error projection for unavailable route evidence. The recovery slice must preserve typed unavailable reasons and observe a real scan retry without weakening authenticated route eligibility. Positive active-path acceptance remains unverified.
