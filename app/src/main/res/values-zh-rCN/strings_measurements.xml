@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">隧道</string>
     <string name="measurement_quality_p95">RTT p95：%1$d 毫秒。</string>
     <string name="measurement_session_total">已记录的连接总量</string>
+    <string name="home_quality_measurements_title">连接测量</string>
+    <string name="home_quality_waiting">尚无质量测量。流量总量不能反映连接质量。</string>
+    <string name="home_quality_partial">下方显示可用测量。质量评估需要更多近期 RTT 样本。</string>
+    <string name="home_quality_last_values">最近上报的测量不能反映当前连接质量。</string>
+    <string name="home_quality_traffic_total">总流量</string>
+    <string name="home_quality_samples">%1$d 个 RTT 样本</string>
 </resources>

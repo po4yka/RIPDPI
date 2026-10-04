@@ -35,13 +35,21 @@ internal fun measurementTimestamp(timestamp: Long): String =
         .format(Date(timestamp))
 
 @Composable
-internal fun MeasurementSource(source: RuntimeMeasurementSource?) {
+internal fun measurementNow(source: RuntimeMeasurementSource?): Long {
     val now by produceState(initialValue = System.currentTimeMillis(), source) {
         while (true) {
             value = System.currentTimeMillis()
             delay(RuntimeTelemetrySamplingPolicy.InteractiveIntervalMillis)
         }
     }
+    return now
+}
+
+@Composable
+internal fun MeasurementSource(
+    source: RuntimeMeasurementSource?,
+    now: Long = measurementNow(source),
+) {
     source?.let {
         val name =
             when (it.source) {

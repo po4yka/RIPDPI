@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">النفق</string>
     <string name="measurement_quality_p95">RTT p95: %1$d مللي ثانية.</string>
     <string name="measurement_session_total">إجمالي الاتصال المسجل</string>
+    <string name="home_quality_measurements_title">قياسات الاتصال</string>
+    <string name="home_quality_waiting">لا توجد قياسات للجودة بعد. إجمالي حركة البيانات لا يدل على جودة الاتصال.</string>
+    <string name="home_quality_partial">القياسات المتاحة معروضة أدناه. يحتاج تقييم الجودة إلى المزيد من عينات RTT الحالية.</string>
+    <string name="home_quality_last_values">آخر قياسات تم الإبلاغ عنها؛ لا تصف جودة الاتصال الحالية.</string>
+    <string name="home_quality_traffic_total">إجمالي البيانات</string>
+    <string name="home_quality_samples">%1$d عينة RTT</string>
 </resources>

@@ -112,17 +112,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-home-homescreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeScreen.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-logs-logsscreen.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,

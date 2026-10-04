@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -101,25 +100,29 @@ fun RipDpiDegradationStrip(
         color = containerColor,
         contentColor = contentColor,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(spacing.lg),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .width(spacing.xs)
-                        .fillMaxHeight()
-                        .background(accentColor),
-            )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Measure the content naturally; intrinsic Row height cannot account
+            // for wrapped actions and metric values at accessibility font sizes.
+            Box(modifier = Modifier.matchParentSize()) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .width(spacing.xs)
+                            .fillMaxHeight()
+                            .background(accentColor),
+                )
+            }
             Column(
                 modifier =
                     Modifier
-                        .weight(1f)
-                        .padding(vertical = spacing.md),
+                        .fillMaxWidth()
+                        .padding(
+                            start = spacing.xs + spacing.lg,
+                            top = spacing.md,
+                            bottom = spacing.md,
+                            end = spacing.md,
+                        ),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 Row(
@@ -142,12 +145,14 @@ fun RipDpiDegradationStrip(
                     }
                     Text(
                         text = title,
+                        modifier = Modifier.weight(1f),
                         style = type.bodyEmphasis,
                         color = contentColor,
                     )
                 }
                 Text(
                     text = body,
+                    modifier = Modifier.fillMaxWidth(),
                     style = type.secondaryBody,
                     color = colors.mutedForeground,
                 )
@@ -161,33 +166,47 @@ fun RipDpiDegradationStrip(
                 }
                 Text(
                     text = sinceLabel,
+                    modifier = Modifier.fillMaxWidth(),
                     style = type.caption,
                     color = colors.mutedForeground,
                 )
-            }
-            Column(
-                modifier = Modifier.padding(end = spacing.md, top = spacing.md, bottom = spacing.md),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                if (secondaryAction != null) {
-                    RipDpiButton(
-                        text = secondaryAction.label,
-                        onClick = secondaryAction.onClick,
-                        variant = RipDpiButtonVariant.Outline,
-                        density = RipDpiControlDensity.Compact,
-                    )
-                }
-                RipDpiButton(
-                    text = primaryAction.label,
-                    onClick = primaryAction.onClick,
-                    variant = RipDpiButtonVariant.Primary,
-                    density = RipDpiControlDensity.Compact,
-                )
+                RipDpiDegradationActions(primaryAction, secondaryAction)
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RipDpiDegradationActions(
+    primaryAction: RipDpiDegradationAction,
+    secondaryAction: RipDpiDegradationAction?,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm, Alignment.End),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        secondaryAction?.let {
+            RipDpiButton(
+                text = it.label,
+                onClick = it.onClick,
+                modifier = Modifier.width(IntrinsicSize.Max),
+                variant = RipDpiButtonVariant.Outline,
+                density = RipDpiControlDensity.Compact,
+            )
+        }
+        RipDpiButton(
+            text = primaryAction.label,
+            onClick = primaryAction.onClick,
+            modifier = Modifier.width(IntrinsicSize.Max),
+            variant = RipDpiButtonVariant.Primary,
+            density = RipDpiControlDensity.Compact,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
     val colors = RipDpiThemeTokens.colors
@@ -202,25 +221,28 @@ private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
         contentColor = colors.foreground,
         border = BorderStroke(RipDpiStroke.Thin, colors.border),
     ) {
-        Row(
+        FlowRow(
             modifier =
                 Modifier
                     .padding(horizontal = spacing.sm, vertical = spacing.xs),
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             Text(
                 text = metric.label,
+                modifier = Modifier.width(IntrinsicSize.Max),
                 style = type.smallLabel,
                 color = colors.mutedForeground,
             )
             Text(
                 text = metric.value,
+                modifier = Modifier.width(IntrinsicSize.Max),
                 style = type.monoSmall,
                 color = colors.foreground,
             )
             Text(
                 text = metric.delta,
+                modifier = Modifier.width(IntrinsicSize.Max),
                 style = type.monoSmall,
                 color = deltaColor,
             )

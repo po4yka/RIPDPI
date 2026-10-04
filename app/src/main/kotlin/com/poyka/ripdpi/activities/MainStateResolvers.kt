@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.service.telemetry.measurementSource
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -129,6 +130,7 @@ internal fun buildMainUiState(
             homeDiagnostics = homeDiagnosticsUiState,
             stringResolver = stringResolver,
         )
+    val qualityRuntime = resolveConnectionQuality(inputs.telemetry)
     return MainUiState(
         settingsLoaded = true,
         appStatus = status,
@@ -152,7 +154,8 @@ internal fun buildMainUiState(
                 hostPackCatalog = inputs.hostPackCatalog,
                 strategyPackRuntimeState = inputs.strategyPackRuntimeState,
             ),
-        connectionQuality = resolveConnectionQuality(inputs.telemetry.tunnelTelemetry),
+        connectionQuality = qualityRuntime?.connectionQuality,
+        connectionQualitySource = qualityRuntime?.measurementSource(inputs.telemetry),
         networkCondition = resolveMainNetworkCondition(status, inputs.pathValidation),
         xrayProviderSnapshot = inputs.telemetry.xrayProviderSnapshot,
     )

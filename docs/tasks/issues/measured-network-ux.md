@@ -38,6 +38,7 @@ Implement the seven approved Mobbin research improvements as sequential, runnabl
 - Locale sets, persistence schemas, and golden fixtures have exactly one writer at a time.
 - Independent review agents are read-only. Heavy commands use build-gate and four workers/jobs maximum.
 - Root owns only the Xray acceptance fixture, instrumentation evidence and CI failure capture in the isolated network-ux-xray-evidence worktree while the implementation agent owns the configuration slice. This lane gates real provider acceptance without changing routing or test assertions.
+- The configuration foundation is frozen in network-ux-delivery. The implementation agent owns the Home measurement correction, its tests and all locale additions in network-ux-home-metrics; root owns task state, review, PNG verification and integration. After that source freezes, the golden-blesser alone owns affected Home PNG families in network-ux-home-goldens, using the identical reviewed source snapshot and the user's PNG authorization. Root imports only those reviewed PNGs; neither lane edits the other's source.
 - Research source: docs/design/mobbin-network-ux-research-2026-10-04.md.
 
 ## Acceptance incident

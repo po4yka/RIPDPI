@@ -108,21 +108,6 @@ private fun LatencyDistributions.hasSamples(): Boolean =
 private fun NativeRuntimeSnapshot.hasDnsCounters(): Boolean =
     dnsQueriesTotal > 0L || dnsFailuresTotal > 0L || dnsCacheHits > 0L || dnsCacheMisses > 0L
 
-private fun NativeRuntimeSnapshot.measurementSource(telemetry: ServiceTelemetrySnapshot): RuntimeMeasurementSource =
-    RuntimeMeasurementSource(
-        source = source,
-        capturedAt = capturedAt,
-        serviceStatus = telemetry.status,
-        telemetryStatus =
-            if (this ===
-                telemetry.proxyTelemetry
-            ) {
-                telemetry.proxyTelemetryStatus
-            } else {
-                telemetry.tunnelTelemetryStatus
-            },
-    )
-
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RuntimeTelemetryInsightsRepositoryModule {

@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.service.telemetry
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 
 /** Source-owned cadence shared by producers and freshness presentation. */
 object RuntimeTelemetrySamplingPolicy {
@@ -45,3 +47,18 @@ fun RuntimeMeasurementSource.freshness(now: Long): RuntimeMeasurementFreshness =
             RuntimeMeasurementFreshness.Current
         }
     }
+
+fun NativeRuntimeSnapshot.measurementSource(telemetry: ServiceTelemetrySnapshot): RuntimeMeasurementSource =
+    RuntimeMeasurementSource(
+        source = source,
+        capturedAt = capturedAt,
+        serviceStatus = telemetry.status,
+        telemetryStatus =
+            if (this ===
+                telemetry.proxyTelemetry
+            ) {
+                telemetry.proxyTelemetryStatus
+            } else {
+                telemetry.tunnelTelemetryStatus
+            },
+    )

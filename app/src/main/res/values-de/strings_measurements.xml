@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">Tunnel</string>
     <string name="measurement_quality_p95">RTT p95: %1$d ms.</string>
     <string name="measurement_session_total">Gespeicherte Verbindungssumme</string>
+    <string name="home_quality_measurements_title">Verbindungsmessungen</string>
+    <string name="home_quality_waiting">Noch keine Qualitätsmessungen. Das Datenvolumen zeigt keine Verbindungsqualität an.</string>
+    <string name="home_quality_partial">Verfügbare Messungen sind unten aufgeführt. Eine Qualitätsbewertung benötigt mehr aktuelle RTT-Messwerte.</string>
+    <string name="home_quality_last_values">Zuletzt gemeldete Messwerte; sie beschreiben nicht die aktuelle Verbindungsqualität.</string>
+    <string name="home_quality_traffic_total">Datenvolumen gesamt</string>
+    <string name="home_quality_samples">%1$d RTT-Messwerte</string>
 </resources>

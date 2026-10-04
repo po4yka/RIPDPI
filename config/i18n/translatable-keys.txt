@@ -2359,9 +2359,15 @@ app:home_permission_issue_with_settings
 app:home_quality_connecting
 app:home_quality_excellent
 app:home_quality_good
+app:home_quality_last_values
+app:home_quality_measurements_title
 app:home_quality_metric_loss_format
 app:home_quality_metric_ms_format
 app:home_quality_offline
+app:home_quality_partial
+app:home_quality_samples
+app:home_quality_traffic_total
+app:home_quality_waiting
 app:home_remediation_browser_relay_step_choose_preset
 app:home_remediation_browser_relay_step_enable_relay
 app:home_remediation_browser_relay_step_open_mode_editor

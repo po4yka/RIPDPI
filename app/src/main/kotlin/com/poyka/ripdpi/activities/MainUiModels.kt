@@ -77,6 +77,7 @@ data class MainUiState(
     val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
     val connectionQuality: ConnectionQualitySnapshot? = null,
+    val connectionQualitySource: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource? = null,
     val networkCondition: com.poyka.ripdpi.services.network.NetworkCondition =
         com.poyka.ripdpi.services.network.NetworkCondition.Normal,
     /**

@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">Tunnel</string>
     <string name="measurement_quality_p95">RTT p95 : %1$d ms.</string>
     <string name="measurement_session_total">Total de connexion enregistré</string>
+    <string name="home_quality_measurements_title">Mesures de connexion</string>
+    <string name="home_quality_waiting">Aucune mesure de qualité pour le moment. Le trafic total ne renseigne pas sur la qualité de la connexion.</string>
+    <string name="home_quality_partial">Les mesures disponibles sont affichées ci-dessous. Une évaluation de qualité nécessite davantage de mesures RTT actuelles.</string>
+    <string name="home_quality_last_values">Dernières mesures reçues ; elles ne décrivent pas la qualité actuelle de la connexion.</string>
+    <string name="home_quality_traffic_total">Trafic total</string>
+    <string name="home_quality_samples">%1$d mesures RTT</string>
 </resources>

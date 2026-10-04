@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">تونل</string>
     <string name="measurement_quality_p95">RTT p95: %1$d میلی‌ثانیه.</string>
     <string name="measurement_session_total">مجموع ثبت‌شدهٔ اتصال</string>
+    <string name="home_quality_measurements_title">اندازه‌گیری‌های اتصال</string>
+    <string name="home_quality_waiting">هنوز کیفیت اندازه‌گیری نشده است. حجم کل ترافیک نشان‌دهندهٔ کیفیت اتصال نیست.</string>
+    <string name="home_quality_partial">اندازه‌گیری‌های موجود در زیر آمده‌اند. ارزیابی کیفیت به نمونه‌های تازهٔ بیشتری از RTT نیاز دارد.</string>
+    <string name="home_quality_last_values">آخرین اندازه‌گیری‌های گزارش‌شده؛ این مقادیر کیفیت فعلی اتصال را نشان نمی‌دهند.</string>
+    <string name="home_quality_traffic_total">کل ترافیک</string>
+    <string name="home_quality_samples">%1$d نمونهٔ RTT</string>
 </resources>

@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">टनल</string>
     <string name="measurement_quality_p95">RTT p95: %1$d मिलीसेकंड।</string>
     <string name="measurement_session_total">दर्ज कनेक्शन का कुल मान</string>
+    <string name="home_quality_measurements_title">कनेक्शन माप</string>
+    <string name="home_quality_waiting">अभी गुणवत्ता के माप उपलब्ध नहीं हैं। कुल ट्रैफ़िक कनेक्शन की गुणवत्ता नहीं दर्शाता।</string>
+    <string name="home_quality_partial">उपलब्ध माप नीचे दिखाए गए हैं। गुणवत्ता के आकलन के लिए RTT के और हालिया नमूने चाहिए।</string>
+    <string name="home_quality_last_values">आखिरी प्राप्त माप; ये कनेक्शन की मौजूदा गुणवत्ता नहीं दर्शाते।</string>
+    <string name="home_quality_traffic_total">कुल ट्रैफ़िक</string>
+    <string name="home_quality_samples">%1$d RTT नमूने</string>
 </resources>

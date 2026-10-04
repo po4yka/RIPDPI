@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
+import com.poyka.ripdpi.service.telemetry.measurementSource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -62,6 +63,12 @@ interface ConnectionHealthRepository {
     val snapshots: StateFlow<ConnectionHealthSnapshot>
 }
 
+/** Prefer an observed proxy quality window; an empty default cannot shadow tunnel measurements. */
+fun ServiceTelemetrySnapshot.observedQualityRuntime(): NativeRuntimeSnapshot? =
+    listOf(proxyTelemetry, tunnelTelemetry).firstOrNull {
+        it.connectionQuality?.hasObservedMeasurements() == true
+    }
+
 @Singleton
 class DefaultConnectionHealthRepository
     @Inject
@@ -106,31 +113,13 @@ internal class ConnectionHealthAccumulator {
             lastSignalCapturedAt = proxy.capturedAt
             lastSignalBatch = proxy.directPathLearningSignals
         }
-        val qualityRuntime =
-            listOf(proxy, telemetry.tunnelTelemetry).firstOrNull {
-                it.connectionQuality?.hasObservedMeasurements() == true
-            }
+        val qualityRuntime = telemetry.observedQualityRuntime()
         trim(telemetry.updatedAt.takeIf { it > 0L } ?: proxy.capturedAt)
         return ConnectionHealthSnapshot(
             buckets = buckets(),
             observedAt = telemetry.updatedAt.takeIf { it > 0L } ?: proxy.capturedAt,
             quality = qualityRuntime?.connectionQuality,
-            qualitySource =
-                qualityRuntime?.let {
-                    RuntimeMeasurementSource(
-                        source = it.source,
-                        capturedAt = it.capturedAt,
-                        serviceStatus = telemetry.status,
-                        telemetryStatus =
-                            if (it ===
-                                proxy
-                            ) {
-                                telemetry.proxyTelemetryStatus
-                            } else {
-                                telemetry.tunnelTelemetryStatus
-                            },
-                    )
-                },
+            qualitySource = qualityRuntime?.measurementSource(telemetry),
         )
     }
 

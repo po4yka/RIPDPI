@@ -24,4 +24,10 @@
     <string name="measurement_tunnel">Туннель</string>
     <string name="measurement_quality_p95">RTT p95: %1$d мс.</string>
     <string name="measurement_session_total">Сохранённый итог соединения</string>
+    <string name="home_quality_measurements_title">Измерения соединения</string>
+    <string name="home_quality_waiting">Измерений качества пока нет. Объём трафика не определяет качество соединения.</string>
+    <string name="home_quality_partial">Ниже показаны доступные измерения. Для оценки качества нужно больше свежих образцов RTT.</string>
+    <string name="home_quality_last_values">Последние полученные измерения не отражают текущее качество соединения.</string>
+    <string name="home_quality_traffic_total">Всего трафика</string>
+    <string name="home_quality_samples">Образцов RTT: %1$d</string>
 </resources>

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,17 +20,12 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
-import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
@@ -41,8 +35,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.resolveDegradationTone
-import kotlinx.collections.immutable.persistentListOf
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @Composable
@@ -131,8 +123,10 @@ fun HomeScreen(
         // Not an advisory: these are measurements the user asked for, and the
         // traffic counter lives here. Folding it into the slot above would have
         // put a number worth watching behind a warning header.
-        HomeDegradationStrip(
+        HomeConnectionMeasurements(
             quality = uiState.connectionQuality,
+            source = uiState.connectionQualitySource,
+            connected = uiState.isConnected,
             dataTransferred = uiState.dataTransferred,
             onReprobe = onDiagnosticRun,
         )
@@ -264,76 +258,4 @@ private fun HomeModeCardList(
             )
         }
     }
-}
-
-@Composable
-private fun HomeDegradationStrip(
-    quality: ConnectionQualitySnapshot?,
-    dataTransferred: Long,
-    onReprobe: () -> Unit,
-) {
-    if (quality == null) return
-    // A null tone means every indicator is in range, which used to render
-    // nothing at all: the screen reported loss, RTT and jitter only once
-    // something was already wrong, so a healthy connection said nothing about
-    // itself. Report the same measurements in a neutral tone instead.
-    val tone = resolveDegradationTone(quality) ?: RipDpiDegradationTone.Nominal
-    val titleRes =
-        when (tone) {
-            RipDpiDegradationTone.Nominal -> R.string.vpn_quality_strip_nominal_title
-            RipDpiDegradationTone.Warning -> R.string.vpn_quality_strip_warning_title
-            RipDpiDegradationTone.Critical -> R.string.vpn_quality_strip_critical_title
-        }
-    val bodyRes =
-        when (tone) {
-            RipDpiDegradationTone.Nominal -> R.string.vpn_quality_strip_body_nominal
-            RipDpiDegradationTone.Warning -> R.string.vpn_quality_strip_body_warning
-            RipDpiDegradationTone.Critical -> R.string.vpn_quality_strip_body_critical
-        }
-    val metrics =
-        persistentListOf(
-            RipDpiDegradationMetric(
-                label = stringResource(R.string.vpn_quality_metric_loss),
-                value = stringResource(R.string.home_quality_metric_loss_format, quality.lossPct),
-                delta = "",
-                deltaIsBad = false,
-            ),
-            RipDpiDegradationMetric(
-                label = stringResource(R.string.vpn_quality_metric_rtt_p50),
-                value = stringResource(R.string.home_quality_metric_ms_format, quality.rttP50Ms),
-                delta = "",
-                deltaIsBad = false,
-            ),
-            RipDpiDegradationMetric(
-                label = stringResource(R.string.vpn_quality_metric_jitter),
-                value = stringResource(R.string.home_quality_metric_ms_format, quality.jitterMs),
-                delta = "",
-                deltaIsBad = false,
-            ),
-            // dataTransferred was polled once a second, resolved, and carried all
-            // the way into MainUiState without a single composable reading it.
-            // This is the slot it was always missing.
-            RipDpiDegradationMetric(
-                label = stringResource(R.string.home_stat_traffic),
-                value = Formatter.formatShortFileSize(LocalContext.current, dataTransferred),
-                delta = "",
-                deltaIsBad = false,
-            ),
-        )
-    val sampleCountLabel = stringResource(R.string.vpn_quality_graph_samples_format, quality.sampleCount)
-    val sinceLabel = stringResource(R.string.vpn_quality_strip_since_format, sampleCountLabel)
-    RipDpiDegradationStrip(
-        title = stringResource(titleRes),
-        body = stringResource(bodyRes),
-        metrics = metrics,
-        sinceLabel = sinceLabel,
-        primaryAction =
-            RipDpiDegradationAction(
-                label = stringResource(R.string.vpn_quality_strip_reprobe),
-                onClick = onReprobe,
-            ),
-        secondaryAction = null,
-        tone = tone,
-        modifier = Modifier.fillMaxWidth(),
-    )
 }
