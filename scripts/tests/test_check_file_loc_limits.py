@@ -248,6 +248,140 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         self.assertEqual(3, functions["bindService"])
         self.assertEqual(3, functions["provideService"])
 
+    def test_bodyless_interface_methods_do_not_consume_later_class(self) -> None:
+        source = """internal interface Reader {
+    suspend fun read(
+        request: Request,
+    ): Value
+    fun reset()
+}
+class Implementation {
+    fun execute() {
+        first()
+        second()
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(3, functions["read"])
+        self.assertEqual(1, functions["reset"])
+        self.assertEqual(4, functions["execute"])
+
+    def test_default_interface_block_on_next_line_remains_measured(self) -> None:
+        source = """interface Reader {
+    fun defaultValue(): Value
+    // The implementation body can start on the next line.
+    {
+        first()
+        second()
+        return value
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(7, functions["defaultValue"])
+
+    def test_long_default_interface_expression_body_remains_measured(self) -> None:
+        body = "\n".join("        next()" for _ in range(130))
+        source = "interface Reader {\n    fun execute() = run {\n" + body + "\n    }\n}\n"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(132, functions["execute"])
+
+    def test_bodyless_interface_multiline_return_type_is_counted(self) -> None:
+        source = """interface Reader {
+    fun read():
+        Result<
+            Value,
+        >
+}
+class Implementation {
+    fun execute() {
+        first()
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(4, functions["read"])
+        self.assertEqual(3, functions["execute"])
+
+    def test_bodyless_interface_literal_default_does_not_change_parameter_depth(self) -> None:
+        source = '''interface Reader {
+    fun read(separator: String = "){"): Value
+}
+class Implementation {
+    fun execute() {
+        first()
+    }
+}
+'''
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(1, functions["read"])
+        self.assertEqual(3, functions["execute"])
+
+    def test_multiline_function_type_return_does_not_hide_implementation(self) -> None:
+        source = """interface Reader {
+    fun factory(): Result<(Input) ->
+        Value> {
+        first()
+        return result
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(5, functions["factory"])
+
+    def test_long_interface_block_ignores_braces_in_defaults_and_comments(self) -> None:
+        body = "\n".join("        next()" for _ in range(130))
+        source = '''interface Reader {
+    fun execute(callback: () -> Unit = {}, marker: String = "{}")
+    // Signature-to-body comment with misleading { } braces.
+    {
+''' + body + "\n    }\n}\n"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "Reader.kt"
+            path.write_text(source, encoding="utf-8")
+            functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+        self.assertEqual(134, functions["execute"])
+
+    def test_long_block_with_return_type_prefix_on_next_line_remains_measured(self) -> None:
+        body = "\n".join("        next()" for _ in range(130))
+        for signature in (
+            "fun execute()\n        : Unit",
+            "fun execute(): ()\n        -> Unit",
+            "fun execute(): List\n        <Unit>",
+            "fun execute(): kotlin\n        .Unit",
+            "fun execute(): Unit\n        ?",
+            "fun execute(): T\n        & Any",
+            "fun execute(): T &\n        Any",
+            "fun execute(): suspend\n        () -> Unit",
+            "fun execute(): suspend\n        String.() -> Unit",
+            "fun execute(): suspend\n        @Ann () -> Unit",
+        ):
+            with self.subTest(signature=signature), tempfile.TemporaryDirectory() as temp_dir:
+                source = "interface Reader {\n    " + signature + " {\n" + body + "\n    }\n}\n"
+                path = Path(temp_dir) / "Reader.kt"
+                path.write_text(source, encoding="utf-8")
+                functions = dict(check_file_loc_limits.top_functions(path, "kotlin"))
+                self.assertEqual(133, functions["execute"])
+
 
 if __name__ == "__main__":
     unittest.main()

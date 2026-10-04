@@ -443,10 +443,10 @@ _KT_SUPPRESS_RE = re.compile(r"@(?:file:)?Suppress\s*\(")
 _RS_ALLOW_RE = re.compile(r"#\[allow\(")
 
 
-def _measure_function_lines(text: str, match_start: int) -> int:
+def _measure_function_lines(text: str, match_start: int, body_start: int | None = None) -> int:
     """Count lines from the function signature to the end of its body (balanced braces)."""
     start_line = text.count("\n", 0, match_start)
-    brace_pos = text.find("{", match_start)
+    brace_pos = text.find("{", match_start) if body_start is None else body_start
     if brace_pos == -1:
         # Single-expression or abstract function with no body
         end_of_line = text.find("\n", match_start)
@@ -470,11 +470,18 @@ def _measure_function_lines(text: str, match_start: int) -> int:
     return max(1, text.count("\n", match_start) + 1)
 
 
-def _measure_kotlin_abstract_function_lines(text: str, match_start: int) -> int:
-    """Count a bodyless Kotlin abstract declaration without consuming a later class body."""
+def _kotlin_function_boundary(text: str, match_start: int) -> tuple[int | None, int | None]:
+    """Return bodyless signature length or the actual block-body opening position.
+
+    Interface methods are implicitly abstract. A brace in the next class or default
+    method does not belong to them, while a body following a newline still does.
+    The input masks comments and literals without changing character positions.
+    """
     start_line = text.count("\n", 0, match_start)
     parenthesis_depth = 0
     saw_parameters = False
+    parameters_complete = False
+    parameter_end = match_start
     for index in range(match_start, len(text)):
         character = text[index]
         if character == "(":
@@ -482,10 +489,37 @@ def _measure_kotlin_abstract_function_lines(text: str, match_start: int) -> int:
             saw_parameters = True
         elif character == ")":
             parenthesis_depth = max(0, parenthesis_depth - 1)
+            if parenthesis_depth == 0 and not parameters_complete:
+                parameter_end = index + 1
+                parameters_complete = True
+        elif saw_parameters and parenthesis_depth == 0 and character == "{":
+            return None, index
+        elif saw_parameters and parenthesis_depth == 0 and character == "=":
+            return None, None
         elif character == "\n" and saw_parameters and parenthesis_depth == 0:
+            return_type = text[parameter_end:index].strip()
+            angle_type = return_type.replace("->", "")
+            if "@" in return_type:
+                # Retain the existing body measurement for ambiguous annotated types.
+                return None, None
+            if return_type.endswith((":", ".", ",", "<", "->", "&")) or angle_type.count("<") > angle_type.count(">"):
+                continue
+            next_token = index + 1
+            while next_token < len(text) and text[next_token].isspace():
+                next_token += 1
+            if re.search(r"\bsuspend$", return_type):
+                continue
+            if text.startswith((":", "->", "<", ".", "?", "&"), next_token):
+                continue
+            if re.match(r"where\b", text[next_token:]):
+                continue
+            if next_token < len(text) and text[next_token] == "{":
+                return None, next_token
+            if next_token < len(text) and text[next_token] == "=":
+                return None, None
             end_line = text.count("\n", 0, index)
-            return max(1, end_line - start_line + 1)
-    return max(1, text.count("\n", match_start) + 1)
+            return max(1, end_line - start_line + 1), None
+    return max(1, text.count("\n", match_start) + 1), None
 
 
 def top_functions(path: Path, language: str, top_n: int = 5) -> list[tuple[str, int]]:
@@ -496,13 +530,29 @@ def top_functions(path: Path, language: str, top_n: int = 5) -> list[tuple[str, 
         return []
 
     pattern = _KT_FUN_RE if language == "kotlin" else _RS_FN_RE
+    kotlin_structure = (
+        re.sub(
+            r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'',
+            lambda literal: "".join("\n" if char == "\n" else " " for char in literal.group()),
+            strip_comments(text, "kotlin"),
+        )
+        if language == "kotlin"
+        else ""
+    )
     results: list[tuple[str, int]] = []
     for match in pattern.finditer(text):
         name = match.group(2)
-        if language == "kotlin" and "abstract" in match.group(1).split():
-            line_count = _measure_kotlin_abstract_function_lines(text, match.start())
-        else:
-            line_count = _measure_function_lines(text, match.start())
+        line_count, body_start = (
+            _kotlin_function_boundary(kotlin_structure, match.start())
+            if language == "kotlin"
+            else (None, None)
+        )
+        if line_count is None:
+            line_count = _measure_function_lines(
+                kotlin_structure if body_start is not None else text,
+                match.start(),
+                body_start,
+            )
         results.append((name, line_count))
 
     results.sort(key=lambda item: item[1], reverse=True)
