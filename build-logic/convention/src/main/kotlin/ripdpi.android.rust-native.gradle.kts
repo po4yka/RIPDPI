@@ -1656,6 +1656,7 @@ val buildNfqws2 =
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
+        jobs.set(rustNativeCpuBudget.orElse(4))
         workDir.set(layout.buildDirectory.dir("intermediates/nfqws2"))
         outputDir.set(generatedNfqws2AssetsDir)
     }

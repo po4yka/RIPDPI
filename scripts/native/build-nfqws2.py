@@ -207,7 +207,7 @@ def main():
     parser.add_argument("--abis", default=",".join(ABIS))
     parser.add_argument("--ndk", type=Path)
     parser.add_argument("--api", type=int, default=27)
-    parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 1))
+    parser.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 1))
     parser.add_argument("--work", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repack-zlib", type=Path, metavar="ORIGINAL_ARCHIVE", help="Regenerate the locked source-only zlib archive from its verified official tar.gz")

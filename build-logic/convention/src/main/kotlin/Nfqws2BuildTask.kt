@@ -44,6 +44,9 @@ abstract class Nfqws2BuildTask
         @get:Input
         abstract val abis: ListProperty<String>
 
+        @get:Input
+        abstract val jobs: Property<Int>
+
         @get:LocalState
         abstract val workDir: DirectoryProperty
 
@@ -52,6 +55,8 @@ abstract class Nfqws2BuildTask
 
         @TaskAction
         fun build() {
+            val buildJobs = jobs.get()
+            require(buildJobs > 0) { "nfqws2 build jobs must be at least 1" }
             fileSystemOperations.delete { delete(outputDir) }
             execOperations.exec {
                 commandLine(
@@ -63,6 +68,8 @@ abstract class Nfqws2BuildTask
                     abis.get().joinToString(","),
                     "--api",
                     minSdk.get().toString(),
+                    "--jobs",
+                    buildJobs.toString(),
                     "--ndk",
                     sdkDir
                         .get()
