@@ -42,12 +42,18 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+enum class RipDpiSheetScrollPolicy {
+    Container,
+    Content,
+}
+
 data class RipDpiSheetAction(
     val label: String,
     val onClick: () -> Unit,
     val testTag: String? = null,
     val variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     val enabled: Boolean = true,
+    val wrapLabel: Boolean = false,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +69,7 @@ fun RipDpiBottomSheet(
     primaryAction: RipDpiSheetAction? = null,
     secondaryAction: RipDpiSheetAction? = null,
     actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
+    scrollPolicy: RipDpiSheetScrollPolicy = RipDpiSheetScrollPolicy.Container,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
@@ -88,6 +95,7 @@ fun RipDpiBottomSheet(
             primaryAction = primaryAction,
             secondaryAction = secondaryAction,
             actionLayout = actionLayout,
+            scrollPolicy = scrollPolicy,
             content = content,
         )
     }
@@ -103,6 +111,7 @@ fun RipDpiBottomSheetCard(
     primaryAction: RipDpiSheetAction? = null,
     secondaryAction: RipDpiSheetAction? = null,
     actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
+    scrollPolicy: RipDpiSheetScrollPolicy = RipDpiSheetScrollPolicy.Container,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -123,8 +132,15 @@ fun RipDpiBottomSheetCard(
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
-                    .verticalScroll(rememberScrollState())
-                    .padding(
+                    .then(
+                        if (scrollPolicy ==
+                            RipDpiSheetScrollPolicy.Container
+                        ) {
+                            Modifier.verticalScroll(rememberScrollState())
+                        } else {
+                            Modifier
+                        },
+                    ).padding(
                         start = layout.horizontalPadding,
                         end = layout.horizontalPadding,
                         top = spacing.sm,
@@ -230,6 +246,7 @@ private fun BottomSheetActionColumn(
                             .ripDpiTestTag(action.testTag),
                     variant = action.variant,
                     enabled = action.enabled,
+                    wrapLabel = action.wrapLabel,
                 )
             }
             secondaryAction?.let { action ->
@@ -242,6 +259,7 @@ private fun BottomSheetActionColumn(
                             .ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
                     enabled = action.enabled,
+                    wrapLabel = action.wrapLabel,
                 )
             }
         }
@@ -258,6 +276,7 @@ private fun BottomSheetActionColumn(
                     modifier = Modifier.ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
                     enabled = action.enabled,
+                    wrapLabel = action.wrapLabel,
                     density = RipDpiControlDensity.Compact,
                 )
             }
@@ -268,6 +287,7 @@ private fun BottomSheetActionColumn(
                     modifier = Modifier.ripDpiTestTag(action.testTag),
                     variant = action.variant,
                     enabled = action.enabled,
+                    wrapLabel = action.wrapLabel,
                     density = RipDpiControlDensity.Compact,
                 )
             }

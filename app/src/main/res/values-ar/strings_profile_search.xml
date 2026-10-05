@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">البحث عن ملفات التعريف</string>
+    <string name="profile_search_clear">مسح البحث</string>
+    <string name="profile_search_all">الكل</string>
+    <string name="profile_search_no_results">لا توجد ملفات تعريف تطابق البحث والمرشح.</string>
+    <string name="profile_search_reset">إعادة تعيين البحث والمرشح</string>
+    <string name="profile_search_open">البحث في جميع ملفات التعريف</string>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">Buscar perfiles</string>
+    <string name="profile_search_clear">Borrar búsqueda</string>
+    <string name="profile_search_all">Todos</string>
+    <string name="profile_search_no_results">Ningún perfil coincide con la búsqueda y el filtro.</string>
+    <string name="profile_search_reset">Restablecer búsqueda y filtro</string>
+    <string name="profile_search_open">Buscar en todos los perfiles</string>
+</resources>

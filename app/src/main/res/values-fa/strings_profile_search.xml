@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">جستجوی پروفایل‌ها</string>
+    <string name="profile_search_clear">پاک کردن جستجو</string>
+    <string name="profile_search_all">همه</string>
+    <string name="profile_search_no_results">هیچ پروفایلی با این جستجو و فیلتر مطابقت ندارد.</string>
+    <string name="profile_search_reset">بازنشانی جستجو و فیلتر</string>
+    <string name="profile_search_open">جستجو در همهٔ پروفایل‌ها</string>
+</resources>

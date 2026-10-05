@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">搜索配置</string>
+    <string name="profile_search_clear">清除搜索</string>
+    <string name="profile_search_all">全部</string>
+    <string name="profile_search_no_results">没有配置符合此搜索和筛选条件。</string>
+    <string name="profile_search_reset">重置搜索和筛选</string>
+    <string name="profile_search_open">搜索所有配置</string>
+</resources>

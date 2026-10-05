@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">Поиск профилей</string>
+    <string name="profile_search_clear">Очистить поиск</string>
+    <string name="profile_search_all">Все</string>
+    <string name="profile_search_no_results">Нет профилей, соответствующих поиску и фильтру.</string>
+    <string name="profile_search_reset">Сбросить поиск и фильтр</string>
+    <string name="profile_search_open">Поиск по всем профилям</string>
+</resources>

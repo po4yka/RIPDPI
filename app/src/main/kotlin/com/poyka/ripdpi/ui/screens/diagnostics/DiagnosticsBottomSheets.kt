@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -352,20 +354,35 @@ internal fun DiagnosticsBottomSheetHost(
 internal fun ProfileSelectionBottomSheet(
     profiles: List<DiagnosticsProfileOptionUiModel>,
     selectedProfileId: String?,
+    search: com.poyka.ripdpi.ui.components.profiles.ProfileSearchState,
     onSelectProfile: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var selected by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     RipDpiBottomSheet(
         onDismissRequest = onDismiss,
-        title = "",
+        title = stringResource(R.string.diagnostics_profiles_title),
         icon = RipDpiIcons.Settings,
+        testTag = RipDpiTestTags.DiagnosticProfileSearchSheet,
+        secondaryAction =
+            com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction(
+                label = stringResource(R.string.config_cancel),
+                onClick = onDismiss,
+                testTag = RipDpiTestTags.profileSearchCancel(RipDpiTestTags.DiagnosticProfileSearch),
+                variant = RipDpiButtonVariant.Outline,
+                wrapLabel = true,
+            ),
     ) {
         ProfilePickerContent(
             profiles = profiles,
             selectedProfileId = selectedProfileId,
+            search = search,
             onSelectProfile = { profileId ->
-                onSelectProfile(profileId)
-                onDismiss()
+                if (!selected) {
+                    selected = true
+                    onDismiss()
+                    onSelectProfile(profileId)
+                }
             },
         )
     }

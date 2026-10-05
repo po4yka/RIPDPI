@@ -34,7 +34,6 @@ import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.activities.ScanNetworkContextUiModel
 import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
-import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.activities.displayLabel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -435,66 +434,12 @@ internal fun DiagnosticsProfileCard(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val (badge, description) =
-        when {
-            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
-                stringResource(R.string.diagnostics_profile_badge_ru_web) to
-                    stringResource(R.string.diagnostics_profile_desc_web_connectivity)
-            }
-
-            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> {
-                stringResource(R.string.diagnostics_profile_badge_ru_msg) to
-                    stringResource(R.string.diagnostics_profile_desc_messaging)
-            }
-
-            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> {
-                stringResource(R.string.diagnostics_profile_badge_ru_adapt) to
-                    stringResource(R.string.diagnostics_profile_desc_adaptation)
-            }
-
-            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> {
-                stringResource(R.string.diagnostics_profile_badge_ru_rate) to
-                    stringResource(R.string.diagnostics_profile_desc_throttling)
-            }
-
-            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> {
-                stringResource(R.string.diagnostics_profile_badge_ru_full) to
-                    stringResource(R.string.diagnostics_profile_desc_network_full)
-            }
-
-            profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1 -> {
-                stringResource(R.string.diagnostics_profile_audit_badge) to
-                    stringResource(R.string.diagnostics_profile_audit_body)
-            }
-
-            profile.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE -> {
-                stringResource(R.string.diagnostics_profile_probe_badge) to
-                    stringResource(R.string.diagnostics_profile_probe_body)
-            }
-
-            else -> {
-                stringResource(R.string.diagnostics_profile_connectivity_badge) to
-                    stringResource(R.string.diagnostics_profile_connectivity_body)
-            }
-        }
+    val (badge, _) = diagnosticProfileTextResources(profile)
 
     PresetCard(
         title = profile.name,
         description =
-            buildString {
-                append(description)
-                if (profile.manualOnly) {
-                    append(" ")
-                    append(stringResource(R.string.diagnostics_profile_manual_run_only))
-                }
-                if (profile.requiresExplicitConsent) {
-                    append(" ${stringResource(R.string.diagnostics_profile_explicit_consent_required)}")
-                }
-                if (profile.packRefs.isNotEmpty()) {
-                    append(" ")
-                    append(stringResource(R.string.diagnostics_profile_curated_packs_included, profile.packRefs.size))
-                }
-            },
+            displayedDiagnosticProfileDescription(profile),
         badgeText =
             buildString {
                 append(if (profile.regionTag?.equals("ru", ignoreCase = true) == true) "$badge · RU" else badge)

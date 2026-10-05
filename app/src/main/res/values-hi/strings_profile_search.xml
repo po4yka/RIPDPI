@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">प्रोफ़ाइल खोजें</string>
+    <string name="profile_search_clear">खोज साफ़ करें</string>
+    <string name="profile_search_all">सभी</string>
+    <string name="profile_search_no_results">इस खोज और फ़िल्टर से कोई प्रोफ़ाइल मेल नहीं खाती।</string>
+    <string name="profile_search_reset">खोज और फ़िल्टर रीसेट करें</string>
+    <string name="profile_search_open">सभी प्रोफ़ाइल खोजें</string>
+</resources>

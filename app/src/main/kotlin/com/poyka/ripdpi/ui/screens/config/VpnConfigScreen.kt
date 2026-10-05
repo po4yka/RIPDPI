@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,7 +20,6 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -158,7 +154,10 @@ private fun VpnProfileList(
     onProfileSelect: (String) -> Unit,
     onProfileEdit: (String) -> Unit,
 ) {
-    var showAll by rememberSaveable { mutableStateOf(false) }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
+    val search =
+        com.poyka.ripdpi.ui.components.profiles
+            .rememberProfileSearchState()
     if (uiState.vpnProfiles.isEmpty()) {
         SettingsRow(
             title = stringResource(R.string.config_vpn_profiles_title),
@@ -170,49 +169,36 @@ private fun VpnProfileList(
         )
         return
     }
-
-    if (showAll && uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
-        LazyColumn(
-            modifier = Modifier.height(360.dp).ripDpiTestTag(RipDpiTestTags.ConfigVpnProfileList),
-            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-        ) {
-            items(uiState.vpnProfiles, key = { it.id }) { profile ->
-                VpnProfileItem(
-                    profile = profile,
-                    selected = profile.id == uiState.activeRelayProfileId && uiState.activeRelayEnabled,
-                    onProfileShare = onProfileShare,
-                    onProfileSelect = onProfileSelect,
-                    onProfileEdit = onProfileEdit,
-                )
-            }
-        }
-    } else {
-        uiState.vpnProfiles.take(VpnProfilePreviewLimit).forEach { profile ->
-            VpnProfileItem(
-                profile = profile,
-                selected = profile.id == uiState.activeRelayProfileId && uiState.activeRelayEnabled,
-                onProfileShare = onProfileShare,
-                onProfileSelect = onProfileSelect,
-                onProfileEdit = onProfileEdit,
-            )
-        }
-        if (uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
-            RipDpiButton(
-                text =
-                    stringResource(
-                        R.string.config_vpn_profiles_more,
-                        uiState.vpnProfiles.size - VpnProfilePreviewLimit,
-                    ),
-                onClick = { showAll = true },
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnProfilesMore),
-                variant = RipDpiButtonVariant.Outline,
-            )
-        }
+    if (showSearch) {
+        VpnProfileSearchSheet(
+            profiles = uiState.vpnProfiles,
+            selectedProfileId = uiState.activeRelayProfileId.takeIf { uiState.activeRelayEnabled },
+            search = search,
+            onDismiss = { showSearch = false },
+            actions = ConfigProfileActions(share = onProfileShare, select = onProfileSelect, edit = onProfileEdit),
+        )
     }
+    uiState.vpnProfiles.take(VpnProfilePreviewLimit).forEach { profile ->
+        VpnProfileItem(
+            profile = profile,
+            selected = profile.id == uiState.activeRelayProfileId && uiState.activeRelayEnabled,
+            onProfileShare = onProfileShare,
+            onProfileSelect = onProfileSelect,
+            onProfileEdit = onProfileEdit,
+        )
+    }
+    RipDpiButton(
+        text = stringResource(R.string.profile_search_open),
+        onClick = { showSearch = true },
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnProfilesMore),
+        variant = RipDpiButtonVariant.Outline,
+        leadingIcon = RipDpiIcons.Search,
+        wrapLabel = true,
+    )
 }
 
 @Composable
-private fun VpnProfileItem(
+internal fun VpnProfileItem(
     profile: RelayProfileUiState,
     selected: Boolean,
     onProfileShare: (String) -> Unit,
@@ -252,6 +238,7 @@ private fun VpnProfileItem(
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.configVpnProfileSelect(profile.id)),
                 variant = RipDpiButtonVariant.Outline,
+                wrapLabel = true,
                 enabled = !selected,
             )
             RipDpiButton(
@@ -262,6 +249,7 @@ private fun VpnProfileItem(
                         .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.configVpnProfileShare(profile.id)),
                 variant = RipDpiButtonVariant.Outline,
+                wrapLabel = true,
                 leadingIcon = RipDpiIcons.Share,
             )
         }

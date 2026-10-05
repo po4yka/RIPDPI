@@ -91,6 +91,7 @@ fun RipDpiTextField(
         decoration.label?.let {
             Text(
                 text = it,
+                modifier = Modifier.fillMaxWidth(),
                 style = RipDpiThemeTokens.type.smallLabel,
                 color = state.label,
             )

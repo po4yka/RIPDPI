@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_search_label">Profile suchen</string>
+    <string name="profile_search_clear">Suche löschen</string>
+    <string name="profile_search_all">Alle</string>
+    <string name="profile_search_no_results">Keine Profile entsprechen der Suche und dem Filter.</string>
+    <string name="profile_search_reset">Suche und Filter zurücksetzen</string>
+    <string name="profile_search_open">Alle Profile durchsuchen</string>
+</resources>

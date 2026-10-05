@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -17,6 +16,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -57,6 +57,10 @@ internal fun CompactProfileRow(
             RipDpiButton(
                 text = stringResource(R.string.diagnostics_profile_change_action),
                 onClick = onChangeProfile,
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        com.poyka.ripdpi.ui.testing.RipDpiTestTags.DiagnosticProfileSearchOpen,
+                    ),
                 variant = RipDpiButtonVariant.Outline,
             )
         }
@@ -67,86 +71,47 @@ internal fun CompactProfileRow(
 internal fun ProfilePickerContent(
     profiles: List<com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel>,
     selectedProfileId: String?,
+    search: com.poyka.ripdpi.ui.components.profiles.ProfileSearchState,
     onSelectProfile: (String) -> Unit,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
-    Text(
-        text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
-        style = RipDpiThemeTokens.type.sectionTitle,
-        color = RipDpiThemeTokens.colors.mutedForeground,
+    val tag = com.poyka.ripdpi.ui.testing.RipDpiTestTags.DiagnosticProfileSearch
+    val entries =
+        profiles.map {
+            DiagnosticProfileSearchEntry(it, displayFamilyLabel(it.family), displayedDiagnosticProfileDescription(it))
+        }
+    val visible = filterDiagnosticProfiles(entries, search.query, search.filter)
+    com.poyka.ripdpi.ui.components.profiles.ProfileSearchControls(
+        state = search,
+        filters =
+            entries.distinctBy { it.profile.family }.map {
+                com.poyka.ripdpi.ui.components.profiles
+                    .ProfileSearchFilter(it.profile.family.name, it.familyLabel)
+            },
+        tag = tag,
     )
-    Text(
-        text = stringResource(R.string.diagnostics_profiles_body),
-        style = RipDpiThemeTokens.type.secondaryBody,
-        color = RipDpiThemeTokens.colors.mutedForeground,
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        profiles.groupBy { it.family }.forEach { (family, familyProfiles) ->
-            Text(
-                text = displayFamilyLabel(family),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
-            familyProfiles.forEach { profile ->
-                DiagnosticsProfileCard(
-                    profile = profile,
-                    selected = profile.id == selectedProfileId,
-                    onClick = { onSelectProfile(profile.id) },
+    if (visible.isEmpty()) {
+        com.poyka.ripdpi.ui.components.profiles
+            .ProfileSearchEmpty(search, tag)
+    } else {
+        Column(
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(tag),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
+            visible.groupBy { it.profile.family }.forEach { (_, group) ->
+                Text(
+                    text = group.first().familyLabel,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
                 )
+                group.forEach { entry ->
+                    DiagnosticsProfileCard(
+                        profile = entry.profile,
+                        selected = entry.profile.id == selectedProfileId,
+                        onClick = { onSelectProfile(entry.profile.id) },
+                    )
+                }
             }
         }
     }
 }
-
-@Composable
-@ReadOnlyComposable
-private fun displayFamilyLabel(family: com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily): String =
-    when (family) {
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL -> {
-            stringResource(
-                R.string.diagnostics_family_general,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
-            stringResource(
-                R.string.diagnostics_family_web_connectivity,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> {
-            stringResource(
-                R.string.diagnostics_family_messaging,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> {
-            stringResource(
-                R.string.diagnostics_family_adaptation,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> {
-            stringResource(
-                R.string.diagnostics_family_throttling,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> {
-            stringResource(
-                R.string.diagnostics_family_network_full,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> {
-            stringResource(
-                R.string.diagnostics_family_automatic_probing,
-            )
-        }
-
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_AUDIT -> {
-            stringResource(
-                R.string.diagnostics_family_automatic_audit,
-            )
-        }
-    }

@@ -95,6 +95,18 @@ internal object RipDpiTestTags {
     const val ConfigVpnAddProfile = "config-vpn-add-profile"
     val configVpnCreateProfile: (Route) -> String = { route -> "config-vpn-create-${sanitize(route.stableRoute)}" }
     const val ConfigVpnProfileList = "config-vpn-profile-list"
+    const val DiagnosticProfileSearchOpen = "diagnostic-profile-search-open"
+    const val DiagnosticProfileSearch = "diagnostic-profile-search"
+    const val RelayProfileSearch = "relay-profile-search"
+    const val RelayProfileSearchSheet = "relay-profile-search-sheet"
+    const val DiagnosticProfileSearchSheet = "diagnostic-profile-search-sheet"
+    val profileSearchQuery: (String) -> String = { scope -> "$scope-query" }
+    val profileSearchClear: (String) -> String = { scope -> "$scope-clear" }
+    val profileSearchFilter: (String, String?) -> String = { scope, value -> "$scope-filter-${value ?: "all"}" }
+    val profileSearchEmpty: (String) -> String = { scope -> "$scope-empty" }
+    val profileSearchReset: (String) -> String = { scope -> "$scope-reset" }
+    val profileSearchCancel: (String) -> String = { scope -> "$scope-cancel" }
+
     const val ConfigVpnProfilesMore = "config-vpn-profiles-more"
     const val ModeEditorRelayProfileId = "mode-editor-relay-profile-id"
     val configVpnProfileRow: (String) -> String = { profileId -> "config-vpn-profile-row-${sanitize(profileId)}" }

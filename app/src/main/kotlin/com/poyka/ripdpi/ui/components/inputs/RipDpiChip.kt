@@ -51,6 +51,7 @@ fun RipDpiChip(
     leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
     role: Role = Role.Checkbox,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
+    wrapLabel: Boolean = false,
 ) {
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
@@ -156,6 +157,7 @@ fun RipDpiChip(
         }
         Text(
             text = text,
+            modifier = if (wrapLabel) Modifier.weight(1f) else Modifier,
             style = if (selected) RipDpiThemeTokens.type.bodyEmphasis else RipDpiThemeTokens.type.secondaryBody,
             color = animatedContentColor,
         )

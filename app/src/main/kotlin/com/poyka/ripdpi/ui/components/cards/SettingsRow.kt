@@ -304,9 +304,9 @@ private fun RowScope.SettingsRowText(
         modifier = Modifier.weight(1f),
         verticalArrangement = Arrangement.spacedBy(components.rows.compactPillVerticalPadding),
     ) {
-        Text(text = title, style = type.body, color = state.title)
+        Text(text = title, modifier = Modifier.fillMaxWidth(), style = type.body, color = state.title)
         subtitle?.let {
-            Text(text = it, style = type.caption, color = state.subtitle)
+            Text(text = it, modifier = Modifier.fillMaxWidth(), style = type.caption, color = state.subtitle)
         }
     }
 }

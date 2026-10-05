@@ -2861,6 +2861,12 @@ app:persona_advanced
 app:persona_simple
 app:port_matrix_host_port_header
 app:port_matrix_title
+app:profile_search_all
+app:profile_search_clear
+app:profile_search_label
+app:profile_search_no_results
+app:profile_search_open
+app:profile_search_reset
 app:profile_share_action
 app:profile_share_copy_sheet_action
 app:profile_share_copy_uri_action

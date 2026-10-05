@@ -91,11 +91,15 @@ internal fun ScanSection(
 
             else -> RipDpiTestTags.DiagnosticsScanStateIdle
         }
+    val profileSearch =
+        com.poyka.ripdpi.ui.components.profiles
+            .rememberProfileSearchState()
     var showProfilePicker by rememberSaveable { mutableStateOf(false) }
     if (showProfilePicker) {
         ProfileSelectionBottomSheet(
             profiles = scan.profiles,
             selectedProfileId = scan.selectedProfileId,
+            search = profileSearch,
             onSelectProfile = onSelectProfile,
             onDismiss = { showProfilePicker = false },
         )

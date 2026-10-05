@@ -6,6 +6,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -38,13 +40,15 @@ class VpnRelayProfileReachabilityTest {
         val kinds = listOf("vless", "trojan", "shadowsocks", "google_apps_script", "mieru", "ssh")
         setProfiles(kinds, edited)
         expandProfiles()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("relay-ssh")
         assertTrue(kinds.take(4).all(::isModeEditorRelayKindSupported))
         for ((index, kind) in kinds.withIndex()) {
-            composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("relay-$kind")
+            if (index > 0) expandProfiles()
+            composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:relay-$kind")
             composeRule
-                .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-$kind"))
-                .performScrollTo()
+                .onNode(
+                    hasTestTag(RipDpiTestTags.configVpnProfileRow("relay-$kind")) and
+                        hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)),
+                ).performScrollTo()
                 .assertHasClickAction()
                 .performSemanticsAction(SemanticsActions.OnClick)
             composeRule.runOnIdle { assertEquals(kinds.take(index + 1).map { "relay-$it" }, edited) }
@@ -67,11 +71,14 @@ class VpnRelayProfileReachabilityTest {
         setProfiles(listOf("vless", "trojan", "shadowsocks", "google_apps_script"), edited)
         expandProfiles()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList)
-            .performScrollToKey("relay-google_apps_script")
+            .onNodeWithTag(
+                RipDpiTestTags.ConfigVpnProfileList,
+            ).performScrollToKey("profile:relay-google_apps_script")
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-google_apps_script"))
-            .performScrollTo()
+            .onNode(
+                hasTestTag(RipDpiTestTags.configVpnProfileRow("relay-google_apps_script")) and
+                    hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)),
+            ).performScrollTo()
             .performClick()
         composeRule.runOnIdle { assertEquals(listOf("relay-google_apps_script"), edited) }
     }
