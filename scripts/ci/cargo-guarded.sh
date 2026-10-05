@@ -27,6 +27,15 @@ if [ "${1:-}" != "cargo" ]; then
 fi
 shift
 
+# Git hooks export repository-local discovery state. Native build scripts may
+# initialize their own copied sources; inheriting GIT_DIR would instead
+# reinitialize the hook's shared repository. Clear Git's local-env-vars set
+# before either Cargo path, while preserving global configuration and the gate.
+unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_PARAMETERS \
+    GIT_CONFIG_COUNT GIT_OBJECT_DIRECTORY GIT_DIR GIT_WORK_TREE \
+    GIT_IMPLICIT_WORK_TREE GIT_GRAFT_FILE GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS \
+    GIT_REPLACE_REF_BASE GIT_PREFIX GIT_SHALLOW_FILE GIT_COMMON_DIR
+
 real_cargo="${BUILD_GATE_REAL_CARGO:-${HOME}/.cargo/bin/cargo}"
 if [ "${BUILD_GATE_DISABLED:-0}" != "1" ] && command -v build-gate >/dev/null 2>&1 && [ -x "${real_cargo}" ]; then
     exec build-gate -- "${real_cargo}" "$@"
