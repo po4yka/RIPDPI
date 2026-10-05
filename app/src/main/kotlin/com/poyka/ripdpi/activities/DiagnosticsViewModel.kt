@@ -120,7 +120,7 @@ class DiagnosticsViewModel
             )
         private val remoteDeviceAcceptance = probeDependencies.remoteDeviceAcceptance
 
-        val uiState: StateFlow<DiagnosticsUiState> =
+        private val uiStates =
             diagnosticsUiStateAssembler.assemble(
                 scope = viewModelScope,
                 interactionDependencies = diagnosticsInteractionDependencies,
@@ -130,6 +130,9 @@ class DiagnosticsViewModel
                 sessionDetailState = sessionDetailState,
                 scanLifecycleState = scanLifecycleState,
             )
+
+        val uiState: StateFlow<DiagnosticsUiState> = uiStates.full
+        val screenUiState: StateFlow<DiagnosticsScreenUiState> = uiStates.screen
 
         private val _pcapRecording = MutableStateFlow(false)
         val pcapRecording: StateFlow<Boolean> = _pcapRecording

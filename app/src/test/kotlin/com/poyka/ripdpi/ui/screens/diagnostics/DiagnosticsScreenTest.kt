@@ -60,6 +60,7 @@ import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel
 import com.poyka.ripdpi.activities.HiddenProbeConflictDialogState
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
+import com.poyka.ripdpi.activities.toScreenUiState
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
@@ -129,7 +130,7 @@ private fun DiagnosticsScreen(
     pcapRecording: Boolean = false,
 ) {
     DiagnosticsScreen(
-        uiState = uiState,
+        uiState = uiState.toScreenUiState(),
         pagerState = pagerState,
         actions =
             DiagnosticsScreenActions(

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -10,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -20,6 +22,7 @@ internal class DiagnosticsUiStateAssembler
     @Inject
     constructor(
         private val uiStateFactory: DiagnosticsUiStateFactory,
+        private val dispatchers: AppCoroutineDispatchers,
     ) {
         fun assemble(
             scope: CoroutineScope,
@@ -29,33 +32,47 @@ internal class DiagnosticsUiStateAssembler
             filterState: StateFlow<FilterState>,
             sessionDetailState: StateFlow<SessionDetailState>,
             scanLifecycleState: StateFlow<ScanLifecycleState>,
-        ): StateFlow<DiagnosticsUiState> {
+        ): DiagnosticsUiStates {
+            val projectionScope = CoroutineScope(scope.coroutineContext + dispatchers.default)
             val data =
                 assembleDiagnosticsDataState(
-                    scope = scope,
+                    scope = projectionScope,
                     interactionDependencies = interactionDependencies,
                     contextDependencies = contextDependencies,
                 )
             val controls =
                 assembleControlState(
-                    scope = scope,
+                    scope = projectionScope,
                     selectionState = selectionState,
                     filterState = filterState,
                     sessionDetailState = sessionDetailState,
                     scanLifecycleState = scanLifecycleState,
                 )
 
-            return combine(data, controls) { diagnosticsData, controls ->
-                uiStateFactory.buildUiState(
-                    buildInput(
-                        diagnosticsData = diagnosticsData,
-                        controls = controls,
-                    ),
+            var previous: DiagnosticsUiState? = null
+            val full =
+                combine(data, controls) { diagnosticsData, controls ->
+                    uiStateFactory
+                        .buildUiState(
+                            buildInput(
+                                diagnosticsData = diagnosticsData,
+                                controls = controls,
+                            ),
+                        ).reuseUnchangedSections(previous)
+                        .also { previous = it }
+                }.stateIn(
+                    scope = projectionScope,
+                    started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                    initialValue = uiStateFactory.initialUiState(),
                 )
-            }.stateIn(
-                scope = scope,
-                started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                initialValue = uiStateFactory.initialUiState(),
+            return DiagnosticsUiStates(
+                full = full,
+                screen =
+                    full.map(DiagnosticsUiState::toScreenUiState).stateIn(
+                        scope = projectionScope,
+                        started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                        initialValue = full.value.toScreenUiState(),
+                    ),
             )
         }
 
@@ -317,6 +334,11 @@ internal class DiagnosticsUiStateAssembler
             )
         }
     }
+
+internal data class DiagnosticsUiStates(
+    val full: StateFlow<DiagnosticsUiState>,
+    val screen: StateFlow<DiagnosticsScreenUiState>,
+)
 
 private data class DiagnosticsAssemblyData(
     val live: LiveDataSnapshot,

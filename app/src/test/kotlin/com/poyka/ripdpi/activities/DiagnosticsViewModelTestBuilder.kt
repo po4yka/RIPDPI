@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -36,6 +37,7 @@ import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceGate
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -105,6 +107,7 @@ internal fun createDiagnosticsViewModel(
             diagnosticsUiStateAssembler =
                 DiagnosticsUiStateAssembler(
                     uiStateFactory = uiStateFactory,
+                    dispatchers = AppCoroutineDispatchers(Dispatchers.Main, Dispatchers.Main, Dispatchers.Main),
                 ),
             uiStateFactory = uiStateFactory,
         ).also { viewModel ->
@@ -176,7 +179,7 @@ private object StubEchTlsHandshake : EchTlsHandshake {
     ): EchTlsHandshakeResult = EchTlsHandshakeResult(negotiatedEch = false, latencyMs = null)
 }
 
-private class EmptyRememberedNetworkPolicySource : DiagnosticsRememberedPolicySource {
+internal class EmptyRememberedNetworkPolicySource : DiagnosticsRememberedPolicySource {
     private val policies = MutableStateFlow<List<DiagnosticsRememberedPolicy>>(emptyList())
 
     override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> = policies
@@ -190,7 +193,7 @@ private class EmptyRememberedNetworkPolicySource : DiagnosticsRememberedPolicySo
     }
 }
 
-private class EmptyActiveConnectionPolicySource : DiagnosticsActiveConnectionPolicySource {
+internal class EmptyActiveConnectionPolicySource : DiagnosticsActiveConnectionPolicySource {
     override val activePolicies: StateFlow<Map<Mode, DiagnosticActiveConnectionPolicy>> =
         MutableStateFlow(emptyMap())
 }

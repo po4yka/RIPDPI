@@ -34,9 +34,9 @@ import com.poyka.ripdpi.activities.DiagnosticsDpiToolsUiModel
 import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsScreenUiState
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -138,7 +138,7 @@ data class DiagnosticsScreenActions(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsScreen(
-    uiState: DiagnosticsUiState,
+    uiState: DiagnosticsScreenUiState,
     pagerState: PagerState,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -186,7 +186,7 @@ fun DiagnosticsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DiagnosticsScreenFrame(
-    uiState: DiagnosticsUiState,
+    uiState: DiagnosticsScreenUiState,
     pagerState: PagerState,
     snackbarHostState: SnackbarHostState,
     actions: DiagnosticsScreenActions,
@@ -306,7 +306,7 @@ private fun DiagnosticsTopBar(
 
 @Composable
 private fun DiagnosticsScreenPager(
-    uiState: DiagnosticsUiState,
+    uiState: DiagnosticsScreenUiState,
     pagerState: PagerState,
     actions: DiagnosticsScreenActions,
     tools: DiagnosticsToolsUiModel,
@@ -369,7 +369,7 @@ private fun DiagnosticsScreenPager(
 
 @Composable
 private fun DiagnosticsToolsPagerPage(
-    uiState: DiagnosticsUiState,
+    uiState: DiagnosticsScreenUiState,
     actions: DiagnosticsScreenActions,
     tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
@@ -433,7 +433,7 @@ private fun DiagnosticsScreenActions.toDiagnosticsDpiToolActions(): DiagnosticsD
 
 @Composable
 private fun DiagnosticsScreenDialogs(
-    uiState: DiagnosticsUiState,
+    uiState: DiagnosticsScreenUiState,
     actions: DiagnosticsScreenActions,
 ) {
     DiagnosticsBottomSheetHost(
@@ -543,7 +543,7 @@ private fun SensitiveProfileConsentDialog(
 private fun previewDiagnosticsScreenIdle() {
     RipDpiTheme {
         DiagnosticsScreen(
-            uiState = DiagnosticsUiState(),
+            uiState = DiagnosticsScreenUiState(),
             pagerState = rememberPagerState(pageCount = { DiagnosticsSection.entries.size }),
         )
     }
@@ -554,7 +554,7 @@ private fun previewDiagnosticsScreenIdle() {
 private fun previewDiagnosticsScreenScanTab() {
     RipDpiTheme {
         DiagnosticsScreen(
-            uiState = DiagnosticsUiState(selectedSection = DiagnosticsSection.Scan),
+            uiState = DiagnosticsScreenUiState(selectedSection = DiagnosticsSection.Scan),
             pagerState =
                 rememberPagerState(
                     initialPage = 1,

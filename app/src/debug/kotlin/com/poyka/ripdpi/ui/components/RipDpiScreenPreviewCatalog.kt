@@ -21,6 +21,7 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.toScreenUiState
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
@@ -326,7 +327,7 @@ private fun DiagnosticsPreviewSceneImpl(
             DiagnosticsSection.entries.size
         }
     DiagnosticsScreen(
-        uiState = uiState,
+        uiState = uiState.toScreenUiState(),
         pagerState = pagerState,
         snackbarHostState = remember { SnackbarHostState() },
         topBarExtraActions = { StrategyTunerTopBarAction(onOpen = {}) },

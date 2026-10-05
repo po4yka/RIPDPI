@@ -55,7 +55,7 @@ fun DiagnosticsRoute(
     LaunchedEffect(viewModel) {
         viewModel.initialize()
     }
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.screenUiState.collectAsStateWithLifecycle()
     val toolsStateFlow = remember(viewModel) { viewModel.toolsRouteStateFlow() }
     val toolsState by toolsStateFlow.collectAsStateWithLifecycle(DiagnosticsToolsRouteState())
     val pcapRecording =
