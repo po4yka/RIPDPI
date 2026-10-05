@@ -68,7 +68,10 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
+import com.poyka.ripdpi.services.RunningReconnectDispatch
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceIntentArbiter
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.StartupFallbackDispatchResult
@@ -118,23 +121,41 @@ class FakeInstrumentedAppSettingsRepository(
 class RecordingInstrumentedServiceController :
     ServiceController,
     StartupFallbackController,
-    VpnTransportActivationController {
+    VpnTransportActivationController,
+    RunningReconnectDispatch {
+    val intentArbiter = ServiceIntentArbiter()
     val startedModes = CopyOnWriteArrayList<Mode>()
     val transportStarts = CopyOnWriteArrayList<Pair<Long, TransportFailoverTarget>>()
+    var preflightRejection: ServiceStartRejectionReason? = null
     var stopCount: Int = 0
         private set
 
-    override fun start(mode: Mode): ServiceStartResult {
-        startedModes += mode
-        return ServiceStartResult.Accepted(mode)
-    }
+    override fun start(mode: Mode): ServiceStartResult =
+        intentArbiter.userStart(
+            action = { recordStart(mode) },
+            isAccepted = { it is ServiceStartResult.Accepted },
+        )
 
     override fun stop() {
-        stopCount += 1
+        intentArbiter.userStop { stopCount += 1 }
     }
 
+    override fun preflight(mode: Mode): ServiceStartResult =
+        preflightRejection?.let { ServiceStartResult.Rejected(mode, it) } ?: ServiceStartResult.Accepted(mode)
+
+    override fun stopIfCurrent(generation: Long): Boolean =
+        intentArbiter.runIfExplicitUserIntentCurrent(generation) {
+            stopCount += 1
+            true
+        } ?: false
+
+    override fun startIfCurrent(
+        mode: Mode,
+        generation: Long,
+    ): ServiceStartResult? = intentArbiter.runIfExplicitUserIntentCurrent(generation) { recordStart(mode) }
+
     override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
-        StartupFallbackDispatchResult.Dispatched(start(Mode.VPN))
+        StartupFallbackDispatchResult.Dispatched(recordStart(Mode.VPN))
 
     override fun startVpnTransport(
         requestId: Long,
@@ -142,6 +163,11 @@ class RecordingInstrumentedServiceController :
     ): ServiceStartResult {
         transportStarts += requestId to expectedTarget
         return start(Mode.VPN)
+    }
+
+    private fun recordStart(mode: Mode): ServiceStartResult {
+        startedModes += mode
+        return ServiceStartResult.Accepted(mode)
     }
 }
 

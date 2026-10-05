@@ -50,8 +50,10 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.EngineAppFacadeModule
 import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
+import com.poyka.ripdpi.services.RunningReconnectDispatch
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceControllerModule
+import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.StartupFallbackController
 import com.poyka.ripdpi.services.VpnTransportActivationController
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
@@ -180,6 +182,16 @@ class MainActivityShellInstrumentedTest {
     @BindValue
     @JvmField
     var serviceController: ServiceController = RecordingInstrumentedServiceController()
+
+    @BindValue
+    @JvmField
+    var runningReconnectDispatch: RunningReconnectDispatch =
+        serviceController as RecordingInstrumentedServiceController
+
+    @BindValue
+    @JvmField
+    var serviceIntentArbiter: ServiceIntentArbiter =
+        (serviceController as RecordingInstrumentedServiceController).intentArbiter
 
     @BindValue
     @JvmField
