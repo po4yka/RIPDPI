@@ -31,4 +31,4 @@ Users need to distinguish direct measurements from the active runtime path, unde
 - Kotlin app UI/ViewModels, diagnostics presentation, service controller/lifecycle, and local profile/paused-intent persistence as required.
 - All ten locale resource sets and affected UI/unit tests.
 - Existing URL-test probes provide measured profile latency; no backend or new production dependency.
-- No intended JNI/wire/protocol break. Persistence and runtime decisions are specified in design.md before implementation.
+- One private TUN kernel-identity JNI addition is required for scope route correlation; the user explicitly approved its reviewed one-symbol baseline update on 2026-10-05. No public serialized wire/protocol change is planned. Persistence and runtime decisions are specified in design.md before implementation.

@@ -1,11 +1,9 @@
 package com.poyka.ripdpi.activities
 
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
-import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -19,13 +17,10 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -70,7 +65,6 @@ internal class MainHomeDiagnosticsActions(
     private val mutations: MainMutationRunner,
     private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
     private val diagnosticsScanController: DiagnosticsScanController,
-    private val diagnosticsShareService: DiagnosticsShareService,
     private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
     private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
     private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
@@ -379,63 +373,7 @@ internal class MainHomeDiagnosticsActions(
         }
     }
 
-    fun shareLatestHomeAnalysis() {
-        mutations.launch {
-            if (homeDiagnosticsState.value.shareBusy) return@launch
-            val outcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
-            homeDiagnosticsState.update { it.copy(shareBusy = true) }
-            runCatching {
-                diagnosticsShareService.createArchive(
-                    DiagnosticsArchiveRequest(
-                        requestedSessionId = null,
-                        sessionIds = outcome.bundleSessionIds,
-                        homeRunId = outcome.runId,
-                        reason = DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS,
-                        requestedAt = System.currentTimeMillis(),
-                    ),
-                )
-            }.onSuccess { archive ->
-                homeDiagnosticsState.update { it.copy(shareBusy = false) }
-                mutations.emit(
-                    MainEffect.ShareDiagnosticsArchive(
-                        absolutePath = archive.absolutePath,
-                        fileName = archive.fileName,
-                    ),
-                )
-            }.onFailure { error ->
-                if (error is CancellationException) throw error
-                Logger.withTag(LogTags.DIAGNOSTICS).e(error) {
-                    "Failed to create home analysis archive"
-                }
-                homeDiagnosticsState.update { it.copy(shareBusy = false) }
-                val feedback = diagnosticsArchiveShareFeedback(error)
-                mutations.emit(
-                    MainEffect.ShowError(
-                        stringResolver.getString(feedback.messageRes),
-                        supportCode = feedback.supportCode,
-                        supportPayload = feedback.supportPayload,
-                    ),
-                )
-            }
-        }
-    }
-
-    val saveLatestHomeAnalysis: () -> Unit = {
-        mutations.launch {
-            val outcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
-            mutations.emit(
-                MainEffect.SaveDiagnosticsArchive(
-                    DiagnosticsArchiveRequest(
-                        requestedSessionId = null,
-                        sessionIds = outcome.bundleSessionIds,
-                        homeRunId = outcome.runId,
-                        reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
-                        requestedAt = System.currentTimeMillis(),
-                    ),
-                ),
-            )
-        }
-    }
+    val exports = MainHomeDiagnosticsExports(mutations, homeDiagnosticsState)
 
     fun dismissAnalysisSheet() {
         homeDiagnosticsState.update { it.copy(analysisSheetVisible = false) }

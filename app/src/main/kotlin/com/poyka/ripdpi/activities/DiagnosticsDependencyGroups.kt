@@ -8,7 +8,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -20,7 +19,6 @@ class DiagnosticsInteractionDependencies
         val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         val diagnosticsScanController: DiagnosticsScanController,
         val diagnosticsDetailLoader: DiagnosticsDetailLoader,
-        val diagnosticsShareService: DiagnosticsShareService,
         val diagnosticsResolverActions: DiagnosticsResolverActions,
     )
 

@@ -46,13 +46,8 @@ sealed interface MainEffect {
         val supportPayload: String? = null,
     ) : MainEffect
 
-    data class ShareDiagnosticsArchive(
-        val absolutePath: String,
-        val fileName: String,
-    ) : MainEffect
-
-    data class SaveDiagnosticsArchive(
-        val request: com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest,
+    data class PrepareDiagnosticsExport(
+        val preparation: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation,
     ) : MainEffect
 
     data object RelockRequested : MainEffect

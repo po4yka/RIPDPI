@@ -127,7 +127,6 @@ private fun homeRouteDiagnosticsDependencies(): MainDiagnosticsDependencies =
     MainDiagnosticsDependencies(
         diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
         diagnosticsScanController = StubDiagnosticsScanController(),
-        diagnosticsShareService = StubDiagnosticsShareService(),
         homeDiagnosticsServices =
             HomeDiagnosticsServices(
                 workflowService = StubDiagnosticsHomeWorkflowService(),

@@ -2,73 +2,34 @@ package com.poyka.ripdpi.activities
 
 import android.net.Uri
 import android.os.Bundle
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
-import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId
 
 internal const val PendingDiagnosticsArchiveStateKey = "pending-diagnostics-archive"
-private const val PendingArchiveRequestKey = "request"
-private const val PendingArchiveFilePathKey = "file-path"
-private const val PendingArchiveFileNameKey = "file-name"
+private const val PendingLeaseKey = "lease-id"
 
-internal sealed interface PendingDiagnosticsArchiveResult {
-    data class Request(
-        val uri: Uri,
-        val request: DiagnosticsArchiveRequest,
-    ) : PendingDiagnosticsArchiveResult
+internal data class PendingDiagnosticsArchiveResult(
+    val leaseId: DiagnosticsExportLeaseId,
+    val uri: Uri?,
+)
 
-    data class File(
-        val uri: Uri,
-        val filePath: String,
-        val fileName: String,
-    ) : PendingDiagnosticsArchiveResult
-}
-
+/** Only a checked opaque ID crosses Activity recreation, never a caller-supplied path or request. */
 internal class PendingDiagnosticsArchiveState {
-    var pendingRequest: DiagnosticsArchiveRequest? = null
-        set(value) {
-            field = value
-            if (value != null) pendingFile = null
-        }
-    var pendingFile: Pair<String, String>? = null
-        set(value) {
-            field = value
-            if (value != null) pendingRequest = null
-        }
+    private var pendingLease: DiagnosticsExportLeaseId? = null
 
-    fun save(): Bundle =
-        Bundle().apply {
-            pendingRequest?.let { putString(PendingArchiveRequestKey, Json.encodeToString(it)) }
-            pendingFile?.let { (path, name) ->
-                putString(PendingArchiveFilePathKey, path)
-                putString(PendingArchiveFileNameKey, name)
-            }
-        }
+    fun begin(id: DiagnosticsExportLeaseId) {
+        check(pendingLease == null) { "An export destination is already pending" }
+        pendingLease = id
+    }
+
+    fun save(): Bundle = Bundle().apply { pendingLease?.let { putString(PendingLeaseKey, it.encoded) } }
 
     fun restore(saved: Bundle?) {
-        saved ?: return
-        pendingRequest =
-            saved
-                .getString(PendingArchiveRequestKey)
-                ?.let { encoded ->
-                    runCatching { Json.decodeFromString<DiagnosticsArchiveRequest>(encoded) }.getOrNull()
-                }
-        if (pendingRequest == null) {
-            val path = saved.getString(PendingArchiveFilePathKey)
-            val name = saved.getString(PendingArchiveFileNameKey)
-            if (path != null && name != null) pendingFile = path to name
-        }
+        pendingLease = saved?.getString(PendingLeaseKey)?.let(DiagnosticsExportLeaseId::parse)
     }
 
-    fun onPickerResult(uri: Uri?): PendingDiagnosticsArchiveResult? {
-        val request = pendingRequest
-        val file = pendingFile
-        pendingRequest = null
-        pendingFile = null
-        uri ?: return null
-        return when {
-            request != null -> PendingDiagnosticsArchiveResult.Request(uri, request)
-            file != null -> PendingDiagnosticsArchiveResult.File(uri, file.first, file.second)
-            else -> null
+    fun onPickerResult(uri: Uri?): PendingDiagnosticsArchiveResult? =
+        pendingLease?.let { id ->
+            pendingLease = null
+            PendingDiagnosticsArchiveResult(id, uri)
         }
-    }
 }

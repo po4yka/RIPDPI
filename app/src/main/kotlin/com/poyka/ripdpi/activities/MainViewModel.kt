@@ -346,11 +346,11 @@ class MainViewModel
             )
 
         val onShareHomeAnalysis: () -> Unit = {
-            homeDiagnostics.actions.shareLatestHomeAnalysis()
+            homeDiagnostics.actions.exports.share()
         }
 
         val onSaveHomeAnalysis: () -> Unit = {
-            homeDiagnostics.actions.saveLatestHomeAnalysis()
+            homeDiagnostics.actions.exports.save()
         }
 
         val dismissHomeAnalysisSheet: () -> Unit = {

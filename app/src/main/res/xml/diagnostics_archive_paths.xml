@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <files-path
+        name="diagnostics_prepared"
+        path="diagnostics-prepared/" />
     <cache-path
         name="diagnostics_archives"
         path="diagnostics-archives/" />

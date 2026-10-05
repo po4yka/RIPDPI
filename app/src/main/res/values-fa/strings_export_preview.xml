@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">بازبینی خروجی</string>
+    <string name="export_preview_preparing">در حال آماده‌سازی نسخهٔ محلی…</string>
+    <string name="export_preview_failed">آماده‌سازی خروجی انجام نشد</string>
+    <string name="export_preview_save_failed">ذخیرهٔ خروجی انجام نشد</string>
+    <string name="export_preview_share_summary">اشتراک‌گذاری خلاصه</string>
+    <string name="export_preview_share_archive">اشتراک‌گذاری بایگانی ZIP</string>
+    <string name="export_preview_save_archive">ذخیرهٔ بایگانی ZIP</string>
+    <string name="export_preview_save_logs">ذخیرهٔ فایل متنی</string>
+    <string name="export_preview_redaction">مقادیر حساس پوشانده شده‌اند. داده‌های موجود را بررسی کنید.</string>
+    <string name="export_preview_summary_only">فقط خلاصهٔ زیر به‌صورت متن به اشتراک گذاشته می‌شود.</string>
+    <string name="export_preview_log_excerpt">ابتدای گزارش (هنگام ذخیره، فایل کامل ذخیره می‌شود)</string>
+    <string name="export_preview_summary">خلاصه</string>
+    <string name="export_preview_contents">فایل‌های موجود</string>
+    <string name="export_preview_confirm_notice">پیش از تأیید، داده‌ای از برنامه خارج نمی‌شود.</string>
+    <string name="export_preview_prepared_file">فایل آماده‌شده</string>
+    <string name="export_preview_error_title">خروجی نیاز به بررسی دارد</string>
+    <string name="export_preview_cleanup_failed">نسخهٔ محلی آماده‌شده حذف نشد.</string>
+</resources>

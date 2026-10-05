@@ -45,7 +45,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
@@ -89,7 +88,6 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsResolverActions
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
-import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
 import com.poyka.ripdpi.testing.StubInstrumentedLastExitInspector
 import com.poyka.ripdpi.testing.StubInstrumentedMemoryProfilingRegistrar
@@ -323,7 +321,9 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+    var preparedExports: com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService =
+        com.poyka.ripdpi.testing
+            .StubInstrumentedPreparedExportService()
 
     @BindValue
     @JvmField
@@ -487,7 +487,6 @@ class MainActivityNavigationInstrumentedTest {
     fun simpleHomeWiresDiagnosticStartCancelAndShareThroughMainViewModel() {
         assumeTrue("githubSimple only", BuildConfig.APP_EXPERIENCE == "simple")
         val runs = diagnosticsHomeCompositeRunService as StubInstrumentedDiagnosticsHomeCompositeRunService
-        val shares = diagnosticsShareService as StubInstrumentedDiagnosticsShareService
         val host = mainActivityHost as RecordingMainActivityHost
         val runAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
 
@@ -539,20 +538,16 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
         composeRule.onNodeWithText("Report ready").assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) { shares.archiveRequests.size == 1 }
-
-        val request = shares.archiveRequests.single()
-        assertEquals(completedRunId, request.homeRunId)
-        assertEquals(listOf("session-1"), request.sessionIds)
-        assertEquals(DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS, request.reason)
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            host.commands.contains(
-                MainActivityHostCommand.ShareDiagnosticsArchive(
-                    filePath = "/tmp/home.zip",
-                    fileName = "home.zip",
-                ),
-            )
+            host.commands.any { it is MainActivityHostCommand.PrepareDiagnosticsExport }
         }
+        val preparation =
+            (host.commands.filterIsInstance<MainActivityHostCommand.PrepareDiagnosticsExport>().single())
+                .preparation as com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation.Archive
+        assertEquals(completedRunId, preparation.request.homeRunId)
+        assertEquals(listOf("session-1"), preparation.request.sessionIds)
+        assertEquals(DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS, preparation.request.reason)
+        assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareArchive, preparation.purpose)
     }
 }
 
@@ -678,7 +673,9 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+    var preparedExports: com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService =
+        com.poyka.ripdpi.testing
+            .StubInstrumentedPreparedExportService()
 
     @BindValue
     @JvmField
@@ -866,7 +863,9 @@ class MainActivityBiometricStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+    var preparedExports: com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService =
+        com.poyka.ripdpi.testing
+            .StubInstrumentedPreparedExportService()
 
     @BindValue
     @JvmField

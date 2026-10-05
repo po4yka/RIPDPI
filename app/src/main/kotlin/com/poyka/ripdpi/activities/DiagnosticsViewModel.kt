@@ -83,7 +83,7 @@ class DiagnosticsViewModel
                 discoverer = probeDependencies.ipv4WhitelistedSubnetDiscoverer,
                 shareCsv = { csv ->
                     _effects.tryEmit(
-                        DiagnosticsEffect.ShareSummaryRequested(
+                        DiagnosticsEffect.ShareTextRequested(
                             title = stringResolver.getString(R.string.diagnostics_ipv4_whitelist_csv_title),
                             body = csv,
                         ),
@@ -178,7 +178,6 @@ class DiagnosticsViewModel
                 diagnosticsTimelineSource = diagnosticsInteractionDependencies.diagnosticsTimelineSource,
                 diagnosticsScanController = diagnosticsInteractionDependencies.diagnosticsScanController,
                 diagnosticsDetailLoader = diagnosticsInteractionDependencies.diagnosticsDetailLoader,
-                diagnosticsShareService = diagnosticsInteractionDependencies.diagnosticsShareService,
                 diagnosticsResolverActions = diagnosticsInteractionDependencies.diagnosticsResolverActions,
                 uiStateFactory = uiStateFactory,
                 effects = _effects,
@@ -205,7 +204,7 @@ class DiagnosticsViewModel
                 },
             )
 
-        private val shareActions = DiagnosticsShareActions(mutations, scanLifecycleState)
+        private val shareActions = DiagnosticsShareActions(mutations)
 
         fun initialize() {
             if (initialized) {

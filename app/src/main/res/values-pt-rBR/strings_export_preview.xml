@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">Revisar exportação</string>
+    <string name="export_preview_preparing">Preparando uma cópia local…</string>
+    <string name="export_preview_failed">Não foi possível preparar a exportação</string>
+    <string name="export_preview_save_failed">Não foi possível salvar a exportação</string>
+    <string name="export_preview_share_summary">Compartilhar resumo</string>
+    <string name="export_preview_share_archive">Compartilhar arquivo ZIP</string>
+    <string name="export_preview_save_archive">Salvar arquivo ZIP</string>
+    <string name="export_preview_save_logs">Salvar arquivo de texto</string>
+    <string name="export_preview_redaction">Os valores sensíveis foram ocultados. Revise os dados incluídos.</string>
+    <string name="export_preview_summary_only">Somente o resumo abaixo será compartilhado como texto.</string>
+    <string name="export_preview_log_excerpt">Início do registro (o arquivo completo será salvo)</string>
+    <string name="export_preview_summary">Resumo</string>
+    <string name="export_preview_contents">Arquivos incluídos</string>
+    <string name="export_preview_confirm_notice">Nenhum dado sai do app antes da confirmação.</string>
+    <string name="export_preview_prepared_file">Arquivo preparado</string>
+    <string name="export_preview_error_title">Exportação requer atenção</string>
+    <string name="export_preview_cleanup_failed">Não foi possível remover a cópia local preparada.</string>
+</resources>

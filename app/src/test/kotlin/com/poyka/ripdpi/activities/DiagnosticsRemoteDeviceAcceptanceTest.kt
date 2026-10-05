@@ -27,7 +27,7 @@ class DiagnosticsRemoteDeviceAcceptanceTest {
         assertSame(scope, gate.startedScope)
         assertEquals(
             "{\"format\":\"ripdpi_remote_device_acceptance_v2\"}",
-            (effect as DiagnosticsEffect.ShareSummaryRequested).body,
+            (effect as DiagnosticsEffect.ShareTextRequested).body,
         )
     }
 

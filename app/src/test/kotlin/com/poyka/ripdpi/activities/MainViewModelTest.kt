@@ -36,6 +36,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.diagnostics.stableId
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.permissions.PermissionCoordinator
@@ -1704,14 +1705,12 @@ class MainViewModelTest {
     fun `actionable home audit enables verified vpn and shares archive for selected session`() =
         runTest {
             val compositeRunService = StubDiagnosticsHomeCompositeRunService()
-            val shareService = StubDiagnosticsShareService()
             val homeWorkflowService =
                 StubDiagnosticsHomeWorkflowService().apply {
                     currentFingerprint = "fp-1"
                 }
             val viewModel =
                 createViewModel(
-                    diagnosticsShareService = shareService,
                     homeDiagnosticsServices =
                         HomeDiagnosticsServices(
                             workflowService = homeWorkflowService,
@@ -1746,16 +1745,16 @@ class MainViewModelTest {
             viewModel.effects.test {
                 viewModel.onShareHomeAnalysis()
 
-                val effect = awaitItem() as MainEffect.ShareDiagnosticsArchive
-                assertNull(shareService.archiveRequest?.requestedSessionId)
-                assertEquals("home-run", shareService.archiveRequest?.homeRunId)
+                val effect = awaitItem() as MainEffect.PrepareDiagnosticsExport
+                val preparation = effect.preparation as DiagnosticsExportPreparation.Archive
+                assertNull(preparation.request.requestedSessionId)
+                assertEquals("home-run", preparation.request.homeRunId)
+                assertEquals(listOf("audit-session", "default-session", "dpi-session"), preparation.request.sessionIds)
+                assertEquals(DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS, preparation.request.reason)
                 assertEquals(
-                    listOf("audit-session", "default-session", "dpi-session"),
-                    shareService.archiveRequest?.sessionIds,
+                    com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareArchive,
+                    preparation.purpose,
                 )
-                assertEquals(DiagnosticsArchiveReason.SHARE_HOME_ANALYSIS, shareService.archiveRequest?.reason)
-                assertEquals(shareService.archiveResult.absolutePath, effect.absolutePath)
-                assertEquals(shareService.archiveResult.fileName, effect.fileName)
                 cancelAndIgnoreRemainingEvents()
             }
             collector.cancel()
@@ -2061,7 +2060,6 @@ class MainViewModelTest {
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
-        diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
         networkPathValidationSource: FakeNetworkPathValidationSource = FakeNetworkPathValidationSource(),
         hostPackCatalogUiStateStore: HostPackCatalogUiStateStore = HostPackCatalogUiStateStore(),
         strategyPackStateStore: InMemoryStrategyPackStateStore = InMemoryStrategyPackStateStore(),
@@ -2091,7 +2089,6 @@ class MainViewModelTest {
                 MainDiagnosticsDependencies(
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
                     diagnosticsScanController = diagnosticsScanController,
-                    diagnosticsShareService = diagnosticsShareService,
                     homeDiagnosticsServices = homeDiagnosticsServices,
                     latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
                     networkPathValidationSource = networkPathValidationSource,

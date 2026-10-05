@@ -107,9 +107,8 @@ internal data object SettingsGraph
 data class RipDpiNavHostActions(
     val onSaveLogs: () -> Unit = {},
     val onShareDebugBundle: () -> Unit = {},
-    val onSaveDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
-    val onShareDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
-    val onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
+    val onPrepareDiagnosticsExport: (com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation) -> Unit = {},
+    val onShareText: (String, String) -> Unit = { _, _ -> },
     val onRepairPermission: (PermissionKind) -> Unit = {},
 )
 
@@ -135,21 +134,15 @@ fun RipDpiNavHost(
     actions: RipDpiNavHostActions = RipDpiNavHostActions(),
     launchRequests: RipDpiNavHostLaunchRequests = RipDpiNavHostLaunchRequests(),
     snackbarHostState: SnackbarHostState? = null,
+    onExportEligibilityChanged: (Boolean) -> Unit = {},
+    exportPreviewContent: @Composable () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val diagnosticsInitialSection = rememberSaveable { mutableStateOf<DiagnosticsSection?>(null) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val currentStableRoute = currentDestination?.stableRouteKey()
-    val selectedTopLevel =
-        currentDestination?.let { destination ->
-            Route.topLevel.firstOrNull { destination.matchesRoute(it) }
-                ?: when (currentStableRoute) {
-                    in configSubRouteStableKeys -> Route.Config
-                    Route.Logs.stableRoute -> Route.Diagnostics()
-                    else -> null
-                }
-        }
+    val selectedTopLevel = currentDestination?.topLevelRoute()
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
@@ -184,6 +177,14 @@ fun RipDpiNavHost(
                 launchSingleTop = true
             }
         },
+    )
+
+    com.poyka.ripdpi.activities.ExportPreviewContentGate(
+        unlocked =
+            currentStableRoute != null &&
+                !isNavigationGateRoute(currentStableRoute) && !launchRequests.relockRequested,
+        onEligibilityChanged = onExportEligibilityChanged,
+        content = exportPreviewContent,
     )
 
     val isWideScreen = rememberIsWideScreen()
@@ -222,6 +223,14 @@ fun RipDpiNavHost(
         )
     }
 }
+
+private fun NavDestination.topLevelRoute(): Route? =
+    Route.topLevel.firstOrNull { matchesRoute(it) }
+        ?: when (stableRouteKey()) {
+            in configSubRouteStableKeys -> Route.Config
+            Route.Logs.stableRoute -> Route.Diagnostics()
+            else -> null
+        }
 
 @Composable
 private fun ResponsiveNavContent(
@@ -528,9 +537,8 @@ private fun diagnosticsRouteCallbacks(
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ): DiagnosticsRouteCallbacks =
     DiagnosticsRouteCallbacks(
-        onShareArchive = actions.onShareDiagnosticsArchive,
-        onSaveArchive = actions.onSaveDiagnosticsArchive,
-        onShareSummary = actions.onShareDiagnosticsSummary,
+        onPrepareExport = actions.onPrepareDiagnosticsExport,
+        onShareText = actions.onShareText,
         onSaveLogs = actions.onSaveLogs,
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },

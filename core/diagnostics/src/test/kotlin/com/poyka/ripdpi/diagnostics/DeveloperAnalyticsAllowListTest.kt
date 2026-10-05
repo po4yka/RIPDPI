@@ -294,6 +294,7 @@ class DeveloperAnalyticsAllowListTest {
         val context = TestContext()
         val appSettings = defaultDiagnosticsAppSettings()
         return DefaultDiagnosticsArchiveExporter(
+            preparedExports = preparedExportManagerForTest(context, stores, json),
             exportRecordStore = stores,
             sourceLoader =
                 DiagnosticsArchiveSourceLoader(

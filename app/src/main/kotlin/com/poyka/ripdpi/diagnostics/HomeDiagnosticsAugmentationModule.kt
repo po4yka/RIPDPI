@@ -8,8 +8,11 @@ import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.diagnostics.export.AndroidPreparedExportClock
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsPreparedFileStore
+import com.poyka.ripdpi.diagnostics.export.PreparedExportClock
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -20,7 +23,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -156,6 +161,19 @@ class DefaultHomeDetectorCatalogSource
 @InstallIn(SingletonComponent::class)
 abstract class HomeDiagnosticsAugmentationModule {
     companion object {
+        @Provides
+        @Singleton
+        fun providePreparedExportClock(
+            @ApplicationContext context: Context,
+        ): PreparedExportClock = AndroidPreparedExportClock(context)
+
+        @Provides
+        @Singleton
+        fun provideDiagnosticsPreparedFileStore(
+            @ApplicationContext context: Context,
+            @Named("diagnosticsJson") json: Json,
+        ): DiagnosticsPreparedFileStore = DiagnosticsPreparedFileStore(context.filesDir, json)
+
         @Provides
         @Singleton
         fun provideDiagnosticsArchiveFileStore(

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">مراجعة التصدير</string>
+    <string name="export_preview_preparing">جارٍ إعداد نسخة محلية…</string>
+    <string name="export_preview_failed">تعذّر إعداد التصدير</string>
+    <string name="export_preview_save_failed">تعذّر حفظ التصدير</string>
+    <string name="export_preview_share_summary">مشاركة الملخص</string>
+    <string name="export_preview_share_archive">مشاركة أرشيف ZIP</string>
+    <string name="export_preview_save_archive">حفظ أرشيف ZIP</string>
+    <string name="export_preview_save_logs">حفظ الملف النصي</string>
+    <string name="export_preview_redaction">القيم الحساسة محجوبة. راجع البيانات المضمنة.</string>
+    <string name="export_preview_summary_only">ستتم مشاركة الملخص أدناه فقط كنص.</string>
+    <string name="export_preview_log_excerpt">بداية السجل (يُحفظ الملف الكامل عند الحفظ)</string>
+    <string name="export_preview_summary">الملخص</string>
+    <string name="export_preview_contents">الملفات المضمنة</string>
+    <string name="export_preview_confirm_notice">لا تغادر البيانات التطبيق قبل التأكيد.</string>
+    <string name="export_preview_prepared_file">الملف المُعدّ</string>
+    <string name="export_preview_error_title">التصدير يحتاج إلى انتباه</string>
+    <string name="export_preview_cleanup_failed">تعذّر حذف النسخة المحلية المُعدّة.</string>
+</resources>

@@ -1,126 +1,43 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
 
 internal class DiagnosticsShareActions(
     private val mutations: DiagnosticsMutationRunner,
-    private val scanLifecycle: MutableStateFlow<ScanLifecycleState>,
 ) {
-    fun shareSummary(sessionId: String?) {
+    fun shareSummary(sessionId: String?) = request(sessionId, DiagnosticsExportPurpose.ShareSummary)
+
+    fun shareArchive(sessionId: String?) = request(sessionId, DiagnosticsExportPurpose.ShareArchive)
+
+    fun saveArchive(sessionId: String?) = request(sessionId, DiagnosticsExportPurpose.SaveArchive)
+
+    private fun request(
+        sessionId: String?,
+        purpose: DiagnosticsExportPurpose,
+    ) {
         mutations.launch {
             val targetId = sessionId ?: currentUiState().share.targetSessionId
-            val summary = diagnosticsShareService.buildShareSummary(targetId)
             emit(
-                DiagnosticsEffect.ShareSummaryRequested(
-                    title = summary.title,
-                    body = summary.body,
+                DiagnosticsEffect.PrepareExportRequested(
+                    DiagnosticsExportPreparation.Archive(
+                        request =
+                            DiagnosticsArchiveRequest(
+                                requestedSessionId = targetId,
+                                reason =
+                                    if (purpose == DiagnosticsExportPurpose.SaveArchive) {
+                                        DiagnosticsArchiveReason.SAVE_ARCHIVE
+                                    } else {
+                                        DiagnosticsArchiveReason.SHARE_ARCHIVE
+                                    },
+                                requestedAt = System.currentTimeMillis(),
+                            ),
+                        purpose = purpose,
+                    ),
                 ),
             )
         }
-    }
-
-    fun shareArchive(sessionId: String?) {
-        mutations.launch {
-            runArchiveAction(
-                sessionId = sessionId,
-                busyMessage = "Generating archive for sharing",
-                successMessage = "Archive ready to share",
-                failureMessage = "Failed to generate archive",
-            ) { targetSessionId ->
-                val archive =
-                    diagnosticsShareService.createArchive(
-                        DiagnosticsArchiveRequest(
-                            requestedSessionId = targetSessionId,
-                            reason = DiagnosticsArchiveReason.SHARE_ARCHIVE,
-                            requestedAt = System.currentTimeMillis(),
-                        ),
-                    )
-                emit(
-                    DiagnosticsEffect.ShareArchiveRequested(
-                        absolutePath = archive.absolutePath,
-                        fileName = archive.fileName,
-                    ),
-                )
-                archive
-            }
-        }
-    }
-
-    fun saveArchive(sessionId: String?) {
-        mutations.launch {
-            runArchiveAction(
-                sessionId = sessionId,
-                busyMessage = "Preparing archive for saving",
-                successMessage = "Archive saved to export flow",
-                failureMessage = "Failed to prepare archive",
-            ) { targetSessionId ->
-                val archive =
-                    diagnosticsShareService.createArchive(
-                        DiagnosticsArchiveRequest(
-                            requestedSessionId = targetSessionId,
-                            reason = DiagnosticsArchiveReason.SAVE_ARCHIVE,
-                            requestedAt = System.currentTimeMillis(),
-                        ),
-                    )
-                emit(
-                    DiagnosticsEffect.SaveArchiveRequested(
-                        absolutePath = archive.absolutePath,
-                        fileName = archive.fileName,
-                    ),
-                )
-                archive
-            }
-        }
-    }
-
-    private suspend fun DiagnosticsMutationRunner.runArchiveAction(
-        sessionId: String?,
-        busyMessage: String,
-        successMessage: String,
-        failureMessage: String,
-        action: suspend DiagnosticsMutationRunner.(String?) -> DiagnosticsArchive,
-    ) {
-        val targetSessionId = sessionId ?: currentUiState().share.targetSessionId
-        scanLifecycle.update {
-            it.copy(
-                archiveActionState =
-                    ArchiveActionState(
-                        message = busyMessage,
-                        tone = DiagnosticsTone.Info,
-                        isBusy = true,
-                        latestArchiveFileName = it.archiveActionState.latestArchiveFileName,
-                    ),
-            )
-        }
-        runCatching { action(targetSessionId) }
-            .onSuccess { archive ->
-                scanLifecycle.update {
-                    it.copy(
-                        archiveActionState =
-                            ArchiveActionState(
-                                message = successMessage,
-                                tone = DiagnosticsTone.Positive,
-                                isBusy = false,
-                                latestArchiveFileName = archive.fileName,
-                            ),
-                    )
-                }
-            }.onFailure {
-                scanLifecycle.update { state ->
-                    state.copy(
-                        archiveActionState =
-                            ArchiveActionState(
-                                message = failureMessage,
-                                tone = DiagnosticsTone.Negative,
-                                isBusy = false,
-                                latestArchiveFileName = state.archiveActionState.latestArchiveFileName,
-                            ),
-                    )
-                }
-            }
     }
 }

@@ -42,6 +42,7 @@ import kotlinx.collections.immutable.persistentListOf
 internal fun MainActivityContent(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
+    exportPreview: ExportPreviewViewModel,
 ) {
     val startupState by viewModel.startupState.collectAsStateWithLifecycle()
 
@@ -62,6 +63,7 @@ internal fun MainActivityContent(
                     viewModel = viewModel,
                     controller = controller,
                     startupState = startupState,
+                    exportPreview = exportPreview,
                 )
             }
         }
@@ -113,6 +115,7 @@ private fun ReadyMainActivityContent(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
     startupState: MainStartupState,
+    exportPreview: ExportPreviewViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shellState by controller.state.collectAsStateWithLifecycle()
@@ -144,6 +147,20 @@ private fun ReadyMainActivityContent(
                 controller = controller,
                 shellState = shellState,
                 snackbarHostState = snackbarHostState,
+                onExportEligibilityChanged = exportPreview::setContentUnlocked,
+                exportPreviewContent = {
+                    val previewState by exportPreview.state.collectAsStateWithLifecycle()
+                    previewState?.let { preview ->
+                        key(preview.token) {
+                            com.poyka.ripdpi.ui.components.export.ExportPreviewSheet(
+                                presentation = preview.presentation,
+                                onConfirm = { exportPreview.confirm(preview.token) },
+                                onCancel = { exportPreview.cancel(preview.token) },
+                                onDismiss = { exportPreview.cancel(preview.token) },
+                            )
+                        }
+                    }
+                },
             )
         }
         MainActivityDialogs(
@@ -252,7 +269,7 @@ private fun MainActivityDialogs(
             report = report,
             onShare = {
                 val (title, body) = viewModel.crashReports.buildShareText(report)
-                controller.requestShareDiagnosticsSummary(title, body)
+                controller.requestShareText(title, body)
                 viewModel.crashReports.dismiss()
             },
             onDismiss = { viewModel.crashReports.dismiss() },

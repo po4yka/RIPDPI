@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
@@ -21,6 +22,7 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,14 +30,21 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.util.concurrent.CopyOnWriteArrayList
@@ -60,6 +69,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             recomposeTrigger.intValue
             MainActivityContent(
+                exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
             )
@@ -87,7 +97,14 @@ class MainActivityContentTest {
             )
 
         composeRule.setContent {
-            MainActivityContent(viewModel = viewModel, controller = MainActivityShellController())
+            MainActivityContent(
+                exportPreview =
+                    androidx.compose.runtime.remember {
+                        createExportPreviewForTest()
+                    },
+                viewModel = viewModel,
+                controller = MainActivityShellController(),
+            )
         }
         composeRule.waitForIdle()
 
@@ -110,7 +127,14 @@ class MainActivityContentTest {
             )
 
         composeRule.setContent {
-            MainActivityContent(viewModel = viewModel, controller = MainActivityShellController())
+            MainActivityContent(
+                exportPreview =
+                    androidx.compose.runtime.remember {
+                        createExportPreviewForTest()
+                    },
+                viewModel = viewModel,
+                controller = MainActivityShellController(),
+            )
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryFailure).assertIsDisplayed()
@@ -140,6 +164,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
             )
@@ -171,6 +196,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
             )
@@ -219,6 +245,7 @@ class MainActivityContentTest {
             )
         composeRule.setContent {
             MainActivityContent(
+                exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
             )
@@ -239,6 +266,7 @@ class MainActivityContentTest {
         val viewModel = createViewModel()
         composeRule.setContent {
             MainActivityContent(
+                exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
             )
@@ -265,6 +293,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
             )
@@ -280,6 +309,134 @@ class MainActivityContentTest {
         // Text lives in a child node of the Surface container; check it exists anywhere in the tree.
         composeRule.onNodeWithText("boom").assertExists()
     }
+
+    @Test
+    fun `actual host preview commands never launch before confirmation and cancel has no external action`() =
+        runTest {
+            val activityController = Robolectric.buildActivity(AppCompatActivity::class.java).create()
+            val activity = activityController.get()
+            val service = PreviewService()
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val host = DefaultMainActivityHost(service, java.util.Optional.empty())
+            host.register(activity, createViewModel(), owner)
+            activityController.start().resume()
+            val commands =
+                listOf(
+                    MainActivityHostCommand.SaveLogs,
+                    MainActivityHostCommand.ShareDebugBundle,
+                    MainActivityHostCommand.PrepareDiagnosticsExport(
+                        exportPreparation(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareSummary),
+                    ),
+                    MainActivityHostCommand.PrepareDiagnosticsExport(
+                        exportPreparation(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.SaveArchive),
+                    ),
+                )
+            commands.forEach { command ->
+                host.handle(command)
+                advanceUntilIdle()
+                val ready = requireNotNull(owner.state.value)
+                assertTrue(ready.presentation is com.poyka.ripdpi.ui.components.export.ExportPreviewPresentation.Ready)
+                assertNull(shadowOf(activity).nextStartedActivity)
+                assertTrue(service.consumed.isEmpty())
+                owner.cancel(ready.token)
+                runCurrent()
+                assertNull(owner.state.value)
+                assertNull(shadowOf(activity).nextStartedActivity)
+            }
+            assertEquals(commands.size, service.prepareCount)
+            activityController.pause().stop().destroy()
+        }
+
+    @Test
+    fun `actual host launches exact final summary once after confirmed unlocked handoff`() =
+        runTest {
+            val activityController = Robolectric.buildActivity(AppCompatActivity::class.java).create()
+            val activity = activityController.get()
+            val service = PreviewService()
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val host = DefaultMainActivityHost(service, java.util.Optional.empty())
+            host.register(activity, createViewModel(), owner)
+            activityController.start().resume()
+            host.handle(
+                MainActivityHostCommand.PrepareDiagnosticsExport(
+                    exportPreparation(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareSummary),
+                ),
+            )
+            advanceUntilIdle()
+            val token = owner.state.value!!.token
+            owner.confirm(token)
+            owner.confirm(token)
+            advanceUntilIdle()
+            assertNull(shadowOf(activity).nextStartedActivity)
+            owner.setContentUnlocked(true)
+            runCurrent()
+            val chooser = requireNotNull(shadowOf(activity).nextStartedActivity)
+            assertEquals(Intent.ACTION_CHOOSER, chooser.action)
+            val shared = chooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)!!
+            assertEquals("Final summary", shared.getStringExtra(Intent.EXTRA_TEXT))
+            assertEquals("text/plain", shared.type)
+            owner.confirm(token)
+            runCurrent()
+            assertNull(shadowOf(activity).nextStartedActivity)
+            assertEquals(1, service.consumed.size)
+            assertTrue(token.leaseId in service.discarded)
+            activityController.pause().stop().destroy()
+        }
+
+    @Test
+    fun `actual host replacement handoff proceeds while canceled old validation remains suspended`() =
+        runTest {
+            val activityController = Robolectric.buildActivity(AppCompatActivity::class.java).create()
+            val activity = activityController.get()
+            val service = PreviewService()
+            val owner = ExportPreviewViewModel(service, SavedStateHandle(), FakeStringResolver(), backgroundScope)
+            val host = DefaultMainActivityHost(service, java.util.Optional.empty())
+            host.register(activity, createViewModel(), owner)
+            activityController.start().resume()
+            val blocked = CompletableDeferred<Unit>()
+            try {
+                val preparation =
+                    exportPreparation(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareSummary)
+                owner.prepare(preparation)
+                advanceUntilIdle()
+                val old = owner.state.value!!.token
+                owner.confirm(old)
+                advanceUntilIdle()
+                service.validationBlocker = blocked
+                owner.setContentUnlocked(true)
+                runCurrent()
+                assertEquals(2, service.validationCount)
+                assertNull(shadowOf(activity).nextStartedActivity)
+                owner.prepare(preparation)
+                service.validationBlocker = null
+                advanceUntilIdle()
+                val replacement = owner.state.value!!.token
+                owner.confirm(replacement)
+                advanceUntilIdle()
+                assertFalse(blocked.isCompleted)
+                val chooser = shadowOf(activity).nextStartedActivity
+                assertNotNull("Canceled old validation blocked the replacement handoff", chooser)
+                assertEquals(Intent.ACTION_CHOOSER, chooser!!.action)
+                assertEquals(listOf(old.leaseId, replacement.leaseId), service.consumed)
+                assertTrue(old.leaseId in service.discarded)
+                assertNull(owner.state.value)
+                blocked.complete(Unit)
+                runCurrent()
+                assertNull(shadowOf(activity).nextStartedActivity)
+            } finally {
+                blocked.complete(Unit)
+                activityController.pause().stop().destroy()
+            }
+        }
+
+    private fun exportPreparation(purpose: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose) =
+        com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation.Archive(
+            com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest(
+                reason = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                requestedAt = 10,
+            ),
+            purpose,
+        )
 
     private fun createViewModel(
         appSettingsRepository: AppSettingsRepository =
@@ -328,7 +485,6 @@ class MainActivityContentTest {
                 MainDiagnosticsDependencies(
                     diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
                     diagnosticsScanController = StubDiagnosticsScanController(),
-                    diagnosticsShareService = StubDiagnosticsShareService(),
                     homeDiagnosticsServices =
                         HomeDiagnosticsServices(
                             workflowService = StubDiagnosticsHomeWorkflowService(),

@@ -73,7 +73,6 @@ internal class HomeDiagnosticsStateOwner(
             mutations = mutations,
             diagnosticsTimelineSource = diagnosticsDependencies.diagnosticsTimelineSource,
             diagnosticsScanController = diagnosticsDependencies.diagnosticsScanController,
-            diagnosticsShareService = diagnosticsDependencies.diagnosticsShareService,
             diagnosticsHomeWorkflowService = diagnosticsDependencies.homeDiagnosticsServices.workflowService,
             diagnosticsHomeCompositeRunService = diagnosticsDependencies.homeDiagnosticsServices.compositeRunService,
             serviceStateStore = serviceStateStore,

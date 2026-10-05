@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">Просмотр экспорта</string>
+    <string name="export_preview_preparing">Подготовка локальной копии…</string>
+    <string name="export_preview_failed">Не удалось подготовить экспорт</string>
+    <string name="export_preview_save_failed">Не удалось сохранить экспорт</string>
+    <string name="export_preview_share_summary">Поделиться сводкой</string>
+    <string name="export_preview_share_archive">Поделиться ZIP-архивом</string>
+    <string name="export_preview_save_archive">Сохранить ZIP-архив</string>
+    <string name="export_preview_save_logs">Сохранить текстовый файл</string>
+    <string name="export_preview_redaction">Чувствительные значения скрыты. Проверьте содержимое.</string>
+    <string name="export_preview_summary_only">Будет отправлена только сводка ниже в виде текста.</string>
+    <string name="export_preview_log_excerpt">Начало журнала (сохраняется полный файл)</string>
+    <string name="export_preview_summary">Сводка</string>
+    <string name="export_preview_contents">Файлы в экспорте</string>
+    <string name="export_preview_confirm_notice">До подтверждения данные остаются в приложении.</string>
+    <string name="export_preview_prepared_file">Подготовленный файл</string>
+    <string name="export_preview_error_title">Экспорт требует внимания</string>
+    <string name="export_preview_cleanup_failed">Не удалось удалить локальную подготовленную копию.</string>
+</resources>

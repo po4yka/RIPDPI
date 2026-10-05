@@ -936,19 +936,13 @@ sealed interface DiagnosticsEffect {
         RequestLocalNetwork,
     }
 
-    data class ShareSummaryRequested(
+    data class ShareTextRequested(
         val title: String,
         val body: String,
     ) : DiagnosticsEffect
 
-    data class ShareArchiveRequested(
-        val absolutePath: String,
-        val fileName: String,
-    ) : DiagnosticsEffect
-
-    data class SaveArchiveRequested(
-        val absolutePath: String,
-        val fileName: String,
+    data class PrepareExportRequested(
+        val preparation: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation,
     ) : DiagnosticsEffect
 
     data class ScanStarted(

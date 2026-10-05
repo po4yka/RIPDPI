@@ -32,7 +32,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsRuntimeEvidenceModule
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
@@ -77,7 +76,6 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsResolverActions
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
-import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
 import com.poyka.ripdpi.testing.StubInstrumentedLastExitInspector
 import com.poyka.ripdpi.testing.StubInstrumentedMemoryProfilingRegistrar
@@ -233,7 +231,9 @@ class MainActivityShellInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+    var preparedExports: com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService =
+        com.poyka.ripdpi.testing
+            .StubInstrumentedPreparedExportService()
 
     @BindValue
     @JvmField

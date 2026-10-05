@@ -322,7 +322,7 @@
         </service>
 
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name=".diagnostics.DiagnosticsArchiveFileProvider"
             android:authorities="${applicationId}.diagnostics.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">

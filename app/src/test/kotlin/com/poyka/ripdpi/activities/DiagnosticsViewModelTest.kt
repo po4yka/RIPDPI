@@ -49,6 +49,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
@@ -3023,27 +3024,40 @@ class DiagnosticsViewModelTest {
             viewModel.shareSummary("session-1")
             advanceUntilIdle()
 
-            val effect = shareEffect.await() as DiagnosticsEffect.ShareSummaryRequested
-            assertEquals("RIPDPI summary", effect.title)
-            assertTrue(effect.body.contains("session-1"))
+            val effect = shareEffect.await() as DiagnosticsEffect.PrepareExportRequested
+            val summary = effect.preparation as DiagnosticsExportPreparation.Archive
+            assertEquals("session-1", summary.request.requestedSessionId)
+            assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareSummary, summary.purpose)
 
             val shareArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.shareArchive("session-1")
             advanceUntilIdle()
-
-            val shareArchive = shareArchiveEffect.await() as DiagnosticsEffect.ShareArchiveRequested
-            assertEquals("session-1", manager.lastArchiveSessionId)
-            assertEquals("SHARE_ARCHIVE", manager.lastArchiveReason)
-            assertEquals("/tmp/archive-session-1.zip", shareArchive.absolutePath)
+            val shareArchive =
+                (shareArchiveEffect.await() as DiagnosticsEffect.PrepareExportRequested)
+                    .preparation as DiagnosticsExportPreparation.Archive
+            assertEquals("session-1", shareArchive.request.requestedSessionId)
+            assertEquals(
+                com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason.SHARE_ARCHIVE,
+                shareArchive.request.reason,
+            )
+            assertEquals(
+                com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareArchive,
+                shareArchive.purpose,
+            )
 
             val saveArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.saveArchive("session-1")
             advanceUntilIdle()
-
-            val saveArchive = saveArchiveEffect.await() as DiagnosticsEffect.SaveArchiveRequested
-            assertEquals("session-1", manager.lastArchiveSessionId)
-            assertEquals("SAVE_ARCHIVE", manager.lastArchiveReason)
-            assertEquals("/tmp/archive-session-1.zip", saveArchive.absolutePath)
+            val saveArchive =
+                (saveArchiveEffect.await() as DiagnosticsEffect.PrepareExportRequested)
+                    .preparation as DiagnosticsExportPreparation.Archive
+            assertEquals("session-1", saveArchive.request.requestedSessionId)
+            assertEquals(
+                com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason.SAVE_ARCHIVE,
+                saveArchive.request.reason,
+            )
+            assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.SaveArchive, saveArchive.purpose)
+            assertNull(manager.lastArchiveSessionId)
             collector.cancel()
         }
 
@@ -3091,12 +3105,10 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
-    fun `archive failure updates share state`() =
+    fun `archive preparation is owned by preview rather than diagnostic share state`() =
         runTest {
             val manager =
-                FakeDiagnosticsManager(
-                    archiveFailure = IllegalStateException("boom"),
-                ).apply {
+                FakeDiagnosticsManager().apply {
                     sessionsState.value =
                         listOf(
                             session(
@@ -3112,12 +3124,16 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
+            val requested = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.shareArchive("session-1")
             advanceUntilIdle()
 
             val shareState = viewModel.uiState.value.share
-            assertEquals("Failed to generate archive", shareState.archiveStateMessage)
-            assertEquals(DiagnosticsTone.Negative, shareState.archiveStateTone)
+            val preparation =
+                (requested.await() as DiagnosticsEffect.PrepareExportRequested)
+                    .preparation as DiagnosticsExportPreparation.Archive
+            assertEquals("session-1", preparation.request.requestedSessionId)
+            assertNull(shareState.archiveStateMessage)
             assertFalse(shareState.isArchiveBusy)
             collector.cancel()
         }

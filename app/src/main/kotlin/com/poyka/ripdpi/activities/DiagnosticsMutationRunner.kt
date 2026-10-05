@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -14,7 +13,6 @@ internal class DiagnosticsMutationRunner(
     val diagnosticsTimelineSource: DiagnosticsTimelineSource,
     val diagnosticsScanController: DiagnosticsScanController,
     val diagnosticsDetailLoader: DiagnosticsDetailLoader,
-    val diagnosticsShareService: DiagnosticsShareService,
     val diagnosticsResolverActions: DiagnosticsResolverActions,
     val uiStateFactory: DiagnosticsUiStateFactory,
     private val effects: MutableSharedFlow<DiagnosticsEffect>,

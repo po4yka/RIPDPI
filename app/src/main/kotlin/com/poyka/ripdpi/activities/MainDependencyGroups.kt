@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.NetworkPathValidationSource
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
@@ -45,7 +44,6 @@ class MainDiagnosticsDependencies
     constructor(
         val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         val diagnosticsScanController: DiagnosticsScanController,
-        val diagnosticsShareService: DiagnosticsShareService,
         val homeDiagnosticsServices: HomeDiagnosticsServices,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val networkPathValidationSource: NetworkPathValidationSource,

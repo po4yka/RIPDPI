@@ -610,6 +610,12 @@ abstract class DiagnosticsManagerModule {
         exporter: DefaultDiagnosticsArchiveExporter,
     ): DiagnosticsArchiveExporter
 
+    @Binds
+    @Singleton
+    internal abstract fun bindPreparedDiagnosticsExportService(
+        exporter: DefaultDiagnosticsArchiveExporter,
+    ): com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService
+
     companion object {
         private const val AutomaticHandoverProbeDelaySeconds = 15L
         private const val AutomaticHandoverProbeCooldownHours = 24L

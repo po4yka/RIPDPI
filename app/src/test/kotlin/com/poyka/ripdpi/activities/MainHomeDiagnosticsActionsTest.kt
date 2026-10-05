@@ -3,8 +3,6 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveException
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveFailureCode
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
@@ -17,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
@@ -127,7 +126,6 @@ class MainHomeDiagnosticsActionsTest {
                         ),
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
                     diagnosticsScanController = diagnosticsScanController,
-                    diagnosticsShareService = StubDiagnosticsShareService(),
                     diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
                     diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
                     serviceStateStore = serviceStateStore,
@@ -428,13 +426,9 @@ class MainHomeDiagnosticsActionsTest {
     }
 
     @Test
-    fun `share failure keeps analysis sheet open and emits error`() =
+    fun `preview request keeps analysis sheet open without generating an archive`() =
         runTest {
             val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
-            val shareService =
-                StubDiagnosticsShareService().apply {
-                    archiveFailure = IllegalStateException("archive creation failed")
-                }
             val homeDiagnosticsState =
                 MutableStateFlow(
                     HomeDiagnosticsRuntimeState(
@@ -446,27 +440,36 @@ class MainHomeDiagnosticsActionsTest {
                 createActions(
                     scope = backgroundScope,
                     effects = effects,
-                    diagnosticsShareService = shareService,
                     homeDiagnosticsState = homeDiagnosticsState,
                 )
 
-            actions.shareLatestHomeAnalysis()
+            actions.exports.share()
+            homeDiagnosticsState.value =
+                homeDiagnosticsState.value.copy(
+                    latestCompositeOutcome =
+                        compositeOutcome().copy(
+                            runId = "replacement-run",
+                            bundleSessionIds = listOf("replacement-session"),
+                        ),
+                )
             runCurrent()
             advanceUntilIdle()
 
             assertTrue(
-                "analysisSheetVisible should remain true after share failure",
+                "Preview request must preserve the visible analysis sheet",
                 homeDiagnosticsState.value.analysisSheetVisible,
             )
             assertFalse(
-                "shareBusy should be false after share failure",
+                "Preview request must not start legacy archive work",
                 homeDiagnosticsState.value.shareBusy,
             )
             val effect = effects.replayCache.firstOrNull()
-            assertTrue(
-                "expected ShowError effect but got $effect",
-                effect is MainEffect.ShowError,
-            )
+            assertTrue(effect is MainEffect.PrepareDiagnosticsExport)
+            val preparation =
+                (effect as MainEffect.PrepareDiagnosticsExport).preparation
+                    as DiagnosticsExportPreparation.Archive
+            assertEquals(compositeOutcome().runId, preparation.request.homeRunId)
+            assertEquals(compositeOutcome().bundleSessionIds, preparation.request.sessionIds)
         }
 
     @Test
@@ -913,22 +916,13 @@ class MainHomeDiagnosticsShareFailureTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `share failure exposes complete safe support diagnostics`() =
+    fun `home archive preparation request retains the exact outcome and purpose`() =
         runTest {
             val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
-            val shareService =
-                StubDiagnosticsShareService().apply {
-                    archiveFailure =
-                        DiagnosticsArchiveException(
-                            DiagnosticsArchiveFailureCode.DATABASE,
-                            IllegalStateException("sensitive database detail"),
-                        )
-                }
             val actions =
                 createActions(
                     scope = backgroundScope,
                     effects = effects,
-                    diagnosticsShareService = shareService,
                     homeDiagnosticsState =
                         MutableStateFlow(
                             HomeDiagnosticsRuntimeState(
@@ -937,19 +931,15 @@ class MainHomeDiagnosticsShareFailureTest {
                         ),
                 )
 
-            actions.shareLatestHomeAnalysis()
+            actions.exports.share()
             runCurrent()
             advanceUntilIdle()
 
-            val effect = effects.replayCache.single() as MainEffect.ShowError
-            val supportPayload = requireNotNull(effect.supportPayload)
-
-            assertEquals("archive_database", effect.supportCode)
-            assertTrue(supportPayload.contains("operation=diagnostics_archive_share"))
-            assertTrue(supportPayload.contains("stage=archive_prepare"))
-            assertTrue(supportPayload.contains("archive_failure=database"))
-            assertTrue(supportPayload.contains("exception_chain=DiagnosticsArchiveException > IllegalStateException"))
-            assertFalse(supportPayload.contains("sensitive database detail"))
+            val effect = effects.replayCache.single() as MainEffect.PrepareDiagnosticsExport
+            val preparation = effect.preparation as DiagnosticsExportPreparation.Archive
+            assertEquals(compositeOutcome().bundleSessionIds, preparation.request.sessionIds)
+            assertEquals(compositeOutcome().runId, preparation.request.homeRunId)
+            assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareArchive, preparation.purpose)
         }
 }
 
@@ -958,7 +948,6 @@ private fun createActions(
     effects: MutableSharedFlow<MainEffect> = MutableSharedFlow(replay = 16, extraBufferCapacity = 16),
     diagnosticsTimelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
     diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
-    diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
     diagnosticsHomeWorkflowService: StubDiagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
     diagnosticsHomeCompositeRunService: StubDiagnosticsHomeCompositeRunService =
         StubDiagnosticsHomeCompositeRunService(),
@@ -988,7 +977,6 @@ private fun createActions(
             ),
         diagnosticsTimelineSource = diagnosticsTimelineSource,
         diagnosticsScanController = diagnosticsScanController,
-        diagnosticsShareService = diagnosticsShareService,
         diagnosticsHomeWorkflowService = diagnosticsHomeWorkflowService,
         diagnosticsHomeCompositeRunService = diagnosticsHomeCompositeRunService,
         serviceStateStore = serviceStateStore,

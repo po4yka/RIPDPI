@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     internal lateinit var processDeathResumeCoordinator: ProcessDeathResumeCoordinator
 
     private val viewModel: MainViewModel by viewModels()
+    private val exportPreview: ExportPreviewViewModel by viewModels()
     private lateinit var shellController: MainActivityShellController
 
     companion object {
@@ -91,7 +92,7 @@ class MainActivity : AppCompatActivity() {
         // NavController handles Activity.intent when its graph is created. Keep inbound
         // links in the shell so the onboarding and app-lock gates can defer them.
         setIntent(safeMainActivityIntent(this, intent))
-        mainActivityHost.register(this, viewModel)
+        mainActivityHost.register(this, viewModel, exportPreview)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { resumeAfterProcessDeath() }
@@ -116,7 +117,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContent {
-            MainActivityContent(viewModel = viewModel, controller = shellController)
+            MainActivityContent(viewModel = viewModel, controller = shellController, exportPreview = exportPreview)
         }
     }
 
@@ -337,10 +338,8 @@ internal fun hostCommandFailurePermissionResult(
         is MainActivityHostCommand.OpenIntent,
         MainActivityHostCommand.SaveLogs,
         MainActivityHostCommand.ShareDebugBundle,
-        is MainActivityHostCommand.SaveDiagnosticsArchive,
-        is MainActivityHostCommand.SaveDiagnosticsArchiveRequest,
-        is MainActivityHostCommand.ShareDiagnosticsArchive,
-        is MainActivityHostCommand.ShareDiagnosticsSummary,
+        is MainActivityHostCommand.PrepareDiagnosticsExport,
+        is MainActivityHostCommand.ShareText,
         -> {
             null
         }

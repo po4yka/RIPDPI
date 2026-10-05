@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">检查导出内容</string>
+    <string name="export_preview_preparing">正在准备本地副本…</string>
+    <string name="export_preview_failed">无法准备导出</string>
+    <string name="export_preview_save_failed">无法保存导出内容</string>
+    <string name="export_preview_share_summary">分享摘要</string>
+    <string name="export_preview_share_archive">分享 ZIP 压缩包</string>
+    <string name="export_preview_save_archive">保存 ZIP 压缩包</string>
+    <string name="export_preview_save_logs">保存文本文件</string>
+    <string name="export_preview_redaction">敏感值已隐藏。请检查包含的数据。</string>
+    <string name="export_preview_summary_only">仅将以下摘要作为文本分享。</string>
+    <string name="export_preview_log_excerpt">日志开头（保存时包含完整文件）</string>
+    <string name="export_preview_summary">摘要</string>
+    <string name="export_preview_contents">包含的文件</string>
+    <string name="export_preview_confirm_notice">确认前，数据不会离开应用。</string>
+    <string name="export_preview_prepared_file">已准备的文件</string>
+    <string name="export_preview_error_title">导出需要处理</string>
+    <string name="export_preview_cleanup_failed">无法删除已准备的本地副本。</string>
+</resources>

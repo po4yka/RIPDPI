@@ -38,7 +38,6 @@ class MainHomeDiagnosticsManualSessionTest {
                         ),
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
                     diagnosticsScanController = StubDiagnosticsScanController(),
-                    diagnosticsShareService = StubDiagnosticsShareService(),
                     diagnosticsHomeWorkflowService = StubDiagnosticsHomeWorkflowService(),
                     diagnosticsHomeCompositeRunService = StubDiagnosticsHomeCompositeRunService(),
                     serviceStateStore = FakeServiceStateStore(),

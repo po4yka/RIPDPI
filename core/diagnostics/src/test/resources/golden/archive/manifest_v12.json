@@ -44,7 +44,7 @@
             "proxyEndpoint": "redacted",
             "restartCount": 0,
             "routeGroup": "wifi",
-            "selectedProfileName": "Default",
+            "selectedProfileName": "redacted",
             "serviceStatus": "connected"
         }
     },

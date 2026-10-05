@@ -2670,34 +2670,59 @@ class DiagnosticsArchiveRendererTest {
     }
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
-        GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v12.json",
-            entries.getValue("manifest.json").bytes.decodeToString(),
-        )
-        GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v6.json",
-            entries.getValue("archive-provenance.json").bytes.decodeToString(),
-        )
-        GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v6.json",
-            entries.getValue("runtime-config.json").bytes.decodeToString(),
-        )
-        GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v12.json",
-            entries.getValue("analysis.json").bytes.decodeToString(),
-        )
-        GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v12.json",
-            entries.getValue("completeness.json").bytes.decodeToString(),
-        )
-        GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v12.json",
-            entries.getValue("integrity.json").bytes.decodeToString(),
-        )
-        GoldenContractSupport.assertJsonGolden(
-            "archive/execution_plan_v6.json",
-            entries.getValue("execution-plan.json").bytes.decodeToString(),
-        )
+        val failures = mutableListOf<Throwable>()
+
+        fun checkGolden(check: () -> Unit) {
+            try {
+                check()
+            } catch (failure: AssertionError) {
+                failures += failure
+            }
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/manifest_v12.json",
+                entries.getValue("manifest.json").bytes.decodeToString(),
+            )
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/archive_provenance_v6.json",
+                entries.getValue("archive-provenance.json").bytes.decodeToString(),
+            )
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/runtime_config_v6.json",
+                entries.getValue("runtime-config.json").bytes.decodeToString(),
+            )
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/analysis_v12.json",
+                entries.getValue("analysis.json").bytes.decodeToString(),
+            )
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/completeness_v12.json",
+                entries.getValue("completeness.json").bytes.decodeToString(),
+            )
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/integrity_v12.json",
+                entries.getValue("integrity.json").bytes.decodeToString(),
+            )
+        }
+        checkGolden {
+            GoldenContractSupport.assertJsonGolden(
+                "archive/execution_plan_v6.json",
+                entries.getValue("execution-plan.json").bytes.decodeToString(),
+            )
+        }
+        org.junit.runners.model.MultipleFailureException
+            .assertEmpty(failures)
     }
 
     private fun rendererScanSession(

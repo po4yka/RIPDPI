@@ -56,7 +56,6 @@ class DiagnosticsUiStateThreadingTest {
                             manager.timelineSource,
                             manager.scanController,
                             manager.detailLoader,
-                            manager.shareService,
                             manager.resolverActions,
                         ),
                     contextDependencies =

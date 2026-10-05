@@ -187,15 +187,8 @@ internal class MainActivityShellController(
                 )
             }
 
-            is MainEffect.ShareDiagnosticsArchive -> {
-                requestShareDiagnosticsArchive(
-                    filePath = effect.absolutePath,
-                    fileName = effect.fileName,
-                )
-            }
-
-            is MainEffect.SaveDiagnosticsArchive -> {
-                _hostCommands.trySend(MainActivityHostCommand.SaveDiagnosticsArchiveRequest(effect.request))
+            is MainEffect.PrepareDiagnosticsExport -> {
+                requestPrepareDiagnosticsExport(effect.preparation)
             }
 
             MainEffect.RelockRequested -> {
@@ -306,36 +299,18 @@ internal fun MainActivityShellController.requestShareDebugBundle() {
     emitHostCommand(MainActivityHostCommand.ShareDebugBundle)
 }
 
-internal fun MainActivityShellController.requestSaveDiagnosticsArchive(
-    filePath: String,
-    fileName: String,
+internal fun MainActivityShellController.requestPrepareDiagnosticsExport(
+    preparation: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation,
 ) {
-    emitHostCommand(
-        MainActivityHostCommand.SaveDiagnosticsArchive(
-            filePath = filePath,
-            fileName = fileName,
-        ),
-    )
+    emitHostCommand(MainActivityHostCommand.PrepareDiagnosticsExport(preparation))
 }
 
-internal fun MainActivityShellController.requestShareDiagnosticsArchive(
-    filePath: String,
-    fileName: String,
-) {
-    emitHostCommand(
-        MainActivityHostCommand.ShareDiagnosticsArchive(
-            filePath = filePath,
-            fileName = fileName,
-        ),
-    )
-}
-
-internal fun MainActivityShellController.requestShareDiagnosticsSummary(
+internal fun MainActivityShellController.requestShareText(
     title: String,
     body: String,
 ) {
     emitHostCommand(
-        MainActivityHostCommand.ShareDiagnosticsSummary(
+        MainActivityHostCommand.ShareText(
             title = title,
             body = body,
         ),

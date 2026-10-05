@@ -14,7 +14,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
@@ -51,7 +50,6 @@ internal fun createDiagnosticsViewModel(
     diagnosticsBootstrapper: DiagnosticsBootstrapper = StubDiagnosticsBootstrapper(),
     diagnosticsScanController: DiagnosticsScanController = StubDiagnosticsScanController(),
     diagnosticsDetailLoader: DiagnosticsDetailLoader = StubDiagnosticsDetailLoader(),
-    diagnosticsShareService: DiagnosticsShareService = StubDiagnosticsShareService(),
     diagnosticsResolverActions: DiagnosticsResolverActions = StubDiagnosticsResolverActions(),
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
@@ -85,7 +83,6 @@ internal fun createDiagnosticsViewModel(
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
                     diagnosticsScanController = diagnosticsScanController,
                     diagnosticsDetailLoader = diagnosticsDetailLoader,
-                    diagnosticsShareService = diagnosticsShareService,
                     diagnosticsResolverActions = diagnosticsResolverActions,
                 ),
             diagnosticsContextDependencies =
@@ -133,7 +130,6 @@ internal fun createDiagnosticsViewModel(
         diagnosticsTimelineSource = diagnosticsManager.timelineSource,
         diagnosticsScanController = diagnosticsManager.scanController,
         diagnosticsDetailLoader = diagnosticsManager.detailLoader,
-        diagnosticsShareService = diagnosticsManager.shareService,
         diagnosticsResolverActions = diagnosticsManager.resolverActions,
         appSettingsRepository = appSettingsRepository,
         rememberedPolicySource = rememberedPolicySource,

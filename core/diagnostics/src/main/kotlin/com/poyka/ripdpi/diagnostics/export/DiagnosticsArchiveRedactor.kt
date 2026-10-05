@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
@@ -30,6 +31,22 @@ class DiagnosticsArchiveRedactor
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
+        fun redactSession(session: ScanSessionEntity?): ScanSessionEntity? =
+            session?.copy(
+                id = redactDiagnosticsArchiveText(session.id),
+                profileId = redactDiagnosticsArchiveText(session.profileId),
+                approachProfileId = session.approachProfileId?.let(::redactDiagnosticsArchiveText),
+                approachProfileName = session.approachProfileName?.let { "redacted" },
+                strategyId = session.strategyId?.let(::redactDiagnosticsArchiveText),
+                strategyLabel = session.strategyLabel?.let { "redacted" },
+                strategyJson = null,
+                summary = redactDiagnosticsArchiveText(session.summary),
+                reportJson = null,
+                triggerClassification = session.triggerClassification?.let(::redactDiagnosticsArchiveText),
+                triggerPreviousFingerprintHash = null,
+                triggerCurrentFingerprintHash = null,
+            )
+
         fun redact(model: NetworkSnapshotModel): NetworkSnapshotModel =
             model.copy(
                 publicIp = model.publicIp?.let { "redacted" },
@@ -79,7 +96,7 @@ class DiagnosticsArchiveRedactor
                             } else {
                                 model.service.proxyEndpoint
                             },
-                        selectedProfileName = redactDiagnosticsArchiveText(model.service.selectedProfileName),
+                        selectedProfileName = "redacted",
                         chainSummary = redactDiagnosticsArchiveText(model.service.chainSummary),
                         routeGroup = redactDiagnosticsArchiveText(model.service.routeGroup),
                         lastNativeErrorHeadline =

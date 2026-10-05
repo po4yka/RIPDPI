@@ -21,7 +21,7 @@ internal class DiagnosticsRemoteDeviceAcceptance
         }
 
         private fun shareEffect(): DiagnosticsEffect =
-            DiagnosticsEffect.ShareSummaryRequested(
+            DiagnosticsEffect.ShareTextRequested(
                 title = stringResolver.getString(R.string.diagnostics_device_gate_title),
                 body = gate.renderRedactedReport(),
             )

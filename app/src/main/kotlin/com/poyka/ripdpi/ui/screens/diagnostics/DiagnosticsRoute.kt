@@ -226,16 +226,12 @@ private suspend fun handleDiagnosticsEffect(
     performHaptic: (RipDpiHapticFeedback) -> Unit,
 ) {
     when (effect) {
-        is DiagnosticsEffect.SaveArchiveRequested -> {
-            callbacks.onSaveArchive(effect.absolutePath, effect.fileName)
+        is DiagnosticsEffect.PrepareExportRequested -> {
+            callbacks.onPrepareExport(effect.preparation)
         }
 
-        is DiagnosticsEffect.ShareArchiveRequested -> {
-            callbacks.onShareArchive(effect.absolutePath, effect.fileName)
-        }
-
-        is DiagnosticsEffect.ShareSummaryRequested -> {
-            callbacks.onShareSummary(effect.title, effect.body)
+        is DiagnosticsEffect.ShareTextRequested -> {
+            callbacks.onShareText(effect.title, effect.body)
         }
 
         is DiagnosticsEffect.ScanStarted -> {
@@ -431,9 +427,8 @@ private data class DiagnosticsAdvancedDpiTools(
 )
 
 data class DiagnosticsRouteCallbacks(
-    val onShareArchive: (String, String) -> Unit = { _, _ -> },
-    val onSaveArchive: (String, String) -> Unit = { _, _ -> },
-    val onShareSummary: (String, String) -> Unit = { _, _ -> },
+    val onPrepareExport: (com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation) -> Unit = {},
+    val onShareText: (String, String) -> Unit = { _, _ -> },
     val onSaveLogs: () -> Unit = {},
     val onOpenLogs: () -> Unit = {},
     val onOpenConnectionHealth: () -> Unit = {},

@@ -135,6 +135,7 @@ internal fun createDiagnosticsServices(
         },
     archiveExporter: DiagnosticsArchiveExporter =
         DefaultDiagnosticsArchiveExporter(
+            preparedExports = preparedExportManagerForTest(context, stores, json),
             exportRecordStore = stores,
             sourceLoader =
                 DiagnosticsArchiveSourceLoader(

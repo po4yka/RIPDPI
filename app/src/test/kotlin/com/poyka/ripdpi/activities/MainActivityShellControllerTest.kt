@@ -101,27 +101,13 @@ class MainActivityShellControllerTest {
                 controller.requestShareDebugBundle()
                 assertEquals(MainActivityHostCommand.ShareDebugBundle, awaitItem())
 
-                controller.requestSaveDiagnosticsArchive("/tmp/archive.zip", "archive.zip")
-                assertEquals(
-                    MainActivityHostCommand.SaveDiagnosticsArchive(
-                        filePath = "/tmp/archive.zip",
-                        fileName = "archive.zip",
-                    ),
-                    awaitItem(),
-                )
+                val preparation = com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation.Logs
+                controller.requestPrepareDiagnosticsExport(preparation)
+                assertEquals(MainActivityHostCommand.PrepareDiagnosticsExport(preparation), awaitItem())
 
-                controller.requestShareDiagnosticsArchive("/tmp/share.zip", "share.zip")
+                controller.requestShareText("Title", "Body")
                 assertEquals(
-                    MainActivityHostCommand.ShareDiagnosticsArchive(
-                        filePath = "/tmp/share.zip",
-                        fileName = "share.zip",
-                    ),
-                    awaitItem(),
-                )
-
-                controller.requestShareDiagnosticsSummary("Title", "Body")
-                assertEquals(
-                    MainActivityHostCommand.ShareDiagnosticsSummary(
+                    MainActivityHostCommand.ShareText(
                         title = "Title",
                         body = "Body",
                     ),

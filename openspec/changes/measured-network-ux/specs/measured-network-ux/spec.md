@@ -62,7 +62,22 @@ The app MUST present export scope and supported redaction before diagnostic summ
 #### Scenario: Redacted export
 
 - **WHEN** the user confirms a redacted export
-- **THEN** both preview and actual output use the selected redaction policy; raw endpoint identifiers are not silently included.
+- **THEN** preview and actual output use the fixed supported redacted/unlinkable policy; raw endpoint identifiers are not silently included.
+
+#### Scenario: Prepared snapshot changes or delayed handoff
+
+- **WHEN** source data changes after preview, a picker is recreated, or a receiving application reads the shared URI later
+- **THEN** confirmation launches at most once with the exact prepared bytes and summary; a checked managed lease preserves eligible handoff files across process restart until its bounded expiry.
+
+#### Scenario: Export clock eligibility
+
+- **WHEN** the same-boot elapsed lifetime reaches three days, the observed wall clock moves backwards, or boot identity changes or cannot be verified
+- **THEN** the old prepared lease cannot be consumed or opened; no clock adjustment extends its lifetime, and a new export can be prepared when the required clock proof is available.
+
+#### Scenario: Replaced or late preparation
+
+- **WHEN** preview is cancelled, replaced or cleared while preparation completes late
+- **THEN** the stale generation cannot launch export, owned artifact/record cleanup is serialized, and cancellation or cleanup failure is preserved.
 
 ### Requirement: REQ-PAUSE — Persist timed connection pause intent
 
@@ -72,6 +87,11 @@ The app MUST allow an active eligible connection to pause for a chosen bounded d
 
 - **WHEN** the app process restarts with a persisted unexpired pause
 - **THEN** the countdown and resume scheduling are restored from local state without fabricating an active connection.
+
+#### Scenario: Saved edits while paused
+
+- **WHEN** the user edits ordinary saved settings or profiles during a pending pause
+- **THEN** the pause remains and resumes its chosen mode using current saved configuration. Explicit Start/Stop, activation/deletion and reset supersede the pending intent.
 
 #### Scenario: Deadline or cancellation
 

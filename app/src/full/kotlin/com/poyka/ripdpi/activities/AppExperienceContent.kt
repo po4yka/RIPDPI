@@ -19,6 +19,8 @@ internal fun AppExperienceContent(
     controller: MainActivityShellController,
     shellState: MainActivityShellState,
     snackbarHostState: SnackbarHostState,
+    onExportEligibilityChanged: (Boolean) -> Unit,
+    exportPreviewContent: @Composable () -> Unit,
 ) {
     RipDpiNavHost(
         startDestination = startDestination,
@@ -27,9 +29,8 @@ internal fun AppExperienceContent(
             RipDpiNavHostActions(
                 onSaveLogs = controller::requestSaveLogs,
                 onShareDebugBundle = controller::requestShareDebugBundle,
-                onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
-                onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
-                onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
+                onPrepareDiagnosticsExport = controller::requestPrepareDiagnosticsExport,
+                onShareText = controller::requestShareText,
                 onRepairPermission = { permission ->
                     viewModel.onRepairPermissionRequested(permission)
                 },
@@ -48,5 +49,7 @@ internal fun AppExperienceContent(
                 onRelockHandled = controller::consumeRelockRequest,
             ),
         snackbarHostState = snackbarHostState,
+        onExportEligibilityChanged = onExportEligibilityChanged,
+        exportPreviewContent = exportPreviewContent,
     )
 }

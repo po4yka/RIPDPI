@@ -2,7 +2,6 @@ package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DeveloperAnalyticsPayload
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryProjector
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
@@ -136,7 +135,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 
     internal fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
         selection.payload.copy(
-            session = redactSession(selection.payload.session),
+            session = redactor.redactSession(selection.payload.session),
             primaryReport = redactor.redact(selection.primaryReport),
             results = selection.payload.results.map(redactor::redact),
             sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
@@ -229,9 +228,11 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             ?: LogcatSnapshotCollector.AppVisibleSnapshotScope
                     add("logcatCaptureScope=$logcatScope")
                     add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
-                    add("selectedSession=${selection.selectedSessionLabel()}")
-                    selection.homeRunId?.let { add("homeRunId=$it") }
-                    selection.homeCompositeOutcome?.recommendedSessionId?.let { add("recommendedSession=$it") }
+                    add("selectedSession=${redactDiagnosticsArchiveText(selection.selectedSessionLabel())}")
+                    selection.homeRunId?.let { add("homeRunId=${redactDiagnosticsArchiveText(it)}") }
+                    selection.homeCompositeOutcome?.recommendedSessionId?.let {
+                        add("recommendedSession=${redactDiagnosticsArchiveText(it)}")
+                    }
                     selection.homeCompositeOutcome?.let { outcome ->
                         add("stageCount=${outcome.stageSummaries.size}")
                         add("completedStageCount=${outcome.completedStageCount}")
@@ -275,7 +276,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                         ?.forEach { stage ->
                             add(
                                 "stage=${stage.stageKey}:${stage.status.name.lowercase()}:" +
-                                    (stage.sessionId ?: "no-session"),
+                                    (stage.sessionId?.let(::redactDiagnosticsArchiveText) ?: "no-session"),
                             )
                         }
                 },
@@ -565,7 +566,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
             scope = DiagnosticsArchiveFormat.scope,
             privacyMode = DiagnosticsArchiveFormat.privacyMode,
-            session = redactSession(stage.session),
+            session = redactor.redactSession(stage.session),
             primaryReport = redactor.redact(stage.report),
             results = stage.results.map(redactor::redact),
             sessionSnapshots = stage.snapshots.map(redactor::redact),
@@ -590,7 +591,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 
     private fun buildSummaryDocument(selection: DiagnosticsArchiveSelection): DiagnosticsSummaryDocument =
         projector.project(
-            session = selection.primarySession,
+            session = redactor.redactSession(selection.primarySession),
             report = redactor.redact(selection.primaryReport)?.toSessionProjection(),
             latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
             latestContextModel =
@@ -607,18 +608,6 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                     .filter { event ->
                         event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
                     }.map(redactor::redact),
-        )
-
-    private fun redactSession(session: ScanSessionEntity?): ScanSessionEntity? =
-        session?.copy(
-            approachProfileName = session.approachProfileName?.let(::redactDiagnosticsArchiveText),
-            strategyLabel = session.strategyLabel?.let(::redactDiagnosticsArchiveText),
-            strategyJson = null,
-            summary = redactDiagnosticsArchiveText(session.summary),
-            reportJson = null,
-            triggerClassification = session.triggerClassification?.let(::redactDiagnosticsArchiveText),
-            triggerPreviousFingerprintHash = null,
-            triggerCurrentFingerprintHash = null,
         )
 
     private fun <T> jsonEntry(

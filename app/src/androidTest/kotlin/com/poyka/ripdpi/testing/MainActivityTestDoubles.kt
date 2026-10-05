@@ -37,7 +37,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
@@ -53,10 +52,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
@@ -231,6 +228,7 @@ internal class RecordingMainActivityHost : MainActivityHost {
     override fun register(
         activity: AppCompatActivity,
         viewModel: MainViewModel,
+        exportPreview: com.poyka.ripdpi.activities.ExportPreviewViewModel,
     ) {
         this.viewModel = viewModel
     }
@@ -348,27 +346,6 @@ class StubInstrumentedDiagnosticsDetailLoader : DiagnosticsDetailLoader {
         id: String,
     ): com.poyka.ripdpi.diagnostics.BypassApproachDetail {
         error("unused")
-    }
-}
-
-class StubInstrumentedDiagnosticsShareService : DiagnosticsShareService {
-    val archiveRequests = CopyOnWriteArrayList<DiagnosticsArchiveRequest>()
-
-    override suspend fun buildShareSummary(sessionId: String?): com.poyka.ripdpi.diagnostics.ShareSummary {
-        error("unused")
-    }
-
-    override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
-        archiveRequests += request
-        return DiagnosticsArchive(
-            fileName = "home.zip",
-            absolutePath = "/tmp/home.zip",
-            sessionId = null,
-            createdAt = 1L,
-            scope = "home",
-            schemaVersion = 1,
-            privacyMode = "standard",
-        )
     }
 }
 
@@ -585,4 +562,31 @@ class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompos
         runs[runId] = MutableStateFlow(DiagnosticsHomeCompositeProgress(runId = runId))
         return DiagnosticsHomeCompositeRunStarted(runId = runId)
     }
+}
+
+/** Recorder for preparation ownership only; it never claims real ZIP or runtime readiness. */
+class StubInstrumentedPreparedExportService : com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService {
+    override suspend fun prepare(
+        id: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId,
+        preparation: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation,
+    ): com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExport = error("Not used by recording host")
+
+    override suspend fun inspect(
+        id: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId,
+    ): com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExport = error("No prepared fixture")
+
+    override suspend fun consume(
+        id: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId,
+    ): com.poyka.ripdpi.diagnostics.export.CheckedDiagnosticsExportHandoff = error("No prepared fixture")
+
+    override suspend fun validateHandoff(
+        id: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId,
+    ): com.poyka.ripdpi.diagnostics.export.CheckedDiagnosticsExportHandoff = error("No consumed fixture")
+
+    override suspend fun copyPrepared(
+        id: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId,
+        destination: java.io.OutputStream,
+    ): Unit = error("No consumed fixture")
+
+    override suspend fun discard(id: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId) = Unit
 }

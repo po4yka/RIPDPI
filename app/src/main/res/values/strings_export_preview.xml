@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">Review export</string>
+    <string name="export_preview_preparing">Preparing a local copy…</string>
+    <string name="export_preview_failed">Could not prepare export</string>
+    <string name="export_preview_save_failed">Could not save export</string>
+    <string name="export_preview_share_summary">Share summary</string>
+    <string name="export_preview_share_archive">Share ZIP archive</string>
+    <string name="export_preview_save_archive">Save ZIP archive</string>
+    <string name="export_preview_save_logs">Save text file</string>
+    <string name="export_preview_redaction">Sensitive values are redacted. Review the included data.</string>
+    <string name="export_preview_summary_only">Only the summary below will be shared as text.</string>
+    <string name="export_preview_log_excerpt">Beginning of log (save includes full file)</string>
+    <string name="export_preview_summary">Summary</string>
+    <string name="export_preview_contents">Included files</string>
+    <string name="export_preview_confirm_notice">Nothing leaves the app before confirmation.</string>
+    <string name="export_preview_prepared_file">Prepared file</string>
+    <string name="export_preview_error_title">Export needs attention</string>
+    <string name="export_preview_cleanup_failed">Could not remove the local prepared copy.</string>
+</resources>

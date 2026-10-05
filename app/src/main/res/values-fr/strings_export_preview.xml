@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">Vérifier l’export</string>
+    <string name="export_preview_preparing">Préparation d’une copie locale…</string>
+    <string name="export_preview_failed">Impossible de préparer l’export</string>
+    <string name="export_preview_save_failed">Impossible d’enregistrer l’export</string>
+    <string name="export_preview_share_summary">Partager le résumé</string>
+    <string name="export_preview_share_archive">Partager l’archive ZIP</string>
+    <string name="export_preview_save_archive">Enregistrer l’archive ZIP</string>
+    <string name="export_preview_save_logs">Enregistrer le fichier texte</string>
+    <string name="export_preview_redaction">Les valeurs sensibles sont masquées. Vérifiez les données incluses.</string>
+    <string name="export_preview_summary_only">Seul le résumé ci-dessous sera partagé sous forme de texte.</string>
+    <string name="export_preview_log_excerpt">Début du journal (le fichier complet sera enregistré)</string>
+    <string name="export_preview_summary">Résumé</string>
+    <string name="export_preview_contents">Fichiers inclus</string>
+    <string name="export_preview_confirm_notice">Aucune donnée ne quitte l’application avant confirmation.</string>
+    <string name="export_preview_prepared_file">Fichier préparé</string>
+    <string name="export_preview_error_title">Une action est requise pour l’export</string>
+    <string name="export_preview_cleanup_failed">Impossible de supprimer la copie locale préparée.</string>
+</resources>

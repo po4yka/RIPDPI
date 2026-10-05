@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="export_preview_title">निर्यात की समीक्षा करें</string>
+    <string name="export_preview_preparing">स्थानीय प्रति तैयार हो रही है…</string>
+    <string name="export_preview_failed">निर्यात तैयार नहीं हो सका</string>
+    <string name="export_preview_save_failed">एक्सपोर्ट सहेजा नहीं जा सका</string>
+    <string name="export_preview_share_summary">सारांश साझा करें</string>
+    <string name="export_preview_share_archive">ZIP संग्रह साझा करें</string>
+    <string name="export_preview_save_archive">ZIP संग्रह सहेजें</string>
+    <string name="export_preview_save_logs">टेक्स्ट फ़ाइल सहेजें</string>
+    <string name="export_preview_redaction">संवेदनशील मान छिपाए गए हैं। शामिल डेटा की समीक्षा करें।</string>
+    <string name="export_preview_summary_only">केवल नीचे दिया गया सारांश टेक्स्ट के रूप में साझा होगा।</string>
+    <string name="export_preview_log_excerpt">लॉग की शुरुआत (सहेजने पर पूरी फ़ाइल शामिल होगी)</string>
+    <string name="export_preview_summary">सारांश</string>
+    <string name="export_preview_contents">शामिल फ़ाइलें</string>
+    <string name="export_preview_confirm_notice">पुष्टि से पहले डेटा ऐप से बाहर नहीं जाता।</string>
+    <string name="export_preview_prepared_file">तैयार फ़ाइल</string>
+    <string name="export_preview_error_title">निर्यात पर ध्यान देना ज़रूरी है</string>
+    <string name="export_preview_cleanup_failed">तैयार स्थानीय प्रति को हटाया नहीं जा सका।</string>
+</resources>

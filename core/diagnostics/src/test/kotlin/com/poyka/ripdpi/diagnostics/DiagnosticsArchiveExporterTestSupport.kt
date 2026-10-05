@@ -141,6 +141,8 @@ internal fun createArchiveExporterForTest(
                 .toFile(),
         ),
     developerAnalyticsSource: DeveloperAnalyticsSource = NoopDeveloperAnalyticsSource,
+    preparedManager: com.poyka.ripdpi.diagnostics.export.DiagnosticsPreparedExportManager =
+        preparedExportManagerForTest(context, stores, json),
 ): DefaultDiagnosticsArchiveExporter {
     val exportSequence = AtomicInteger()
     val appSettings =
@@ -149,6 +151,7 @@ internal fun createArchiveExporterForTest(
             .setRootModeEnabled(rootModeEnabled)
             .build()
     return DefaultDiagnosticsArchiveExporter(
+        preparedExports = preparedManager,
         exportRecordStore = stores,
         sourceLoader =
             DiagnosticsArchiveSourceLoader(

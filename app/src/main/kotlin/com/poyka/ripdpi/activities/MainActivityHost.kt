@@ -7,16 +7,18 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import co.touchlab.kermit.Logger
+import androidx.lifecycle.repeatOnLifecycle
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
-import com.poyka.ripdpi.diagnostics.DiagnosticsLogRedactor
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
-import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
+import com.poyka.ripdpi.diagnostics.export.CheckedDiagnosticsExportHandoff
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
+import com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -24,6 +26,9 @@ import dagger.hilt.android.components.ActivityComponent
 import dagger.hilt.android.scopes.ActivityScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -55,21 +60,11 @@ internal sealed interface MainActivityHostCommand {
 
     data object ShareDebugBundle : MainActivityHostCommand
 
-    data class SaveDiagnosticsArchive(
-        val filePath: String,
-        val fileName: String,
+    data class PrepareDiagnosticsExport(
+        val preparation: DiagnosticsExportPreparation,
     ) : MainActivityHostCommand
 
-    data class SaveDiagnosticsArchiveRequest(
-        val request: DiagnosticsArchiveRequest,
-    ) : MainActivityHostCommand
-
-    data class ShareDiagnosticsArchive(
-        val filePath: String,
-        val fileName: String,
-    ) : MainActivityHostCommand
-
-    data class ShareDiagnosticsSummary(
+    data class ShareText(
         val title: String,
         val body: String,
     ) : MainActivityHostCommand
@@ -79,6 +74,7 @@ internal interface MainActivityHost {
     fun register(
         activity: AppCompatActivity,
         viewModel: MainViewModel,
+        exportPreview: ExportPreviewViewModel,
     )
 
     fun handle(command: MainActivityHostCommand)
@@ -88,18 +84,16 @@ internal interface MainActivityHost {
 internal class DefaultMainActivityHost
     @Inject
     constructor(
-        private val diagnosticsShareService: DiagnosticsShareService,
-        private val logcatSnapshotCollector: LogcatSnapshotCollector,
-        private val diagnosticsLogRedactor: DiagnosticsLogRedactor,
+        private val preparedExports: PreparedDiagnosticsExportService,
         private val automationController: Optional<AutomationController>,
     ) : MainActivityHost {
         private lateinit var activity: AppCompatActivity
         private lateinit var viewModel: MainViewModel
+        private lateinit var exportPreview: ExportPreviewViewModel
         private lateinit var vpnPermissionLauncher: ActivityResultLauncher<Intent>
         private lateinit var localNetworkPermissionLauncher: ActivityResultLauncher<String>
         private lateinit var notificationPermissionLauncher: ActivityResultLauncher<String>
         private lateinit var batteryOptimizationLauncher: ActivityResultLauncher<Intent>
-        private lateinit var logsLauncher: ActivityResultLauncher<Intent>
         private lateinit var diagnosticsArchiveLauncher: ActivityResultLauncher<Intent>
         private val pendingDiagnosticsArchive = PendingDiagnosticsArchiveState()
         private var registered = false
@@ -107,6 +101,7 @@ internal class DefaultMainActivityHost
         override fun register(
             activity: AppCompatActivity,
             viewModel: MainViewModel,
+            exportPreview: ExportPreviewViewModel,
         ) {
             if (registered) {
                 return
@@ -114,6 +109,7 @@ internal class DefaultMainActivityHost
 
             this.activity = activity
             this.viewModel = viewModel
+            this.exportPreview = exportPreview
             registerPendingArchiveState(activity)
             vpnPermissionLauncher =
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -152,14 +148,27 @@ internal class DefaultMainActivityHost
                         result = com.poyka.ripdpi.permissions.PermissionResult.ReturnedFromSettings,
                     )
                 }
-            logsLauncher =
-                activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                    handleLogsResult(result.data?.data)
-                }
             diagnosticsArchiveLauncher =
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                     handleDiagnosticsArchiveResult(result.data?.data)
                 }
+            activity.lifecycleScope.launch {
+                activity.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    launch {
+                        exportPreview.cleanupFailures.filter { it }.collect {
+                            viewModel.reportSupportError(
+                                activity.getString(R.string.export_preview_cleanup_failed),
+                                DiagnosticsExportSupportCodes.ArchiveIo,
+                                null,
+                            )
+                            exportPreview.acknowledgeCleanupFailure()
+                        }
+                    }
+                    exportPreview.handoffs.collectLatest { token ->
+                        if (token != null) exportPreview.handoff(token, ::launchPreparedExport)
+                    }
+                }
+            }
             registered = true
         }
 
@@ -203,44 +212,26 @@ internal class DefaultMainActivityHost
                 }
 
                 MainActivityHostCommand.SaveLogs -> {
-                    saveLogs()
+                    exportPreview.prepare(DiagnosticsExportPreparation.Logs)
                 }
 
                 MainActivityHostCommand.ShareDebugBundle -> {
-                    shareDebugBundle()
-                }
-
-                is MainActivityHostCommand.SaveDiagnosticsArchive -> {
-                    pendingDiagnosticsArchive.pendingFile = command.filePath to command.fileName
-                    launchSaveDocument(
-                        Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "application/zip"
-                            putExtra(Intent.EXTRA_TITLE, command.fileName)
-                        },
-                        launch = diagnosticsArchiveLauncher::launch,
-                        failureMessage = activity.getString(R.string.diagnostics_archive_save_failed),
+                    exportPreview.prepare(
+                        DiagnosticsExportPreparation.Archive(
+                            DiagnosticsArchiveRequest(
+                                reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
+                                requestedAt = System.currentTimeMillis(),
+                            ),
+                            DiagnosticsExportPurpose.ShareArchive,
+                        ),
                     )
                 }
 
-                is MainActivityHostCommand.SaveDiagnosticsArchiveRequest -> {
-                    pendingDiagnosticsArchive.pendingRequest = command.request
-                    launchSaveDocument(
-                        Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "application/zip"
-                            putExtra(Intent.EXTRA_TITLE, "ripdpi-analysis.zip")
-                        },
-                        launch = diagnosticsArchiveLauncher::launch,
-                        failureMessage = activity.getString(R.string.diagnostics_archive_save_failed),
-                    )
+                is MainActivityHostCommand.PrepareDiagnosticsExport -> {
+                    exportPreview.prepare(command.preparation)
                 }
 
-                is MainActivityHostCommand.ShareDiagnosticsArchive -> {
-                    shareDiagnosticsArchive(command.filePath, command.fileName)
-                }
-
-                is MainActivityHostCommand.ShareDiagnosticsSummary -> {
+                is MainActivityHostCommand.ShareText -> {
                     val shareIntent =
                         DiagnosticsShareIntents.createSummaryShareIntent(
                             title = command.title,
@@ -262,164 +253,107 @@ internal class DefaultMainActivityHost
                 .map { controller -> controller.interceptHostCommand(command, viewModel) }
                 .orElse(false)
 
-        private fun saveLogs() {
-            launchSaveDocument(
-                Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
-                },
-                launch = logsLauncher::launch,
-                failureMessage = activity.getString(R.string.logs_failed),
-            )
-        }
-
-        private fun handleLogsResult(uri: Uri?) {
-            // A null URI is the picker cancellation signal. Do not collect logs before
-            // checking it: logcat collection can be expensive and must not happen for a cancelled save.
-            if (uri != null) {
-                activity.launchIoOperation(
-                    operation = {
-                        val logcatSnapshot =
-                            logcatSnapshotCollector.capture()
-                                ?: throw IOException("Failed to capture logs")
-                        activity.contentResolver.openOutputStream(uri)?.use { stream ->
-                            stream.write(diagnosticsLogRedactor.redactLogcat(logcatSnapshot.content).toByteArray())
-                        } ?: throw IOException("Failed to open log destination")
-                    },
-                    onFailure = { error ->
-                        Logger.e(error) { "Failed to save logs" }
-                        viewModel.reportSupportError(
-                            activity.getString(R.string.logs_failed),
-                            DiagnosticsExportSupportCodes.ArchiveIo,
-                            null,
+        private fun launchPreparedExport(checked: CheckedDiagnosticsExportHandoff) {
+            check(!activity.isFinishing && !activity.isDestroyed) { "Export Activity is unavailable" }
+            val preview = checked.preview
+            when (preview.purpose) {
+                DiagnosticsExportPurpose.ShareSummary -> {
+                    val intent =
+                        DiagnosticsShareIntents.createSummaryShareIntent(
+                            activity.getString(R.string.app_name),
+                            preview.summary,
                         )
-                    },
-                )
+                    activity.startActivity(Intent.createChooser(intent, activity.getString(R.string.app_name)))
+                }
+
+                DiagnosticsExportPurpose.ShareArchive -> {
+                    val uri =
+                        FileProvider.getUriForFile(
+                            activity,
+                            "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
+                            File(checked.absolutePath),
+                        )
+                    val intent = DiagnosticsShareIntents.createArchiveShareIntent(uri, preview.fileName)
+                    activity.startActivity(
+                        Intent.createChooser(
+                            intent,
+                            activity.getString(R.string.diagnostics_share_archive_chooser),
+                        ),
+                    )
+                }
+
+                DiagnosticsExportPurpose.SaveArchive, DiagnosticsExportPurpose.SaveLogs -> {
+                    pendingDiagnosticsArchive.begin(preview.leaseId)
+                    runCatching {
+                        diagnosticsArchiveLauncher.launch(
+                            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = preview.mimeType
+                                putExtra(Intent.EXTRA_TITLE, preview.fileName)
+                            },
+                        )
+                    }.onFailure {
+                        pendingDiagnosticsArchive.onPickerResult(null)
+                    }.getOrThrow()
+                }
             }
         }
 
         private fun handleDiagnosticsArchiveResult(uri: Uri?) {
-            val result = pendingDiagnosticsArchive.onPickerResult(uri)
-            val onFailure: (Throwable) -> Unit = { error ->
-                Logger.e(error) { "Failed to save diagnostics archive" }
-                val feedback = diagnosticsArchiveSaveFeedback(error)
-                viewModel.reportSupportError(
-                    activity.getString(feedback.messageRes),
-                    feedback.supportCode,
-                    feedback.supportPayload,
-                )
-            }
-
-            when (result) {
-                is PendingDiagnosticsArchiveResult.Request -> {
-                    activity.launchIoOperation(
-                        operation = {
-                            writeDiagnosticsArchiveDocument(
-                                destination = result.uri,
-                                openDestinationStream = { activity.contentResolver.openOutputStream(result.uri) },
-                                writeArchive = { stream ->
-                                    diagnosticsShareService.writeArchive(result.request, stream)
-                                },
-                                deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
-                            )
-                        },
-                        onFailure = onFailure,
-                    )
-                }
-
-                is PendingDiagnosticsArchiveResult.File -> {
-                    activity.launchIoOperation(
-                        operation = {
-                            writeDiagnosticsArchiveDocument(
-                                destination = result.uri,
-                                openDestinationStream = { activity.contentResolver.openOutputStream(result.uri) },
-                                writeArchive = { stream ->
-                                    copyDiagnosticsArchive(source = File(result.filePath), destination = stream)
-                                },
-                                deleteDocument = { document -> deletePartialDiagnosticsArchiveDocument(document) },
-                            )
-                        },
-                        onFailure = onFailure,
-                    )
-                }
-
-                null -> {
-                    return
-                }
-            }
-        }
-
-        private fun shareDebugBundle() {
+            val result = pendingDiagnosticsArchive.onPickerResult(uri) ?: return
             activity.lifecycleScope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        diagnosticsShareService.createArchive(
-                            DiagnosticsArchiveRequest(
-                                requestedSessionId = null,
-                                reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
-                                requestedAt = System.currentTimeMillis(),
-                            ),
-                        )
+                var verifiedPurpose: DiagnosticsExportPurpose? = null
+                val operation =
+                    runCatching {
+                        if (result.uri != null) {
+                            withContext(Dispatchers.IO) {
+                                val checked = preparedExports.validateHandoff(result.leaseId)
+                                check(
+                                    checked.preview.purpose == DiagnosticsExportPurpose.SaveArchive ||
+                                        checked.preview.purpose == DiagnosticsExportPurpose.SaveLogs,
+                                )
+                                verifiedPurpose = checked.preview.purpose
+                                writeDiagnosticsArchiveDocument(
+                                    destination = result.uri,
+                                    openDestinationStream = { activity.contentResolver.openOutputStream(result.uri) },
+                                    writeArchive = { stream -> preparedExports.copyPrepared(result.leaseId, stream) },
+                                    deleteDocument = ::deletePartialDiagnosticsArchiveDocument,
+                                )
+                            }
+                        }
                     }
-                }.onSuccess { archive ->
-                    shareDiagnosticsArchive(archive.absolutePath, archive.fileName)
-                }.onFailure { error ->
-                    Logger.e(error) { "Failed to prepare support bundle" }
-                    viewModel.reportSupportError(
-                        activity.getString(R.string.debug_bundle_failed),
-                        DiagnosticsExportSupportCodes.ArchiveIo,
-                        null,
-                    )
+                val cleanup = withContext(NonCancellable) { runCatching { preparedExports.discard(result.leaseId) } }
+                val primary = operation.exceptionOrNull()
+                cleanup.exceptionOrNull()?.let { error ->
+                    primary?.addSuppressed(error)
+                    exportPreview.reportCleanupFailure(result.leaseId)
                 }
-            }
-        }
+                operation.getOrElse { error ->
+                    when (error) {
+                        is CancellationException, is Error -> {
+                            throw error
+                        }
 
-        private fun shareDiagnosticsArchive(
-            filePath: String,
-            fileName: String,
-        ) {
-            runCatching {
-                val archiveUri =
-                    FileProvider.getUriForFile(
-                        activity,
-                        "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
-                        File(filePath),
-                    )
-                val shareIntent =
-                    DiagnosticsShareIntents.createArchiveShareIntent(
-                        archiveUri = archiveUri,
-                        fileName = fileName,
-                    )
-                reportExportLaunchFailure(
-                    code =
-                        launchDiagnosticsExport(
-                            Intent.createChooser(
-                                shareIntent,
-                                activity.getString(R.string.diagnostics_share_archive_chooser),
-                            ),
-                        ) { activity.startActivity(it) },
-                    message = activity.getString(R.string.home_diagnostics_share_failed),
-                )
-            }.onFailure { error ->
-                Logger.e(error) { "Failed to share diagnostics archive" }
-                viewModel.reportSupportError(
-                    activity.getString(R.string.home_diagnostics_share_failed),
-                    DiagnosticsExportSupportCodes.ArchiveIo,
-                    null,
-                )
-            }
-        }
-
-        private fun launchSaveDocument(
-            intent: Intent,
-            launch: (Intent) -> Unit,
-            failureMessage: String,
-        ) {
-            val failureCode = launchDiagnosticsExport(intent, launch)
-            if (failureCode != null) {
-                pendingDiagnosticsArchive.onPickerResult(null)
-                reportExportLaunchFailure(failureCode, failureMessage)
+                        else -> {
+                            val feedback = diagnosticsArchiveSaveFeedback(error)
+                            val message =
+                                if (verifiedPurpose == DiagnosticsExportPurpose.SaveArchive) {
+                                    feedback.messageRes
+                                } else {
+                                    R.string.export_preview_save_failed
+                                }
+                            viewModel.reportSupportError(activity.getString(message), feedback.supportCode, null)
+                        }
+                    }
+                }
+                if (primary == null) {
+                    cleanup.getOrElse { error ->
+                        when (error) {
+                            is CancellationException, is Error -> throw error
+                            else -> Unit // The neutral cleanup error was already published above.
+                        }
+                    }
+                }
             }
         }
 
@@ -436,36 +370,6 @@ internal class DefaultMainActivityHost
             }.getOrDefault(false)
     }
 
-private fun AppCompatActivity.launchIoOperation(
-    operation: suspend () -> Unit,
-    onFailure: (Throwable) -> Unit,
-) {
-    lifecycleScope.launch {
-        runCatching {
-            withContext(Dispatchers.IO) { operation() }
-        }.onFailure { error ->
-            if (error is CancellationException) throw error
-            onFailure(error)
-        }
-    }
-}
-
-internal fun copyDiagnosticsArchive(
-    source: File,
-    destination: OutputStream,
-) {
-    source.inputStream().use { input ->
-        input.copyTo(destination)
-    }
-}
-
-/**
- * Writes an archive to the SAF document created by the picker.
- *
- * A document exists before its output stream is opened, so a failed or cancelled write must make a
- * best-effort deletion. Providers may reject deletion; that limitation must not replace the real
- * write failure or turn a cancelled export into a reported error.
- */
 internal suspend fun writeDiagnosticsArchiveDocument(
     destination: Uri,
     openDestinationStream: () -> OutputStream?,
