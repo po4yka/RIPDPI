@@ -28,10 +28,56 @@ import java.net.InetAddress
 @Config(sdk = [35])
 class VpnRouteObservationAuthorityTest {
     @Test
+    fun `same agent LP replacement uses retained verified owner and callback interface index`() {
+        val store = VpnRouteLifecycleReceiptStore()
+        var callbackIndex = 17
+        val authority =
+            VpnRouteObservationAuthority(
+                RuntimeEnvironment.getApplication(),
+                store,
+                { name -> PrivateTunIdentity.create(name, callbackIndex) },
+            )
+        authority.start()
+        val callback = requireNotNull(authority.registeredCallbackForTest())
+        val network = ShadowNetwork.newInstance(110)
+        try {
+            store.markEstablished(store.beginTestGeneration(), testRouteTunIdentity)
+            callback.onCapabilitiesChanged(network, ownedVpnCapabilities())
+            callback.onLinkPropertiesChanged(network, ipv4DefaultLinkProperties())
+            val replacement = store.beginTestGeneration()
+            store.markEstablished(replacement, checkNotNull(PrivateTunIdentity.create("test0", 18)))
+            store.markBridgeReady(replacement)
+            callback.onLinkPropertiesChanged(network, ipv4DefaultLinkProperties())
+            assertFalse(store.capture().isEligibleForInPathLease())
+            callbackIndex = 18
+            callback.onLinkPropertiesChanged(network, ipv4DefaultLinkProperties())
+            assertTrue(store.capture().isEligibleForInPathLease())
+            callback.onCapabilitiesChanged(network, ownedVpnCapabilities(ownerUid = Process.myUid() + 1))
+            callback.onLinkPropertiesChanged(network, ipv4DefaultLinkProperties())
+            assertFalse(store.capture().isEligibleForInPathLease())
+        } finally {
+            authority.stop()
+        }
+    }
+
+    @Test
+    fun `missing callback interface identity cannot grant an active path lease`() {
+        val store = VpnRouteLifecycleReceiptStore()
+        val generation = store.beginTestGeneration()
+        store.markEstablished(generation, testRouteTunIdentity)
+        store.markBridgeReady(generation)
+        val authority = VpnRouteObservationAuthority(RuntimeEnvironment.getApplication(), store) { null }
+        val network = ShadowNetwork.newInstance(111)
+        authority.onCapabilitiesChanged(network, ownedVpnCapabilities())
+        authority.onLinkPropertiesChanged(network, ipv4DefaultLinkProperties())
+        assertFalse(store.capture().isEligibleForInPathLease())
+    }
+
+    @Test
     fun `registered callbacks complete owned vpn evidence without synchronous network state`() {
         listOf(false, true).forEach { routesFirst ->
             val store = VpnRouteLifecycleReceiptStore()
-            store.markEstablished(store.beginTestGeneration())
+            store.markEstablished(store.beginTestGeneration(), testRouteTunIdentity)
             val authority = testAuthority(store)
             authority.start()
             val callback = requireNotNull(authority.registeredCallbackForTest())
@@ -69,7 +115,7 @@ class VpnRouteObservationAuthorityTest {
     @Test
     fun `stale synchronous getters cannot publish or discard callback evidence`() {
         val store = VpnRouteLifecycleReceiptStore()
-        store.markEstablished(store.beginTestGeneration())
+        store.markEstablished(store.beginTestGeneration(), testRouteTunIdentity)
         val authority = testAuthority(store)
         authority.start()
         val callback = requireNotNull(authority.registeredCallbackForTest())
@@ -99,7 +145,7 @@ class VpnRouteObservationAuthorityTest {
     fun `callback from stopped registration cannot revive route evidence`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
         val authority = testAuthority(store)
         authority.start()
         val callback = authority.registeredCallbackForTest()
@@ -117,7 +163,7 @@ class VpnRouteObservationAuthorityTest {
     fun `disqualified vpn callback is not later reported as owned loss`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
         val authority = testAuthority(store)
         val network = ShadowNetwork.newInstance(98)
         authority.onCapabilitiesChanged(network, ownedVpnCapabilities())
@@ -133,7 +179,7 @@ class VpnRouteObservationAuthorityTest {
     @Test
     fun `registered foreign vpn callbacks cannot mask owned vpn loss`() {
         val store = VpnRouteLifecycleReceiptStore()
-        store.markEstablished(store.beginTestGeneration())
+        store.markEstablished(store.beginTestGeneration(), testRouteTunIdentity)
         val authority = testAuthority(store)
         authority.start()
         val callback = requireNotNull(authority.registeredCallbackForTest())
@@ -167,7 +213,7 @@ class VpnRouteObservationAuthorityTest {
 
         authority.onCapabilitiesChanged(network, vpnCapabilities())
         authority.onLinkPropertiesChanged(network, ipv4DefaultLinkProperties())
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
 
         assertEquals(VpnRouteCallbackState.Complete, store.capture().callbackState)
         assertEquals(VpnRouteOwnerVerification.Unavailable, store.capture().ownerVerification)
@@ -194,7 +240,7 @@ class VpnRouteObservationAuthorityTest {
                 networkParameters = VpnTunnelNetworkParameters(),
                 apiLevel = Build.VERSION_CODES.Q,
             )
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
         val authority = testAuthority(store)
         val network = ShadowNetwork.newInstance(100)
 
@@ -212,6 +258,7 @@ private fun testAuthority(store: VpnRouteLifecycleReceiptStore): VpnRouteObserva
     VpnRouteObservationAuthority(
         context = RuntimeEnvironment.getApplication(),
         receiptStore = store,
+        linkIdentityReader = { name -> PrivateTunIdentity.create(name, 17) },
     )
 
 private fun VpnRouteObservationAuthority.registeredCallbackForTest(): ConnectivityManager.NetworkCallback? {

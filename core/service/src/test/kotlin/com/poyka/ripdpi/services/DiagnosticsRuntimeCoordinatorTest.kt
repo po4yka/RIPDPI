@@ -1380,7 +1380,7 @@ private fun VpnRouteLifecycleReceiptStore.beginReadyRoute(): Long {
             networkParameters = VpnTunnelNetworkParameters(),
             apiLevel = Build.VERSION_CODES.Q,
         )
-    markEstablished(generation)
+    markEstablished(generation, testRouteTunIdentity)
     markBridgeReady(generation)
     observeReadyRouteCallbacks()
     return generation
@@ -1394,5 +1394,5 @@ private fun VpnRouteLifecycleReceiptStore.observeReadyRouteCallbacks() {
         captivePortal = false,
         ownerVerification = VpnRouteOwnerVerification.Verified,
     )
-    observeDefaultRoutes("vpn-a", setOf(VpnRouteFamilyIpv4))
+    observeDefaultRoutes("vpn-a", setOf(VpnRouteFamilyIpv4), testRouteTunIdentity)
 }

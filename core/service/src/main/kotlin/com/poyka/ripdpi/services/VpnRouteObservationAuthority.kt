@@ -24,11 +24,17 @@ import javax.inject.Singleton
 
 @Singleton
 internal class VpnRouteObservationAuthority
-    @Inject
-    constructor(
-        @ApplicationContext context: Context,
+    internal constructor(
+        context: Context,
         private val receiptStore: VpnRouteLifecycleReceiptStore,
+        private val linkIdentityReader: (String?) -> PrivateTunIdentity?,
     ) {
+        @Inject
+        constructor(
+            @ApplicationContext context: Context,
+            receiptStore: VpnRouteLifecycleReceiptStore,
+        ) : this(context, receiptStore, PrivateTunIdentity::fromLinkInterface)
+
         private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
         private val ownedNetworks = mutableSetOf<Network>()
         private val rejectedNetworks = mutableSetOf<Network>()
@@ -97,7 +103,11 @@ internal class VpnRouteObservationAuthority
                 receiptStore.discardObservation(network)
                 return
             }
-            receiptStore.observeDefaultRoutes(network, linkProperties.defaultRouteFamilies())
+            receiptStore.observeDefaultRoutes(
+                network,
+                linkProperties.defaultRouteFamilies(),
+                linkIdentityReader(linkProperties.interfaceName),
+            )
         }
 
         internal fun onLost(network: Network) {

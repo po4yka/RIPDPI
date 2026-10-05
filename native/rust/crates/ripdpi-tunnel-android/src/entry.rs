@@ -37,16 +37,28 @@
 //! ownership) and §6 (panic containment).
 
 use android_support::ffi_boundary;
-use jni::EnvUnowned;
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
+use jni::{EnvUnowned, jni_mangle};
 
 use crate::session::{
-    PROBE_BRIDGE_FAILURE, bind_to_device_probe_entry, tunnel_create_entry, tunnel_destroy_entry,
-    tunnel_forwarding_evidence_entry, tunnel_icmp_ingress_packets_entry, tunnel_pcap_list_captures_entry,
-    tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry, tunnel_start_entry, tunnel_stats_entry,
-    tunnel_stop_entry, tunnel_telemetry_entry,
+    PROBE_BRIDGE_FAILURE, bind_to_device_probe_entry, tun_kernel_identity_entry, tunnel_create_entry,
+    tunnel_destroy_entry, tunnel_forwarding_evidence_entry, tunnel_icmp_ingress_packets_entry,
+    tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry,
+    tunnel_start_entry, tunnel_stats_entry, tunnel_stop_entry, tunnel_telemetry_entry,
 };
+
+// SAFETY: unique instance JNI export; its jint input and jobject result match
+// TunKernelIdentityNativeBindings.jniReadTunKernelIdentity. The boundary
+// contains every panic and the delegate retains no fd, env or local reference.
+#[jni_mangle("com.poyka.ripdpi.core.TunKernelIdentityNativeBindings")]
+pub extern "system" fn jni_read_tun_kernel_identity(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    tun_fd: jint,
+) -> jni::sys::jobject {
+    ffi_boundary(core::ptr::null_mut(), move || tun_kernel_identity_entry(env, tun_fd))
+}
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_TunDeviceQualificationNativeBindings_jniProbeUnprivilegedBindToDevice(

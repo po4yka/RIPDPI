@@ -45,7 +45,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `forwarding outcome is correlated to current lifecycle generation`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
 
         store.recordForwardingOutcome(generation, "cross_layer_return_observed", terminal = false, revision = 1L)
 
@@ -60,7 +60,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `older forwarding poll cannot overwrite newer terminal evidence`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
 
         store.recordForwardingOutcome(generation, "tun_ingress_no_upstream", terminal = true, revision = 2L)
         store.recordForwardingOutcome(generation, "no_flow", terminal = false, revision = 1L)
@@ -73,7 +73,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `newer healthy forwarding poll clears a recovered terminal failure`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
 
         store.recordForwardingOutcome(generation, "tun_ingress_no_upstream", terminal = true, revision = 1L)
         store.recordForwardingOutcome(generation, "cross_layer_return_observed", terminal = false, revision = 2L)
@@ -87,7 +87,7 @@ class VpnRouteLifecycleReceiptStoreTest {
         var nowNanos = 1L
         val store = VpnRouteLifecycleReceiptStore { nowNanos }
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
 
         nowNanos += (VpnRouteObservationConvergenceMillis - 1_000L) * 1_000_000L
         store.recordForwardingOutcome(generation, "no_flow", terminal = false, revision = 1L)
@@ -109,13 +109,13 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `network available before replacement intent cannot satisfy replacement evidence`() {
         val store = VpnRouteLifecycleReceiptStore()
         val previousGeneration = store.beginTestGeneration()
-        store.markEstablished(previousGeneration)
+        store.markEstablished(previousGeneration, testRouteTunIdentity)
         store.observeAvailable("vpn-old")
 
         val replacementGeneration = store.beginTestGeneration()
-        store.markEstablished(replacementGeneration)
+        store.markEstablished(replacementGeneration, testRouteTunIdentity)
         store.observeVerifiedCapabilities("vpn-old")
-        store.observeDefaultRoutes("vpn-old", setOf(VpnRouteFamilyIpv4))
+        store.observeDefaultRoutes("vpn-old", setOf(VpnRouteFamilyIpv4), testRouteTunIdentity)
 
         assertEquals(replacementGeneration, store.capture().lifecycle?.generation)
         assertEquals(VpnRouteCallbackState.Awaiting, store.capture().callbackState)
@@ -125,11 +125,11 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `late loss of previous vpn keeps a partial replacement awaiting`() {
         val store = VpnRouteLifecycleReceiptStore()
         val previousGeneration = store.beginTestGeneration()
-        store.markEstablished(previousGeneration)
+        store.markEstablished(previousGeneration, testRouteTunIdentity)
         store.observeVerifiedNetworkShape("vpn-old")
 
         val replacementGeneration = store.beginTestGeneration()
-        store.markEstablished(replacementGeneration)
+        store.markEstablished(replacementGeneration, testRouteTunIdentity)
         store.observeVerifiedCapabilities("vpn-new")
         store.observeLost("vpn-old")
 
@@ -143,7 +143,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `new intent replaces a closed generation as current lifecycle evidence`() {
         val store = VpnRouteLifecycleReceiptStore()
         val closedGeneration = store.beginTestGeneration()
-        store.markEstablished(closedGeneration)
+        store.markEstablished(closedGeneration, testRouteTunIdentity)
         store.markEnded(closedGeneration, VpnRouteLifecycleState.Closed)
 
         val intendedGeneration = store.beginTestGeneration()
@@ -156,7 +156,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `callback publishes complete evidence only after capabilities and routes correlate`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
 
         store.observeCapabilities(
             networkKey = "vpn-a",
@@ -170,6 +170,7 @@ class VpnRouteLifecycleReceiptStoreTest {
         store.observeDefaultRoutes(
             networkKey = "vpn-a",
             families = setOf(VpnRouteFamilyIpv4),
+            tunIdentity = testRouteTunIdentity,
         )
 
         val evidence = store.capture()
@@ -185,7 +186,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `identical route restored after loss invalidates the previous callback revision`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
         store.observeVerifiedNetworkShape("vpn-a")
         val initialEvidence = store.capture()
         assertEquals(VpnRouteCallbackState.Complete, initialEvidence.callbackState)
@@ -209,7 +210,7 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `validation-only callback retains routes in the current generation`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
         store.observeVerifiedNetworkShape("vpn-a")
         val initialRevision = requireNotNull(store.capture().callbackRevision)
 
@@ -233,13 +234,14 @@ class VpnRouteLifecycleReceiptStoreTest {
     fun `route-only handover retains validation and publishes a new revision`() {
         val store = VpnRouteLifecycleReceiptStore()
         val generation = store.beginTestGeneration()
-        store.markEstablished(generation)
+        store.markEstablished(generation, testRouteTunIdentity)
         store.observeVerifiedNetworkShape("vpn-a")
         val initialRevision = store.capture().callbackRevision
 
         store.observeDefaultRoutes(
             networkKey = "vpn-a",
             families = emptySet(),
+            tunIdentity = testRouteTunIdentity,
         )
 
         val handover = store.capture()
@@ -262,7 +264,7 @@ private fun VpnRouteLifecycleReceiptStore.observeVerifiedCapabilities(networkKey
 
 private fun VpnRouteLifecycleReceiptStore.observeVerifiedNetworkShape(networkKey: Any) {
     observeVerifiedCapabilities(networkKey)
-    observeDefaultRoutes(networkKey, setOf(VpnRouteFamilyIpv4))
+    observeDefaultRoutes(networkKey, setOf(VpnRouteFamilyIpv4), testRouteTunIdentity)
 }
 
 private fun VpnRouteLifecycleReceiptStore.beginTestGeneration(

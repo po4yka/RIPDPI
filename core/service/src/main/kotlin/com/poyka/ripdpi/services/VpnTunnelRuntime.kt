@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.TunForwardingEvidence
+import com.poyka.ripdpi.core.TunKernelIdentityNativeBindings
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroupRepository
@@ -53,6 +54,8 @@ internal data class VpnTunnelRuntimeEnvironment(
     val luaScriptBaseDir: String? = null,
     val rootHelperSocketPathProvider: () -> String? = { null },
     val geositeDbPath: String? = null,
+    val tunIdentityReader: (Int) -> PrivateTunIdentity? =
+        TunKernelIdentityReader(TunKernelIdentityNativeBindings())::read,
 )
 
 internal class VpnTunnelRuntime(
@@ -404,7 +407,7 @@ internal class VpnTunnelRuntime(
                 routeLifecycleReceiptStore.abortIntended(generation)
                 throw error
             }
-        routeLifecycleReceiptStore.markEstablished(generation)
+        routeLifecycleReceiptStore.markEstablished(generation, environment.tunIdentityReader(session.tunFd))
         return session to generation
     }
 

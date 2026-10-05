@@ -489,3 +489,21 @@ fn exported_direct_dns_registration_rejects_object_without_callback_contract() {
         assert!(exception.starts_with("java.lang.RuntimeException: Direct DNS binder registration failed"));
     });
 }
+
+#[test]
+fn tun_kernel_identity_invalid_descriptor_returns_null_without_exception() {
+    with_env(|env| {
+        let identity = crate::jni_read_tun_kernel_identity(env_to_unowned(env), JObject::null(), -1);
+        assert!(identity.is_null());
+        assert_no_exception(env);
+    });
+}
+
+#[test]
+fn tun_kernel_identity_panic_is_contained_at_the_jni_frame() {
+    with_env(|env| {
+        let identity = super::tun_kernel_identity::tun_kernel_identity_panic_entry_for_test(env_to_unowned(env));
+        assert!(identity.is_null());
+        assert_no_exception(env);
+    });
+}

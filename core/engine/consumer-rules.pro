@@ -12,6 +12,15 @@
     native <methods>;
 }
 
+-keepclasseswithmembernames class com.poyka.ripdpi.core.TunKernelIdentityNativeBindings {
+    native <methods>;
+}
+
+# The identity result is constructed synchronously in the caller's JNI frame.
+-keep class com.poyka.ripdpi.core.TunKernelIdentity {
+    public <init>(java.lang.String, int);
+}
+
 -keepclasseswithmembernames class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings {
     native <methods>;
 }

@@ -3,7 +3,9 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.VpnRouteCallbackState
 import com.poyka.ripdpi.data.VpnRouteLifecycleState
+import com.poyka.ripdpi.data.VpnRouteOwnerVerification
 import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -24,6 +26,18 @@ class VpnTunnelRuntimeRouteEvidenceTest {
                         val receipt = checkNotNull(routeReceiptStore.lifecycleReceipt)
                         assertEquals(VpnRouteLifecycleState.Established, receipt.state)
                         assertEquals(listOf("ipv4"), receipt.intendedDefaultRouteFamilies)
+                        routeReceiptStore.observeCapabilities(
+                            "vpn-agent",
+                            true,
+                            true,
+                            false,
+                            VpnRouteOwnerVerification.Verified,
+                        )
+                        routeReceiptStore.observeDefaultRoutes("vpn-agent", setOf("ipv4"), testRouteTunIdentity)
+                        assertEquals(
+                            VpnRouteCallbackState.Complete,
+                            routeReceiptStore.capture().callbackState,
+                        )
                     }
                 }
             val runtime =
@@ -115,6 +129,31 @@ class VpnTunnelRuntimeRouteEvidenceTest {
             assertEquals(VpnRouteLifecycleState.Closed, routeReceiptStore.lifecycleReceipt?.state)
         }
 
+    @Test
+    fun `unreadable descriptor identity keeps forwarding but never grants route admission`() =
+        runTest {
+            val store = VpnRouteLifecycleReceiptStore()
+            var readFd: Int? = null
+            val session = TestVpnTunnelSession()
+            val runtime =
+                createRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    session = session,
+                    receiptStore = store,
+                    identityReader = { fd ->
+                        readFd = fd
+                        null
+                    },
+                )
+            runtime.startTunnel()
+            store.observeCapabilities("vpn-agent", true, true, false, VpnRouteOwnerVerification.Verified)
+            store.observeDefaultRoutes("vpn-agent", setOf("ipv4"), testRouteTunIdentity)
+            assertEquals(session.tunFd, readFd)
+            assertTrue(runtime.isForwarding)
+            assertEquals(VpnRouteLifecycleState.BridgeReady, store.lifecycleReceipt?.state)
+            assertFalse(store.capture().isEligibleForInPathLease())
+        }
+
     private suspend fun VpnTunnelRuntime.startTunnel() {
         start(
             configurationInput = captureConfigurationInput(),
@@ -132,6 +171,7 @@ class VpnTunnelRuntimeRouteEvidenceTest {
         session: TestVpnTunnelSession = TestVpnTunnelSession(),
         receiptStore: VpnRouteLifecycleReceiptStore,
         callbacks: VpnTunnelRuntimeCallbacks = VpnTunnelRuntimeCallbacks(),
+        identityReader: (Int) -> PrivateTunIdentity? = { testRouteTunIdentity },
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = vpnHost,
@@ -141,5 +181,6 @@ class VpnTunnelRuntimeRouteEvidenceTest {
             vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = session),
             callbacks = callbacks,
             routeLifecycleReceiptStore = receiptStore,
+            environment = VpnTunnelRuntimeEnvironment(tunIdentityReader = identityReader),
         )
 }

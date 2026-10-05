@@ -34,6 +34,7 @@ Implement the seven approved Mobbin research improvements as sequential, runnabl
 ## Ownership and serialized lanes
 
 - Root owns portfolio/OpenSpec state, integration to main, push, and final evidence.
+- For API35 acceptance attribution, the debugger exclusively owned the four test-probe/Xray instrumentation files in `network-ux-api35-attribution`; root owns portfolio/verification records and real-device/fixture execution. Production routing and fixture assertions are unchanged until causal attribution. TUN source and its one approved JNI baseline remain frozen in `network-ux-tun-final`.
 - One implementation sub-agent at a time owns the active feature slice in its own worktree; root never edits its production files concurrently.
 - Locale sets, persistence schemas, and golden fixtures have exactly one writer at a time.
 - Independent review agents are read-only. Heavy commands use build-gate and four workers/jobs maximum.
@@ -43,6 +44,9 @@ Implement the seven approved Mobbin research improvements as sequential, runnabl
 - Research source: docs/design/mobbin-network-ux-research-2026-10-04.md.
 
 ## Acceptance incident
+
+- 2026-10-05: Export commit `cbf07ec1c6c4a3c28f65c7f00aff40a9d1ed23c2` passed full local core/app/static/locale/PNG gates and five ordinary committed-APK export scenarios. Exact CI `37340533624` completed with 45 successful jobs, 17 optional skips and two failed jobs: API35 instrumentation and its required aggregate. All four other Android API jobs and all three Full/Simple release channels passed. The unchanged Xray negative-identity test observed a real extra direct-target request in its XHTTP phase (count 3 to 4, label `wrong-identity-direct`). Export acceptance remains open while routing attribution and the cause are investigated; neither a retry nor weaker assertion closes it.
+- 2026-10-05: Test-only attribution commit `60deb542fe14f2121538db8a405f6dc27df756a4` passed terminal CI `37357122304`, including all five Android API jobs and all three Full/Simple release channels. API35 used the same Google APIs x86_64 image and recorded VPN default-network state before and after both negative probes, without a direct-target receipt. These queries can affect timing, and aggregate counters do not establish per-flow ingress. The original Xray direct request remains unexplained; no production fix, assertion weakening, wait or retry was introduced.
 
 - 2026-10-04: Reopened scope step EPC-1791124243600668 after real API 37 device validation. Scope controls and explanations passed, but an active-VPN scan failed before session persistence with a generic start error. Local UI tests had not exercised the public error projection for unavailable route evidence. The recovery slice must preserve typed unavailable reasons and observe a real scan retry without weakening authenticated route eligibility. Positive active-path acceptance remains unverified.
 - 2026-10-04: Reopened metrics step EPC-1791124244103077 after real API 37 Home inspection showed nominal quality and zero RTT/jitter with zero samples. Health/detail fixtures and local tests did not exercise this Home projection. The correction must distinguish absent and partial measurements on Home and observe the real no-sample state.

@@ -15,6 +15,7 @@ mod runtime;
 mod state_machine;
 mod stats;
 mod telemetry;
+mod tun_kernel_identity;
 
 pub(crate) use bind_to_device_probe::{PROBE_BRIDGE_FAILURE, bind_to_device_probe_entry};
 pub(crate) use entries::{
@@ -24,6 +25,7 @@ pub(crate) use entries::{
 pub(crate) use pcap_entries::{
     tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry, tunnel_pcap_start_entry, tunnel_pcap_stop_entry,
 };
+pub(crate) use tun_kernel_identity::tun_kernel_identity_entry;
 
 #[cfg(test)]
 pub(crate) use lifecycle::{

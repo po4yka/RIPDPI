@@ -82,19 +82,34 @@ class VpnRouteLifecycleReceiptStore
                             mtuBand = networkPathMtuBand(networkParameters.tunnelMtu),
                             metered = networkParameters.metered.takeIf { apiLevel >= Build.VERSION_CODES.Q },
                         ),
-                    callbackAnchor = callbackReducer.generationAnchor(),
+                    callbackAnchor =
+                        callbackReducer.generationAnchor(
+                            replacingTunIdentity =
+                                activeReceipt
+                                    ?.takeIf { it.receipt.state in replaceableLifecycleStates }
+                                    ?.tunIdentity,
+                        ),
                 )
             publishCurrent()
             return generation
         }
 
         @Synchronized
-        fun markEstablished(generation: Long) {
-            val intended = pendingReceipts.remove(generation) ?: return
+        internal fun markEstablished(
+            generation: Long,
+            tunIdentity: PrivateTunIdentity?,
+        ) {
+            val intended =
+                pendingReceipts.remove(generation)?.takeIf {
+                    activeReceipt
+                        ?.receipt
+                        ?.generation
+                        ?.let { activeGeneration -> generation > activeGeneration } != false
+                } ?: return
             activeReceipt =
                 intended
                     .withState(VpnRouteLifecycleState.Established)
-                    .copy(convergenceStartedAtNanos = nanoTime())
+                    .copy(convergenceStartedAtNanos = nanoTime(), tunIdentity = tunIdentity)
             publishCurrent()
         }
 
@@ -202,11 +217,12 @@ class VpnRouteLifecycleReceiptStore
         }
 
         @Synchronized
-        fun observeDefaultRoutes(
+        internal fun observeDefaultRoutes(
             networkKey: Any,
             families: Set<String>,
+            tunIdentity: PrivateTunIdentity?,
         ) {
-            callbackReducer.observeDefaultRoutes(networkKey, families)
+            callbackReducer.observeDefaultRoutes(networkKey, families, tunIdentity)
             publishCurrent()
         }
 
@@ -266,6 +282,7 @@ class VpnRouteLifecycleReceiptStore
             forwardingTerminal: Boolean? = null,
         ) {
             val current = activeReceipt?.takeIf { it.receipt.generation == generation } ?: return
+            callbackReducer.clearTunIdentities()
             activeReceipt =
                 current.withState(state).let { updated ->
                     if (forwardingOutcome == null) {
@@ -304,6 +321,9 @@ internal fun VpnRouteEvidence.isEligibleForInPathLease(): Boolean =
         routeConsistency == VpnRouteConsistency.Consistent &&
         forwardingTerminal != true
 
+private val replaceableLifecycleStates =
+    setOf(VpnRouteLifecycleState.Established, VpnRouteLifecycleState.BridgeReady)
+
 private val liveLifecycleStates =
     setOf(
         VpnRouteLifecycleState.Established,
@@ -318,10 +338,17 @@ private data class ReceiptRecord(
     val forwardingTerminal: Boolean? = null,
     val forwardingRevision: Long = 0L,
     val convergenceStartedAtNanos: Long? = null,
+    val tunIdentity: PrivateTunIdentity? = null,
 ) {
     fun withState(state: VpnRouteLifecycleState): ReceiptRecord {
         val updatedReceipt = receipt.copy(state = state)
-        return copy(receipt = updatedReceipt)
+        return copy(
+            receipt = updatedReceipt,
+            tunIdentity =
+                tunIdentity.takeUnless {
+                    state == VpnRouteLifecycleState.Closed || state == VpnRouteLifecycleState.FailClosed
+                },
+        )
     }
 }
 
@@ -330,10 +357,25 @@ private class VpnRouteCallbackReducer {
     private var eventOrder = 0L
     private var revision = 0L
     private var lastFingerprint: CallbackFingerprint? = null
-    private val losses = mutableMapOf<Any, Long>()
+    private val losses = mutableMapOf<Any, CallbackLoss>()
     private var observerAvailable = true
 
-    fun generationAnchor(): CallbackGenerationAnchor = CallbackGenerationAnchor(eventOrder, candidates.keys.toSet())
+    fun generationAnchor(replacingTunIdentity: PrivateTunIdentity?): CallbackGenerationAnchor =
+        CallbackGenerationAnchor(
+            eventFloor = eventOrder,
+            preexistingNetworkKeys = candidates.keys.toSet(),
+            verifiedPreexistingNetworkKeys =
+                if (replacingTunIdentity != null) {
+                    candidates
+                        .filterValues { candidate ->
+                            candidate.capabilities?.ownerVerification == VpnRouteOwnerVerification.Verified &&
+                                candidate.routes?.tunIdentity?.matches(replacingTunIdentity) == true
+                        }.keys
+                        .toSet()
+                } else {
+                    emptySet()
+                },
+        )
 
     fun setObserverAvailable(available: Boolean) {
         observerAvailable = available
@@ -342,6 +384,11 @@ private class VpnRouteCallbackReducer {
             losses.clear()
             lastFingerprint = null
         }
+    }
+
+    fun clearTunIdentities() {
+        candidates.values.forEach { candidate -> candidate.routes = candidate.routes?.copy(tunIdentity = null) }
+        losses.clear()
     }
 
     fun observeAvailable(networkKey: Any) {
@@ -374,6 +421,7 @@ private class VpnRouteCallbackReducer {
     fun observeDefaultRoutes(
         networkKey: Any,
         families: Set<String>,
+        tunIdentity: PrivateTunIdentity?,
     ) {
         observerAvailable = true
         eventOrder += 1L
@@ -382,13 +430,14 @@ private class VpnRouteCallbackReducer {
             CallbackRoutes(
                 eventOrder = eventOrder,
                 families = families.filter(::isSupportedRouteFamily).sorted(),
+                tunIdentity = tunIdentity,
             )
     }
 
     fun observeLost(networkKey: Any) {
         eventOrder += 1L
-        candidates.remove(networkKey)
-        losses[networkKey] = eventOrder
+        val lost = candidates.remove(networkKey)
+        losses[networkKey] = CallbackLoss(eventOrder, lost?.routes?.tunIdentity)
         if (lastFingerprint?.networkKey == networkKey) lastFingerprint = null
     }
 
@@ -400,7 +449,7 @@ private class VpnRouteCallbackReducer {
         when {
             record.receipt.state !in liveLifecycleStates -> VpnRouteEvidence(lifecycle = record.receipt)
             !observerAvailable -> VpnRouteEvidence(lifecycle = record.receipt)
-            else -> projectLiveEvidence(record.receipt, record.callbackAnchor)
+            else -> projectLiveEvidence(record)
         }.copy(
             forwardingOutcome = record.forwardingOutcome,
             forwardingLifecycleGeneration =
@@ -412,15 +461,14 @@ private class VpnRouteCallbackReducer {
             }
         }
 
-    private fun projectLiveEvidence(
-        receipt: VpnRouteLifecycleReceipt,
-        anchor: CallbackGenerationAnchor,
-    ): VpnRouteEvidence {
-        val complete = selectCompleteCandidate(anchor)
+    private fun projectLiveEvidence(record: ReceiptRecord): VpnRouteEvidence {
+        val receipt = record.receipt
+        val anchor = record.callbackAnchor
+        val complete = selectCompleteCandidate(record)
         return if (complete == null) {
             lastFingerprint = null
             val state =
-                if (hasCurrentGenerationLoss(anchor) && !hasPartialCandidate(anchor)) {
+                if (hasCurrentGenerationLoss(record) && !hasPartialCandidate(anchor)) {
                     VpnRouteCallbackState.Lost
                 } else {
                     VpnRouteCallbackState.Awaiting
@@ -435,14 +483,17 @@ private class VpnRouteCallbackReducer {
         }
     }
 
-    private fun hasCurrentGenerationLoss(anchor: CallbackGenerationAnchor): Boolean =
-        losses.any { (networkKey, order) ->
-            networkKey !in anchor.preexistingNetworkKeys && order > anchor.eventFloor
+    private fun hasCurrentGenerationLoss(record: ReceiptRecord): Boolean =
+        losses.any { (networkKey, loss) ->
+            val currentLoss = loss.eventOrder > record.callbackAnchor.eventFloor
+            val anchored = networkKey in record.callbackAnchor.preexistingNetworkKeys
+            val boundToCurrentTun = loss.tunIdentity?.let { record.tunIdentity?.matches(it) } == true
+            currentLoss && (!anchored || boundToCurrentTun)
         }
 
     private fun hasPartialCandidate(anchor: CallbackGenerationAnchor): Boolean =
-        candidates.any { (networkKey, candidate) ->
-            networkKey !in anchor.preexistingNetworkKeys && candidate.hasEventAfter(anchor.eventFloor)
+        candidates.any { (_, candidate) ->
+            candidate.hasEventAfter(anchor.eventFloor)
         }
 
     private fun projectCompleteEvidence(
@@ -473,17 +524,22 @@ private class VpnRouteCallbackReducer {
         )
     }
 
-    private fun selectCompleteCandidate(anchor: CallbackGenerationAnchor): CompleteCallbackCandidate? =
+    private fun selectCompleteCandidate(record: ReceiptRecord): CompleteCallbackCandidate? =
         candidates
             .asSequence()
-            .filterNot { (key, _) -> key in anchor.preexistingNetworkKeys }
-            .mapNotNull { (key, candidate) -> candidate.complete(key, anchor.eventFloor) }
+            .mapNotNull { (key, candidate) -> candidate.complete(key, record.callbackAnchor, record.tunIdentity) }
             .maxByOrNull(CompleteCallbackCandidate::eventOrder)
 }
+
+private data class CallbackLoss(
+    val eventOrder: Long,
+    val tunIdentity: PrivateTunIdentity?,
+)
 
 private data class CallbackGenerationAnchor(
     val eventFloor: Long,
     val preexistingNetworkKeys: Set<Any>,
+    val verifiedPreexistingNetworkKeys: Set<Any>,
 )
 
 private class CallbackCandidate {
@@ -495,10 +551,23 @@ private class CallbackCandidate {
 
     fun complete(
         networkKey: Any,
-        callbackFloor: Long,
+        anchor: CallbackGenerationAnchor,
+        tunIdentity: PrivateTunIdentity?,
     ): CompleteCallbackCandidate? {
-        val completeCapabilities = capabilities?.takeIf { it.eventOrder > callbackFloor }
-        val completeRoutes = routes?.takeIf { it.eventOrder > callbackFloor }
+        val retainedVerifiedOwner = networkKey in anchor.verifiedPreexistingNetworkKeys
+        val completeCapabilities =
+            capabilities?.takeIf {
+                if (networkKey in anchor.preexistingNetworkKeys) {
+                    retainedVerifiedOwner && it.ownerVerification == VpnRouteOwnerVerification.Verified
+                } else {
+                    it.eventOrder > anchor.eventFloor
+                }
+            }
+        val completeRoutes =
+            routes?.takeIf {
+                it.eventOrder > anchor.eventFloor &&
+                    tunIdentity != null && it.tunIdentity?.matches(tunIdentity) == true
+            }
         return if (completeCapabilities != null && completeRoutes != null) {
             CompleteCallbackCandidate(networkKey, completeCapabilities, completeRoutes)
         } else {
@@ -523,6 +592,7 @@ private data class CallbackCapabilities(
 private data class CallbackRoutes(
     val eventOrder: Long,
     val families: List<String>,
+    val tunIdentity: PrivateTunIdentity?,
 )
 
 private data class CompleteCallbackCandidate(
