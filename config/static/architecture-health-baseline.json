@@ -231,17 +231,6 @@
       "baselineValue": 6,
       "limit": 5,
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "long-function-or-composable:build-logic-convention-src-main-kotlin-diagnosticscatalogrendering.kt:diagnosticscataloglegalsafetyrule",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "build-logic/convention/src/main/kotlin/DiagnosticsCatalogRendering.kt",
-      "message": "DiagnosticsCatalogLegalSafetyRule spans 170 lines",
-      "metricName": "functionLines",
-      "baselineValue": 170,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     }
   ]
 }

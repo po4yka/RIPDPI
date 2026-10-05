@@ -470,6 +470,111 @@ def _measure_function_lines(text: str, match_start: int, body_start: int | None 
     return max(1, text.count("\n", match_start) + 1)
 
 
+def _kotlin_type_arguments_end(text: str, opening: int) -> int | None:
+    type_context = re.search(r"(?:\b(?:is|as)\??)\s+[\w.`]+$", text[:opening]) is not None
+    depth = 1
+    for index in range(opening + 1, len(text)):
+        character = text[index]
+        if character == "<":
+            depth += 1
+        elif character == ">" and text[index - 1] != "-":
+            depth -= 1
+            if depth == 0:
+                suffix = text[index + 1:].lstrip()
+                return index if type_context or suffix.startswith(("(", "{", "::", ".")) else None
+        elif character in "{};=+/%|":
+            return None
+    return None
+
+
+def _kotlin_expression_needs_body(expression: str) -> bool:
+    """Track operands, selectors and infix names outside completed nested groups."""
+    tokens: list[str] = []
+    groups: list[tuple[str, str]] = []
+    generic_ends: set[int] = set()
+    pattern = r"@(?:\w+:)?[\w.]+|\w+@|!in\b|!is\b|as\?|`[^`]*`|\w+|\+\+|--|!!|\?\.|::|&&|\|\||\?:|->|\S"
+    for match in re.finditer(pattern, expression):
+        token = match.group()
+        if token == "<":
+            end = _kotlin_type_arguments_end(expression, match.start())
+            if end is not None:
+                generic_ends.add(end)
+        opening = token in "([{"
+        generic_opening = token == "<" and end is not None
+        if opening or generic_opening:
+            kind = "<condition>" if token == "(" and not groups and tokens and tokens[-1] in ("if", "when", "catch") else "<operand>"
+            if not groups and tokens and tokens[-1].startswith("@"):
+                kind = "<prefix>"
+            groups.append((token, kind))
+        elif token in ")]}" or token == ">" and match.start() in generic_ends:
+            if groups:
+                _, kind = groups.pop()
+                if not groups:
+                    tokens.append(kind)
+        elif not groups:
+            tokens.append(token)
+    needed = True
+    selector = False
+    for token in tokens:
+        if token in ("<condition>", "<prefix>", "!in", "!is", "as?") or token.startswith("@") or token.endswith("@"):
+            needed = True
+        elif token in ("if", "when", "catch", "else", "try", "finally", "throw", "return", "object"):
+            needed = True
+        elif token == "<operand>" or token[0].isdigit():
+            needed = False
+            selector = False
+        elif token in (".", "?.", "::"):
+            needed = True
+            selector = True
+        elif token in ("++", "--", "!!"):
+            # Completed postfix operators do not require a new operand.
+            continue
+        elif token.startswith("`") or token[0].isalpha() or token[0] == "_":
+            needed = False if selector else not needed
+            selector = False
+        elif token != "?":
+            needed = True
+    return needed
+
+
+def _kotlin_expression_lines(text: str, match_start: int, equals: int) -> int:
+    """Measure balanced expression arguments and every continuation, not the next class."""
+    start_line = text.count("\n", 0, match_start)
+    depth = 0
+    generic_ends: set[int] = set()
+    for index in range(equals + 1, len(text)):
+        character = text[index]
+        if character in "([{":
+            depth += 1
+        elif character == "<":
+            end = _kotlin_type_arguments_end(text, index)
+            if end is not None:
+                generic_ends.add(end)
+                depth += 1
+        elif character == ">" and index in generic_ends:
+            depth -= 1
+        elif character in ")]}":
+            if depth == 0:
+                return max(1, text.count("\n", 0, index) - start_line + 1)
+            depth -= 1
+        elif character == ";" and depth == 0:
+            return max(1, text.count("\n", 0, index) - start_line + 1)
+        elif character == "\n" and depth == 0:
+            expression = text[equals + 1:index].rstrip()
+            if not expression or _kotlin_expression_needs_body(expression):
+                continue
+            next_token = index + 1
+            while next_token < len(text) and text[next_token].isspace():
+                next_token += 1
+            remainder = text[next_token:]
+            if remainder.startswith((".", "?.", "?:", "{", "+", "-", "*", "/", "%", "&&", "||")):
+                continue
+            if re.match(r"(?:else|catch|finally)\b", remainder):
+                continue
+            return max(1, text.count("\n", 0, index) - start_line + 1)
+    return max(1, text.count("\n", match_start) + 1)
+
+
 def _kotlin_function_boundary(text: str, match_start: int) -> tuple[int | None, int | None]:
     """Return bodyless signature length or the actual block-body opening position.
 
@@ -495,7 +600,7 @@ def _kotlin_function_boundary(text: str, match_start: int) -> tuple[int | None, 
         elif saw_parameters and parenthesis_depth == 0 and character == "{":
             return None, index
         elif saw_parameters and parenthesis_depth == 0 and character == "=":
-            return None, None
+            return _kotlin_expression_lines(text, match_start, index), None
         elif character == "\n" and saw_parameters and parenthesis_depth == 0:
             return_type = text[parameter_end:index].strip()
             angle_type = return_type.replace("->", "")
@@ -516,7 +621,7 @@ def _kotlin_function_boundary(text: str, match_start: int) -> tuple[int | None, 
             if next_token < len(text) and text[next_token] == "{":
                 return None, next_token
             if next_token < len(text) and text[next_token] == "=":
-                return None, None
+                return _kotlin_expression_lines(text, match_start, next_token), None
             end_line = text.count("\n", 0, index)
             return max(1, end_line - start_line + 1), None
     return max(1, text.count("\n", match_start) + 1), None
@@ -533,7 +638,8 @@ def top_functions(path: Path, language: str, top_n: int = 5) -> list[tuple[str, 
     kotlin_structure = (
         re.sub(
             r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'',
-            lambda literal: "".join("\n" if char == "\n" else " " for char in literal.group()),
+            # A balanced placeholder retains multiline literal bounds as well as positions.
+            lambda literal: "(" + "".join("\n" if char == "\n" else " " for char in literal.group()[1:-1]) + ")",
             strip_comments(text, "kotlin"),
         )
         if language == "kotlin"
