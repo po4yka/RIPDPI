@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.e2e
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,6 +21,30 @@ class TestNetworkProbeServiceContractTest {
                 hasVpnTransport = true,
                 hasNotVpnCapability = true,
             ),
+        )
+    }
+
+    @Test
+    fun defaultNetworkStateCodePreservesUnknown() {
+        assertEquals(
+            TestProbeDefaultNetworkState.Unknown,
+            TestProbeDefaultNetworkState.fromCode(3),
+        )
+        assertEquals(
+            null,
+            TestProbeDefaultNetworkState.fromCode(null),
+        )
+    }
+
+    @Test
+    fun defaultNetworkStateCodesMapVpnAndNonVpn() {
+        assertEquals(
+            TestProbeDefaultNetworkState.Vpn,
+            TestProbeDefaultNetworkState.fromCode(1),
+        )
+        assertEquals(
+            TestProbeDefaultNetworkState.NonVpn,
+            TestProbeDefaultNetworkState.fromCode(2),
         )
     }
 

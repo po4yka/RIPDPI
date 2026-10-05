@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.os.Process
+import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
@@ -13,6 +14,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
@@ -243,7 +245,16 @@ class XrayProviderE2ETest {
             val directBefore = readControl("direct-receipts").getInt("count")
             // TUN may acknowledge TCP before upstream authentication; no application data may return.
             assertTrue(exchange("wrong-identity").response.isNullOrEmpty())
+            val telemetryBeforeDirect = state.telemetry.value
             val direct = exchange("wrong-identity-direct", "10.0.2.2", manifest.getInt("directPort"))
+            val directAttribution =
+                probeAttribution(
+                    label = "wrong-identity-direct",
+                    probe = direct,
+                    before = telemetryBeforeDirect,
+                    after = state.telemetry.value,
+                )
+            Log.i(AttributionLogTag, directAttribution)
             assertEquals("The same distinct UID must probe while VPN is running", probeUid, direct.probeUid)
             assertTrue(
                 "A reachable direct target must return no application data through bad identity",
@@ -262,15 +273,72 @@ class XrayProviderE2ETest {
         }
     }
 
+    private fun probeAttribution(
+        label: String,
+        probe: AppProcessTcpProbeResult,
+        before: ServiceTelemetrySnapshot,
+        after: ServiceTelemetrySnapshot,
+    ): String =
+        buildString {
+            append("label=").append(label)
+            append(" probeUid=").append(probe.probeUid ?: "unavailable")
+            append(" probeOk=").append(probe.ok)
+            append(" responsePresent=").append(!probe.response.isNullOrEmpty())
+            append(" failureKind=").append(safeProbeDiagnostic(probe.failureKind))
+            append(" failureStage=").append(safeProbeDiagnostic(probe.failureStage))
+            append(" errorClass=").append(safeProbeDiagnostic(probe.errorClass))
+            append(" defaultNetworkBefore=")
+                .append(probe.defaultNetworkStateBefore?.wireValue ?: "unavailable")
+            append(" socketConstructionStartedElapsedMs=")
+                .append(probe.socketConstructionStartedAtElapsedMs ?: "unavailable")
+            append(" exchangeCompletedElapsedMs=")
+                .append(probe.exchangeCompletedAtElapsedMs ?: "unavailable")
+            append(" defaultNetworkAfter=")
+                .append(probe.defaultNetworkStateAfter?.wireValue ?: "unavailable")
+            append(" tunnelTxPacketsBefore=").append(before.tunnelStats.txPackets)
+            append(" tunnelTxPacketsAfter=").append(after.tunnelStats.txPackets)
+            append(" tunnelRxPacketsBefore=").append(before.tunnelStats.rxPackets)
+            append(" tunnelRxPacketsAfter=").append(after.tunnelStats.rxPackets)
+            append(" tunnelActiveSessionsBefore=").append(before.tunnelTelemetry.activeSessions)
+            append(" tunnelActiveSessionsAfter=").append(after.tunnelTelemetry.activeSessions)
+            append(" tunnelTotalErrorsBefore=").append(before.tunnelTelemetry.totalErrors)
+            append(" tunnelTotalErrorsAfter=").append(after.tunnelTelemetry.totalErrors)
+            append(" tunnelStateBefore=").append(before.tunnelTelemetry.state)
+            append(" tunnelStateAfter=").append(after.tunnelTelemetry.state)
+            append(" xrayListenerStateBefore=")
+                .append(before.xrayProviderSnapshot?.listenerState?.name ?: "unavailable")
+            append(" xrayListenerStateAfter=")
+                .append(after.xrayProviderSnapshot?.listenerState?.name ?: "unavailable")
+            // ServiceStateStore has no forwarding/protect counters or per-flow ingress trace.
+            append(" forwardingCounters=unavailable")
+            append(" protectGeneration=unavailable")
+            append(" protectCounters=unavailable")
+            append(" flowAttribution=unavailable")
+        }
+
+    private fun safeProbeDiagnostic(value: String?): String =
+        value
+            ?.takeIf { candidate -> candidate.all { it.isLetterOrDigit() || it in "._-" } }
+            ?: "unavailable"
+
     private fun assertDirectSentinelReachable(label: String): Int {
         val before = readControl("direct-receipts").getInt("count")
+        val telemetryBeforeDirect = state.telemetry.value
         val response = exchange(label, "10.0.2.2", manifest.getInt("directPort"))
+        val baselineAttribution =
+            probeAttribution(
+                label = label,
+                probe = response,
+                before = telemetryBeforeDirect,
+                after = state.telemetry.value,
+            )
+        Log.i(AttributionLogTag, baselineAttribution)
         assertTrue(
-            "Direct baseline must come from a distinct test UID",
+            "Direct baseline must come from a distinct test UID; $baselineAttribution",
             response.probeUid != null && response.probeUid != Process.myUid(),
         )
         assertTrue(
-            "Direct baseline must reach the owned sentinel",
+            "Direct baseline must reach the owned sentinel; $baselineAttribution",
             response.ok && response.response.orEmpty().contains("xray-direct-sentinel"),
         )
         assertEquals(
@@ -366,6 +434,7 @@ class XrayProviderE2ETest {
     }
 
     private companion object {
+        const val AttributionLogTag = "XrayNegativeProbe"
         const val ProfileId = "xray-provider-acceptance"
     }
 }

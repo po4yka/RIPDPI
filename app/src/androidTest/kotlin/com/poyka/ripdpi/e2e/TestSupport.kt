@@ -118,6 +118,11 @@ private const val DebugNetworkProbeExtraFailureStage = "failure_stage"
 private const val DebugNetworkProbeExtraErrno = "errno"
 private const val DebugNetworkProbeExtraProbePid = "probe_pid"
 private const val DebugNetworkProbeExtraProbeUid = "probe_uid"
+private const val DebugNetworkProbeExtraDefaultNetworkStateBefore = "default_network_state_before"
+private const val DebugNetworkProbeExtraDefaultNetworkStateAfter = "default_network_state_after"
+private const val DebugNetworkProbeExtraSocketConstructionStartedAtElapsedMs =
+    "socket_construction_started_at_elapsed_ms"
+private const val DebugNetworkProbeExtraExchangeCompletedAtElapsedMs = "exchange_completed_at_elapsed_ms"
 private const val DebugNetworkProbeTimeoutMs = 3_000L
 private const val DebugNetworkProbeBroadcastTimeoutMs = 10_000L
 private const val TestProbeNetworkAllowlistDurationMs = 60_000L
@@ -157,6 +162,26 @@ data class FixtureEventDto(
     val createdAt: Long,
 )
 
+/** Maps primitive codes emitted by the isolated receiver in the test runner process only. */
+enum class TestProbeDefaultNetworkState(
+    val wireValue: String,
+) {
+    Vpn("vpn"),
+    NonVpn("non_vpn"),
+    Unknown("unknown"),
+    ;
+
+    companion object {
+        fun fromCode(code: Int?): TestProbeDefaultNetworkState? =
+            when (code) {
+                1 -> Vpn
+                2 -> NonVpn
+                3 -> Unknown
+                else -> null
+            }
+    }
+}
+
 data class AppProcessTcpProbeResult(
     val host: String,
     val port: Int,
@@ -170,6 +195,10 @@ data class AppProcessTcpProbeResult(
     val errno: Int? = null,
     val probePid: Int? = null,
     val probeUid: Int? = null,
+    val defaultNetworkStateBefore: TestProbeDefaultNetworkState? = null,
+    val defaultNetworkStateAfter: TestProbeDefaultNetworkState? = null,
+    val socketConstructionStartedAtElapsedMs: Long? = null,
+    val exchangeCompletedAtElapsedMs: Long? = null,
     val errorClass: String? = null,
     val errorMessage: String? = null,
 )
@@ -1033,6 +1062,18 @@ fun probeAppProcessTcpConnect(
                         errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
                         probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
                         probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
+                        defaultNetworkStateBefore =
+                            TestProbeDefaultNetworkState.fromCode(
+                                extras.optionalInt(DebugNetworkProbeExtraDefaultNetworkStateBefore),
+                            ),
+                        defaultNetworkStateAfter =
+                            TestProbeDefaultNetworkState.fromCode(
+                                extras.optionalInt(DebugNetworkProbeExtraDefaultNetworkStateAfter),
+                            ),
+                        socketConstructionStartedAtElapsedMs =
+                            extras.optionalLong(DebugNetworkProbeExtraSocketConstructionStartedAtElapsedMs),
+                        exchangeCompletedAtElapsedMs =
+                            extras.optionalLong(DebugNetworkProbeExtraExchangeCompletedAtElapsedMs),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1184,6 +1225,18 @@ fun testProcessTcpRoundTrip(
                         errno = extras.optionalInt(DebugNetworkProbeExtraErrno),
                         probePid = extras.optionalInt(DebugNetworkProbeExtraProbePid),
                         probeUid = extras.optionalInt(DebugNetworkProbeExtraProbeUid),
+                        defaultNetworkStateBefore =
+                            TestProbeDefaultNetworkState.fromCode(
+                                extras.optionalInt(DebugNetworkProbeExtraDefaultNetworkStateBefore),
+                            ),
+                        defaultNetworkStateAfter =
+                            TestProbeDefaultNetworkState.fromCode(
+                                extras.optionalInt(DebugNetworkProbeExtraDefaultNetworkStateAfter),
+                            ),
+                        socketConstructionStartedAtElapsedMs =
+                            extras.optionalLong(DebugNetworkProbeExtraSocketConstructionStartedAtElapsedMs),
+                        exchangeCompletedAtElapsedMs =
+                            extras.optionalLong(DebugNetworkProbeExtraExchangeCompletedAtElapsedMs),
                         errorClass = extras.getString(DebugNetworkProbeExtraErrorClass),
                         errorMessage = extras.getString(DebugNetworkProbeExtraErrorMessage),
                     ),
@@ -1786,6 +1839,8 @@ fun ServiceTelemetrySnapshot.packetSmokeDeltaFrom(before: PacketSmokePrepareStat
     )
 
 private fun Bundle.optionalInt(key: String): Int? = getInt(key).takeIf { containsKey(key) }
+
+private fun Bundle.optionalLong(key: String): Long? = getLong(key).takeIf { containsKey(key) }
 
 private fun tryGrantVpnConsentViaShellAppOps(context: Context): String? {
     val command = "cmd appops set ${context.packageName} ACTIVATE_VPN allow"

@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
@@ -60,6 +62,13 @@ internal const val ExtraFailureStage = "failure_stage"
 internal const val ExtraErrno = "errno"
 internal const val ExtraProbePid = "probe_pid"
 internal const val ExtraProbeUid = "probe_uid"
+private const val ExtraDefaultNetworkStateBefore = "default_network_state_before"
+private const val ExtraDefaultNetworkStateAfter = "default_network_state_after"
+private const val ExtraSocketConstructionStartedAtElapsedMs = "socket_construction_started_at_elapsed_ms"
+private const val ExtraExchangeCompletedAtElapsedMs = "exchange_completed_at_elapsed_ms"
+private const val DefaultNetworkStateVpn = 1
+private const val DefaultNetworkStateNonVpn = 2
+private const val DefaultNetworkStateUnknown = 3
 private const val ProbeThreadName = "test-network-probe"
 private const val DefaultConnectTimeoutMs = 3_000
 private const val DefaultReadTimeoutMs = 5_000
@@ -105,6 +114,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             Thread(
                 ProbeRunnable(
                     receiver = this,
+                    context = context,
                     action = action,
                     intent = intent,
                     pendingResult = pendingResult,
@@ -116,6 +126,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     }
 
     fun completeProbe(
+        context: Context?,
         action: String?,
         intent: Intent?,
         pendingResult: PendingResult?,
@@ -133,7 +144,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
                     ActionProbeDns.equals(action) -> runDnsProbe(intent, extras)
                     ActionProbeUdp.equals(action) -> runUdpProbe(intent, extras)
                     ActionProbeIcmp.equals(action) -> runIcmpProbe(intent, extras)
-                    else -> runTcpProbe(intent, extras)
+                    else -> runTcpProbe(context, intent, extras)
                 }
                 Activity.RESULT_OK
             } catch (error: Throwable) {
@@ -168,6 +179,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     }
 
     private fun runTcpProbe(
+        context: Context?,
         intent: Intent,
         extras: Bundle,
     ) {
@@ -203,24 +215,67 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             return
         }
 
-        val socket = Socket()
+        putDefaultNetworkState(
+            extras,
+            ExtraDefaultNetworkStateBefore,
+            defaultNetworkStateCode(context),
+        )
+        extras.putLong(ExtraSocketConstructionStartedAtElapsedMs, SystemClock.elapsedRealtime())
+        var socket: Socket? = null
         try {
-            socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
-            socket.soTimeout = readTimeoutMs
+            val createdSocket = Socket()
+            socket = createdSocket
+            createdSocket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            createdSocket.soTimeout = readTimeoutMs
             extras.putBoolean(ExtraOk, true)
-            putLocalSocket(extras, socket)
+            putLocalSocket(extras, createdSocket)
 
             if (payload != null) {
                 val payloadBytes = utf8Bytes(payload)
-                val output: OutputStream = socket.getOutputStream()
+                val output: OutputStream = createdSocket.getOutputStream()
                 output.write(payloadBytes)
                 output.flush()
 
-                val input: InputStream = socket.getInputStream()
+                val input: InputStream = createdSocket.getInputStream()
                 extras.putString(ExtraResponse, readTcpProbeResponse(input, payloadBytes.size))
             }
         } finally {
-            socket.close()
+            try {
+                socket?.close()
+            } finally {
+                extras.putLong(ExtraExchangeCompletedAtElapsedMs, SystemClock.elapsedRealtime())
+                putDefaultNetworkState(
+                    extras,
+                    ExtraDefaultNetworkStateAfter,
+                    defaultNetworkStateCode(context),
+                )
+            }
+        }
+    }
+
+    private fun putDefaultNetworkState(
+        extras: Bundle,
+        key: String,
+        state: Int,
+    ) {
+        extras.putInt(key, state)
+    }
+
+    private fun defaultNetworkStateCode(context: Context?): Int {
+        val connectivityManager =
+            context?.getSystemService(ConnectivityManager::class.java)
+                ?: return DefaultNetworkStateUnknown
+        val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+        return when {
+            capabilities == null -> DefaultNetworkStateUnknown
+
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) -> DefaultNetworkStateVpn
+
+            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) -> DefaultNetworkStateNonVpn
+
+            else -> DefaultNetworkStateUnknown
         }
     }
 
@@ -872,12 +927,13 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
 
 private class ProbeRunnable(
     private val receiver: TestNetworkProbeReceiver?,
+    private val context: Context?,
     private val action: String?,
     private val intent: Intent?,
     private val pendingResult: BroadcastReceiver.PendingResult?,
 ) : Runnable {
     override fun run() {
         val checkedReceiver = receiver ?: return
-        checkedReceiver.completeProbe(action, intent, pendingResult)
+        checkedReceiver.completeProbe(context, action, intent, pendingResult)
     }
 }
