@@ -21,6 +21,11 @@ class XrayManagedTunnelTest {
             overrideReason = null,
             logContext = null,
             forceTunnelDns = false,
+            configurationInput =
+                VpnTunnelConfigurationInput(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                    emptyList(),
+                ),
         )
 
     @Test

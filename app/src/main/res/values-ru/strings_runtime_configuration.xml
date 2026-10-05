@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">Конфигурация соединения</string>
+    <string name="runtime_config_applied">Подтверждённая конфигурация</string>
+    <string name="runtime_config_applying">Применение конфигурации</string>
+    <string name="runtime_config_pending">Есть неприменённые изменения</string>
+    <string name="runtime_config_unknown">Конфигурация не подтверждена</string>
+    <string name="runtime_config_failed">Не удалось применить конфигурацию</string>
+    <string name="runtime_config_last_confirmed">Последняя подтверждённая конфигурация</string>
+    <string name="runtime_config_pending_body">Сохранённые изменения применятся при следующем подключении. Переподключение прерывает текущий трафик.</string>
+    <string name="runtime_config_confirm_title">Применить сохранённую конфигурацию?</string>
+    <string name="runtime_config_confirm_body">Текущее соединение остановится. RIPDPI запустится с текущими сохранёнными настройками. Отмена сохранит настройки и текущее соединение.</string>
+    <string name="runtime_config_permission">Перед переподключением разрешите VPN. Текущее соединение сохранено.</string>
+    <string name="runtime_config_lockdown">Системная блокировка Android не позволяет переподключиться. Сначала измените её настройки.</string>
+    <string name="runtime_config_lockdown_unknown">Состояние системной блокировки Android недоступно. Текущий VPN сохранён.</string>
+    <string name="runtime_config_stop_timeout">Остановка соединения не подтверждена. Новое соединение не запущено.</string>
+    <string name="runtime_config_start_failed">Готовность новой конфигурации не подтверждена. Проверьте ошибку соединения и повторите попытку.</string>
+    <string name="runtime_config_superseded">Это переподключение заменено новой командой подключения или остановки.</string>
+    <string name="runtime_config_cancelled">Переподключение отменено. Сохранённые настройки оставлены.</string>
+</resources>

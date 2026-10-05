@@ -21,6 +21,7 @@ class ConfigViewModelDependencies
         val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         val serviceStateStore: ServiceStateStore,
         val serviceController: ServiceController,
+        val reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val capabilityObserver: ConfigCapabilityObserver,
         val dispatchers: AppCoroutineDispatchers,

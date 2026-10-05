@@ -58,6 +58,7 @@ class VpnTunnelDirectDnsRuntimeTest {
                         password = TestLocalProxyAuth,
                     ),
                 splitStrictDnsPolicy = policy,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(listOf("192.0.2.53", "2001:db8:0:0:0:0:0:53"), host.lastDirectDnsCandidates)
@@ -114,6 +115,7 @@ class VpnTunnelDirectDnsRuntimeTest {
                                 password = TestLocalProxyAuth,
                             ),
                         splitStrictDnsPolicy = policy,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }.exceptionOrNull()
 
@@ -138,11 +140,25 @@ class VpnTunnelDirectDnsRuntimeTest {
             val runtime = directDnsRuntime(host, bridge, sessionProvider)
             val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
             val policy = directDnsPolicy(activeDns)
-            runtime.start(activeDns, null, null, localProxyEndpoint(), splitStrictDnsPolicy = policy)
+            runtime.start(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint(),
+                splitStrictDnsPolicy = policy,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             host.directDnsPrepareToken = 2L
             sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
 
-            runtime.rebuild(activeDns, null, null, localProxyEndpoint(), splitStrictDnsPolicy = policy)
+            runtime.rebuild(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint(),
+                splitStrictDnsPolicy = policy,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
 
             assertEquals(
                 listOf(
@@ -184,13 +200,27 @@ class VpnTunnelDirectDnsRuntimeTest {
                 )
             val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
             val policy = directDnsPolicy(activeDns)
-            runtime.start(activeDns, null, null, localProxyEndpoint(), splitStrictDnsPolicy = policy)
+            runtime.start(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint(),
+                splitStrictDnsPolicy = policy,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             host.directDnsPrepareToken = 2L
             sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
 
             val failure =
                 runCatching {
-                    runtime.rebuild(activeDns, null, null, localProxyEndpoint(), splitStrictDnsPolicy = policy)
+                    runtime.rebuild(
+                        activeDns,
+                        null,
+                        null,
+                        localProxyEndpoint(),
+                        splitStrictDnsPolicy = policy,
+                        configurationInput = runtime.captureConfigurationInput(),
+                    )
                 }.exceptionOrNull()
 
             assertTrue(failure is IllegalStateException)
@@ -229,13 +259,27 @@ class VpnTunnelDirectDnsRuntimeTest {
             val runtime = directDnsRuntime(host, bridge, sessionProvider)
             val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
             val policy = directDnsPolicy(activeDns)
-            runtime.start(activeDns, null, null, localProxyEndpoint(), splitStrictDnsPolicy = policy)
+            runtime.start(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint(),
+                splitStrictDnsPolicy = policy,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             host.directDnsPrepareToken = 2L
             sessionProvider.establishFailure = IllegalStateException("replacement establish failed")
 
             val failure =
                 runCatching {
-                    runtime.rebuild(activeDns, null, null, localProxyEndpoint(), splitStrictDnsPolicy = policy)
+                    runtime.rebuild(
+                        activeDns,
+                        null,
+                        null,
+                        localProxyEndpoint(),
+                        splitStrictDnsPolicy = policy,
+                        configurationInput = runtime.captureConfigurationInput(),
+                    )
                 }.exceptionOrNull()
 
             assertTrue(failure is IllegalStateException)

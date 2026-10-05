@@ -47,6 +47,7 @@ internal class SharedProxyRuntimeStack(
 
     suspend fun start(
         proxyPreferences: RipDpiProxyPreferences,
+        requestedWarpReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
         onRelayExit: suspend (SupervisorExitCause) -> Unit,
         onWarpExit: suspend (SupervisorExitCause) -> Unit,
         onAwgExit: suspend (SupervisorExitCause) -> Unit,
@@ -104,39 +105,80 @@ internal class SharedProxyRuntimeStack(
                             onUnexpectedExit = onRelayExit,
                             onState = onInitialRelayRaceState,
                         )
-                    effectivePreferences =
-                        relayRuntimeSelectionRenderer(
-                            effectivePreferences,
-                            RipDpiRelayConfig(
-                                enabled = true,
-                                kind = promoted.result.selectedCandidate.relayKind,
-                                profileId = promoted.result.selectedCandidate.profileId,
-                                udpEnabled = promoted.udpEnabled,
-                            ),
-                            promoted.endpoint.host,
-                            promoted.endpoint.port,
-                        )
-                    val renderedRelay = effectivePreferences.relayConfigOrNull()
-                    check(
-                        renderedRelay != null &&
-                            renderedRelay.enabled &&
-                            renderedRelay.kind == promoted.result.selectedCandidate.relayKind &&
-                            renderedRelay.profileId == promoted.result.selectedCandidate.profileId &&
-                            renderedRelay.udpEnabled == promoted.udpEnabled &&
-                            renderedRelay.localSocksHost == promoted.endpoint.host &&
-                            renderedRelay.localSocksPort == promoted.endpoint.port,
-                    ) {
-                        "Promoted relay endpoint was not applied to proxy preferences"
-                    }
+                    effectivePreferences = applyPromotedRelay(effectivePreferences, promoted)
                     onInitialRelaySelected(promoted.result)
                 }
             }
             proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
-                warpRuntimeSupervisor.start(warpConfig, onWarpExit)
+                warpRuntimeSupervisor.start(warpConfig, requestedWarpReference, onWarpExit)
             }
         }
 
-        return proxyRuntimeSupervisor.start(effectivePreferences, onProxyExit)
+        val consumed = consumedUpstreams(awgRequest != null, effectivePreferences, proxyPreferences)
+        return proxyRuntimeSupervisor.start(effectivePreferences, onProxyExit).copy(
+            consumedUpstreams = consumed,
+            requestedWarpPatch =
+                if (awgRequest == null &&
+                    proxyPreferences.warpConfigOrNull() != null
+                ) {
+                    warpRuntimeSupervisor.requestedProvisioningPatch
+                } else {
+                    null
+                },
+        )
+    }
+
+    private fun consumedUpstreams(
+        hasAwg: Boolean,
+        effectivePreferences: RipDpiProxyPreferences,
+        proxyPreferences: RipDpiProxyPreferences,
+    ): List<ConsumedUpstreamConfiguration> =
+        if (hasAwg) {
+            listOf(amneziaWgRuntimeSupervisor.requireConsumedConfiguration())
+        } else {
+            buildList {
+                if (effectivePreferences.relayConfigOrNull() !=
+                    null
+                ) {
+                    add(upstreamRelaySupervisor.requireConsumedConfiguration())
+                }
+                if (proxyPreferences.warpConfigOrNull() !=
+                    null
+                ) {
+                    add(warpRuntimeSupervisor.requireConsumedConfiguration())
+                }
+            }
+        }
+
+    private fun applyPromotedRelay(
+        preferences: RipDpiProxyPreferences,
+        promoted: PromotedRelayRuntime,
+    ): RipDpiProxyPreferences {
+        val effectivePreferences =
+            relayRuntimeSelectionRenderer(
+                preferences,
+                RipDpiRelayConfig(
+                    enabled = true,
+                    kind = promoted.result.selectedCandidate.relayKind,
+                    profileId = promoted.result.selectedCandidate.profileId,
+                    udpEnabled = promoted.udpEnabled,
+                ),
+                promoted.endpoint.host,
+                promoted.endpoint.port,
+            )
+        val renderedRelay = effectivePreferences.relayConfigOrNull()
+        check(
+            renderedRelay != null &&
+                renderedRelay.enabled &&
+                renderedRelay.kind == promoted.result.selectedCandidate.relayKind &&
+                renderedRelay.profileId == promoted.result.selectedCandidate.profileId &&
+                renderedRelay.udpEnabled == promoted.udpEnabled &&
+                renderedRelay.localSocksHost == promoted.endpoint.host &&
+                renderedRelay.localSocksPort == promoted.endpoint.port,
+        ) {
+            "Promoted relay endpoint was not applied to proxy preferences"
+        }
+        return effectivePreferences
     }
 
     private fun EgressRequirements.isSupportedSubsetOf(configured: EgressRequirements): Boolean =

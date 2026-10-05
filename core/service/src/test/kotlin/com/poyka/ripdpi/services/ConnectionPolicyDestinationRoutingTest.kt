@@ -102,6 +102,11 @@ class ConnectionPolicyDestinationRoutingTest {
         source: DestinationRoutingPolicySource,
         settings: AppSettings = AppSettingsSerializer.defaultValue,
     ) = DefaultConnectionPolicyResolver(
+        runtimeConfigurationCapture =
+            testRequestedRuntimeConfigurationCapture(
+                ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                source,
+            ),
         context = RuntimeEnvironment.getApplication(),
         appSettingsRepository = TestAppSettingsRepository(settings),
         networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),

@@ -127,6 +127,8 @@ internal class UpstreamRelaySupervisor(
     val localNetworkDependent: Boolean
         get() = activeSlot?.localNetworkDependent == true
 
+    fun requireConsumedConfiguration(): ConsumedUpstreamConfiguration = checkNotNull(activeSlot).consumedConfiguration
+
     suspend fun start(
         requirements: EgressRequirements,
         config: RipDpiRelayConfig,
@@ -226,6 +228,7 @@ internal class UpstreamRelaySupervisor(
                 onUnexpectedExit = onUnexpectedExit,
                 udpEnabled = resolvedConfig.udpEnabled,
                 localNetworkDependent = configResolution.localNetworkDependent,
+                consumedConfiguration = ConsumedUpstreamConfiguration.relay(resolvedConfig),
             )
 
         job.invokeOnCompletion {

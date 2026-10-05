@@ -31,7 +31,14 @@ class WarpRuntimeSupervisorTest {
                 )
             val exits = mutableListOf<SupervisorExitCause>()
 
-            supervisor.start(sampleWarpConfig()) { exits += it }
+            supervisor.start(
+                sampleWarpConfig(),
+                com.poyka.ripdpi.service.warp
+                    .RequestedWarpRuntimeReference("warp-test", 0L),
+            ) {
+                exits +=
+                    it
+            }
             supervisor.stop()
             advanceUntilIdle()
 
@@ -52,7 +59,14 @@ class WarpRuntimeSupervisorTest {
                 )
             val exits = mutableListOf<SupervisorExitCause>()
 
-            supervisor.start(sampleWarpConfig()) { exits += it }
+            supervisor.start(
+                sampleWarpConfig(),
+                com.poyka.ripdpi.service.warp
+                    .RequestedWarpRuntimeReference("warp-test", 0L),
+            ) {
+                exits +=
+                    it
+            }
             warpFactory.lastRuntime.complete(29)
             runCurrent()
             advanceUntilIdle()
@@ -75,7 +89,11 @@ class WarpRuntimeSupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
             val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(29))
 
-            supervisor.start(sampleWarpConfig()) { cause ->
+            supervisor.start(
+                sampleWarpConfig(),
+                com.poyka.ripdpi.service.warp
+                    .RequestedWarpRuntimeReference("warp-test", 0L),
+            ) { cause ->
                 exits += cause
                 supervisor.detach()
             }
@@ -83,7 +101,14 @@ class WarpRuntimeSupervisorTest {
             runCurrent()
             advanceUntilIdle()
 
-            supervisor.start(sampleWarpConfig()) { exits += it }
+            supervisor.start(
+                sampleWarpConfig(),
+                com.poyka.ripdpi.service.warp
+                    .RequestedWarpRuntimeReference("warp-test", 0L),
+            ) {
+                exits +=
+                    it
+            }
             supervisor.stop()
             advanceUntilIdle()
 
@@ -112,7 +137,11 @@ class WarpRuntimeSupervisorTest {
                     runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                 )
 
-            supervisor.start(sampleWarpConfig()) {}
+            supervisor.start(
+                sampleWarpConfig(),
+                com.poyka.ripdpi.service.warp
+                    .RequestedWarpRuntimeReference("warp-test", 0L),
+            ) {}
             warpFactory.lastRuntime.telemetryFailure = IOException("warp telemetry crash")
 
             val telemetry = supervisor.pollTelemetry()

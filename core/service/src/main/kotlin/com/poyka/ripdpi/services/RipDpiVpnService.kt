@@ -116,6 +116,8 @@ class RipDpiVpnService :
         get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     override val serviceScope = lifecycleScope
 
+    @Inject lateinit var liveVpnLockdownReader: LiveVpnLockdownReader
+
     override fun onCreate() {
         super.onCreate()
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created)
@@ -154,9 +156,11 @@ class RipDpiVpnService :
         // for the lifetime of the service. Each listener is idempotent.
         selectorRuntimeLifecycleListeners.forEach { it.start(Mode.VPN) }
         refreshHardKillSwitchState()
+        liveVpnLockdownReader.register(this, ::refreshHardKillSwitchState)
     }
 
     override fun onDestroy() {
+        liveVpnLockdownReader.unregister(this)
         recoveryUserUnlockReceiver.close()
         recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
         activeRecoveryGeneration = null

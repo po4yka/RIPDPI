@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -38,6 +39,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 },
             ) {
                 val session = callbacks.createRuntimeSession()
+                callbacks.setRuntimeSession(session)
                 session.networkHandoverState = null
                 val resolution = callbacks.resolveInitialConnectionPolicy()
                 transaction?.beforeStart?.invoke(resolution)
@@ -53,14 +55,25 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                         session,
                         resolution,
                     )
-                callbacks.publishRuntimeStartEvidence(
+                currentCoroutineContext().ensureActive()
+                val authority = currentCoroutineContext()[ExplicitRuntimeStartAuthority]?.guard
+                authority?.ensureCurrentStart()
+                callbacks.evidencePublication.publish(
                     session,
                     resolution,
                     runtimeStartEvidence,
                 )
-                callbacks.setRuntimeSession(session)
-                dependencies.serviceRuntimeRegistry.register(session)
-                callbacks.updateStatus(ServiceStatus.Connected, null)
+                currentCoroutineContext().ensureActive()
+                val complete = {
+                    callbacks.evidencePublication.complete(session, resolution, runtimeStartEvidence)
+                    dependencies.serviceRuntimeRegistry.register(session)
+                    callbacks.updateStatus(ServiceStatus.Connected, null)
+                }
+                if (authority == null) {
+                    complete()
+                } else if (!authority.runIfCurrent(complete)) {
+                    throw CancellationException("Start intent superseded before completion")
+                }
                 dependencies.handoverProcessor.startMonitoring()
                 callbacks.startModeTelemetryUpdates()
                 dependencies.loopOwner.startPermissionWatchdog()
@@ -307,7 +320,7 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
     val resolveInitialConnectionPolicy: suspend () -> ConnectionPolicyResolution,
     val applyActiveConnectionPolicy: (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
     val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> RuntimeStartEvidence,
-    val publishRuntimeStartEvidence: suspend (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
+    val evidencePublication: RuntimeStartEvidencePublication<TSession>,
     val captureFinalTelemetry: suspend () -> Unit = {},
     val stopModeRuntime: suspend (Boolean) -> Unit,
     val startModeTelemetryUpdates: () -> Unit,
@@ -320,4 +333,14 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
 internal class RuntimeStopGuard(
     val isCurrent: () -> Boolean,
     val failureReason: FailureReason? = null,
+)
+
+private fun ExplicitUserStartGuard.ensureCurrentStart() {
+    if (!isCurrent()) throw CancellationException("Start intent superseded")
+}
+
+/** Suspended startup publications precede the synchronous final readiness commit. */
+internal class RuntimeStartEvidencePublication<TSession>(
+    val publish: suspend (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
+    val complete: (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
 )

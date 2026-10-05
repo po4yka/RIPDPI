@@ -23,7 +23,12 @@ import java.util.concurrent.atomic.AtomicReference
 internal data class ProxyRuntimeStartResult(
     val endpoint: LocalProxyEndpoint,
     val readySnapshot: NativeRuntimeSnapshot,
-)
+    val effectivePreferences: RipDpiProxyPreferences,
+    val consumedUpstreams: List<ConsumedUpstreamConfiguration>,
+    val requestedWarpPatch: com.poyka.ripdpi.service.warp.RuntimeWarpProvisioningPatch?,
+) {
+    override fun toString(): String = "ProxyRuntimeStartResult([REDACTED])"
+}
 
 /**
  * Supervises the native proxy runtime — starts it, owns its coroutine `Job`,
@@ -96,6 +101,9 @@ internal class ProxyRuntimeSupervisor(
                             authToken = preferences.localAuthToken,
                         ),
                     readySnapshot = readySnapshot,
+                    effectivePreferences = preferences,
+                    consumedUpstreams = emptyList(),
+                    requestedWarpPatch = null,
                 )
             } catch (readinessError: CancellationException) {
                 cleanupFailedStart(job, proxyInstance, lease, shouldReportExit)

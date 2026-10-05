@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">Verbindungskonfiguration</string>
+    <string name="runtime_config_applied">Bestätigte Konfiguration</string>
+    <string name="runtime_config_applying">Konfiguration wird angewendet</string>
+    <string name="runtime_config_pending">Gespeicherte Änderungen ausstehend</string>
+    <string name="runtime_config_unknown">Konfiguration unbestätigt</string>
+    <string name="runtime_config_failed">Konfiguration konnte nicht angewendet werden</string>
+    <string name="runtime_config_last_confirmed">Zuletzt bestätigte Konfiguration</string>
+    <string name="runtime_config_pending_body">Gespeicherte Änderungen gelten ab der nächsten Verbindung. Eine Neuverbindung unterbricht den aktuellen Datenverkehr.</string>
+    <string name="runtime_config_confirm_title">Gespeicherte Konfiguration anwenden?</string>
+    <string name="runtime_config_confirm_body">Die aktuelle Verbindung wird beendet. RIPDPI startet mit den aktuell gespeicherten Einstellungen. Abbrechen behält Einstellungen und Verbindung bei.</string>
+    <string name="runtime_config_permission">Erteile vor dem Neuverbinden die VPN-Berechtigung. Die aktuelle Verbindung wurde beibehalten.</string>
+    <string name="runtime_config_lockdown">Die Android-Sperre verhindert diese Neuverbindung. Ändere zuerst die Systemeinstellungen.</string>
+    <string name="runtime_config_lockdown_unknown">Der Status der Android-Sperre ist unbekannt. Das aktuelle VPN wurde beibehalten.</string>
+    <string name="runtime_config_stop_timeout">Das Beenden wurde nicht bestätigt. Es wurde keine neue Verbindung gestartet.</string>
+    <string name="runtime_config_start_failed">Die neue Konfiguration hat keine Bereitschaft bestätigt. Prüfe den Verbindungsfehler und versuche es erneut.</string>
+    <string name="runtime_config_superseded">Ein neuer Start- oder Stoppbefehl hat diese Neuverbindung ersetzt.</string>
+    <string name="runtime_config_cancelled">Neuverbindung abgebrochen. Gespeicherte Einstellungen wurden beibehalten.</string>
+</resources>

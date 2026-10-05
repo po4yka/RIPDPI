@@ -822,6 +822,7 @@ class ConfigViewModelProviderModeTest {
             savedStateHandle = SavedStateHandle(),
             dependencies =
                 ConfigViewModelDependencies(
+                    reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
                     appSettingsRepository = appSettingsRepository,
                     relayArtifacts =
                         ConfigRelayArtifactRepository(
@@ -1741,6 +1742,7 @@ private fun createConfigViewModel(
         savedStateHandle = savedStateHandle,
         dependencies =
             ConfigViewModelDependencies(
+                reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
                 appSettingsRepository = appSettingsRepository,
                 relayArtifacts =
                     ConfigRelayArtifactRepository(

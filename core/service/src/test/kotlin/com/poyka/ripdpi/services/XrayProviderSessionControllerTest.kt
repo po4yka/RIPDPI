@@ -34,6 +34,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -52,6 +54,7 @@ internal abstract class XrayProviderSessionTestFixture {
     protected val startParamsHolder = XrayTunnelStartParamsHolder()
     protected val renderedConfig = arrayOfNulls<String>(1)
     protected var protectDetail: String? = null
+    protected var tunnelDnsOverride: Pair<Int, ActiveDnsSettings>? = null
 
     protected val profile =
         XrayProfile(
@@ -88,6 +91,23 @@ internal abstract class XrayProviderSessionTestFixture {
                 renderedConfigProvider = { checkNotNull(renderedConfig[0]) },
             )
         return XrayProviderSessionController(
+            tunnelReady = {
+                check(tunnel.isRunning)
+                val params = startParamsHolder.require()
+                RuntimeTunnelReadyEvidence(
+                    params.configurationInput,
+                    params.forceTunnelDns,
+                    tunnelDnsOverride?.takeIf { it.first == tunnel.startCount }?.second
+                        ?: vpnTunnelDnsPlan(
+                            params.activeDns,
+                            params.forceTunnelDns,
+                            params.splitStrictDnsPolicy,
+                        ).resolverDns,
+                    params.splitStrictDnsPolicy,
+                    "fixture-interface",
+                )
+            },
+            configurationIdentities = RuntimeConfigurationIdentityFactory(),
             readSelectedProfile = {
                 recoverPendingProfileMutations()
                 val selection = selectionStore.current()
@@ -132,11 +152,76 @@ internal abstract class XrayProviderSessionTestFixture {
             overrideReason = null,
             logContext = null,
             forceTunnelDns = false,
+            configurationInput =
+                VpnTunnelConfigurationInput(
+                    com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                    emptyList(),
+                ),
         )
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class XrayProviderSessionControllerTest : XrayProviderSessionTestFixture() {
+    @Test fun `live DNS refresh invalidates cached planned no op and restores actually requested DNS`() =
+        runTest {
+            profileStore.save("profile-1", profile)
+            selectionStore.update(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "profile-1"))
+            val ctrl = controller()
+            val original = params()
+            assertTrue(ctrl.start(original) is HandoffOutcome.Running)
+            val starts = bridge.startCount
+            val payload = bridge.startedConfig
+            tunnelDnsOverride = tunnel.startCount to original.activeDns.copy(dnsIp = "9.9.9.9")
+            assertTrue(tunnel.isRunning)
+            assertTrue(ctrl.start(original) is HandoffOutcome.Running)
+            assertEquals(starts + 1, bridge.startCount)
+            assertEquals(payload, bridge.startedConfig)
+            assertEquals(original.activeDns, ctrl.requireReadyConfiguration().tunnel.resolverDns)
+            ctrl.stop()
+        }
+
+    @Test
+    fun `same inbound changed secret replaces actual provider material while identical input is a no op`() =
+        runTest {
+            profileStore.save("profile-1", profile)
+            selectionStore.update(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "profile-1"))
+            val ctrl = controller()
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Running)
+            val initialPayload = bridge.startedConfig
+            val initialIdentity = ctrl.requireReadyConfiguration().effectiveIdentity
+            val initialStarts = bridge.startCount
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Running)
+            assertEquals(initialStarts, bridge.startCount)
+            assertTrue(initialIdentity.matches(ctrl.requireReadyConfiguration().effectiveIdentity))
+            val replacementFixtureSecret = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            profileStore.save(
+                "profile-1",
+                profile.copy(outbound = profile.outbound.copy(uuid = replacementFixtureSecret)),
+            )
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Running)
+            assertEquals(initialStarts + 1, bridge.startCount)
+            assertTrue(bridge.startedConfig.orEmpty().contains(replacementFixtureSecret))
+            assertFalse(initialPayload == bridge.startedConfig)
+            assertFalse(initialIdentity.matches(ctrl.requireReadyConfiguration().effectiveIdentity))
+            ctrl.stop()
+        }
+
+    @Test
+    fun `failed selection cannot reuse previous readiness capability`() =
+        runTest {
+            profileStore.save("profile-1", profile)
+            selectionStore.update(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "profile-1"))
+            val ctrl = controller()
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Running)
+            selectionStore.update(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "missing"))
+            assertTrue(ctrl.start(params()) is HandoffOutcome.Failed)
+            assertTrue(runCatching { ctrl.requireReadyConfiguration() }.isFailure)
+            selectionStore.update(XrayProviderSelectionRecord.of(VpnProviderKind.Native, ""))
+            assertEquals(HandoffOutcome.Stopped, ctrl.start(params()))
+            assertTrue(runCatching { ctrl.requireReadyConfiguration() }.isFailure)
+            ctrl.stop()
+        }
+
     @Test
     fun `durable selection reads wait for pending profile mutation recovery`() =
         runTest {
@@ -166,14 +251,14 @@ internal class XrayProviderSessionControllerTest : XrayProviderSessionTestFixtur
                     publishActiveDnsState = { _, _ -> },
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
-            assertTrue(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
+            assertNotNull(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
             assertEquals(1, reads)
             reads = 0
-            assertTrue(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 2L))
+            assertNotNull(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 2L))
             assertEquals(1, reads)
             reads = 0
             selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Native, null))
-            assertFalse(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
+            assertNull(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
             assertEquals(1, reads)
         }
 
@@ -365,7 +450,7 @@ internal class XrayProviderSessionControllerTest : XrayProviderSessionTestFixtur
             assertFalse(checkNotNull(bridge.registeredProtectController).protect(42))
             bridge.stopBehavior = FakeXrayNativeBridge.StopBehavior.Clean
             original.stop()
-            assertFalse(replacement.tryStart(VpnRuntimeSession(), sampleResolution()))
+            assertNull(replacement.tryStart(VpnRuntimeSession(), sampleResolution()))
         }
 }
 
@@ -724,7 +809,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
                     publishActiveDnsState = { _, _ -> },
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
-            assertTrue(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
+            assertNotNull(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
             profileStore.onLoad = { throw CancellationException("profile load cancelled") }
 
             val failure =
@@ -740,7 +825,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
             assertEquals(null, renderedConfig[0])
 
             profileStore.onLoad = {}
-            assertTrue(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
+            assertNotNull(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
             assertTrue(delegate.isActive)
         }
 
@@ -757,7 +842,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
                     publishActiveDnsState = { _, _ -> },
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
-            assertTrue(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
+            assertNotNull(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
             profileStore.save("default", profile.copy(inbound = XrayProfile.LocalInbound(port = 20810)))
             tunnel.failOnStart = true
 
@@ -773,7 +858,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
             assertTrue(ctrl.isActive)
 
             tunnel.failOnStart = false
-            assertTrue(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
+            assertNotNull(delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 3L))
             assertTrue(delegate.isActive)
         }
 
@@ -791,7 +876,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
             val session = VpnRuntimeSession()
-            assertTrue(delegate.tryStart(session, sampleResolution()))
+            assertNotNull(delegate.tryStart(session, sampleResolution()))
             profileStore.save("default", profile.copy(inbound = XrayProfile.LocalInbound(port = 20810)))
             tunnel.failOnStart = true
 
@@ -811,7 +896,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
             )
 
             tunnel.failOnStart = false
-            assertTrue(delegate.tryRestart(session, sampleResolution(), appliedAt = 3L))
+            assertNotNull(delegate.tryRestart(session, sampleResolution(), appliedAt = 3L))
             assertTrue(delegate.isActive)
         }
 
@@ -834,7 +919,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
                     },
                 )
             val session = VpnRuntimeSession().apply { recordDestinationPolicy(sampleResolution()) }
-            assertTrue(delegate.tryStart(session, sampleResolution()))
+            assertNotNull(delegate.tryStart(session, sampleResolution()))
             val bridgeStarts = bridge.startCount
             val bridgeStops = bridge.stopCount
             val tunnelStarts = tunnel.startCount
@@ -855,7 +940,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
                     restartReason = "routing_policy_refresh",
                 )
 
-            assertTrue(handled)
+            assertNotNull(handled)
             assertTrue(delegate.isActive)
             assertTrue(ctrl.isActive)
             assertTrue(bridge.startCount > bridgeStarts)
@@ -883,7 +968,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
                     applyActiveConnectionPolicy = { _, _, _, _ -> },
                 )
             val session = VpnRuntimeSession()
-            assertTrue(delegate.tryStart(session, sampleResolution()))
+            assertNotNull(delegate.tryStart(session, sampleResolution()))
             val previousTunnelStops = tunnel.stopCount
             val previousBridgeStops = bridge.stopCount
             selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Native, null))
@@ -908,7 +993,7 @@ internal class XrayProviderSessionRestartTest : XrayProviderSessionTestFixture()
             assertEquals(previousTunnelStops, tunnel.stopCount)
             assertFalse(tunnel.isRunning)
             assertTrue(tunnel.quiesceCount > 0)
-            assertFalse(handled)
+            assertNull(handled)
             assertFalse(delegate.isActive)
             assertFalse(delegate.ownsActiveProviderPath)
             assertFalse(ctrl.isActive)

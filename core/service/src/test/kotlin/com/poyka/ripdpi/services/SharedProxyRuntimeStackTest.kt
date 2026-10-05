@@ -34,6 +34,9 @@ class SharedProxyRuntimeStackTest {
             val error =
                 runCatching {
                     fixture.stack.start(
+                        requestedWarpReference =
+                            com.poyka.ripdpi.service.warp
+                                .RequestedWarpRuntimeReference("warp-test", 0L),
                         proxyPreferences = awgPreferences(),
                         onRelayExit = {},
                         onWarpExit = {},
@@ -69,6 +72,9 @@ class SharedProxyRuntimeStackTest {
             val selected = mutableListOf<InitialRelayRaceResult>()
 
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = awgPreferences(),
                 onRelayExit = {},
                 onWarpExit = {},
@@ -103,6 +109,9 @@ class SharedProxyRuntimeStackTest {
 
             val result =
                 fixture.stack.start(
+                    requestedWarpReference =
+                        com.poyka.ripdpi.service.warp
+                            .RequestedWarpRuntimeReference("warp-test", 0L),
                     proxyPreferences = RipDpiProxyUIPreferences(),
                     onRelayExit = {},
                     onWarpExit = {},
@@ -122,6 +131,9 @@ class SharedProxyRuntimeStackTest {
             val selected = mutableListOf<InitialRelayRaceResult>()
 
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = rememberedJsonPreferences(),
                 onRelayExit = {},
                 onWarpExit = {},
@@ -177,6 +189,9 @@ class SharedProxyRuntimeStackTest {
                 )
 
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = preferences,
                 onRelayExit = {},
                 onWarpExit = {},
@@ -235,6 +250,9 @@ class SharedProxyRuntimeStackTest {
                 )
 
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = preferences,
                 onRelayExit = {},
                 onWarpExit = {},
@@ -260,6 +278,9 @@ class SharedProxyRuntimeStackTest {
             val result =
                 runCatching {
                     fixture.stack.start(
+                        requestedWarpReference =
+                            com.poyka.ripdpi.service.warp
+                                .RequestedWarpRuntimeReference("warp-test", 0L),
                         proxyPreferences = rememberedJsonPreferences(),
                         onRelayExit = {},
                         onWarpExit = {},
@@ -301,6 +322,9 @@ class SharedProxyRuntimeStackTest {
                 )
 
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = rememberedJsonPreferences(),
                 onRelayExit = {},
                 onWarpExit = {},
@@ -334,6 +358,9 @@ class SharedProxyRuntimeStackTest {
             val error =
                 runCatching {
                     fixture.stack.start(
+                        requestedWarpReference =
+                            com.poyka.ripdpi.service.warp
+                                .RequestedWarpRuntimeReference("warp-test", 0L),
                         proxyPreferences = preferences,
                         onRelayExit = {},
                         onWarpExit = {},
@@ -352,6 +379,9 @@ class SharedProxyRuntimeStackTest {
         runTest {
             val fixture = createFixture()
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = rememberedJsonPreferences(),
                 onRelayExit = {},
                 onWarpExit = {},
@@ -373,6 +403,9 @@ class SharedProxyRuntimeStackTest {
         runTest {
             val fixture = createFixture()
             fixture.stack.start(
+                requestedWarpReference =
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
                 proxyPreferences = rememberedJsonPreferences(),
                 onRelayExit = {},
                 onWarpExit = {},

@@ -43,6 +43,7 @@ class ConfigViewModel
         private val relayPresetCatalog = dependencies.relayPresetCatalog
         private val networkSnapshotProvider = dependencies.networkSnapshotProvider
         private val serviceStateStore = dependencies.serviceStateStore
+        private val reconnectCoordinator = dependencies.reconnectCoordinator
         private val serviceController = dependencies.serviceController
         private val latestDirectModeOutcomeStore = dependencies.latestDirectModeOutcomeStore
         private val capabilityObserver = dependencies.capabilityObserver
@@ -551,9 +552,9 @@ class ConfigViewModel
                                     draft = persistedDraft,
                                     appSettingsRepository = appSettingsRepository,
                                     serviceStateStore = serviceStateStore,
-                                    serviceController = serviceController,
-                                    startRuntimeMode = { mode ->
-                                        startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
+                                    reconnectCoordinator = reconnectCoordinator,
+                                    onReconnectFailure = { result ->
+                                        _effects.tryEmit(ConfigEffect.Message(result.reason.message(stringResolver)))
                                     },
                                     onUnsupportedVpnDns = {
                                         _effects.tryEmit(

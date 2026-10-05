@@ -27,18 +27,20 @@ class DnsVpnRestartGuardTest {
     fun `config save preserves running service when vpn doq cannot restart`() =
         runTest {
             val controller = FakeServiceController()
+            val reconnect = FakeRunningServiceReconnect()
             var rejected = 0
 
             applySavedConfigDraftToRunningService(
                 draft = ConfigDraft(mode = Mode.VPN),
                 appSettingsRepository = FakeAppSettingsRepository(doqSettings),
                 serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
-                serviceController = controller,
-                startRuntimeMode = { error("Unsupported VPN restart") },
+                reconnectCoordinator = reconnect,
+                onReconnectFailure = { error("Unexpected reconnect failure") },
                 onUnsupportedVpnDns = { rejected++ },
             )
 
             assertEquals(1, rejected)
+            assertTrue(reconnect.requestedModes.isEmpty())
             assertEquals(0, controller.stopCount)
             assertTrue(controller.startedModes.isEmpty())
         }
@@ -47,6 +49,7 @@ class DnsVpnRestartGuardTest {
     fun `strategy save reports unsupported vpn dns before stopping service`() =
         runTest {
             val controller = FakeServiceController()
+            val reconnect = FakeRunningServiceReconnect()
             var rejected = 0
             val actions =
                 MainStrategyConfigApplyActions(
@@ -54,12 +57,20 @@ class DnsVpnRestartGuardTest {
                     appSettingsRepository = FakeAppSettingsRepository(doqSettings),
                     currentSettings = { doqSettings },
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
-                    serviceController = controller,
+                    reconnectCoordinator = reconnect,
+                    onReconnectFailure = { error("Unexpected reconnect failure") },
                     onUnsupportedVpnDns = { rejected++ },
                 )
 
-            assertEquals(StrategyConfigApplyResult.UnsupportedVpnDns, actions.applySavedStrategyConfig())
+            assertEquals(
+                StrategyConfigApplyResult.UnsupportedVpnDns,
+                actions.applySavedStrategyConfig(
+                    com.poyka.ripdpi.services.RunningReconnectRequest
+                        .CurrentSaved(Mode.VPN),
+                ),
+            )
             assertEquals(0, rejected)
+            assertTrue(reconnect.requestedModes.isEmpty())
             assertEquals(0, controller.stopCount)
         }
 
@@ -67,6 +78,7 @@ class DnsVpnRestartGuardTest {
     fun `strategy restart rechecks persisted dns before stopping service`() =
         runTest {
             val controller = FakeServiceController()
+            val reconnect = FakeRunningServiceReconnect()
             var rejected = 0
             val actions =
                 MainStrategyConfigApplyActions(
@@ -74,13 +86,21 @@ class DnsVpnRestartGuardTest {
                     appSettingsRepository = FakeAppSettingsRepository(doqSettings),
                     currentSettings = { AppSettingsSerializer.defaultValue },
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
-                    serviceController = controller,
+                    reconnectCoordinator = reconnect,
+                    onReconnectFailure = { error("Unexpected reconnect failure") },
                     onUnsupportedVpnDns = { rejected++ },
                 )
 
-            assertEquals(StrategyConfigApplyResult.RestartingActiveService, actions.applySavedStrategyConfig())
+            assertEquals(
+                StrategyConfigApplyResult.RestartingActiveService,
+                actions.applySavedStrategyConfig(
+                    com.poyka.ripdpi.services.RunningReconnectRequest
+                        .CurrentSaved(Mode.VPN),
+                ),
+            )
             runCurrent()
             assertEquals(1, rejected)
+            assertTrue(reconnect.requestedModes.isEmpty())
             assertEquals(0, controller.stopCount)
         }
 }

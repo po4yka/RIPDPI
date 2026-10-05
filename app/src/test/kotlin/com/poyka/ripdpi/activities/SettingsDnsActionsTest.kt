@@ -460,7 +460,8 @@ class SettingsDnsActionsTest {
                         ),
                 ),
             serviceStateStore = serviceStateStore,
-            serviceController = serviceController,
+            reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
+            onReconnectFailure = {},
             serviceIntentArbiter = serviceIntentArbiter,
         )
 

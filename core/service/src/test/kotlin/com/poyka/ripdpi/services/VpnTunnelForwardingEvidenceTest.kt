@@ -109,6 +109,7 @@ class VpnTunnelForwardingEvidenceTest {
                         host = "127.0.0.1",
                         port = 18_080,
                     ),
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             val combinedPoll = runtime.pollTelemetryAndForwardingEvidence()
@@ -146,6 +147,7 @@ class VpnTunnelForwardingEvidenceTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = LocalProxyEndpoint(host = "127.0.0.1", port = 18_080),
+                configurationInput = runtime.captureConfigurationInput(),
             )
         }
 }

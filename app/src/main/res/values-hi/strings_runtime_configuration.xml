@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">कनेक्शन कॉन्फ़िगरेशन</string>
+    <string name="runtime_config_applied">पुष्टि की गई कॉन्फ़िगरेशन</string>
+    <string name="runtime_config_applying">कॉन्फ़िगरेशन लागू हो रही है</string>
+    <string name="runtime_config_pending">सहेजे गए बदलाव लंबित हैं</string>
+    <string name="runtime_config_unknown">कॉन्फ़िगरेशन की पुष्टि नहीं हुई</string>
+    <string name="runtime_config_failed">कॉन्फ़िगरेशन लागू नहीं हो सकी</string>
+    <string name="runtime_config_last_confirmed">पिछली पुष्टि की गई कॉन्फ़िगरेशन</string>
+    <string name="runtime_config_pending_body">सहेजे गए बदलाव अगले कनेक्शन पर लागू होंगे। दोबारा जोड़ने से मौजूदा ट्रैफ़िक रुकता है।</string>
+    <string name="runtime_config_confirm_title">सहेजी गई कॉन्फ़िगरेशन लागू करें?</string>
+    <string name="runtime_config_confirm_body">मौजूदा कनेक्शन रुकेगा। RIPDPI मौजूदा सहेजी गई सेटिंग से शुरू होगा। रद्द करने पर सेटिंग और मौजूदा कनेक्शन बने रहते हैं।</string>
+    <string name="runtime_config_permission">दोबारा जोड़ने से पहले VPN की अनुमति दें। मौजूदा कनेक्शन सुरक्षित रखा गया है।</string>
+    <string name="runtime_config_lockdown">Android लॉकडाउन दोबारा जोड़ने से रोकता है। पहले उसकी सिस्टम सेटिंग बदलें।</string>
+    <string name="runtime_config_lockdown_unknown">Android लॉकडाउन की स्थिति उपलब्ध नहीं है। मौजूदा VPN बना हुआ है।</string>
+    <string name="runtime_config_stop_timeout">कनेक्शन रुकने की पुष्टि नहीं हुई। कोई नया कनेक्शन शुरू नहीं हुआ।</string>
+    <string name="runtime_config_start_failed">नई कॉन्फ़िगरेशन तैयार होने की पुष्टि नहीं हुई। कनेक्शन की त्रुटि जाँचें और फिर कोशिश करें।</string>
+    <string name="runtime_config_superseded">नए शुरू या बंद करने के आदेश ने इस दोबारा जोड़ने की प्रक्रिया को बदल दिया।</string>
+    <string name="runtime_config_cancelled">दोबारा जोड़ना रद्द हुआ। सहेजी गई सेटिंग बनी हुई हैं।</string>
+</resources>

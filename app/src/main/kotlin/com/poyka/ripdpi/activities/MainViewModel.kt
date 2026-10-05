@@ -87,7 +87,10 @@ class MainViewModel
                 appSettingsRepository = appSettingsRepository,
                 currentSettings = { settingsState.value },
                 serviceStateStore = mainServiceDependencies.serviceStateStore,
-                serviceController = mainServiceDependencies.serviceController,
+                reconnectCoordinator = mainServiceDependencies.reconnectCoordinator,
+                onReconnectFailure = { result ->
+                    _effects.tryEmit(MainEffect.ShowError(result.reason.message(stringResolver)))
+                },
                 onUnsupportedVpnDns = {
                     _effects.tryEmit(
                         MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
@@ -253,6 +256,13 @@ class MainViewModel
             }
         }
 
+        val onReconnectSavedConfiguration:
+            (com.poyka.ripdpi.services.RunningReconnectRequest.ConfirmedRuntime) -> Unit = {
+                strategyConfigActions.applySavedStrategyConfig(it)
+            }
+
+        val onCancelConfigurationReconnect: () -> Unit = strategyConfigActions::cancelReconnect
+
         fun onStopRequested() {
             permissionActions.localNetwork.cancelDeferredAction()
             // A freshly accepted start can still report Halted while its startup coroutine is
@@ -328,7 +338,12 @@ class MainViewModel
             )
         }
 
-        fun applySavedStrategyConfig(): StrategyConfigApplyResult = strategyConfigActions.applySavedStrategyConfig()
+        fun applySavedStrategyConfig(): StrategyConfigApplyResult =
+            strategyConfigActions.applySavedStrategyConfig(
+                com.poyka.ripdpi.services.RunningReconnectRequest.CurrentSaved(
+                    mainServiceDependencies.serviceStateStore.status.value.second,
+                ),
+            )
 
         val onShareHomeAnalysis: () -> Unit = {
             homeDiagnostics.actions.shareLatestHomeAnalysis()

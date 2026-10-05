@@ -27,6 +27,10 @@ internal class TestProfileMutationCoordinator(
     private val credentials: WarpCredentialStore,
     private val endpoints: WarpEndpointStore,
 ) : ProfileMutationCoordinator {
+    private var mutationRevision = 0L
+
+    override fun warpRuntimeRevision(profileId: String): Long = mutationRevision
+
     private val stagedPreimages = mutableMapOf<String, WarpPreimage>()
 
     override suspend fun recover() = Unit
@@ -66,6 +70,25 @@ internal class TestProfileMutationCoordinator(
             { profiles.setActiveProfileId(preimage.activeProfileId) },
             { settings.replace(preimage.settings) },
         )
+        mutationRevision += 1L
+    }
+
+    override suspend fun upsertWarpForRuntimeProvisioning(
+        profile: com.poyka.ripdpi.data.WarpProfile,
+        credentials: com.poyka.ripdpi.data.WarpCredentials,
+        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+        expectedCredentials: com.poyka.ripdpi.data.WarpCredentials,
+        expectedRevision: Long,
+    ): Boolean {
+        if (mutationRevision != expectedRevision || this.credentials.load(profile.id) != expectedCredentials ||
+            settings.snapshot().warpProfileId != profile.id
+        ) {
+            return false
+        }
+        upsertWarp(profile, credentials, endpoints, activate, scannerMode)
+        return true
     }
 
     override suspend fun deleteWarp(

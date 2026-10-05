@@ -8,6 +8,21 @@ import org.junit.Test
 
 class ServiceIntentArbiterTest {
     @Test
+    fun `rejected user start never publishes provisional intent generation`() {
+        val arbiter = ServiceIntentArbiter()
+        val accepted = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+        arbiter.userStart<ServiceStartResult>(
+            action = {
+                assertEquals(accepted, arbiter.explicitUserIntentGeneration.value)
+                ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing)
+            },
+            isAccepted = { it is ServiceStartResult.Accepted },
+        )
+        assertEquals(accepted, arbiter.explicitUserIntentGeneration.value)
+        assertEquals(accepted, arbiter.captureExplicitUserIntentGeneration())
+    }
+
+    @Test
     fun `doq save lease rejects vpn dispatch until mutation finishes`() {
         val arbiter = ServiceIntentArbiter()
         val lease = checkNotNull(arbiter.tryReserveDoqSave { true })

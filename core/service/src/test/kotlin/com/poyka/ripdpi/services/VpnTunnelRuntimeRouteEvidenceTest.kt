@@ -38,6 +38,7 @@ class VpnTunnelRuntimeRouteEvidenceTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = VpnTunnelRuntimeTest.localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             val receipt = routeReceiptStore.lifecycleReceipt
@@ -116,6 +117,7 @@ class VpnTunnelRuntimeRouteEvidenceTest {
 
     private suspend fun VpnTunnelRuntime.startTunnel() {
         start(
+            configurationInput = captureConfigurationInput(),
             activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
             overrideReason = null,
             logContext = null,

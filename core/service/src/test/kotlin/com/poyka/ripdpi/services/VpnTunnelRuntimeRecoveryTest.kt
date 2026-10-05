@@ -32,6 +32,7 @@ class VpnTunnelRuntimeRecoveryTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(1, tunnelReadyCount)
@@ -63,6 +64,7 @@ class VpnTunnelRuntimeRecoveryTest {
                         overrideReason = null,
                         logContext = null,
                         localProxyEndpoint = localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }
 
@@ -101,6 +103,7 @@ class VpnTunnelRuntimeRecoveryTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val originalReceipt = receiptStore.snapshot()
             sessionProvider.establishFailure = IllegalStateException("replacement establish failed")
@@ -112,6 +115,7 @@ class VpnTunnelRuntimeRecoveryTest {
                         overrideReason = null,
                         logContext = null,
                         localProxyEndpoint = localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }.exceptionOrNull()
 
@@ -147,6 +151,7 @@ class VpnTunnelRuntimeRecoveryTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val replacementSession = TestVpnTunnelSession(tunFd = 8, events = events)
             sessionProvider.session = replacementSession
@@ -159,6 +164,7 @@ class VpnTunnelRuntimeRecoveryTest {
                         overrideReason = null,
                         logContext = null,
                         localProxyEndpoint = localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }.exceptionOrNull()
 
@@ -200,21 +206,39 @@ class VpnTunnelRuntimeRecoveryTest {
                     vpnTunnelSessionProvider = sessionProvider,
                 )
             val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
-            runtime.start(activeDns, null, null, localProxyEndpoint)
+            runtime.start(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
 
             val failedReplacement = TestVpnTunnelSession(tunFd = 8, events = events)
             sessionProvider.session = failedReplacement
             bridge.startFailure = IllegalStateException("replacement bridge failed")
             assertTrue(
                 runCatching {
-                    runtime.rebuild(activeDns, null, null, localProxyEndpoint)
+                    runtime.rebuild(
+                        activeDns,
+                        null,
+                        null,
+                        localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
+                    )
                 }.isFailure,
             )
 
             val recoveredReplacement = TestVpnTunnelSession(tunFd = 9, events = events)
             sessionProvider.session = recoveredReplacement
             bridge.startFailure = null
-            runtime.rebuild(activeDns, null, null, localProxyEndpoint)
+            runtime.rebuild(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
 
             assertTrue(originalSession.closed)
             assertTrue(failedReplacement.closed)
@@ -243,12 +267,28 @@ class VpnTunnelRuntimeRecoveryTest {
                     routeLifecycleReceiptStore = receiptStore,
                 )
             val activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings()
-            runtime.start(activeDns, null, null, localProxyEndpoint)
+            runtime.start(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             val replacementSession = TestVpnTunnelSession(tunFd = 8, events = events)
             sessionProvider.session = replacementSession
             originalSession.beforeClose = { throw java.io.IOException("old descriptor close failed") }
 
-            assertTrue(runCatching { runtime.rebuild(activeDns, null, null, localProxyEndpoint) }.isFailure)
+            assertTrue(
+                runCatching {
+                    runtime.rebuild(
+                        activeDns,
+                        null,
+                        null,
+                        localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
+                    )
+                }.isFailure,
+            )
             assertTrue(runtime.isRunning)
             assertFalse(originalSession.closed)
             assertFalse(replacementSession.closed)
@@ -256,13 +296,29 @@ class VpnTunnelRuntimeRecoveryTest {
 
             val recoveredSession = TestVpnTunnelSession(tunFd = 9, events = events)
             sessionProvider.session = recoveredSession
-            assertTrue(runCatching { runtime.rebuild(activeDns, null, null, localProxyEndpoint) }.isFailure)
+            assertTrue(
+                runCatching {
+                    runtime.rebuild(
+                        activeDns,
+                        null,
+                        null,
+                        localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
+                    )
+                }.isFailure,
+            )
             assertEquals(2, events.count { it == "vpn:establish" })
             assertFalse(originalSession.closed)
             assertFalse(recoveredSession.closed)
 
             originalSession.beforeClose = null
-            runtime.rebuild(activeDns, null, null, localProxyEndpoint)
+            runtime.rebuild(
+                activeDns,
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
 
             assertTrue(originalSession.closed)
             assertTrue(replacementSession.closed)
@@ -290,7 +346,13 @@ class VpnTunnelRuntimeRecoveryTest {
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(events = events, session = session),
                 )
-            runtime.start(AppSettingsSerializer.defaultValue.activeDnsSettings(), null, null, localProxyEndpoint)
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
 
             assertTrue(runtime.retainFailClosedBarrier())
 
@@ -324,6 +386,7 @@ class VpnTunnelRuntimeRecoveryTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val replacementSession = TestVpnTunnelSession(tunFd = 8, events = events)
             sessionProvider.session = replacementSession
@@ -336,6 +399,7 @@ class VpnTunnelRuntimeRecoveryTest {
                         overrideReason = null,
                         logContext = null,
                         localProxyEndpoint = localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }.exceptionOrNull()
 

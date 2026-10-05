@@ -144,7 +144,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                             },
                             applyActiveConnectionPolicy = runtimeHooks.startHooks.applyActiveConnectionPolicy,
                             startResolvedRuntime = runtimeHooks.startHooks.startResolvedRuntime,
-                            publishRuntimeStartEvidence = runtimeHooks.startHooks.publishRuntimeStartEvidence,
+                            evidencePublication = runtimeHooks.startHooks.evidencePublication,
                             startModeTelemetryUpdates = runtimeHooks.startHooks.startModeTelemetryUpdates,
                         ),
                     stopHooks = runtimeHooks.stopHooks,

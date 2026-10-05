@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">Configuração da conexão</string>
+    <string name="runtime_config_applied">Configuração confirmada</string>
+    <string name="runtime_config_applying">Aplicando configuração</string>
+    <string name="runtime_config_pending">Alterações salvas pendentes</string>
+    <string name="runtime_config_unknown">Configuração não confirmada</string>
+    <string name="runtime_config_failed">Não foi possível aplicar a configuração</string>
+    <string name="runtime_config_last_confirmed">Última configuração confirmada</string>
+    <string name="runtime_config_pending_body">As alterações salvas se aplicam na próxima conexão. Reconectar interrompe o tráfego atual.</string>
+    <string name="runtime_config_confirm_title">Aplicar a configuração salva?</string>
+    <string name="runtime_config_confirm_body">A conexão atual será encerrada. O RIPDPI iniciará com as configurações salvas atuais. Cancelar mantém as configurações e a conexão atual.</string>
+    <string name="runtime_config_permission">Conceda permissão de VPN antes de reconectar. A conexão atual foi mantida.</string>
+    <string name="runtime_config_lockdown">O bloqueio do Android impede esta reconexão. Altere primeiro as configurações do sistema.</string>
+    <string name="runtime_config_lockdown_unknown">O estado do bloqueio do Android não está disponível. A VPN atual foi mantida.</string>
+    <string name="runtime_config_stop_timeout">O encerramento da conexão não foi confirmado. Nenhuma nova conexão foi iniciada.</string>
+    <string name="runtime_config_start_failed">A nova configuração não confirmou que está pronta. Verifique o erro da conexão e tente novamente.</string>
+    <string name="runtime_config_superseded">Um novo comando de início ou parada substituiu esta reconexão.</string>
+    <string name="runtime_config_cancelled">Reconexão cancelada. As configurações salvas foram mantidas.</string>
+</resources>

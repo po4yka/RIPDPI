@@ -308,6 +308,8 @@ class MainActivityContentTest {
             appSettingsRepository = appSettingsRepository,
             mainServiceDependencies =
                 MainServiceDependencies(
+                    appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
+                    reconnectCoordinator = FakeRunningServiceReconnect(),
                     serviceStateStore = FakeServiceStateStore(),
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),

@@ -11,7 +11,6 @@ import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
 import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
-import com.poyka.ripdpi.services.AutolearnActivationReceiptPublisher
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
@@ -127,7 +126,7 @@ internal object ProxyServiceSessionModule {
         policyHandoverEventStore: PolicyHandoverEventStore,
         permissionWatchdog: PermissionWatchdog,
         supervisors: ProxyRuntimeSupervisorBundle,
-        autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
+        receipts: com.poyka.ripdpi.services.RuntimeStartReceiptPublishers,
         statusReporter: ServiceStatusReporter,
         screenStateObserver: ScreenStateObserver,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
@@ -143,8 +142,9 @@ internal object ProxyServiceSessionModule {
             policyHandoverEventStore = policyHandoverEventStore,
             permissionWatchdog = permissionWatchdog,
             supervisors = supervisors,
-            autolearnActivationReceiptPublisher = autolearnActivationReceiptPublisher,
+            autolearnActivationReceiptPublisher = receipts.autolearn,
             statusReporter = statusReporter,
+            configurationLifecycle = receipts.configurations,
             screenStateObserver = screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
             rootHelperManager = rootHelperManager,

@@ -105,6 +105,8 @@ class HomeRouteTest {
 
 private fun homeRouteServiceDependencies(): MainServiceDependencies =
     MainServiceDependencies(
+        appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
+        reconnectCoordinator = FakeRunningServiceReconnect(),
         serviceStateStore = FakeServiceStateStore(),
         serviceController = FakeServiceController(),
         trafficStatsReader = FakeTrafficStatsReader(),

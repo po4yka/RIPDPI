@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">连接配置</string>
+    <string name="runtime_config_applied">已确认的配置</string>
+    <string name="runtime_config_applying">正在应用配置</string>
+    <string name="runtime_config_pending">已保存的更改尚未应用</string>
+    <string name="runtime_config_unknown">配置尚未确认</string>
+    <string name="runtime_config_failed">无法应用配置</string>
+    <string name="runtime_config_last_confirmed">上次确认的配置</string>
+    <string name="runtime_config_pending_body">保存的更改将在下次连接时应用。重新连接会中断当前流量。</string>
+    <string name="runtime_config_confirm_title">应用已保存的配置？</string>
+    <string name="runtime_config_confirm_body">当前连接将停止。RIPDPI 将使用当前保存的设置启动。取消会保留设置和当前连接。</string>
+    <string name="runtime_config_permission">重新连接前请授予 VPN 权限。当前连接已保留。</string>
+    <string name="runtime_config_lockdown">Android 锁定阻止了重新连接。请先更改其系统设置。</string>
+    <string name="runtime_config_lockdown_unknown">无法获取 Android 锁定状态。当前 VPN 已保留。</string>
+    <string name="runtime_config_stop_timeout">连接停止尚未确认。未启动替代连接。</string>
+    <string name="runtime_config_start_failed">新配置的就绪状态尚未确认。请检查连接错误后重试。</string>
+    <string name="runtime_config_superseded">新的启动或停止指令已替代本次重新连接。</string>
+    <string name="runtime_config_cancelled">重新连接已取消。已保留保存的设置。</string>
+</resources>

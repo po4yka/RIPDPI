@@ -38,9 +38,9 @@ internal class ConfigRelayProfileSelector(
                         draft = draft,
                         appSettingsRepository = dependencies.appSettingsRepository,
                         serviceStateStore = dependencies.serviceStateStore,
-                        serviceController = dependencies.serviceController,
-                        startRuntimeMode = { mode ->
-                            startConfigRuntimeMode(mode, dependencies.serviceController, stringResolver, effects)
+                        reconnectCoordinator = dependencies.reconnectCoordinator,
+                        onReconnectFailure = { result ->
+                            effects.tryEmit(ConfigEffect.Message(result.reason.message(stringResolver)))
                         },
                         onUnsupportedVpnDns = {
                             effects.tryEmit(

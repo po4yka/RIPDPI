@@ -14,6 +14,8 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
+import com.poyka.ripdpi.services.RunningReconnectRequest
+import com.poyka.ripdpi.services.RunningReconnectState
 import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.collections.immutable.ImmutableList
 import kotlin.time.Duration
@@ -74,6 +76,7 @@ data class MainUiState(
     val hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     val approachSummary: HomeApproachSummaryUiState? = null,
     val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    val appliedConfiguration: HomeAppliedConfigurationUiState = HomeAppliedConfigurationUiState(),
     val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
     val connectionQuality: ConnectionQualitySnapshot? = null,
@@ -152,6 +155,9 @@ internal data class MainUiInputs(
     val hostPackCatalog: HostPackCatalogUiState,
     val strategyPackRuntimeState: StrategyPackRuntimeState,
     val pathValidation: NetworkPathValidationEvidence?,
+    val applications: Map<Mode, com.poyka.ripdpi.data.RuntimeConfigurationApplication> = emptyMap(),
+    val pendingConfigurations: Map<Mode, com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus> = emptyMap(),
+    val reconnectState: RunningReconnectState = RunningReconnectState.Idle,
 )
 
 internal data class MainUiInputsBase(
@@ -189,3 +195,15 @@ internal fun resolveStartupDestination(settings: AppSettings): Route =
         settings.biometricEnabled -> Route.BiometricPrompt
         else -> Route.Home
     }
+
+@Immutable
+data class HomeAppliedConfigurationUiState(
+    val visible: Boolean = false,
+    val status: String = "",
+    val confirmedSummary: String? = null,
+    val previous: Boolean = false,
+    val pending: Boolean = false,
+    val reconnecting: Boolean = false,
+    val message: String? = null,
+    val confirmation: RunningReconnectRequest.ConfirmedRuntime? = null,
+)

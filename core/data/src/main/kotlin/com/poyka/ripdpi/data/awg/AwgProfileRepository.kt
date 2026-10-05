@@ -174,6 +174,8 @@ private class DirectAwgProfileMutationCoordinator(
     private val dao: AwgProfileDao,
     private val credentials: AwgCredentialStore,
 ) : ProfileMutationCoordinator {
+    override fun warpRuntimeRevision(profileId: String): Long = 0L
+
     override suspend fun recover() = Unit
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
@@ -232,6 +234,16 @@ private class DirectAwgProfileMutationCoordinator(
         activate: Boolean,
         scannerMode: String,
     ) = unsupported()
+
+    override suspend fun upsertWarpForRuntimeProvisioning(
+        profile: com.poyka.ripdpi.data.WarpProfile,
+        credentials: com.poyka.ripdpi.data.WarpCredentials,
+        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+        expectedCredentials: com.poyka.ripdpi.data.WarpCredentials,
+        expectedRevision: Long,
+    ): Boolean = unsupported()
 
     override suspend fun deleteWarp(
         profileId: String,

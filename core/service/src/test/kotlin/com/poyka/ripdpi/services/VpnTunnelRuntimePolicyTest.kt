@@ -48,7 +48,14 @@ class VpnTunnelRuntimePolicyTest {
                     ipv6Enabled = true,
                     mtu = 1420,
                 )
-            runtime.start(settings.activeDnsSettings(), null, null, localProxyEndpoint, profileInterface = profile)
+            runtime.start(
+                settings.activeDnsSettings(),
+                null,
+                null,
+                localProxyEndpoint,
+                profileInterface = profile,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             assertEquals(profile, provider.lastProfileInterface)
             assertEquals(true, provider.lastIpv6)
             assertEquals(1420, provider.lastNetworkParameters?.tunnelMtu)
@@ -103,6 +110,7 @@ class VpnTunnelRuntimePolicyTest {
                         overrideReason = null,
                         logContext = null,
                         localProxyEndpoint = localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }.exceptionOrNull()
 
@@ -142,6 +150,7 @@ class VpnTunnelRuntimePolicyTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(listOf(rule), host.lastPackageRoutingRules)
@@ -155,7 +164,7 @@ class VpnTunnelRuntimePolicyTest {
         }
 
     @Test
-    fun desiredPolicyFlowIgnoresGroupMetadataAndEmitsEffectiveRouteChanges() =
+    fun desiredPolicyFlowPreservesConsumedRulesUntilApplyAndObservesInstalledPackageChanges() =
         runTest {
             val initialRule = packageRule("com.example.a")
             val repository = TestProxyGroupRepository(listOf(proxyGroup(listOf(initialRule))))
@@ -168,9 +177,16 @@ class VpnTunnelRuntimePolicyTest {
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
                 )
+            runtime.start(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             val signatures = mutableListOf<String>()
             backgroundScope.launch {
-                runtime.desiredInterfacePolicySignatures().take(3).toList(signatures)
+                runtime.desiredInterfacePolicySignatures.take(3).toList(signatures)
             }
             runCurrent()
 
@@ -181,14 +197,30 @@ class VpnTunnelRuntimePolicyTest {
             repository.update(proxyGroup(listOf(packageRule("com.example.b")), name = "Renamed only"))
             runCurrent()
 
+            assertEquals(1, signatures.size)
+            assertEquals(listOf(initialRule), host.lastPackageRoutingRules.toList())
+            host.updateInstalledPackages(setOf("com.example.b"))
+            runCurrent()
             assertEquals(2, signatures.size)
             assertTrue(signatures[0] != signatures[1])
-
+            assertEquals(listOf(initialRule), host.lastPackageRoutingRules.toList())
+            runtime.rebuild(
+                AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                null,
+                null,
+                localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
+            )
             host.updateInstalledPackages(setOf("com.example.a"))
+            runCurrent()
+            assertEquals(2, signatures.size)
+            host.updateInstalledPackages(setOf("com.example.b"))
             runCurrent()
 
             assertEquals(3, signatures.size)
             assertTrue(signatures[1] != signatures[2])
+            assertEquals(listOf(packageRule("com.example.b")), host.lastPackageRoutingRules.toList())
+            runtime.stop()
         }
 
     @Test
@@ -220,6 +252,7 @@ class VpnTunnelRuntimePolicyTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertTrue(bridge.snapshot().uidPolicyArmed)

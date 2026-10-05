@@ -138,3 +138,34 @@ private fun mapDnsList(
     mapDnsEnabled: Boolean,
     values: List<String>,
 ): List<String> = if (mapDnsEnabled) values else emptyList()
+
+/** Pure bridge input projection from the immutable settings captured for this TUN generation. */
+internal fun buildConsumedVpnTunConfig(
+    settings: com.poyka.ripdpi.proto.AppSettings,
+    environment: VpnTunnelRuntimeEnvironment,
+    dnsPlan: VpnTunnelDnsPlan,
+    overrideReason: String?,
+    localProxyEndpoint: LocalProxyEndpoint,
+    tunnelMtu: Int,
+    logContext: RipDpiLogContext?,
+    uidPolicy: NativeUidPolicy,
+): Tun2SocksConfig {
+    val rootSocket = environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled }
+    return buildVpnTun2SocksConfig(
+        dnsPlan = dnsPlan,
+        overrideReason = overrideReason,
+        localProxyEndpoint = localProxyEndpoint,
+        ipv6Enabled = settings.ipv6Enable,
+        webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
+        tunnelMtu = tunnelMtu,
+        logContext = logContext,
+        encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
+        strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
+        protectPath = environment.protectPath,
+        rootHelperSocketPath = rootSocket,
+        luaScriptBaseDir = environment.luaScriptBaseDir,
+        luaSocketOwned = settings.strategyChainYaml.isNotBlank() && rootSocket == null,
+        uidPolicy = uidPolicy,
+        geositeDbPath = environment.geositeDbPath,
+    )
+}

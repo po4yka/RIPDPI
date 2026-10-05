@@ -40,7 +40,7 @@ import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class ConnectionPolicyResolution(
+internal data class ConnectionPolicyResolution(
     val settings: AppSettings,
     val proxyPreferences: RipDpiProxyPreferences,
     val activeDns: ActiveDnsSettings,
@@ -56,6 +56,7 @@ data class ConnectionPolicyResolution(
     val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
     val destinationRoutingDigest: String = "",
     val localNetworkDependent: Boolean,
+    val requestedConfiguration: RequestedRuntimeConfiguration,
 )
 
 /**
@@ -65,7 +66,7 @@ data class ConnectionPolicyResolution(
  * `RecoveringConnectionPolicyResolver` around `DefaultConnectionPolicyResolver`. See this module's `README.md`,
  * "Policy memory".
  */
-interface ConnectionPolicyResolver {
+internal interface ConnectionPolicyResolver {
     suspend fun resolve(
         mode: Mode,
         resolverOverride: TemporaryResolverOverride? = null,
@@ -75,7 +76,7 @@ interface ConnectionPolicyResolver {
 }
 
 @Singleton
-class DefaultConnectionPolicyResolver
+internal class DefaultConnectionPolicyResolver
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
@@ -91,6 +92,7 @@ class DefaultConnectionPolicyResolver
         private val awgEgressSelectionProvider: AwgEgressSelectionProvider,
         private val destinationRoutingPolicySource: DestinationRoutingPolicySource,
         private val proxySessionSecretResolver: ProxySessionSecretResolver,
+        private val runtimeConfigurationCapture: RequestedRuntimeConfigurationCapture,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
@@ -142,9 +144,9 @@ class DefaultConnectionPolicyResolver
             fingerprint: NetworkFingerprint?,
         ): BaselineConnectionPolicy {
             val selectedAwgEgress = if (mode == Mode.VPN) selectedAwgEgress() else null
-            val settings = appSettingsRepository.snapshot().forAwg(selectedAwgEgress)
-            rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
-            rootHelperManager.syncNfqws(context, settings)
+            val captured = captureRequestedStartSettings(mode, selectedAwgEgress)
+            val settings = captured.settings
+            val requestedConfiguration = captured.requested
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val destinationRoutingSnapshot = destinationRoutingPolicySource.snapshot()
@@ -195,6 +197,7 @@ class DefaultConnectionPolicyResolver
                 )
             return BaselineConnectionPolicy(
                 settings = settings,
+                requestedConfiguration = requestedConfiguration,
                 dnsResolution = dnsResolution,
                 networkScopeKey = networkScopeKey,
                 directPathCapabilities = directPathCapabilities,
@@ -217,6 +220,17 @@ class DefaultConnectionPolicyResolver
                 destinationRoutingSnapshot = destinationRoutingSnapshot,
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
             )
+        }
+
+        private suspend fun captureRequestedStartSettings(
+            mode: Mode,
+            selectedAwgEgress: AwgActivationRequest?,
+        ): CapturedRuntimeStartSettings {
+            val savedSettings = appSettingsRepository.snapshot()
+            val requestedConfiguration = runtimeConfigurationCapture.capture(mode, savedSettings, selectedAwgEgress)
+            val settings = savedSettings.forAwg(selectedAwgEgress)
+            rootHelperManager.prepareConnectionRuntime(context, settings)
+            return CapturedRuntimeStartSettings(settings, requestedConfiguration)
         }
 
         private fun VpnDnsSelection.forAwg(request: AwgActivationRequest?): VpnDnsSelection =
@@ -331,6 +345,7 @@ class DefaultConnectionPolicyResolver
                     )
                 ConnectionPolicyResolution(
                     settings = baseline.settings,
+                    requestedConfiguration = baseline.requestedConfiguration,
                     proxyPreferences = proxyPreferences,
                     activeDns = effectiveDns,
                     vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
@@ -440,6 +455,7 @@ class DefaultConnectionPolicyResolver
         ): ConnectionPolicyResolution =
             ConnectionPolicyResolution(
                 settings = baseline.settings,
+                requestedConfiguration = baseline.requestedConfiguration,
                 proxyPreferences = baseline.baselinePreferences,
                 activeDns = baseline.baselineVpnDnsSelection.activeDns,
                 vpnDnsOverride = null,
@@ -458,6 +474,7 @@ class DefaultConnectionPolicyResolver
 
         private data class BaselineConnectionPolicy(
             val settings: AppSettings,
+            val requestedConfiguration: RequestedRuntimeConfiguration,
             val dnsResolution: EffectiveDnsResolution,
             val networkScopeKey: String?,
             val directPathCapabilities: List<RipDpiDirectPathCapability>,
@@ -495,7 +512,7 @@ private fun NetworkFingerprint?.validatedDnsServers(): List<String> =
 
 /** Waits for durable profile mutations before any settings-backed policy snapshot. */
 @Singleton
-class RecoveringConnectionPolicyResolver
+internal class RecoveringConnectionPolicyResolver
     private constructor(
         private val resolvePolicy:
             suspend (Mode, TemporaryResolverOverride?, NetworkFingerprint?, String?) -> ConnectionPolicyResolution,
@@ -525,7 +542,7 @@ class RecoveringConnectionPolicyResolver
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class ConnectionPolicyResolverModule {
+internal abstract class ConnectionPolicyResolverModule {
     @Binds
     @Singleton
     abstract fun bindConnectionPolicyResolver(resolver: RecoveringConnectionPolicyResolver): ConnectionPolicyResolver
@@ -533,3 +550,18 @@ abstract class ConnectionPolicyResolverModule {
 
 private fun AppSettings.forAwg(request: AwgActivationRequest?): AppSettings =
     if (request != null && enableCmdSettings) toBuilder().setEnableCmdSettings(false).build() else this
+
+private suspend fun RootHelperManager.prepareConnectionRuntime(
+    context: Context,
+    settings: AppSettings,
+) {
+    syncRootMode(context, settings.toSettingsSections().root)
+    syncNfqws(context, settings)
+}
+
+private class CapturedRuntimeStartSettings(
+    val settings: AppSettings,
+    val requested: RequestedRuntimeConfiguration,
+) {
+    override fun toString(): String = "CapturedRuntimeStartSettings([REDACTED])"
+}

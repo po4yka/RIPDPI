@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyFailure
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
@@ -24,6 +25,7 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxySupervisorExitHandler
 import com.poyka.ripdpi.services.ProxyTelemetryCoordinator
 import com.poyka.ripdpi.services.RootHelperManager
+import com.poyka.ripdpi.services.RuntimeConfigurationLifecycle
 import com.poyka.ripdpi.services.RuntimeStartEvidence
 import com.poyka.ripdpi.services.RuntimeStopGuard
 import com.poyka.ripdpi.services.ScreenStateObserver
@@ -43,7 +45,10 @@ import com.poyka.ripdpi.services.TelemetryJobReplacer
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.buildLogContext
+import com.poyka.ripdpi.services.completion
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
+import com.poyka.ripdpi.services.starting
+import com.poyka.ripdpi.services.toRuntimeStartEvidence
 import com.poyka.ripdpi.services.withLogContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -78,6 +83,7 @@ internal class ProxyServiceRuntimeCoordinator(
     supervisors: ProxyRuntimeSupervisorBundle,
     private val autolearnActivationReceiptPublisher: AutolearnActivationReceiptPublisher,
     private val statusReporter: ServiceStatusReporter,
+    private val configurationLifecycle: RuntimeConfigurationLifecycle,
     private val screenStateObserver: ScreenStateObserver,
     private val directPathPolicyTelemetryConsumer:
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
@@ -148,7 +154,11 @@ internal class ProxyServiceRuntimeCoordinator(
                     resolveInitialConnectionPolicy = { connectionPolicyResolver.resolve(mode = Mode.Proxy) },
                     applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
                     startResolvedRuntime = ::startResolvedRuntime,
-                    publishRuntimeStartEvidence = ::publishRuntimeStartEvidence,
+                    evidencePublication =
+                        com.poyka.ripdpi.services.RuntimeStartEvidencePublication(
+                            publish = ::publishRuntimeStartEvidence,
+                            complete = configurationLifecycle.completion(clock),
+                        ),
                     startModeTelemetryUpdates = ::startModeTelemetryUpdates,
                 ),
             stopHooks =
@@ -190,6 +200,7 @@ internal class ProxyServiceRuntimeCoordinator(
         restartReason: String,
         appliedAt: Long,
     ) {
+        configurationLifecycle.begin(session, resolution, restartReason)
         session.localNetworkDependent = resolution.localNetworkDependent
         session.currentDestinationRoutingDigest = resolution.destinationRoutingDigest
         val policy =
@@ -216,20 +227,22 @@ internal class ProxyServiceRuntimeCoordinator(
     private suspend fun startResolvedRuntime(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ): RuntimeStartEvidence {
-        val startResult =
-            proxyRuntimeStack.start(
-                proxyPreferences =
-                    resolution.proxyPreferences.withLogContext(
-                        session.buildLogContext(session.currentActiveConnectionPolicy),
-                    ),
-                onRelayExit = supervisorExitHandler::handleRelayExit,
-                onWarpExit = supervisorExitHandler::handleWarpExit,
-                onAwgExit = supervisorExitHandler::handleAwgExit,
-                onProxyExit = supervisorExitHandler::handleProxyExit,
-            )
-        return RuntimeStartEvidence.ProxySnapshot(startResult.readySnapshot)
-    }
+    ): RuntimeStartEvidence =
+        configurationLifecycle.starting(session) {
+            val startResult =
+                proxyRuntimeStack.start(
+                    requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                    proxyPreferences =
+                        resolution.proxyPreferences.withLogContext(
+                            session.buildLogContext(session.currentActiveConnectionPolicy),
+                        ),
+                    onRelayExit = supervisorExitHandler::handleRelayExit,
+                    onWarpExit = supervisorExitHandler::handleWarpExit,
+                    onAwgExit = supervisorExitHandler::handleAwgExit,
+                    onProxyExit = supervisorExitHandler::handleProxyExit,
+                )
+            startResult.toRuntimeStartEvidence()
+        }
 
     private suspend fun publishRuntimeStartEvidence(
         session: ProxyRuntimeSession,
@@ -276,15 +289,16 @@ internal class ProxyServiceRuntimeCoordinator(
         appliedAt: Long,
         restartReason: String,
     ) {
-        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,
             restartReason = restartReason,
             appliedAt = appliedAt,
         )
+        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         val startResult =
             proxyRuntimeStack.start(
+                requestedWarpReference = resolution.requestedConfiguration.warpReference,
                 proxyPreferences =
                     resolution.proxyPreferences.withLogContext(
                         session.buildLogContext(session.currentActiveConnectionPolicy),
@@ -297,8 +311,9 @@ internal class ProxyServiceRuntimeCoordinator(
         publishRuntimeStartEvidence(
             session = session,
             resolution = resolution,
-            evidence = RuntimeStartEvidence.ProxySnapshot(startResult.readySnapshot),
+            evidence = startResult.toRuntimeStartEvidence(),
         )
+        runtimeHooks.startHooks.evidencePublication.complete(session, resolution, startResult.toRuntimeStartEvidence())
     }
 
     private suspend fun refreshDestinationRoutingPolicy() {
@@ -350,6 +365,7 @@ internal class ProxyServiceRuntimeCoordinator(
             )
             val evidence = startResolvedRuntime(session, resolution)
             publishRuntimeStartEvidence(session, resolution, evidence)
+            runtimeHooks.startHooks.evidencePublication.complete(session, resolution, evidence)
         } catch (cancelled: CancellationException) {
             stopRuntimeBestEffort()
             throw cancelled
@@ -407,6 +423,12 @@ internal class ProxyServiceRuntimeCoordinator(
         failureReason: FailureReason?,
     ) {
         Logger.d { "Proxy status: $status -> $newStatus" }
+        if (newStatus ==
+            ServiceStatus.Failed
+        ) {
+            configurationLifecycle.failed(runtimeSession, RuntimeConfigurationApplyFailure.RuntimeRejected)
+        }
+        if (newStatus == ServiceStatus.Disconnected) configurationLifecycle.stopped(runtimeSession)
         status = newStatus
         statusReporter.reportStatus(
             newStatus = newStatus,

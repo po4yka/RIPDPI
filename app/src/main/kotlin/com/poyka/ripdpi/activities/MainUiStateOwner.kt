@@ -72,6 +72,12 @@ internal class MainUiStateOwner(
                 strategyPackRuntimeState = strategyPackRuntimeState,
                 pathValidation = base.pathValidation,
             )
+        }.combine(serviceDependencies.appliedConfigurationSource.applications) { inputs, applications ->
+            inputs.copy(applications = applications)
+        }.combine(serviceDependencies.appliedConfigurationSource.pendingChanges) { inputs, pending ->
+            inputs.copy(pendingConfigurations = pending)
+        }.combine(serviceDependencies.reconnectCoordinator.reconnectState) { inputs, reconnect ->
+            inputs.copy(reconnectState = reconnect)
         }.map { inputs ->
             val settings = inputs.settings
             val (status, activeMode) = inputs.statusAndMode

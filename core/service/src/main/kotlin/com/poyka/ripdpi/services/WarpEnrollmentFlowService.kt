@@ -27,6 +27,14 @@ interface WarpEnrollmentFlowService {
     ): WarpEnrollmentSnapshot
 
     suspend fun refreshActiveProfile(networkScopeKey: String? = null): WarpEnrollmentSnapshot
+
+    /** Frozen-profile runtime provisioning; concurrent user mutations must reject its commit. */
+    suspend fun refreshProfileForRuntime(
+        profileId: String,
+        expectedCredentials: WarpCredentials,
+        expectedRevision: Long,
+        networkScopeKey: String?,
+    ): WarpEnrollmentSnapshot
 }
 
 @Singleton
@@ -90,6 +98,7 @@ class DefaultWarpEnrollmentFlowService
                         profileId = normalizedProfileId,
                         networkScopeKey = networkScopeKey.orEmpty(),
                         provisioned = provisioning.endpoint,
+                        origin = WarpEndpointResolutionOrigin.UserMutation,
                     )
                 profileMutations.upsertWarp(
                     profile = profile,
@@ -104,32 +113,44 @@ class DefaultWarpEnrollmentFlowService
 
         override suspend fun refreshActiveProfile(networkScopeKey: String?): WarpEnrollmentSnapshot {
             profileMutations.recover()
-            val activeProfile = requireActiveWarpProfile(appSettingsRepository, profileStore)
+            val profile = requireActiveWarpProfile(appSettingsRepository, profileStore)
+            val credentials = credentialStore.load(profile.id) ?: error("No WARP credentials saved")
+            return refreshCapturedProfile(profile, credentials, networkScopeKey, runtimeRevision = null)
+        }
+
+        override suspend fun refreshProfileForRuntime(
+            profileId: String,
+            expectedCredentials: WarpCredentials,
+            expectedRevision: Long,
+            networkScopeKey: String?,
+        ): WarpEnrollmentSnapshot {
+            val captured =
+                profileMutations.readRecovered {
+                    val profile = profileStore.load(profileId) ?: error("Runtime WARP profile is unavailable")
+                    check(
+                        profileMutations.warpRuntimeRevision(profileId) == expectedRevision &&
+                            credentialStore.load(profileId) == expectedCredentials,
+                    ) { "Runtime WARP credentials changed before provisioning" }
+                    Triple(profile, expectedCredentials, profileMutations.warpRuntimeRevision(profileId))
+                }
+            return refreshCapturedProfile(
+                captured.first,
+                captured.second,
+                networkScopeKey,
+                runtimeRevision = captured.third,
+            )
+        }
+
+        private suspend fun refreshCapturedProfile(
+            activeProfile: WarpProfile,
+            credentials: WarpCredentials,
+            networkScopeKey: String?,
+            runtimeRevision: Long?,
+        ): WarpEnrollmentSnapshot {
             check(activeProfile.accountKind != WarpAccountKindZeroTrust) {
                 "Zero Trust profiles require reenrollment instead of consumer refresh"
             }
-            val credentials =
-                credentialStore.load(activeProfile.id)
-                    ?: error("No WARP credentials saved for profile ${activeProfile.id}")
-            val provisioning =
-                try {
-                    bootstrapProxyRunner.withBootstrapProxy {
-                        provisioningClient.refresh(credentials, bootstrapProxy = it?.asOkHttpProxy())
-                    }
-                } catch (error: WarpProvisioningException.AuthFailure) {
-                    profileActivationService.markProfileNeedsAttention(activeProfile)
-                    throw error
-                } catch (error: WarpProvisioningException.MalformedResponse) {
-                    profileActivationService.markProfileNeedsAttention(activeProfile)
-                    throw error
-                } catch (error: IOException) {
-                    if (error.message.orEmpty().contains("HTTP 401") ||
-                        error.message.orEmpty().contains("HTTP 403")
-                    ) {
-                        profileActivationService.markProfileNeedsAttention(activeProfile)
-                    }
-                    throw error
-                }
+            val provisioning = refreshConsumerProvisioning(activeProfile, credentials, runtimeRevision)
             val refreshedCredentials =
                 provisioning.credentials.copy(
                     profileId = activeProfile.id,
@@ -148,38 +169,112 @@ class DefaultWarpEnrollmentFlowService
                     lastProvisionedAtEpochMillis = System.currentTimeMillis(),
                 )
             return persistEnrollment {
-                profileMutations.upsertWarp(
-                    profile = refreshedProfile,
-                    credentials = refreshedCredentials,
-                    endpoints = endpointStore.loadAll(activeProfile.id),
-                    activate = false,
-                    scannerMode = WarpScannerModeAutomatic,
-                )
-                val endpoint =
-                    saveWarpEndpoint(
-                        endpointStore = endpointStore,
-                        profileId = activeProfile.id,
-                        networkScopeKey = networkScopeKey,
-                        entry =
-                            endpointScanner.resolveEndpoint(
-                                profileId = activeProfile.id,
-                                networkScopeKey = networkScopeKey.orEmpty(),
-                                provisioned = provisioning.endpoint,
-                            ),
+                if (runtimeRevision == null) {
+                    profileMutations.upsertWarp(
+                        refreshedProfile,
+                        refreshedCredentials,
+                        endpointStore.loadAll(activeProfile.id),
+                        false,
+                        WarpScannerModeAutomatic,
                     )
-                profileMutations.upsertWarp(
-                    profile = refreshedProfile,
-                    credentials = refreshedCredentials,
-                    endpoints = endpointStore.loadAll(activeProfile.id),
-                    activate = true,
-                    scannerMode = WarpScannerModeAutomatic,
-                )
+                }
+                val proposedEndpoint =
+                    endpointScanner.resolveEndpoint(
+                        profileId = activeProfile.id,
+                        networkScopeKey = networkScopeKey.orEmpty(),
+                        provisioned = provisioning.endpoint,
+                        origin =
+                            if (runtimeRevision ==
+                                null
+                            ) {
+                                WarpEndpointResolutionOrigin.UserMutation
+                            } else {
+                                WarpEndpointResolutionOrigin.RuntimeProvisioning
+                            },
+                    )
+                val endpoint = normalizeWarpEndpoint(activeProfile.id, networkScopeKey, proposedEndpoint)
+                if (runtimeRevision == null && endpoint != null) endpointStore.save(endpoint)
+                if (runtimeRevision == null) {
+                    profileMutations.upsertWarp(
+                        refreshedProfile,
+                        refreshedCredentials,
+                        endpointStore.loadAll(activeProfile.id),
+                        true,
+                        WarpScannerModeAutomatic,
+                    )
+                } else {
+                    commitRuntimeProvisioning(
+                        refreshedProfile,
+                        refreshedCredentials,
+                        endpoint,
+                        credentials,
+                        runtimeRevision,
+                    )
+                }
                 WarpEnrollmentSnapshot(
                     profile = refreshedProfile,
                     credentials = refreshedCredentials,
                     endpoint = endpoint,
                 )
             }
+        }
+
+        private suspend fun commitRuntimeProvisioning(
+            profile: WarpProfile,
+            refreshed: WarpCredentials,
+            endpoint: com.poyka.ripdpi.data.WarpEndpointCacheEntry?,
+            before: WarpCredentials,
+            revision: Long,
+        ) {
+            check(
+                profileMutations.upsertWarpForRuntimeProvisioning(
+                    profile,
+                    refreshed,
+                    endpointStore.loadAll(profile.id).filter {
+                        it.networkScopeKey !=
+                            endpoint?.networkScopeKey
+                    } +
+                        listOfNotNull(endpoint),
+                    false,
+                    WarpScannerModeAutomatic,
+                    before,
+                    revision,
+                ),
+            ) { "Runtime WARP provisioning was superseded by a user mutation" }
+        }
+
+        private suspend fun refreshConsumerProvisioning(
+            profile: WarpProfile,
+            credentials: WarpCredentials,
+            runtimeRevision: Long?,
+        ): WarpProvisioningResult =
+            try {
+                bootstrapProxyRunner.withBootstrapProxy {
+                    provisioningClient.refresh(credentials, bootstrapProxy = it?.asOkHttpProxy())
+                }
+            } catch (error: WarpProvisioningException.AuthFailure) {
+                reportRefreshFailure(profile, runtimeRevision, error)
+            } catch (error: WarpProvisioningException.MalformedResponse) {
+                reportRefreshFailure(profile, runtimeRevision, error)
+            } catch (error: IOException) {
+                reportRefreshFailure(profile, runtimeRevision, error)
+            }
+
+        private suspend fun reportRefreshFailure(
+            profile: WarpProfile,
+            runtimeRevision: Long?,
+            error: Exception,
+        ): Nothing {
+            val authenticationFailure =
+                error is WarpProvisioningException.AuthFailure ||
+                    error is WarpProvisioningException.MalformedResponse ||
+                    error.message.orEmpty().let { it.contains("HTTP 401") || it.contains("HTTP 403") }
+            if (runtimeRevision == null &&
+                authenticationFailure
+            ) {
+                profileActivationService.markProfileNeedsAttention(profile)
+            }
+            throw error
         }
 
         private suspend fun <T> persistEnrollment(operation: suspend () -> T): T =

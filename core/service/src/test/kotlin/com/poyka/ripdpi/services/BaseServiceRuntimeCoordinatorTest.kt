@@ -1101,7 +1101,11 @@ private class TestCoordinator(
                     resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
                     applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
                     startResolvedRuntime = ::startResolvedRuntime,
-                    publishRuntimeStartEvidence = ::publishRuntimeStartEvidence,
+                    evidencePublication =
+                        com.poyka.ripdpi.services.RuntimeStartEvidencePublication(
+                            publish = ::publishRuntimeStartEvidence,
+                            complete = { _, _, _ -> },
+                        ),
                     startModeTelemetryUpdates = ::startModeTelemetryUpdates,
                 ),
             stopHooks =
@@ -1171,7 +1175,14 @@ private class TestCoordinator(
         if (failOnStart) {
             error("boom")
         }
-        return RuntimeStartEvidence.ProxySnapshot(readySnapshot)
+        return RuntimeStartEvidence.ProxySnapshot(
+            readySnapshot,
+            effectivePreferences =
+                com.poyka.ripdpi.core
+                    .RipDpiProxyUIPreferences(),
+            consumedUpstreams = emptyList(),
+            requestedWarpPatch = null,
+        )
     }
 
     @Suppress("UnusedParameter")

@@ -69,6 +69,11 @@ class ProxyServiceLocalNetworkRevocationTest {
         val permissionWatchdog = TestPermissionWatchdog()
         val coordinator =
             ProxyServiceRuntimeCoordinator(
+                configurationLifecycle =
+                    RuntimeConfigurationLifecycle(
+                        AppliedRuntimeConfigurationStore(),
+                        RuntimeConfigurationIdentityFactory(),
+                    ),
                 host = TestProxyServiceHost(backgroundScope),
                 connectionPolicyResolver =
                     TestConnectionPolicyResolver(

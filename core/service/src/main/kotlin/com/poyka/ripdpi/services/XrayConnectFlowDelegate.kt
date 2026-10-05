@@ -7,9 +7,8 @@ import com.poyka.ripdpi.core.RipDpiLogContext
  * Thin connect-flow collaborator that keeps the embedded-Xray provider logic out
  * of [VpnRuntimeCompositionCoordinator]. It wraps the
  * [XrayProviderSessionController] and exposes ONE generic method per lifecycle op
- * — each returns whether the Xray provider handled the call. When it returns
- * `false` the coordinator runs its EXISTING native composition BYTE-IDENTICAL;
- * nothing about the native path is affected by this seam.
+ * — starts return positive provider readiness, or null when Native is selected.
+ * Native composition then supplies its own positive proxy and tunnel evidence.
  *
  * The delegate owns the provider-active state, the per-start params derivation,
  * and the provider-failed signalling (via [XrayProviderStartException] /
@@ -59,9 +58,9 @@ internal class XrayConnectFlowDelegate(
         get() = controller.currentLocalProxyEndpoint()
 
     /**
-     * Attempt the Xray start. Returns `true` when the Xray provider is durably
+     * Attempt the Xray start. Returns readiness when the Xray provider is durably
      * selected and started successfully (the coordinator must then skip the
-     * native path). Returns `false` when the provider is not selected (native
+     * native path). Returns null when the provider is not selected (native
      * path runs). Throws [XrayProviderStartException] when the provider IS
      * selected but the start failed — the coordinator must NOT silently fall
      * through to the native composition in that case.
@@ -69,7 +68,7 @@ internal class XrayConnectFlowDelegate(
     suspend fun tryStart(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ): Boolean {
+    ): RuntimeStartEvidence.ProviderReady? {
         controller.ensureStartAvailable()
         val outcome =
             try {
@@ -78,11 +77,11 @@ internal class XrayConnectFlowDelegate(
                 ownsProviderPath = controller.isActive
             }
         active = outcome is HandoffOutcome.Running
-        if (outcome == HandoffOutcome.Stopped) return false
+        if (outcome == HandoffOutcome.Stopped) return null
         if (outcome is HandoffOutcome.Running) {
             ownsProviderPath = true
             publishActiveDnsState(session, resolution)
-            return true
+            return controller.requireReadyConfiguration()
         }
         // Provider start failed (no profile / config rejected / engine/tunnel
         // start failure). Surface it so the coordinator's startup-failure
@@ -109,8 +108,8 @@ internal class XrayConnectFlowDelegate(
     }
 
     /**
-     * Restart the active Xray session after a network handover. Returns `true`
-     * when an Xray session was active (and was restarted); `false` when no Xray
+     * Restart the active Xray session after a network handover. Returns readiness
+     * when an Xray session was active (and was restarted); null when no Xray
      * session was active, leaving the coordinator to run the native handover.
      * Throws [XrayProviderHandoverException] when Xray owned the live session
      * but the handover failed, so the generic handover retry / failure path sees
@@ -122,10 +121,11 @@ internal class XrayConnectFlowDelegate(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
         restartReason: String = "network_handover",
-    ): Boolean {
+    ): RuntimeStartEvidence.ProviderReady? {
         if (!ownsProviderPath) {
-            return false
+            return null
         }
+        applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
         val outcome =
             try {
                 controller.restart(startParams(session, resolution))
@@ -140,9 +140,8 @@ internal class XrayConnectFlowDelegate(
             is HandoffOutcome.Running -> {
                 ownsProviderPath = true
                 resetSessionDnsState(session)
-                applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
                 publishActiveDnsState(session, resolution)
-                true
+                controller.requireReadyConfiguration()
             }
 
             is HandoffOutcome.Failed -> {
@@ -153,7 +152,7 @@ internal class XrayConnectFlowDelegate(
                 // The controller's single durable snapshot explicitly selected Native.
                 // Let composition start that replacement against the retained TUN.
                 ownsProviderPath = false
-                false
+                null
             }
         }
     }
@@ -203,6 +202,7 @@ internal fun defaultXrayStartParams(
     resolution: ConnectionPolicyResolution,
 ): XrayTunnelStartParams =
     XrayTunnelStartParams(
+        configurationInput = resolution.requestedConfiguration.tunnelInput,
         activeDns = resolution.activeDns,
         overrideReason = resolution.resolverFallbackReason,
         logContext =

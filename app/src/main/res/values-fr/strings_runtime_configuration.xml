@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">Configuration de connexion</string>
+    <string name="runtime_config_applied">Configuration confirmée</string>
+    <string name="runtime_config_applying">Application de la configuration</string>
+    <string name="runtime_config_pending">Modifications enregistrées en attente</string>
+    <string name="runtime_config_unknown">Configuration non confirmée</string>
+    <string name="runtime_config_failed">Impossible d’appliquer la configuration</string>
+    <string name="runtime_config_last_confirmed">Dernière configuration confirmée</string>
+    <string name="runtime_config_pending_body">Les modifications enregistrées s’appliquent à la prochaine connexion. La reconnexion interrompt le trafic actuel.</string>
+    <string name="runtime_config_confirm_title">Appliquer la configuration enregistrée ?</string>
+    <string name="runtime_config_confirm_body">La connexion actuelle sera arrêtée. RIPDPI démarrera avec les paramètres actuellement enregistrés. Annuler conserve les paramètres et la connexion actuelle.</string>
+    <string name="runtime_config_permission">Autorisez le VPN avant de reconnecter. La connexion actuelle a été conservée.</string>
+    <string name="runtime_config_lockdown">Le verrouillage Android empêche cette reconnexion. Modifiez d’abord ses paramètres système.</string>
+    <string name="runtime_config_lockdown_unknown">L’état du verrouillage Android est indisponible. Le VPN actuel a été conservé.</string>
+    <string name="runtime_config_stop_timeout">L’arrêt de la connexion n’a pas été confirmé. Aucune nouvelle connexion n’a été lancée.</string>
+    <string name="runtime_config_start_failed">La nouvelle configuration n’a pas confirmé sa disponibilité. Vérifiez l’erreur de connexion puis réessayez.</string>
+    <string name="runtime_config_superseded">Une nouvelle commande de démarrage ou d’arrêt a remplacé cette reconnexion.</string>
+    <string name="runtime_config_cancelled">Reconnexion annulée. Les paramètres enregistrés ont été conservés.</string>
+</resources>

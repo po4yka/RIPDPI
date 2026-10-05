@@ -140,6 +140,11 @@ class AutolearnActivationRecorderTest {
                                     autolearnEnabled = case.effectiveEnabled,
                                     capturedAt = 1_787_231_291_794L + index,
                                 ),
+                                effectivePreferences =
+                                    com.poyka.ripdpi.core
+                                        .RipDpiProxyUIPreferences(),
+                                consumedUpstreams = emptyList(),
+                                requestedWarpPatch = null,
                             ),
                         generation = index + 1L,
                         observedAt = 1_787_231_299_999L,

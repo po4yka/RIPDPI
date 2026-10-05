@@ -12,7 +12,12 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 const val explicitUserIntentGenerationExtra = "explicit_user_intent_generation"
@@ -308,9 +313,23 @@ internal class ServiceShellDelegate(
         }
         val prepareUserStart = shouldPrepareUserStart()
         enqueue(cancellableByUserStop = true, vpnStartGeneration = vpnStartGeneration) {
-            if (guard.isCurrent()) {
-                if (prepareUserStart) beforeUserStart(guard)
-                if (guard.isCurrent()) onStartWithId(action, startId)
+            coroutineScope {
+                val startJob = currentCoroutineContext().job
+                val intentWatcher =
+                    launch(start = CoroutineStart.UNDISPATCHED) {
+                        serviceIntentArbiter.explicitUserIntentGeneration.first { !guard.isCurrent() }
+                        startJob.cancel(CancellationException("$serviceLabel start intent superseded"))
+                    }
+                try {
+                    withContext(ExplicitRuntimeStartAuthority(guard)) {
+                        if (guard.isCurrent()) {
+                            if (prepareUserStart) beforeUserStart(guard)
+                            if (guard.isCurrent()) onStartWithId(action, startId)
+                        }
+                    }
+                } finally {
+                    intentWatcher.cancel()
+                }
             }
         }
     }

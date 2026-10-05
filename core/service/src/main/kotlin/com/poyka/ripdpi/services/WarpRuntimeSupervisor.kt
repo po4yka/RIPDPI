@@ -13,8 +13,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -35,13 +36,22 @@ internal class WarpRuntimeSupervisor(
     val runtime: RipDpiWarpRuntime?
         get() = warpRuntime
 
+    private var consumed: ConsumedUpstreamConfiguration? = null
+    var requestedProvisioningPatch: com.poyka.ripdpi.service.warp.RuntimeWarpProvisioningPatch? = null
+        private set
+
+    fun requireConsumedConfiguration(): ConsumedUpstreamConfiguration = checkNotNull(consumed)
+
     suspend fun start(
         config: RipDpiWarpConfig,
+        requestedReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(warpJob == null) { "WARP fields not null" }
         val runtime = warpFactory.create()
-        val resolvedConfig = runtimeConfigResolver.resolve(config)
+        val resolved = runtimeConfigResolver.resolve(config, requestedReference)
+        val resolvedConfig = resolved.configuration
+        val consumedConfiguration = ConsumedUpstreamConfiguration.warp(resolvedConfig)
         warpRuntime = runtime
         stopRequested = false
         val shouldReportExit = AtomicBoolean(true)
@@ -80,18 +90,13 @@ internal class WarpRuntimeSupervisor(
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
+            consumed = consumedConfiguration
+            requestedProvisioningPatch = resolved.requestedPatch
+        } catch (cancelled: CancellationException) {
+            cleanupFailedReadiness(shouldReportExit)
+            throw cancelled
         } catch (readinessError: Exception) {
-            shouldReportExit.set(false)
-            try {
-                stopRequested = true
-                runCatching { runtime.stop() }
-                job.join()
-            } finally {
-                warpJob = null
-                warpRuntime = null
-                exitReporting = null
-                stopRequested = false
-            }
+            cleanupFailedReadiness(shouldReportExit)
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)
@@ -99,33 +104,38 @@ internal class WarpRuntimeSupervisor(
         }
     }
 
-    suspend fun stop() {
-        val runtime = warpRuntime
-        if (runtime == null) {
-            warpJob = null
-            exitReporting = null
-            stopRequested = false
-            return
-        }
+    private suspend fun cleanupFailedReadiness(shouldReportExit: AtomicBoolean) {
+        shouldReportExit.set(false)
+        withContext(NonCancellable) { stop() }
+    }
 
-        try {
-            stopRequested = true
-            runtime.stop()
-            withTimeoutOrNull(stopTimeoutMillis) {
-                warpJob?.join()
-            }
-        } finally {
+    suspend fun stop() {
+        val runtime = warpRuntime ?: return
+        val job = warpJob
+        stopRequested = true
+        val failure =
+            runCatching {
+                runtime.stop()
+                awaitSupervisorWorkerCompletion(job, stopTimeoutMillis)
+            }.exceptionOrNull()
+        if (job?.isCompleted != true) throw RuntimeCleanupPendingException(failure)
+        if (warpRuntime === runtime) {
             warpJob = null
             warpRuntime = null
+            consumed = null
+            requestedProvisioningPatch = null
             exitReporting = null
             stopRequested = false
         }
+        failure?.let { throw it }
     }
 
     fun detach() {
         exitReporting?.set(false)
         warpJob = null
         warpRuntime = null
+        consumed = null
+        requestedProvisioningPatch = null
         exitReporting = null
         stopRequested = false
     }

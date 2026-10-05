@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">إعداد الاتصال</string>
+    <string name="runtime_config_applied">إعداد مؤكد</string>
+    <string name="runtime_config_applying">جارٍ تطبيق الإعداد</string>
+    <string name="runtime_config_pending">تغييرات محفوظة تنتظر التطبيق</string>
+    <string name="runtime_config_unknown">الإعداد غير مؤكد</string>
+    <string name="runtime_config_failed">تعذر تطبيق الإعداد</string>
+    <string name="runtime_config_last_confirmed">آخر إعداد مؤكد</string>
+    <string name="runtime_config_pending_body">تُطبق التغييرات المحفوظة عند الاتصال التالي. تؤدي إعادة الاتصال إلى انقطاع حركة البيانات الحالية.</string>
+    <string name="runtime_config_confirm_title">تطبيق الإعداد المحفوظ؟</string>
+    <string name="runtime_config_confirm_body">سيتوقف الاتصال الحالي. سيبدأ RIPDPI بالإعدادات المحفوظة الحالية. يحافظ الإلغاء على الإعدادات والاتصال الحالي.</string>
+    <string name="runtime_config_permission">امنح إذن VPN قبل إعادة الاتصال. تم الاحتفاظ بالاتصال الحالي.</string>
+    <string name="runtime_config_lockdown">يمنع قفل Android إعادة الاتصال. غيّر إعداداته في النظام أولاً.</string>
+    <string name="runtime_config_lockdown_unknown">حالة قفل Android غير متاحة. تم الاحتفاظ باتصال VPN الحالي.</string>
+    <string name="runtime_config_stop_timeout">لم يتم تأكيد توقف الاتصال. لم يبدأ اتصال بديل.</string>
+    <string name="runtime_config_start_failed">لم يتم تأكيد جاهزية الإعداد الجديد. تحقق من خطأ الاتصال وأعد المحاولة.</string>
+    <string name="runtime_config_superseded">حل أمر بدء أو إيقاف أحدث محل إعادة الاتصال هذه.</string>
+    <string name="runtime_config_cancelled">أُلغيت إعادة الاتصال. تم الاحتفاظ بالإعدادات المحفوظة.</string>
+</resources>

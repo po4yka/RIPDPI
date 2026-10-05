@@ -113,13 +113,14 @@ internal suspend fun probeCachedWarpEntry(
     networkScopeKey: String,
     entry: WarpEndpointCacheEntry,
     timeoutMillis: Int,
+    persist: Boolean,
 ): WarpEndpointCacheEntry? {
     val probed =
         endpointProbe.probe(
             candidate = entry.copy(profileId = profileId, networkScopeKey = networkScopeKey),
             timeoutMillis = timeoutMillis,
         )
-    if (probed == null) {
+    if (probed == null && persist) {
         endpointStore.clear(profileId, networkScopeKey)
     }
     return probed
@@ -217,10 +218,13 @@ internal suspend fun persistWarpBestCandidate(
     profileId: String,
     networkScopeKey: String,
     candidate: WarpEndpointCacheEntry,
+    persist: Boolean,
 ): WarpEndpointCacheEntry {
     val scoped = candidate.copy(profileId = profileId, networkScopeKey = networkScopeKey)
-    endpointStore.save(scoped)
-    endpointStore.save(scoped.copy(networkScopeKey = GlobalWarpEndpointScopeKey))
+    if (persist) {
+        endpointStore.save(scoped)
+        endpointStore.save(scoped.copy(networkScopeKey = GlobalWarpEndpointScopeKey))
+    }
     return scoped
 }
 
@@ -252,15 +256,20 @@ internal suspend fun saveWarpEndpoint(
     networkScopeKey: String?,
     entry: WarpEndpointCacheEntry?,
 ): WarpEndpointCacheEntry? {
-    val normalizedScope = networkScopeKey?.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
-    val normalizedEntry =
-        entry?.copy(
-            profileId = profileId,
-            networkScopeKey = normalizedScope,
-        ) ?: return null
+    val normalizedEntry = normalizeWarpEndpoint(profileId, networkScopeKey, entry) ?: return null
     endpointStore.save(normalizedEntry)
     return normalizedEntry
 }
+
+internal fun normalizeWarpEndpoint(
+    profileId: String,
+    networkScopeKey: String?,
+    entry: WarpEndpointCacheEntry?,
+): WarpEndpointCacheEntry? =
+    entry?.copy(
+        profileId = profileId,
+        networkScopeKey = networkScopeKey?.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey,
+    )
 
 internal fun normalizeWarpProfileId(
     rawValue: String,

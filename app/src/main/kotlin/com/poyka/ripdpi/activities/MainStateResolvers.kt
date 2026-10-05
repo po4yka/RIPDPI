@@ -133,6 +133,7 @@ internal fun buildMainUiState(
     val qualityRuntime = resolveConnectionQuality(inputs.telemetry)
     return MainUiState(
         settingsLoaded = true,
+        appliedConfiguration = buildAppliedConfigurationUiState(inputs, stringResolver),
         appStatus = status,
         activeMode = activeMode,
         configuredMode = configuredMode,
@@ -179,7 +180,32 @@ private fun buildMainModeCards(
             homeDiagnostics = homeDiagnostics,
             stringResolver = stringResolver,
         ),
-    )
+    ).map { card ->
+        if (!card.isActive || card.mode == HomeMode.Diagnostic) {
+            card
+        } else {
+            val applied = buildAppliedConfigurationUiState(inputs, stringResolver)
+            card.copy(
+                primaryLabel = applied.status,
+                summaryFacets =
+                    listOfNotNull(
+                        applied.confirmedSummary?.let {
+                            HomeModeSummaryFacet(
+                                label =
+                                    stringResolver.getString(
+                                        if (applied.previous) {
+                                            R.string.runtime_config_last_confirmed
+                                        } else {
+                                            R.string.runtime_config_applied
+                                        },
+                                    ),
+                                value = it,
+                            )
+                        },
+                    ).toImmutableList(),
+            )
+        }
+    }.toImmutableList()
 
 private fun MainUiInputs.resolveDataPlaneStatus(): VpnDataPlaneStatus =
     resolveVpnDataPlaneStatus(statusAndMode.first, statusAndMode.second, pathValidation)

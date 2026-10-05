@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
@@ -81,6 +82,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val transportFailoverApplyTracker: TransportFailoverApplyTracker,
         val events: MutableList<String>,
         val autolearnReceipts: List<AutolearnActivationReceipt>,
+        val configurations: AppliedRuntimeConfigurationStore,
     )
 
     @Test
@@ -97,6 +99,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 env.store.status.value,
             )
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertTrue(env.configurations.applications.value[Mode.VPN] is RuntimeConfigurationApplication.Applied)
             assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
             assertEquals(1, env.host.underlyingNetworkSyncs)
             assertEquals("running", env.store.telemetry.value.proxyTelemetry.state)
@@ -786,14 +789,17 @@ class VpnServiceRuntimeCoordinatorTest {
                     .toBuilder()
                     .setDnsMode(DnsModePlainUdp)
                     .setDnsIp("8.8.8.8")
+                    .setWebrtcProtectionEnabled(!AppSettingsSerializer.defaultValue.webrtcProtectionEnabled)
+                    .setStrategyChainYaml("version: 1\nstrategies: []")
                     .build()
-            env.resolver.enqueue(
+            val savedResolution =
                 sampleResolution(
                     mode = Mode.VPN,
                     settings = updatedSettings,
                     activeDns = updatedSettings.activeDnsSettings(),
-                ),
-            )
+                )
+            env.configurations.observeSaved(Mode.VPN, savedResolution.requestedConfiguration.identity)
+            env.resolver.enqueue(savedResolution)
 
             advanceTimeBy(1_000L)
             repeat(3) { runCurrent() }
@@ -804,6 +810,12 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.runtimes.size)
             assertEquals(initialTunnelConfig.socks5Port, refreshedTunnelConfig.socks5Port)
             assertEquals(initialTunnelConfig.password, refreshedTunnelConfig.password)
+            assertEquals(initialTunnelConfig.webrtcProtectionEnabled, refreshedTunnelConfig.webrtcProtectionEnabled)
+            assertEquals(initialTunnelConfig.strategyChainYaml, refreshedTunnelConfig.strategyChainYaml)
+            assertEquals(
+                com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus.SavedChangesPending,
+                env.configurations.pendingChanges.value[Mode.VPN],
+            )
         }
 
     @Test
@@ -836,6 +848,9 @@ class VpnServiceRuntimeCoordinatorTest {
 
             assertEquals(0, env.factory.runtimes.size)
             assertEquals(1, xrayBridge.startCount)
+            val applied = env.configurations.applications.value[Mode.VPN] as RuntimeConfigurationApplication.Applied
+            assertEquals("xray", applied.configuration.effectiveSelection.provider)
+            assertEquals("default", applied.configuration.effectiveSelection.profileId)
             val initialTunnelConfig = requireNotNull(env.bridgeFactory.bridge.startedConfig)
             assertEquals("127.0.0.1", initialTunnelConfig.socks5Address)
             assertEquals(inboundPort, initialTunnelConfig.socks5Port)
@@ -1974,6 +1989,11 @@ class VpnServiceRuntimeCoordinatorTest {
         val appSettingsRepository = TestAppSettingsRepository()
         val tunnelRuntime = buildTestVpnTunnelRuntime(host, appSettingsRepository, events)
         return VpnServiceRuntimeCoordinator(
+            configurationLifecycle =
+                RuntimeConfigurationLifecycle(
+                    AppliedRuntimeConfigurationStore(),
+                    RuntimeConfigurationIdentityFactory(),
+                ),
             vpnHost = host,
             connectionPolicyResolver = resolver,
             resolverOverrideStore = overrides,
@@ -2061,6 +2081,8 @@ class VpnServiceRuntimeCoordinatorTest {
                 renderedConfigProvider = { checkNotNull(renderedConfig[0]) },
             )
         return XrayProviderSessionController(
+            tunnelReady = vpnTunnelRuntime::requireReadyEvidence,
+            configurationIdentities = RuntimeConfigurationIdentityFactory(),
             readSelectedProfile = {
                 val selection = selectionStore.current()
                 XraySelectedProfile(
@@ -2211,7 +2233,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
-    fun connectedAppRoutingPresetChangeImmediatelyRebuildsVpnTunnel() =
+    fun connectedAppRoutingPresetChangeWaitsForExplicitPolicyApply() =
         runTest {
             val initialSettings =
                 AppSettingsSerializer.defaultValue
@@ -2254,6 +2276,11 @@ class VpnServiceRuntimeCoordinatorTest {
             repository.replace(updatedSettings)
             runCurrent()
 
+            assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
+            assertEquals(0, env.bridgeFactory.bridge.stopCount)
+            assertEquals(1, env.events.count { it == "vpn:establish" })
+            assertTrue(requireNotNull(env.runtimeRegistry.current(Mode.VPN)).reloadConnectionPolicy { true })
+            runCurrent()
             assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertEquals(2, env.events.count { it == "vpn:establish" })
@@ -2526,8 +2553,14 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         val xrayProviderSessionController =
             xrayProviderSessionControllerFactory?.invoke(tunnelRuntime, dispatcher)
+        val configurations = AppliedRuntimeConfigurationStore()
         val coordinator =
             VpnServiceRuntimeCoordinator(
+                configurationLifecycle =
+                    RuntimeConfigurationLifecycle(
+                        configurations,
+                        RuntimeConfigurationIdentityFactory(),
+                    ),
                 vpnHost = host,
                 connectionPolicyResolver = resolver,
                 resolverOverrideStore = overrides,
@@ -2621,6 +2654,7 @@ class VpnServiceRuntimeCoordinatorTest {
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             events = events,
             autolearnReceipts = autolearnReceipts,
+            configurations = configurations,
         )
     }
 }

@@ -105,6 +105,8 @@ class RecoveringConnectionPolicyResolverTest {
 private class RecoveryOnlyProfileMutationCoordinator(
     private val recovery: suspend () -> Unit,
 ) : ProfileMutationCoordinator {
+    override fun warpRuntimeRevision(profileId: String): Long = 0L
+
     override suspend fun recover() = recovery()
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T {
@@ -139,6 +141,16 @@ private class RecoveryOnlyProfileMutationCoordinator(
         activate: Boolean,
         scannerMode: String,
     ) = unsupported()
+
+    override suspend fun upsertWarpForRuntimeProvisioning(
+        profile: com.poyka.ripdpi.data.WarpProfile,
+        credentials: com.poyka.ripdpi.data.WarpCredentials,
+        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+        expectedCredentials: com.poyka.ripdpi.data.WarpCredentials,
+        expectedRevision: Long,
+    ): Boolean = unsupported()
 
     override suspend fun deleteWarp(
         profileId: String,

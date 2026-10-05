@@ -4,7 +4,6 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
 import com.poyka.ripdpi.core.RipDpiAmneziaWgRuntime
-import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
 import kotlinx.coroutines.CancellationException
@@ -13,8 +12,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -44,6 +44,10 @@ internal class AmneziaWgRuntimeSupervisor(
     val runtime: RipDpiAmneziaWgRuntime?
         get() = amneziaWgRuntime
 
+    private var consumed: ConsumedUpstreamConfiguration? = null
+
+    fun requireConsumedConfiguration(): ConsumedUpstreamConfiguration = checkNotNull(consumed)
+
     suspend fun start(
         request: AwgActivationRequest,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
@@ -51,6 +55,7 @@ internal class AmneziaWgRuntimeSupervisor(
         check(amneziaWgJob == null) { "AmneziaWG fields not null" }
         val runtime = amneziaWgFactory.create()
         val resolvedConfig = runtimeConfigResolver.resolve(request)
+        val consumedConfiguration = ConsumedUpstreamConfiguration.awg(resolvedConfig)
         amneziaWgRuntime = runtime
         stopRequested = false
         val shouldReportExit = AtomicBoolean(true)
@@ -89,18 +94,12 @@ internal class AmneziaWgRuntimeSupervisor(
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
+            consumed = consumedConfiguration
+        } catch (cancelled: CancellationException) {
+            cleanupFailedReadiness(shouldReportExit)
+            throw cancelled
         } catch (readinessError: Exception) {
-            shouldReportExit.set(false)
-            try {
-                stopRequested = true
-                runCatching { runtime.stop() }
-                job.join()
-            } finally {
-                amneziaWgJob = null
-                amneziaWgRuntime = null
-                exitReporting = null
-                stopRequested = false
-            }
+            cleanupFailedReadiness(shouldReportExit)
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)
@@ -108,49 +107,38 @@ internal class AmneziaWgRuntimeSupervisor(
         }
     }
 
-    suspend fun stop() {
-        val runtime = amneziaWgRuntime
-        if (runtime == null) {
-            amneziaWgJob = null
-            exitReporting = null
-            stopRequested = false
-            return
-        }
+    private suspend fun cleanupFailedReadiness(shouldReportExit: AtomicBoolean) {
+        shouldReportExit.set(false)
+        withContext(NonCancellable) { stop() }
+    }
 
-        try {
-            stopRequested = true
-            runtime.stop()
-            withTimeoutOrNull(stopTimeoutMillis) {
-                amneziaWgJob?.join()
-            }
-        } finally {
+    suspend fun stop() {
+        val runtime = amneziaWgRuntime ?: return
+        val job = amneziaWgJob
+        stopRequested = true
+        val failure =
+            runCatching {
+                runtime.stop()
+                awaitSupervisorWorkerCompletion(job, stopTimeoutMillis)
+            }.exceptionOrNull()
+        if (job?.isCompleted != true) throw RuntimeCleanupPendingException(failure)
+        if (amneziaWgRuntime === runtime) {
             amneziaWgJob = null
             amneziaWgRuntime = null
+            consumed = null
             exitReporting = null
             stopRequested = false
         }
+        failure?.let { throw it }
     }
 
     fun detach() {
         exitReporting?.set(false)
         amneziaWgJob = null
         amneziaWgRuntime = null
+        consumed = null
         exitReporting = null
         stopRequested = false
-    }
-
-    suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
-        val runtime = amneziaWgRuntime ?: return RuntimeTelemetryOutcome.NoData
-        return runCatching { runtime.pollTelemetry() }
-            .fold(
-                onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
-                onFailure = { error ->
-                    RuntimeTelemetryOutcome.EngineError(
-                        message = error.message ?: "AmneziaWG telemetry polling failed",
-                        causeClass = error.javaClass.name,
-                    )
-                },
-            )
     }
 }
 

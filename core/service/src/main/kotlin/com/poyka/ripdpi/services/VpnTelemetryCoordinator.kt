@@ -190,7 +190,7 @@ internal class VpnTelemetryCoordinator(
         RuntimeTelemetrySamplingPolicy.intervalMillis(dependencies.screenStateObserver.isInteractive.value)
 
     private suspend fun observeBuilderAffectingSettings(tunnelRefreshCoordinator: VpnTunnelRefreshCoordinator) {
-        dependencies.vpnTunnelRuntime.desiredInterfacePolicySignatures().collect {
+        dependencies.vpnTunnelRuntime.desiredInterfacePolicySignatures.collect {
             if (state.status() != ServiceStatus.Connected) return@collect
             val session = state.runtimeSession() ?: return@collect
             tunnelRefreshCoordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)

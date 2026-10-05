@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
@@ -21,8 +22,11 @@ import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -35,21 +39,163 @@ import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyServiceRuntimeCoordinatorTest {
-    private data class Env(
-        val coordinator: ProxyServiceRuntimeCoordinator,
-        val store: TestServiceStateStore,
-        val host: TestProxyServiceHost,
-        val factory: TestRipDpiProxyFactory,
-        val relayFactory: TestRipDpiRelayFactory,
-        val warpFactory: TestRipDpiWarpFactory,
-        val awgFactory: NoOpRipDpiAmneziaWgFactory,
-        val events: MutableList<String>,
-        val runtimeRegistry: ServiceRuntimeRegistry,
-        val handoverMonitor: TestNetworkHandoverMonitor,
-        val handoverEvents: TestPolicyHandoverEventStore,
-        val resolver: TestConnectionPolicyResolver,
-        val autolearnReceipts: List<AutolearnActivationReceipt>,
-    )
+    @Test
+    fun `cancelled WARP readiness stops and joins owned runtime without patch or configuration ACK`() =
+        runTest {
+            val readiness = CompletableDeferred<Unit>()
+            val entered = CompletableDeferred<Unit>()
+            val settings =
+                com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setWarpEnabled(true)
+                    .build()
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                settings = settings,
+                                proxyPreferences = RipDpiProxyUIPreferences(warp = RipDpiWarpConfig(enabled = true)),
+                            ),
+                        ),
+                    warpRuntimeFactory = { events ->
+                        TestWarpRuntime(events).apply {
+                            beforeReady =
+                                {
+                                    entered.complete(Unit)
+                                    readiness.await()
+                                }
+                        }
+                    },
+                )
+            val acks = mutableListOf<com.poyka.ripdpi.data.AppliedRuntimeConfiguration>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                env.configurations.applications.collect { applications ->
+                    val it = (applications[Mode.Proxy] as? RuntimeConfigurationApplication.Applied)?.configuration
+                    if (it != null) {
+                        acks += it
+                    }
+                }
+            }
+            val arbiter = ServiceIntentArbiter()
+            val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            val shell =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceIntentArbiter = arbiter,
+                    serviceLabel = "proxy",
+                    onStart = { env.coordinator.start() },
+                    onStop = { _, _ -> env.coordinator.stop() },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            shell.onStartCommand(com.poyka.ripdpi.data.startAction, 1, explicitUserIntentGeneration = generation)
+            runCurrent()
+            assertTrue(entered.isCompleted)
+            assertTrue(arbiter.cancelIfCurrent(generation))
+            runCurrent()
+            readiness.complete(Unit)
+            runCurrent()
+            assertEquals(1, env.warpFactory.lastRuntime.stopCount)
+            assertTrue(acks.isEmpty())
+            assertTrue(env.factory.runtimes.isEmpty())
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `post readiness cancellation during Room publication emits zero configuration ACKs and cleans owned startup`() =
+        runTest {
+            val enteredPublication = CompletableDeferred<Unit>()
+            val finishPublication = CompletableDeferred<Unit>()
+            val env =
+                newEnv(
+                    activationRecorder =
+                        AutolearnActivationRecorder {
+                            enteredPublication.complete(Unit)
+                            finishPublication.await()
+                        },
+                )
+            val acknowledgments = mutableListOf<com.poyka.ripdpi.data.AppliedRuntimeConfiguration>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                env.configurations.applications.collect { applications ->
+                    val it = (applications[Mode.Proxy] as? RuntimeConfigurationApplication.Applied)?.configuration
+                    if (it != null) {
+                        acknowledgments += it
+                    }
+                }
+            }
+            val arbiter = ServiceIntentArbiter()
+            val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            val shell =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceIntentArbiter = arbiter,
+                    serviceLabel = "proxy",
+                    onStart = { env.coordinator.start() },
+                    onStop = { _, _ -> env.coordinator.stop() },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            shell.onStartCommand(com.poyka.ripdpi.data.startAction, 1, explicitUserIntentGeneration = generation)
+            runCurrent()
+            assertTrue(enteredPublication.isCompleted)
+            assertTrue(acknowledgments.isEmpty())
+            assertTrue(arbiter.cancelIfCurrent(generation))
+            runCurrent()
+            finishPublication.complete(Unit)
+            runCurrent()
+            assertTrue(env.factory.lastRuntime.stopCount > 0)
+            assertTrue(acknowledgments.isEmpty())
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+            assertTrue(
+                env.configurations.applications.value[Mode.Proxy] !is RuntimeConfigurationApplication.Applied,
+            )
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            val manual = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            assertTrue(!arbiter.cancelIfCurrent(generation))
+            assertEquals(manual, arbiter.captureExplicitUserIntentGeneration())
+        }
+
+    @Test
+    fun `expired explicit intent cancels suspended native readiness and cannot publish late applied or Connected`() =
+        runTest {
+            val readiness = CompletableDeferred<Unit>()
+            val entered = CompletableDeferred<Unit>()
+            val env =
+                newEnv(runtimeFactory = { events ->
+                    TestProxyRuntime(events).apply {
+                        beforeReady = {
+                            entered.complete(Unit)
+                            readiness.await()
+                        }
+                    }
+                })
+            val arbiter = ServiceIntentArbiter()
+            val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            val shell =
+                ServiceShellDelegate(
+                    serviceScope = backgroundScope,
+                    serviceIntentArbiter = arbiter,
+                    serviceLabel = "proxy",
+                    onStart = { env.coordinator.start() },
+                    onStop = { _, _ -> env.coordinator.stop() },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            shell.onStartCommand(com.poyka.ripdpi.data.startAction, 1, explicitUserIntentGeneration = generation)
+            runCurrent()
+            assertTrue(entered.isCompleted)
+            assertTrue(arbiter.cancelIfCurrent(generation))
+            runCurrent()
+            readiness.complete(Unit)
+            runCurrent()
+            assertTrue(env.factory.lastRuntime.stopCount > 0)
+            assertTrue(env.store.statusHistory.none { it.first == AppStatus.Running })
+            assertTrue(
+                env.configurations.applications.value[Mode.Proxy] !is RuntimeConfigurationApplication.Applied,
+            )
+            assertTrue(env.autolearnReceipts.isEmpty())
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
 
     @Test
     fun successfulStartPublishesRunningState() =
@@ -61,6 +207,7 @@ class ProxyServiceRuntimeCoordinatorTest {
 
             assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
             assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(env.configurations.applications.value[Mode.Proxy] is RuntimeConfigurationApplication.Applied)
             assertEquals(1, env.factory.runtimes.size)
             assertEquals("running", env.store.telemetry.value.proxyTelemetry.state)
             assertEquals(RuntimeTelemetryState.Snapshot, env.store.telemetry.value.proxyTelemetryStatus.state)
@@ -403,139 +550,6 @@ class ProxyServiceRuntimeCoordinatorTest {
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
         }
 
-    private data class StaleReplacementEnv(
-        val coordinator: ProxyServiceRuntimeCoordinator,
-        val store: TestServiceStateStore,
-        val handoverMonitor: TestNetworkHandoverMonitor,
-        val runtimeRegistry: DefaultServiceRuntimeRegistry,
-        val oldRuntime: DelayedStopProxyRuntime,
-        val initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
-        val newFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
-    )
-
-    private fun TestScope.buildStaleReplacementCoordinator(
-        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
-        store: TestServiceStateStore,
-        initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
-        resolver: TestConnectionPolicyResolver,
-        runtimeRegistry: DefaultServiceRuntimeRegistry,
-        handoverMonitor: TestNetworkHandoverMonitor,
-        proxyFactory: RipDpiProxyFactory,
-    ): ProxyServiceRuntimeCoordinator =
-        ProxyServiceRuntimeCoordinator(
-            host = TestProxyServiceHost(backgroundScope),
-            connectionPolicyResolver = resolver,
-            serviceRuntimeRegistry = runtimeRegistry,
-            rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-            networkHandoverMonitor = handoverMonitor,
-            policyHandoverEventStore = TestPolicyHandoverEventStore(),
-            permissionWatchdog = TestPermissionWatchdog(),
-            supervisors =
-                ProxyRuntimeSupervisorBundle(
-                    upstreamRelaySupervisor =
-                        UpstreamRelaySupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            relayFactory = TestRipDpiRelayFactory(),
-                            naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                            relayProfileStore = TestRelayProfileStore(),
-                            relayCredentialStore = TestRelayCredentialStore(),
-                        ),
-                    warpRuntimeSupervisor =
-                        WarpRuntimeSupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            warpFactory = TestRipDpiWarpFactory(),
-                            runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                        ),
-                    amneziaWgRuntimeSupervisor =
-                        AmneziaWgRuntimeSupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
-                            runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
-                        ),
-                    proxyRuntimeSupervisor =
-                        ProxyRuntimeSupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            ripDpiProxyFactory = proxyFactory,
-                            networkSnapshotProvider =
-                                object : NativeNetworkSnapshotProvider {
-                                    override fun capture(): NativeNetworkSnapshot =
-                                        NativeNetworkSnapshot(transport = "wifi")
-                                },
-                        ),
-                ),
-            autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
-            statusReporter =
-                ServiceStatusReporter(
-                    mode = Mode.Proxy,
-                    sender = com.poyka.ripdpi.data.Sender.Proxy,
-                    serviceStateStore = store,
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
-                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                    runtimeExperimentSelectionProvider =
-                        object : RuntimeExperimentSelectionProvider {
-                            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                        },
-                    clock = TestServiceClock(now = 1_000L),
-                ),
-            screenStateObserver = TestScreenStateObserver(),
-            ioDispatcher = dispatcher,
-            clock = TestServiceClock(now = 1_000L),
-        )
-
-    private fun TestScope.buildStaleReplacementEnv(): StaleReplacementEnv {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val store = TestServiceStateStore()
-        val events = mutableListOf<String>()
-        val initialFingerprint = sampleFingerprint()
-        val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
-        val resolver =
-            TestConnectionPolicyResolver(
-                sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
-            ).also {
-                it.enqueue(
-                    sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
-                    sampleResolution(mode = Mode.Proxy, policySignature = "handover"),
-                )
-            }
-        val runtimeRegistry = DefaultServiceRuntimeRegistry()
-        val handoverMonitor = TestNetworkHandoverMonitor()
-        val oldRuntime = DelayedStopProxyRuntime(events)
-        val newRuntime = TestProxyRuntime(events)
-        val proxyFactory =
-            object : RipDpiProxyFactory {
-                private var calls = 0
-
-                override fun create() =
-                    when (calls++) {
-                        0 -> oldRuntime
-                        else -> newRuntime
-                    }
-            }
-        val coordinator =
-            buildStaleReplacementCoordinator(
-                dispatcher = dispatcher,
-                store = store,
-                initialFingerprint = initialFingerprint,
-                resolver = resolver,
-                runtimeRegistry = runtimeRegistry,
-                handoverMonitor = handoverMonitor,
-                proxyFactory = proxyFactory,
-            )
-        return StaleReplacementEnv(
-            coordinator = coordinator,
-            store = store,
-            handoverMonitor = handoverMonitor,
-            runtimeRegistry = runtimeRegistry,
-            oldRuntime = oldRuntime,
-            initialFingerprint = initialFingerprint,
-            newFingerprint = newFingerprint,
-        )
-    }
-
     @Test
     fun incompleteProxyStopPreventsReplacementSession() =
         runTest {
@@ -624,87 +638,6 @@ class ProxyServiceRuntimeCoordinatorTest {
             assertEquals(0, env.factory.runtimes[1].stopCount)
             assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
         }
-
-    private fun TestScope.newEnv(
-        fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
-        resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
-            listOf(sampleResolution(mode = Mode.Proxy)),
-        runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
-        activationRecorder: AutolearnActivationRecorder? = null,
-    ): Env {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val events = mutableListOf<String>()
-        val store = TestServiceStateStore()
-        val host = TestProxyServiceHost(backgroundScope)
-        val resolver = TestConnectionPolicyResolver(resolutions.first())
-        resolver.enqueue(*resolutions.toTypedArray())
-        val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
-        val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
-        val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
-        val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
-        val awgFactory = NoOpRipDpiAmneziaWgFactory { NoOpRipDpiAmneziaWgRuntime(events) }
-        val runtimeRegistry = DefaultServiceRuntimeRegistry()
-        val handoverMonitor = TestNetworkHandoverMonitor()
-        val handoverEvents = TestPolicyHandoverEventStore()
-        val autolearnReceipts = mutableListOf<AutolearnActivationReceipt>()
-        val supervisors = buildProxySupervisorBundle(dispatcher, factory, relayFactory, warpFactory, awgFactory)
-        val coordinator =
-            ProxyServiceRuntimeCoordinator(
-                host = host,
-                connectionPolicyResolver = resolver,
-                serviceRuntimeRegistry = runtimeRegistry,
-                rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                networkHandoverMonitor = handoverMonitor,
-                policyHandoverEventStore = handoverEvents,
-                permissionWatchdog = TestPermissionWatchdog(),
-                supervisors = supervisors,
-                autolearnActivationReceiptPublisher =
-                    testAutolearnActivationReceiptPublisher(
-                        activationRecorder ?: AutolearnActivationRecorder { autolearnReceipts += it },
-                    ),
-                statusReporter =
-                    ServiceStatusReporter(
-                        mode = Mode.Proxy,
-                        sender = com.poyka.ripdpi.data.Sender.Proxy,
-                        serviceStateStore = store,
-                        networkFingerprintProvider = fingerprintProvider,
-                        telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                        runtimeExperimentSelectionProvider =
-                            object : RuntimeExperimentSelectionProvider {
-                                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                            },
-                        clock = TestServiceClock(now = 1_000L),
-                    ),
-                screenStateObserver = TestScreenStateObserver(),
-                ioDispatcher = dispatcher,
-                clock = TestServiceClock(now = 1_000L),
-            )
-        return Env(
-            coordinator = coordinator,
-            store = store,
-            host = host,
-            factory = factory,
-            relayFactory = relayFactory,
-            warpFactory = warpFactory,
-            awgFactory = awgFactory,
-            events = events,
-            runtimeRegistry = runtimeRegistry,
-            handoverMonitor = handoverMonitor,
-            handoverEvents = handoverEvents,
-            resolver = resolver,
-            autolearnReceipts = autolearnReceipts,
-        )
-    }
-
-    private fun sampleAwgRequest(): AwgActivationRequest =
-        AwgActivationRequest(
-            profileId = "awg-profile",
-            privateKey = "private",
-            peerPublicKey = "peer",
-            endpointHost = "198.51.100.10",
-            endpointPort = 51820,
-            interfaceAddressV4 = "10.8.0.2/32",
-        )
 }
 
 private fun TestScope.buildProxySupervisorBundle(
@@ -783,3 +716,247 @@ private class DelayedStopProxyRuntime(
         }
     }
 }
+
+private data class ProxyRuntimeCoordinatorEnv(
+    val coordinator: ProxyServiceRuntimeCoordinator,
+    val store: TestServiceStateStore,
+    val host: TestProxyServiceHost,
+    val factory: TestRipDpiProxyFactory,
+    val relayFactory: TestRipDpiRelayFactory,
+    val warpFactory: TestRipDpiWarpFactory,
+    val awgFactory: NoOpRipDpiAmneziaWgFactory,
+    val events: MutableList<String>,
+    val runtimeRegistry: ServiceRuntimeRegistry,
+    val handoverMonitor: TestNetworkHandoverMonitor,
+    val handoverEvents: TestPolicyHandoverEventStore,
+    val resolver: TestConnectionPolicyResolver,
+    val autolearnReceipts: List<AutolearnActivationReceipt>,
+    val configurations: AppliedRuntimeConfigurationStore,
+)
+
+private data class StaleReplacementEnv(
+    val coordinator: ProxyServiceRuntimeCoordinator,
+    val store: TestServiceStateStore,
+    val handoverMonitor: TestNetworkHandoverMonitor,
+    val runtimeRegistry: DefaultServiceRuntimeRegistry,
+    val oldRuntime: DelayedStopProxyRuntime,
+    val initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+    val newFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+)
+
+private fun TestScope.buildStaleReplacementCoordinator(
+    dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    store: TestServiceStateStore,
+    initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+    resolver: TestConnectionPolicyResolver,
+    runtimeRegistry: DefaultServiceRuntimeRegistry,
+    handoverMonitor: TestNetworkHandoverMonitor,
+    proxyFactory: RipDpiProxyFactory,
+): ProxyServiceRuntimeCoordinator =
+    ProxyServiceRuntimeCoordinator(
+        configurationLifecycle =
+            RuntimeConfigurationLifecycle(
+                AppliedRuntimeConfigurationStore(),
+                RuntimeConfigurationIdentityFactory(),
+            ),
+        host = TestProxyServiceHost(backgroundScope),
+        connectionPolicyResolver = resolver,
+        serviceRuntimeRegistry = runtimeRegistry,
+        rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+        networkHandoverMonitor = handoverMonitor,
+        policyHandoverEventStore = TestPolicyHandoverEventStore(),
+        permissionWatchdog = TestPermissionWatchdog(),
+        supervisors =
+            ProxyRuntimeSupervisorBundle(
+                upstreamRelaySupervisor =
+                    UpstreamRelaySupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        relayFactory = TestRipDpiRelayFactory(),
+                        naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                        relayProfileStore = TestRelayProfileStore(),
+                        relayCredentialStore = TestRelayCredentialStore(),
+                    ),
+                warpRuntimeSupervisor =
+                    WarpRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        warpFactory = TestRipDpiWarpFactory(),
+                        runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                    ),
+                amneziaWgRuntimeSupervisor =
+                    AmneziaWgRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+                        runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                    ),
+                proxyRuntimeSupervisor =
+                    ProxyRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        ripDpiProxyFactory = proxyFactory,
+                        networkSnapshotProvider =
+                            object : NativeNetworkSnapshotProvider {
+                                override fun capture(): NativeNetworkSnapshot =
+                                    NativeNetworkSnapshot(transport = "wifi")
+                            },
+                    ),
+            ),
+        autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
+        statusReporter =
+            ServiceStatusReporter(
+                mode = Mode.Proxy,
+                sender = com.poyka.ripdpi.data.Sender.Proxy,
+                serviceStateStore = store,
+                networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
+                telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
+                clock = TestServiceClock(now = 1_000L),
+            ),
+        screenStateObserver = TestScreenStateObserver(),
+        ioDispatcher = dispatcher,
+        clock = TestServiceClock(now = 1_000L),
+    )
+
+private fun TestScope.buildStaleReplacementEnv(): StaleReplacementEnv {
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val store = TestServiceStateStore()
+    val events = mutableListOf<String>()
+    val initialFingerprint = sampleFingerprint()
+    val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+    val resolver =
+        TestConnectionPolicyResolver(
+            sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
+        ).also {
+            it.enqueue(
+                sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
+                sampleResolution(mode = Mode.Proxy, policySignature = "handover"),
+            )
+        }
+    val runtimeRegistry = DefaultServiceRuntimeRegistry()
+    val handoverMonitor = TestNetworkHandoverMonitor()
+    val oldRuntime = DelayedStopProxyRuntime(events)
+    val newRuntime = TestProxyRuntime(events)
+    val proxyFactory =
+        object : RipDpiProxyFactory {
+            private var calls = 0
+
+            override fun create() =
+                when (calls++) {
+                    0 -> oldRuntime
+                    else -> newRuntime
+                }
+        }
+    val coordinator =
+        buildStaleReplacementCoordinator(
+            dispatcher = dispatcher,
+            store = store,
+            initialFingerprint = initialFingerprint,
+            resolver = resolver,
+            runtimeRegistry = runtimeRegistry,
+            handoverMonitor = handoverMonitor,
+            proxyFactory = proxyFactory,
+        )
+    return StaleReplacementEnv(
+        coordinator = coordinator,
+        store = store,
+        handoverMonitor = handoverMonitor,
+        runtimeRegistry = runtimeRegistry,
+        oldRuntime = oldRuntime,
+        initialFingerprint = initialFingerprint,
+        newFingerprint = newFingerprint,
+    )
+}
+
+private fun TestScope.newEnv(
+    fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
+    resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
+        listOf(sampleResolution(mode = Mode.Proxy)),
+    runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
+    activationRecorder: AutolearnActivationRecorder? = null,
+    warpRuntimeFactory: (MutableList<String>) -> TestWarpRuntime = { TestWarpRuntime(it) },
+): ProxyRuntimeCoordinatorEnv {
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val events = mutableListOf<String>()
+    val store = TestServiceStateStore()
+    val host = TestProxyServiceHost(backgroundScope)
+    val resolver = TestConnectionPolicyResolver(resolutions.first())
+    resolver.enqueue(*resolutions.toTypedArray())
+    val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
+    val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
+    val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
+    val warpFactory = TestRipDpiWarpFactory { warpRuntimeFactory(events) }
+    val awgFactory = NoOpRipDpiAmneziaWgFactory { NoOpRipDpiAmneziaWgRuntime(events) }
+    val runtimeRegistry = DefaultServiceRuntimeRegistry()
+    val handoverMonitor = TestNetworkHandoverMonitor()
+    val handoverEvents = TestPolicyHandoverEventStore()
+    val autolearnReceipts = mutableListOf<AutolearnActivationReceipt>()
+    val supervisors = buildProxySupervisorBundle(dispatcher, factory, relayFactory, warpFactory, awgFactory)
+    val configurations = AppliedRuntimeConfigurationStore()
+    val coordinator =
+        ProxyServiceRuntimeCoordinator(
+            configurationLifecycle =
+                RuntimeConfigurationLifecycle(
+                    configurations,
+                    RuntimeConfigurationIdentityFactory(),
+                ),
+            host = host,
+            connectionPolicyResolver = resolver,
+            serviceRuntimeRegistry = runtimeRegistry,
+            rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+            networkHandoverMonitor = handoverMonitor,
+            policyHandoverEventStore = handoverEvents,
+            permissionWatchdog = TestPermissionWatchdog(),
+            supervisors = supervisors,
+            autolearnActivationReceiptPublisher =
+                testAutolearnActivationReceiptPublisher(
+                    activationRecorder ?: AutolearnActivationRecorder { autolearnReceipts += it },
+                ),
+            statusReporter =
+                ServiceStatusReporter(
+                    mode = Mode.Proxy,
+                    sender = com.poyka.ripdpi.data.Sender.Proxy,
+                    serviceStateStore = store,
+                    networkFingerprintProvider = fingerprintProvider,
+                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                    runtimeExperimentSelectionProvider =
+                        object : RuntimeExperimentSelectionProvider {
+                            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                        },
+                    clock = TestServiceClock(now = 1_000L),
+                ),
+            screenStateObserver = TestScreenStateObserver(),
+            ioDispatcher = dispatcher,
+            clock = TestServiceClock(now = 1_000L),
+        )
+    return ProxyRuntimeCoordinatorEnv(
+        coordinator = coordinator,
+        store = store,
+        host = host,
+        factory = factory,
+        relayFactory = relayFactory,
+        warpFactory = warpFactory,
+        awgFactory = awgFactory,
+        events = events,
+        runtimeRegistry = runtimeRegistry,
+        handoverMonitor = handoverMonitor,
+        handoverEvents = handoverEvents,
+        resolver = resolver,
+        autolearnReceipts = autolearnReceipts,
+        configurations = configurations,
+    )
+}
+
+private fun sampleAwgRequest(): AwgActivationRequest =
+    AwgActivationRequest(
+        profileId = "awg-profile",
+        privateKey = "private",
+        peerPublicKey = "peer",
+        endpointHost = "198.51.100.10",
+        endpointPort = 51820,
+        interfaceAddressV4 = "10.8.0.2/32",
+    )

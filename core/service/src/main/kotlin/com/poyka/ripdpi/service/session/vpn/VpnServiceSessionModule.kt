@@ -32,6 +32,8 @@ import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RemoteDeviceRecoveryReceiptCollector
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.RootHelperManager
+import com.poyka.ripdpi.services.RuntimeConfigurationIdentityFactory
+import com.poyka.ripdpi.services.RuntimeConfigurationLifecycle
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceSessionStateInitializer
 import com.poyka.ripdpi.services.ServiceStatusReporter
@@ -285,6 +287,7 @@ internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideXrayProviderSessionController(
+        configurationIdentities: RuntimeConfigurationIdentityFactory,
         profileMutations: ProfileMutationCoordinator,
         vpnService: VpnService,
         selectionStore: XrayProviderSelectionStore,
@@ -311,6 +314,8 @@ internal object VpnServiceSessionModule {
             )
         val controller =
             XrayProviderSessionController(
+                tunnelReady = vpnTunnelRuntime::requireReadyEvidence,
+                configurationIdentities = configurationIdentities,
                 readSelectedProfile = {
                     profileMutations.readRecovered {
                         val selection = selectionStore.current()
@@ -387,6 +392,7 @@ internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
     fun provideVpnCoordinator(
+        configurationLifecycle: RuntimeConfigurationLifecycle,
         selectorListeners: Set<@JvmSuppressWildcards SelectorRuntimeLifecycleListener>,
         host: VpnCoordinatorHost,
         runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
@@ -418,6 +424,7 @@ internal object VpnServiceSessionModule {
             proxyRuntimeSupervisor = services.proxyRuntimeSupervisor,
             autolearnActivationReceiptPublisher = services.autolearnActivationReceiptPublisher,
             statusReporter = services.statusReporter,
+            configurationLifecycle = configurationLifecycle,
             transportFailoverApplyTracker = transportFailoverApplyTracker,
             screenStateObserver = runtimeDependencies.screenStateObserver,
             directPathPolicyTelemetryConsumer = services.directPathPolicyTelemetryConsumer,

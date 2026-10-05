@@ -14,11 +14,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration.Companion.seconds
 
 internal fun observeConfigCapabilityEvidence(
     scope: CoroutineScope,
@@ -42,8 +39,8 @@ internal suspend fun applySavedConfigDraftToRunningService(
     draft: ConfigDraft,
     appSettingsRepository: AppSettingsRepository,
     serviceStateStore: ServiceStateStore,
-    serviceController: ServiceController,
-    startRuntimeMode: (Mode) -> Unit,
+    reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
+    onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
     onUnsupportedVpnDns: () -> Unit = {},
 ) {
     if (serviceStateStore.status.value.first != AppStatus.Running) return
@@ -51,13 +48,12 @@ internal suspend fun applySavedConfigDraftToRunningService(
         onUnsupportedVpnDns()
         return
     }
-    serviceController.stop()
-    val halted =
-        withTimeoutOrNull(10.seconds) {
-            serviceStateStore.status.first { it.first == AppStatus.Halted }
-            true
-        } == true
-    if (halted) startRuntimeMode(draft.mode)
+    val result =
+        reconnectCoordinator.reconnect(
+            com.poyka.ripdpi.services.RunningReconnectRequest
+                .CurrentSaved(draft.mode),
+        )
+    if (result is com.poyka.ripdpi.services.RunningReconnectResult.Failed) onReconnectFailure(result)
 }
 
 internal fun startConfigRuntimeMode(

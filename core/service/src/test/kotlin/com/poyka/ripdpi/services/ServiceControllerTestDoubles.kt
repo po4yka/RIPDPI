@@ -1038,6 +1038,7 @@ internal class TestWarpRuntime(
 
     var startFailure: Throwable? = null
     var awaitReadyFailure: Exception? = null
+    var beforeReady: suspend () -> Unit = {}
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
     var telemetry: NativeRuntimeSnapshot =
@@ -1065,6 +1066,7 @@ internal class TestWarpRuntime(
     override suspend fun awaitReady(timeoutMillis: Long) {
         awaitReadyFailure?.let { throw it }
         ready.await()
+        beforeReady()
     }
 
     override suspend fun stop() {
@@ -1106,39 +1108,45 @@ internal class TestWarpRuntimeConfigResolver : WarpRuntimeConfigResolver {
     var lastConfig: RipDpiWarpConfig? = null
         private set
 
-    override suspend fun resolve(config: RipDpiWarpConfig): com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig {
+    override suspend fun resolve(
+        config: RipDpiWarpConfig,
+        requestedReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
+    ): com.poyka.ripdpi.service.warp.ResolvedWarpRuntimeStart {
         lastConfig = config
-        return com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig(
-            enabled = config.enabled,
-            profileId = "warp-test",
-            accountKind = "consumer_free",
-            deviceId = "device-1",
-            accessToken = "token-1",
-            clientId = "AQID",
-            privateKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-            publicKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-            peerPublicKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
-            interfaceAddressV4 = "172.16.0.2/32",
-            interfaceAddressV6 = null,
-            endpoint =
-                com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint(
-                    host = "162.159.192.1",
-                    ipv4 = "162.159.192.1",
-                    ipv6 = null,
-                    port = 2408,
-                    source = "test",
-                ),
-            routeMode = config.routeMode,
-            routeHosts = config.routeHosts,
-            builtInRulesEnabled = config.builtInRulesEnabled,
-            endpointSelectionMode = config.endpointSelectionMode,
-            manualEndpoint = config.manualEndpoint,
-            scannerEnabled = config.scannerEnabled,
-            scannerParallelism = config.scannerParallelism,
-            scannerMaxRttMs = config.scannerMaxRttMs,
-            amnezia = config.amnezia,
-            localSocksHost = config.localSocksHost,
-            localSocksPort = config.localSocksPort,
+        return com.poyka.ripdpi.service.warp.ResolvedWarpRuntimeStart(
+            com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig(
+                enabled = config.enabled,
+                profileId = "warp-test",
+                accountKind = "consumer_free",
+                deviceId = "device-1",
+                accessToken = "token-1",
+                clientId = "AQID",
+                privateKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                publicKey = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+                peerPublicKey = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+                interfaceAddressV4 = "172.16.0.2/32",
+                interfaceAddressV6 = null,
+                endpoint =
+                    com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint(
+                        host = "162.159.192.1",
+                        ipv4 = "162.159.192.1",
+                        ipv6 = null,
+                        port = 2408,
+                        source = "test",
+                    ),
+                routeMode = config.routeMode,
+                routeHosts = config.routeHosts,
+                builtInRulesEnabled = config.builtInRulesEnabled,
+                endpointSelectionMode = config.endpointSelectionMode,
+                manualEndpoint = config.manualEndpoint,
+                scannerEnabled = config.scannerEnabled,
+                scannerParallelism = config.scannerParallelism,
+                scannerMaxRttMs = config.scannerMaxRttMs,
+                amnezia = config.amnezia,
+                localSocksHost = config.localSocksHost,
+                localSocksPort = config.localSocksPort,
+            ),
+            requestedPatch = null,
         )
     }
 }
@@ -1451,6 +1459,7 @@ internal fun sampleResolution(
     localNetworkDependent: Boolean = false,
 ): ConnectionPolicyResolution =
     ConnectionPolicyResolution(
+        requestedConfiguration = sampleRequestedConfiguration(mode, settings, proxyPreferences, activeDns),
         settings = settings,
         proxyPreferences = proxyPreferences,
         activeDns = activeDns,
@@ -1539,4 +1548,62 @@ internal class TestAmneziaWgRuntimeConfigResolver : AmneziaWgRuntimeConfigResolv
             localSocksHost = "127.0.0.1",
             localSocksPort = 10808,
         )
+}
+
+private val SampleRuntimeConfigurationIdentities = RuntimeConfigurationIdentityFactory()
+
+internal fun sampleRequestedConfiguration(
+    mode: Mode = Mode.Proxy,
+    settings: AppSettings = AppSettingsSerializer.defaultValue,
+    preferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences.fromSettings(settings),
+    dns: ActiveDnsSettings = settings.activeDnsSettings(),
+): RequestedRuntimeConfiguration {
+    val transport =
+        connectionPolicyTransportMaterial(mode, preferences) +
+            vpnConfigurationMaterial(mode, settings) + listOf(settings.strategyChainYaml)
+    val dnsMaterial = connectionPolicyDnsMaterial(dns)
+    return RequestedRuntimeConfiguration(
+        SampleRuntimeConfigurationIdentities.capture(transport, dnsMaterial),
+        com.poyka.ripdpi.data
+            .RuntimeConfigurationSelection("native"),
+        dns.runtimeDnsSummary(),
+        settings.strategySummary(),
+        VpnTunnelConfigurationInput(settings, emptyList()),
+        transport,
+        dnsMaterial,
+        null,
+        null,
+    )
+}
+
+internal fun testRequestedRuntimeConfigurationCapture(
+    secrets: ProxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+    routing: com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+): RequestedRuntimeConfigurationCapture {
+    val context = org.robolectric.RuntimeEnvironment.getApplication()
+    val credentials = FakeWarpCredentialStore()
+    val mutations =
+        TestProfileMutationCoordinator(
+            TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+            com.poyka.ripdpi.data
+                .SharedPreferencesWarpProfileStore(context),
+            credentials,
+            FakeWarpEndpointStore(),
+        )
+    return RequestedRuntimeConfigurationCapture(
+        RuntimeConfigurationIdentityFactory(),
+        RuntimeConfigurationCatalogCapture(
+            mutations,
+            TestRelayProfileStore(),
+            TestRelayCredentialStore(),
+            credentials,
+            FakeDurableXrayProfileStore(),
+            FakeSelectionStore(),
+        ),
+        routing,
+        secrets,
+        TestProxyGroupRepository(),
+        com.poyka.ripdpi.data.selector
+            .SharedPreferencesSelectorSelectionStore(context),
+    )
 }

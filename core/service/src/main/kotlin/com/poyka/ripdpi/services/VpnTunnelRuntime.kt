@@ -8,17 +8,14 @@ import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.TunForwardingEvidence
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.VpnRouteLifecycleState
-import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
@@ -113,6 +110,23 @@ internal class VpnTunnelRuntime(
     val isRunning: Boolean
         get() = tunSession != null || retiringSession != null
 
+    private var readyEvidence: RuntimeTunnelReadyEvidence? = null
+    private var consumedConfigurationInput: VpnTunnelConfigurationInput? = null
+    var consumedForceTunnelDns: Boolean = false
+        private set
+    val consumedProfileInterface: VpnProfileInterface? get() = currentProfileInterface
+
+    fun requireReadyEvidence(): RuntimeTunnelReadyEvidence {
+        check(isForwarding) { "TUN bridge is not ready" }
+        return checkNotNull(readyEvidence)
+    }
+
+    val consumedConfiguration: VpnTunnelConfigurationInput
+        get() {
+            check(isForwarding) { "DNS refresh requires confirmed native forwarding" }
+            return checkNotNull(consumedConfigurationInput)
+        }
+
     val isForwarding: Boolean
         get() = tun2SocksBridge != null
 
@@ -128,28 +142,35 @@ internal class VpnTunnelRuntime(
         }
     }
 
-    fun desiredInterfacePolicySignatures(): Flow<String> =
-        combine(
-            appSettingsRepository.settings,
-            proxyGroupRepository.groups(),
-            vpnHost.observeInstalledPackages(),
-        ) { settings, groups, installedPackages ->
-            InterfacePolicyInput(settings, groups, installedPackages)
-        }.map { input ->
-            resolveInterfacePolicy(
-                input.settings.withProfileInterface(currentProfileInterface),
-                input.groups,
-                input.installedPackages,
-            ).signature
-        }.distinctUntilChanged()
+    val desiredInterfacePolicySignatures: Flow<String>
+        get() =
+            vpnHost
+                .observeInstalledPackages()
+                .map { installedPackages ->
+                    val consumed = checkNotNull(consumedConfigurationInput)
+                    vpnHost
+                        .resolveTunnelInterfacePolicy(
+                            consumed.settings,
+                            consumed.packageRoutingRules,
+                            installedPackages,
+                        ).signature
+                }.distinctUntilChanged()
+
+    suspend fun captureConfigurationInput(): VpnTunnelConfigurationInput =
+        VpnTunnelConfigurationInput(
+            appSettingsRepository.snapshot(),
+            proxyGroupRepository.list().flatMap {
+                it.packageRoutingRules
+            },
+        )
 
     suspend fun requiresInterfacePolicyRebuild(): Boolean {
         val appliedSignature = currentInterfacePolicySignature
         if (appliedSignature == null || !isRunning) return false
         val desiredPolicy =
-            resolveInterfacePolicy(
-                settings = appSettingsRepository.snapshot().withProfileInterface(currentProfileInterface),
-                groups = proxyGroupRepository.list(),
+            vpnHost.resolveTunnelInterfacePolicy(
+                settings = checkNotNull(consumedConfigurationInput).settings,
+                packageRoutingRules = checkNotNull(consumedConfigurationInput).packageRoutingRules,
                 installedPackages = vpnHost.currentInstalledPackages(),
             )
         return desiredPolicy.signature != appliedSignature
@@ -164,6 +185,7 @@ internal class VpnTunnelRuntime(
         forceTunnelDns: Boolean = false,
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
         profileInterface: VpnProfileInterface? = null,
+        configurationInput: VpnTunnelConfigurationInput,
     ) {
         check(tunSession == null) { "VPN field not null" }
         appliedNetworkReceiptStore.invalidate()
@@ -177,6 +199,7 @@ internal class VpnTunnelRuntime(
                 forceTunnelDns = forceTunnelDns,
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
                 profileInterface = profileInterface,
+                configurationInput = configurationInput,
             )
         // Builder.establish() has already installed Android's default routes.
         // Retain this session as a fail-closed barrier until native forwarding
@@ -205,6 +228,7 @@ internal class VpnTunnelRuntime(
         forceTunnelDns: Boolean = false,
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
         profileInterface: VpnProfileInterface? = null,
+        configurationInput: VpnTunnelConfigurationInput,
     ) {
         val previouslyRetiringSession = retiringSession
         if (previouslyRetiringSession != null) {
@@ -225,6 +249,7 @@ internal class VpnTunnelRuntime(
                 forceTunnelDns = forceTunnelDns,
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
                 profileInterface = profileInterface,
+                configurationInput = configurationInput,
             )
 
         // Establishment has already moved Android routing to this replacement TUN.
@@ -269,8 +294,9 @@ internal class VpnTunnelRuntime(
         forceTunnelDns: Boolean,
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
         profileInterface: VpnProfileInterface?,
+        configurationInput: VpnTunnelConfigurationInput,
     ): PendingTunnel {
-        val settings = appSettingsRepository.snapshot().withProfileInterface(profileInterface)
+        val settings = configurationInput.settings.withProfileInterface(profileInterface)
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns, splitStrictDnsPolicy)
         val directDnsPrepareToken =
             vpnHost.prepareDirectDnsUnderlay(
@@ -278,14 +304,11 @@ internal class VpnTunnelRuntime(
                 splitStrictDnsPolicy?.underlayLeaseGeneration,
             )
         try {
-            val tunnelNetworkParameters =
-                vpnHost.currentTunnelNetworkParameters().let { parameters ->
-                    profileInterface?.let { parameters.copy(tunnelMtu = it.mtu) } ?: parameters
-                }
+            val tunnelNetworkParameters = vpnHost.profileTunnelNetworkParameters(profileInterface)
             val interfacePolicy =
-                resolveInterfacePolicy(
+                vpnHost.resolveTunnelInterfacePolicy(
                     settings = settings,
-                    groups = proxyGroupRepository.list(),
+                    packageRoutingRules = configurationInput.packageRoutingRules,
                     installedPackages = vpnHost.currentInstalledPackages(),
                 )
             val appRoutingPlan = interfacePolicy.appRoutingPlan
@@ -293,24 +316,16 @@ internal class VpnTunnelRuntime(
                 nativeUidPolicyProvider?.invoke(appRoutingPlan)
                     ?: flowAttributionBridge?.nativeUidPolicy(appRoutingPlan)
                     ?: NativeUidPolicy.Disarmed
-            val rootSocket = environment.rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled }
             val config =
-                buildVpnTun2SocksConfig(
-                    dnsPlan = dnsPlan,
-                    overrideReason = overrideReason,
-                    localProxyEndpoint = localProxyEndpoint,
-                    ipv6Enabled = settings.ipv6Enable,
-                    webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
-                    tunnelMtu = tunnelNetworkParameters.tunnelMtu,
-                    logContext = logContext,
-                    encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
-                    strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
-                    protectPath = environment.protectPath,
-                    rootHelperSocketPath = rootSocket,
-                    luaScriptBaseDir = environment.luaScriptBaseDir,
-                    luaSocketOwned = settings.strategyChainYaml.isNotBlank() && rootSocket == null,
-                    uidPolicy = uidPolicy,
-                    geositeDbPath = environment.geositeDbPath,
+                buildConsumedVpnTunConfig(
+                    settings,
+                    environment,
+                    dnsPlan,
+                    overrideReason,
+                    localProxyEndpoint,
+                    tunnelNetworkParameters.tunnelMtu,
+                    logContext,
+                    uidPolicy,
                 )
             val (tunnelSession, lifecycleGeneration) =
                 establishRouteObservedTunnel(
@@ -342,6 +357,10 @@ internal class VpnTunnelRuntime(
                 interfacePolicySignature = interfacePolicy.signature,
                 profileInterface = profileInterface,
                 networkParameters = tunnelNetworkParameters,
+                configurationInput = VpnTunnelConfigurationInput(settings, configurationInput.packageRoutingRules),
+                forceTunnelDns = forceTunnelDns,
+                resolverDns = dnsPlan.resolverDns,
+                splitStrictDnsPolicy = splitStrictDnsPolicy,
             )
         } catch (error: Exception) {
             vpnHost.finishDirectDnsUnderlay(directDnsPrepareToken, DirectDnsUnderlayAction.Abort)
@@ -389,23 +408,6 @@ internal class VpnTunnelRuntime(
         return session to generation
     }
 
-    private suspend fun resolveInterfacePolicy(
-        settings: AppSettings,
-        groups: List<ProxyGroup>,
-        installedPackages: Set<String>,
-    ): ResolvedVpnInterfacePolicy {
-        val packageRoutingRules = groups.flatMap { it.packageRoutingRules }
-        val appRoutingPlan = vpnHost.resolveAppRoutingPlan(settings, packageRoutingRules, installedPackages)
-        val proxy = settings.toSettingsSections().proxy
-        val httpProxyPort =
-            if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
-        return ResolvedVpnInterfacePolicy(
-            appRoutingPlan = appRoutingPlan,
-            httpProxyPort = httpProxyPort,
-            signature = vpnTunnelInterfacePolicySignature(settings, appRoutingPlan, httpProxyPort),
-        )
-    }
-
     @Suppress("TooGenericExceptionCaught")
     private suspend fun startBridge(
         pendingTunnel: PendingTunnel,
@@ -428,6 +430,16 @@ internal class VpnTunnelRuntime(
             }
             startSucceeded = true
             publishBridgeReady(pendingTunnel, tunnelBridge)
+            consumedConfigurationInput = pendingTunnel.configurationInput
+            consumedForceTunnelDns = pendingTunnel.forceTunnelDns
+            readyEvidence =
+                RuntimeTunnelReadyEvidence(
+                    pendingTunnel.configurationInput,
+                    pendingTunnel.forceTunnelDns,
+                    pendingTunnel.resolverDns,
+                    pendingTunnel.splitStrictDnsPolicy,
+                    pendingTunnel.interfacePolicySignature,
+                )
         } catch (error: Exception) {
             val rollback =
                 createdBridge
@@ -701,18 +713,10 @@ internal class VpnTunnelRuntime(
         val interfacePolicySignature: String,
         val profileInterface: VpnProfileInterface?,
         val networkParameters: VpnTunnelNetworkParameters,
-    )
-
-    private data class InterfacePolicyInput(
-        val settings: AppSettings,
-        val groups: List<ProxyGroup>,
-        val installedPackages: Set<String>,
-    )
-
-    private data class ResolvedVpnInterfacePolicy(
-        val appRoutingPlan: VpnAppRoutingPlan,
-        val httpProxyPort: Int?,
-        val signature: String,
+        val configurationInput: VpnTunnelConfigurationInput,
+        val forceTunnelDns: Boolean,
+        val resolverDns: ActiveDnsSettings,
+        val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
     )
 
     private data class BridgeRollbackResult(

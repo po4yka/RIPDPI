@@ -14,6 +14,8 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 
 object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
+    override fun warpRuntimeRevision(profileId: String): Long = 0L
+
     override suspend fun recover() = Unit
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
@@ -45,6 +47,16 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
         activate: Boolean,
         scannerMode: String,
     ) = Unit
+
+    override suspend fun upsertWarpForRuntimeProvisioning(
+        profile: com.poyka.ripdpi.data.WarpProfile,
+        credentials: com.poyka.ripdpi.data.WarpCredentials,
+        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+        expectedCredentials: com.poyka.ripdpi.data.WarpCredentials,
+        expectedRevision: Long,
+    ): Boolean = error("Unexpected runtime provisioning in no-op test coordinator")
 
     override suspend fun deleteWarp(
         profileId: String,

@@ -18,6 +18,7 @@ internal data class XrayTunnelStartParams(
     val logContext: RipDpiLogContext?,
     val forceTunnelDns: Boolean,
     val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
+    val configurationInput: VpnTunnelConfigurationInput,
 )
 
 /**
@@ -86,6 +87,7 @@ internal interface XrayTunnelDriver {
                         params.forceTunnelDns,
                         params.splitStrictDnsPolicy,
                         null,
+                        params.configurationInput,
                     )
                 }
 

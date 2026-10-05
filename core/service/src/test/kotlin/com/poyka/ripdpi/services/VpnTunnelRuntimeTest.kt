@@ -49,6 +49,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertTrue(runtime.isRunning)
@@ -87,6 +88,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertSame(expectedPlan, nativePlan)
@@ -126,6 +128,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val initialReceiptGeneration = checkNotNull(receiptStore.snapshot()).generation
             host.appRoutingPlan = replacementPlan
@@ -136,6 +139,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(listOf(initialPlan, replacementPlan), nativePlans)
@@ -177,6 +181,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(1_320, bridge.startedConfig?.tunnelMtu)
@@ -212,6 +217,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertNull(receiptStore.snapshot()?.metered)
@@ -238,6 +244,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             assertTrue(receiptStore.snapshot() != null)
 
@@ -268,6 +275,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertTrue(bridge.startedConfig?.webrtcProtectionEnabled == true)
@@ -296,6 +304,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             runtime.stop()
             runtime.start(
@@ -303,6 +312,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
@@ -332,6 +342,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             assertEquals(yaml, bridge.startedConfig?.strategyChainYaml)
             assertEquals("/data/app/files/lua", bridge.startedConfig?.luaScriptBaseDir)
@@ -373,6 +384,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals(
@@ -406,6 +418,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val failure = runCatching { runtime.stop() }.exceptionOrNull()
 
@@ -433,6 +446,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals("udp", bridge.startedConfig?.socks5Udp)
@@ -465,6 +479,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
 
             assertEquals("udp", bridge.startedConfig?.socks5Udp)
@@ -489,6 +504,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val error =
                 runCatching {
@@ -497,6 +513,7 @@ class VpnTunnelRuntimeTest {
                         overrideReason = null,
                         logContext = null,
                         localProxyEndpoint = localProxyEndpoint,
+                        configurationInput = runtime.captureConfigurationInput(),
                     )
                 }.exceptionOrNull()
 
@@ -521,6 +538,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             val result = runtime.pollTelemetry()
 
@@ -576,6 +594,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             runtime.stop()
             runtime.start(
@@ -583,6 +602,7 @@ class VpnTunnelRuntimeTest {
                 overrideReason = null,
                 logContext = null,
                 localProxyEndpoint = localProxyEndpoint,
+                configurationInput = runtime.captureConfigurationInput(),
             )
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
 

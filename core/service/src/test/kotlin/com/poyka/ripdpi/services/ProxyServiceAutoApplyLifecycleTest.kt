@@ -211,6 +211,11 @@ class ProxyServiceAutoApplyLifecycleTest {
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val resolver =
             DefaultConnectionPolicyResolver(
+                runtimeConfigurationCapture =
+                    testRequestedRuntimeConfigurationCapture(
+                        ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                        destinationRoutingPolicySource,
+                    ),
                 context = RuntimeEnvironment.getApplication(),
                 appSettingsRepository = appSettingsRepository,
                 networkFingerprintProvider = fingerprintProvider,
@@ -233,6 +238,11 @@ class ProxyServiceAutoApplyLifecycleTest {
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(
+                configurationLifecycle =
+                    RuntimeConfigurationLifecycle(
+                        AppliedRuntimeConfigurationStore(),
+                        RuntimeConfigurationIdentityFactory(),
+                    ),
                 host = host,
                 connectionPolicyResolver = resolver,
                 serviceRuntimeRegistry = runtimeRegistry,

@@ -17,6 +17,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -131,7 +133,9 @@ class ServiceIntentArbiter
     constructor() {
         private val lock = ReentrantLock()
         private var explicitUserIntentRecorded = false
-        private var explicitUserIntentGeneration = 0L
+        private var userIntentGeneration = 0L
+        private val explicitGenerationState = MutableStateFlow(0L)
+        val explicitUserIntentGeneration = explicitGenerationState.asStateFlow()
         private var doqSaveInProgress = false
         private val pendingVpnStarts = mutableSetOf<Long>()
         private var vpnStartGeneration = 0L
@@ -180,38 +184,50 @@ class ServiceIntentArbiter
         ): T =
             lock.withLock {
                 val previousRecorded = explicitUserIntentRecorded
-                val previousGeneration = explicitUserIntentGeneration
+                val previousGeneration = userIntentGeneration
                 explicitUserIntentRecorded = true
-                explicitUserIntentGeneration += 1
+                userIntentGeneration += 1
                 var accepted = false
                 try {
                     action().also { accepted = isAccepted(it) }
                 } finally {
                     if (!accepted) {
                         explicitUserIntentRecorded = previousRecorded
-                        explicitUserIntentGeneration = previousGeneration
+                        userIntentGeneration = previousGeneration
                     }
+                    explicitGenerationState.value = userIntentGeneration
                 }
             }
 
         fun userStop(action: () -> Unit) {
             lock.withLock {
                 explicitUserIntentRecorded = true
-                explicitUserIntentGeneration += 1
+                userIntentGeneration += 1
+                explicitGenerationState.value = userIntentGeneration
                 action()
             }
         }
 
+        /** Invalidates only the caller's still-current dispatch, preserving later explicit user intents. */
+        fun cancelIfCurrent(generation: Long): Boolean =
+            lock.withLock {
+                if (generation != userIntentGeneration) return@withLock false
+                explicitUserIntentRecorded = true
+                userIntentGeneration += 1
+                explicitGenerationState.value = userIntentGeneration
+                true
+            }
+
         fun explicitUserStartGuard(generation: Long): ExplicitUserStartGuard = ExplicitUserStartGuard(this, generation)
 
-        fun captureExplicitUserIntentGeneration(): Long = lock.withLock { explicitUserIntentGeneration }
+        fun captureExplicitUserIntentGeneration(): Long = lock.withLock { userIntentGeneration }
 
         fun <T> runIfExplicitUserIntentCurrent(
             generation: Long,
             action: () -> T,
         ): T? =
             lock.withLock {
-                if (generation == explicitUserIntentGeneration) action() else null
+                if (generation == userIntentGeneration) action() else null
             }
 
         fun <T> recovery(action: () -> T): T? =
@@ -268,7 +284,8 @@ class DefaultServiceController
         private val serviceIntentArbiter: ServiceIntentArbiter,
     ) : ServiceController,
         VpnTransportActivationController,
-        StartupFallbackController {
+        StartupFallbackController,
+        RunningReconnectDispatch {
         internal constructor(
             context: Context,
             serviceStateStore: ServiceStateStore,
@@ -296,6 +313,30 @@ class DefaultServiceController
                 },
                 isAccepted = { it is ServiceStartResult.Accepted },
             )
+
+        override fun preflight(mode: Mode): ServiceStartResult =
+            if (mode == Mode.VPN && VpnService.prepare(context) != null) {
+                ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
+            } else {
+                ServiceStartResult.Accepted(mode)
+            }
+
+        override fun stopIfCurrent(generation: Long): Boolean =
+            serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
+                stopInternal(stopAction)
+                true
+            } ?: false
+
+        override fun startIfCurrent(
+            mode: Mode,
+            generation: Long,
+        ): ServiceStartResult? =
+            serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
+                runtimeResumeIntentTracker.withUserStart(
+                    action = { startInternal(mode, startAction) },
+                    isAccepted = { it is ServiceStartResult.Accepted },
+                )
+            }
 
         override fun startForBootRecovery(
             mode: Mode,
@@ -509,6 +550,10 @@ class DefaultServiceController
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ServiceControllerModule {
+    @Binds
+    @Singleton
+    abstract fun bindRunningReconnectDispatch(controller: DefaultServiceController): RunningReconnectDispatch
+
     @Binds
     @Singleton
     abstract fun bindVpnTransportActivationController(

@@ -65,67 +65,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class ConnectionPolicyResolverTest {
     @Test
-    fun `saved doq resolves for proxy but rejects vpn before runtime composition`() =
-        runTest {
-            val settings =
-                AppSettingsSerializer.defaultValue
-                    .toBuilder()
-                    .setDnsMode(DnsModeEncrypted)
-                    .setEncryptedDnsProtocol(EncryptedDnsProtocolDoq)
-                    .build()
-            val resolver =
-                DefaultConnectionPolicyResolver(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = TestAppSettingsRepository(settings),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(null),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
-                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
-                )
-
-            assertEquals(EncryptedDnsProtocolDoq, resolver.resolve(mode = Mode.Proxy).activeDns.encryptedDnsProtocol)
-            assertTrue(
-                runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull() is ServiceStartupRejectedException,
-            )
-        }
-
-    @Test
-    fun `initial resolution fails when destination routing source is unavailable`() =
-        runTest {
-            val resolver =
-                DefaultConnectionPolicyResolver(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
-                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
-                    destinationRoutingPolicySource =
-                        DestinationRoutingPolicySource {
-                            DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
-                        },
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
-                )
-
-            val failure = runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull()
-
-            assertTrue(failure is IllegalStateException)
-            assertTrue(failure?.message?.contains("rule_source_unavailable") == true)
-        }
-
-    @Test
     fun `temporary override beats remembered vpn dns policy`() =
         runTest {
             val override =
@@ -198,6 +137,11 @@ class ConnectionPolicyResolverTest {
         runTest {
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(null),
@@ -273,6 +217,11 @@ class ConnectionPolicyResolverTest {
                     }
                 val resolver =
                     DefaultConnectionPolicyResolver(
+                        runtimeConfigurationCapture =
+                            testRequestedRuntimeConfigurationCapture(
+                                ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                                EmptyDestinationRoutingPolicySource,
+                            ),
                         context = RuntimeEnvironment.getApplication(),
                         appSettingsRepository =
                             TestAppSettingsRepository(
@@ -352,6 +301,11 @@ class ConnectionPolicyResolverTest {
                     .build()
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(store),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(currentSettings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
@@ -417,6 +371,11 @@ class ConnectionPolicyResolverTest {
             )
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -452,6 +411,11 @@ class ConnectionPolicyResolverTest {
             val rootHelper = FakeRootHelperManager("/tmp/ripdpi-root-helper.sock")
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository =
                         TestAppSettingsRepository(
@@ -497,6 +461,11 @@ class ConnectionPolicyResolverTest {
                 }
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository =
                         TestAppSettingsRepository(
@@ -558,6 +527,11 @@ class ConnectionPolicyResolverTest {
             }
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -607,6 +581,11 @@ class ConnectionPolicyResolverTest {
             }
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -650,6 +629,11 @@ class ConnectionPolicyResolverTest {
             )
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(encryptedGoogleSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -670,52 +654,6 @@ class ConnectionPolicyResolverTest {
             assertEquals(DnsProviderGoogle, resolution.activeDns.providerId)
             assertEquals("dns.google", resolution.activeDns.encryptedDnsHost)
         }
-
-    private fun encryptedGoogleSettings() =
-        AppSettingsSerializer.defaultValue
-            .toBuilder()
-            .setDnsMode(DnsModeEncrypted)
-            .setDnsProviderId(DnsProviderGoogle)
-            .setDnsIp("8.8.8.8")
-            .setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
-            .setEncryptedDnsHost("dns.google")
-            .setEncryptedDnsPort(443)
-            .setEncryptedDnsTlsServerName("dns.google")
-            .clearEncryptedDnsBootstrapIps()
-            .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8", "8.8.4.4"))
-            .setEncryptedDnsDohUrl("https://dns.google/dns-query")
-            .build()
-
-    private fun plainUdpSettings() =
-        AppSettingsSerializer.defaultValue
-            .toBuilder()
-            .setDnsMode(DnsModePlainUdp)
-            .setDnsIp("9.9.9.9")
-            .build()
-
-    private fun cloudflareRememberedPolicy(): VpnDnsPolicyJson =
-        VpnDnsPolicyJson(
-            mode = DnsModeEncrypted,
-            providerId = DnsProviderCloudflare,
-            dnsIp = "1.1.1.1",
-            encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-            encryptedDnsHost = "cloudflare-dns.com",
-            encryptedDnsPort = 443,
-            encryptedDnsTlsServerName = "cloudflare-dns.com",
-            encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
-            encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
-        )
-
-    private fun quad9DotPath(): EncryptedDnsPathCandidate =
-        EncryptedDnsPathCandidate(
-            resolverId = DnsProviderQuad9,
-            resolverLabel = "Quad9",
-            protocol = EncryptedDnsProtocolDot,
-            host = "dns.quad9.net",
-            port = 853,
-            tlsServerName = "dns.quad9.net",
-            bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
-        )
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -742,6 +680,13 @@ class LuaConnectionPolicyResolverTest {
                         luaDir.deleteRecursively()
                         val resolver =
                             DefaultConnectionPolicyResolver(
+                                runtimeConfigurationCapture =
+                                    testRequestedRuntimeConfigurationCapture(
+                                        ProxySessionSecretResolver(
+                                            EmptyWsTunnelWorkerCredentialStore,
+                                        ),
+                                        EmptyDestinationRoutingPolicySource,
+                                    ),
                                 context = context,
                                 appSettingsRepository = TestAppSettingsRepository(settings),
                                 networkFingerprintProvider = TestNetworkFingerprintProvider(null),
@@ -854,6 +799,11 @@ class ConnectionPolicyAwgResolverTest {
                 )
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository =
                         TestAppSettingsRepository(
@@ -921,6 +871,11 @@ class ConnectionPolicyAwgResolverTest {
                 }
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository =
                         TestAppSettingsRepository(
@@ -953,5 +908,128 @@ class ConnectionPolicyAwgResolverTest {
                     ?.connectionConcurrency
             assertEquals("firefox_stable", concurrencyPolicy?.selectedProfileId)
             assertEquals(4, concurrencyPolicy?.perProfileCaps?.get("firefox_stable"))
+        }
+}
+
+private fun encryptedGoogleSettings() =
+    AppSettingsSerializer.defaultValue
+        .toBuilder()
+        .setDnsMode(DnsModeEncrypted)
+        .setDnsProviderId(DnsProviderGoogle)
+        .setDnsIp("8.8.8.8")
+        .setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+        .setEncryptedDnsHost("dns.google")
+        .setEncryptedDnsPort(443)
+        .setEncryptedDnsTlsServerName("dns.google")
+        .clearEncryptedDnsBootstrapIps()
+        .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8", "8.8.4.4"))
+        .setEncryptedDnsDohUrl("https://dns.google/dns-query")
+        .build()
+
+private fun plainUdpSettings() =
+    AppSettingsSerializer.defaultValue
+        .toBuilder()
+        .setDnsMode(DnsModePlainUdp)
+        .setDnsIp("9.9.9.9")
+        .build()
+
+private fun cloudflareRememberedPolicy(): VpnDnsPolicyJson =
+    VpnDnsPolicyJson(
+        mode = DnsModeEncrypted,
+        providerId = DnsProviderCloudflare,
+        dnsIp = "1.1.1.1",
+        encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+        encryptedDnsHost = "cloudflare-dns.com",
+        encryptedDnsPort = 443,
+        encryptedDnsTlsServerName = "cloudflare-dns.com",
+        encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+        encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+    )
+
+private fun quad9DotPath(): EncryptedDnsPathCandidate =
+    EncryptedDnsPathCandidate(
+        resolverId = DnsProviderQuad9,
+        resolverLabel = "Quad9",
+        protocol = EncryptedDnsProtocolDot,
+        host = "dns.quad9.net",
+        port = 853,
+        tlsServerName = "dns.quad9.net",
+        bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
+    )
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class ConnectionPolicyStartAdmissionTest {
+    @Test
+    fun `saved doq resolves for proxy but rejects vpn before runtime composition`() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDnsMode(DnsModeEncrypted)
+                    .setEncryptedDnsProtocol(EncryptedDnsProtocolDoq)
+                    .build()
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(null),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                )
+
+            assertEquals(EncryptedDnsProtocolDoq, resolver.resolve(mode = Mode.Proxy).activeDns.encryptedDnsProtocol)
+            assertTrue(
+                runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull() is ServiceStartupRejectedException,
+            )
+        }
+
+    @Test
+    fun `initial resolution fails when destination routing source is unavailable`() =
+        runTest {
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            DestinationRoutingPolicySource {
+                                DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
+                            },
+                        ),
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                    destinationRoutingPolicySource =
+                        DestinationRoutingPolicySource {
+                            DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
+                        },
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                )
+
+            val failure = runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertTrue(failure?.message?.contains("rule_source_unavailable") == true)
         }
 }

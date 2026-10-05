@@ -35,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -71,6 +72,7 @@ fun RipDpiButton(
     trailingIcon: ImageVector? = null,
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
+    wrapLabel: Boolean = false,
 ) {
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
@@ -216,9 +218,10 @@ fun RipDpiButton(
                 text = text,
                 color = animatedContentColor,
                 style = type.button,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.alpha(contentAlpha),
+                maxLines = if (wrapLabel) Int.MAX_VALUE else 1,
+                overflow = if (wrapLabel) TextOverflow.Clip else TextOverflow.Ellipsis,
+                textAlign = if (wrapLabel) TextAlign.Center else null,
+                modifier = (if (wrapLabel) Modifier.weight(1f) else Modifier).alpha(contentAlpha),
             )
 
             if (trailingIcon != null) {

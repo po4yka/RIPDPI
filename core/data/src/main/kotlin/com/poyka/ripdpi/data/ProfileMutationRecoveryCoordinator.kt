@@ -46,12 +46,8 @@ data class ExpectedRelayProfileState(
     val credentials: RelayCredentialRecord?,
 )
 
-interface ProfileMutationCoordinator {
-    suspend fun recover()
-
-    suspend fun <T> readRecovered(block: suspend () -> T): T
-
-    suspend fun runReset(block: suspend () -> Unit)
+interface ProfileMutationCoordinator : ProfileMutationRecoveryAccess {
+    fun warpRuntimeRevision(profileId: String): Long
 
     suspend fun upsertAwg(
         profile: AwgProfileEntity,
@@ -79,6 +75,17 @@ interface ProfileMutationCoordinator {
         scannerMode: String,
     )
 
+    /** Runtime provisioning can commit only against its captured profile and credentials. */
+    suspend fun upsertWarpForRuntimeProvisioning(
+        profile: WarpProfile,
+        credentials: WarpCredentials,
+        endpoints: List<WarpEndpointCacheEntry>,
+        activate: Boolean,
+        scannerMode: String,
+        expectedCredentials: WarpCredentials,
+        expectedRevision: Long,
+    ): Boolean
+
     suspend fun deleteWarp(
         profileId: String,
         clearActive: Boolean,
@@ -101,10 +108,15 @@ class ProfileMutationRecoveryCoordinator
         private val awgProfiles: AwgProfileDao,
         private val awgCredentials: AwgCredentialStore,
         private val journal: ProfileMutationJournal,
+        private val mutationGeneration: ProfileMutationGenerationPublisher,
     ) : ProfileMutationCoordinator,
         XrayProviderMutationCoordinator {
+        private val warpRevisions = WarpRuntimeMutationRevisions()
+
+        override fun warpRuntimeRevision(profileId: String): Long = warpRevisions.current(profileId)
+
         private val mutex = Mutex()
-        private val json = RipDpiContractJson
+        private val intentProjection = ProfileMutationIntentProjection()
         private val recoveryReader = ProfileMutationJournalRecoveryReader(journal)
         private val replayWriter = ProfileMutationReplayWriter(stores, awgProfiles, awgCredentials)
 
@@ -120,6 +132,8 @@ class ProfileMutationRecoveryCoordinator
             mutex.withLock {
                 journal.clearForReset()
                 block()
+                warpRevisions.invalidateAll()
+                mutationGeneration.completed()
             }
 
         override suspend fun upsertAwg(
@@ -148,7 +162,7 @@ class ProfileMutationRecoveryCoordinator
             expectedState: ExpectedRelayProfileState?,
         ) {
             val intent =
-                relayUpsertIntent(
+                intentProjection.relayUpsertIntent(
                     profile = profile,
                     credentials = credentials,
                     enabled = enabled,
@@ -170,24 +184,6 @@ class ProfileMutationRecoveryCoordinator
                 }
             }
         }
-
-        private fun relayUpsertIntent(
-            profile: RelayProfileRecord,
-            credentials: RelayCredentialRecord,
-            enabled: Boolean,
-            select: Boolean,
-            settingsAfterImage: AppSettings?,
-            modeAfterImage: String?,
-            xraySelectionAfterImage: XrayProviderSelectionRecord?,
-        ) = RelayUpsertIntent(
-            profile = profile,
-            credentials = credentials,
-            enabled = enabled,
-            select = select,
-            settingsAfterImageBase64 = settingsAfterImage?.toByteArray()?.let(Base64.getEncoder()::encodeToString),
-            modeAfterImage = modeAfterImage,
-            xraySelectionAfterImage = xraySelectionAfterImage,
-        )
 
         override suspend fun upsertXrayProvider(
             profileId: String,
@@ -220,6 +216,40 @@ class ProfileMutationRecoveryCoordinator
             activate: Boolean,
             scannerMode: String,
         ) = execute(WarpUpsertIntent(profile, credentials, endpoints, activate, scannerMode))
+
+        override suspend fun upsertWarpForRuntimeProvisioning(
+            profile: WarpProfile,
+            credentials: WarpCredentials,
+            endpoints: List<WarpEndpointCacheEntry>,
+            activate: Boolean,
+            scannerMode: String,
+            expectedCredentials: WarpCredentials,
+            expectedRevision: Long,
+        ): Boolean =
+            mutex.withLock {
+                recoverLocked()
+                if (warpRuntimeRevision(profile.id) != expectedRevision ||
+                    !stores.warpCredentials.load(profile.id).sameRuntimeProvisioningMaterial(expectedCredentials) ||
+                    stores.settings.snapshot().warpProfileId != profile.id
+                ) {
+                    return@withLock false
+                }
+                val currentProfile = stores.warpProfiles.load(profile.id) ?: return@withLock false
+                val currentCredentials = stores.warpCredentials.load(profile.id) ?: return@withLock false
+                val mergedProfile =
+                    currentProfile.copy(
+                        lastProvisionedAtEpochMillis = profile.lastProvisionedAtEpochMillis,
+                    )
+                val mergedCredentials =
+                    credentials.copy(
+                        displayName = currentCredentials.displayName,
+                        license = currentCredentials.license,
+                        accountKind = currentCredentials.accountKind,
+                        zeroTrustOrg = currentCredentials.zeroTrustOrg,
+                    )
+                executeRecovered(WarpUpsertIntent(mergedProfile, mergedCredentials, endpoints, false, scannerMode))
+                true
+            }
 
         override suspend fun deleteWarp(
             profileId: String,
@@ -257,10 +287,14 @@ class ProfileMutationRecoveryCoordinator
             }
 
         private suspend fun executeRecovered(intent: ProfileMutationIntent) {
-            val pending = intent.toPendingMutation()
+            val beforeWarp = (intent as? WarpUpsertIntent)?.let { stores.warpCredentials.load(it.profile.id) }
+            val beforeProfile = (intent as? WarpUpsertIntent)?.let { stores.warpProfiles.load(it.profile.id) }
+            val pending = intentProjection.pending(intent)
             journal.prepare(pending)
             replayWriter.replay(intent)
             journal.complete(pending.mutationId)
+            publishWarpRevision(intent, beforeWarp, beforeProfile)
+            mutationGeneration.completed()
         }
 
         private suspend fun executeWithCompensation(
@@ -268,21 +302,25 @@ class ProfileMutationRecoveryCoordinator
             rollback: ProfileMutationIntent,
         ) = mutex.withLock {
             recoverLocked()
-            val targetPending = target.toPendingMutation()
+            val targetPending = intentProjection.pending(target)
             journal.prepare(targetPending)
             val failure =
                 runCatching {
                     replayWriter.replay(target)
                     journal.complete(targetPending.mutationId)
+                    warpRevisions.invalidateAll()
+                    mutationGeneration.completed()
                 }.exceptionOrNull()
             if (failure != null) {
                 val rollbackFailure =
                     runCatching {
                         withContext(NonCancellable) {
-                            val rollbackPending = rollback.toPendingMutation()
+                            val rollbackPending = intentProjection.pending(rollback)
                             journal.replace(targetPending.mutationId, rollbackPending)
                             replayWriter.replay(rollback)
                             journal.complete(rollbackPending.mutationId)
+                            warpRevisions.invalidateAll()
+                            mutationGeneration.completed()
                         }
                     }.exceptionOrNull()
                 if (rollbackFailure != null && rollbackFailure !== failure) {
@@ -292,19 +330,80 @@ class ProfileMutationRecoveryCoordinator
             }
         }
 
-        private fun ProfileMutationIntent.toPendingMutation() =
-            PendingProfileMutation(
-                family = family,
-                payload = json.encodeToString(ProfileMutationIntent.serializer(), this),
-            )
+        private fun publishWarpRevision(
+            intent: ProfileMutationIntent,
+            before: WarpCredentials?,
+            beforeProfile: WarpProfile?,
+        ) {
+            when (intent) {
+                is WarpUpsertIntent -> {
+                    if (!before.sameRuntimeProvisioningMaterial(intent.credentials) ||
+                        beforeProfile?.accountKind != intent.profile.accountKind ||
+                        beforeProfile?.zeroTrustOrg != intent.profile.zeroTrustOrg
+                    ) {
+                        warpRevisions.changed(intent.profile.id)
+                    }
+                }
+
+                is WarpDeleteIntent -> {
+                    warpRevisions.changed(intent.profileId)
+                }
+
+                is WarpDeactivateIntent -> {
+                    warpRevisions.changed(intent.profileId)
+                }
+
+                is PrivateBackupReplaceIntent -> {
+                    warpRevisions.invalidateAll()
+                }
+
+                else -> {
+                    Unit
+                }
+            }
+        }
 
         private suspend fun recoverLocked() {
             recoveryReader.read()?.let { recovered ->
                 replayWriter.replay(recovered.intent)
                 journal.complete(recovered.pending.mutationId)
+                when (val intent = recovered.intent) {
+                    is WarpUpsertIntent -> warpRevisions.changed(intent.profile.id)
+                    else -> publishWarpRevision(intent, null, null)
+                }
+                mutationGeneration.completed()
             }
         }
     }
+
+/** Pure conversion of captured mutation input into the journal's immutable after-image. */
+private class ProfileMutationIntentProjection {
+    private val json = RipDpiContractJson
+
+    fun relayUpsertIntent(
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        enabled: Boolean,
+        select: Boolean,
+        settingsAfterImage: AppSettings?,
+        modeAfterImage: String?,
+        xraySelectionAfterImage: XrayProviderSelectionRecord?,
+    ) = RelayUpsertIntent(
+        profile = profile,
+        credentials = credentials,
+        enabled = enabled,
+        select = select,
+        settingsAfterImageBase64 = settingsAfterImage?.toByteArray()?.let(Base64.getEncoder()::encodeToString),
+        modeAfterImage = modeAfterImage,
+        xraySelectionAfterImage = xraySelectionAfterImage,
+    )
+
+    fun pending(intent: ProfileMutationIntent) =
+        PendingProfileMutation(
+            family = intent.family,
+            payload = json.encodeToString(ProfileMutationIntent.serializer(), intent),
+        )
+}
 
 private class ProfileMutationReplayWriter(
     private val stores: ProfileMutationStores,

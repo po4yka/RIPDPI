@@ -40,6 +40,13 @@ abstract class ServiceRuntimeSession
             reloadPolicy(isCurrent)
 
         private var autolearnActivationGeneration: Long = 0L
+        private var configurationRevision: Long = 0L
+        internal var configurationAttempt: com.poyka.ripdpi.data.RuntimeConfigurationAttempt? = null
+        internal var effectiveConfigurationIdentity: RuntimeConfigurationIdentity? = null
+        internal var effectiveProviderIdentity: RuntimeConfigurationIdentity? = null
+
+        internal fun nextConfigurationRevision(): Long = ++configurationRevision
+
         private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
         var localNetworkDependent: Boolean = false
 

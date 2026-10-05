@@ -2074,6 +2074,8 @@ class MainViewModelTest {
             appSettingsRepository = appSettingsRepository,
             mainServiceDependencies =
                 MainServiceDependencies(
+                    appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
+                    reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
                     serviceStateStore = serviceStateStore,
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),

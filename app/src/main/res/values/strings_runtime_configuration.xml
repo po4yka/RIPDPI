@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">Runtime configuration</string>
+    <string name="runtime_config_applied">Confirmed configuration</string>
+    <string name="runtime_config_applying">Applying configuration</string>
+    <string name="runtime_config_pending">Saved changes pending</string>
+    <string name="runtime_config_unknown">Configuration unconfirmed</string>
+    <string name="runtime_config_failed">Configuration could not be applied</string>
+    <string name="runtime_config_last_confirmed">Last confirmed configuration</string>
+    <string name="runtime_config_pending_body">Saved changes apply on the next connection. Reconnecting interrupts current traffic.</string>
+    <string name="runtime_config_confirm_title">Apply saved configuration?</string>
+    <string name="runtime_config_confirm_body">The current connection will stop. RIPDPI will start with your current saved settings. Cancel keeps your saved settings and current connection.</string>
+    <string name="runtime_config_permission">Grant VPN permission before reconnecting. The current connection has been kept.</string>
+    <string name="runtime_config_lockdown">Android lockdown prevents this reconnect. Change its system settings first.</string>
+    <string name="runtime_config_lockdown_unknown">Android lockdown state is unavailable. The current VPN has been kept.</string>
+    <string name="runtime_config_stop_timeout">The connection did not confirm stopping. No replacement was started.</string>
+    <string name="runtime_config_start_failed">The new configuration did not confirm readiness. Check the connection error and try again.</string>
+    <string name="runtime_config_superseded">A newer Start or Stop replaced this reconnect.</string>
+    <string name="runtime_config_cancelled">Reconnect cancelled. Saved settings have been kept.</string>
+</resources>

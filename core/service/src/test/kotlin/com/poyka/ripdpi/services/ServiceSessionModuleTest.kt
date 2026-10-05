@@ -74,6 +74,14 @@ class ServiceSessionModuleTest {
                 )
             val coordinator =
                 ProxyServiceSessionModule.provideProxyCoordinator(
+                    receipts =
+                        RuntimeStartReceiptPublishers(
+                            testAutolearnActivationReceiptPublisher(),
+                            RuntimeConfigurationLifecycle(
+                                AppliedRuntimeConfigurationStore(),
+                                RuntimeConfigurationIdentityFactory(),
+                            ),
+                        ),
                     selectorListeners = emptySet(),
                     host = host,
                     connectionPolicyResolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy)),
@@ -83,7 +91,6 @@ class ServiceSessionModuleTest {
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
                     permissionWatchdog = TestPermissionWatchdog(),
                     supervisors = supervisors,
-                    autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
                     statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
                     directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
@@ -209,6 +216,11 @@ class ServiceSessionModuleTest {
             val vpnProtectFailureMonitor = VpnServiceSessionModule.provideVpnProtectFailureMonitor()
             val coordinator =
                 VpnServiceSessionModule.provideVpnCoordinator(
+                    configurationLifecycle =
+                        RuntimeConfigurationLifecycle(
+                            AppliedRuntimeConfigurationStore(),
+                            RuntimeConfigurationIdentityFactory(),
+                        ),
                     selectorListeners = emptySet(),
                     host = host,
                     runtimeDependencies = runtimeDependencies,
@@ -293,6 +305,8 @@ class ServiceSessionModuleTest {
                 renderedConfigProvider = { renderedConfigHolder.require() },
             )
         return XrayProviderSessionController(
+            tunnelReady = vpnTunnelRuntime::requireReadyEvidence,
+            configurationIdentities = RuntimeConfigurationIdentityFactory(),
             readSelectedProfile = {
                 val selection = selectionStore.current()
                 XraySelectedProfile(

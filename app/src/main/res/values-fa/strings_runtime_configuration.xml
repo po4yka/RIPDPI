@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_config_title">پیکربندی اتصال</string>
+    <string name="runtime_config_applied">پیکربندی تأییدشده</string>
+    <string name="runtime_config_applying">در حال اعمال پیکربندی</string>
+    <string name="runtime_config_pending">تغییرات ذخیره‌شده در انتظار اعمال</string>
+    <string name="runtime_config_unknown">پیکربندی تأیید نشده</string>
+    <string name="runtime_config_failed">پیکربندی اعمال نشد</string>
+    <string name="runtime_config_last_confirmed">آخرین پیکربندی تأییدشده</string>
+    <string name="runtime_config_pending_body">تغییرات ذخیره‌شده در اتصال بعدی اعمال می‌شوند. اتصال دوباره ترافیک فعلی را قطع می‌کند.</string>
+    <string name="runtime_config_confirm_title">پیکربندی ذخیره‌شده اعمال شود؟</string>
+    <string name="runtime_config_confirm_body">اتصال فعلی متوقف می‌شود. RIPDPI با تنظیمات ذخیره‌شدهٔ فعلی شروع می‌شود. لغو، تنظیمات و اتصال فعلی را حفظ می‌کند.</string>
+    <string name="runtime_config_permission">پیش از اتصال دوباره، مجوز VPN را بدهید. اتصال فعلی حفظ شده است.</string>
+    <string name="runtime_config_lockdown">قفل Android مانع اتصال دوباره است. ابتدا تنظیمات سیستم آن را تغییر دهید.</string>
+    <string name="runtime_config_lockdown_unknown">وضعیت قفل Android در دسترس نیست. VPN فعلی حفظ شده است.</string>
+    <string name="runtime_config_stop_timeout">توقف اتصال تأیید نشد. اتصال جایگزینی شروع نشد.</string>
+    <string name="runtime_config_start_failed">آمادگی پیکربندی جدید تأیید نشد. خطای اتصال را بررسی و دوباره تلاش کنید.</string>
+    <string name="runtime_config_superseded">فرمان شروع یا توقف جدید، جایگزین این اتصال دوباره شد.</string>
+    <string name="runtime_config_cancelled">اتصال دوباره لغو شد. تنظیمات ذخیره‌شده حفظ شده‌اند.</string>
+</resources>

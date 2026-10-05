@@ -50,6 +50,7 @@ class BackupPrivateDataStoreTest {
         val xraySelection = SharedPreferencesXrayProviderSelectionStore(context)
         val profileMutations =
             ProfileMutationRecoveryCoordinator(
+                mutationGeneration = ProfileMutationGenerationPublisher(),
                 stores =
                     ProfileMutationStores(
                         settings = BackupSettingsRepository(),

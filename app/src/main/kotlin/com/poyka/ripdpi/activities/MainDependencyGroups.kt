@@ -28,6 +28,8 @@ class MainServiceDependencies
         val serviceController: ServiceController,
         val trafficStatsReader: TrafficStatsReader,
         val hardKillSwitchStateStore: AndroidHardKillSwitchStateStore,
+        val appliedConfigurationSource: com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource,
+        val reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
     )
 
 class MainPermissionDependencies

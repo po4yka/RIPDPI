@@ -63,7 +63,7 @@ internal class VpnRuntimeCompositionCoordinator(
     suspend fun start(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ): ProxyRuntimeStartResult? = startComposedRuntime(session, resolution)
+    ): RuntimeStartEvidence = startComposedRuntime(session, resolution)
 
     suspend fun stop(skipRuntimeShutdown: Boolean) {
         try {
@@ -140,10 +140,10 @@ internal class VpnRuntimeCompositionCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
         restartReason: String,
-    ): ProxyRuntimeStartResult? {
-        if (providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason) == true) {
-            currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
-            return null
+    ): RuntimeStartEvidence {
+        providerDelegate?.tryRestart(session, resolution, appliedAt, restartReason)?.let { evidence ->
+            currentLocalProxyEndpoint = providerDelegate?.currentLocalProxyEndpoint
+            return evidence
         }
         session.currentDns = null
         session.currentDnsSignature = null
@@ -153,12 +153,13 @@ internal class VpnRuntimeCompositionCoordinator(
 
         // Keep the installed TUN as a blocking barrier while the proxy stack changes. The old
         // TUN continues sending packets into the stopped local proxy, so no direct network window opens.
+        applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         currentLocalProxyEndpoint = null
-        applyActiveConnectionPolicy(session, resolution, restartReason, appliedAt)
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
         val proxyStartResult = startProxyRuntime(resolution, logContext)
         vpnTunnelRuntime.rebuild(
+            configurationInput = resolution.requestedConfiguration.tunnelInput,
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
@@ -177,7 +178,7 @@ internal class VpnRuntimeCompositionCoordinator(
         )
         vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
         updateRuntimeDnsState(session, resolution)
-        return proxyStartResult
+        return readyNativeVpnEvidence(proxyStartResult, vpnTunnelRuntime.requireReadyEvidence())
     }
 
     fun updateRuntimeDnsState(
@@ -208,18 +209,19 @@ internal class VpnRuntimeCompositionCoordinator(
     private suspend fun startComposedRuntime(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
-    ): ProxyRuntimeStartResult? {
+    ): RuntimeStartEvidence {
         // PROVIDER SEAM: let the delegate take over only when it reports it
         // handled the start. Everything below this guard is the native
         // composition, unchanged.
-        if (providerDelegate?.tryStart(session, resolution) == true) {
-            currentLocalProxyEndpoint = providerDelegate.currentLocalProxyEndpoint
-            return null
+        providerDelegate?.tryStart(session, resolution)?.let { evidence ->
+            currentLocalProxyEndpoint = providerDelegate?.currentLocalProxyEndpoint
+            return evidence
         }
 
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
         val proxyStartResult = startProxyRuntime(resolution, logContext)
         vpnTunnelRuntime.start(
+            configurationInput = resolution.requestedConfiguration.tunnelInput,
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
@@ -238,7 +240,7 @@ internal class VpnRuntimeCompositionCoordinator(
         )
         vpnTunnelRuntime.publishInPathLease(session, proxyStartResult.endpoint)
         updateRuntimeDnsState(session, resolution)
-        return proxyStartResult
+        return readyNativeVpnEvidence(proxyStartResult, vpnTunnelRuntime.requireReadyEvidence())
     }
 
     private suspend fun startProxyRuntime(
@@ -266,6 +268,7 @@ internal class VpnRuntimeCompositionCoordinator(
             )
         return proxyRuntimeStack
             .start(
+                requestedWarpReference = resolution.requestedConfiguration.warpReference,
                 proxyPreferences =
                     resolution
                         .proxyPreferences

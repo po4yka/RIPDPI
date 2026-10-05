@@ -41,6 +41,11 @@ class ConnectionPolicyAutolearnTest {
                 }
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository =
                         TestAppSettingsRepository(

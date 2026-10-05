@@ -69,6 +69,8 @@ fun HomeScreen(
     onCaptivePortalSignIn: () -> Unit = {},
     initialModesExpanded: Boolean = false,
     onModesExpandedChange: (Boolean) -> Unit = {},
+    onReconnectConfiguration: (com.poyka.ripdpi.services.RunningReconnectRequest.ConfirmedRuntime) -> Unit = {},
+    onCancelConfigurationReconnect: () -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
@@ -129,6 +131,12 @@ fun HomeScreen(
             connected = uiState.isConnected,
             dataTransferred = uiState.dataTransferred,
             onReprobe = onDiagnosticRun,
+        )
+
+        HomeAppliedConfigurationPanel(
+            state = uiState.appliedConfiguration,
+            onReconnect = onReconnectConfiguration,
+            onCancelReconnect = onCancelConfigurationReconnect,
         )
 
         // Seeded from the caller so a persisted choice survives navigating away

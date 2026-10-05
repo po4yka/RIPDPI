@@ -5,26 +5,26 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ServiceController
-import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.RunningReconnectResult
+import com.poyka.ripdpi.services.RunningServiceReconnect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration.Companion.seconds
 
 internal class MainStrategyConfigApplyActions(
     private val scope: CoroutineScope,
     private val appSettingsRepository: AppSettingsRepository,
     private val currentSettings: () -> AppSettings,
     private val serviceStateStore: ServiceStateStore,
-    private val serviceController: ServiceController,
+    private val reconnectCoordinator: RunningServiceReconnect,
+    private val onReconnectFailure: (RunningReconnectResult.Failed) -> Unit,
     private val onUnsupportedVpnDns: () -> Unit,
 ) {
     private var restartJob: Job? = null
 
-    fun applySavedStrategyConfig(): StrategyConfigApplyResult =
+    fun applySavedStrategyConfig(
+        request: com.poyka.ripdpi.services.RunningReconnectRequest,
+    ): StrategyConfigApplyResult =
         when {
             serviceStateStore.status.value.first != AppStatus.Running -> {
                 StrategyConfigApplyResult.NextSession
@@ -39,28 +39,22 @@ internal class MainStrategyConfigApplyActions(
             }
 
             else -> {
-                val mode = serviceStateStore.status.value.second
+                val mode = request.mode
                 restartJob =
                     scope.launch {
                         if (mode == Mode.VPN && hasUnsupportedVpnDoq(appSettingsRepository.snapshot())) {
                             onUnsupportedVpnDns()
                             return@launch
                         }
-                        serviceController.stop()
-                        if (waitForServiceStatus(AppStatus.Halted)) {
-                            when (serviceController.start(mode)) {
-                                is ServiceStartResult.Accepted -> Unit
-                                is ServiceStartResult.Rejected -> Unit
-                            }
-                        }
+                        val result = reconnectCoordinator.reconnect(request)
+                        if (result is RunningReconnectResult.Failed) onReconnectFailure(result)
                     }
                 StrategyConfigApplyResult.RestartingActiveService
             }
         }
 
-    private suspend fun waitForServiceStatus(target: AppStatus): Boolean =
-        withTimeoutOrNull(10.seconds) {
-            serviceStateStore.status.first { it.first == target }
-            true
-        } == true
+    fun cancelReconnect() {
+        reconnectCoordinator.cancelReconnect()
+        restartJob?.cancel()
+    }
 }

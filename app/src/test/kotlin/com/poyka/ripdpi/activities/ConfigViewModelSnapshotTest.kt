@@ -77,6 +77,7 @@ class ConfigViewModelSnapshotTest {
             savedStateHandle = SavedStateHandle(),
             dependencies =
                 ConfigViewModelDependencies(
+                    reconnectCoordinator = FakeRunningServiceReconnect(),
                     appSettingsRepository = appSettingsRepository,
                     relayArtifacts =
                         ConfigRelayArtifactRepository(

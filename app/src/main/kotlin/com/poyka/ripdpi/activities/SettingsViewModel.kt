@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.security.PinVerifyResult
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -31,7 +30,7 @@ class SettingsViewModel
         private val settingsActionDependencies: SettingsActionDependencies,
         private val settingsViewModelBootstrapper: SettingsViewModelBootstrapper,
         settingsUiStateAssembler: SettingsUiStateAssembler,
-        serviceController: ServiceController,
+        reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
         serviceIntentArbiter: ServiceIntentArbiter,
     ) : ViewModel() {
         private val _effects =
@@ -78,7 +77,18 @@ class SettingsViewModel
             SettingsDnsActions(
                 mutations = mutations,
                 serviceStateStore = settingsActionDependencies.serviceStateStore,
-                serviceController = serviceController,
+                reconnectCoordinator = reconnectCoordinator,
+                onReconnectFailure = { result ->
+                    _effects.tryEmit(
+                        SettingsEffect.Notice(
+                            settingsActionDependencies.stringResolver.getString(
+                                com.poyka.ripdpi.R.string.runtime_config_failed,
+                            ),
+                            result.reason.message(settingsActionDependencies.stringResolver),
+                            SettingsNoticeTone.Error,
+                        ),
+                    )
+                },
                 serviceIntentArbiter = serviceIntentArbiter,
             )
         private val customizationActions by lazy {

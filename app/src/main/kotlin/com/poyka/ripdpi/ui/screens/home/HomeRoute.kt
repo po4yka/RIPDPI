@@ -42,6 +42,8 @@ fun HomeRoute(
         onBypassCardClick = onOpenLocalBypassConfig,
         onVpnCardClick = onOpenVpnConfig,
         onDiagnosticCardClick = onOpenDiagnostics,
+        onReconnectConfiguration = viewModel.onReconnectSavedConfiguration,
+        onCancelConfigurationReconnect = viewModel.onCancelConfigurationReconnect,
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
         onOpenConnectionHealth = onOpenConnectionHealth,

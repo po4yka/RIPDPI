@@ -13,19 +13,15 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
-import com.poyka.ripdpi.services.ServiceStartResult
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration.Companion.seconds
 
 private const val defaultDnsPort = 443
 
 internal class SettingsDnsActions(
     private val mutations: SettingsMutationRunner,
     private val serviceStateStore: ServiceStateStore,
-    private val serviceController: ServiceController,
+    private val reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
+    private val onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
     private val serviceIntentArbiter: ServiceIntentArbiter,
 ) {
     fun selectBuiltInDnsProvider(providerId: String) {
@@ -254,17 +250,11 @@ internal class SettingsDnsActions(
         if (status != AppStatus.Running) {
             return
         }
-        serviceController.stop()
-        val halted =
-            withTimeoutOrNull(10.seconds) {
-                serviceStateStore.status.first { it.first == AppStatus.Halted }
-                true
-            } == true
-        if (halted) {
-            when (serviceController.start(mode)) {
-                is ServiceStartResult.Accepted -> Unit
-                is ServiceStartResult.Rejected -> Unit
-            }
-        }
+        val result =
+            reconnectCoordinator.reconnect(
+                com.poyka.ripdpi.services.RunningReconnectRequest
+                    .CurrentSaved(mode),
+            )
+        if (result is com.poyka.ripdpi.services.RunningReconnectResult.Failed) onReconnectFailure(result)
     }
 }

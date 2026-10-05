@@ -11,11 +11,14 @@ import com.poyka.ripdpi.data.normalizeWarpScannerMode
 import javax.inject.Inject
 import javax.inject.Singleton
 
+enum class WarpEndpointResolutionOrigin { UserMutation, RuntimeProvisioning }
+
 interface WarpEndpointScanner {
     suspend fun resolveEndpoint(
         profileId: String,
         networkScopeKey: String,
         provisioned: WarpEndpointCacheEntry?,
+        origin: WarpEndpointResolutionOrigin,
     ): WarpEndpointCacheEntry?
 }
 
@@ -31,7 +34,9 @@ class DefaultWarpEndpointScanner
             profileId: String,
             networkScopeKey: String,
             provisioned: WarpEndpointCacheEntry?,
+            origin: WarpEndpointResolutionOrigin,
         ): WarpEndpointCacheEntry? {
+            val persist = origin == WarpEndpointResolutionOrigin.UserMutation
             val normalizedScope = networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
             val now = System.currentTimeMillis()
             val scanSettings = loadScanSettings(profileId)
@@ -48,6 +53,7 @@ class DefaultWarpEndpointScanner
                             networkScopeKey = normalizedScope,
                             entry = cached,
                             timeoutMillis = scanSettings.timeoutMillis,
+                            persist = persist,
                         )
                     }
                 }
@@ -60,12 +66,14 @@ class DefaultWarpEndpointScanner
                         networkScopeKey = GlobalWarpEndpointScopeKey,
                         entry = cached,
                         timeoutMillis = scanSettings.timeoutMillis,
+                        persist = persist,
                     )?.let { global ->
                         persistWarpBestCandidate(
                             endpointStore = endpointStore,
                             profileId = profileId,
                             networkScopeKey = normalizedScope,
                             candidate = global,
+                            persist = persist,
                         )
                     }
                 }
@@ -75,6 +83,7 @@ class DefaultWarpEndpointScanner
                     networkScopeKey = normalizedScope,
                     provisioned = provisioned,
                     scanSettings = scanSettings,
+                    persist = persist,
                 )
 
             return scannedCandidate ?: provisioned?.let { fallback ->
@@ -83,6 +92,7 @@ class DefaultWarpEndpointScanner
                     profileId = profileId,
                     networkScopeKey = normalizedScope,
                     candidate = fallback,
+                    persist = persist,
                 )
             }
         }
@@ -108,6 +118,7 @@ class DefaultWarpEndpointScanner
             networkScopeKey: String,
             provisioned: WarpEndpointCacheEntry?,
             scanSettings: WarpEndpointScanSettings,
+            persist: Boolean,
         ): WarpEndpointCacheEntry? {
             if (!scanSettings.enabled) return null
             val bestCandidate = scanBestCandidate(profileId, provisioned, scanSettings)
@@ -117,6 +128,7 @@ class DefaultWarpEndpointScanner
                     profileId = profileId,
                     networkScopeKey = networkScopeKey,
                     candidate = it,
+                    persist = persist,
                 )
             }
         }

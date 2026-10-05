@@ -57,6 +57,8 @@ internal class XrayProviderSessionController(
     private val runtimeOwner: XrayRuntimeOwner,
     private val renderedConfigSink: (String?) -> Unit,
     private val lastProtectFailureDetail: () -> String?,
+    private val configurationIdentities: RuntimeConfigurationIdentityFactory,
+    private val tunnelReady: () -> RuntimeTunnelReadyEvidence,
     /**
      * Process-wide probe seam the `:app` Diagnostics surface triggers through.
      * The controller registers [runProbes] here on a successful Xray start and
@@ -75,6 +77,10 @@ internal class XrayProviderSessionController(
     private var activeConfig: XrayProviderConfig = XrayProviderConfig()
     private var lastStartupFailed = false
     private var hasProviderSnapshot = false
+    private var consumedInputIdentity: RuntimeConfigurationIdentity? = null
+    private var readyConfiguration: RuntimeStartEvidence.ProviderReady? = null
+
+    fun requireReadyConfiguration(): RuntimeStartEvidence.ProviderReady = checkNotNull(readyConfiguration)
 
     private val _snapshots = MutableSharedFlow<XrayProviderSnapshot>(replay = 1, extraBufferCapacity = 1)
 
@@ -93,9 +99,11 @@ internal class XrayProviderSessionController(
      * failure) and does NOT fall through to the native path.
      */
     suspend fun start(params: XrayTunnelStartParams): HandoffOutcome {
+        readyConfiguration = null
         val selected = readSelectedProfile()
         val selection = selected.selection
         if (selection.kind != VpnProviderKind.Xray) {
+            readyConfiguration = null
             return HandoffOutcome.Stopped
         }
         hasProviderSnapshot = true
@@ -104,6 +112,7 @@ internal class XrayProviderSessionController(
 
     /** Restart the Xray session after a network handover or policy refresh. */
     suspend fun restart(params: XrayTunnelStartParams): HandoffOutcome {
+        readyConfiguration = null
         val selected = readSelectedProfile()
         val selection = selected.selection
         if (selection.kind != VpnProviderKind.Xray) {
@@ -131,6 +140,8 @@ internal class XrayProviderSessionController(
 
     private fun clearStoppedSessionState(clearSnapshotState: Boolean = false) {
         renderedConfigSink(null)
+        consumedInputIdentity = null
+        readyConfiguration = null
         startParamsHolder.current = null
         probeCoordinator?.clear()
         if (clearSnapshotState) {
@@ -160,39 +171,11 @@ internal class XrayProviderSessionController(
             try {
                 when (val resolved = routeBuilder.build(selected.profile)) {
                     is XrayProviderRouteBuilder.Result.Resolved -> {
-                        // Publish the per-start tunnel params only after the route is resolved, so
-                        // failed validation or cancelled profile load leaves the live session untouched.
-                        startParamsHolder.current = params
-                        // Hand the secret-bearing config to the orchestrator's provider,
-                        // then clear it right after the start returns.
-                        renderedConfigSink(resolved.renderedConfig)
-                        val result =
-                            try {
-                                startOrchestrator(resolved.route, forceReplacement)
-                            } finally {
-                                renderedConfigSink(null)
-                            }
-                        if (result is HandoffOutcome.Running) {
-                            lastStartupFailed = false
-                            lastFindings = emptyList()
-                            activeConfig = resolved.route.xrayConfig
-                            activeProfileName = selected.profile?.name
-                            activeProfileProtocol = "vless"
-                            activeProfileSecurity =
-                                selected.profile
-                                    ?.outbound
-                                    ?.security
-                                    ?.name
-                                    ?.lowercase()
-                            probeCoordinator?.register(::runProbes)
-                        } else {
-                            lastStartupFailed = result is HandoffOutcome.Failed
-                            probeCoordinator?.clear()
-                        }
-                        result
+                        startResolvedProfile(selected, params, forceReplacement, resolved)
                     }
 
                     is XrayProviderRouteBuilder.Result.Rejected -> {
+                        readyConfiguration = null
                         lastStartupFailed = false
                         lastFindings = resolved.findings
                         renderedConfigSink(null)
@@ -218,10 +201,12 @@ internal class XrayProviderSessionController(
                     }
                 }
             } catch (cancellation: CancellationException) {
+                readyConfiguration = null
                 if (!isActive) clearStoppedSessionState()
                 emitSnapshot()
                 throw cancellation
             } catch (error: Exception) {
+                readyConfiguration = null
                 if (!isActive) clearStoppedSessionState()
                 emitSnapshot()
                 throw error
@@ -234,6 +219,72 @@ internal class XrayProviderSessionController(
     }
 
     @Suppress("TooGenericExceptionCaught")
+    private suspend fun startResolvedProfile(
+        selected: XraySelectedProfile,
+        params: XrayTunnelStartParams,
+        forceReplacement: Boolean,
+        resolved: XrayProviderRouteBuilder.Result.Resolved,
+    ): HandoffOutcome {
+        // Publish the per-start tunnel params only after the route is resolved, so
+        // failed validation or cancelled profile load leaves the live session untouched.
+        startParamsHolder.current = params
+        // Hand the secret-bearing config to the orchestrator's provider,
+        // then clear it right after the start returns.
+        val incomingIdentity =
+            configurationIdentities.providerInput(
+                resolved.renderedConfig,
+                selected.selection.activeProfileId,
+                params,
+            )
+        val replaceConsumedInput =
+            orchestrator.currentRoute != null &&
+                !configurationIdentities.isCurrentProviderInput(
+                    incomingIdentity,
+                    consumedInputIdentity,
+                    tunnelReady,
+                )
+        readyConfiguration = null
+        renderedConfigSink(resolved.renderedConfig)
+        val result =
+            try {
+                startOrchestrator(
+                    resolved.route,
+                    forceReplacement || replaceConsumedInput,
+                ).also { outcome ->
+                    if (outcome is HandoffOutcome.Running) {
+                        val actualTunnel = tunnelReady()
+                        consumedInputIdentity = incomingIdentity
+                        readyConfiguration =
+                            configurationIdentities.providerReadyConfiguration(
+                                selected,
+                                resolved,
+                                actualTunnel,
+                            )
+                    }
+                }
+            } finally {
+                renderedConfigSink(null)
+            }
+        if (result is HandoffOutcome.Running) {
+            lastStartupFailed = false
+            lastFindings = emptyList()
+            activeConfig = resolved.route.xrayConfig
+            activeProfileName = selected.profile?.name
+            activeProfileProtocol = "vless"
+            activeProfileSecurity =
+                selected.profile
+                    ?.outbound
+                    ?.security
+                    ?.name
+                    ?.lowercase()
+            probeCoordinator?.register(::runProbes)
+        } else {
+            lastStartupFailed = result is HandoffOutcome.Failed
+            probeCoordinator?.clear()
+        }
+        return result
+    }
+
     private suspend fun startOrchestrator(
         route: ProviderRoute,
         forceReplacement: Boolean,

@@ -33,6 +33,88 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileMutationRecoveryCoordinatorTest {
     @Test
+    fun `runtime provisioning is profile fenced rejects user ABA and preserves metadata and settings`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val profile = WarpProfile(id = "warp-active", displayName = "original")
+            val original =
+                WarpCredentials(profileId = profile.id, deviceId = "device", accessToken = "original-fixture")
+            coordinator.upsertWarp(profile, original, emptyList(), true, WarpScannerModeAutomatic)
+            val capturedRevision = coordinator.warpRuntimeRevision(profile.id)
+            coordinator.upsertWarp(
+                profile.copy(id = "unrelated"),
+                original.copy(profileId = "unrelated"),
+                emptyList(),
+                false,
+                WarpScannerModeAutomatic,
+            )
+            assertEquals(capturedRevision, coordinator.warpRuntimeRevision(profile.id))
+            coordinator.upsertWarp(
+                profile.copy(displayName = "user name"),
+                original.copy(displayName = "user name", license = "user-license"),
+                emptyList(),
+                false,
+                WarpScannerModeAutomatic,
+            )
+            assertEquals(capturedRevision, coordinator.warpRuntimeRevision(profile.id))
+            val settingsBefore = fixture.settings.snapshot()
+            assertTrue(
+                coordinator.upsertWarpForRuntimeProvisioning(
+                    profile.copy(setupState = WarpSetupStateProvisioned),
+                    original.copy(accessToken = "automatic-fixture"),
+                    emptyList(),
+                    false,
+                    WarpScannerModeAutomatic,
+                    original,
+                    capturedRevision,
+                ),
+            )
+            assertEquals("user name", fixture.warpProfiles.load(profile.id)?.displayName)
+            assertEquals(profile.setupState, fixture.warpProfiles.load(profile.id)?.setupState)
+            assertEquals("user-license", fixture.warpCredentials.load(profile.id)?.license)
+            assertEquals(settingsBefore, fixture.settings.snapshot())
+            val updated = fixture.warpCredentials.load(profile.id)!!
+            val updatedRevision = coordinator.warpRuntimeRevision(profile.id)
+            coordinator.upsertWarp(
+                profile,
+                updated.copy(accessToken = "user-other-fixture"),
+                emptyList(),
+                false,
+                WarpScannerModeAutomatic,
+            )
+            coordinator.upsertWarp(profile, updated, emptyList(), false, WarpScannerModeAutomatic)
+            assertFalse(
+                coordinator.upsertWarpForRuntimeProvisioning(
+                    profile,
+                    updated.copy(accessToken = "late-automatic-fixture"),
+                    emptyList(),
+                    false,
+                    WarpScannerModeAutomatic,
+                    updated,
+                    updatedRevision,
+                ),
+            )
+            assertEquals(updated, fixture.warpCredentials.load(profile.id))
+        }
+
+    @Test
+    fun `mutation generation advances only after durable completion and successful recovery or reset`() =
+        runTest {
+            val fixture = Fixture()
+            fixture.journal.beforeComplete = { assertEquals(0L, fixture.mutationGeneration.generation.value) }
+            fixture.coordinator().selectNativeProvider(XrayProviderSelectionRecord(), Mode.Proxy.preferenceValue)
+            assertEquals(1L, fixture.mutationGeneration.generation.value)
+            fixture.journal.beforeComplete = null
+            fixture.coordinator().recover()
+            assertEquals(1L, fixture.mutationGeneration.generation.value)
+            fixture.coordinator().runReset { }
+            assertEquals(2L, fixture.mutationGeneration.generation.value)
+            runCatching { fixture.coordinator().runReset { error("reset failed") } }
+            assertEquals(2L, fixture.mutationGeneration.generation.value)
+        }
+
+    @Test
     fun `deleting active AWG profile clears its boot pointer`() =
         runTest {
             val fixture = Fixture()
@@ -106,6 +188,7 @@ class ProfileMutationRecoveryCoordinatorTest {
                     fixture.coordinator().upsertRelay(profile, credentials, enabled = true, select = true)
                 }.exceptionOrNull()
             assertTrue(failure is IllegalStateException)
+            assertEquals(0L, fixture.mutationGeneration.generation.value)
             assertEquals(profile, fixture.relayProfiles.load(profile.id))
             assertNull(fixture.relayCredentials.load(profile.id))
             assertEquals(ProfileMutationFamily.Relay, fixture.journal.pending()?.family)
@@ -117,10 +200,12 @@ class ProfileMutationRecoveryCoordinatorTest {
             assertTrue(fixture.settings.snapshot().relayEnabled)
             assertNull(fixture.journal.pending())
             val savesAfterReplay = fixture.relayProfiles.saveCount
+            assertEquals(1L, fixture.mutationGeneration.generation.value)
 
             fixture.coordinator().recover()
 
             assertEquals(savesAfterReplay, fixture.relayProfiles.saveCount)
+            assertEquals(1L, fixture.mutationGeneration.generation.value)
         }
 
     @Test
@@ -523,6 +608,7 @@ class ProfileMutationRecoveryCoordinatorTest {
         }
 
     private class Fixture {
+        val mutationGeneration = ProfileMutationGenerationPublisher()
         val settings = InMemorySettingsRepository()
         val relayProfiles = InMemoryRelayProfileStore()
         val relayCredentials = InMemoryRelayCredentialStore()
@@ -539,6 +625,7 @@ class ProfileMutationRecoveryCoordinatorTest {
 
         fun coordinator() =
             ProfileMutationRecoveryCoordinator(
+                mutationGeneration = mutationGeneration,
                 stores =
                     ProfileMutationStores(
                         settings = settings,
@@ -599,6 +686,7 @@ private class InMemoryBootSessionStateStore : BootSessionStateStore {
 private class InMemoryProfileMutationJournal : ProfileMutationJournal {
     private var value: PendingProfileMutation? = null
     var pendingCorruptionFailuresRemaining = 0
+    var beforeComplete: (() -> Unit)? = null
 
     override suspend fun prepare(mutation: PendingProfileMutation) {
         check(value == null)
@@ -622,6 +710,7 @@ private class InMemoryProfileMutationJournal : ProfileMutationJournal {
     }
 
     override suspend fun complete(mutationId: String) {
+        beforeComplete?.invoke()
         check(value?.mutationId == mutationId)
         value = null
     }

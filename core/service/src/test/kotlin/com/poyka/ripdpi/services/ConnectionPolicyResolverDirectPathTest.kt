@@ -102,6 +102,11 @@ class ConnectionPolicyResolverDirectPathTest {
             )
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -173,6 +178,11 @@ class ConnectionPolicyResolverDirectPathTest {
             )
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -235,6 +245,11 @@ class ConnectionPolicyResolverDirectPathTest {
                     .build()
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -292,6 +307,11 @@ class ConnectionPolicyResolverDirectPathTest {
                     .build()
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -346,6 +366,11 @@ class ConnectionPolicyResolverDirectPathTest {
                     .build()
             val resolver =
                 DefaultConnectionPolicyResolver(
+                    runtimeConfigurationCapture =
+                        testRequestedRuntimeConfigurationCapture(
+                            ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            EmptyDestinationRoutingPolicySource,
+                        ),
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
@@ -434,6 +459,11 @@ class ConnectionPolicyResolverDirectPathTest {
         capabilityStore: TestServerCapabilityStore,
     ): DefaultConnectionPolicyResolver =
         DefaultConnectionPolicyResolver(
+            runtimeConfigurationCapture =
+                testRequestedRuntimeConfigurationCapture(
+                    ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    EmptyDestinationRoutingPolicySource,
+                ),
             context = RuntimeEnvironment.getApplication(),
             appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
             networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),

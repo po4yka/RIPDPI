@@ -148,7 +148,18 @@ class AutolearnActivationReceiptPublisherTest {
                 publisher.publish(
                     session,
                     resolution,
-                    RuntimeStartEvidence.NotApplicable,
+                    RuntimeStartEvidence.ProviderReady(
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("xray"),
+                        RuntimeConfigurationIdentityFactory().capture(listOf("test-provider-config"), emptyList()),
+                        RuntimeTunnelReadyEvidence(
+                            resolution.requestedConfiguration.tunnelInput,
+                            false,
+                            resolution.activeDns,
+                            null,
+                            "fixture-interface",
+                        ),
+                    ),
                     observedAt = 30L,
                 ),
             )
@@ -221,6 +232,11 @@ class AutolearnActivationReceiptPublisherTest {
                 autolearnEnabled = enabled,
                 capturedAt = capturedAt,
             ),
+            effectivePreferences =
+                com.poyka.ripdpi.core
+                    .RipDpiProxyUIPreferences(),
+            consumedUpstreams = emptyList(),
+            requestedWarpPatch = null,
         )
 }
 

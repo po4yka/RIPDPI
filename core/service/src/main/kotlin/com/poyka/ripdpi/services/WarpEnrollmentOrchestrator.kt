@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.DefaultWarpProfileId
+import com.poyka.ripdpi.data.WarpCredentials
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -26,6 +27,14 @@ interface WarpEnrollmentOrchestrator {
     suspend fun completeZeroTrustBrowserEnrollment(request: WarpZeroTrustImportRequest): WarpEnrollmentSnapshot
 
     suspend fun refreshActiveProfile(networkScopeKey: String? = null): WarpEnrollmentSnapshot
+
+    /** Frozen-profile runtime provisioning; concurrent user mutations must reject its commit. */
+    suspend fun refreshProfileForRuntime(
+        profileId: String,
+        expectedCredentials: WarpCredentials,
+        expectedRevision: Long,
+        networkScopeKey: String?,
+    ): WarpEnrollmentSnapshot
 
     suspend fun resetProfile(profileId: String)
 }
@@ -85,6 +94,21 @@ class DefaultWarpEnrollmentOrchestrator
         override suspend fun refreshActiveProfile(networkScopeKey: String?): WarpEnrollmentSnapshot =
             mutex.withLock {
                 enrollmentFlowService.refreshActiveProfile(networkScopeKey)
+            }
+
+        override suspend fun refreshProfileForRuntime(
+            profileId: String,
+            expectedCredentials: WarpCredentials,
+            expectedRevision: Long,
+            networkScopeKey: String?,
+        ): WarpEnrollmentSnapshot =
+            mutex.withLock {
+                enrollmentFlowService.refreshProfileForRuntime(
+                    profileId,
+                    expectedCredentials,
+                    expectedRevision,
+                    networkScopeKey,
+                )
             }
 
         override suspend fun resetProfile(profileId: String) {

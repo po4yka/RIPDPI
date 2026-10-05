@@ -72,6 +72,46 @@ internal fun buildConnectionPolicySignature(
 
 private fun String?.orEmptyList(): List<String> = if (this == null) emptyList() else listOf(this)
 
+/** Canonical consumed proxy fields shared by policy signatures and private configuration identity. */
+internal fun connectionPolicyTransportMaterial(
+    mode: Mode,
+    proxyPreferences: RipDpiProxyPreferences,
+    destinationRoutingDigest: String = "",
+): List<String> =
+    listOf(
+        mode.preferenceValue,
+        stripRipDpiRuntimeContext(proxyPreferences.toNativeConfigJson()),
+        (proxyPreferences as? RipDpiProxyUIPreferences)?.listen?.authToken.orEmpty(),
+        destinationRoutingDigest,
+    )
+
+internal fun connectionPolicyDnsMaterial(activeDns: ActiveDnsSettings): List<String> =
+    with(activeDns) {
+        listOf(
+            mode,
+            providerId,
+            dnsIp,
+            encryptedDnsProtocol,
+            encryptedDnsHost,
+            encryptedDnsPort.toString(),
+            encryptedDnsTlsServerName,
+            encryptedDnsBootstrapIps.joinToString(","),
+            encryptedDnsDohUrl,
+            encryptedDnsDnscryptProviderName,
+            encryptedDnsDnscryptPublicKey,
+            encryptedDnsOdohProxyUrl,
+            encryptedDnsOdohProxyOperatorId,
+            encryptedDnsOdohTargetHost,
+            encryptedDnsOdohTargetPath,
+            encryptedDnsOdohTargetOperatorId,
+            encryptedDnsOdohConfigSource,
+            encryptedDnsOdohConfigsHex,
+            encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
+            encryptedDnsOdohConfigsTtlSecs.toString(),
+            routeThroughProxy.toString(),
+        )
+    }
+
 private const val HexRadix = 16
 private const val HexNibbleShift = 4
 

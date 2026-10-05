@@ -118,16 +118,17 @@ class VpnRuntimeCompositionCoordinatorTest {
             val session = VpnRuntimeSession("runtime-test")
             val result = coordinator.start(session, sampleResolution(mode = Mode.VPN))
 
-            assertTrue(result != null)
-            assertSame(readySnapshot, result?.readySnapshot)
+            assertTrue(result is RuntimeStartEvidence.ProxySnapshot)
+            val ready = result as RuntimeStartEvidence.ProxySnapshot
+            assertSame(readySnapshot, ready.snapshot)
             val routeLease = session.diagnosticsInPathRouteLease
             assertNotNull(routeLease)
             assertEquals(receiptStore.capture().lifecycle?.generation, routeLease?.routeGeneration)
             assertEquals(null, routeLease?.issuedRevision)
-            assertEquals(result?.endpoint?.host, routeLease?.host)
-            assertEquals(result?.endpoint?.port, routeLease?.port)
-            assertEquals(result?.endpoint?.username, routeLease?.credentials?.username)
-            assertEquals(result?.endpoint?.password, routeLease?.credentials?.password)
+            assertEquals(coordinator.currentLocalProxyEndpoint?.host, routeLease?.host)
+            assertEquals(coordinator.currentLocalProxyEndpoint?.port, routeLease?.port)
+            assertEquals(coordinator.currentLocalProxyEndpoint?.username, routeLease?.credentials?.username)
+            assertEquals(coordinator.currentLocalProxyEndpoint?.password, routeLease?.credentials?.password)
             sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
             coordinator.restartAfterPolicyChange(session, sampleResolution(mode = Mode.VPN), 1L, "test_recompose")
             val rebuiltLease = requireNotNull(session.diagnosticsInPathRouteLease)

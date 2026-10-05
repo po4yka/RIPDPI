@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -42,26 +41,28 @@ internal class VpnTunnelRefreshCoordinator(
                 return@withLock
             }
             try {
+                callbacks.beginDnsRefresh(refreshSession, latestConnectionPolicy)
                 refreshSession.revokeInPathLease()
                 val endpoint =
                     checkNotNull(state.currentLocalProxyEndpoint()) {
                         "VPN tunnel refresh requires an active local proxy endpoint"
                     }
                 dependencies.vpnTunnelRuntime.rebuild(
+                    configurationInput =
+                        dependencies.vpnTunnelRuntime.dnsOnlyConfigurationInput(
+                            latestConnectionPolicy.requestedConfiguration.tunnelInput,
+                        ),
                     activeDns = latestConnectionPolicy.activeDns,
                     overrideReason = latestConnectionPolicy.resolverFallbackReason,
                     logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
                     localProxyEndpoint = endpoint,
                     splitStrictDnsPolicy = latestConnectionPolicy.splitStrictDnsPolicy,
-                    profileInterface = latestConnectionPolicy.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
-                    forceTunnelDns =
-                        latestConnectionPolicy.proxyPreferences
-                            .awgConfigOrNull()
-                            ?.dnsServers
-                            ?.isEmpty() == true,
+                    profileInterface = dependencies.vpnTunnelRuntime.consumedProfileInterface,
+                    forceTunnelDns = dependencies.vpnTunnelRuntime.consumedForceTunnelDns,
                 )
                 dependencies.vpnTunnelRuntime.publishInPathLease(refreshSession, endpoint)
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
+                callbacks.confirmDnsRefresh(refreshSession, latestConnectionPolicy)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -114,6 +115,16 @@ internal interface VpnTunnelRefreshDependencies {
 }
 
 internal interface VpnTunnelRefreshCallbacks {
+    fun beginDnsRefresh(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+    )
+
+    fun confirmDnsRefresh(
+        session: VpnRuntimeSession,
+        resolution: ConnectionPolicyResolution,
+    )
+
     suspend fun recomposeRuntimeForPolicyChange(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
