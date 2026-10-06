@@ -410,6 +410,7 @@ class SelectorRuntimeInstrumentedTest {
                                     collector?.cancelAndJoin()
                                     withContext(Dispatchers.Main) { models.clear() }
                                     pause.stop()
+                                    controller.stop()
                                     state.status.first { it.first == AppStatus.Halted }
                                     observed.assertRetiredSince(previousHandles)
                                     for (id in listOf(groupA, groupB)) {
@@ -545,6 +546,7 @@ class SelectorRuntimeInstrumentedTest {
                         collector?.cancelAndJoin()
                         withContext(Dispatchers.Main) { viewModels.clear() }
                         pause.stop()
+                        controller.stop()
                         state.status.first { it.first == AppStatus.Halted }
                         observed.assertRetiredSince(previousHandles)
                         recovery.mutateCatalog(mutations.captureMutation(ProfileMutationOrigin.ExplicitDeletion)) {

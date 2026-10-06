@@ -400,6 +400,7 @@ class XrayProviderE2ETest {
                             collector?.cancel()
                             kotlinx.coroutines.withContext(Dispatchers.Main) { models.clear() }
                             utilityPause.stop()
+                            controller.stop()
                             state.status.first { it.first == AppStatus.Halted }
                             utilityRecovery.mutateCatalog(
                                 utilityMutations.captureMutation(
