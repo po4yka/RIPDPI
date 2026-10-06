@@ -44,8 +44,8 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.PermissionWatchdogModule
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
-import com.poyka.ripdpi.services.ServiceUserCommands
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.services.durableIntentGenerationExtra
@@ -150,7 +150,7 @@ class ServiceLifecycleIntegrationTest {
     lateinit var serviceIntentArbiter: ServiceIntentArbiter
 
     @Inject
-    lateinit var serviceUserCommands: ServiceUserCommands
+    lateinit var serviceController: ServiceController
 
     @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
@@ -757,7 +757,7 @@ class ServiceLifecycleIntegrationTest {
 
     private suspend fun startService(serviceClass: Class<*>) {
         val mode = if (serviceClass == RipDpiVpnService::class.java) Mode.VPN else Mode.Proxy
-        val receipt = serviceUserCommands.prepareUserCommand(RuntimeUserCommand.Start(mode))
+        val receipt = serviceController.prepareUserCommand(RuntimeUserCommand.Start(mode))
         val lease = checkNotNull(serviceIntentArbiter.dispatchExplicit(receipt))
         ContextCompat.startForegroundService(
             appContext,
@@ -769,7 +769,7 @@ class ServiceLifecycleIntegrationTest {
     }
 
     private suspend fun stopService() {
-        val receipt = serviceUserCommands.prepareUserCommand(RuntimeUserCommand.Stop)
+        val receipt = serviceController.prepareUserCommand(RuntimeUserCommand.Stop)
         val lease = checkNotNull(serviceIntentArbiter.dispatchExplicit(receipt))
         val mode = IntegrationTestOverrides.serviceStateStore.status.value.second
         val serviceClass =
