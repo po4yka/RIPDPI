@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.OrderedServiceStateStore
+import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -35,7 +36,6 @@ import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.startAction
-import com.poyka.ripdpi.data.stopAction
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NetworkHandoverMonitorModule
 import com.poyka.ripdpi.services.PermissionChangeEvent
@@ -43,13 +43,17 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.PermissionWatchdogModule
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
+import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
+import com.poyka.ripdpi.services.durableIntentGenerationExtra
 import com.poyka.ripdpi.services.explicitUserIntentGenerationExtra
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySourceModule
+import com.poyka.ripdpi.services.vpnStartGenerationExtra
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
 import com.poyka.ripdpi.testing.ProxyRuntimeFaultTarget
 import com.poyka.ripdpi.testing.TunnelBridgeFaultTarget
@@ -145,6 +149,9 @@ class ServiceLifecycleIntegrationTest {
 
     @Inject
     lateinit var serviceIntentArbiter: ServiceIntentArbiter
+
+    @Inject
+    lateinit var serviceController: ServiceController
 
     @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
@@ -749,33 +756,38 @@ class ServiceLifecycleIntegrationTest {
         }
     }
 
-    private fun startService(serviceClass: Class<*>) {
-        serviceIntentArbiter.userStart(
-            action = {
+    private suspend fun startService(serviceClass: Class<*>) {
+        val mode =
+            when (serviceClass) {
+                RipDpiVpnService::class.java -> Mode.VPN
+                RipDpiProxyService::class.java -> Mode.Proxy
+                else -> error("Unsupported integration service: $serviceClass")
+            }
+        val receipt = serviceController.prepareUserCommand(RuntimeUserCommand.Start(mode))
+        val lease = checkNotNull(serviceIntentArbiter.dispatchExplicit(receipt))
+        val dispatch = {
+            check(serviceIntentArbiter.isCurrent(lease))
+            val component =
                 ContextCompat.startForegroundService(
                     appContext,
-                    Intent(appContext, serviceClass).setAction(startAction).putExtra(
-                        explicitUserIntentGenerationExtra,
-                        serviceIntentArbiter.captureExplicitUserIntentGeneration(),
-                    ),
+                    Intent(appContext, serviceClass).apply {
+                        action = startAction
+                        putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
+                        putExtra(durableIntentGenerationExtra, lease.durable.authority.generation)
+                        if (mode == Mode.VPN) {
+                            putExtra(vpnStartGenerationExtra, serviceIntentArbiter.captureVpnStartGeneration())
+                        }
+                    },
                 )
-            },
-            isAccepted = { true },
-        )
+            checkNotNull(component)
+            ServiceStartResult.Accepted(mode)
+        }
+        val result = if (mode == Mode.VPN) serviceIntentArbiter.dispatchVpnStart(dispatch) else dispatch()
+        assertTrue("Prepared lifecycle fixture start must be accepted", result is ServiceStartResult.Accepted)
     }
 
-    private fun stopService() {
-        serviceIntentArbiter.userStop {
-            val mode = IntegrationTestOverrides.serviceStateStore.status.value.second
-            val serviceClass =
-                if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
-            appContext.startService(
-                Intent(appContext, serviceClass).setAction(stopAction).putExtra(
-                    explicitUserIntentGenerationExtra,
-                    serviceIntentArbiter.captureExplicitUserIntentGeneration(),
-                ),
-            )
-        }
+    private suspend fun stopService() {
+        serviceController.stop()
     }
 
     private suspend fun awaitStatus(
