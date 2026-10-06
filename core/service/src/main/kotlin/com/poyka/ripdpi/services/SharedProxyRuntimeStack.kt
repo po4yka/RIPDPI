@@ -10,6 +10,7 @@ import com.poyka.ripdpi.core.withAwgEgressPort
 import com.poyka.ripdpi.core.withRelayRuntimeSelection
 import com.poyka.ripdpi.core.withUdpAssociateEnabled
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.service.awg.AmneziaWgLocalSocksPort
 
 /**
@@ -46,6 +47,7 @@ internal class SharedProxyRuntimeStack(
 
     suspend fun start(
         relayInputs: RelayResolutionInputs,
+        requestedSelection: RuntimeConfigurationSelection,
         proxyPreferences: RipDpiProxyPreferences,
         requestedWarpReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
         onRelayExit: suspend (SupervisorExitCause) -> Unit,
@@ -56,18 +58,22 @@ internal class SharedProxyRuntimeStack(
         onInitialRelayRaceState: (InitialTransportRaceSnapshot) -> Unit = {},
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
     ): ProxyRuntimeStartResult {
+        val selectedRelay = capturedSelectorRelay(requestedSelection)
         val awgRequest = proxyPreferences.awgConfigOrNull()
+        check(selectedRelay == null || awgRequest == null) { "Selector selection conflicts with AWG" }
         val configuredEgressRequirements =
             EgressRequirements(
                 tcpConnect = true,
                 udpAssociate = proxyPreferences.isUdpAssociateEnabled(),
             )
-        val egressRequirements = initialRelayRacePlan?.requirements ?: configuredEgressRequirements
+        val relayRacePlan = initialRelayRacePlan.takeIf { selectedRelay == null }
+        val egressRequirements = relayRacePlan?.requirements ?: configuredEgressRequirements
         check(egressRequirements.isSupportedSubsetOf(configuredEgressRequirements)) {
             "Initial relay plan requirements exceed the configured proxy capabilities"
         }
         var effectivePreferences =
             proxyPreferences.withEgressRequirements(egressRequirements, configuredEgressRequirements)
+        effectivePreferences = applyCapturedSelector(effectivePreferences, selectedRelay)
         if (awgRequest != null) {
             check(egressRequirements == configuredEgressRequirements) {
                 "AWG readiness requirements must match the configured proxy capabilities"
@@ -85,22 +91,24 @@ internal class SharedProxyRuntimeStack(
             }
             effectivePreferences = effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
         } else {
-            proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+            effectivePreferences.relayConfigOrNull()?.let { relayConfig ->
                 // A fresh relay start clears any stale foreign-relay-failed signal from a
                 // previous session so this session does not begin in a Degraded state.
                 clearForeignRelayFailed()
-                if (initialRelayRacePlan == null) {
+                if (relayRacePlan == null) {
                     upstreamRelaySupervisor.start(
                         config = relayConfig,
                         inputs = relayInputs,
+                        expectedSelection = requestedSelection,
                         requirements = egressRequirements,
                         onUnexpectedExit = onRelayExit,
                     )
                 } else {
                     val promoted =
                         upstreamRelaySupervisor.startRace(
-                            plan = initialRelayRacePlan,
+                            plan = relayRacePlan,
                             inputs = relayInputs,
+                            expectedSelection = requestedSelection,
                             onUnexpectedExit = onRelayExit,
                             onState = onInitialRelayRaceState,
                         )
@@ -125,6 +133,37 @@ internal class SharedProxyRuntimeStack(
                     null
                 },
         )
+    }
+
+    private fun capturedSelectorRelay(requestedSelection: RuntimeConfigurationSelection): RipDpiRelayConfig? =
+        requestedSelection.selectorGroupId?.let {
+            check(
+                requestedSelection.selectorMemberId != null && requestedSelection.profileId != null &&
+                    requestedSelection.relayKind != null,
+            ) { "Incomplete captured selector selection" }
+            RipDpiRelayConfig(
+                enabled = true,
+                kind = checkNotNull(requestedSelection.relayKind),
+                profileId = checkNotNull(requestedSelection.profileId),
+            )
+        }
+
+    private fun applyCapturedSelector(
+        preferences: RipDpiProxyPreferences,
+        selectedRelay: RipDpiRelayConfig?,
+    ): RipDpiProxyPreferences {
+        if (selectedRelay == null) return preferences
+        val effectivePreferences =
+            relayRuntimeSelectionRenderer(
+                preferences,
+                selectedRelay,
+                selectedRelay.localSocksHost,
+                selectedRelay.localSocksPort,
+            )
+        check(effectivePreferences.relayConfigOrNull()?.profileId == selectedRelay.profileId) {
+            "Captured selector relay was not applied to proxy preferences"
+        }
+        return effectivePreferences
     }
 
     private fun consumedUpstreams(

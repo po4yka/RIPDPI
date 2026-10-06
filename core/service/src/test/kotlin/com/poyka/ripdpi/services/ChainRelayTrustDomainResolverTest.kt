@@ -91,6 +91,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             profileId = "chain",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals("entry-hop", resolved.chainEntryProfileId)
@@ -169,6 +172,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             profileId = "chain",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertNotNull(resolved.chainEntry)
@@ -354,6 +360,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                         ).resolve(
                             config = chainRelayConfig(),
                             inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                            expectedSelection =
+                                com.poyka.ripdpi.data
+                                    .RuntimeConfigurationSelection("native"),
                         )
                     }.exceptionOrNull()
 
@@ -409,6 +418,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                     resolver(profileStore, credentialStore).resolve(
                         config = chainRelayConfig(),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
 
                 assertEquals(quicKind, resolved.chainEntry?.kind)
@@ -440,6 +452,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                     ).resolve(
                         config = chainRelayConfig(),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
                 }.exceptionOrNull()
 
@@ -483,6 +498,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                     ).resolve(
                         config = chainRelayConfig(),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
                 }.exceptionOrNull()
 
@@ -531,6 +549,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                 resolver(profileStore, credentialStore).resolve(
                     config = chainRelayConfig(),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             val shadowHop = resolved.chainHops[1]
@@ -576,6 +597,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             quic = OwnedRelayQuicMigrationConfig(),
                             tlsProfile = TlsFingerprintProfileEdgeStable,
                         ),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(
@@ -608,6 +632,9 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                     resolver(profileStore, threeHopChainCredentialStore()).resolve(
                         config = chainRelayConfig(),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
                 }.exceptionOrNull()
 
@@ -649,6 +676,9 @@ internal abstract class ChainRelayTrustDomainResolverTestSupport {
         threeHopChainResolver().resolve(
             config = chainRelayConfig(),
             inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+            expectedSelection =
+                com.poyka.ripdpi.data
+                    .RuntimeConfigurationSelection("native"),
         )
 
     protected suspend fun threeHopChainResolver(): DefaultUpstreamRelayRuntimeConfigResolver =

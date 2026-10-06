@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindWebTunnel
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,13 +27,15 @@ internal class PermissionCheckedRelayConfigResolver
         override suspend fun resolve(
             config: RipDpiRelayConfig,
             inputs: RelayResolutionInputs,
-        ): ResolvedRipDpiRelayConfig = resolveWithLocalNetworkDependency(config, inputs).config
+            expectedSelection: RuntimeConfigurationSelection,
+        ): ResolvedRipDpiRelayConfig = resolveWithLocalNetworkDependency(config, inputs, expectedSelection).config
 
         override suspend fun resolveWithLocalNetworkDependency(
             config: RipDpiRelayConfig,
             inputs: RelayResolutionInputs,
+            expectedSelection: RuntimeConfigurationSelection,
         ): LocalNetworkAwareRelayConfigResolution {
-            val resolved = delegate.resolve(config, inputs)
+            val resolved = delegate.resolve(config, inputs, expectedSelection)
             return LocalNetworkAwareRelayConfigResolution(
                 config = resolved,
                 localNetworkDependent = access.requireRelayEndpoints(resolved),

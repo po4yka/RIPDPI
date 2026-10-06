@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,7 +21,7 @@ interface ServiceStartLocalNetworkPreflight {
 @Singleton
 internal class DefaultServiceStartLocalNetworkPreflight internal constructor(
     private val resolvePolicy: suspend (Mode) -> ConnectionPolicyResolution,
-    private val resolveRelay: suspend (RipDpiRelayConfig, RelayResolutionInputs) -> Unit,
+    private val resolveRelay: suspend (RipDpiRelayConfig, RelayResolutionInputs, RuntimeConfigurationSelection) -> Unit,
     private val planInitialRace:
         suspend (Mode, ConnectionPolicyResolution, RipDpiRelayConfig) -> InitialRelayRacePlan?,
 ) : ServiceStartLocalNetworkPreflight {
@@ -31,8 +32,8 @@ internal class DefaultServiceStartLocalNetworkPreflight internal constructor(
         initialRelayRacePolicy: Optional<InitialRelayRacePolicy>,
     ) : this(
         resolvePolicy = connectionPolicyResolver::resolve,
-        resolveRelay = { relay, inputs ->
-            relayConfigResolver.resolveWithLocalNetworkDependency(relay, inputs)
+        resolveRelay = { relay, inputs, selection ->
+            relayConfigResolver.resolveWithLocalNetworkDependency(relay, inputs, selection)
         },
         planInitialRace = { mode, resolution, relay ->
             if (mode == Mode.VPN) {
@@ -56,9 +57,26 @@ internal class DefaultServiceStartLocalNetworkPreflight internal constructor(
     override suspend fun requireAccess(mode: Mode) {
         val resolution = resolvePolicy(mode)
         val preferences = resolution.proxyPreferences
-        val configuredRelay = preferences.relayConfigOrNull().takeIf { preferences.awgConfigOrNull() == null } ?: return
+        val selection = resolution.requestedConfiguration.selection
+        val configuredRelay =
+            if (selection.selectorGroupId != null) {
+                RipDpiRelayConfig(
+                    enabled = true,
+                    kind = checkNotNull(selection.relayKind),
+                    profileId = checkNotNull(selection.profileId),
+                )
+            } else {
+                preferences.relayConfigOrNull().takeIf { preferences.awgConfigOrNull() == null }
+            } ?: return
         val inputs = resolution.requestedConfiguration.relayInputs
-        val racePlan = planInitialRace(mode, resolution, configuredRelay)
+        val racePlan =
+            if (selection.selectorGroupId ==
+                null
+            ) {
+                planInitialRace(mode, resolution, configuredRelay)
+            } else {
+                null
+            }
         val relayConfigs =
             racePlan?.candidates?.map { candidate ->
                 RipDpiRelayConfig(
@@ -67,7 +85,7 @@ internal class DefaultServiceStartLocalNetworkPreflight internal constructor(
                     profileId = candidate.profileId,
                 )
             } ?: listOf(configuredRelay)
-        relayConfigs.forEach { relay -> resolveRelay(relay, inputs) }
+        relayConfigs.forEach { relay -> resolveRelay(relay, inputs, resolution.requestedConfiguration.selection) }
     }
 }
 

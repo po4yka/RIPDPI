@@ -13,6 +13,51 @@ import org.junit.Test
 
 class ServiceStartLocalNetworkPreflightTest {
     @Test
+    fun `captured selector is permission checked even when standalone relay is off`() =
+        runTest {
+            val preferences = RipDpiProxyUIPreferences(relay = RipDpiRelayConfig(enabled = false))
+            val base = sampleResolution(proxyPreferences = preferences)
+            val request = base.requestedConfiguration
+            val selection =
+                com.poyka.ripdpi.data.RuntimeConfigurationSelection(
+                    "native",
+                    relayKind = RelayKindWebTunnel,
+                    profileId = "member",
+                    selectorGroupId = "group-b",
+                    selectorMemberId = "member",
+                )
+            val captured =
+                RequestedRuntimeConfiguration(
+                    request.identity,
+                    request.relayInputs,
+                    selection,
+                    request.dns,
+                    request.strategy,
+                    request.tunnelInput,
+                    request.frozenTransportMaterial,
+                    request.frozenDnsMaterial,
+                    request.frozenWarpMaterial,
+                    request.warpReference,
+                )
+            val checked = mutableListOf<com.poyka.ripdpi.data.RuntimeConfigurationSelection>()
+            val preflight =
+                DefaultServiceStartLocalNetworkPreflight(
+                    resolvePolicy = { base.copy(requestedConfiguration = captured) },
+                    resolveRelay = { config, _, expected ->
+                        assertTrue(config.enabled)
+                        assertEquals("member", config.profileId)
+                        checked += expected
+                        throw LocalNetworkAccessRequiredException()
+                    },
+                    planInitialRace = { _, _, _ -> error("Explicit selector must not race") },
+                )
+            val failure = runCatching { preflight.requireAccess(Mode.VPN) }.exceptionOrNull()
+            assertTrue(failure is LocalNetworkAccessRequiredException)
+            assertEquals(listOf(selection), checked)
+            assertEquals(false, preferences.relay.enabled)
+        }
+
+    @Test
     fun `configured relay is checked before proxy service dispatch`() =
         runTest {
             val resolvedRelays = mutableListOf<RipDpiRelayConfig>()
@@ -25,7 +70,7 @@ class ServiceStartLocalNetworkPreflightTest {
                             proxyPreferences = RipDpiProxyUIPreferences(relay = configuredRelay),
                         )
                     },
-                    resolveRelay = { relay, _ -> resolvedRelays += relay },
+                    resolveRelay = { relay, _, _ -> resolvedRelays += relay },
                     planInitialRace = { _, _, _ -> null },
                 )
 
@@ -52,7 +97,7 @@ class ServiceStartLocalNetworkPreflightTest {
                                 ),
                         )
                     },
-                    resolveRelay = { _, _ -> throw LocalNetworkAccessRequiredException() },
+                    resolveRelay = { _, _, _ -> throw LocalNetworkAccessRequiredException() },
                     planInitialRace = { _, _, _ -> null },
                 )
 
@@ -101,7 +146,7 @@ class ServiceStartLocalNetworkPreflightTest {
                                 ),
                         )
                     },
-                    resolveRelay = { relay, _: RelayResolutionInputs ->
+                    resolveRelay = { relay, _: RelayResolutionInputs, _ ->
                         resolvedProfiles += relay.profileId
                     },
                     planInitialRace = { _, _, _ -> racePlan },

@@ -47,6 +47,45 @@ class SelectorRelayRuntimeProfileResolverTest {
     }
 
     @Test
+    fun `captured selector namespace rejects same member id in a newer group`() =
+        runTest {
+            val nativeReads = NativeReads(TestRelayProfileStore(), TestRelayCredentialStore())
+            val selector = selectorResolver("group-b", "shared", RecordingGroupRepository(listOf(group("group-b"))))
+            assertRejected {
+                upstreamResolver(selector, nativeReads).resolve(
+                    RipDpiRelayConfig(enabled = true, kind = RelayKindTrojan, profileId = "shared"),
+                    testRelayResolutionInputs(),
+                    com.poyka.ripdpi.data.RuntimeConfigurationSelection(
+                        "native",
+                        relayKind = RelayKindTrojan,
+                        profileId = "shared",
+                        selectorGroupId = "group-a",
+                        selectorMemberId = "shared",
+                    ),
+                )
+            }
+            assertEquals(0, nativeReads.profileLoads)
+            assertEquals(0, nativeReads.credentialLoads)
+        }
+
+    @Test
+    fun `captured standalone resolution rejects a newly active selector`() =
+        runTest {
+            val nativeReads = NativeReads(TestRelayProfileStore(), TestRelayCredentialStore())
+            val selector = selectorResolver("group-b", "shared", RecordingGroupRepository(listOf(group("group-b"))))
+            assertRejected {
+                upstreamResolver(selector, nativeReads).resolve(
+                    RipDpiRelayConfig(enabled = true, kind = RelayKindTrojan, profileId = "shared"),
+                    testRelayResolutionInputs(),
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
+                )
+            }
+            assertEquals(0, nativeReads.profileLoads)
+            assertEquals(0, nativeReads.credentialLoads)
+        }
+
+    @Test
     fun `null active selector does not look up groups or a selected member`() =
         runTest {
             val repository = RecordingGroupRepository(listOf(group("group-a")))
@@ -218,6 +257,14 @@ class SelectorRelayRuntimeProfileResolverTest {
                 upstreamResolver(selector, nativeReads).resolve(
                     RipDpiRelayConfig(enabled = false, profileId = "shared"),
                     testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig(bindLowPort = true)),
+                    expectedSelection =
+                        com.poyka.ripdpi.data.RuntimeConfigurationSelection(
+                            "native",
+                            relayKind = RelayKindTrojan,
+                            profileId = "shared",
+                            selectorGroupId = "group-b",
+                            selectorMemberId = "shared",
+                        ),
                 )
 
             assertTrue(resolved.enabled)
@@ -263,6 +310,9 @@ class SelectorRelayRuntimeProfileResolverTest {
                 upstreamResolver(selector, nativeReads).resolve(
                     RipDpiRelayConfig(enabled = false, profileId = "native", kind = RelayKindTrojan),
                     testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertFalse(resolved.enabled)
@@ -292,6 +342,9 @@ class SelectorRelayRuntimeProfileResolverTest {
                 upstreamResolver(selector, nativeReads).resolve(
                     RipDpiRelayConfig(enabled = true, profileId = "shared", kind = RelayKindTrojan),
                     testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
             }
             assertEquals(0, nativeReads.profileLoads)

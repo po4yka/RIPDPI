@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
@@ -50,6 +51,7 @@ internal interface UpstreamRelayRuntimeConfigResolver {
     suspend fun resolve(
         config: RipDpiRelayConfig,
         inputs: RelayResolutionInputs,
+        expectedSelection: RuntimeConfigurationSelection,
     ): ResolvedRipDpiRelayConfig
 }
 
@@ -62,6 +64,7 @@ internal interface LocalNetworkAwareRelayRuntimeConfigResolver {
     suspend fun resolveWithLocalNetworkDependency(
         config: RipDpiRelayConfig,
         inputs: RelayResolutionInputs,
+        expectedSelection: RuntimeConfigurationSelection,
     ): LocalNetworkAwareRelayConfigResolution
 }
 
@@ -174,8 +177,23 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
         override suspend fun resolve(
             config: RipDpiRelayConfig,
             inputs: RelayResolutionInputs,
+            expectedSelection: RuntimeConfigurationSelection,
         ): ResolvedRipDpiRelayConfig {
             val selected = selectorRelayRuntimeProfileResolver.resolve()
+            val matches =
+                if (expectedSelection.selectorGroupId != null) {
+                    selected != null && selected.groupId == expectedSelection.selectorGroupId &&
+                        selected.memberId == expectedSelection.selectorMemberId &&
+                        selected.profile.id == expectedSelection.profileId &&
+                        selected.profile.kind == expectedSelection.relayKind
+                } else {
+                    selected == null && expectedSelection.selectorMemberId == null
+                }
+            if (!matches) {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected("Captured selector selection changed"),
+                )
+            }
             if (selected != null) {
                 if (relayKindDescriptor(selected.profile.kind) == null) {
                     throw ServiceStartupRejectedException(

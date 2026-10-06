@@ -234,6 +234,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 proxyRuntimeStack.start(
                     requestedWarpReference = resolution.requestedConfiguration.warpReference,
                     relayInputs = resolution.requestedConfiguration.relayInputs,
+                    requestedSelection = resolution.requestedConfiguration.selection,
                     proxyPreferences =
                         resolution.proxyPreferences.withLogContext(
                             session.buildLogContext(session.currentActiveConnectionPolicy),
@@ -302,6 +303,7 @@ internal class ProxyServiceRuntimeCoordinator(
             proxyRuntimeStack.start(
                 requestedWarpReference = resolution.requestedConfiguration.warpReference,
                 relayInputs = resolution.requestedConfiguration.relayInputs,
+                requestedSelection = resolution.requestedConfiguration.selection,
                 proxyPreferences =
                     resolution.proxyPreferences.withLogContext(
                         session.buildLogContext(session.currentActiveConnectionPolicy),

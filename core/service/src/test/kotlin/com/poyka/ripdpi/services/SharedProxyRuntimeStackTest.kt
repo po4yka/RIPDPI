@@ -33,6 +33,9 @@ class SharedProxyRuntimeStackTest {
             val error =
                 runCatching {
                     fixture.stack.start(
+                        requestedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                         relayInputs = testRelayResolutionInputs(),
                         requestedWarpReference =
                             com.poyka.ripdpi.service.warp
@@ -72,6 +75,9 @@ class SharedProxyRuntimeStackTest {
             val selected = mutableListOf<InitialRelayRaceResult>()
 
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -110,6 +116,9 @@ class SharedProxyRuntimeStackTest {
 
             val result =
                 fixture.stack.start(
+                    requestedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     relayInputs = testRelayResolutionInputs(),
                     requestedWarpReference =
                         com.poyka.ripdpi.service.warp
@@ -133,6 +142,9 @@ class SharedProxyRuntimeStackTest {
             val selected = mutableListOf<InitialRelayRaceResult>()
 
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -192,6 +204,9 @@ class SharedProxyRuntimeStackTest {
                 )
 
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -254,6 +269,9 @@ class SharedProxyRuntimeStackTest {
                 )
 
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -283,6 +301,9 @@ class SharedProxyRuntimeStackTest {
             val result =
                 runCatching {
                     fixture.stack.start(
+                        requestedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                         relayInputs = testRelayResolutionInputs(),
                         requestedWarpReference =
                             com.poyka.ripdpi.service.warp
@@ -328,6 +349,9 @@ class SharedProxyRuntimeStackTest {
                 )
 
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -365,6 +389,9 @@ class SharedProxyRuntimeStackTest {
             val error =
                 runCatching {
                     fixture.stack.start(
+                        requestedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                         relayInputs = testRelayResolutionInputs(),
                         requestedWarpReference =
                             com.poyka.ripdpi.service.warp
@@ -387,6 +414,9 @@ class SharedProxyRuntimeStackTest {
         runTest {
             val fixture = createFixture()
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -412,6 +442,9 @@ class SharedProxyRuntimeStackTest {
         runTest {
             val fixture = createFixture()
             fixture.stack.start(
+                requestedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 relayInputs = testRelayResolutionInputs(),
                 requestedWarpReference =
                     com.poyka.ripdpi.service.warp
@@ -480,6 +513,7 @@ class SharedProxyRuntimeStackTest {
                         override suspend fun resolve(
                             config: RipDpiRelayConfig,
                             inputs: RelayResolutionInputs,
+                            expectedSelection: com.poyka.ripdpi.data.RuntimeConfigurationSelection,
                         ) = sampleResolvedRelayConfig(config.kind, config.profileId).copy(
                             udpEnabled = config.kind == RelayKindHysteria2,
                         )

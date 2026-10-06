@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -123,6 +124,7 @@ internal class UpstreamRelaySupervisor(
         requirements: EgressRequirements,
         config: RipDpiRelayConfig,
         inputs: RelayResolutionInputs,
+        expectedSelection: RuntimeConfigurationSelection,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(!hasOwnedRuntime) { "Relay runtime is already active" }
@@ -130,6 +132,7 @@ internal class UpstreamRelaySupervisor(
             startSlot(
                 config = config,
                 inputs = inputs,
+                expectedSelection = expectedSelection,
                 localPortOverride = null,
                 requirements = requirements,
                 onUnexpectedExit = onUnexpectedExit,
@@ -140,6 +143,7 @@ internal class UpstreamRelaySupervisor(
     suspend fun startRace(
         plan: InitialRelayRacePlan,
         inputs: RelayResolutionInputs,
+        expectedSelection: RuntimeConfigurationSelection,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
         onState: (InitialTransportRaceSnapshot) -> Unit = {},
     ): PromotedRelayRuntime {
@@ -155,6 +159,7 @@ internal class UpstreamRelaySupervisor(
                                 profileId = candidate.profileId,
                             ),
                         inputs = inputs,
+                        expectedSelection = expectedSelection,
                         localPortOverride = EphemeralPort,
                         requirements = plan.requirements,
                         onUnexpectedExit = onUnexpectedExit,
@@ -168,16 +173,17 @@ internal class UpstreamRelaySupervisor(
     private suspend fun startSlot(
         config: RipDpiRelayConfig,
         inputs: RelayResolutionInputs,
+        expectedSelection: RuntimeConfigurationSelection,
         localPortOverride: Int?,
         requirements: EgressRequirements,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): RelayRuntimeSlot {
         val configResolution =
             if (runtimeConfigResolver is LocalNetworkAwareRelayRuntimeConfigResolver) {
-                runtimeConfigResolver.resolveWithLocalNetworkDependency(config, inputs)
+                runtimeConfigResolver.resolveWithLocalNetworkDependency(config, inputs, expectedSelection)
             } else {
                 LocalNetworkAwareRelayConfigResolution(
-                    config = runtimeConfigResolver.resolve(config, inputs),
+                    config = runtimeConfigResolver.resolve(config, inputs, expectedSelection),
                     localNetworkDependent = false,
                 )
             }

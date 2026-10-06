@@ -85,6 +85,9 @@ class FinalmaskCompatibilityTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -138,6 +141,9 @@ class FinalmaskCompatibilityTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =

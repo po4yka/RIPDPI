@@ -1004,6 +1004,7 @@ internal class TestUpstreamRelayRuntimeConfigResolver(
     override suspend fun resolve(
         config: RipDpiRelayConfig,
         inputs: RelayResolutionInputs,
+        expectedSelection: com.poyka.ripdpi.data.RuntimeConfigurationSelection,
     ): ResolvedRipDpiRelayConfig {
         requests += config to inputs.quic
         failure?.let { throw it }
@@ -1013,9 +1014,10 @@ internal class TestUpstreamRelayRuntimeConfigResolver(
     override suspend fun resolveWithLocalNetworkDependency(
         config: RipDpiRelayConfig,
         inputs: RelayResolutionInputs,
+        expectedSelection: com.poyka.ripdpi.data.RuntimeConfigurationSelection,
     ): LocalNetworkAwareRelayConfigResolution =
         LocalNetworkAwareRelayConfigResolution(
-            config = resolve(config, inputs),
+            config = resolve(config, inputs, expectedSelection),
             localNetworkDependent = localNetworkDependent,
         )
 }

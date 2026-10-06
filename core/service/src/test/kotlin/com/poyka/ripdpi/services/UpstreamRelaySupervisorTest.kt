@@ -77,6 +77,9 @@ class UpstreamRelaySupervisorTest {
             assertTrue(
                 runCatching {
                     supervisor.start(
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                         requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                         config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -104,6 +107,9 @@ class UpstreamRelaySupervisorTest {
                     stopTimeoutMillis = 100L,
                 )
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -131,6 +137,9 @@ class UpstreamRelaySupervisorTest {
                     runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
                 )
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -174,6 +183,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs =
                         testRelayResolutionInputs(
                             quic = OwnedRelayQuicMigrationConfig(),
@@ -208,6 +220,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs =
                         testRelayResolutionInputs(
                             quic = OwnedRelayQuicMigrationConfig(),
@@ -237,6 +252,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs =
                         testRelayResolutionInputs(
                             quic = OwnedRelayQuicMigrationConfig(),
@@ -263,6 +281,9 @@ class UpstreamRelaySupervisorTest {
                 }
 
             supervisor.startRace(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs =
                     testRelayResolutionInputs(
                         quic = OwnedRelayQuicMigrationConfig(),
@@ -306,6 +327,9 @@ class UpstreamRelaySupervisorTest {
                 }
 
             supervisor.startRace(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 plan = racePlan(),
                 onUnexpectedExit = {},
@@ -346,6 +370,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs =
                         testRelayResolutionInputs(
                             quic = OwnedRelayQuicMigrationConfig(),
@@ -371,6 +398,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     plan = racePlan(cachedFallbackProfileId = RealityProfileId),
                     onUnexpectedExit = {},
@@ -395,6 +425,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs =
                         testRelayResolutionInputs(
                             quic = OwnedRelayQuicMigrationConfig(),
@@ -423,6 +456,9 @@ class UpstreamRelaySupervisorTest {
             val plan = racePlan().let { it.copy(candidates = it.candidates.take(1)) }
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     plan = plan,
                     onUnexpectedExit = {},
@@ -456,6 +492,9 @@ class UpstreamRelaySupervisorTest {
             val race =
                 async {
                     supervisor.startRace(
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                         plan = racePlan(),
                         onUnexpectedExit = exits::add,
@@ -484,6 +523,7 @@ class UpstreamRelaySupervisorTest {
                     override suspend fun resolve(
                         config: RipDpiRelayConfig,
                         inputs: RelayResolutionInputs,
+                        expectedSelection: com.poyka.ripdpi.data.RuntimeConfigurationSelection,
                     ) = sampleResolvedRelayConfig(kind = config.kind, profileId = config.profileId).copy(
                         udpEnabled = config.kind == RelayKindHysteria2,
                     )
@@ -566,6 +606,9 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs =
                         testRelayResolutionInputs(
                             quic = OwnedRelayQuicMigrationConfig(),
@@ -597,6 +640,9 @@ class UpstreamRelaySupervisorTest {
             val error =
                 runCatching {
                     supervisor.start(
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                         config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality),
                         requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
@@ -624,6 +670,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -649,6 +698,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -698,6 +750,9 @@ class UpstreamRelaySupervisorTest {
                 val error =
                     runCatching {
                         supervisor.start(
+                            expectedSelection =
+                                com.poyka.ripdpi.data
+                                    .RuntimeConfigurationSelection("native"),
                             inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                             requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                             config = RipDpiRelayConfig(enabled = true, kind = resolvedConfig.kind),
@@ -729,6 +784,9 @@ class UpstreamRelaySupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -756,6 +814,9 @@ class UpstreamRelaySupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -785,6 +846,9 @@ class UpstreamRelaySupervisorTest {
             val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(23))
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -798,6 +862,9 @@ class UpstreamRelaySupervisorTest {
             advanceUntilIdle()
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -833,6 +900,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
@@ -902,6 +972,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -947,6 +1020,9 @@ class UpstreamRelaySupervisorTest {
             val quicMigrationConfig = OwnedRelayQuicMigrationConfig(bindLowPort = true)
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = requestedConfig,
                 inputs = testRelayResolutionInputs(quic = quicMigrationConfig),
@@ -979,6 +1055,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -1021,6 +1100,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1093,6 +1175,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs =
                     testRelayResolutionInputs(
                         quic = OwnedRelayQuicMigrationConfig(),
@@ -1152,6 +1237,9 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
@@ -1186,6 +1274,9 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
@@ -1244,6 +1335,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -1262,6 +1356,15 @@ class UpstreamRelaySupervisorTest {
 
             supervisor.stop()
         }
+
+    private fun assertResolvedChain(resolved: com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig?) {
+        assertEquals("entry-hop", resolved?.chainEntryProfileId)
+        assertEquals("entry.example", resolved?.chainEntryServer)
+        assertEquals("11111111-1111-1111-1111-111111111111", resolved?.chainEntryUuid)
+        assertEquals("exit-hop", resolved?.chainExitProfileId)
+        assertEquals("exit.example", resolved?.chainExitServer)
+        assertEquals("22222222-2222-2222-2222-222222222222", resolved?.chainExitUuid)
+    }
 
     @Test
     fun `chain relay resolves referenced hop profiles before native runtime launch`() =
@@ -1325,6 +1428,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -1337,12 +1443,7 @@ class UpstreamRelaySupervisorTest {
             )
 
             val resolved = relayFactory.lastRuntime.lastConfig
-            assertEquals("entry-hop", resolved?.chainEntryProfileId)
-            assertEquals("entry.example", resolved?.chainEntryServer)
-            assertEquals("11111111-1111-1111-1111-111111111111", resolved?.chainEntryUuid)
-            assertEquals("exit-hop", resolved?.chainExitProfileId)
-            assertEquals("exit.example", resolved?.chainExitServer)
-            assertEquals("22222222-2222-2222-2222-222222222222", resolved?.chainExitUuid)
+            assertResolvedChain(resolved)
 
             supervisor.stop()
         }
@@ -1403,6 +1504,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -1457,6 +1561,9 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
@@ -1512,6 +1619,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
@@ -1571,6 +1681,9 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
@@ -1632,6 +1745,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs =
                     testRelayResolutionInputs(
                         quic = OwnedRelayQuicMigrationConfig(),
@@ -1694,6 +1810,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs =
                     testRelayResolutionInputs(
                         quic = OwnedRelayQuicMigrationConfig(),
@@ -1754,6 +1873,9 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
@@ -1811,6 +1933,9 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                expectedSelection =
+                    com.poyka.ripdpi.data
+                        .RuntimeConfigurationSelection("native"),
                 inputs =
                     testRelayResolutionInputs(
                         quic = OwnedRelayQuicMigrationConfig(),

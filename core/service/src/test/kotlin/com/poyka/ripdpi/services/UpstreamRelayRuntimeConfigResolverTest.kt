@@ -107,14 +107,30 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             val config =
                 RipDpiRelayConfig(enabled = true, kind = RelayKindCloudflareTunnel, profileId = "captured-policy")
 
-            val resolved = resolver.resolve(config, captured)
+            val resolved =
+                resolver.resolve(
+                    config,
+                    captured,
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                )
 
             assertEquals(TlsFingerprintProfileChromeStable, resolved.tlsFingerprintProfile)
             assertTrue(resolved.quicBindLowPort)
             assertTrue(resolved.quicMigrateAfterHandshake)
             assertTrue(captured.featureFlags[StrategyFeatureCloudflarePublish] == true)
             val changed = RelayResolutionInputs("firefox_stable", mutableFlags, OwnedRelayQuicMigrationConfig())
-            val rejected = runCatching { resolver.resolve(config, changed) }.exceptionOrNull()
+            val rejected =
+                runCatching {
+                    resolver.resolve(
+                        config,
+                        changed,
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                    )
+                }.exceptionOrNull()
             assertTrue(rejected is ServiceStartupRejectedException)
         }
 
@@ -151,6 +167,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             udpEnabled = true,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindTor, resolved.kind)
@@ -211,6 +230,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             featureFlags =
                                 mapOf(com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish to true),
                         ),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
@@ -261,6 +283,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             profileId = "masque",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayMasqueAuthModePrivacyPass, resolved.masqueAuthMode)
@@ -321,6 +346,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                                 masqueUseHttp2Fallback = false,
                             ),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
                 }.exceptionOrNull()
 
@@ -343,6 +371,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             udpEnabled = true,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertFalse(resolved.udpEnabled)
@@ -408,6 +439,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             profileId = "outer",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals("pw12345", resolved.shadowTlsPassword)
@@ -454,6 +488,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             localSocksPort = 13000,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals("/proxy", resolved.naivePath)
@@ -478,6 +515,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             localSocksPort = 14000,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindWebTunnel, resolved.kind)
@@ -523,6 +563,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             xhttpMode = "stream-one",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindVlessReality, resolved.kind)
@@ -568,6 +611,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             vlessMuxPaddingMax = 64,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals("yamux", resolved.vlessMuxProtocol)
@@ -611,6 +657,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                 xhttpMode = unsupportedMode,
                             ),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
                 }.exceptionOrNull()
 
@@ -660,6 +709,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             vlessFlow = "xtls-rprx-vision",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals("", resolved.vlessFlow)
@@ -710,6 +762,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             xhttpHost = "stale.example",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
@@ -752,6 +807,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                 resolver.resolve(
                     config = RipDpiRelayConfig(enabled = true, profileId = "fingerprint"),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable, resolved.tlsFingerprintProfile)
@@ -788,6 +846,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             xhttpHost = "origin.example",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindVless, resolved.kind)
@@ -832,6 +893,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                 xhttpMode = unsupportedMode,
                             ),
                         inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
                     )
                 }.exceptionOrNull()
 
@@ -868,6 +932,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             udpEnabled = true,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindTrojan, resolved.kind)
@@ -906,6 +973,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             udpEnabled = true,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindShadowsocks, resolved.kind)
@@ -944,6 +1014,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             tuicZeroRtt = true,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindTuicV5, resolved.kind)
@@ -985,6 +1058,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             quic = OwnedRelayQuicMigrationConfig(),
                             tlsProfile = "firefox_stable",
                         ),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindHysteria2, resolved.kind)
@@ -1021,6 +1097,9 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             udpEnabled = true,
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
                 )
 
             assertEquals(RelayKindAnyTls, resolved.kind)

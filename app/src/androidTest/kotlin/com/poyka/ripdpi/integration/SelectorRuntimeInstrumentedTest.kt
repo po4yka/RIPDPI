@@ -145,6 +145,27 @@ class SelectorRuntimeInstrumentedTest {
         assertTrue((relayBindings as ObservedNativeRelayBindings).native is RipDpiRelayNativeBindings)
     }
 
+    private fun utilityPhaseTimeout(
+        phase: String,
+        vm: ProfileUtilityViewModel,
+        failure: kotlinx.coroutines.TimeoutCancellationException,
+    ): AssertionError {
+        val ui = vm.uiState.value
+        val rows =
+            ui.profiles.map { row ->
+                when (val measurement = row.measurement) {
+                    is ProfileMeasurementUiState.Failed -> "Failed:${measurement.reason}"
+                    else -> measurement::class.java.simpleName
+                }
+            }
+        val applications = applied.applications.value.mapValues { it.value::class.java.simpleName }
+        return AssertionError(
+            "Phase=$phase; catalog=${ui.catalogState}/${ui.catalogGeneration}; " +
+                "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications",
+            failure,
+        )
+    }
+
     @Test
     fun nativeCandidateRelaysConfiguredHttpPayloadWithoutActivatingSettings() =
         runBlocking {
@@ -235,12 +256,16 @@ class SelectorRuntimeInstrumentedTest {
                                     vm.uiState.first { it.profiles.any { row -> row.reference == referenceB } }
                                     vm.updateUrl(http.probeUrl)
                                     vm.checkAndSelect(referenceB)
-                                    applied.applications.first { values ->
-                                        val selected =
-                                            (values[Mode.Proxy] as? RuntimeConfigurationApplication.Applied)
-                                                ?.configuration
-                                                ?.effectiveSelection
-                                        selected?.selectorGroupId == groupB && selected.selectorMemberId == memberId
+                                    try {
+                                        applied.applications.first { values ->
+                                            val selected =
+                                                (values[Mode.Proxy] as? RuntimeConfigurationApplication.Applied)
+                                                    ?.configuration
+                                                    ?.effectiveSelection
+                                            selected?.selectorGroupId == groupB && selected.selectorMemberId == memberId
+                                        }
+                                    } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
+                                        throw utilityPhaseTimeout("selector-applied", vm, failure)
                                     }
                                     state.status.first { it == AppStatus.Running to Mode.Proxy }
                                     assertEquals(
@@ -257,15 +282,19 @@ class SelectorRuntimeInstrumentedTest {
                                     vm.checkAndSelectFastest()
                                     withContext(Dispatchers.IO) { http.assertPayloadRequests() }
                                     val measured =
-                                        vm.uiState.first { ui ->
-                                            val entries =
-                                                ui.profiles.filter { row ->
-                                                    row.reference is ProfileUtilityReference.SelectorMember
-                                                }
-                                            entries.size == 2 &&
-                                                entries.all { row ->
-                                                    row.measurement is ProfileMeasurementUiState.Measured
-                                                }
+                                        try {
+                                            vm.uiState.first { ui ->
+                                                val entries =
+                                                    ui.profiles.filter { row ->
+                                                        row.reference is ProfileUtilityReference.SelectorMember
+                                                    }
+                                                entries.size == 2 &&
+                                                    entries.all { row ->
+                                                        row.measurement is ProfileMeasurementUiState.Measured
+                                                    }
+                                            }
+                                        } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
+                                            throw utilityPhaseTimeout("utility-measured", vm, failure)
                                         }
                                     val expected =
                                         measured.profiles
@@ -371,10 +400,14 @@ class SelectorRuntimeInstrumentedTest {
                         vm.uiState.first { it.profiles.any { row -> row.reference == reference && row.favorite } }
                         vm.updateUrl(fixture.probeUrl)
                         if (select) vm.checkAndSelect(reference) else vm.check(reference)
-                        vm.uiState.first { ui ->
-                            ui.profiles.any { row ->
-                                row.reference == reference && row.measurement is ProfileMeasurementUiState.Measured
+                        try {
+                            vm.uiState.first { ui ->
+                                ui.profiles.any { row ->
+                                    row.reference == reference && row.measurement is ProfileMeasurementUiState.Measured
+                                }
                             }
+                        } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
+                            throw utilityPhaseTimeout("utility-measured", vm, failure)
                         }
                         fixture.assertRelayedRequest()
                         if (select) {

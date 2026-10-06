@@ -203,6 +203,27 @@ class XrayProviderE2ETest {
         }
     }
 
+    private fun utilityPhaseTimeout(
+        phase: String,
+        vm: ProfileUtilityViewModel,
+        failure: kotlinx.coroutines.TimeoutCancellationException,
+    ): AssertionError {
+        val ui = vm.uiState.value
+        val rows =
+            ui.profiles.map { row ->
+                when (val measurement = row.measurement) {
+                    is ProfileMeasurementUiState.Failed -> "Failed:${measurement.reason}"
+                    else -> measurement::class.java.simpleName
+                }
+            }
+        val applications = utilityApplied.applications.value.mapValues { it.value::class.java.simpleName }
+        return AssertionError(
+            "Phase=$phase; catalog=${ui.catalogState}/${ui.catalogGeneration}; " +
+                "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications",
+            failure,
+        )
+    }
+
     @Test
     fun profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck() =
         runBlocking {
@@ -266,11 +287,15 @@ class XrayProviderE2ETest {
                             vm.uiState.first { ui -> ui.profiles.any { row -> row.reference == reference } }
                             vm.updateUrl("http://192.0.2.77/profile-utility-owned-payload")
                             vm.checkAndSelect(reference)
-                            vm.uiState.first { ui ->
-                                ui.profiles.any { row ->
-                                    row.reference == reference &&
-                                        row.measurement is ProfileMeasurementUiState.Measured
+                            try {
+                                vm.uiState.first { ui ->
+                                    ui.profiles.any { row ->
+                                        row.reference == reference &&
+                                            row.measurement is ProfileMeasurementUiState.Measured
+                                    }
                                 }
+                            } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
+                                throw utilityPhaseTimeout("utility-measured", vm, failure)
                             }
                             utilityApplied.applications.first { applications ->
                                 val configured =
