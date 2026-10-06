@@ -50,8 +50,7 @@ class ActiveSelectorSelectionProvider
                     activeGroup.initializeLegacyGroup(
                         groups
                             .filter { it.isSelector && it.members.isNotEmpty() }
-                            .sortedBy { it.order }
-                            .map { it.id },
+                            .sortedBy { it.order },
                     )
                     activeGroup.prune(groups.map { it.id }.toSet())
                 }.combine(activeGroup.activeGroupId) { groups, groupId ->

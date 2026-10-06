@@ -885,26 +885,27 @@ fun ensureVpnConsentGranted(context: Context) {
 }
 
 fun ensureLocalNetworkAccessGranted(context: Context) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-        return
-    }
-    if (ContextCompat.checkSelfPermission(context, NearbyWifiDevicesPermission) == PackageManager.PERMISSION_GRANTED) {
-        return
-    }
+    val permission =
+        when {
+            Build.VERSION.SDK_INT >= com.poyka.ripdpi.data.LocalNetworkPermissionApi -> {
+                com.poyka.ripdpi.data.LocalNetworkPermission
+            }
+
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                NearbyWifiDevicesPermission
+            }
+
+            else -> {
+                return
+            }
+        }
+    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) return
 
     val instrumentation = InstrumentationRegistry.getInstrumentation()
-    val grantCommand = "pm grant ${context.packageName} $NearbyWifiDevicesPermission"
-    val appOpsCommand = "cmd appops set ${context.packageName} NEARBY_WIFI_DEVICES allow"
-    runCatching {
-        val descriptor = instrumentation.uiAutomation.executeShellCommand(grantCommand)
-        ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
-    }
-    runCatching {
-        val descriptor = instrumentation.uiAutomation.executeShellCommand(appOpsCommand)
-        ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
-    }
+    val descriptor = instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} $permission")
+    ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
     awaitUntil(timeoutMs = LocalNetworkPermissionGrantTimeoutMs, pollMs = 100) {
-        ContextCompat.checkSelfPermission(context, NearbyWifiDevicesPermission) == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 }
 

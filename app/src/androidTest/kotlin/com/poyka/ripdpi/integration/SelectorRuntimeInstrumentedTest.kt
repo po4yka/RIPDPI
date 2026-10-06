@@ -198,6 +198,7 @@ class SelectorRuntimeInstrumentedTest {
                                     settings.update {
                                         setRipdpiMode(Mode.Proxy.preferenceValue)
                                         setEnableCmdSettings(false)
+                                        setUdpAssociateEnabled(false)
                                         setRelayEnabled(false)
                                     }
                                     for ((id, peer) in listOf(groupA to peerA, groupB to peerB)) {
@@ -330,6 +331,7 @@ class SelectorRuntimeInstrumentedTest {
                         settings.update {
                             setRipdpiMode(Mode.Proxy.preferenceValue)
                             setEnableCmdSettings(false)
+                            setUdpAssociateEnabled(false)
                             setRelayEnabled(false)
                         }
                         val profile =

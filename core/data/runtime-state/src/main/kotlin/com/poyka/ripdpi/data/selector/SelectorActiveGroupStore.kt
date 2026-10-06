@@ -25,10 +25,20 @@ class SelectorActiveGroupStore
         private val active = MutableStateFlow(preferences.getString(GroupKey, null)?.takeIf(String::isNotBlank))
         val activeGroupId: StateFlow<String?> = active.asStateFlow()
 
-        /** The historical first-group rule is evaluated once, never on subsequent catalog emissions. */
-        fun initializeLegacyGroup(orderedGroupIds: List<String>) {
+        /** Migrate the first valid persisted legacy choice once; later imports never activate a group. */
+        fun initializeLegacyGroup(orderedGroups: List<com.poyka.ripdpi.data.ProxyGroup>) {
             serializeChoice {
-                if (!preferences.contains(GroupKey)) write(orderedGroupIds.firstOrNull())
+                if (!preferences.contains(GroupKey)) {
+                    val legacy =
+                        orderedGroups.firstOrNull { group ->
+                            val selected = preferences.getString("selected-profile-${group.id}", null)
+                            group.isSelector && selected != null &&
+                                group.members.any {
+                                    it.id == selected && it.groupId == group.id
+                                }
+                        }
+                    write(legacy?.id)
+                }
             }
         }
 
