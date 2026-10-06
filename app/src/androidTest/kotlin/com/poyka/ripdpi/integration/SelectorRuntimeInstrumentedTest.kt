@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import android.util.Log
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ActivityScenario
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.activities.MainActivity
@@ -171,27 +172,48 @@ class SelectorRuntimeInstrumentedTest {
         phase: MutableStateFlow<String>,
         expected: ProfileUtilityReference,
     ) = launch {
-        var logged = 0
-        combine(vm.uiState, state.status, applied.applications, phase) { ui, status, applications, currentPhase ->
-            val rows =
-                ui.profiles.map { row ->
-                    val measurement =
-                        when (val measured = row.measurement) {
-                            is ProfileMeasurementUiState.Failed -> "Failed:${measured.reason}"
-                            else -> measured::class.java.simpleName
-                        }
-                    "${row.reference::class.java.simpleName}(expected=${row.reference == expected}," +
-                        "$measurement,recent=${row.recentSequence},applied=${row.applied})"
+        val sampler =
+            launch(Dispatchers.Default) {
+                repeat(8) { sample ->
+                    delay(500L)
+                    val ui = vm.uiState.value
+                    val job = vm.viewModelScope.coroutineContext[kotlinx.coroutines.Job]
+                    val applications = applied.applications.value.mapValues { describeApplication(it.value) }
+                    Log.i(
+                        "ProfileUtilityNative",
+                        "Sampler=$sample; phase=${phase.value}; " +
+                            "catalog=${ui.catalogState}/${ui.catalogGeneration}; " +
+                            "failure=${ui.failure}; " +
+                            "scopeActive=${job?.isActive}; scopeCancelled=${job?.isCancelled}; " +
+                            "status=${state.status.value}; applications=$applications",
+                    )
                 }
-            val types = applications.mapValues { describeApplication(it.value) }
-            "${this@SelectorRuntimeInstrumentedTest.javaClass.simpleName}:Phase=$currentPhase; " +
-                "catalog=${ui.catalogState}/${ui.catalogGeneration}; failure=${ui.failure}; " +
-                "cleanup=${ui.cleanupPending}; rows=$rows; status=$status; applications=$types"
-        }.distinctUntilChanged().collect { snapshot ->
-            if (logged < 64) {
-                Log.i("ProfileUtilityNative", snapshot)
-                logged++
             }
+        try {
+            var logged = 0
+            combine(vm.uiState, state.status, applied.applications, phase) { ui, status, applications, currentPhase ->
+                val rows =
+                    ui.profiles.map { row ->
+                        val measurement =
+                            when (val measured = row.measurement) {
+                                is ProfileMeasurementUiState.Failed -> "Failed:${measured.reason}"
+                                else -> measured::class.java.simpleName
+                            }
+                        "${row.reference::class.java.simpleName}(expected=${row.reference == expected}," +
+                            "$measurement,recent=${row.recentSequence},applied=${row.applied})"
+                    }
+                val types = applications.mapValues { describeApplication(it.value) }
+                "${this@SelectorRuntimeInstrumentedTest.javaClass.simpleName}:Phase=$currentPhase; " +
+                    "catalog=${ui.catalogState}/${ui.catalogGeneration}; failure=${ui.failure}; " +
+                    "cleanup=${ui.cleanupPending}; rows=$rows; status=$status; applications=$types"
+            }.distinctUntilChanged().collect { snapshot ->
+                if (logged < 64) {
+                    Log.i("ProfileUtilityNative", snapshot)
+                    logged++
+                }
+            }
+        } finally {
+            sampler.cancel()
         }
     }
 
