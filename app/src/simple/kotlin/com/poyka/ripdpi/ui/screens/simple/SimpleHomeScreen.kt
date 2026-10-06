@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -91,7 +92,9 @@ fun SimpleHomeScreen(
             onDispose { profiles.cancel() }
         }
         BackHandler { profilesVisible = false }
-        ProfileUtilityRoute(onBack = { profilesVisible = false }, viewModel = profiles)
+        Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+            ProfileUtilityRoute(onBack = { profilesVisible = false }, viewModel = profiles)
+        }
         return
     }
 
