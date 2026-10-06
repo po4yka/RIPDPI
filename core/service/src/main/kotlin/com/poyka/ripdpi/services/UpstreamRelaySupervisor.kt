@@ -2,7 +2,6 @@
 
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
@@ -18,7 +17,6 @@ import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
-import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -38,14 +36,6 @@ internal data class UpstreamRelayResolverDependencies(
             override suspend fun resolveHeaderValue(): String? = null
         },
     val masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
-    val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
-        object : OwnedTlsFingerprintProfileProvider {
-            override fun currentProfile(): String = TlsFingerprintProfileChromeStable
-        },
-    val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider =
-        object : RuntimeExperimentSelectionProvider {
-            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-        },
     val torRuntimeProviders: TorRelayRuntimeProviders = TorRelayRuntimeProviders(),
 )
 
@@ -94,6 +84,7 @@ internal class UpstreamRelaySupervisor(
             },
         relayProfileStore: RelayProfileStore,
         relayCredentialStore: RelayCredentialStore,
+        selectorRelayRuntimeProfileResolver: SelectorRelayRuntimeProfileResolver,
         resolverDependencies: UpstreamRelayResolverDependencies = UpstreamRelayResolverDependencies(),
         networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
     ) : this(
@@ -108,10 +99,9 @@ internal class UpstreamRelaySupervisor(
             createDefaultUpstreamRelayRuntimeConfigResolver(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
+                selectorRelayRuntimeProfileResolver = selectorRelayRuntimeProfileResolver,
                 cloudflareMasqueGeohashResolver = resolverDependencies.cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = resolverDependencies.masquePrivacyPassProvider,
-                tlsFingerprintProfileProvider = resolverDependencies.tlsFingerprintProfileProvider,
-                runtimeExperimentSelectionProvider = resolverDependencies.runtimeExperimentSelectionProvider,
                 torRuntimePathProvider = resolverDependencies.torRuntimeProviders.pathProvider,
                 torPluggableTransportProvider = resolverDependencies.torRuntimeProviders.pluggableTransportProvider,
             ),
@@ -132,14 +122,14 @@ internal class UpstreamRelaySupervisor(
     suspend fun start(
         requirements: EgressRequirements,
         config: RipDpiRelayConfig,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+        inputs: RelayResolutionInputs,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(!hasOwnedRuntime) { "Relay runtime is already active" }
         val slot =
             startSlot(
                 config = config,
-                quicMigrationConfig = quicMigrationConfig,
+                inputs = inputs,
                 localPortOverride = null,
                 requirements = requirements,
                 onUnexpectedExit = onUnexpectedExit,
@@ -149,7 +139,7 @@ internal class UpstreamRelaySupervisor(
 
     suspend fun startRace(
         plan: InitialRelayRacePlan,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+        inputs: RelayResolutionInputs,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
         onState: (InitialTransportRaceSnapshot) -> Unit = {},
     ): PromotedRelayRuntime {
@@ -164,7 +154,7 @@ internal class UpstreamRelaySupervisor(
                                 kind = candidate.relayKind,
                                 profileId = candidate.profileId,
                             ),
-                        quicMigrationConfig = quicMigrationConfig,
+                        inputs = inputs,
                         localPortOverride = EphemeralPort,
                         requirements = plan.requirements,
                         onUnexpectedExit = onUnexpectedExit,
@@ -177,17 +167,17 @@ internal class UpstreamRelaySupervisor(
 
     private suspend fun startSlot(
         config: RipDpiRelayConfig,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+        inputs: RelayResolutionInputs,
         localPortOverride: Int?,
         requirements: EgressRequirements,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): RelayRuntimeSlot {
         val configResolution =
             if (runtimeConfigResolver is LocalNetworkAwareRelayRuntimeConfigResolver) {
-                runtimeConfigResolver.resolveWithLocalNetworkDependency(config, quicMigrationConfig)
+                runtimeConfigResolver.resolveWithLocalNetworkDependency(config, inputs)
             } else {
                 LocalNetworkAwareRelayConfigResolution(
-                    config = runtimeConfigResolver.resolve(config, quicMigrationConfig),
+                    config = runtimeConfigResolver.resolve(config, inputs),
                     localNetworkDependent = false,
                 )
             }
@@ -404,6 +394,7 @@ internal open class UpstreamRelaySupervisorFactory
             relayFactory: RipDpiRelayFactory,
             relayProfileStore: RelayProfileStore,
             relayCredentialStore: RelayCredentialStore,
+            selectorRelayRuntimeProfileResolver: SelectorRelayRuntimeProfileResolver,
         ) : this(
             relayFactory,
             object : NaiveProxyRuntimeFactory {
@@ -425,19 +416,12 @@ internal open class UpstreamRelaySupervisorFactory
             createDefaultUpstreamRelayRuntimeConfigResolver(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
+                selectorRelayRuntimeProfileResolver = selectorRelayRuntimeProfileResolver,
                 cloudflareMasqueGeohashResolver =
                     object : CloudflareMasqueGeohashResolver {
                         override suspend fun resolveHeaderValue(): String? = null
                     },
                 masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
-                tlsFingerprintProfileProvider =
-                    object : OwnedTlsFingerprintProfileProvider {
-                        override fun currentProfile(): String = TlsFingerprintProfileChromeStable
-                    },
-                runtimeExperimentSelectionProvider =
-                    object : RuntimeExperimentSelectionProvider {
-                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                    },
                 torRuntimePathProvider = LocalTorRuntimePathProvider(),
                 torPluggableTransportProvider = UnconfiguredTorPluggableTransportProvider(),
             ),

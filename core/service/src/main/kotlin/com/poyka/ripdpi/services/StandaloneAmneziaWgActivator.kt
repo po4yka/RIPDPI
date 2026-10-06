@@ -1,11 +1,17 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PauseIntentAuthority
+import com.poyka.ripdpi.data.ProfileActivationReceipt
+import com.poyka.ripdpi.data.ProfileMutationCoordinator
+import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.ProfileMutationOutcome
+import com.poyka.ripdpi.data.RuntimeActivationReceipt
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
-import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import dagger.Binds
 import dagger.Module
@@ -13,6 +19,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -41,7 +49,8 @@ internal class DefaultStandaloneAmneziaWgActivator
         private val applyTracker: TransportFailoverApplyTracker,
         private val providerSelectionStore: XrayProviderSelectionStore,
         private val serviceIntentArbiter: ServiceIntentArbiter,
-        private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        private val pauseAuthority: PauseIntentAuthority,
+        private val profileMutations: ProfileMutationCoordinator,
     ) : StandaloneAmneziaWgActivator,
         AwgEgressSelectionSource {
         @Inject
@@ -53,7 +62,8 @@ internal class DefaultStandaloneAmneziaWgActivator
             applyTracker: TransportFailoverApplyTracker,
             providerSelectionStore: XrayProviderSelectionStore,
             serviceIntentArbiter: ServiceIntentArbiter,
-            pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+            pauseAuthority: PauseIntentAuthority,
+            profileMutations: ProfileMutationCoordinator,
         ) : this(
             serviceController = serviceController,
             bootSessionStateStore = bootSessionStateStore,
@@ -63,6 +73,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             providerSelectionStore = providerSelectionStore,
             serviceIntentArbiter = serviceIntentArbiter,
             pauseAuthority = pauseAuthority,
+            profileMutations = profileMutations,
         )
 
         internal constructor(
@@ -73,7 +84,8 @@ internal class DefaultStandaloneAmneziaWgActivator
             applyTracker: TransportFailoverApplyTracker,
             providerSelectionStore: XrayProviderSelectionStore,
             serviceIntentArbiter: ServiceIntentArbiter,
-            pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+            pauseAuthority: PauseIntentAuthority,
+            profileMutations: ProfileMutationCoordinator,
         ) : this(
             serviceController,
             bootSessionStateStore,
@@ -83,6 +95,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             providerSelectionStore,
             serviceIntentArbiter,
             pauseAuthority,
+            profileMutations,
         )
 
         // Explicit standalone selection wins until a normal/simple start clears its pointer.
@@ -93,26 +106,29 @@ internal class DefaultStandaloneAmneziaWgActivator
         private var selectedRequest: AwgActivationRequest? = null
         private var selectedGeneration: Long? = null
 
-        private data class PreviousSelection(
-            val profileId: String?,
-            val provider: XrayProviderSelectionRecord,
-            val generation: Long,
-        )
-
         @Suppress("TooGenericExceptionCaught")
         override suspend fun activate(request: AwgActivationRequest) {
             request.requireRuntimeReady()
+            val preparation = profileMutations.captureMutation(ProfileMutationOrigin.ExplicitActivation)
             lifecycleLock.withLock {
-                val receipt =
-                    serviceController.prepareUserCommand(
-                        com.poyka.ripdpi.data.RuntimeUserCommand
-                            .Start(com.poyka.ripdpi.data.Mode.VPN),
-                    )
-                var previous: PreviousSelection? = null
-                val native = XrayProviderSelectionRecord.of(VpnProviderKind.Native, null)
                 val requestId = applyTracker.begin()
+                var activationReceipt: ProfileActivationReceipt? = null
                 try {
-                    previous = selectionLock.withLock { publishActivation(request, requestId, native, receipt) }
+                    withContext(NonCancellable) {
+                        val outcome = profileMutations.activateStandaloneAwg(preparation, request.profileId)
+                        val reserved =
+                            outcome as? ProfileMutationOutcome.Reserved
+                                ?: error("AmneziaWG activation was superseded")
+                        activationReceipt =
+                            reserved.receipt as? ProfileActivationReceipt
+                                ?: error("AmneziaWG activation requires a profile activation receipt")
+                    }
+                    currentCoroutineContext().ensureActive()
+                    val receipt = checkNotNull(activationReceipt)
+                    val bound =
+                        pauseAuthority.bindProfileActivation(receipt, Mode.VPN)
+                            ?: error("AmneziaWG activation was superseded")
+                    selectionLock.withLock { publishActivation(request, requestId, bound) }
                     when (applyTracker.awaitOutcome(requestId, ApplyTimeoutMillis)) {
                         TransportFailoverApplyOutcome.Applied -> {
                             Unit
@@ -123,17 +139,19 @@ internal class DefaultStandaloneAmneziaWgActivator
                         }
 
                         TransportFailoverApplyOutcome.TimedOutInFlight -> {
-                            error(
-                                "AmneziaWG activation is still in flight",
-                            )
+                            error("AmneziaWG activation is still in flight")
                         }
                     }
                 } catch (failure: Exception) {
-                    withContext(NonCancellable) {
-                        val outcome = applyTracker.settleCancellation(requestId, ApplyTimeoutMillis)
-                        if (outcome == TransportFailoverApplyOutcome.RollbackSafeFailure) {
-                            previous?.let { rollbackSelection(request.profileId, it, native) }
+                    try {
+                        withContext(NonCancellable) {
+                            val outcome = applyTracker.settleCancellation(requestId, ApplyTimeoutMillis)
+                            if (outcome == TransportFailoverApplyOutcome.RollbackSafeFailure) {
+                                activationReceipt?.let { rollbackSelection(request.profileId, it) }
+                            }
                         }
+                    } catch (cleanupFailure: Exception) {
+                        if (cleanupFailure !== failure) failure.addSuppressed(cleanupFailure)
                     }
                     throw failure
                 }
@@ -143,88 +161,86 @@ internal class DefaultStandaloneAmneziaWgActivator
         private fun publishActivation(
             request: AwgActivationRequest,
             requestId: Long,
-            native: XrayProviderSelectionRecord,
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-        ): PreviousSelection? =
+            receipt: RuntimeActivationReceipt,
+        ) {
             serviceIntentArbiter.serialize {
-                if (!pauseAuthority.isCurrent(receipt)) return@serialize null
-                val previous =
-                    PreviousSelection(
-                        bootSessionStateStore.activeAwgProfileId(),
-                        providerSelectionStore.current(),
-                        serviceIntentArbiter.captureExplicitUserIntentGeneration(),
-                    )
-                val dispatch =
-                    runCatching {
-                        selectedRequest = request
-                        bootSessionStateStore.setActiveAwgProfileId(request.profileId)
-                        providerSelectionStore.update(native)
+                check(pauseAuthority.isCurrent(receipt)) { "AmneziaWG activation was superseded" }
+                selectedRequest = request
+                selectedGeneration = serviceIntentArbiter.captureExplicitUserIntentGeneration()
+                when (
+                    val dispatch =
                         activationController.startVpnTransport(
                             requestId,
                             TransportFailoverTarget(TransportKindAmneziaWg, request.profileId),
                             receipt,
                         )
+                ) {
+                    is ServiceStartResult.Accepted -> {
+                        selectedGeneration = serviceIntentArbiter.captureExplicitUserIntentGeneration()
                     }
-                if (dispatch.isFailure || dispatch.getOrNull() is ServiceStartResult.Rejected) {
-                    restoreSelection(previous, native)
-                    applyTracker.recordRollbackSafeFailure(requestId)
-                    dispatch.getOrThrow()
-                    null
-                } else {
-                    selectedGeneration = serviceIntentArbiter.captureExplicitUserIntentGeneration()
-                    previous.copy(generation = checkNotNull(selectedGeneration))
+
+                    is ServiceStartResult.MaintenanceAccepted -> {
+                        error("AmneziaWG activation requires a runtime activation receipt")
+                    }
+
+                    is ServiceStartResult.Rejected -> {
+                        applyTracker.recordRollbackSafeFailure(requestId)
+                        error("AmneziaWG VPN start rejected: ${dispatch.reason}")
+                    }
                 }
             }
-
-        private fun restoreSelection(
-            previous: PreviousSelection,
-            native: XrayProviderSelectionRecord,
-        ) {
-            selectedRequest = null
-            selectedGeneration = null
-            bootSessionStateStore.setActiveAwgProfileId(previous.profileId)
-            if (providerSelectionStore.current() == native) providerSelectionStore.update(previous.provider)
         }
 
         private suspend fun rollbackSelection(
             profileId: String,
-            previous: PreviousSelection,
-            native: XrayProviderSelectionRecord,
+            receipt: ProfileActivationReceipt,
         ) {
             selectionLock.withLock {
-                serviceIntentArbiter.runIfExplicitUserIntentCurrent(previous.generation) {
-                    if (bootSessionStateStore.activeAwgProfileId() == profileId) {
-                        restoreSelection(previous, native)
-                    }
+                if (profileMutations.compensateStandaloneAwg(receipt, profileId)) {
+                    selectedRequest = null
+                    selectedGeneration = null
                 }
             }
         }
 
         override suspend fun deactivate() {
-            lifecycleLock.withLock {
-                val receipt = serviceController.prepareUserCommand(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+            val selection =
                 selectionLock.withLock {
-                    val shouldStop =
-                        serviceIntentArbiter.serialize {
-                            val currentId = bootSessionStateStore.activeAwgProfileId()
-                            val ownsSelection =
-                                currentId != null &&
-                                    providerSelectionStore.current().kind == VpnProviderKind.Native &&
+                    serviceIntentArbiter.serialize {
+                        val currentId = bootSessionStateStore.activeAwgProfileId()
+                        currentId
+                            ?.takeIf {
+                                providerSelectionStore.current().kind == VpnProviderKind.Native &&
                                     (selectedRequest == null || selectedRequest?.profileId == currentId) &&
                                     (
                                         selectedGeneration == null ||
                                             selectedGeneration ==
                                             serviceIntentArbiter.captureExplicitUserIntentGeneration()
                                     )
-                            if (ownsSelection) {
-                                selectedRequest = null
-                                selectedGeneration = null
-                                bootSessionStateStore.setActiveAwgProfileId(null)
+                            }?.let { it to pauseAuthority.snapshotAuthority() }
+                    }
+                } ?: return
+            withContext(NonCancellable) {
+                val receipt = serviceController.prepareStopIfCurrent(selection.second) ?: return@withContext
+                val clearFailure =
+                    runCatching {
+                        lifecycleLock.withLock {
+                            selectionLock.withLock {
+                                if (profileMutations.clearStandaloneAwg(receipt, selection.first)) {
+                                    selectedRequest = null
+                                    selectedGeneration = null
+                                }
                             }
-                            ownsSelection
                         }
-                    if (shouldStop) serviceController.stopPrepared(receipt)
+                    }.exceptionOrNull()
+                val dispatchFailure = runCatching { serviceController.stopPrepared(receipt) }.exceptionOrNull()
+                if (clearFailure != null) {
+                    if (dispatchFailure != null && dispatchFailure !== clearFailure) {
+                        clearFailure.addSuppressed(dispatchFailure)
+                    }
+                    throw clearFailure
                 }
+                if (dispatchFailure != null) throw dispatchFailure
             }
         }
 

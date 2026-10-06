@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.service.runtime.control
 
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.PauseAuthorityRef
 
 /**
  * A typed request for a runtime change, routed through [RuntimeControlPlane].
@@ -61,6 +60,6 @@ internal sealed interface RuntimeControlStopOwnership {
     data object ExplicitUser : RuntimeControlStopOwnership
 
     data class Captured(
-        val reference: PauseAuthorityRef,
+        val reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ) : RuntimeControlStopOwnership
 }

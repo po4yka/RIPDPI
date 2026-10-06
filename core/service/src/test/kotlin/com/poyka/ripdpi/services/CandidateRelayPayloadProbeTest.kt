@@ -15,7 +15,6 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -36,7 +35,7 @@ class CandidateRelayPayloadProbeTest {
                         sampleResolvedRelayConfig().copy(kind = "trojan")
                     },
                     runtimeFactory = factory(runtime),
-                    capabilityProbe =
+                    httpProbe =
                         capabilities { endpoint, url ->
                             assertEquals(RelayProbeEndpoint("127.0.0.1", 1234), endpoint)
                             assertEquals("https://configured.example/probe", url)
@@ -47,7 +46,13 @@ class CandidateRelayPayloadProbeTest {
                 )
             val profile = RelayProfileRecord(id = "candidate", kind = "trojan")
             val credentials = RelayCredentialRecord(profileId = "candidate", trojanPassword = CredentialFixture)
-            assertTrue(probe.measure(profile, credentials, "https://configured.example/probe") != null)
+            assertTrue(
+                probe.measure(
+                    profile,
+                    credentials,
+                    "https://configured.example/probe",
+                ) is CandidateRelayMeasurement.Succeeded,
+            )
             assertEquals(profile, resolvedProfile)
             assertEquals(credentials, resolvedCredentials)
             assertEquals(0, runtime.config?.localSocksPort)
@@ -62,7 +67,12 @@ class CandidateRelayPayloadProbeTest {
             for (failReady in listOf(true, false)) {
                 val runtime = FakeCandidateRuntime(failReady)
                 val probe = create(runtime, capabilities { _, _ -> RelayTcpProbeResult(false) })
-                assertNull(probe.measure(Profile, Credentials, "https://probe"))
+                assertEquals(
+                    CandidateRelayMeasurement.Failed(
+                        if (failReady) CandidateMeasurementStage.Ready else CandidateMeasurementStage.Http,
+                    ),
+                    probe.measure(Profile, Credentials, "https://probe"),
+                )
                 assertEquals(1, runtime.stops)
                 assertTrue(runtime.finished)
             }
@@ -94,7 +104,10 @@ class CandidateRelayPayloadProbeTest {
         runTest {
             val runtime = FakeCandidateRuntime()
             val probe = create(runtime, capabilities { _, _ -> CompletableDeferred<RelayTcpProbeResult>().await() })
-            assertNull(probe.measure(Profile, Credentials, "https://probe"))
+            assertEquals(
+                CandidateRelayMeasurement.TimedOut(CandidateMeasurementStage.Http),
+                probe.measure(Profile, Credentials, "https://probe"),
+            )
             assertEquals(1, runtime.stops)
             assertTrue(runtime.finished)
         }
@@ -108,7 +121,7 @@ class CandidateRelayPayloadProbeTest {
                 CandidateRelayPayloadProbe(
                     resolve = { _, _, _ -> sampleResolvedRelayConfig().copy(kind = "trojan") },
                     runtimeFactory = factory(runtime),
-                    capabilityProbe =
+                    httpProbe =
                         capabilities { _, _ ->
                             env = env.copy(tlsProfile = "changed")
                             RelayTcpProbeResult(true, 204)
@@ -116,7 +129,10 @@ class CandidateRelayPayloadProbeTest {
                     environment = { env },
                     dispatcher = StandardTestDispatcher(testScheduler),
                 )
-            assertNull(probe.measure(Profile, Credentials, "https://probe"))
+            assertEquals(
+                CandidateRelayMeasurement.EnvironmentChanged,
+                probe.measure(Profile, Credentials, "https://probe"),
+            )
             assertEquals(1, runtime.stops)
         }
 
@@ -133,15 +149,15 @@ class CandidateRelayPayloadProbeTest {
                         object : RipDpiRelayFactory {
                             override fun create(): RipDpiRelayRuntime = if (creates++ == 0) old else next
                         },
-                    capabilityProbe = capabilities { _, _ -> RelayTcpProbeResult(true, 204) },
+                    httpProbe = capabilities { _, _ -> RelayTcpProbeResult(true, 204) },
                     environment = { environment() },
                     dispatcher = StandardTestDispatcher(testScheduler),
                 )
-            assertNull(probe.measure(Profile, Credentials, "https://probe"))
+            assertEquals(CandidateRelayMeasurement.CleanupPending, probe.measure(Profile, Credentials, "https://probe"))
             assertEquals(1, creates)
-            assertNull(probe.measure(Profile, Credentials, "https://probe"))
+            assertEquals(CandidateRelayMeasurement.CleanupPending, probe.measure(Profile, Credentials, "https://probe"))
             assertEquals(1, creates)
-            assertTrue(probe.measure(Profile, Credentials, "https://probe") != null)
+            assertTrue(probe.measure(Profile, Credentials, "https://probe") is CandidateRelayMeasurement.Succeeded)
             assertEquals(2, creates)
             assertTrue(old.finished)
             assertTrue(next.finished)
@@ -161,20 +177,20 @@ class CandidateRelayPayloadProbeTest {
                         object : RipDpiRelayFactory {
                             override fun create(): RipDpiRelayRuntime = if (creates++ == 0) old else next
                         },
-                    capabilityProbe = capabilities { _, _ -> RelayTcpProbeResult(true, 204) },
+                    httpProbe = capabilities { _, _ -> RelayTcpProbeResult(true, 204) },
                     environment = { environment() },
                     dispatcher = StandardTestDispatcher(testScheduler),
                 )
-            assertNull(probe.measure(Profile, Credentials, "https://probe"))
+            assertEquals(CandidateRelayMeasurement.CleanupPending, probe.measure(Profile, Credentials, "https://probe"))
             assertEquals(5_000L, testScheduler.currentTime)
             assertEquals(1, old.stops)
             assertEquals(1, creates)
-            assertNull(probe.measure(Profile, Credentials, "https://probe"))
+            assertEquals(CandidateRelayMeasurement.CleanupPending, probe.measure(Profile, Credentials, "https://probe"))
             assertEquals(1, old.stops)
             assertEquals(1, creates)
             release.complete(Unit)
             runCurrent()
-            assertTrue(probe.measure(Profile, Credentials, "https://probe") != null)
+            assertTrue(probe.measure(Profile, Credentials, "https://probe") is CandidateRelayMeasurement.Succeeded)
             assertTrue(old.finished)
             assertTrue(next.finished)
             assertEquals(2, creates)
@@ -206,13 +222,73 @@ class CandidateRelayPayloadProbeTest {
             assertTrue(runtime.finished)
         }
 
+    @Test
+    fun `readiness and complete HTTP body each receive their own deadline budget`() =
+        runTest {
+            val runtime = FakeCandidateRuntime(readyDelayMillis = 4_000)
+            val probe =
+                create(
+                    runtime,
+                    capabilities { _, _ ->
+                        kotlinx.coroutines.delay(14_000)
+                        RelayTcpProbeResult(true, 204)
+                    },
+                )
+            assertTrue(probe.measure(Profile, Credentials, "https://probe") is CandidateRelayMeasurement.Succeeded)
+            assertEquals(18_000L, testScheduler.currentTime)
+            assertEquals(1, runtime.stops)
+            assertTrue(runtime.finished)
+        }
+
+    @Test
+    fun `readiness timeout never attempts HTTP and releases its native owner`() =
+        runTest {
+            val runtime = FakeCandidateRuntime(readyDelayMillis = 6_000)
+            val probe = create(runtime, capabilities { _, _ -> error("HTTP cannot begin before Ready") })
+            assertEquals(
+                CandidateRelayMeasurement.TimedOut(CandidateMeasurementStage.Ready),
+                probe.measure(Profile, Credentials, "https://probe"),
+            )
+            assertEquals(5_000L, testScheduler.currentTime)
+            assertEquals(1, runtime.stops)
+            assertTrue(runtime.finished)
+        }
+
+    @Test
+    fun `failed stop remains owned even when the native task already exited`() =
+        runTest {
+            val old = FakeCandidateRuntime(stopFailsAfterRelease = true)
+            val next = FakeCandidateRuntime()
+            var creates = 0
+            val probe =
+                CandidateRelayPayloadProbe(
+                    resolve = { _, _, _ -> sampleResolvedRelayConfig().copy(kind = "trojan") },
+                    runtimeFactory =
+                        object : RipDpiRelayFactory {
+                            override fun create(): RipDpiRelayRuntime = if (creates++ == 0) old else next
+                        },
+                    httpProbe = capabilities { _, _ -> RelayTcpProbeResult(true, 204) },
+                    environment = { environment() },
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                )
+            assertEquals(CandidateRelayMeasurement.CleanupPending, probe.measure(Profile, Credentials, "https://probe"))
+            assertTrue(probe.cleanupPending.value)
+            assertTrue(old.finished)
+            assertEquals(1, creates)
+            old.stopFailsAfterRelease = false
+            assertTrue(probe.measure(Profile, Credentials, "https://probe") is CandidateRelayMeasurement.Succeeded)
+            assertTrue(!probe.cleanupPending.value)
+            assertEquals(2, creates)
+            assertEquals(2, old.stops)
+        }
+
     private fun kotlinx.coroutines.test.TestScope.create(
         runtime: FakeCandidateRuntime,
-        capabilities: RelayCapabilityProbe,
+        capabilities: CandidateHttpPayloadProbe,
     ) = CandidateRelayPayloadProbe(
         resolve = { _, _, _ -> sampleResolvedRelayConfig().copy(kind = "trojan") },
         runtimeFactory = factory(runtime),
-        capabilityProbe = capabilities,
+        httpProbe = capabilities,
         environment = { environment() },
         dispatcher = StandardTestDispatcher(testScheduler),
     )
@@ -222,11 +298,7 @@ class CandidateRelayPayloadProbeTest {
             override fun create(): RipDpiRelayRuntime = runtime
         }
 
-    private fun capabilities(probe: RelayTcpProbe) =
-        RelayCapabilityProbe(
-            probe,
-            RelayUdpAssociateProbe { _, _ -> error("candidate HTTP does not request UDP") },
-        )
+    private fun capabilities(probe: RelayTcpProbe) = CandidateHttpPayloadProbe(probe, System::nanoTime)
 
     private fun environment() =
         CandidateRelayProbeEnvironment(
@@ -249,6 +321,8 @@ private class FakeCandidateRuntime(
     private val failReady: Boolean = false,
     private val stopCompletesAfter: Int = 1,
     private val stopRelease: CompletableDeferred<Unit>? = null,
+    private val readyDelayMillis: Long = 0,
+    var stopFailsAfterRelease: Boolean = false,
 ) : RipDpiRelayRuntime {
     var config: ResolvedRipDpiRelayConfig? = null
     var stops = 0
@@ -266,6 +340,7 @@ private class FakeCandidateRuntime(
     }
 
     override suspend fun awaitReady(timeoutMillis: Long) {
+        kotlinx.coroutines.delay(readyDelayMillis)
         if (failReady) error("candidate readiness failed")
         check(config != null)
     }
@@ -274,6 +349,7 @@ private class FakeCandidateRuntime(
         stops++
         stopRelease?.await()
         if (stops >= stopCompletesAfter) stopped.complete(Unit)
+        check(!stopFailsAfterRelease) { "Native stop failed after its task completed" }
     }
 
     override suspend fun pollTelemetry() = NativeRuntimeSnapshot(source = "relay", listenerAddress = "127.0.0.1:1234")

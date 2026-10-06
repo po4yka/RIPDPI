@@ -66,7 +66,12 @@ internal class VpnServiceSessionLifecycle(
                 runCatching {
                     establishProtectPath(
                         startProtectSocketServer = socketServer::start,
-                        advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
+                        advertiseProtectPath = {
+                            activeProtectSocketPathProvider.set(
+                                socketServer.socketPath,
+                                service::protect,
+                            )
+                        },
                         registerNativeProtect = {
                             VpnNativeProtectRegistration.register(service, service.underlyingNetworkBinder)
                         },

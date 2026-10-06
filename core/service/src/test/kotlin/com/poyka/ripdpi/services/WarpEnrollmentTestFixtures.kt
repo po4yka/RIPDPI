@@ -78,6 +78,26 @@ internal class FakeWarpProfileStore : WarpProfileStore {
         activeProfileId = profileId
     }
 
+    override suspend fun setActiveProfileIdOwned(
+        profileId: String?,
+        authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        commandId: String,
+    ): Boolean =
+        authority.intentLinearizer.serialize {
+            if (!(
+                    authority.reference() == reference &&
+                        authority.snapshotAuthority().command?.commandId == commandId
+                )
+            ) {
+                false
+            } else {
+                activeProfileId =
+                    profileId
+                true
+            }
+        }
+
     override suspend fun clearAll() {
         profiles.clear()
         activeProfileId = null

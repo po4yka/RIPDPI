@@ -28,11 +28,13 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.core.toResolvedConfig
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import dagger.Binds
@@ -47,7 +49,7 @@ import javax.inject.Singleton
 internal interface UpstreamRelayRuntimeConfigResolver {
     suspend fun resolve(
         config: RipDpiRelayConfig,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+        inputs: RelayResolutionInputs,
     ): ResolvedRipDpiRelayConfig
 }
 
@@ -59,7 +61,7 @@ internal data class LocalNetworkAwareRelayConfigResolution(
 internal interface LocalNetworkAwareRelayRuntimeConfigResolver {
     suspend fun resolveWithLocalNetworkDependency(
         config: RipDpiRelayConfig,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+        inputs: RelayResolutionInputs,
     ): LocalNetworkAwareRelayConfigResolution
 }
 
@@ -149,36 +151,56 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
     @Inject
     constructor(
         private val relayRuntimeProfileReader: RelayRuntimeProfileReader,
+        private val selectorRelayRuntimeProfileResolver: SelectorRelayRuntimeProfileResolver,
         private val relayKindResolverRegistry: RelayKindResolverRegistry,
-        private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
-        private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
         private val torRuntimePathProvider: TorRuntimePathProvider,
         private val torPluggableTransportProvider: TorPluggableTransportProvider,
     ) : UpstreamRelayRuntimeConfigResolver {
         internal constructor(
             relayProfileStore: RelayProfileStore,
             relayCredentialStore: RelayCredentialStore,
+            selectorRelayRuntimeProfileResolver: SelectorRelayRuntimeProfileResolver,
             relayKindResolverRegistry: RelayKindResolverRegistry,
-            tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
-            runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
             torRuntimePathProvider: TorRuntimePathProvider,
             torPluggableTransportProvider: TorPluggableTransportProvider,
         ) : this(
             relayRuntimeProfileReader = RelayRuntimeProfileReader(relayProfileStore, relayCredentialStore),
+            selectorRelayRuntimeProfileResolver = selectorRelayRuntimeProfileResolver,
             relayKindResolverRegistry = relayKindResolverRegistry,
-            tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
-            runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
             torRuntimePathProvider = torRuntimePathProvider,
             torPluggableTransportProvider = torPluggableTransportProvider,
         )
 
         override suspend fun resolve(
             config: RipDpiRelayConfig,
-            quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+            inputs: RelayResolutionInputs,
         ): ResolvedRipDpiRelayConfig {
+            val selected = selectorRelayRuntimeProfileResolver.resolve()
+            if (selected != null) {
+                if (relayKindDescriptor(selected.profile.kind) == null) {
+                    throw ServiceStartupRejectedException(
+                        FailureReason.RelayConfigRejected("Unsupported selected relay kind"),
+                    )
+                }
+                return resolveProfile(
+                    config.copy(enabled = true, profileId = selected.profile.id, kind = selected.profile.kind),
+                    selected.profile,
+                    selected.credentials,
+                    inputs.quic,
+                    inputs.tlsProfile,
+                    inputs.featureFlags,
+                )
+            }
             val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
             val persisted = relayRuntimeProfileReader.read(profileId)
-            return resolveProfile(config, persisted.profile, persisted.credentials, quicMigrationConfig)
+            return resolveProfile(
+                config,
+                persisted.profile,
+                persisted.credentials,
+                inputs.quic,
+                inputs.tlsProfile,
+                inputs.featureFlags,
+            )
         }
 
         /** Resolves a candidate without reading or writing the active profile stores. */
@@ -203,8 +225,8 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
             storedProfile: RelayProfileRecord?,
             credentials: RelayCredentialRecord?,
             quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-            defaultTlsProfile: String = tlsFingerprintProfileProvider.currentProfile(),
-            featureFlags: Map<String, Boolean> = runtimeExperimentSelectionProvider.current().featureFlags,
+            defaultTlsProfile: String,
+            featureFlags: Map<String, Boolean>,
         ): ResolvedRipDpiRelayConfig {
             val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
             val requestedTlsProfile =
@@ -515,15 +537,15 @@ internal fun RipDpiRelayFinalmaskConfig.toResolvedFinalmaskConfig(): ResolvedRel
 internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
+    selectorRelayRuntimeProfileResolver: SelectorRelayRuntimeProfileResolver,
     cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
     masquePrivacyPassProvider: MasquePrivacyPassProvider,
-    tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
-    runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
     torRuntimePathProvider: TorRuntimePathProvider,
     torPluggableTransportProvider: TorPluggableTransportProvider,
 ): UpstreamRelayRuntimeConfigResolver =
     DefaultUpstreamRelayRuntimeConfigResolver(
         relayRuntimeProfileReader = RelayRuntimeProfileReader(relayProfileStore, relayCredentialStore),
+        selectorRelayRuntimeProfileResolver = selectorRelayRuntimeProfileResolver,
         relayKindResolverRegistry =
             createDefaultRelayKindResolverRegistry(
                 relayProfileStore = relayProfileStore,
@@ -531,8 +553,6 @@ internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
                 cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = masquePrivacyPassProvider,
             ),
-        tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
-        runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
         torRuntimePathProvider = torRuntimePathProvider,
         torPluggableTransportProvider = torPluggableTransportProvider,
     )

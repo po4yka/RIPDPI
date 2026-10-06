@@ -9,11 +9,10 @@ import org.junit.Test
 class ServiceIntentArbiterTest {
     @Test
     fun `rejected user start never publishes provisional intent generation`() {
-        val arbiter =
-            ServiceIntentArbiter(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority(),
-            )
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
         val accepted = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
         arbiter.userStart<ServiceStartResult>(
             action = {
@@ -28,36 +27,36 @@ class ServiceIntentArbiterTest {
 
     @Test
     fun `doq save lease rejects vpn dispatch until mutation finishes`() {
-        val arbiter =
-            ServiceIntentArbiter(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority(),
-            )
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
+        val startReceipt = authority.reserveStart(Mode.VPN)
         val lease = checkNotNull(arbiter.tryReserveDoqSave { true })
 
         assertEquals(
             ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.DnsSettingsUpdatePending),
-            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) },
+            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(startReceipt) },
         )
         lease.close()
         assertEquals(
-            ServiceStartResult.Accepted(Mode.VPN),
-            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) },
+            ServiceStartResult.Accepted(startReceipt),
+            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(startReceipt) },
         )
     }
 
     @Test
     fun `stale start completion cannot release a newer vpn reservation`() {
-        val arbiter =
-            ServiceIntentArbiter(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority(),
-            )
-        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
+        val startReceipt = authority.reserveStart(Mode.VPN)
+        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(startReceipt) }
         val oldGeneration = arbiter.captureVpnStartGeneration()
         assertNull(arbiter.tryReserveDoqSave { true })
 
-        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(startReceipt) }
         val newGeneration = arbiter.captureVpnStartGeneration()
         arbiter.completeVpnStart(oldGeneration)
         assertNull(arbiter.tryReserveDoqSave { true })
@@ -68,14 +67,14 @@ class ServiceIntentArbiterTest {
 
     @Test
     fun `newer start completion cannot release an older in-flight vpn start`() {
-        val arbiter =
-            ServiceIntentArbiter(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority(),
-            )
-        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
+        val startReceipt = authority.reserveStart(Mode.VPN)
+        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(startReceipt) }
         val oldGeneration = arbiter.captureVpnStartGeneration()
-        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+        arbiter.dispatchVpnStart { ServiceStartResult.Accepted(startReceipt) }
         val newGeneration = arbiter.captureVpnStartGeneration()
 
         arbiter.completeVpnStart(newGeneration)
@@ -86,11 +85,10 @@ class ServiceIntentArbiterTest {
 
     @Test
     fun `rejected vpn dispatch releases its pending reservation`() {
-        val arbiter =
-            ServiceIntentArbiter(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority(),
-            )
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
         arbiter.dispatchVpnStart {
             ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing)
         }

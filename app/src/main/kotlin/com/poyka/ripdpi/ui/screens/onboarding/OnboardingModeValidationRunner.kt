@@ -89,7 +89,7 @@ class DefaultOnboardingModeValidationRunner
         private val stringResolver: StringResolver,
         private val dispatchers: AppCoroutineDispatchers,
     ) : OnboardingModeValidationRunner {
-        private var ownedValidationReceipt: com.poyka.ripdpi.data.DurableCommandReceipt? = null
+        private var ownedValidationReceipt: com.poyka.ripdpi.data.RuntimeActivationReceipt? = null
         private var ownedValidationMode: Mode? = null
 
         override suspend fun validate(
@@ -182,16 +182,18 @@ class DefaultOnboardingModeValidationRunner
                 when (
                     val startResult =
                         serviceController
-                            .prepareUserCommand(
-                                com.poyka.ripdpi.data.RuntimeUserCommand
-                                    .Start(mode),
-                            ).let { receipt ->
+                            .prepareStart(mode)
+                            .let { receipt ->
                                 ownedValidationReceipt = receipt
                                 serviceController.startPrepared(mode, receipt)
                             }
                 ) {
                     is ServiceStartResult.Accepted -> {
                         ownedValidationMode = mode
+                    }
+
+                    is ServiceStartResult.MaintenanceAccepted -> {
+                        error("Expected a mode-bound validation start")
                     }
 
                     is ServiceStartResult.Rejected -> {

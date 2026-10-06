@@ -71,4 +71,5 @@ internal fun RuntimeConfigurationIdentityFactory.providerReadyConfiguration(
         ),
         providerReadyInput(resolved.renderedConfig, selected.selection.activeProfileId, tunnel),
         tunnel,
+        CandidateConfigurationProofs.xray(resolved.renderedConfig),
     )

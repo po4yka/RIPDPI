@@ -159,6 +159,7 @@ class AutolearnActivationReceiptPublisherTest {
                             null,
                             "fixture-interface",
                         ),
+                        null,
                     ),
                     observedAt = 30L,
                 ),

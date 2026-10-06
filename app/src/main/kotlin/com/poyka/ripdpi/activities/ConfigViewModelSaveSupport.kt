@@ -63,11 +63,15 @@ internal suspend fun startConfigRuntimeMode(
     serviceController: ServiceController,
     stringResolver: StringResolver,
     effects: MutableSharedFlow<ConfigEffect>,
-    receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
 ) {
     when (val result = serviceController.startPrepared(mode, receipt)) {
         is ServiceStartResult.Accepted -> {
             return
+        }
+
+        is ServiceStartResult.MaintenanceAccepted -> {
+            error("Expected a mode-bound start dispatch")
         }
 
         is ServiceStartResult.Rejected -> {
@@ -85,7 +89,7 @@ internal fun stopConfigRuntimeMode(
     mode: Mode,
     serviceStateStore: ServiceStateStore,
     serviceController: ServiceController,
-    receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    receipt: com.poyka.ripdpi.data.RuntimeStopReceipt,
 ) {
     if (serviceStateStore.status.value == AppStatus.Running to mode) {
         serviceController.stopPrepared(receipt)

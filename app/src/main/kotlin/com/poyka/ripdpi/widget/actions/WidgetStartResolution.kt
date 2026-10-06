@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.Intent
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.LocalNetworkStartPreflightResult
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartPreflight
-import com.poyka.ripdpi.services.ServiceStartPreflightResult
 import com.poyka.ripdpi.services.ServiceStartResult
 
 internal suspend fun startServiceFromWidget(
@@ -15,7 +15,7 @@ internal suspend fun startServiceFromWidget(
     serviceStartPreflight: ServiceStartPreflight,
     serviceController: ServiceController,
 ) {
-    if (serviceStartPreflight.check(mode) == ServiceStartPreflightResult.LocalNetworkPermissionRequired) {
+    if (serviceStartPreflight.check(mode) == LocalNetworkStartPreflightResult.LocalNetworkPermissionRequired) {
         launchWidgetStartRecovery(context, requestConfiguredStart = true)
         return
     }

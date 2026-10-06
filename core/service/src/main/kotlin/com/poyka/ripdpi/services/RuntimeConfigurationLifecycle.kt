@@ -16,12 +16,19 @@ internal class RuntimeConfigurationLifecycle
     ) {
         private val receipts = RuntimeReadyReceiptFactory(identities)
 
-        fun begin(
+        suspend fun begin(
             session: ServiceRuntimeSession,
             resolution: ConnectionPolicyResolution,
             reason: String,
         ) {
             val requested = resolution.requestedConfiguration
+            val current = kotlinx.coroutines.currentCoroutineContext()[RuntimeCommandStartAuthority]?.original
+            val original =
+                if (current != null && current.receipt.commandId != session.lastPositiveReceipt?.commandId) {
+                    current
+                } else {
+                    session.nextAppliedIntent()
+                }
             val attempt =
                 RuntimeConfigurationAttempt(
                     runtimeId = session.runtimeId,
@@ -29,8 +36,9 @@ internal class RuntimeConfigurationLifecycle
                     mode = session.mode,
                     requestedSelection = requested.selection,
                     reason = reason.applyReason(),
+                    originalIntent = original,
+                    catalogGeneration = resolution.catalogGeneration,
                 )
-            session.pauseResumeIntent?.let { store.bindPauseResume(attempt, it) }
             check(store.begin(attempt, requested.identity)) { "Configuration attempt was rejected" }
             session.configurationAttempt = attempt
         }
@@ -49,21 +57,38 @@ internal class RuntimeConfigurationLifecycle
             val provisioned = receipt.provisionedRequestedIdentity
             val acknowledge = {
                 if (provisioned == null) {
-                    store.acknowledge(attempt, configuration)
+                    store.acknowledge(attempt, configuration, receipt.measurementProof)
                 } else {
-                    store.acknowledgeProvisioned(attempt, configuration, requested.identity, provisioned)
+                    store.acknowledgeProvisioned(
+                        attempt,
+                        configuration,
+                        requested.identity,
+                        provisioned,
+                        receipt.measurementProof,
+                    )
                 }
             }
             if (authority == null) {
                 check(acknowledge()) { "Runtime configuration acknowledgment rejected" }
             } else if (!authority.runIfCurrent {
                     check(acknowledge()) { "Runtime configuration acknowledgment rejected" }
-                    check(authority.confirmAppliedMode(session.mode)) { "Applied mode acknowledgment was superseded" }
                 }
             ) {
                 throw kotlinx.coroutines.CancellationException("Start intent superseded before acknowledgment")
             }
+            session.lastPositiveReceipt = attempt.originalIntent.receipt
+            session.lastPositiveAppliedIdentity =
+                com.poyka.ripdpi.data.RuntimeAppliedUseIdentity(
+                    attempt.runtimeId,
+                    attempt.revision,
+                    attempt.mode.preferenceValue,
+                )
         }
+
+        fun publishIfCurrent(
+            session: ServiceRuntimeSession,
+            publish: () -> Unit,
+        ): Boolean = session.configurationAttempt?.let { store.publishIfCurrent(it, publish) } == true
 
         fun beginDns(
             session: VpnRuntimeSession,
@@ -82,6 +107,8 @@ internal class RuntimeConfigurationLifecycle
                     } else {
                         RuntimeConfigurationApplyReason.DnsRefresh
                     },
+                    session.nextAppliedIntent(),
+                    resolution.catalogGeneration,
                 )
             if (store.beginDns(attempt, if (automatic) null else resolution.requestedConfiguration.identity)) {
                 session.configurationAttempt = attempt
@@ -96,17 +123,27 @@ internal class RuntimeConfigurationLifecycle
             val previous = store.lastConfirmed(session.mode) ?: return
             val attempt = session.configurationAttempt ?: return
             val dnsIdentity = identities.capture(emptyList(), tunnel.dnsMaterial())
+            check(
+                store.acknowledge(
+                    attempt,
+                    previous.copy(
+                        revision = attempt.revision,
+                        appliedAt = observedAt,
+                        dns = tunnel.resolverDns.runtimeDnsSummary(),
+                        reason = attempt.reason,
+                    ),
+                    null,
+                ),
+            ) { "DNS configuration acknowledgment rejected" }
+            session.lastPositiveReceipt = attempt.originalIntent.receipt
+            session.lastPositiveAppliedIdentity =
+                com.poyka.ripdpi.data.RuntimeAppliedUseIdentity(
+                    attempt.runtimeId,
+                    attempt.revision,
+                    attempt.mode.preferenceValue,
+                )
             session.effectiveConfigurationIdentity = session.effectiveConfigurationIdentity?.withDns(dnsIdentity)
             session.effectiveProviderIdentity = session.effectiveProviderIdentity?.withDns(dnsIdentity)
-            store.acknowledge(
-                attempt,
-                previous.copy(
-                    revision = attempt.revision,
-                    appliedAt = observedAt,
-                    dns = tunnel.resolverDns.runtimeDnsSummary(),
-                    reason = attempt.reason,
-                ),
-            )
         }
 
         fun failed(

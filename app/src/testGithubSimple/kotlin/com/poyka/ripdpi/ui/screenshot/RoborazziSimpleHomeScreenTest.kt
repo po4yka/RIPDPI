@@ -123,6 +123,7 @@ private fun SimpleCompletedReport(
     summary: String = "Two recommended settings are ready to review.",
 ) {
     SimpleHomeContent(
+        onOpenProfiles = {},
         pauseState =
             com.poyka.ripdpi.activities
                 .HomePauseUiState(),
@@ -153,6 +154,7 @@ private fun SimpleCompletedReport(
 @Composable
 private fun SimpleRunningReport() {
     SimpleHomeContent(
+        onOpenProfiles = {},
         pauseState =
             com.poyka.ripdpi.activities
                 .HomePauseUiState(),
@@ -191,6 +193,7 @@ private fun SimpleRunningReport() {
 @Composable
 private fun SimpleExpandedHome(supportingText: String = "Ready to analyze this network") {
     SimpleHomeContent(
+        onOpenProfiles = {},
         pauseState =
             com.poyka.ripdpi.activities
                 .HomePauseUiState(),

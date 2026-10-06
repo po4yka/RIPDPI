@@ -109,11 +109,25 @@ class BootResumeTest {
     fun `reconnecting is published on an accepted start from a halted store`() {
         assertEquals(
             Mode.VPN,
-            reconnectingResumeMode(ServiceStartResult.Accepted(Mode.VPN), AppStatus.Halted),
+            reconnectingResumeMode(
+                ServiceStartResult.Accepted(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority()
+                        .reserveStart(Mode.VPN),
+                ),
+                AppStatus.Halted,
+            ),
         )
         assertEquals(
             Mode.Proxy,
-            reconnectingResumeMode(ServiceStartResult.Accepted(Mode.Proxy), AppStatus.Halted),
+            reconnectingResumeMode(
+                ServiceStartResult.Accepted(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority()
+                        .reserveStart(Mode.Proxy),
+                ),
+                AppStatus.Halted,
+            ),
         )
     }
 
@@ -131,8 +145,26 @@ class BootResumeTest {
     fun `an already-active store is not demoted to reconnecting`() {
         // e.g. an automation-intercepted Accepted that dispatched no foreground service,
         // or a resume racing a still-running session.
-        assertNull(reconnectingResumeMode(ServiceStartResult.Accepted(Mode.VPN), AppStatus.Running))
-        assertNull(reconnectingResumeMode(ServiceStartResult.Accepted(Mode.VPN), AppStatus.Reconnecting))
+        assertNull(
+            reconnectingResumeMode(
+                ServiceStartResult.Accepted(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority()
+                        .reserveStart(Mode.VPN),
+                ),
+                AppStatus.Running,
+            ),
+        )
+        assertNull(
+            reconnectingResumeMode(
+                ServiceStartResult.Accepted(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority()
+                        .reserveStart(Mode.VPN),
+                ),
+                AppStatus.Reconnecting,
+            ),
+        )
     }
 
     @Test
@@ -212,7 +244,7 @@ class BootResumeTest {
             replaceAll(
                 com.poyka.ripdpi.data
                     .testPauseAuthority()
-                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                    .reserveStop(),
                 groups,
             )
         }

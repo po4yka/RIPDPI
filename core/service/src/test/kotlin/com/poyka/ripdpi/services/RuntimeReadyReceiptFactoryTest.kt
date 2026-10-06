@@ -33,6 +33,7 @@ class RuntimeReadyReceiptFactoryTest {
                 RuntimeConfigurationSelection("xray"),
                 identities.capture(listOf("provider"), tunnel.dnsMaterial()),
                 tunnel,
+                null,
             )
         for (evidence in listOf(native, provider)) {
             val receipt = factory.build(VpnRuntimeSession("current"), resolution, evidence, 10, attempt(Mode.VPN))
@@ -73,33 +74,40 @@ class RuntimeReadyReceiptFactoryTest {
         assertTrue(receipt.configuration.strategy.enabled)
     }
 
-    @Test fun `DNS only receipt preserves effective transport and acknowledges actual forced resolver`() {
-        val store =
-            AppliedRuntimeConfigurationStore(
-                PauseAppliedReceiptConsumer(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                ),
+    @Test fun `DNS only receipt preserves effective transport and acknowledges actual forced resolver`() =
+        kotlinx.coroutines.test.runTest {
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    testRuntimeAppliedReceiptConsumer(
+                        authority,
+                    ),
+                )
+            val lifecycle = RuntimeConfigurationLifecycle(store, identities)
+            val resolution = sampleResolution(Mode.VPN)
+            val session = VpnRuntimeSession("current")
+            session.captureOriginalAppliedIntent(
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(authority.reserveStart(Mode.VPN)),
             )
-        val lifecycle = RuntimeConfigurationLifecycle(store, identities)
-        val resolution = sampleResolution(Mode.VPN)
-        val session = VpnRuntimeSession("current")
-        val tunnel =
-            RuntimeTunnelReadyEvidence(
-                resolution.requestedConfiguration.tunnelInput,
-                true,
-                vpnTunnelDnsPlan(resolution.activeDns, true).resolverDns,
-                null,
-                "interface",
-            )
-        lifecycle.begin(session, resolution, "initial")
-        lifecycle.ready(session, resolution, RuntimeStartEvidence.VpnSnapshot(proxy(), tunnel), 10, null)
-        val before = requireNotNull(session.effectiveConfigurationIdentity)
-        lifecycle.beginDns(session, resolution)
-        lifecycle.dnsReady(session, 11, tunnel)
-        assertTrue(before.transport.matches(requireNotNull(session.effectiveConfigurationIdentity).transport))
-        assertEquals(tunnel.resolverDns.runtimeDnsSummary(), store.lastConfirmed(Mode.VPN)?.dns)
-    }
+            val tunnel =
+                RuntimeTunnelReadyEvidence(
+                    resolution.requestedConfiguration.tunnelInput,
+                    true,
+                    vpnTunnelDnsPlan(resolution.activeDns, true).resolverDns,
+                    null,
+                    "interface",
+                )
+            lifecycle.begin(session, resolution, "initial")
+            lifecycle.ready(session, resolution, RuntimeStartEvidence.VpnSnapshot(proxy(), tunnel), 10, null)
+            val before = requireNotNull(session.effectiveConfigurationIdentity)
+            lifecycle.beginDns(session, resolution)
+            lifecycle.dnsReady(session, 11, tunnel)
+            assertTrue(before.transport.matches(requireNotNull(session.effectiveConfigurationIdentity).transport))
+            assertEquals(tunnel.resolverDns.runtimeDnsSummary(), store.lastConfirmed(Mode.VPN)?.dns)
+        }
 
     private fun proxy() =
         RuntimeStartEvidence.ProxySnapshot(
@@ -116,5 +124,13 @@ class RuntimeReadyReceiptFactoryTest {
             mode,
             RuntimeConfigurationSelection("native"),
             RuntimeConfigurationApplyReason.InitialStart,
+            originalIntent =
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority()
+                            .reserveStart(mode),
+                    ),
+            catalogGeneration = 0,
         )
 }

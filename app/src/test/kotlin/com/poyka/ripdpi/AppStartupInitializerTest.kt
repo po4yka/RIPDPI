@@ -1100,6 +1100,14 @@ private object NoOpResetEventRecorder : ResetEventRecorder {
 }
 
 private object NoOpSelectorSelectionStore : SelectorSelectionStore {
+    override fun manualReceipt(groupId: String): com.poyka.ripdpi.data.DurableCommandReceipt? = null
+
+    override fun selectReserved(
+        groupId: String,
+        profileId: String,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    ): Boolean = error("Reserved activation is outside this fixture's scenario")
+
     override fun invalidatePendingSelection(groupId: String) = Unit
 
     override fun snapshot(groupId: String): SelectorSelectionSnapshot = SelectorSelectionSnapshot(null, false, 0L)
@@ -1142,7 +1150,7 @@ private object EmptyProxyGroupRepository : ProxyGroupRepository {
         replaceAll(
             com.poyka.ripdpi.data
                 .testPauseAuthority()
-                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                .reserveStop(),
             groups,
         )
     }
@@ -1184,7 +1192,7 @@ private class RecordingProxyGroupRepository(
         replaceAll(
             com.poyka.ripdpi.data
                 .testPauseAuthority()
-                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                .reserveStop(),
             groups,
         )
     }

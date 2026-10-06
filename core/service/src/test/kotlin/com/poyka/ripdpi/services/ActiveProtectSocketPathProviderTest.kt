@@ -15,7 +15,7 @@ class ActiveProtectSocketPathProviderTest {
         val provider = ActiveProtectSocketPathProvider()
         val path = "/data/user/0/com.poyka.ripdpi/files/protect_path"
 
-        provider.set(path)
+        provider.set(path) { true }
         assertEquals(path, provider.current())
 
         provider.clear()

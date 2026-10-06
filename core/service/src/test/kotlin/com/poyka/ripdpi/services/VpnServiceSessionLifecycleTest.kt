@@ -180,7 +180,7 @@ class VpnServiceSessionLifecycleTest {
     /**
      * Drives the advertise seam exactly as `createShellDelegate` does:
      * `startProtectSocketServer = socketServer::start` then
-     * `advertiseProtectPath = { provider.set(socketServer.socketPath) }`.
+     * `advertiseProtectPath = { provider.set(socketServer.socketPath) { true } }`.
      */
     @Test
     fun `advertise starts protect socket server before advertising the env path`() {
@@ -201,7 +201,7 @@ class VpnServiceSessionLifecycleTest {
                     true,
                     started,
                 )
-                provider.set(socketPath)
+                provider.set(socketPath) { true }
                 events += Event.PathSet
             },
         )
@@ -224,7 +224,7 @@ class VpnServiceSessionLifecycleTest {
                 establishProtectPath(
                     startProtectSocketServer = { events += Event.ServerStart },
                     advertiseProtectPath = {
-                        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path")
+                        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path") { true }
                         events += Event.PathSet
                     },
                     registerNativeProtect = {
@@ -284,7 +284,7 @@ class VpnServiceSessionLifecycleTest {
     @Test
     fun `withdraw clears the env path before stopping the protect socket server`() {
         val provider = ActiveProtectSocketPathProvider()
-        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path")
+        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path") { true }
         val cleanup = VpnServiceSessionCleanup()
 
         withdrawProtectPath(
@@ -329,7 +329,7 @@ class VpnServiceSessionLifecycleTest {
         advertiseProtectPath(
             startProtectSocketServer = { events += Event.ServerStart },
             advertiseProtectPath = {
-                provider.set(socketPath)
+                provider.set(socketPath) { true }
                 events += Event.PathSet
             },
         )

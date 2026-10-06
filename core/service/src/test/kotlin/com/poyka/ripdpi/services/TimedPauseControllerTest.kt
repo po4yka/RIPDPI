@@ -116,7 +116,7 @@ class TimedPauseControllerTest {
             controller.pause(300_000)
             assertEquals(1, released)
             assertEquals(PausePhase.CleanupPending, authority.snapshot()?.phase)
-            assertFalse(authority.claimResume(checkNotNull(authority.snapshot()), true))
+            assertNull(authority.claimResume(checkNotNull(authority.snapshot()), true))
         }
 
     @Test fun `fully released pause retains chosen mode and explicit cancel fences old alarm`() =
@@ -165,7 +165,7 @@ class TimedPauseControllerTest {
             controller.stop()
             assertNull(authority.snapshot())
             assertEquals(1, shellStops)
-            assertFalse(authority.claimResume(paused, false))
+            assertNull(authority.claimResume(paused, false))
         }
 
     @Test
@@ -218,7 +218,7 @@ class TimedPauseControllerTest {
             assertNull(authority.snapshot())
             assertEquals(PausePhase.CleanupPending, controller.cleanupPending.value?.phase)
             assertFalse(controller.canPause())
-            assertFalse(authority.claimResume(oldPause, true))
+            assertNull(authority.claimResume(oldPause, true))
             assertEquals(0, shellStops)
             cleanupPending = false
             assertEquals(RuntimeStopOutcome.FullyReleased, controller.stop())

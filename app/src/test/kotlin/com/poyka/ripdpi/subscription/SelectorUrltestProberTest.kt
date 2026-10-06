@@ -99,7 +99,7 @@ class SelectorUrltestProberTest {
             group.cloudflareMemberIds,
             "opaque-test-network",
             1L,
-            1L to 1L,
+            TestPhysicalNetworkEvidence().capture(),
             com.poyka.ripdpi.services.CandidateRelayProbeEnvironment(
                 false,
                 "chrome_stable",
@@ -165,7 +165,8 @@ class SelectorUrltestProberTest {
                     store,
                     MemberLatencyProbe { profile, _ ->
                         if (profile.id == "fast") {
-                            scope = original.copy(networkEpoch = 3L to 1L)
+                            scope =
+                                original.copy(networkEpoch = TestPhysicalNetworkEvidence().apply { change() }.capture())
                         }
                         if (profile.id == "fast") 1L else 100L
                     },
@@ -527,6 +528,14 @@ class SelectorUrltestProberTest {
     }
 
     private class FakeSelectorSelectionStore : SelectorSelectionStore {
+        override fun manualReceipt(groupId: String): com.poyka.ripdpi.data.DurableCommandReceipt? = null
+
+        override fun selectReserved(
+            groupId: String,
+            profileId: String,
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        ): Boolean = error("Reserved activation is outside this fixture's scenario")
+
         private val flows = HashMap<String, MutableStateFlow<String?>>()
         private val manual = mutableSetOf<String>()
         private val revisions = mutableMapOf<String, Long>()

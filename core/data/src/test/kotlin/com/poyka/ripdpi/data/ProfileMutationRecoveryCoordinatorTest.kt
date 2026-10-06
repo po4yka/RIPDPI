@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
@@ -8,14 +9,17 @@ import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
+import com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
+import com.poyka.ripdpi.data.xray.XrayProfileRecordPair
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
@@ -24,15 +28,137 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.startCoroutine
+import kotlin.coroutines.suspendCoroutine
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileMutationRecoveryCoordinatorTest {
+    @Test
+    fun `automatic Warp provisioning retains the captured relay catalog generation`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val profile = WarpProfile(id = "warp", displayName = "Warp")
+            val credentials =
+                WarpCredentials(profileId = profile.id, deviceId = "device", accessToken = "captured-fixture")
+            coordinator.upsertWarp(
+                coordinator.captureMutation(ProfileMutationOrigin.Bootstrap),
+                profile,
+                credentials,
+                emptyList(),
+                true,
+                WarpScannerModeAutomatic,
+            )
+            val captured = checkNotNull(fixture.pauseAuthority.states.value).profileUtility.catalogGeneration
+            val activation = fixture.pauseAuthority.reserveStart(Mode.VPN)
+            val identity = RuntimeAppliedUseIdentity("warp-runtime", 1, Mode.VPN.preferenceValue)
+            assertTrue(fixture.pauseAuthority.claimActivation(activation, identity))
+            val original = RuntimeAppliedIntent.Activation(activation)
+            assertTrue(
+                coordinator.upsertWarpForRuntimeProvisioning(
+                    profile,
+                    credentials.copy(accessToken = "issued-fixture"),
+                    emptyList(),
+                    false,
+                    WarpScannerModeAutomatic,
+                    credentials,
+                    coordinator.warpRuntimeRevision(profile.id),
+                ),
+            )
+            assertEquals(captured, checkNotNull(fixture.pauseAuthority.states.value).profileUtility.catalogGeneration)
+            assertTrue(
+                fixture.pauseAuthority.acknowledgeApplied(
+                    original,
+                    RuntimeAppliedUseReceipt(
+                        identity,
+                        emptyList(),
+                        1_000,
+                        captured,
+                        false,
+                        "0".repeat(64),
+                    ),
+                ),
+            )
+        }
+
+    @Test
+    fun `catalog observer reloads committed metadata and favorites never rearm its reads`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val repository = SharedPreferencesProxyGroupRepository(fixture.groupBlob, coordinator)
+            val reader = ProfileUtilityCatalogReader(coordinator, fixture.stores, fixture.pauseAuthority)
+            reader.observe().test {
+                assertTrue(awaitItem().entries.isEmpty())
+                val member = ProxyProfile.Vless("member", "display", "group", "fixture.example", 443, "fixture")
+                repository.add(ProxyGroup("group", "group", ProxyGroupType.BASIC, 0, true, members = listOf(member)))
+                val added = awaitItem()
+                assertEquals("display", added.entries.single().label)
+                val reference = ProfileUtilityReference.SelectorMember("group", "member")
+                assertEquals(reference, added.entries.single().reference)
+                fixture.pauseAuthority.profileUtility.setFavorite(reference, true)
+                runCurrent()
+                expectNoEvents()
+                repository.delete(coordinator.captureMutation(ProfileMutationOrigin.ExplicitDeletion), "group")
+                assertTrue(awaitItem().entries.isEmpty())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `actual group writes publish committed catalog and failed write recovers without invented members`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val repository = SharedPreferencesProxyGroupRepository(fixture.groupBlob, coordinator)
+            val member = ProxyProfile.Vless("same", "member", "group", "fixture.example", 443, "fixture")
+            val group = ProxyGroup("group", "group", ProxyGroupType.BASIC, 0, true, members = listOf(member))
+            repository.add(group)
+            val reference = ProfileUtilityReference.SelectorMember("group", "same")
+            val before = checkNotNull(fixture.pauseAuthority.states.value)
+            assertEquals(setOf(reference), before.profileUtility.catalog)
+            fixture.pauseAuthority.profileUtility.setFavorite(reference, true)
+            fixture.failGroupWrite = true
+            assertTrue(runCatching { repository.update(group.copy(members = emptyList())) }.isFailure)
+            assertFalse(checkNotNull(fixture.pauseAuthority.states.value).profileUtility.catalogReady)
+            fixture.failGroupWrite = false
+            coordinator.recover()
+            assertEquals(listOf(member), repository.list().single().members)
+            assertEquals(setOf(reference), checkNotNull(fixture.pauseAuthority.states.value).profileUtility.favorites)
+            repository.delete(coordinator.captureMutation(ProfileMutationOrigin.ExplicitDeletion), group.id)
+            val deleted = checkNotNull(fixture.pauseAuthority.states.value).profileUtility
+            assertTrue(deleted.catalogReady)
+            assertTrue(deleted.catalog.isEmpty())
+            assertTrue(deleted.favorites.isEmpty())
+            assertTrue(deleted.catalogGeneration > before.profileUtility.catalogGeneration)
+        }
+
+    @Test
+    fun `composite reset can replace groups without recursive mutex and prunes utility`() =
+        runTest {
+            val fixture = Fixture()
+            val coordinator = fixture.coordinator()
+            val repository = SharedPreferencesProxyGroupRepository(fixture.groupBlob, coordinator)
+            val member = ProxyProfile.Vless("member", "member", "group", "fixture.example", 443, "fixture")
+            repository.add(ProxyGroup("group", "group", ProxyGroupType.BASIC, 0, true, members = listOf(member)))
+            coordinator.runReset { receipt -> repository.replaceAll(receipt, emptyList()) }
+            assertTrue(repository.list().isEmpty())
+            val state = checkNotNull(fixture.pauseAuthority.states.value)
+            assertEquals(DesiredRuntimeState.Stopped, state.desired)
+            assertTrue(state.profileUtility.catalogReady)
+            assertTrue(state.profileUtility.catalog.isEmpty())
+        }
+
     @Test
     fun `runtime provisioning is profile fenced rejects user ABA and preserves metadata and settings`() =
         runTest {
@@ -837,6 +963,627 @@ class ProfileMutationAuthorityRecoveryTest {
         }
 }
 
+/** Transaction and unit crash-cut tests only: no native dispatch or network ACK is simulated. */
+class MeasuredProfileSelectionTransactionTest {
+    @Test
+    fun `paused native measured selection keeps the reserved identity and stores selection before ACK`() =
+        runTest {
+            val fixture = Fixture()
+            fixture.selectorLease()
+            fixture.selectorChoice.commitMember("group", "member", SelectorChoiceOrigin.Reconstruction)
+            val lease = fixture.nativeLease()
+            val paused = checkNotNull(fixture.pauseAuthority.snapshot())
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Native
+            var reservation: DurableCommandRecord? = null
+            var pending: PendingProfileMutation? = null
+            fixture.beforePrepare = {
+                pending = it
+                reservation = fixture.pauseAuthority.snapshotAuthority().command
+                assertEquals(DesiredRuntimeState.Stopped, fixture.pauseAuthority.snapshotAuthority().desired)
+                assertNull(fixture.pauseAuthority.snapshot())
+                assertNoMeasuredHistory(fixture)
+            }
+
+            val result = fixture.coordinator().selectMeasuredProfile(lease, Mode.Proxy)
+            assertTrue(result is ProfileUtilitySelectionResult.Selected)
+            val selected = result as ProfileUtilitySelectionResult.Selected
+            val reserved = checkNotNull(reservation)
+            val state = checkNotNull(fixture.persistence.read())
+            assertEquals(reserved, state.command)
+            assertEquals(reserved.commandId, selected.receipt.commandId)
+            assertEquals(PauseAuthorityRef(reserved.generation), selected.receipt.authority)
+            assertEquals(reserved.origin, selected.receipt.origin)
+            assertEquals(RuntimeCommandOrigin.MeasuredActivation(reserved.commandId, lease.reference), reserved.origin)
+            assertEquals(selected.receipt.commandId, checkNotNull(pending).mutationId)
+            assertEquals(selected.receipt.authority, checkNotNull(pending).expectedPauseAuthority)
+            assertEquals(RuntimeActivationPhase.Unbound, reserved.phase)
+            assertTrue(reserved.generation > paused.generation)
+            assertEquals(state.profileUtility.catalogGeneration, selected.catalogGeneration)
+            assertTrue(selected.catalogGeneration > lease.catalogGeneration)
+            assertTrue(state.profileUtility.catalogReady)
+            assertEquals(payload.profile, fixture.relayProfiles.load(payload.profile.id))
+            assertEquals(payload.credentials, fixture.relayCredentials.load(payload.profile.id))
+            assertEquals(payload.profile.id, fixture.settings.snapshot().relayProfileId)
+            assertTrue(fixture.settings.snapshot().relayEnabled)
+            assertEquals(Mode.Proxy.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            assertEquals(XrayProviderSelectionRecord(), fixture.xraySelection.current())
+            assertNull(fixture.selectorChoice.activeGroupId)
+            assertNull(fixture.journal.pending())
+            assertEquals(DesiredRuntimeState.Stopped, state.desired)
+            assertNull(state.pause)
+            assertNoMeasuredHistory(fixture)
+
+            // Binding alone is a unit authority operation, not dispatch or a native ACK.
+            val activation = checkNotNull(fixture.pauseAuthority.bindProfileActivation(selected.receipt, Mode.Proxy))
+            assertEquals(selected.receipt.commandId, activation.commandId)
+            assertEquals(selected.receipt.origin, activation.origin)
+            assertEquals(selected.receipt.authority, activation.authority)
+            assertEquals(DesiredRuntimeState.Stopped, fixture.pauseAuthority.snapshotAuthority().desired)
+            assertNoMeasuredHistory(fixture)
+        }
+
+    @Test
+    fun `selector measured selection persists the exact member with the same receipt`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.selectorLease()
+            val result = fixture.coordinator().selectMeasuredProfile(lease, Mode.VPN)
+            assertTrue(result is ProfileUtilitySelectionResult.Selected)
+            val selected = result as ProfileUtilitySelectionResult.Selected
+            assertSame(selected.receipt, fixture.selectorChoice.manualReceipts["group"])
+            assertEquals("group", fixture.selectorChoice.activeGroupId)
+            assertEquals("member", fixture.selectorChoice.members["group"])
+            assertEquals(
+                RuntimeCommandOrigin.MeasuredActivation(selected.receipt.commandId, lease.reference),
+                selected.receipt.origin,
+            )
+            assertEquals(Mode.VPN.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            assertEquals(DesiredRuntimeState.Stopped, fixture.pauseAuthority.snapshotAuthority().desired)
+            assertNull(fixture.pauseAuthority.snapshot())
+            assertEquals(
+                checkNotNull(fixture.persistence.read()).profileUtility.catalogGeneration,
+                selected.catalogGeneration,
+            )
+            assertNoMeasuredHistory(fixture)
+        }
+
+    @Test
+    fun `native payload with a same ID in the wrong typed namespace is superseded without mutation`() =
+        runTest {
+            val fixture = Fixture()
+            fixture.xrayLease("relay")
+            val native = fixture.nativeLease()
+            val wrong = fixture.lease(ProfileUtilityReference.Xray("relay"), native.payload)
+            assertMeasuredSupersededWithoutMutation(fixture, wrong)
+        }
+
+    @Test
+    fun `same native ID with a changed endpoint supersedes the immutable lease`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.nativeLease()
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Native
+            fixture.relayProfiles.save(payload.profile.copy(server = "changed.example"))
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `same native ID with changed credentials supersedes the immutable lease`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.nativeLease()
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Native
+            fixture.relayCredentials.save(payload.credentials.copy(vlessUuid = "replacement-fixture"))
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `changed Xray metadata half supersedes the captured record pair`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.xrayLease()
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Xray
+            fixture.xrayMetadata.save(payload.records.metadata.copy(serverAddress = "changed.example"))
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `changed Xray secret half supersedes the captured record pair`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.xrayLease()
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Xray
+            fixture.xraySecrets.save(payload.records.secret.copy(uuid = "replacement-fixture"))
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `selector exact member changes supersede the captured payload`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.selectorLease()
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Selector
+            val member = payload.member as ProxyProfile.Vless
+            fixture.writeGroups(
+                listOf(
+                    ProxyGroup(
+                        "group",
+                        "group",
+                        ProxyGroupType.BASIC,
+                        0,
+                        true,
+                        members = listOf(member.copy(server = "changed.example")),
+                    ),
+                ),
+            )
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `selector group mismatch supersedes even when that other group contains the same member ID`() =
+        runTest {
+            val fixture = Fixture()
+            val first = fixture.selectorLease()
+            val payload = first.payload as ProfileUtilitySelectionPayload.Selector
+            fixture.writeGroups(
+                listOf(
+                    ProxyGroup("group", "group", ProxyGroupType.BASIC, 0, true, members = listOf(payload.member)),
+                    ProxyGroup("other-group", "other", ProxyGroupType.BASIC, 1, true, members = listOf(payload.member)),
+                ),
+            )
+            fixture.coordinator().recover()
+            val lease =
+                fixture.lease(
+                    first.reference,
+                    ProfileUtilitySelectionPayload.Selector("other-group", "member", payload.member),
+                )
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `selector member ID mismatch supersedes even when both members exist`() =
+        runTest {
+            val fixture = Fixture()
+            val first = fixture.selectorLease()
+            val payload = first.payload as ProfileUtilitySelectionPayload.Selector
+            val other = (payload.member as ProxyProfile.Vless).copy(id = "other-member")
+            fixture.writeGroups(
+                listOf(
+                    ProxyGroup(
+                        "group",
+                        "group",
+                        ProxyGroupType.BASIC,
+                        0,
+                        true,
+                        members = listOf(payload.member, other),
+                    ),
+                ),
+            )
+            fixture.coordinator().recover()
+            val lease =
+                fixture.lease(
+                    first.reference,
+                    ProfileUtilitySelectionPayload.Selector("group", "other-member", other),
+                )
+            assertMeasuredSupersededWithoutMutation(fixture, lease)
+        }
+
+    @Test
+    fun `newer Pause between payload validation and reservation CAS preserves the exact new intent`() =
+        runTest {
+            assertNewIntentWinsMeasuredCas(pause = true)
+        }
+
+    @Test
+    fun `newer Stop between payload validation and reservation CAS preserves the exact new intent`() =
+        runTest {
+            assertNewIntentWinsMeasuredCas(pause = false)
+        }
+
+    @Test
+    fun `prepare failure cancels only its own unbound reservation and preserves the original failure`() =
+        runTest {
+            assertPrepareFailureOwnership(newerPause = null)
+        }
+
+    @Test
+    fun `prepare failure compensation preserves a newer Pause command`() =
+        runTest {
+            assertPrepareFailureOwnership(newerPause = true)
+        }
+
+    @Test
+    fun `prepare failure compensation preserves a newer Stop command`() =
+        runTest {
+            assertPrepareFailureOwnership(newerPause = false)
+        }
+
+    @Test
+    fun `unit crash cut before prepare reconstructs stopped unbound authority with an empty journal`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.nativeLease()
+            val storesBefore = fixture.measuredStores()
+            val cut = captureMeasuredUnitCrashCut(fixture, lease, afterPrepare = false)
+            assertNull(cut.pending)
+            assertEquals(RuntimeActivationPhase.Unbound, cut.authority.command?.phase)
+            assertEquals(DesiredRuntimeState.Stopped, cut.authority.desired)
+            assertNull(cut.authority.pause)
+            assertEquals(storesBefore, cut.stores)
+            val recovered = reconstructMeasuredCut(cut)
+            recovered.coordinator().recover()
+            val state = checkNotNull(recovered.persistence.read())
+            assertEquals(cut.authority, state)
+            assertEquals(cut.stores, recovered.measuredStores())
+            assertNull(recovered.journal.pending())
+            assertEquals(0, recovered.prepareAttempts)
+            assertEquals(0L, recovered.mutationGeneration.generation.value)
+            assertNull(recovered.pauseAuthority.activationReceiptFromEnvelope(cut.envelope()))
+            assertNoMeasuredHistory(recovered)
+        }
+
+    @Test
+    fun `unit crash cut after prepared native journal finishes persistence and retires original capability`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.nativeLease()
+            val payload = lease.payload as ProfileUtilitySelectionPayload.Native
+            val cut = captureMeasuredUnitCrashCut(fixture, lease, afterPrepare = true)
+            val pending = checkNotNull(cut.pending)
+            assertEquals(cut.authority.command?.commandId, pending.mutationId)
+            assertEquals(cut.authority.command?.generation, pending.expectedPauseAuthority?.generation)
+            val recorded = RipDpiContractJson.decodeFromString(ProfileMutationIntent.serializer(), pending.payload)
+            assertTrue(recorded is MeasuredUtilitySelectionIntent)
+            val measured = recorded as MeasuredUtilitySelectionIntent
+            assertEquals(pending.mutationId, measured.reservation.commandId)
+            assertEquals(pending.expectedPauseAuthority, measured.reservation.authority)
+            assertEquals(Mode.Proxy.preferenceValue, measured.reservation.mode)
+            val recovered = reconstructMeasuredCut(cut)
+            val coordinator = recovered.coordinator()
+            coordinator.recover()
+            assertRetiredMeasuredCut(cut, recovered)
+            assertEquals(payload.profile, recovered.relayProfiles.load(payload.profile.id))
+            assertEquals(payload.credentials, recovered.relayCredentials.load(payload.profile.id))
+            assertEquals(payload.profile.id, recovered.settings.snapshot().relayProfileId)
+            assertTrue(recovered.settings.snapshot().relayEnabled)
+            assertEquals(Mode.Proxy.preferenceValue, recovered.settings.snapshot().ripdpiMode)
+            assertEquals(XrayProviderSelectionRecord(), recovered.xraySelection.current())
+            assertEquals(1L, recovered.mutationGeneration.generation.value)
+            val once = recovered.measuredCut()
+            val saveCount = recovered.relayProfiles.saveCount
+            coordinator.recover()
+            assertEquals(once, recovered.measuredCut())
+            assertEquals(saveCount, recovered.relayProfiles.saveCount)
+            assertEquals(1L, recovered.mutationGeneration.generation.value)
+        }
+
+    @Test
+    fun `unit crash cut after prepared selector journal reconstructs choice without a new manual receipt`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.selectorLease()
+            val cut = captureMeasuredUnitCrashCut(fixture, lease, afterPrepare = true)
+            val recovered = reconstructMeasuredCut(cut)
+            val coordinator = recovered.coordinator()
+            coordinator.recover()
+            assertRetiredMeasuredCut(cut, recovered)
+            assertEquals("group", recovered.selectorChoice.activeGroupId)
+            assertEquals("member", recovered.selectorChoice.members["group"])
+            assertTrue(recovered.selectorChoice.manualReceipts.isEmpty())
+            val once = recovered.measuredCut()
+            val writes = recovered.selectorChoice.writeCount
+            coordinator.recover()
+            assertEquals(once, recovered.measuredCut())
+            assertEquals(writes, recovered.selectorChoice.writeCount)
+        }
+}
+
+private class TestMeasuredSelectionLease(
+    override val reference: ProfileUtilityReference,
+    override val catalogGeneration: Long,
+    override val expectedAuthority: RuntimeAuthoritySnapshot,
+    override val payload: ProfileUtilitySelectionPayload,
+) : ProfileUtilitySelectionLease {
+    var beforeReservation: (() -> Unit)? = null
+    var reservationChecks = 0
+
+    override suspend fun refreshEnvironment() = true
+
+    // Deliberately does not compare stores: the actual coordinator must reject stale exact payloads.
+    override suspend fun payloadMatches() = true
+
+    override fun environmentMatchesNow(): Boolean {
+        reservationChecks += 1
+        beforeReservation?.invoke()
+        return true
+    }
+
+    override suspend fun refreshExternalEnvironment() = true
+
+    override fun externalEnvironmentMatchesNow() = true
+}
+
+private suspend fun Fixture.nativeLease(): TestMeasuredSelectionLease {
+    val profile = RelayProfileRecord(id = "relay", kind = RelayKindVlessReality, server = "measured.example")
+    val credentials =
+        RelayCredentialRecord(profileId = profile.id, vlessUuid = "opaque-fixture", updatedAtEpochMillis = 1)
+    relayProfiles.save(profile)
+    relayCredentials.save(credentials)
+    coordinator().recover()
+    pauseAuthority.begin(Mode.VPN, 300_000, pauseAuthority.snapshotAuthority())
+    return lease(
+        ProfileUtilityReference.NativeRelay(profile.id),
+        ProfileUtilitySelectionPayload.Native(profile, credentials),
+    )
+}
+
+private suspend fun Fixture.xrayLease(profileId: String = "xray"): TestMeasuredSelectionLease {
+    val records =
+        XrayProfileRecordPair(
+            XrayProfileMetadataRecord(
+                profileId = profileId,
+                revision = "captured",
+                serverAddress = "measured.example",
+                updatedAtEpochMillis = 1,
+            ),
+            XrayProfileSecretRecord(profileId = profileId, revision = "captured", uuid = "opaque-fixture"),
+        )
+    xrayMetadata.save(records.metadata)
+    xraySecrets.save(records.secret)
+    coordinator().recover()
+    pauseAuthority.begin(Mode.VPN, 300_000, pauseAuthority.snapshotAuthority())
+    return lease(ProfileUtilityReference.Xray(profileId), ProfileUtilitySelectionPayload.Xray(profileId, records))
+}
+
+private suspend fun Fixture.selectorLease(): TestMeasuredSelectionLease {
+    val member = ProxyProfile.Vless("member", "member", "group", "measured.example", 443, "opaque-fixture")
+    writeGroups(listOf(ProxyGroup("group", "group", ProxyGroupType.BASIC, 0, true, members = listOf(member))))
+    coordinator().recover()
+    pauseAuthority.begin(Mode.VPN, 300_000, pauseAuthority.snapshotAuthority())
+    return lease(
+        ProfileUtilityReference.SelectorMember("group", "member"),
+        ProfileUtilitySelectionPayload.Selector("group", "member", member),
+    )
+}
+
+private fun Fixture.lease(
+    reference: ProfileUtilityReference,
+    payload: ProfileUtilitySelectionPayload,
+): TestMeasuredSelectionLease {
+    val utility = checkNotNull(pauseAuthority.states.value).profileUtility
+    check(utility.catalogReady && reference in utility.catalog)
+    return TestMeasuredSelectionLease(reference, utility.catalogGeneration, pauseAuthority.snapshotAuthority(), payload)
+}
+
+private fun Fixture.writeGroups(groups: List<ProxyGroup>) {
+    groupBlob.write(RipDpiContractJson.encodeToString(ListSerializer(ProxyGroup.serializer()), groups))
+}
+
+private suspend fun assertMeasuredSupersededWithoutMutation(
+    fixture: Fixture,
+    lease: ProfileUtilitySelectionLease,
+) {
+    val before = fixture.measuredCut()
+    val authorityWrites = fixture.persistence.commitCount
+    val storeWrites = fixture.storeWriteAttempts
+    val saves = fixture.relayProfiles.saveCount
+    val selectorWrites = fixture.selectorChoice.writeCount
+    val manual = fixture.selectorChoice.manualReceipts.toMap()
+    val generation = fixture.mutationGeneration.generation.value
+    assertEquals(
+        ProfileUtilitySelectionResult.Superseded,
+        fixture.coordinator().selectMeasuredProfile(lease, Mode.Proxy),
+    )
+    assertEquals(before, fixture.measuredCut())
+    assertEquals(authorityWrites, fixture.persistence.commitCount)
+    assertEquals(storeWrites, fixture.storeWriteAttempts)
+    assertEquals(0, fixture.prepareAttempts)
+    assertEquals(saves, fixture.relayProfiles.saveCount)
+    assertEquals(selectorWrites, fixture.selectorChoice.writeCount)
+    assertEquals(manual, fixture.selectorChoice.manualReceipts)
+    assertEquals(generation, fixture.mutationGeneration.generation.value)
+}
+
+private suspend fun assertNewIntentWinsMeasuredCas(pause: Boolean) {
+    val fixture = Fixture()
+    val lease = fixture.nativeLease()
+    val beforeStores = fixture.measuredStores()
+    var newer: PauseAuthorityState? = null
+    lease.beforeReservation = {
+        if (pause) {
+            fixture.pauseAuthority.begin(Mode.VPN, 900_000, fixture.pauseAuthority.snapshotAuthority())
+        } else {
+            fixture.pauseAuthority.reserveStop()
+        }
+        newer = fixture.persistence.read()
+    }
+    assertEquals(
+        ProfileUtilitySelectionResult.Superseded,
+        fixture.coordinator().selectMeasuredProfile(lease, Mode.Proxy),
+    )
+    assertEquals(1, lease.reservationChecks)
+    val expected = checkNotNull(newer)
+    assertEquals(expected, fixture.persistence.read())
+    assertEquals(expected.command, fixture.pauseAuthority.snapshotAuthority().command)
+    assertEquals(expected.pause, fixture.pauseAuthority.snapshot())
+    assertEquals(beforeStores, fixture.measuredStores())
+    assertEquals(0, fixture.storeWriteAttempts)
+    assertEquals(0, fixture.prepareAttempts)
+    assertNull(fixture.journal.pending())
+    assertEquals(0L, fixture.mutationGeneration.generation.value)
+    assertNoMeasuredHistory(fixture)
+}
+
+private suspend fun assertPrepareFailureOwnership(newerPause: Boolean?) {
+    val fixture = Fixture()
+    val lease = fixture.nativeLease()
+    val storesBefore = fixture.measuredStores()
+    val failure = IllegalStateException("prepare fixture failure")
+    var reserved: PauseAuthorityState? = null
+    var newer: PauseAuthorityState? = null
+    fixture.beforePrepare = {
+        reserved = fixture.persistence.read()
+        if (newerPause != null) {
+            if (newerPause) {
+                fixture.pauseAuthority.begin(Mode.VPN, 900_000, fixture.pauseAuthority.snapshotAuthority())
+            } else {
+                fixture.pauseAuthority.reserveStop()
+            }
+            newer = fixture.persistence.read()
+        }
+        throw failure
+    }
+    val caught = runCatching { fixture.coordinator().selectMeasuredProfile(lease, Mode.Proxy) }.exceptionOrNull()
+    assertSame(failure, caught)
+    assertEquals(0, failure.suppressed.size)
+    val original = checkNotNull(reserved)
+    assertEquals(RuntimeActivationPhase.Unbound, original.command?.phase)
+    if (newerPause == null) {
+        assertEquals(
+            original.copy(command = checkNotNull(original.command).copy(phase = RuntimeActivationPhase.Terminated)),
+            fixture.persistence.read(),
+        )
+    } else {
+        assertEquals(checkNotNull(newer), fixture.persistence.read())
+    }
+    assertEquals(storesBefore, fixture.measuredStores())
+    assertEquals(0, fixture.storeWriteAttempts)
+    assertNull(fixture.journal.pending())
+    assertEquals(1, fixture.prepareAttempts)
+    assertEquals(0L, fixture.mutationGeneration.generation.value)
+    assertNoMeasuredHistory(fixture)
+}
+
+private fun assertNoMeasuredHistory(fixture: Fixture) {
+    val utility = checkNotNull(fixture.persistence.read()).profileUtility
+    assertTrue(utility.recents.isEmpty())
+    assertTrue(utility.acknowledged.isEmpty())
+    assertEquals(0L, utility.lastSequence)
+}
+
+private data class MeasuredStoreSnapshot(
+    val settings: AppSettings,
+    val relays: List<Pair<RelayProfileRecord, RelayCredentialRecord?>>,
+    val xrays: List<Pair<XrayProfileMetadataRecord, XrayProfileSecretRecord?>>,
+    val xraySelection: XrayProviderSelectionRecord,
+    val groups: String?,
+    val selectorGroup: String?,
+    val selectorMembers: Map<String, String>,
+)
+
+private data class MeasuredDurableCut(
+    val authority: PauseAuthorityState,
+    val stores: MeasuredStoreSnapshot,
+    val pending: PendingProfileMutation?,
+) {
+    fun envelope(): RuntimeActivationEnvelope {
+        val command = checkNotNull(authority.command)
+        return RuntimeActivationEnvelope(
+            command.generation,
+            command.commandId,
+            command.origin,
+            Mode.Proxy.preferenceValue,
+        )
+    }
+}
+
+private suspend fun Fixture.measuredStores() =
+    MeasuredStoreSnapshot(
+        settings.snapshot(),
+        relayProfiles.list().map { it to relayCredentials.load(it.id) },
+        xrayMetadata.list().map { it to xraySecrets.load(it.profileId) },
+        xraySelection.current(),
+        groupBlob.read(),
+        selectorChoice.activeGroupId,
+        selectorChoice.members.toMap(),
+    )
+
+private suspend fun Fixture.measuredCut() =
+    MeasuredDurableCut(checkNotNull(persistence.read()), measuredStores(), journal.pending())
+
+/**
+ * Captures actual persisted state and abandons an unresumed continuation at the journal boundary.
+ * No Error, cancellation, catch, or finally executes in the original transaction after the cut.
+ * This models a unit crash cut only, not Android process death or filesystem durability.
+ */
+private fun captureMeasuredUnitCrashCut(
+    fixture: Fixture,
+    lease: ProfileUtilitySelectionLease,
+    afterPrepare: Boolean,
+): MeasuredDurableCut {
+    var captured: MeasuredDurableCut? = null
+    var completed = false
+    val cut: suspend (PendingProfileMutation) -> Unit = {
+        captured = fixture.measuredCut()
+        suspendCoroutine<Unit> { /* The continuation is intentionally never resumed. */ }
+    }
+    if (afterPrepare) fixture.afterPrepare = cut else fixture.beforePrepare = cut
+    val transaction: suspend () -> Unit = { fixture.coordinator().selectMeasuredProfile(lease, Mode.Proxy) }
+    transaction.startCoroutine(
+        object : Continuation<Unit> {
+            override val context = EmptyCoroutineContext
+
+            override fun resumeWith(result: Result<Unit>) {
+                completed = true
+                result.getOrThrow()
+            }
+        },
+    )
+    check(!completed) { "Transaction crossed the intended unit crash cut" }
+    val snapshot = checkNotNull(captured) { "Transaction never reached the intended unit crash cut" }
+    assertEquals(snapshot.authority, fixture.persistence.read())
+    return snapshot
+}
+
+private suspend fun reconstructMeasuredCut(cut: MeasuredDurableCut): Fixture {
+    val fixture = Fixture(cut.authority)
+    fixture.settings.replace(cut.stores.settings)
+    for ((profile, credentials) in cut.stores.relays) {
+        fixture.relayProfiles.save(profile)
+        credentials?.let { fixture.relayCredentials.save(it) }
+    }
+    for ((metadata, secret) in cut.stores.xrays) {
+        fixture.xrayMetadata.save(metadata)
+        secret?.let { fixture.xraySecrets.save(it) }
+    }
+    fixture.xraySelection.update(cut.stores.xraySelection)
+    cut.stores.groups?.let { fixture.groupBlob.write(it) }
+    for ((group, member) in cut.stores.selectorMembers) {
+        fixture.selectorChoice.commitMember(group, member, SelectorChoiceOrigin.Reconstruction)
+    }
+    if (cut.stores.selectorGroup == null) {
+        fixture.selectorChoice.clearStandalone()
+    } else {
+        cut.stores.selectorMembers[cut.stores.selectorGroup]?.let {
+            fixture.selectorChoice.commitMember(cut.stores.selectorGroup, it, SelectorChoiceOrigin.Reconstruction)
+        }
+    }
+    cut.pending?.let { fixture.journal.prepare(it) }
+    return fixture
+}
+
+private suspend fun assertRetiredMeasuredCut(
+    cut: MeasuredDurableCut,
+    fixture: Fixture,
+) {
+    val before = checkNotNull(cut.authority.command)
+    val after = checkNotNull(fixture.pauseAuthority.snapshotAuthority().command)
+    assertEquals(before.copy(phase = RuntimeActivationPhase.Terminated), after)
+    assertEquals(DesiredRuntimeState.Stopped, fixture.pauseAuthority.snapshotAuthority().desired)
+    assertNull(fixture.pauseAuthority.snapshot())
+    assertEquals(cut.authority.generation, fixture.pauseAuthority.reference().generation)
+    assertTrue(checkNotNull(fixture.persistence.read()).profileUtility.catalogReady)
+    assertTrue(
+        checkNotNull(fixture.persistence.read()).profileUtility.catalogGeneration >
+            cut.authority.profileUtility.catalogGeneration,
+    )
+    assertNull(fixture.pauseAuthority.activationReceiptFromEnvelope(cut.envelope()))
+    assertNull(fixture.journal.pending())
+    assertEquals(0, fixture.prepareAttempts)
+    assertTrue(fixture.selectorChoice.manualReceipts.isEmpty())
+    assertNoMeasuredHistory(fixture)
+}
+
 private suspend fun assertStaleProvisioningAfterUserAba(
     fixture: Fixture,
     coordinator: ProfileMutationRecoveryCoordinator,
@@ -874,24 +1621,99 @@ private suspend fun assertStaleProvisioningAfterUserAba(
     assertEquals(updated, fixture.warpCredentials.load(profile.id))
 }
 
-private class Fixture {
-    val pauseAuthority =
-        PauseIntentAuthority(
-            object : PauseAuthorityPersistence {
-                private var state: PauseAuthorityState? = null
+class MeasuredProviderRecoveryTest {
+    @Test fun `prepared measured selector journal cannot replace a newer Stop provider`() =
+        runTest {
+            assertNewCommandPreserved(start = false)
+        }
 
-                override fun read() = state
+    @Test fun `prepared measured selector journal cannot replace a newer Start provider`() =
+        runTest {
+            assertNewCommandPreserved(start = true)
+        }
 
-                override fun commit(state: PauseAuthorityState) {
-                    this.state = state
-                }
-            },
-            object : PauseClock {
-                override fun read() = PauseClockReading(1_800_000_000_000, 10_000, 7)
-            },
-            com.poyka.ripdpi.data
-                .RuntimeIntentLinearizer(),
-        )
+    @Test fun `prepared measured selector journal finishes original metadata without native capability or history`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.selectorLease()
+            val cut = captureMeasuredUnitCrashCut(fixture, lease, afterPrepare = true)
+            val recovered = reconstructMeasuredCut(cut)
+            recovered.coordinator().recover()
+            assertRetiredMeasuredCut(cut, recovered)
+            assertEquals("group", recovered.selectorChoice.activeGroupId)
+            assertEquals("member", recovered.selectorChoice.members["group"])
+            assertNull(recovered.selectorChoice.manualReceipts["group"])
+            assertNull(recovered.pauseAuthority.activationReceiptFromEnvelope(cut.envelope()))
+            assertNoMeasuredHistory(recovered)
+        }
+
+    @Test fun `ordinary measured Native selection cannot overwrite a Stop committed during secret store await`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.nativeLease()
+            val newer = XrayProviderSelectionRecord.of(com.poyka.ripdpi.data.xray.VpnProviderKind.Xray, "newer")
+            fixture.beforeCredentialSave = {
+                fixture.beforeCredentialSave = null
+                fixture.pauseAuthority.reserveStop()
+                fixture.xraySelection.update(newer)
+                fixture.settings.update { setRelayProfileId("newer-native") }
+            }
+            val result = fixture.coordinator().selectMeasuredProfile(lease, Mode.Proxy)
+            assertEquals(newer, fixture.xraySelection.current())
+            assertEquals("newer-native", fixture.settings.snapshot().relayProfileId)
+            assertEquals(ProfileUtilitySelectionResult.Superseded, result)
+            assertEquals(DesiredRuntimeState.Stopped, fixture.pauseAuthority.snapshotAuthority().desired)
+            assertNoMeasuredHistory(fixture)
+        }
+
+    @Test fun `ordinary measured Xray selection cannot overwrite Stop settings after the settings store await`() =
+        runTest {
+            val fixture = Fixture()
+            val lease = fixture.xrayLease()
+            val newer = XrayProviderSelectionRecord.of(com.poyka.ripdpi.data.xray.VpnProviderKind.Xray, "newer")
+            fixture.beforeSettingsUpdate = {
+                fixture.beforeSettingsUpdate = null
+                fixture.pauseAuthority.reserveStop()
+                fixture.xraySelection.update(newer)
+                fixture.settings.update { setRipdpiMode(Mode.Proxy.preferenceValue) }
+            }
+            val result = fixture.coordinator().selectMeasuredProfile(lease, Mode.VPN)
+            assertEquals(newer, fixture.xraySelection.current())
+            assertEquals(Mode.Proxy.preferenceValue, fixture.settings.snapshot().ripdpiMode)
+            assertEquals(ProfileUtilitySelectionResult.Superseded, result)
+            assertEquals(DesiredRuntimeState.Stopped, fixture.pauseAuthority.snapshotAuthority().desired)
+            assertNoMeasuredHistory(fixture)
+        }
+
+    private suspend fun assertNewCommandPreserved(start: Boolean) {
+        val fixture = Fixture()
+        val lease = fixture.selectorLease()
+        val cut = captureMeasuredUnitCrashCut(fixture, lease, afterPrepare = true)
+        val recovered = reconstructMeasuredCut(cut)
+        recovered.pauseAuthority.initializeAfterMigration()
+        if (start) recovered.pauseAuthority.reserveStart(Mode.VPN) else recovered.pauseAuthority.reserveStop()
+        val authority = recovered.pauseAuthority.snapshotAuthority()
+        val selected = XrayProviderSelectionRecord.of(com.poyka.ripdpi.data.xray.VpnProviderKind.Xray, "newer")
+        recovered.xraySelection.update(selected)
+        recovered.warpProfiles.setActiveProfileId("newer-warp")
+        recovered.bootSession.setActiveAwgProfileId("newer-awg")
+        recovered.coordinator().recover()
+        assertEquals(authority, recovered.pauseAuthority.snapshotAuthority())
+        assertEquals(selected, recovered.xraySelection.current())
+        assertEquals("newer-warp", recovered.warpProfiles.activeProfileId())
+        assertEquals("newer-awg", recovered.bootSession.activeAwgProfileId())
+        assertNull(recovered.selectorChoice.activeGroupId)
+        assertNull(recovered.selectorChoice.manualReceipts["group"])
+        assertNull(recovered.journal.pending())
+        assertNoMeasuredHistory(recovered)
+    }
+}
+
+private class Fixture(
+    initialAuthority: PauseAuthorityState? = null,
+) {
+    val persistence = TestPauseAuthorityPersistence(initialAuthority)
+    val pauseAuthority = testPauseAuthority(persistence, initialize = false)
     val mutationGeneration = ProfileMutationGenerationPublisher()
     val settings = InMemorySettingsRepository()
     val relayProfiles = InMemoryRelayProfileStore()
@@ -905,28 +1727,102 @@ private class Fixture {
     val xraySecrets = InMemoryXraySecretStore()
     val xraySelection = InMemoryXraySelectionStore()
     val journal = InMemoryProfileMutationJournal()
+    val selectorChoice = TestSelectorChoicePersistence()
+    var storeWriteAttempts = 0
+        private set
+    var beforeCredentialSave: (suspend () -> Unit)? = null
+    var beforeSettingsUpdate: (suspend () -> Unit)? = null
+    var beforePrepare: (suspend (PendingProfileMutation) -> Unit)? = null
+    var afterPrepare: (suspend (PendingProfileMutation) -> Unit)? = null
+    var prepareAttempts = 0
+    private val transactionJournal =
+        object : ProfileMutationJournal by journal {
+            override suspend fun prepare(mutation: PendingProfileMutation) {
+                prepareAttempts += 1
+                beforePrepare?.invoke(mutation)
+                journal.prepare(mutation)
+                afterPrepare?.invoke(mutation)
+            }
+        }
     val bootSession = InMemoryBootSessionStateStore()
+    var failGroupWrite = false
+    val groupBlob =
+        object : ProxyGroupBlobStore {
+            private var encoded: String? = null
+
+            override fun read() = encoded
+
+            override fun write(json: String) {
+                check(!failGroupWrite)
+                encoded = json
+            }
+
+            override fun clear() {
+                encoded = null
+            }
+        }
+
+    val stores =
+        ProfileMutationStores(
+            settings =
+                object : AppSettingsRepository by settings {
+                    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+                        storeWriteAttempts += 1
+                        beforeSettingsUpdate?.invoke()
+                        this@Fixture.settings.update(transform)
+                    }
+
+                    override suspend fun replace(settings: AppSettings) {
+                        storeWriteAttempts += 1
+                        this@Fixture.settings.replace(settings)
+                    }
+                },
+            relayProfiles = relayProfiles,
+            relayCredentials =
+                object : RelayCredentialStore by relayCredentials {
+                    override suspend fun save(credentials: RelayCredentialRecord) {
+                        storeWriteAttempts += 1
+                        beforeCredentialSave?.invoke()
+                        relayCredentials.save(credentials)
+                    }
+                },
+            warpProfiles = warpProfiles,
+            warpCredentials = warpCredentials,
+            warpEndpoints = warpEndpoints,
+            xrayMetadata =
+                object : XrayProfileMetadataStore by xrayMetadata {
+                    override suspend fun save(record: XrayProfileMetadataRecord) {
+                        storeWriteAttempts += 1
+                        xrayMetadata.save(record)
+                    }
+                },
+            xraySecrets =
+                object : XrayProfileSecretStore by xraySecrets {
+                    override suspend fun save(record: XrayProfileSecretRecord) {
+                        storeWriteAttempts += 1
+                        xraySecrets.save(record)
+                    }
+                },
+            xraySelection =
+                object : XrayProviderSelectionStore by xraySelection {
+                    override fun update(record: XrayProviderSelectionRecord) {
+                        storeWriteAttempts += 1
+                        xraySelection.update(record)
+                    }
+                },
+            bootSession = bootSession,
+            groupBlob = groupBlob,
+            selectorChoice = selectorChoice,
+        )
 
     fun coordinator() =
         ProfileMutationRecoveryCoordinator(
             pauseAuthority = pauseAuthority,
             mutationGeneration = mutationGeneration,
-            stores =
-                ProfileMutationStores(
-                    settings = settings,
-                    relayProfiles = relayProfiles,
-                    relayCredentials = relayCredentials,
-                    warpProfiles = warpProfiles,
-                    warpCredentials = warpCredentials,
-                    warpEndpoints = warpEndpoints,
-                    xrayMetadata = xrayMetadata,
-                    xraySecrets = xraySecrets,
-                    xraySelection = xraySelection,
-                    bootSession = bootSession,
-                ),
+            stores = stores,
             awgProfiles = awgProfiles,
             awgCredentials = awgCredentials,
-            journal = journal,
+            journal = transactionJournal,
         )
 }
 
@@ -1092,6 +1988,25 @@ private class InMemoryWarpProfileStore : WarpProfileStore {
         activeId = profileId
     }
 
+    override suspend fun setActiveProfileIdOwned(
+        profileId: String?,
+        authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        commandId: String,
+    ): Boolean =
+        authority.intentLinearizer.serialize {
+            if (!(
+                    authority.reference() == reference &&
+                        authority.snapshotAuthority().command?.commandId == commandId
+                )
+            ) {
+                false
+            } else {
+                activeId = profileId
+                true
+            }
+        }
+
     override suspend fun clearAll() {
         values.clear()
         activeId = null
@@ -1254,4 +2169,40 @@ private class InMemoryXraySelectionStore : XrayProviderSelectionStore {
         }
         value = record
     }
+}
+
+/** Real journal/recovery transaction with controlled stores, shared by selector transition tests. */
+internal suspend fun selectorTransitionCoordinator(
+    authority: PauseIntentAuthority,
+    choice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
+    provider: com.poyka.ripdpi.data.xray.XrayProviderSelectionStore,
+    settings: AppSettingsRepository,
+    warpProfiles: WarpProfileStore,
+): ProfileMutationRecoveryCoordinator {
+    val fixture = Fixture()
+    fixture.selectorLease()
+    val original = fixture.stores
+    val stores =
+        ProfileMutationStores(
+            settings,
+            original.relayProfiles,
+            original.relayCredentials,
+            warpProfiles,
+            original.warpCredentials,
+            original.warpEndpoints,
+            original.xrayMetadata,
+            original.xraySecrets,
+            provider,
+            original.bootSession,
+            original.groupBlob,
+            choice,
+        )
+    return ProfileMutationRecoveryCoordinator(
+        stores,
+        fixture.awgProfiles,
+        fixture.awgCredentials,
+        fixture.journal,
+        fixture.mutationGeneration,
+        authority,
+    )
 }

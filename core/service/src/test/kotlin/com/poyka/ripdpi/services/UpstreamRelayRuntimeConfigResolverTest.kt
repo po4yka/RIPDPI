@@ -38,15 +38,14 @@ abstract class UpstreamRelayRuntimeConfigResolverTestFixture {
     internal fun resolver(
         relayProfileStore: TestRelayProfileStore = TestRelayProfileStore(),
         relayCredentialStore: TestRelayCredentialStore = TestRelayCredentialStore(),
-        tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
         masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
-        featureFlags: Map<String, Boolean> = emptyMap(),
         masqueGeohashHeader: String? = null,
         torRuntimePathProvider: TorRuntimePathProvider = StaticTorRuntimePathProvider(),
         torPluggableTransportProvider: TorPluggableTransportProvider = StaticTorPluggableTransportProvider(),
     ): DefaultUpstreamRelayRuntimeConfigResolver =
         DefaultUpstreamRelayRuntimeConfigResolver(
             relayProfileStore = relayProfileStore,
+            selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
             relayCredentialStore = relayCredentialStore,
             relayKindResolverRegistry =
                 createDefaultRelayKindResolverRegistry(
@@ -58,15 +57,6 @@ abstract class UpstreamRelayRuntimeConfigResolverTestFixture {
                         },
                     masquePrivacyPassProvider = masquePrivacyPassProvider,
                 ),
-            tlsFingerprintProfileProvider =
-                object : OwnedTlsFingerprintProfileProvider {
-                    override fun currentProfile(): String = tlsFingerprintProfile
-                },
-            runtimeExperimentSelectionProvider =
-                object : RuntimeExperimentSelectionProvider {
-                    override fun current(): RuntimeExperimentSelection =
-                        RuntimeExperimentSelection(featureFlags = featureFlags)
-                },
             torRuntimePathProvider = torRuntimePathProvider,
             torPluggableTransportProvider = torPluggableTransportProvider,
         )
@@ -78,6 +68,56 @@ abstract class UpstreamRelayRuntimeConfigResolverTestFixture {
 }
 
 class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
+    @Test
+    fun `normal resolution uses captured TLS QUIC and feature flags after source changes`() =
+        runTest {
+            val profiles =
+                TestRelayProfileStore().apply {
+                    save(
+                        RelayProfileRecord(
+                            id = "captured-policy",
+                            kind = RelayKindCloudflareTunnel,
+                            server = "relay.example",
+                            serverName = "relay-sni.example",
+                            serverPort = 8443,
+                            cloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                            cloudflarePublishLocalOriginUrl = "http://127.0.0.1:8080",
+                        ),
+                    )
+                }
+            val credentials =
+                TestRelayCredentialStore().apply {
+                    save(
+                        RelayCredentialRecord(
+                            profileId = "captured-policy",
+                            vlessUuid = "00000000-0000-0000-0000-000000000000",
+                            cloudflareTunnelToken = "fixture-token",
+                        ),
+                    )
+                }
+            val mutableFlags = mutableMapOf(StrategyFeatureCloudflarePublish to true)
+            val captured =
+                RelayResolutionInputs(
+                    TlsFingerprintProfileChromeStable,
+                    mutableFlags,
+                    OwnedRelayQuicMigrationConfig(bindLowPort = true, migrateAfterHandshake = true),
+                )
+            mutableFlags[StrategyFeatureCloudflarePublish] = false
+            val resolver = resolver(relayProfileStore = profiles, relayCredentialStore = credentials)
+            val config =
+                RipDpiRelayConfig(enabled = true, kind = RelayKindCloudflareTunnel, profileId = "captured-policy")
+
+            val resolved = resolver.resolve(config, captured)
+
+            assertEquals(TlsFingerprintProfileChromeStable, resolved.tlsFingerprintProfile)
+            assertTrue(resolved.quicBindLowPort)
+            assertTrue(resolved.quicMigrateAfterHandshake)
+            assertTrue(captured.featureFlags[StrategyFeatureCloudflarePublish] == true)
+            val changed = RelayResolutionInputs("firefox_stable", mutableFlags, OwnedRelayQuicMigrationConfig())
+            val rejected = runCatching { resolver.resolve(config, changed) }.exceptionOrNull()
+            assertTrue(rejected is ServiceStartupRejectedException)
+        }
+
     @Test
     fun `resolve tor family emits state directories bridge lines and managed pt binaries`() =
         runTest {
@@ -110,7 +150,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             ptBridgeLine = bridgeLine,
                             udpEnabled = true,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindTor, resolved.kind)
@@ -150,8 +190,6 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                                 ),
                             )
                         },
-                    tlsFingerprintProfile = "firefox",
-                    featureFlags = mapOf(StrategyFeatureCloudflarePublish to true),
                 )
 
             val resolved =
@@ -162,10 +200,16 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             kind = RelayKindCloudflareTunnel,
                             profileId = "edge",
                         ),
-                    quicMigrationConfig =
-                        OwnedRelayQuicMigrationConfig(
-                            bindLowPort = true,
-                            migrateAfterHandshake = true,
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic =
+                                OwnedRelayQuicMigrationConfig(
+                                    bindLowPort = true,
+                                    migrateAfterHandshake = true,
+                                ),
+                            tlsProfile = "firefox",
+                            featureFlags =
+                                mapOf(com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish to true),
                         ),
                 )
 
@@ -216,7 +260,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             kind = RelayKindMasque,
                             profileId = "masque",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayMasqueAuthModePrivacyPass, resolved.masqueAuthMode)
@@ -276,7 +320,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                                 masqueTcpProtocol = "http3",
                                 masqueUseHttp2Fallback = false,
                             ),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
                 }.exceptionOrNull()
 
@@ -298,7 +342,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             profileId = "snowflake",
                             udpEnabled = true,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertFalse(resolved.udpEnabled)
@@ -363,7 +407,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             kind = RelayKindShadowTlsV3,
                             profileId = "outer",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals("pw12345", resolved.shadowTlsPassword)
@@ -409,7 +453,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             localSocksHost = "127.0.0.2",
                             localSocksPort = 13000,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals("/proxy", resolved.naivePath)
@@ -433,7 +477,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                             localSocksHost = "127.0.0.9",
                             localSocksPort = 14000,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindWebTunnel, resolved.kind)
@@ -478,7 +522,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             xhttpHost = "origin.example",
                             xhttpMode = "stream-one",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindVlessReality, resolved.kind)
@@ -523,7 +567,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             vlessMuxPerConnectionKbps = 512,
                             vlessMuxPaddingMax = 64,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals("yamux", resolved.vlessMuxProtocol)
@@ -566,7 +610,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                 xhttpPath = "/xhttp",
                                 xhttpMode = unsupportedMode,
                             ),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
                 }.exceptionOrNull()
 
@@ -615,7 +659,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             profileId = "empty-flow",
                             vlessFlow = "xtls-rprx-vision",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals("", resolved.vlessFlow)
@@ -665,7 +709,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             xhttpPath = "/stale",
                             xhttpHost = "stale.example",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
@@ -707,7 +751,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
             val resolved =
                 resolver.resolve(
                     config = RipDpiRelayConfig(enabled = true, profileId = "fingerprint"),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable, resolved.tlsFingerprintProfile)
@@ -743,7 +787,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             xhttpPath = "/xhttp",
                             xhttpHost = "origin.example",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindVless, resolved.kind)
@@ -787,7 +831,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                 xhttpPath = "/xhttp",
                                 xhttpMode = unsupportedMode,
                             ),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
                 }.exceptionOrNull()
 
@@ -823,7 +867,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverName = "trojan.example",
                             udpEnabled = true,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindTrojan, resolved.kind)
@@ -861,7 +905,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverName = "ss.example",
                             udpEnabled = true,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindShadowsocks, resolved.kind)
@@ -899,7 +943,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverName = "tuic.example",
                             tuicZeroRtt = true,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindTuicV5, resolved.kind)
@@ -913,7 +957,6 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
         runTest {
             val resolver =
                 resolver(
-                    tlsFingerprintProfile = "firefox_stable",
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -937,7 +980,11 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverPort = 443,
                             serverName = "hysteria.example",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                            tlsProfile = "firefox_stable",
+                        ),
                 )
 
             assertEquals(RelayKindHysteria2, resolved.kind)
@@ -973,7 +1020,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverName = "front.example",
                             udpEnabled = true,
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals(RelayKindAnyTls, resolved.kind)

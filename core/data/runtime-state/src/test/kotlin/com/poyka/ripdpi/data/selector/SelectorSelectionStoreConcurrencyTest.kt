@@ -33,11 +33,16 @@ class SelectorSelectionStoreConcurrencyTest {
             .edit()
             .clear()
             .commit()
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
         store =
             SharedPreferencesSelectorSelectionStore(
                 context,
                 com.poyka.ripdpi.data
-                    .testMutationPreparationSource(),
+                    .testMutationPreparationSource(authority),
+                authority,
+                SelectorActiveGroupStore(context, authority),
             )
         prefs = context.getSharedPreferences("selector_selection_store", Context.MODE_PRIVATE)
     }

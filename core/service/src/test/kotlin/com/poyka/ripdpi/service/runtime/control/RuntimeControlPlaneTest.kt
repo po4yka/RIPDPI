@@ -197,12 +197,15 @@ private class FakeServiceController(
         private set
     var nextStartResult: ServiceStartResult? = null
 
-    override fun recordStart(mode: Mode): ServiceStartResult {
+    override fun recordStart(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+    ): ServiceStartResult {
         startCount += 1
         lastStartMode = mode
         nextStartResult?.let { return it }
         stateStore.setStatus(AppStatus.Running, mode)
-        return ServiceStartResult.Accepted(mode)
+        return (receipt?.let(ServiceStartResult::Accepted) ?: ServiceStartResult.MaintenanceAccepted(mode))
     }
 
     override fun recordStop() {

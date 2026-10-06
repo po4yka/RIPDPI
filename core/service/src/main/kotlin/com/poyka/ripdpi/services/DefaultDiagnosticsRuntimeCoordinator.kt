@@ -315,6 +315,9 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     runtimeResumeIntentTracker.runIfOwned(resumeLease) {
                         serviceController.startForDiagnostics(mode, resumeLease.durableAuthority)
                     }
+                if (startResult is ServiceStartResult.Accepted) {
+                    runtimeResumeIntentTracker.acceptOwnedRecovery(resumeLease, startResult.receipt)
+                }
                 when {
                     startResult == null -> {
                         waitForResumeResolution(resumeLease, compensateStoppedIntent = false)
@@ -359,6 +362,10 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             when (startResult) {
                 is ServiceStartResult.Accepted -> {
                     true
+                }
+
+                is ServiceStartResult.MaintenanceAccepted -> {
+                    false
                 }
 
                 is ServiceStartResult.Rejected -> {

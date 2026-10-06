@@ -82,6 +82,10 @@ extensions.configure<LibraryExtension> {
         )
     }
 
+    testFixtures {
+        enable = true
+    }
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
@@ -106,6 +110,11 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     implementation(libs.androidx.security.crypto)
     ksp(libs.androidx.hilt.compiler)
+
+    testFixturesImplementation(project(":core:engine"))
+    testFixturesImplementation(project(":core:engine-api"))
+    testFixturesApi(project(":core:data"))
+    testFixturesApi(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.kotlinx.serialization.json)

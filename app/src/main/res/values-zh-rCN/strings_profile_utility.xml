@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">配置</string>
+    <string name="profile_utility_favorites">收藏</string>
+    <string name="profile_utility_recents">最近使用</string>
+    <string name="profile_utility_saved">已保存配置</string>
+    <string name="profile_utility_check">检查</string>
+    <string name="profile_utility_check_select">检查并选择</string>
+    <string name="profile_utility_checking">正在检查…</string>
+    <string name="profile_utility_measured">HTTP：%1$s 毫秒</string>
+    <string name="profile_utility_not_checked">未检查</string>
+    <string name="profile_utility_unsupported">无法在此检查该配置。</string>
+    <string name="profile_utility_environment_changed">网络、策略或配置已更改。请重新检查。</string>
+    <string name="profile_utility_failed">HTTP 检查失败。选择未更改。</string>
+    <string name="profile_utility_timeout">检查超时。选择未更改。</string>
+    <string name="profile_utility_cleanup_pending">原生资源清理尚未完成。选择未更改。</string>
+    <string name="profile_utility_retry_cleanup">重试清理</string>
+    <string name="profile_utility_favorite_add">收藏 %1$s</string>
+    <string name="profile_utility_favorite_remove">取消收藏 %1$s</string>
+    <string name="profile_utility_last_used">上次使用：%1$s</string>
+    <string name="profile_utility_empty">没有已保存的配置。</string>
+    <string name="profile_utility_disclosure">检查会测量 HTTP 请求。检查并选择仅在检查成功后应用配置。</string>
+    <string name="profile_utility_command_failed">无法完成命令。请检查配置状态。</string>
+    <string name="profile_utility_applying">正在应用配置…</string>
+    <string name="profile_utility_selection_failed">无法应用配置。请检查已保存和已应用的配置。</string>
+    <string name="profile_utility_url">检查 URL</string>
+    <string name="profile_utility_applied">已应用配置</string>
+    <string name="profile_utility_loading">正在加载配置…</string>
+    <string name="profile_utility_checked_at">检查时间：%1$s</string>
+    <string name="profile_utility_busy">Xray 正忙。请暂停或停止连接，然后重试。</string>
+    <string name="profile_utility_check_fastest">检测并选择最快的配置</string>
+</resources>

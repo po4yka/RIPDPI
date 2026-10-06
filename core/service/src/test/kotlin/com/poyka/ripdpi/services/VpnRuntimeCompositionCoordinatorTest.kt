@@ -34,6 +34,7 @@ class VpnRuntimeCompositionCoordinatorTest {
                     relayFactory = TestRipDpiRelayFactory(),
                     naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = TestRelayProfileStore(),
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore = TestRelayCredentialStore(),
                 )
             val warpRuntimeSupervisor =

@@ -18,34 +18,42 @@ internal class PreparedServiceUserCommands(
     private val serviceIntentArbiter: ServiceIntentArbiter,
     private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
 ) : ServiceUserCommands {
-    override suspend fun captureRuntimeAuthority(): com.poyka.ripdpi.data.PauseAuthorityRef =
+    override suspend fun prepareStart(mode: Mode): com.poyka.ripdpi.data.RuntimeActivationReceipt =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            profileRecovery.readRecovered { pauseAuthority.reference() }
+            profileRecovery.readRecovered { pauseAuthority.reserveStart(mode) }
         }
 
-    override suspend fun prepareUserCommand(
-        command: com.poyka.ripdpi.data.RuntimeUserCommand,
-    ): com.poyka.ripdpi.data.DurableCommandReceipt =
+    override suspend fun prepareStop(): com.poyka.ripdpi.data.RuntimeStopReceipt =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            profileRecovery.readRecovered { pauseAuthority.supersede(command) }
+            profileRecovery.readRecovered { pauseAuthority.reserveStop() }
         }
 
-    override suspend fun start(mode: Mode): ServiceStartResult =
-        startPrepared(
-            mode,
-            prepareUserCommand(
-                com.poyka.ripdpi.data.RuntimeUserCommand
-                    .Start(mode),
-            ),
-        )
+    override suspend fun prepareStopIfCurrent(
+        expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): com.poyka.ripdpi.data.RuntimeStopReceipt? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            profileRecovery.readRecovered { pauseAuthority.reserveStopIfCurrent(expected) }
+        }
+
+    override suspend fun start(mode: Mode): ServiceStartResult = startPrepared(mode, prepareStart(mode))
+
+    override fun startProfileActivation(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.ProfileActivationReceipt,
+    ): ServiceStartResult {
+        val bound =
+            pauseAuthority.bindProfileActivation(receipt, mode)
+                ?: return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
+        return startPrepared(mode, bound)
+    }
 
     override fun startPrepared(
         mode: Mode,
-        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
     ): ServiceStartResult {
         val lease =
-            serviceIntentArbiter.dispatchExplicit(receipt)
-                ?: return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
+            if (receipt.mode == mode) serviceIntentArbiter.dispatchExplicit(receipt) else null
+        if (lease == null) return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
         val result = dispatch.start(mode, startAction, dispatchLease = lease)
         if (result is ServiceStartResult.Accepted) {
             serviceIntentArbiter.runIfExplicitUserIntentCurrent(lease.processGeneration) {
@@ -55,19 +63,24 @@ internal class PreparedServiceUserCommands(
         return result
     }
 
-    override fun stopPrepared(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean {
+    override fun stopPrepared(receipt: com.poyka.ripdpi.data.RuntimeStopReceipt): Boolean {
         val lease = serviceIntentArbiter.dispatchExplicit(receipt) ?: return false
-        dispatch.stop(stopAction, lease, receipt.authority)
-        return true
+        val snapshot = pauseAuthority.snapshotAuthority()
+        return if (snapshot.command?.commandId != receipt.commandId || snapshot.reference != receipt.authority) {
+            false
+        } else {
+            dispatch.stop(stopAction, lease, receipt.authority, snapshot)
+            true
+        }
     }
 
-    override fun finishOwnedRuntime(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean {
-        if (!pauseAuthority.finishOwnedRuntime(receipt)) return false
-        return stopPrepared(receipt)
+    override fun finishOwnedRuntime(receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt): Boolean {
+        val stopped = pauseAuthority.finishOwnedRuntime(receipt) ?: return false
+        return stopPrepared(stopped)
     }
 
     override suspend fun stop() {
-        stopPrepared(prepareUserCommand(com.poyka.ripdpi.data.RuntimeUserCommand.Stop))
+        stopPrepared(prepareStop())
     }
 }
 
@@ -81,6 +94,13 @@ internal class ServiceControllerDispatch(
     private val serviceIntentArbiter: ServiceIntentArbiter,
     private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
 ) {
+    private fun acceptedDispatch(
+        mode: Mode,
+        lease: ServiceDispatchLease?,
+    ): ServiceStartResult =
+        (lease?.durable as? com.poyka.ripdpi.data.RuntimeActivationReceipt)?.let(ServiceStartResult::Accepted)
+            ?: ServiceStartResult.MaintenanceAccepted(mode)
+
     @Suppress("ReturnCount")
     fun start(
         mode: Mode,
@@ -95,13 +115,8 @@ internal class ServiceControllerDispatch(
         ) {
             return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
         }
-        if (isServiceRecoveryStartAction(action) &&
-            !pauseAuthority.allowsRecovery(checkNotNull(expectedDurableReference), mode)
-        ) {
-            return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.PausePending)
-        }
         if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
-            return ServiceStartResult.Accepted(mode)
+            return acceptedDispatch(mode, dispatchLease)
         }
         return if (mode == Mode.VPN) {
             serviceIntentArbiter.dispatchVpnStart {
@@ -193,16 +208,19 @@ internal class ServiceControllerDispatch(
                 }
             }
         }
-        return ServiceStartResult.Accepted(mode)
+        return acceptedDispatch(mode, dispatchLease)
     }
 
     private fun Intent.stampExplicitIntent(
         action: String,
         lease: ServiceDispatchLease?,
     ) {
-        if (action == startAction || action == transportActivationStartAction || action == stopAction) {
-            putExtra(explicitUserIntentGenerationExtra, checkNotNull(lease).processGeneration)
+        (lease?.durable as? com.poyka.ripdpi.data.RuntimeActivationReceipt)?.let(::stampRuntimeActivation)
+        if (lease != null) {
+            putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
             putExtra(durableIntentGenerationExtra, lease.durable.authority.generation)
+        } else if (action == startAction || action == transportActivationStartAction || action == stopAction) {
+            error("Prepared command lease is required")
         }
     }
 
@@ -210,6 +228,7 @@ internal class ServiceControllerDispatch(
         action: String,
         lease: ServiceDispatchLease?,
         reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        expectedSnapshot: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ) {
         if (!serviceIntentArbiter.isDurableCurrent(reference) ||
             (lease != null && !serviceIntentArbiter.isCurrent(lease))
@@ -232,6 +251,7 @@ internal class ServiceControllerDispatch(
                     Logger.i { "Stopping VPN" }
                     Intent(context, RipDpiVpnService::class.java).apply {
                         this.action = action
+                        stampRuntimeStop(expectedSnapshot)
                         stampExplicitIntent(action, lease)
                         putExtra(durableIntentGenerationExtra, reference.generation)
                         putExtra(
@@ -245,6 +265,7 @@ internal class ServiceControllerDispatch(
                     Logger.i { "Stopping proxy" }
                     Intent(context, RipDpiProxyService::class.java).apply {
                         this.action = action
+                        stampRuntimeStop(expectedSnapshot)
                         stampExplicitIntent(action, lease)
                         putExtra(durableIntentGenerationExtra, reference.generation)
                         putExtra(

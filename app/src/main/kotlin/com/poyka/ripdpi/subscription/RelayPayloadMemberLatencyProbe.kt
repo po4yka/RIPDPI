@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.proxyimport.mapRelayProfile
+import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.services.CandidateRelayPayloadProbe
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,6 +22,9 @@ class RelayPayloadMemberLatencyProbe
                 } catch (_: IllegalArgumentException) {
                     null
                 } ?: return null
-            return payloadProbe.measure(mapped.profile, mapped.credentials, probeUrl)
+            return (
+                payloadProbe.measure(mapped.profile, mapped.credentials, probeUrl) as?
+                    com.poyka.ripdpi.services.CandidateRelayMeasurement.Succeeded
+            )?.latencyMillis
         }
     }

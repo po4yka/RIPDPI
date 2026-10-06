@@ -3,6 +3,7 @@ package com.poyka.ripdpi.proxyimport
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.mapRelayProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

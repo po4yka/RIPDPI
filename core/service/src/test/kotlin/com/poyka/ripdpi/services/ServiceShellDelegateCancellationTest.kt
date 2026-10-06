@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
@@ -17,16 +18,17 @@ class ServiceShellDelegateCancellationTest {
     @Test
     fun `accepted user stop cancels an in-flight start before teardown`() =
         runTest {
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val arbiter = ServiceIntentArbiter(authority)
             val neverCompletes = CompletableDeferred<Unit>()
             var startCancelled = false
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
                     serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {
@@ -41,31 +43,14 @@ class ServiceShellDelegateCancellationTest {
                     onStop = { _, _ -> operations += "stop" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(authority::reference),
                 )
 
-            delegate.onStartCommand(
-                startAction,
-                1,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
+            TestCapturedServiceCommand.start(authority, arbiter, Mode.Proxy).deliver(delegate, startAction, 1)
             runCurrent()
 
             assertEquals(listOf("start-begin"), operations)
-            delegate.onStartCommand(
-                stopAction,
-                2,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
+            TestCapturedServiceCommand.stop(authority, arbiter).deliver(delegate, stopAction, 2)
             runCurrent()
 
             assertTrue(startCancelled)
@@ -75,15 +60,16 @@ class ServiceShellDelegateCancellationTest {
     @Test
     fun `accepted user stop drops older starts but preserves a newer start`() =
         runTest {
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val arbiter = ServiceIntentArbiter(authority)
             val neverCompletes = CompletableDeferred<Unit>()
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
                     serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
@@ -94,45 +80,15 @@ class ServiceShellDelegateCancellationTest {
                     onStop = { _, _ -> operations += "stop" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(authority::reference),
                 )
 
-            delegate.onStartCommand(
-                startAction,
-                1,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
+            TestCapturedServiceCommand.start(authority, arbiter, Mode.Proxy).deliver(delegate, startAction, 1)
             runCurrent()
-            delegate.onStartCommand(
-                startAction,
-                2,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
-            delegate.onStartCommand(
-                stopAction,
-                3,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
-            delegate.onStartCommand(
-                startAction,
-                4,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
+            TestCapturedServiceCommand.start(authority, arbiter, Mode.Proxy).deliver(delegate, startAction, 2)
+            TestCapturedServiceCommand.stop(authority, arbiter).deliver(delegate, stopAction, 3)
+            runCurrent()
+            TestCapturedServiceCommand.start(authority, arbiter, Mode.Proxy).deliver(delegate, startAction, 4)
             runCurrent()
 
             assertEquals(listOf("start-1", "stop", "start-4"), operations)
@@ -141,16 +97,17 @@ class ServiceShellDelegateCancellationTest {
     @Test
     fun `accepted user stop cancels and rejects an active failover restart`() =
         runTest {
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val arbiter = ServiceIntentArbiter(authority)
             val neverCompletes = CompletableDeferred<Unit>()
             val operations = mutableListOf<String>()
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
                     serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -165,10 +122,7 @@ class ServiceShellDelegateCancellationTest {
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(authority::reference),
                 )
 
             delegate.onStartCommand(
@@ -176,19 +130,12 @@ class ServiceShellDelegateCancellationTest {
                 1,
                 transportFailoverRequestId = 17L,
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = authority.reference(),
+                activation = null,
+                stopSnapshot = authority.snapshotAuthority(),
             )
             runCurrent()
-            delegate.onStartCommand(
-                stopAction,
-                2,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
+            TestCapturedServiceCommand.stop(authority, arbiter).deliver(delegate, stopAction, 2)
             runCurrent()
 
             assertEquals(listOf("failover", "stop"), operations)

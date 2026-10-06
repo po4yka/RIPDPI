@@ -39,7 +39,7 @@ class ProcessDeathResumeCoordinator
         }
 
         private suspend fun reconcile() {
-            val reference = serviceController.captureRuntimeAuthority()
+            val reference = serviceController.captureRuntimeSnapshot()
             val pointer = bootSessionStateStore.lastSession()
             if (pointer == null || !isCurrent(pointer)) {
                 completed = true
@@ -52,7 +52,7 @@ class ProcessDeathResumeCoordinator
         private fun arbitrateResume(
             pointer: BootSessionPointer,
             resumable: Boolean,
-            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+            reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
         ) {
             val recovered =
                 serviceIntentArbiter.recovery {
@@ -84,7 +84,7 @@ class ProcessDeathResumeCoordinator
 
         private fun start(
             pointer: BootSessionPointer,
-            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+            reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
         ) {
             val result = serviceController.startForProcessDeathRecovery(pointer.mode, reference)
             if (result is ServiceStartResult.Accepted) {

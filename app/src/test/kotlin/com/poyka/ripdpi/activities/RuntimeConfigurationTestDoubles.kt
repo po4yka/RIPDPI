@@ -52,6 +52,10 @@ internal class FakeRunningServiceReconnect(
                         RunningReconnectResult.NotRunning
                     }
 
+                    is ServiceStartResult.MaintenanceAccepted -> {
+                        RunningReconnectResult.Failed(RunningReconnectFailure.StartRejected)
+                    }
+
                     is ServiceStartResult.Rejected -> {
                         RunningReconnectResult.Failed(
                             RunningReconnectFailure.StartRejected,

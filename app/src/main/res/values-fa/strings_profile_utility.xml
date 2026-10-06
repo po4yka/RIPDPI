@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">پروفایل‌ها</string>
+    <string name="profile_utility_favorites">علاقه‌مندی‌ها</string>
+    <string name="profile_utility_recents">اخیراً استفاده‌شده</string>
+    <string name="profile_utility_saved">پروفایل‌های ذخیره‌شده</string>
+    <string name="profile_utility_check">بررسی</string>
+    <string name="profile_utility_check_select">بررسی و انتخاب</string>
+    <string name="profile_utility_checking">در حال بررسی…</string>
+    <string name="profile_utility_measured">HTTP: %1$s میلی‌ثانیه</string>
+    <string name="profile_utility_not_checked">بررسی نشده</string>
+    <string name="profile_utility_unsupported">این پروفایل در اینجا قابل بررسی نیست.</string>
+    <string name="profile_utility_environment_changed">شبکه، سیاست یا پروفایل تغییر کرده است. دوباره بررسی کنید.</string>
+    <string name="profile_utility_failed">بررسی HTTP ناموفق بود. انتخاب تغییر نکرده است.</string>
+    <string name="profile_utility_timeout">زمان بررسی تمام شد. انتخاب تغییر نکرده است.</string>
+    <string name="profile_utility_cleanup_pending">آزادسازی منابع بومی هنوز پایان نیافته است. انتخاب تغییر نکرده است.</string>
+    <string name="profile_utility_retry_cleanup">تلاش مجدد برای آزادسازی</string>
+    <string name="profile_utility_favorite_add">افزودن %1$s به علاقه‌مندی‌ها</string>
+    <string name="profile_utility_favorite_remove">حذف %1$s از علاقه‌مندی‌ها</string>
+    <string name="profile_utility_last_used">آخرین استفاده: %1$s</string>
+    <string name="profile_utility_empty">پروفایل ذخیره‌شده‌ای وجود ندارد.</string>
+    <string name="profile_utility_disclosure">بررسی، یک درخواست HTTP را اندازه می‌گیرد. بررسی و انتخاب فقط پس از بررسی موفق، پروفایل را اعمال می‌کند.</string>
+    <string name="profile_utility_command_failed">فرمان کامل نشد. وضعیت پروفایل را بررسی کنید.</string>
+    <string name="profile_utility_applying">در حال اعمال پروفایل…</string>
+    <string name="profile_utility_selection_failed">پروفایل اعمال نشد. پروفایل ذخیره‌شده و اعمال‌شده را بررسی کنید.</string>
+    <string name="profile_utility_url">نشانی بررسی</string>
+    <string name="profile_utility_applied">پروفایل اعمال‌شده</string>
+    <string name="profile_utility_loading">در حال بارگذاری پروفایل‌ها…</string>
+    <string name="profile_utility_checked_at">بررسی‌شده: %1$s</string>
+    <string name="profile_utility_busy">Xray مشغول است. اتصال را موقتاً متوقف یا قطع کنید و دوباره امتحان کنید.</string>
+    <string name="profile_utility_check_fastest">آزمایش و انتخاب سریع‌ترین</string>
+</resources>

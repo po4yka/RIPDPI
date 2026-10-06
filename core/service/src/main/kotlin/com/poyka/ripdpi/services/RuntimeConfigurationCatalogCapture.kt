@@ -43,6 +43,7 @@ internal class RuntimeConfigurationCatalogCapture
         private val warpCredentials: WarpCredentialStore,
         private val xrayProfiles: DurableXrayProfileStore,
         private val xraySelection: XrayProviderSelectionStore,
+        private val selectorProfiles: SelectorRelayRuntimeProfileResolver,
     ) {
         suspend fun capture(
             mode: Mode,
@@ -88,6 +89,28 @@ internal class RuntimeConfigurationCatalogCapture
             preferences: RipDpiProxyPreferences,
             awg: AwgActivationRequest?,
         ): RuntimeConfigurationCatalogMaterial {
+            val selected = if (awg == null) selectorProfiles.resolve() else null
+            if (selected != null) {
+                return RuntimeConfigurationCatalogMaterial(
+                    RuntimeConfigurationSelection(
+                        "native",
+                        selected.profile.vlessTransport,
+                        selected.profile.kind,
+                        selected.memberId,
+                        selected.groupId,
+                        selected.memberId,
+                    ),
+                    listOf(
+                        RipDpiEncodeDefaultsJson.encodeToString(RelayProfileRecord.serializer(), selected.profile),
+                        RipDpiEncodeDefaultsJson.encodeToString(
+                            RelayCredentialRecord.serializer(),
+                            selected.credentials,
+                        ),
+                    ),
+                    null,
+                    null,
+                )
+            }
             val relay = preferences.relayConfigOrNull()
             val warp = preferences.warpConfigOrNull()
             val material = captureRelayMaterial(relay?.profileId)

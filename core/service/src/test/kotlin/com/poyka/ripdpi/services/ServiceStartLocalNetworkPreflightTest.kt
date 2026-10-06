@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.LocalNetworkAccessRequiredException
@@ -102,7 +101,7 @@ class ServiceStartLocalNetworkPreflightTest {
                                 ),
                         )
                     },
-                    resolveRelay = { relay, _: OwnedRelayQuicMigrationConfig ->
+                    resolveRelay = { relay, _: RelayResolutionInputs ->
                         resolvedProfiles += relay.profileId
                     },
                     planInitialRace = { _, _, _ -> racePlan },

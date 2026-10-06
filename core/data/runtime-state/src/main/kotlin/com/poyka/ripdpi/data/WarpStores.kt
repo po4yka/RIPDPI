@@ -81,6 +81,14 @@ interface WarpProfileStore {
 
     suspend fun setActiveProfileId(profileId: String?)
 
+    /** The original selector reservation is checked after I/O dispatch, at the synchronous pointer commit. */
+    suspend fun setActiveProfileIdOwned(
+        profileId: String?,
+        authority: PauseIntentAuthority,
+        reference: PauseAuthorityRef,
+        commandId: String,
+    ): Boolean
+
     suspend fun clearAll()
 }
 
@@ -181,6 +189,37 @@ class SharedPreferencesWarpProfileStore
                     }.commitOrThrow()
             }
         }
+
+        override suspend fun setActiveProfileIdOwned(
+            profileId: String?,
+            authority: PauseIntentAuthority,
+            reference: PauseAuthorityRef,
+            commandId: String,
+        ): Boolean =
+            withContext(Dispatchers.IO) {
+                authority.intentLinearizer.serialize {
+                    if (!(
+                            authority.reference() == reference &&
+                                authority.snapshotAuthority().command?.commandId == commandId
+                        )
+                    ) {
+                        false
+                    } else {
+                        preferences
+                            .edit()
+                            .also { edit ->
+                                if (profileId ==
+                                    null
+                                ) {
+                                    edit.remove(ActiveProfileKey)
+                                } else {
+                                    edit.putString(ActiveProfileKey, profileId)
+                                }
+                            }.commitOrThrow()
+                        true
+                    }
+                }
+            }
 
         override suspend fun clearAll() {
             withContext(Dispatchers.IO) { preferences.edit().clear().commitOrThrow() }

@@ -61,6 +61,13 @@ class ConnectionPolicyStartupNetworkBoundaryTest {
             }
     }
 
+    @Test
+    fun `Xray candidate listener allocation resolves only literal loopback`() {
+        val source = sourceFile("CandidateXrayPayloadProbe.kt").readText()
+        org.junit.Assert.assertTrue(source.contains("InetAddress.getByName(\"127.0.0.1\")"))
+        org.junit.Assert.assertEquals(1, Regex("InetAddress\\.getByName\\(").findAll(source).count())
+    }
+
     private fun sourceFile(relativePath: String): File = File(serviceSourceDirectory(), relativePath)
 
     private fun serviceSourceDirectory(): File =
@@ -83,6 +90,8 @@ class ConnectionPolicyStartupNetworkBoundaryTest {
 
         val postRuntimeNetworkIoAllowlist =
             setOf(
+                // Explicit user candidate checks allocate a loopback-only listener after owning a native session.
+                "CandidateXrayPayloadProbe.kt",
                 "CaptivePortalDnsAssist.kt",
                 "CloudflarePublishRuntime.kt",
                 "FlowAppAttributionStore.kt",

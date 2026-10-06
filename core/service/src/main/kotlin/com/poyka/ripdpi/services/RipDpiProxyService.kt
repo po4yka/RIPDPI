@@ -288,6 +288,9 @@ class RipDpiProxyService :
         startId: Int,
     ): Int {
         val action = intent?.action
+        if (action == null || action == android.net.VpnService.SERVICE_INTERFACE) {
+            return dispatchStickyRecovery(startId)
+        }
         return when {
             intent.hasStaleServiceCommand(serviceIntentArbiter) -> {
                 START_STICKY
@@ -298,11 +301,14 @@ class RipDpiProxyService :
                 discardIdleStart(startId)
             }
 
-            isServiceRecoveryStartAction(action) &&
-                !pauseAuthority.allowsRecovery(
-                    intent.durableAuthorityReference() ?: pauseAuthority.reference(),
-                    Mode.Proxy,
-                ) -> {
+            isServiceRecoveryStartAction(
+                action,
+            ) && intent.capturedRuntimeActivation(pauseAuthority, Mode.Proxy) == null -> {
+                discardIdleStart(startId)
+            }
+
+            (action == com.poyka.ripdpi.data.startAction || action == transportActivationStartAction) &&
+                intent.capturedRuntimeActivation(pauseAuthority, Mode.Proxy) == null -> {
                 discardIdleStart(startId)
             }
 
@@ -310,6 +316,18 @@ class RipDpiProxyService :
                 dispatchActiveCommand(intent, startId)
             }
         }
+    }
+
+    private suspend fun dispatchStickyRecovery(startId: Int): Int {
+        if (activeSessionAttached) return START_STICKY
+        val recovery =
+            createStickyRecoveryCommand(
+                this@RipDpiProxyService,
+                pauseAuthority,
+                serviceIntentArbiter,
+                Mode.Proxy,
+            )
+        return if (recovery == null) discardIdleStart(startId) else dispatchActiveCommand(recovery, startId)
     }
 
     private fun discardIdleStart(startId: Int): Int {
@@ -344,7 +362,9 @@ class RipDpiProxyService :
             intent?.action,
             startId,
             explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
-            durableReference = intent.durableAuthorityReference() ?: pauseAuthority.reference(),
+            durableReference = intent.durableAuthorityReference(),
+            activation = intent.capturedRuntimeActivation(pauseAuthority, Mode.Proxy),
+            stopSnapshot = intent.capturedRuntimeStop(),
         )
     }
 

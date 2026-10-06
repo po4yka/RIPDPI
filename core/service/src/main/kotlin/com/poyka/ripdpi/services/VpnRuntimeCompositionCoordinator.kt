@@ -26,7 +26,7 @@ internal class VpnRuntimeCompositionCoordinator(
     private val rootHelperManager: RootHelperManager,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val supervisorExitHandler: VpnSupervisorExitHandler,
-    private val applyActiveConnectionPolicy: (
+    private val applyActiveConnectionPolicy: suspend (
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,
@@ -269,6 +269,7 @@ internal class VpnRuntimeCompositionCoordinator(
         return proxyRuntimeStack
             .start(
                 requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                relayInputs = resolution.requestedConfiguration.relayInputs,
                 proxyPreferences =
                     resolution
                         .proxyPreferences

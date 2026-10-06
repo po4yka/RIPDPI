@@ -18,7 +18,6 @@ import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationPreparation
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.RuntimeIntentLinearizer
-import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.services.LiveVpnLockdownReader
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.TimedPauseController
@@ -152,7 +151,7 @@ class HomePauseViewModelTest {
                 .testPauseAuthority()
         val pending = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
         check(authority.transition(pending, PausePhase.Paused, null))
-        check(authority.claimResume(pending, immediate = true))
+        checkNotNull(authority.claimResume(pending, immediate = true))
         val resuming = authority.states.value
         val cleanup = pending.copy(phase = PausePhase.CleanupPending)
 
@@ -166,7 +165,7 @@ class HomePauseViewModelTest {
             com.poyka.ripdpi.data
                 .testPauseAuthority()
         val old = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
-        authority.supersede(RuntimeUserCommand.Stop)
+        authority.reserveStop()
         val newer = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
         val staleCleanup = old.copy(phase = PausePhase.CleanupPending)
 
@@ -213,6 +212,40 @@ class HomePauseViewModelTest {
                 override suspend fun captureMutation(origin: ProfileMutationOrigin) =
                     ProfileMutationPreparation(origin, authority.reference())
 
+                override suspend fun <T> mutateCatalog(
+                    preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                    block: suspend () -> T,
+                ): T {
+                    check(commitMutationIntent(preparation) != com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded)
+                    return block()
+                }
+
+                override suspend fun <T> mutateReservedCatalog(
+                    receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+                    block: suspend () -> T,
+                ): T = block()
+
+                override suspend fun activateSelector(
+                    preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                    groupId: String,
+                    memberId: String,
+                    choice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
+                ): com.poyka.ripdpi.data.ProfileMutationOutcome {
+                    val outcome = commitMutationIntent(preparation)
+                    val receipt =
+                        (outcome as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved)?.receipt
+                            as? com.poyka.ripdpi.data.ProfileActivationReceipt
+                    if (receipt != null) {
+                        choice.commitMember(
+                            groupId,
+                            memberId,
+                            com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
+                                .Manual(receipt),
+                        )
+                    }
+                    return outcome
+                }
+
                 override suspend fun commitMutationIntent(preparation: ProfileMutationPreparation) =
                     authority.invalidateForMutation(
                         preparation.origin,
@@ -221,7 +254,7 @@ class HomePauseViewModelTest {
                     )
 
                 override suspend fun runReset(block: suspend (DurableCommandReceipt) -> Unit): DurableCommandReceipt {
-                    val receipt = authority.supersede(RuntimeUserCommand.Stop)
+                    val receipt = authority.reserveStop()
                     block(receipt)
                     return receipt
                 }
@@ -247,7 +280,15 @@ class HomePauseViewModelTest {
     ) : PauseAuthorityPersistence {
         @Volatile var state: PauseAuthorityState? =
             initialGeneration?.let {
-                PauseAuthorityState(it, null, null, desired = DesiredRuntimeState.LegacyUnknown)
+                PauseAuthorityState(
+                    it,
+                    null,
+                    null,
+                    desired = DesiredRuntimeState.LegacyUnknown,
+                    profileUtility =
+                        com.poyka.ripdpi.data.ProfileUtilityState
+                            .empty(),
+                )
             }
 
         @Volatile var failure: RuntimeException? = null

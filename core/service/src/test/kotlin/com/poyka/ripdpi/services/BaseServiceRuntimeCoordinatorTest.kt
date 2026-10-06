@@ -34,13 +34,13 @@ class BaseServiceRuntimeCoordinatorTest {
             val env = newEnv()
             env.coordinator.start()
             val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
-            assertTrue(handle.reloadConnectionPolicy { true })
+            assertTrue(handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
             assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(1, env.coordinator.restartCalls)
             assertEquals(0, env.coordinator.stopCalls)
             assertTrue(env.host.stopRequests.isEmpty())
             env.coordinator.stop()
-            assertFalse(handle.reloadConnectionPolicy { true })
+            assertFalse(handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
             assertEquals(1, env.coordinator.restartCalls)
         }
 
@@ -52,7 +52,7 @@ class BaseServiceRuntimeCoordinatorTest {
             val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
             var current = true
             env.coordinator.beforeResolve = { current = false }
-            assertFalse(handle.reloadConnectionPolicy { current })
+            assertFalse(handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { current })
             assertEquals(0, env.coordinator.restartCalls)
             assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
         }
@@ -65,7 +65,12 @@ class BaseServiceRuntimeCoordinatorTest {
             val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
             val gate = CompletableDeferred<Unit>()
             env.coordinator.handoverRestartGate = gate
-            val reload = backgroundScope.launch { handle.reloadConnectionPolicy { true } }
+            val reload =
+                backgroundScope.launch {
+                    handle.reloadConnectionPolicy(
+                        RuntimePolicyReloadIntent.Automatic,
+                    ) { true }
+                }
             runCurrent()
             reload.cancel()
             val stop = backgroundScope.launch { env.coordinator.stop() }
@@ -89,12 +94,12 @@ class BaseServiceRuntimeCoordinatorTest {
             env.coordinator.handoverFailuresRemaining = 1
             env.coordinator.handoverRetainResult = true
             val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
-            val result = runCatching { handle.reloadConnectionPolicy { true } }
+            val result = runCatching { handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true } }
             assertTrue(result.isFailure)
             assertEquals(1, env.coordinator.handoverRetainCalls)
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
             assertSame(handle, env.runtimeRegistry.current(Mode.Proxy))
-            assertFalse(handle.reloadConnectionPolicy { true })
+            assertFalse(handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
         }
 
     @Test
@@ -105,7 +110,9 @@ class BaseServiceRuntimeCoordinatorTest {
             env.coordinator.handoverFailuresRemaining = 1
             env.coordinator.handoverRetainResult = false
             val handle = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
-            assertTrue(runCatching { handle.reloadConnectionPolicy { true } }.isFailure)
+            assertTrue(
+                runCatching { handle.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true } }.isFailure,
+            )
             assertEquals(1, env.coordinator.stopCalls)
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(1, env.host.stopRequests.size)
@@ -1002,8 +1009,8 @@ class RetainedRuntimeCleanupTest {
                     .testPauseAuthority()
             val intent = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
             authority.transition(intent, com.poyka.ripdpi.data.PausePhase.Paused, null)
-            assertTrue(authority.claimResume(intent, true))
-            val store = AppliedRuntimeConfigurationStore(PauseAppliedReceiptConsumer(authority))
+            val resumeReceipt = checkNotNull(authority.claimResume(intent, true))
+            val store = AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(authority))
             var attempt: com.poyka.ripdpi.data.RuntimeConfigurationAttempt? = null
             var applied: com.poyka.ripdpi.data.AppliedRuntimeConfiguration? = null
             env.coordinator.readyReceipt = { session ->
@@ -1015,6 +1022,10 @@ class RetainedRuntimeCleanupTest {
                         com.poyka.ripdpi.data
                             .RuntimeConfigurationSelection("native"),
                         com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
+                        originalIntent =
+                            com.poyka.ripdpi.data.RuntimeAppliedIntent
+                                .Resume(intent, resumeReceipt),
+                        catalogGeneration = 0,
                     )
                 val receipt =
                     com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
@@ -1030,24 +1041,29 @@ class RetainedRuntimeCleanupTest {
                             .RuntimeConfigurationStrategy(false),
                         next.reason,
                     )
-                store.bindPauseResume(next, intent)
                 check(
                     store.begin(
                         next,
                         RuntimeConfigurationIdentityFactory().capture(listOf("transport"), listOf("dns")),
                     ),
                 )
-                check(store.acknowledge(next, receipt))
+                check(store.acknowledge(next, receipt, null))
                 attempt = next
                 applied = receipt
             }
-            kotlinx.coroutines.withContext(PauseResumeAuthority(authority, intent)) { env.coordinator.start() }
+            kotlinx.coroutines.withContext(
+                PauseResumeAuthority(authority, intent) +
+                    RuntimeCommandStartAuthority(
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Resume(intent, resumeReceipt),
+                    ),
+            ) { env.coordinator.start() }
             assertNull(authority.snapshot())
             assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
             assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(0, env.coordinator.stopCalls)
-            assertFalse(authority.claimResume(intent, false))
-            assertFalse(store.acknowledge(checkNotNull(attempt), checkNotNull(applied)))
+            assertNull(authority.claimResume(intent, false))
+            assertTrue(store.acknowledge(checkNotNull(attempt), checkNotNull(applied), null))
             assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
             assertEquals(1, env.coordinator.startCalls)
             env.coordinator.stop()
@@ -1062,8 +1078,8 @@ class RetainedRuntimeCleanupTest {
                     .testPauseAuthority()
             val intent = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
             check(authority.transition(intent, com.poyka.ripdpi.data.PausePhase.Paused, null))
-            check(authority.claimResume(intent, true))
-            val store = AppliedRuntimeConfigurationStore(PauseAppliedReceiptConsumer(authority))
+            val resumeReceipt = checkNotNull(authority.claimResume(intent, true))
+            val store = AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(authority))
             val lifecycle = RuntimeConfigurationLifecycle(store, RuntimeConfigurationIdentityFactory())
             val evidence =
                 RuntimeStartEvidence.ProxySnapshot(
@@ -1078,24 +1094,32 @@ class RetainedRuntimeCleanupTest {
                 lifecycle.begin(session, resolution, "initial")
                 lifecycle.ready(session, resolution, evidence, 1_000, null)
             }
-            kotlinx.coroutines.withContext(PauseResumeAuthority(authority, intent)) { env.coordinator.start() }
+            kotlinx.coroutines.withContext(
+                PauseResumeAuthority(authority, intent) +
+                    RuntimeCommandStartAuthority(
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Resume(intent, resumeReceipt),
+                    ),
+            ) { env.coordinator.start() }
             val session = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
             assertNull(authority.snapshot())
             env.coordinator.revisionReceipt = { current, resolution ->
                 lifecycle.begin(current, resolution, "network_handover")
                 lifecycle.ready(current, resolution, evidence, 2_000, null)
             }
-            assertTrue(session.reloadConnectionPolicy { true })
+            assertTrue(session.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
             assertSame(session, env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(2L, store.lastConfirmed(Mode.Proxy)?.revision)
             assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
             assertEquals(0, env.coordinator.stopCalls)
             env.coordinator.revisionReceipt = { current, resolution ->
                 lifecycle.begin(current, resolution, "network_handover")
-                authority.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+                authority.reserveStop()
                 lifecycle.ready(current, resolution, evidence, 3_000, null)
             }
-            assertTrue(runCatching { session.reloadConnectionPolicy { true } }.isFailure)
+            assertTrue(
+                runCatching { session.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true } }.isFailure,
+            )
             assertEquals(2L, store.lastConfirmed(Mode.Proxy)?.revision)
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertEquals(1, env.coordinator.stopCalls)
@@ -1110,12 +1134,132 @@ class RetainedRuntimeCleanupTest {
                     .testPauseAuthority()
             val intent = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
             authority.transition(intent, com.poyka.ripdpi.data.PausePhase.Paused, null)
-            check(authority.claimResume(intent, true))
+            val resumeReceipt = checkNotNull(authority.claimResume(intent, true))
             env.coordinator.readyReceipt = {
-                check(authority.acknowledgeResume(intent, Mode.Proxy))
-                authority.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+                check(
+                    authority.claimActivation(
+                        resumeReceipt,
+                        com.poyka.ripdpi.data.RuntimeAppliedUseIdentity(
+                            "test-actual-resume",
+                            1,
+                            Mode.Proxy.preferenceValue,
+                        ),
+                    ),
+                )
+                check(
+                    authority.acknowledgeApplied(
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Resume(intent, resumeReceipt),
+                        com.poyka.ripdpi.data.RuntimeAppliedUseReceipt(
+                            com.poyka.ripdpi.data
+                                .RuntimeAppliedUseIdentity("test-actual-resume", 1, Mode.Proxy.preferenceValue),
+                            emptyList(),
+                            1,
+                            checkNotNull(authority.states.value).profileUtility.catalogGeneration,
+                            false,
+                            "0".repeat(64),
+                        ),
+                    ),
+                )
+                authority.reserveStop()
             }
-            kotlinx.coroutines.withContext(PauseResumeAuthority(authority, intent)) { env.coordinator.start() }
+            kotlinx.coroutines.withContext(
+                PauseResumeAuthority(authority, intent) +
+                    RuntimeCommandStartAuthority(
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Resume(intent, resumeReceipt),
+                    ),
+            ) { env.coordinator.start() }
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertFalse(env.coordinator.statusTransitions.contains(ServiceStatus.Connected))
+            assertEquals(1, env.coordinator.stopCalls)
+        }
+
+    @Test
+    fun `old resolved policy cannot adopt a newer committed catalog at acknowledgment`() =
+        runTest {
+            val env = newEnv()
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val original =
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(authority.reserveStart(Mode.Proxy))
+            env.coordinator.captureIntent = { original }
+            env.coordinator.catalogGeneration =
+                { checkNotNull(authority.states.value).profileUtility.catalogGeneration }
+            env.coordinator.beforeResolve = {
+                authority.profileUtility.invalidateCatalog()
+                authority.profileUtility.replaceCatalog(emptySet())
+            }
+            val store = AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(authority))
+            val lifecycle = RuntimeConfigurationLifecycle(store, RuntimeConfigurationIdentityFactory())
+            env.coordinator.publicationGuard = lifecycle::publishIfCurrent
+            env.coordinator.readySnapshot = NativeRuntimeSnapshot("proxy", state = "running")
+            env.coordinator.readyReceipt =
+                { session -> lifecycle.begin(session, sampleResolution(Mode.Proxy), "initial") }
+            env.coordinator.completionReceipt = { session, resolution, evidence ->
+                lifecycle.ready(session, resolution, evidence, 1_000, null)
+            }
+            env.coordinator.start()
+            assertNull(store.lastConfirmed(Mode.Proxy))
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertFalse(env.coordinator.statusTransitions.contains(ServiceStatus.Connected))
+            assertEquals(1, env.coordinator.stopCalls)
+            assertTrue(checkNotNull(authority.states.value).profileUtility.acknowledged.isEmpty())
+        }
+
+    @Test
+    fun `context free acknowledged startup publishes captured running intent once`() =
+        runTest {
+            val env = newEnv()
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val original =
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(authority.reserveStart(Mode.Proxy))
+            env.coordinator.captureIntent = { original }
+            val store = AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(authority))
+            val lifecycle = RuntimeConfigurationLifecycle(store, RuntimeConfigurationIdentityFactory())
+            env.coordinator.publicationGuard = lifecycle::publishIfCurrent
+            env.coordinator.readySnapshot = NativeRuntimeSnapshot("proxy", state = "running")
+            env.coordinator.readyReceipt =
+                { session -> lifecycle.begin(session, sampleResolution(Mode.Proxy), "initial") }
+            env.coordinator.completionReceipt = { session, resolution, evidence ->
+                lifecycle.ready(session, resolution, evidence, 1_000, null)
+            }
+            env.coordinator.start()
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertEquals(1, env.coordinator.statusTransitions.count { it == ServiceStatus.Connected })
+            assertEquals(0, env.coordinator.stopCalls)
+            assertEquals(1, checkNotNull(authority.states.value).profileUtility.acknowledged.size)
+            env.coordinator.stop()
+        }
+
+    @Test
+    fun `context free startup rejects newer stop after durable ACK`() =
+        runTest {
+            val env = newEnv()
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val original =
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(authority.reserveStart(Mode.Proxy))
+            env.coordinator.captureIntent = { original }
+            val store = AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(authority))
+            val lifecycle = RuntimeConfigurationLifecycle(store, RuntimeConfigurationIdentityFactory())
+            env.coordinator.publicationGuard = lifecycle::publishIfCurrent
+            env.coordinator.readySnapshot = NativeRuntimeSnapshot("proxy", state = "running")
+            env.coordinator.readyReceipt =
+                { session -> lifecycle.begin(session, sampleResolution(Mode.Proxy), "initial") }
+            env.coordinator.completionReceipt = { session, resolution, evidence ->
+                lifecycle.ready(session, resolution, evidence, 1_000, null)
+                assertNotNull(store.lastConfirmed(Mode.Proxy))
+                authority.reserveStop()
+            }
+            env.coordinator.start()
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertFalse(env.coordinator.statusTransitions.contains(ServiceStatus.Connected))
             assertEquals(1, env.coordinator.stopCalls)
@@ -1130,9 +1274,10 @@ class RetainedRuntimeCleanupTest {
                     .testPauseAuthority()
             val intent = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
             check(authority.transition(intent, com.poyka.ripdpi.data.PausePhase.Paused, null))
-            check(authority.claimResume(intent, true))
-            val store = AppliedRuntimeConfigurationStore(PauseAppliedReceiptConsumer(authority))
+            val resumeReceipt = checkNotNull(authority.claimResume(intent, true))
+            val store = AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(authority))
             val lifecycle = RuntimeConfigurationLifecycle(store, RuntimeConfigurationIdentityFactory())
+            env.coordinator.publicationGuard = lifecycle::publishIfCurrent
             env.coordinator.readySnapshot = NativeRuntimeSnapshot("proxy", state = "running")
             env.coordinator.readyReceipt =
                 { session -> lifecycle.begin(session, sampleResolution(Mode.Proxy), "initial") }
@@ -1140,9 +1285,15 @@ class RetainedRuntimeCleanupTest {
                 lifecycle.ready(session, resolution, evidence, 1_000, null)
                 assertNotNull(store.lastConfirmed(Mode.Proxy))
                 assertNull(authority.snapshot())
-                authority.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+                authority.reserveStop()
             }
-            kotlinx.coroutines.withContext(PauseResumeAuthority(authority, intent)) { env.coordinator.start() }
+            kotlinx.coroutines.withContext(
+                PauseResumeAuthority(authority, intent) +
+                    RuntimeCommandStartAuthority(
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Resume(intent, resumeReceipt),
+                    ),
+            ) { env.coordinator.start() }
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertFalse(env.coordinator.statusTransitions.contains(ServiceStatus.Connected))
             assertEquals(1, env.coordinator.stopCalls)
@@ -1175,8 +1326,8 @@ class RetainedRuntimeCleanupTest {
                     ).apply { initializeAfterMigration() }
             val intent = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
             authority.transition(intent, com.poyka.ripdpi.data.PausePhase.Paused, null)
-            check(authority.claimResume(intent, true))
-            val consumer = PauseAppliedReceiptConsumer(authority)
+            val resumeReceipt = checkNotNull(authority.claimResume(intent, true))
+            val consumer = testRuntimeAppliedReceiptConsumer(authority)
             env.coordinator.readyReceipt = { session ->
                 val attempt =
                     com.poyka.ripdpi.data.RuntimeConfigurationAttempt(
@@ -1186,12 +1337,41 @@ class RetainedRuntimeCleanupTest {
                         com.poyka.ripdpi.data
                             .RuntimeConfigurationSelection("native"),
                         com.poyka.ripdpi.data.RuntimeConfigurationApplyReason.InitialStart,
+                        originalIntent =
+                            com.poyka.ripdpi.data.RuntimeAppliedIntent
+                                .Resume(intent, resumeReceipt),
+                        catalogGeneration = 0,
                     )
-                consumer.bind(attempt, intent)
+                consumer.bind(
+                    attempt,
+                    RuntimeConfigurationIdentityFactory().capture(listOf("transport"), listOf("dns")),
+                )
                 fail = true
-                consumer.acknowledge(attempt)
+                consumer.acknowledge(
+                    attempt,
+                    com.poyka.ripdpi.data.AppliedRuntimeConfiguration(
+                        attempt.runtimeId,
+                        attempt.revision,
+                        1_000,
+                        attempt.mode,
+                        attempt.requestedSelection,
+                        attempt.requestedSelection,
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationDns("plain", "system"),
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationStrategy(false),
+                        attempt.reason,
+                    ),
+                    null,
+                )
             }
-            kotlinx.coroutines.withContext(PauseResumeAuthority(authority, intent)) { env.coordinator.start() }
+            kotlinx.coroutines.withContext(
+                PauseResumeAuthority(authority, intent) +
+                    RuntimeCommandStartAuthority(
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Resume(intent, resumeReceipt),
+                    ),
+            ) { env.coordinator.start() }
             assertEquals(intent.copy(phase = com.poyka.ripdpi.data.PausePhase.Resuming), authority.snapshot())
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
             assertFalse(env.coordinator.statusTransitions.contains(ServiceStatus.Connected))
@@ -1271,6 +1451,32 @@ private class TestCoordinator(
         clock = clock,
         selectorListeners = selectorListeners,
     ) {
+    private val fixtureAuthority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
+    var captureIntent: () -> com.poyka.ripdpi.data.RuntimeAppliedIntent = {
+        com.poyka.ripdpi.data.RuntimeAppliedIntent
+            .Activation(fixtureAuthority.reserveStart(Mode.Proxy))
+    }
+
+    /** A fixture user command captures one checked receipt before the real coordinator suspends. */
+    suspend fun start() {
+        val original =
+            kotlinx.coroutines.currentCoroutineContext()[RuntimeCommandStartAuthority]?.original ?: captureIntent()
+        kotlinx.coroutines.withContext(RuntimeCommandStartAuthority(original)) { super.start(null) }
+    }
+
+    suspend fun start(stopSelfStartId: Int) {
+        val original =
+            kotlinx.coroutines.currentCoroutineContext()[RuntimeCommandStartAuthority]?.original ?: captureIntent()
+        kotlinx.coroutines.withContext(RuntimeCommandStartAuthority(original)) { super.start(stopSelfStartId) }
+    }
+
+    var publicationGuard: (ProxyRuntimeSession, () -> Unit) -> Boolean = { _, publish ->
+        publish()
+        true
+    }
+    var catalogGeneration: () -> Long = { 0 }
     var beforeResolve: () -> Unit = {}
     var failOnStart: Boolean = false
     var failOnStop: Boolean = false
@@ -1291,9 +1497,15 @@ private class TestCoordinator(
     var readySnapshot: NativeRuntimeSnapshot = NativeRuntimeSnapshot(source = "proxy")
     var rememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
     var publishEvidenceGate: CompletableDeferred<Unit>? = null
-    var readyReceipt: ((ProxyRuntimeSession) -> Unit)? = null
-    var completionReceipt: ((ProxyRuntimeSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit)? = null
-    var revisionReceipt: ((ProxyRuntimeSession, ConnectionPolicyResolution) -> Unit)? = null
+    var readyReceipt: (suspend (ProxyRuntimeSession) -> Unit)? = null
+    var completionReceipt: (
+        (
+            ProxyRuntimeSession,
+            ConnectionPolicyResolution,
+            RuntimeStartEvidence,
+        ) -> Unit
+    )? = null
+    var revisionReceipt: (suspend (ProxyRuntimeSession, ConnectionPolicyResolution) -> Unit)? = null
     var publishedEvidence: RuntimeStartEvidence? = null
     var publishedRuntimeId: String? = null
     val handoverResolutionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
@@ -1319,6 +1531,7 @@ private class TestCoordinator(
                     evidencePublication =
                         com.poyka.ripdpi.services.RuntimeStartEvidencePublication(
                             publish = ::publishRuntimeStartEvidence,
+                            publishCaptured = { session, publish -> publicationGuard(session, publish) },
                             complete = {
                                 session,
                                 resolution,
@@ -1353,8 +1566,12 @@ private class TestCoordinator(
     private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
     private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution {
+        val capturedCatalog = catalogGeneration()
         beforeResolve()
-        return sampleResolution(mode = Mode.Proxy).copy(matchedNetworkPolicy = rememberedPolicy)
+        return sampleResolution(mode = Mode.Proxy).copy(
+            matchedNetworkPolicy = rememberedPolicy,
+            catalogGeneration = capturedCatalog,
+        )
     }
 
     @Suppress("UnusedParameter")

@@ -280,11 +280,11 @@ class SettingsDnsActionsTest {
     @Test
     fun `doq save lease rejects vpn dispatch until data store update completes`() =
         runTest {
-            val arbiter =
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val receipt = authority.reserveStart(Mode.VPN)
+            val arbiter = ServiceIntentArbiter(authority)
             val backing =
                 FakeAppSettingsRepository(
                     com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
@@ -296,7 +296,7 @@ class SettingsDnsActionsTest {
             val repository =
                 object : AppSettingsRepository by backing {
                     override suspend fun update(transform: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit) {
-                        startResult = arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+                        startResult = arbiter.dispatchVpnStart { ServiceStartResult.Accepted(receipt) }
                         backing.update(transform)
                     }
                 }
@@ -323,19 +323,19 @@ class SettingsDnsActionsTest {
             )
             assertEquals(EncryptedDnsProtocolDoq, backing.snapshot().encryptedDnsProtocol)
             assertEquals(
-                ServiceStartResult.Accepted(Mode.VPN),
-                arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) },
+                ServiceStartResult.Accepted(receipt),
+                arbiter.dispatchVpnStart { ServiceStartResult.Accepted(receipt) },
             )
         }
 
     @Test
     fun `doq save refuses a pending vpn start before status leaves halted`() =
         runTest {
-            val arbiter =
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val receipt = authority.reserveStart(Mode.VPN)
+            val arbiter = ServiceIntentArbiter(authority)
             val repository =
                 FakeAppSettingsRepository(
                     com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
@@ -350,7 +350,7 @@ class SettingsDnsActionsTest {
                     serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.Proxy),
                     serviceIntentArbiter = arbiter,
                 )
-            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(Mode.VPN) }
+            arbiter.dispatchVpnStart { ServiceStartResult.Accepted(receipt) }
 
             actions.setCustomDotResolver(
                 EncryptedDnsProtocolDoq,

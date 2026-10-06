@@ -30,4 +30,6 @@ class RuntimeIntentLinearizer
 class RuntimePublicationPermit internal constructor(
     val authority: PauseAuthorityRef,
     val mode: Mode,
+    val commandId: String,
+    val appliedIdentity: RuntimeAppliedUseIdentity,
 )

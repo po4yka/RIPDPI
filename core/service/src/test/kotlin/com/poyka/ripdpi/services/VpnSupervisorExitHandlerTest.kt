@@ -32,6 +32,7 @@ class VpnSupervisorExitHandlerTest {
                 relayFactory = TestRipDpiRelayFactory(),
                 naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                 relayProfileStore = TestRelayProfileStore(),
+                selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                 relayCredentialStore = TestRelayCredentialStore(),
             )
         private val warpRuntimeSupervisor =

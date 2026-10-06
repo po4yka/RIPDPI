@@ -14,6 +14,55 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 
 object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
+    override suspend fun activateStandaloneAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Standalone activation is outside this test boundary")
+
+    override suspend fun compensateStandaloneAwg(
+        receipt: com.poyka.ripdpi.data.ProfileActivationReceipt,
+        expectedProfileId: String,
+    ): Boolean = error("Standalone compensation is outside this test boundary")
+
+    override suspend fun clearStandaloneAwg(
+        receipt: com.poyka.ripdpi.data.RuntimeStopReceipt,
+        expectedProfileId: String,
+    ): Boolean = error("Standalone deactivation is outside this test boundary")
+
+    override suspend fun <T> mutateCatalog(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        block: suspend () -> T,
+    ): T {
+        check(commitMutationIntent(preparation) != com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded)
+        return block()
+    }
+
+    override suspend fun <T> mutateReservedCatalog(
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        block: suspend () -> T,
+    ): T = block()
+
+    override suspend fun activateSelector(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        groupId: String,
+        memberId: String,
+        choice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
+        val outcome = commitMutationIntent(preparation)
+        val receipt =
+            (outcome as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved)?.receipt
+                as? com.poyka.ripdpi.data.ProfileActivationReceipt
+        if (receipt != null) {
+            choice.commitMember(
+                groupId,
+                memberId,
+                com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
+                    .Manual(receipt),
+            )
+        }
+        return outcome
+    }
+
     override suspend fun commitMutationIntent(preparation: com.poyka.ripdpi.data.ProfileMutationPreparation) =
         com.poyka.ripdpi.data
             .testMutationOutcome(preparation.origin)
@@ -37,9 +86,9 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
         block: suspend (com.poyka.ripdpi.data.DurableCommandReceipt) -> Unit,
     ): com.poyka.ripdpi.data.DurableCommandReceipt {
         val receipt =
-            com.poyka.ripdpi.data.testPauseAuthority().supersede(
-                com.poyka.ripdpi.data.RuntimeUserCommand.Stop,
-            )
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+                .reserveStop()
         block(receipt)
         return receipt
     }

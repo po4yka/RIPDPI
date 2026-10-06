@@ -253,24 +253,22 @@ class ConfigViewModel
             enabled: Boolean,
         ) {
             viewModelScope.launch {
-                val receipt =
-                    serviceController.prepareUserCommand(
-                        if (enabled) {
-                            com.poyka.ripdpi.data.RuntimeUserCommand.Start(
-                                mode,
-                            )
-                        } else {
-                            com.poyka.ripdpi.data.RuntimeUserCommand.Stop
-                        },
-                    )
+                val startReceipt = if (enabled) serviceController.prepareStart(mode) else null
+                val stopReceipt = if (!enabled) serviceController.prepareStop() else null
                 activeSaveJob.get()?.let { saveJob ->
                     suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
                     saveJob.join()
                 }
                 if (enabled) {
-                    startConfigRuntimeMode(mode, serviceController, stringResolver, _effects, receipt)
+                    startConfigRuntimeMode(
+                        mode,
+                        serviceController,
+                        stringResolver,
+                        _effects,
+                        checkNotNull(startReceipt),
+                    )
                 } else {
-                    stopConfigRuntimeMode(mode, serviceStateStore, serviceController, receipt)
+                    stopConfigRuntimeMode(mode, serviceStateStore, serviceController, checkNotNull(stopReceipt))
                 }
             }
         }

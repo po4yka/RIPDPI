@@ -29,12 +29,42 @@ fun testMutationOutcome(origin: ProfileMutationOrigin): ProfileMutationOutcome {
     )
 }
 
-fun testMutationPreparationSource(): PauseMutationPreparationSource =
+fun testMutationPreparationSource(authority: PauseIntentAuthority): PauseMutationPreparationSource =
     object : PauseMutationPreparationSource {
-        private val authority = testPauseAuthority()
-
         override suspend fun captureMutation(origin: ProfileMutationOrigin) =
             ProfileMutationPreparation(origin, authority.reference())
+
+        override suspend fun <T> mutateCatalog(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            block: suspend () -> T,
+        ): T {
+            check(commitMutationIntent(preparation) != com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded)
+            return block()
+        }
+
+        override suspend fun <T> mutateReservedCatalog(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            block: suspend () -> T,
+        ): T = block()
+
+        override suspend fun activateSelector(
+            preparation: ProfileMutationPreparation,
+            groupId: String,
+            memberId: String,
+            choice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
+        ): ProfileMutationOutcome {
+            val outcome = commitMutationIntent(preparation)
+            val receipt = (outcome as? ProfileMutationOutcome.Reserved)?.receipt as? ProfileActivationReceipt
+            if (receipt != null) {
+                choice.commitMember(
+                    groupId,
+                    memberId,
+                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
+                        .Manual(receipt),
+                )
+            }
+            return outcome
+        }
 
         override suspend fun commitMutationIntent(preparation: ProfileMutationPreparation) =
             authority.invalidateForMutation(

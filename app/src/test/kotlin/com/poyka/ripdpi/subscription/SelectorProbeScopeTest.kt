@@ -16,6 +16,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class SelectorProbeScopeTest {
+    private val physical = TestPhysicalNetworkEvidence()
+
     @Test
     fun `actual group member credentials policy classification and existence fence old input`() =
         runTest {
@@ -26,7 +28,8 @@ class SelectorProbeScopeTest {
                 object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
                     override suspend fun list(): List<ProxyGroup> = if (present) listOf(current) else emptyList()
                 }
-            val provider = CurrentSelectorProbeScopeProvider(groups, network(), { environment() }, { 1L to 1L })
+            val provider =
+                CurrentSelectorProbeScopeProvider(groups, network(), { environment() }, { physical.capture() })
             val original = provider.capture(group)
             current = group.copy(name = "new display name")
             assertEquals(original, provider.capture(group))
@@ -63,7 +66,7 @@ class SelectorProbeScopeTest {
                         override fun capture() = fingerprint
                     },
                     { environment() },
-                    { 1L to 1L },
+                    { physical.capture() },
                 )
             val original = requireNotNull(provider.capture(group))
             fingerprint = fingerprint(2)
@@ -87,7 +90,7 @@ class SelectorProbeScopeTest {
                         override fun capture(): NetworkFingerprint? = null
                     },
                     { environment() },
-                    { 1L to 1L },
+                    { physical.capture() },
                 )
             assertNull(provider.capture(group))
         }
@@ -100,16 +103,16 @@ class SelectorProbeScopeTest {
                 object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
                     override suspend fun list() = listOf(group)
                 }
-            var epoch = 1L
+            val changing = TestPhysicalNetworkEvidence()
             val provider =
                 CurrentSelectorProbeScopeProvider(
                     groups,
                     network(),
                     {
-                        epoch++
+                        changing.change()
                         environment()
                     },
-                    { epoch to 0L },
+                    { changing.capture() },
                 )
             assertNull(provider.capture(group))
         }

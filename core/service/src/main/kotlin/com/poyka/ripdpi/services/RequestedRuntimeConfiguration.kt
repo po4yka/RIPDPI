@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 /** Captured before remembered policy, endpoint bootstrap, learned DNS or initial relay racing. */
 internal class RequestedRuntimeConfiguration(
     val identity: RuntimeConfigurationIdentity,
+    val relayInputs: RelayResolutionInputs,
     val selection: RuntimeConfigurationSelection,
     val dns: RuntimeConfigurationDns,
     val strategy: RuntimeConfigurationStrategy,

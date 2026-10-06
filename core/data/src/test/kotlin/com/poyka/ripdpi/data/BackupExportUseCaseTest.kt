@@ -326,7 +326,7 @@ class BackupExportUseCaseTest {
             replaceAll(
                 com.poyka.ripdpi.data
                     .testPauseAuthority()
-                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                    .reserveStop(),
                 groups,
             )
         }

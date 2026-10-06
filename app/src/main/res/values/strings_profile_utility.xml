@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">Profiles</string>
+    <string name="profile_utility_favorites">Favorites</string>
+    <string name="profile_utility_recents">Recently used</string>
+    <string name="profile_utility_saved">Saved profiles</string>
+    <string name="profile_utility_check">Check</string>
+    <string name="profile_utility_check_select">Check and select</string>
+    <string name="profile_utility_checking">Checking…</string>
+    <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_not_checked">Not checked</string>
+    <string name="profile_utility_unsupported">This profile cannot be checked here.</string>
+    <string name="profile_utility_environment_changed">Network, policy or profile changed. Check again.</string>
+    <string name="profile_utility_failed">HTTP check failed. Selection is unchanged.</string>
+    <string name="profile_utility_timeout">Check timed out. Selection is unchanged.</string>
+    <string name="profile_utility_cleanup_pending">Native cleanup is pending. Selection is unchanged.</string>
+    <string name="profile_utility_retry_cleanup">Retry cleanup</string>
+    <string name="profile_utility_favorite_add">Add %1$s to favorites</string>
+    <string name="profile_utility_favorite_remove">Remove %1$s from favorites</string>
+    <string name="profile_utility_last_used">Last used: %1$s</string>
+    <string name="profile_utility_empty">No saved profiles.</string>
+    <string name="profile_utility_disclosure">Check measures an HTTP request. Check and select applies the profile only after a successful check.</string>
+    <string name="profile_utility_command_failed">Command could not be completed. Check the profile state.</string>
+    <string name="profile_utility_applying">Applying profile…</string>
+    <string name="profile_utility_selection_failed">Profile could not be applied. Check the saved and applied profiles.</string>
+    <string name="profile_utility_url">Probe URL</string>
+    <string name="profile_utility_applied">Applied profile</string>
+    <string name="profile_utility_loading">Loading profiles…</string>
+    <string name="profile_utility_checked_at">Checked: %1$s</string>
+    <string name="profile_utility_busy">The Xray runtime is busy. Pause or stop it, then try again.</string>
+    <string name="profile_utility_check_fastest">Check and select fastest</string>
+</resources>

@@ -72,6 +72,7 @@ class FinalmaskCompatibilityTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -84,6 +85,7 @@ class FinalmaskCompatibilityTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     com.poyka.ripdpi.core.RipDpiRelayConfig(
@@ -123,6 +125,7 @@ class FinalmaskCompatibilityTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -135,6 +138,7 @@ class FinalmaskCompatibilityTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     com.poyka.ripdpi.core.RipDpiRelayConfig(

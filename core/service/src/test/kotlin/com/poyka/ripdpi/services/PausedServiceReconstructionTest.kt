@@ -383,7 +383,7 @@ class PausedServiceReconstructionTest {
                 ),
             configurationLifecycle =
                 RuntimeConfigurationLifecycle(
-                    AppliedRuntimeConfigurationStore(PauseAppliedReceiptConsumer(fixture.authority)),
+                    AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(fixture.authority)),
                     RuntimeConfigurationIdentityFactory(),
                 ),
             screenStateObserver = TestScreenStateObserver(),
@@ -537,7 +537,7 @@ class PausedServiceReconstructionTest {
             testPauseAuthority().apply {
                 val intent = begin(mode, 300_000, snapshotAuthority())
                 check(transition(intent, PausePhase.Paused, null))
-                check(claimResume(intent, true))
+                checkNotNull(claimResume(intent, true))
             }
         val arbiter = ServiceIntentArbiter(authority)
         val state = TestServiceStateStore()

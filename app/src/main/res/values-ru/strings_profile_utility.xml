@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">Профили</string>
+    <string name="profile_utility_favorites">Избранное</string>
+    <string name="profile_utility_recents">Недавно использованные</string>
+    <string name="profile_utility_saved">Сохранённые профили</string>
+    <string name="profile_utility_check">Проверить</string>
+    <string name="profile_utility_check_select">Проверить и выбрать</string>
+    <string name="profile_utility_checking">Проверка…</string>
+    <string name="profile_utility_measured">HTTP: %1$s мс</string>
+    <string name="profile_utility_not_checked">Не проверен</string>
+    <string name="profile_utility_unsupported">Этот профиль нельзя проверить здесь.</string>
+    <string name="profile_utility_environment_changed">Сеть, политика или профиль изменились. Проверьте снова.</string>
+    <string name="profile_utility_failed">Проверка HTTP не удалась. Выбор не изменён.</string>
+    <string name="profile_utility_timeout">Время проверки истекло. Выбор не изменён.</string>
+    <string name="profile_utility_cleanup_pending">Освобождение нативных ресурсов ещё не завершено. Выбор не изменён.</string>
+    <string name="profile_utility_retry_cleanup">Повторить освобождение</string>
+    <string name="profile_utility_favorite_add">Добавить %1$s в избранное</string>
+    <string name="profile_utility_favorite_remove">Удалить %1$s из избранного</string>
+    <string name="profile_utility_last_used">Последнее использование: %1$s</string>
+    <string name="profile_utility_empty">Нет сохранённых профилей.</string>
+    <string name="profile_utility_disclosure">Проверка измеряет HTTP-запрос. «Проверить и выбрать» применяет профиль только после успешной проверки.</string>
+    <string name="profile_utility_command_failed">Не удалось выполнить команду. Проверьте состояние профиля.</string>
+    <string name="profile_utility_applying">Применение профиля…</string>
+    <string name="profile_utility_selection_failed">Не удалось применить профиль. Проверьте сохранённый и применённый профили.</string>
+    <string name="profile_utility_url">URL проверки</string>
+    <string name="profile_utility_applied">Применённый профиль</string>
+    <string name="profile_utility_loading">Загрузка профилей…</string>
+    <string name="profile_utility_checked_at">Проверен: %1$s</string>
+    <string name="profile_utility_busy">Xray занят. Приостановите или остановите соединение и попробуйте снова.</string>
+    <string name="profile_utility_check_fastest">Проверить и выбрать самый быстрый</string>
+</resources>

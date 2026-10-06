@@ -355,6 +355,7 @@ class VpnTunnelRefreshCoordinatorTest {
             requestedConfiguration =
                 RequestedRuntimeConfiguration(
                     captured.identity,
+                    captured.relayInputs,
                     captured.selection,
                     captured.dns,
                     captured.strategy,

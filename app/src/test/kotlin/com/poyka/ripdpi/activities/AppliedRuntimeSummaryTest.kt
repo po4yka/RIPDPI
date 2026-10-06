@@ -21,18 +21,7 @@ import org.robolectric.annotation.Config
 class AppliedRuntimeSummaryTest {
     @Test fun `halted failed replacement retains pending and history without reconnect confirmation`() {
         val selection = RuntimeConfigurationSelection("native")
-        val applied =
-            AppliedRuntimeConfiguration(
-                "old-runtime",
-                1,
-                1,
-                Mode.VPN,
-                selection,
-                selection,
-                RuntimeConfigurationDns("plain", "system"),
-                RuntimeConfigurationStrategy(false),
-                RuntimeConfigurationApplyReason.InitialStart,
-            )
+        val applied = previousApplication(selection)
         val attempt =
             com.poyka.ripdpi.data.RuntimeConfigurationAttempt(
                 "failed-runtime",
@@ -40,6 +29,13 @@ class AppliedRuntimeSummaryTest {
                 Mode.VPN,
                 selection,
                 RuntimeConfigurationApplyReason.UserReconnect,
+                originalIntent =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority()
+                            .reserveStart(Mode.VPN),
+                    ),
+                catalogGeneration = 0,
             )
         val base =
             MainUiInputs(
@@ -126,4 +122,17 @@ class AppliedRuntimeSummaryTest {
         assertFalse(summary.contains("private-endpoint-or-token"))
         assertFalse(summary.contains("private-profile-id"))
     }
+
+    private fun previousApplication(selection: RuntimeConfigurationSelection) =
+        AppliedRuntimeConfiguration(
+            "old-runtime",
+            1,
+            1,
+            Mode.VPN,
+            selection,
+            selection,
+            RuntimeConfigurationDns("plain", "system"),
+            RuntimeConfigurationStrategy(false),
+            RuntimeConfigurationApplyReason.InitialStart,
+        )
 }

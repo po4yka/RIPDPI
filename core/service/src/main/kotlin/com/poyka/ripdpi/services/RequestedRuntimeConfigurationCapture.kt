@@ -17,29 +17,31 @@ internal class RequestedRuntimeConfigurationCapture
         private val routing: DestinationRoutingPolicySource,
         private val secrets: ProxySessionSecretResolver,
         private val groups: ProxyGroupRepository,
-        private val selections: com.poyka.ripdpi.data.selector.SelectorSelectionStore,
-    ) {
+        private val authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        private val experiments: RuntimeExperimentSelectionProvider,
+    ) : RequestedRuntimeConfigurationSource {
         private val materialFactory = RequestedRuntimeConfigurationMaterialFactory(identities)
         private val policyCapture = RequestedRuntimePolicyCapture(routing, secrets)
 
-        suspend fun capture(
+        fun catalogGeneration(): Long = checkNotNull(authority.states.value).profileUtility.catalogGeneration
+
+        override suspend fun capture(
             mode: Mode,
             settings: AppSettings,
             awg: AwgActivationRequest?,
         ): RequestedRuntimeConfiguration {
+            val relayInputs = RelayResolutionInputs.capture(settings, experiments.current())
             val policy = policyCapture.capture(settings, awg)
             val preferences = policy.preferences
             val catalog = catalogs.capture(mode, settings, preferences, awg)
             val savedGroups = groups.list()
             val tunnelInput = VpnTunnelConfigurationInput(settings, savedGroups.flatMap { it.packageRoutingRules })
-            val selectedGroup = savedGroups.filter { it.isSelector && it.members.isNotEmpty() }.minByOrNull { it.order }
-            val memberId = selectedGroup?.let { selections.snapshot(it.id).profileId }
-            val groupSelection =
-                if (memberId != null && memberId == catalog.selection.profileId) {
-                    catalog.selection.copy(selectorGroupId = selectedGroup?.id, selectorMemberId = memberId)
-                } else {
-                    catalog.selection
-                }
-            return materialFactory.build(mode, settings, policy, catalog, tunnelInput, groupSelection)
+            val groupSelection = catalog.selection
+            val transportPolicy =
+                CapturedTransportPolicy(
+                    relayInputs,
+                    requestedTransportPolicyMaterial(mode, settings, policy, catalog.selection.provider, relayInputs),
+                )
+            return materialFactory.build(mode, settings, catalog, tunnelInput, groupSelection, transportPolicy)
         }
     }

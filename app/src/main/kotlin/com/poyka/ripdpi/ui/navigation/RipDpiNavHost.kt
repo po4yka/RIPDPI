@@ -676,6 +676,7 @@ private fun SettingsHomeRoute(
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onOpenSubscriptionFailover = { navController.navigate(Route.SubscriptionFailover) },
         onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) },
+        onOpenProfileUtility = { navController.navigate(Route.ProfileUtility) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
@@ -695,6 +696,10 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     navController: NavHostController,
     mainViewModel: MainViewModel,
 ) {
+    composable<Route.ProfileUtility> {
+        com.poyka.ripdpi.ui.screens.profiles
+            .ProfileUtilityRoute(onBack = { navController.popBackStack() })
+    }
     composable<Route.DnsSettings> {
         val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
         val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
@@ -958,6 +963,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.VpnConfig.stableRoute to { hasRoute<Route.VpnConfig>() },
         Route.Diagnostics().stableRoute to { hasRoute<Route.Diagnostics>() },
         Route.Settings.stableRoute to { hasRoute<Route.Settings>() },
+        Route.ProfileUtility.stableRoute to { hasRoute<Route.ProfileUtility>() },
         Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },
         Route.History.stableRoute to { hasRoute<Route.History>() },
         Route.Logs.stableRoute to { hasRoute<Route.Logs>() },

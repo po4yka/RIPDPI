@@ -158,6 +158,7 @@ internal class ProxyServiceRuntimeCoordinator(
                         com.poyka.ripdpi.services.RuntimeStartEvidencePublication(
                             publish = ::publishRuntimeStartEvidence,
                             complete = configurationLifecycle.completion(clock),
+                            publishCaptured = configurationLifecycle::publishIfCurrent,
                         ),
                     startModeTelemetryUpdates = ::startModeTelemetryUpdates,
                 ),
@@ -194,7 +195,7 @@ internal class ProxyServiceRuntimeCoordinator(
             handoverClassification = handoverClassification,
         )
 
-    private fun applyActiveConnectionPolicy(
+    private suspend fun applyActiveConnectionPolicy(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,
@@ -232,6 +233,7 @@ internal class ProxyServiceRuntimeCoordinator(
             val startResult =
                 proxyRuntimeStack.start(
                     requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                    relayInputs = resolution.requestedConfiguration.relayInputs,
                     proxyPreferences =
                         resolution.proxyPreferences.withLogContext(
                             session.buildLogContext(session.currentActiveConnectionPolicy),
@@ -299,6 +301,7 @@ internal class ProxyServiceRuntimeCoordinator(
         val startResult =
             proxyRuntimeStack.start(
                 requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                relayInputs = resolution.requestedConfiguration.relayInputs,
                 proxyPreferences =
                     resolution.proxyPreferences.withLogContext(
                         session.buildLogContext(session.currentActiveConnectionPolicy),

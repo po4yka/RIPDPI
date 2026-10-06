@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DesiredRuntimeState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
-import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.stopAction
@@ -130,7 +129,7 @@ class ServiceControllerForegroundDenialTest {
 
             val result = controller.start(Mode.Proxy)
 
-            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+            assertAccepted(authority, Mode.Proxy, result)
             assertEquals(1, starter.startCount)
             assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
         }
@@ -192,7 +191,7 @@ class ServiceControllerForegroundDenialTest {
 
             val result = controller.start(Mode.Proxy)
 
-            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+            assertAccepted(authority, Mode.Proxy, result)
             assertEquals(1, starter.startCount)
             assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
         }
@@ -221,7 +220,7 @@ class ServiceControllerForegroundDenialTest {
 
             val result = controller.start(Mode.VPN)
 
-            assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
+            assertAccepted(authority, Mode.VPN, result)
             assertEquals(1, starter.startCount)
             assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
         }
@@ -260,7 +259,7 @@ class ServiceControllerForegroundDenialTest {
             assertEquals(0, starter.startCount)
             saveLease.close()
 
-            assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
+            assertAccepted(authority, Mode.VPN, controller.start(Mode.VPN))
             assertEquals(1, starter.startCount)
             assertNull(arbiter.tryReserveDoqSave { true })
             arbiter.completeVpnStart(arbiter.captureVpnStartGeneration())
@@ -299,10 +298,10 @@ class ServiceControllerForegroundDenialTest {
                 controller.restartVpnForTransportFailover(
                     requestId = 41L,
                     expectedTarget = target,
-                    reference = controller.captureRuntimeAuthority(),
+                    reference = controller.captureRuntimeSnapshot().reference,
                 )
 
-            assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
+            assertEquals(ServiceStartResult.MaintenanceAccepted(Mode.VPN), result)
             assertEquals(transportFailoverRestartAction, starter.lastIntent?.action)
             assertEquals(41L, starter.lastIntent?.getLongExtra(transportFailoverRequestIdExtra, 0L))
             assertEquals(RelayKindVlessReality, starter.lastIntent?.getStringExtra(transportFailoverTargetKindExtra))
@@ -334,12 +333,13 @@ class ServiceControllerForegroundDenialTest {
                     serviceIntentArbiter = ServiceIntentArbiter(authority),
                 )
             val target = TransportFailoverTarget(TransportKindAmneziaWg, "awg-editor")
-            assertEquals(
-                ServiceStartResult.Accepted(Mode.VPN),
+            assertAccepted(
+                authority,
+                Mode.VPN,
                 controller.startVpnTransport(
                     42L,
                     target,
-                    controller.prepareUserCommand(RuntimeUserCommand.Start(Mode.VPN)),
+                    controller.prepareStart(Mode.VPN),
                 ),
             )
             assertEquals(transportActivationStartAction, starter.lastIntent?.action)
@@ -383,16 +383,32 @@ class ServiceControllerRecoveryDispatchTest {
                     serviceIntentArbiter = ServiceIntentArbiter(authority),
                 )
 
+            val original = authority.reserveStart(Mode.VPN)
             val fallbackLease = controller.captureStartupFallbackLease()
+            val failedIdentity =
+                com.poyka.ripdpi.data.RuntimeAppliedUseIdentity(
+                    "failed-start",
+                    1,
+                    Mode.VPN.preferenceValue,
+                )
+            assertTrue(authority.claimActivation(original, failedIdentity))
+            assertTrue(authority.terminateActivation(original, failedIdentity))
             val result = controller.startVpnForStartupFallback(fallbackLease)
 
+            val dispatched = result as StartupFallbackDispatchResult.Dispatched
+            val accepted = dispatched.startResult as ServiceStartResult.Accepted
+            assertEquals(Mode.VPN, accepted.mode)
+            assertEquals(original.authority, accepted.receipt.authority)
             assertEquals(
-                StartupFallbackDispatchResult.Dispatched(ServiceStartResult.Accepted(Mode.VPN)),
-                result,
+                com.poyka.ripdpi.data.RuntimeCommandOrigin
+                    .StartupFallback(original.commandId),
+                accepted.receipt.origin,
             )
+            assertTrue(starter.lastIntent.capturedRuntimeActivation(authority, Mode.VPN) != null)
             assertEquals(startupFallbackStartAction, starter.lastIntent?.action)
             assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
-            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+            assertTrue(tracker.ownership(lease) is ResumeLeaseOwnership.Superseded)
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(tracker.captureResumeLease()))
         }
 
     @Test
@@ -421,7 +437,7 @@ class ServiceControllerRecoveryDispatchTest {
                 )
             val fallbackLease = controller.captureStartupFallbackLease()
 
-            assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
+            assertAccepted(authority, Mode.VPN, controller.start(Mode.VPN))
             val result = controller.startVpnForStartupFallback(fallbackLease)
 
             assertEquals(StartupFallbackDispatchResult.Superseded, result)
@@ -465,7 +481,8 @@ class ServiceControllerRecoveryDispatchTest {
     @Test
     fun bootAndProcessDeathRecoveryUseDistinctInternalActions() =
         kotlinx.coroutines.test.runTest {
-            val reference = authority.supersede(RuntimeUserCommand.Start(Mode.VPN)).authority
+            testAppliedRuntimeCommand(authority, Mode.VPN)
+            val reference = authority.snapshotAuthority()
             ShadowServiceControllerVpnPrepareService.prepareIntent = null
             val starter = RecordingForegroundServiceStarter()
             val controller =
@@ -488,21 +505,33 @@ class ServiceControllerRecoveryDispatchTest {
                     serviceIntentArbiter = ServiceIntentArbiter(authority),
                 )
 
-            assertEquals(
-                ServiceStartResult.Accepted(Mode.VPN),
-                controller.startForBootRecovery(Mode.VPN, Intent.ACTION_BOOT_COMPLETED, reference),
+            assertAccepted(
+                authority,
+                Mode.VPN,
+                controller.startForBootRecovery(Mode.VPN, Intent.ACTION_BOOT_COMPLETED, reference).also { result ->
+                    testAcknowledgeRuntimeCommand(authority, (result as ServiceStartResult.Accepted).receipt)
+                },
             )
             assertEquals(bootRecoveryStartAction, starter.lastIntent?.action)
 
-            assertEquals(
-                ServiceStartResult.Accepted(Mode.VPN),
-                controller.startForBootRecovery(Mode.VPN, Intent.ACTION_MY_PACKAGE_REPLACED, reference),
+            assertAccepted(
+                authority,
+                Mode.VPN,
+                controller
+                    .startForBootRecovery(
+                        Mode.VPN,
+                        Intent.ACTION_MY_PACKAGE_REPLACED,
+                        authority.snapshotAuthority(),
+                    ).also { result ->
+                        testAcknowledgeRuntimeCommand(authority, (result as ServiceStartResult.Accepted).receipt)
+                    },
             )
             assertEquals(packageReplacedRecoveryStartAction, starter.lastIntent?.action)
 
-            assertEquals(
-                ServiceStartResult.Accepted(Mode.VPN),
-                controller.startForProcessDeathRecovery(Mode.VPN, reference),
+            assertAccepted(
+                authority,
+                Mode.VPN,
+                controller.startForProcessDeathRecovery(Mode.VPN, authority.snapshotAuthority()),
             )
             assertEquals(processDeathRecoveryStartAction, starter.lastIntent?.action)
         }
@@ -603,6 +632,7 @@ class ServiceControllerRecoveryDispatchTest {
     @Test
     fun diagnosticsStartUsesInternalActionWithoutReplacingUserIntent() =
         kotlinx.coroutines.test.runTest {
+            testAppliedRuntimeCommand(authority, Mode.Proxy)
             val tracker = RuntimeResumeIntentTracker(authority)
             val lease = tracker.captureResumeLease()
             val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
@@ -625,8 +655,9 @@ class ServiceControllerRecoveryDispatchTest {
 
             val result = controller.startForDiagnostics(Mode.Proxy, lease.durableAuthority)
 
-            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+            assertAccepted(authority, Mode.Proxy, result)
             assertEquals(diagnosticsStartAction, starter.lastIntent?.action)
+            assertTrue(tracker.acceptOwnedRecovery(lease, (result as ServiceStartResult.Accepted).receipt))
             assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
         }
 }
@@ -641,6 +672,7 @@ class ServiceControllerIntentFencingTest {
     @Test
     fun diagnosticsResumeDoesNotAcquireUserIntentArbiterWhileHoldingLease() =
         kotlinx.coroutines.test.runTest {
+            testAppliedRuntimeCommand(authority, Mode.Proxy)
             val tracker = RuntimeResumeIntentTracker(authority)
             val lease = tracker.captureResumeLease()
             val arbiter = ServiceIntentArbiter(authority)
@@ -677,14 +709,25 @@ class ServiceControllerIntentFencingTest {
 
             try {
                 assertTrue(lockHeld.await(2, TimeUnit.SECONDS))
+                val entered = CountDownLatch(1)
                 val diagnosticsResume =
                     diagnosticsExecutor.submit<ServiceStartResult?> {
                         tracker.runIfOwned(lease) {
+                            entered.countDown()
                             controller.startForDiagnostics(Mode.Proxy, lease.durableAuthority)
                         }
                     }
 
-                assertEquals(ServiceStartResult.Accepted(Mode.Proxy), diagnosticsResume.get(2, TimeUnit.SECONDS))
+                assertTrue(entered.await(2, TimeUnit.SECONDS))
+                val progressExecutor = Executors.newSingleThreadExecutor()
+                try {
+                    progressExecutor.submit { tracker.recordAcceptedStop() }.get(2, TimeUnit.SECONDS)
+                    assertTrue(tracker.ownership(lease) is ResumeLeaseOwnership.Superseded)
+                    releaseLock.countDown()
+                    assertAccepted(authority, Mode.Proxy, checkNotNull(diagnosticsResume.get(2, TimeUnit.SECONDS)))
+                } finally {
+                    progressExecutor.shutdownNow()
+                }
             } finally {
                 releaseLock.countDown()
                 lockOwner.get(2, TimeUnit.SECONDS)
@@ -724,7 +767,8 @@ class ServiceControllerIntentFencingTest {
     @Test
     fun staleRecoveryReferenceCannotDispatchAfterUserStop() =
         kotlinx.coroutines.test.runTest {
-            val reference = authority.supersede(RuntimeUserCommand.Start(Mode.Proxy)).authority
+            testAppliedRuntimeCommand(authority, Mode.Proxy)
+            val reference = authority.snapshotAuthority()
             val starter = RecordingForegroundServiceStarter()
             val controller =
                 DefaultServiceController(
@@ -1037,4 +1081,14 @@ class ShadowServiceControllerVpnPrepareService private constructor() {
             prepareIntent = Intent("shadow.vpn.permission")
         }
     }
+}
+
+private fun assertAccepted(
+    authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+    mode: Mode,
+    result: ServiceStartResult,
+) {
+    val accepted = result as? ServiceStartResult.Accepted ?: error("Expected a typed accepted Start")
+    assertEquals(mode, accepted.mode)
+    assertTrue(authority.isCurrent(accepted.receipt))
 }

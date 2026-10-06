@@ -181,7 +181,10 @@ private class CountingRuntimeHandle(
     override val mode: Mode,
     override val runtimeId: String,
 ) : ServiceRuntimeHandle {
-    override suspend fun reloadConnectionPolicy(isCurrent: suspend () -> Boolean): Boolean = false
+    override suspend fun reloadConnectionPolicy(
+        intent: RuntimePolicyReloadIntent,
+        isCurrent: suspend () -> Boolean,
+    ): Boolean = false
 
     private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
     private val countedActiveConnectionPolicy = CountingStateFlow(activeConnectionPolicyState)

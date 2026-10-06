@@ -2474,11 +2474,11 @@ jobs:
             --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
             --xray-port "$fixture_port" \
             --test-class com.poyka.ripdpi.e2e.XrayProviderE2ETest
-          for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect; do
+          for method in bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart wrongIdentityCannotReachPeerOrFallBackToDirect profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck; do
             python3 scripts/ci/validate_android_junit_results.py \
               app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
               --require-test "com.poyka.ripdpi.e2e.XrayProviderE2ETest#$method" \
-              --expected-count 1 --expected-total-count 2 --forbid-skips
+              --expected-count 1 --expected-total-count 3 --forbid-skips
           done
           capture_xray_evidence
 

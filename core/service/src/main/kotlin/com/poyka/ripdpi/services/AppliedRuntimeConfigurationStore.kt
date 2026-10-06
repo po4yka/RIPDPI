@@ -20,7 +20,7 @@ import javax.inject.Singleton
 internal class AppliedRuntimeConfigurationStore
     @Inject
     constructor(
-        private val pauseReceipts: PauseAppliedReceiptConsumer,
+        private val pauseReceipts: RuntimeAppliedReceiptConsumer,
     ) : AppliedRuntimeConfigurationSource {
         private val lock = Any()
         private val applicationState =
@@ -34,6 +34,7 @@ internal class AppliedRuntimeConfigurationStore
         private val requestedIdentities = mutableMapOf<Mode, RuntimeConfigurationIdentity>()
         private val acknowledgedIdentities = mutableMapOf<Mode, RuntimeConfigurationIdentity>()
         private val currentSavedIdentities = mutableMapOf<Mode, RuntimeConfigurationIdentity>()
+        private val provisioning = mutableMapOf<Mode, ProvisioningAcknowledgment>()
         private val revokedRuntimes = mutableSetOf<String>()
 
         override val applications = applicationState.asStateFlow()
@@ -43,11 +44,6 @@ internal class AppliedRuntimeConfigurationStore
         fun observeSavedConfiguration(observer: SavedRuntimeConfigurationObserver) {
             observer.observe(this)
         }
-
-        fun bindPauseResume(
-            attempt: RuntimeConfigurationAttempt,
-            intent: com.poyka.ripdpi.data.PauseIntent,
-        ) = synchronized(lock) { pauseReceipts.bind(attempt, intent) }
 
         fun begin(
             attempt: RuntimeConfigurationAttempt,
@@ -61,6 +57,8 @@ internal class AppliedRuntimeConfigurationStore
                     false
                 } else {
                     current?.runtimeId?.takeIf { it != attempt.runtimeId }?.let { revokedRuntimes += it }
+                    pauseReceipts.bind(attempt, requested)
+                    provisioning.remove(attempt.mode)
                     attempts[attempt.mode] = attempt
                     requestedIdentities[attempt.mode] = requested
                     applicationState.value = applicationState.value +
@@ -77,21 +75,37 @@ internal class AppliedRuntimeConfigurationStore
         fun acknowledge(
             attempt: RuntimeConfigurationAttempt,
             configuration: AppliedRuntimeConfiguration,
+            consumed: CandidateConfigurationProof?,
         ): Boolean =
             synchronized(lock) {
-                if (attempts[attempt.mode] != attempt ||
-                    !configuration.matchesAttempt(attempt) ||
-                    applicationState.value[attempt.mode] !is RuntimeConfigurationApplication.Applying
-                ) {
-                    false
-                } else {
-                    if (!pauseReceipts.acknowledge(attempt)) return@synchronized false
-                    lastAcknowledged[attempt.mode] = configuration
-                    acknowledgedIdentities[attempt.mode] = checkNotNull(requestedIdentities[attempt.mode])
-                    applicationState.value = applicationState.value +
-                        (attempt.mode to RuntimeConfigurationApplication.Applied(configuration))
-                    refreshPending(attempt.mode)
-                    true
+                val current = applicationState.value[attempt.mode]
+                when {
+                    attempts[attempt.mode] != attempt || !configuration.matchesAttempt(attempt) -> {
+                        false
+                    }
+
+                    current is RuntimeConfigurationApplication.Applied -> {
+                        current.configuration == configuration &&
+                            pauseReceipts.acknowledge(attempt, configuration, consumed)
+                    }
+
+                    current !is RuntimeConfigurationApplication.Applying -> {
+                        false
+                    }
+
+                    !pauseReceipts.acknowledge(attempt, configuration, consumed) -> {
+                        false
+                    }
+
+                    else -> {
+                        lastAcknowledged[attempt.mode] = configuration
+                        acknowledgedIdentities[attempt.mode] = checkNotNull(requestedIdentities[attempt.mode])
+                        applicationState.value =
+                            applicationState.value +
+                            (attempt.mode to RuntimeConfigurationApplication.Applied(configuration))
+                        refreshPending(attempt.mode)
+                        true
+                    }
                 }
             }
 
@@ -101,16 +115,55 @@ internal class AppliedRuntimeConfigurationStore
             configuration: AppliedRuntimeConfiguration,
             captured: RuntimeConfigurationIdentity,
             provisioned: RuntimeConfigurationIdentity,
+            consumed: CandidateConfigurationProof?,
         ): Boolean =
             synchronized(lock) {
-                val applyingAttempt =
-                    attempts[attempt.mode] == attempt && configuration.matchesAttempt(attempt) &&
-                        applicationState.value[attempt.mode] is RuntimeConfigurationApplication.Applying
-                if (!applyingAttempt || requestedIdentities[attempt.mode]?.matches(captured) != true) {
-                    return@synchronized false
+                val current = applicationState.value[attempt.mode]
+                when {
+                    attempts[attempt.mode] != attempt || !configuration.matchesAttempt(attempt) -> {
+                        false
+                    }
+
+                    current is RuntimeConfigurationApplication.Applied -> {
+                        val previous = provisioning[attempt.mode]
+                        current.configuration == configuration && previous != null &&
+                            previous.captured.matches(captured) && previous.provisioned.matches(provisioned) &&
+                            pauseReceipts.acknowledge(attempt, configuration, consumed)
+                    }
+
+                    current is RuntimeConfigurationApplication.Applying &&
+                        requestedIdentities[attempt.mode]?.matches(captured) == true -> {
+                        if (pauseReceipts.acknowledge(attempt, configuration, consumed)) {
+                            provisioning[attempt.mode] = ProvisioningAcknowledgment(captured, provisioned)
+                            requestedIdentities[attempt.mode] = provisioned
+                            lastAcknowledged[attempt.mode] = configuration
+                            acknowledgedIdentities[attempt.mode] = provisioned
+                            applicationState.value = applicationState.value +
+                                (attempt.mode to RuntimeConfigurationApplication.Applied(configuration))
+                            refreshPending(attempt.mode)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    else -> {
+                        false
+                    }
                 }
-                requestedIdentities[attempt.mode] = provisioned
-                acknowledge(attempt, configuration)
+            }
+
+        fun publishIfCurrent(
+            attempt: RuntimeConfigurationAttempt,
+            publish: () -> Unit,
+        ): Boolean =
+            synchronized(lock) {
+                val applied = applicationState.value[attempt.mode] as? RuntimeConfigurationApplication.Applied
+                if (attempts[attempt.mode] != attempt || applied?.configuration?.matchesAttempt(attempt) != true) {
+                    false
+                } else {
+                    pauseReceipts.publishIfCurrent(attempt, publish)
+                }
             }
 
         fun fail(
@@ -121,6 +174,7 @@ internal class AppliedRuntimeConfigurationStore
                 if (attempts[attempt.mode] != attempt || attempt.runtimeId in revokedRuntimes) {
                     false
                 } else {
+                    pauseReceipts.failed(attempt)
                     applicationState.value = applicationState.value +
                         (
                             attempt.mode to
@@ -177,6 +231,11 @@ internal class AppliedRuntimeConfigurationStore
             }
 
         fun lastConfirmed(mode: Mode): AppliedRuntimeConfiguration? = synchronized(lock) { lastAcknowledged[mode] }
+
+        private class ProvisioningAcknowledgment(
+            val captured: RuntimeConfigurationIdentity,
+            val provisioned: RuntimeConfigurationIdentity,
+        )
 
         private fun refreshPending(mode: Mode) {
             val saved = currentSavedIdentities[mode]

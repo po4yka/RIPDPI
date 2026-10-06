@@ -17,7 +17,7 @@ class DefaultServiceStartPreflightTest {
                     requireLocalNetworkAccess = { resolveCount += 1 },
                 )
 
-            assertEquals(ServiceStartPreflightResult.Allowed, preflight.check(Mode.VPN))
+            assertEquals(LocalNetworkStartPreflightResult.Allowed, preflight.check(Mode.VPN))
             assertEquals(0, resolveCount)
         }
 
@@ -30,7 +30,7 @@ class DefaultServiceStartPreflightTest {
                     requireLocalNetworkAccess = {},
                 )
 
-            assertEquals(ServiceStartPreflightResult.Allowed, preflight.check(Mode.Proxy))
+            assertEquals(LocalNetworkStartPreflightResult.Allowed, preflight.check(Mode.Proxy))
         }
 
     @Test
@@ -43,7 +43,7 @@ class DefaultServiceStartPreflightTest {
                 )
 
             assertEquals(
-                ServiceStartPreflightResult.LocalNetworkPermissionRequired,
+                LocalNetworkStartPreflightResult.LocalNetworkPermissionRequired,
                 preflight.check(Mode.Proxy),
             )
         }

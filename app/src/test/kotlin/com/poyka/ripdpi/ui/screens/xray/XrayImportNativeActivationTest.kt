@@ -880,7 +880,7 @@ private class FakeProxyGroupRepository : ProxyGroupRepository {
         replaceAll(
             com.poyka.ripdpi.data
                 .testPauseAuthority()
-                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                .reserveStop(),
             groups,
         )
     }
@@ -1183,6 +1183,11 @@ class NativeRelayActivationFenceTest {
                 com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore(
                     org.robolectric.RuntimeEnvironment.getApplication(),
                     mutations,
+                    mutations.testAuthority,
+                    com.poyka.ripdpi.data.selector.SelectorActiveGroupStore(
+                        org.robolectric.RuntimeEnvironment.getApplication(),
+                        mutations.testAuthority,
+                    ),
                 )
             var publications = 0
             val checked =

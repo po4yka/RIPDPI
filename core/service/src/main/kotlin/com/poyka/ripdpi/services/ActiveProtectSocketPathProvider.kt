@@ -23,20 +23,36 @@ import javax.inject.Singleton
 class ActiveProtectSocketPathProvider
     @Inject
     constructor() {
-        private val path = AtomicReference<String?>(null)
+        private class Protection(
+            val path: String,
+            val protect: (Int) -> Boolean,
+        )
+
+        private val owner = AtomicReference<Protection?>(null)
 
         /** Advertise `socketPath` as the active protect UDS (VPN session started). */
-        fun set(socketPath: String) {
-            path.set(socketPath)
+        fun set(
+            socketPath: String,
+            protect: (Int) -> Boolean,
+        ) {
+            owner.set(Protection(socketPath, protect))
+        }
+
+        /** The captured owner fails closed when a later VPN session replaces or withdraws it. */
+        fun captureDirectProtection(): com.poyka.ripdpi.core.XrayProtectController? {
+            val captured = owner.get() ?: return null
+            return com.poyka.ripdpi.core.XrayProtectController { fd ->
+                owner.get() === captured && captured.protect(fd) && owner.get() === captured
+            }
         }
 
         /** Stop advertising any path (VPN session stopped / revoked). */
         fun clear() {
-            path.set(null)
+            owner.set(null)
         }
 
         /** The active protect UDS path, or `null` when no VPN session is listening. */
-        fun current(): String? = path.get()
+        fun current(): String? = owner.get()?.path
 
         companion object {
             /** Environment variable read by the subprocess-protect helper crate. */

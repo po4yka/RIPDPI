@@ -1,7 +1,13 @@
 package com.poyka.ripdpi.data
 
+interface WarpRuntimeRevisionReader {
+    fun warpRuntimeRevision(profileId: String): Long
+}
+
 /** Process-local ABA fence; mutations become visible only after encrypted journal completion. */
-internal class WarpRuntimeMutationRevisions {
+internal class WarpRuntimeMutationRevisions : WarpRuntimeRevisionReader {
+    override fun warpRuntimeRevision(profileId: String): Long = current(profileId)
+
     private val revisions = mutableMapOf<String, Long>()
     private var epoch = 0L
 

@@ -23,7 +23,10 @@ interface ServiceRuntimeHandle {
     val mode: Mode
     val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?>
 
-    suspend fun reloadConnectionPolicy(isCurrent: suspend () -> Boolean): Boolean
+    suspend fun reloadConnectionPolicy(
+        intent: RuntimePolicyReloadIntent,
+        isCurrent: suspend () -> Boolean,
+    ): Boolean
 
     val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
         get() = null
@@ -36,17 +39,54 @@ abstract class ServiceRuntimeSession
     ) : ServiceRuntimeHandle {
         internal var reloadPolicy: suspend (suspend () -> Boolean) -> Boolean = { false }
 
-        final override suspend fun reloadConnectionPolicy(isCurrent: suspend () -> Boolean): Boolean =
-            reloadPolicy(isCurrent)
+        final override suspend fun reloadConnectionPolicy(
+            intent: RuntimePolicyReloadIntent,
+            isCurrent: suspend () -> Boolean,
+        ): Boolean =
+            when (intent) {
+                RuntimePolicyReloadIntent.Automatic -> {
+                    reloadPolicy(isCurrent)
+                }
+
+                is RuntimePolicyReloadIntent.Explicit -> {
+                    kotlinx.coroutines.withContext(
+                        RuntimeCommandStartAuthority(
+                            com.poyka.ripdpi.data.RuntimeAppliedIntent
+                                .Activation(intent.receipt),
+                        ),
+                    ) { reloadPolicy(isCurrent) }
+                }
+            }
 
         private var autolearnActivationGeneration: Long = 0L
         private var configurationRevision: Long = 0L
+        internal lateinit var originalAppliedIntent: com.poyka.ripdpi.data.RuntimeAppliedIntent
+            private set
+
+        internal fun captureOriginalAppliedIntent(original: com.poyka.ripdpi.data.RuntimeAppliedIntent) {
+            check(!::originalAppliedIntent.isInitialized) { "Runtime intent was already captured" }
+            originalAppliedIntent = original
+        }
+
         internal var pauseResumeIntent: com.poyka.ripdpi.data.PauseIntent? = null
+        internal var lastPositiveReceipt: com.poyka.ripdpi.data.RuntimeActivationReceipt? = null
+        internal var lastPositiveAppliedIdentity: com.poyka.ripdpi.data.RuntimeAppliedUseIdentity? = null
+
+        internal fun nextAppliedIntent(): com.poyka.ripdpi.data.RuntimeAppliedIntent =
+            lastPositiveAppliedIdentity?.let {
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Continuation(checkNotNull(lastPositiveReceipt), it)
+            } ?: originalAppliedIntent
+
         internal var configurationAttempt: com.poyka.ripdpi.data.RuntimeConfigurationAttempt? = null
         internal var effectiveConfigurationIdentity: RuntimeConfigurationIdentity? = null
         internal var effectiveProviderIdentity: RuntimeConfigurationIdentity? = null
 
-        internal fun nextConfigurationRevision(): Long = ++configurationRevision
+        internal fun nextConfigurationRevision(): Long =
+            Math.addExact(configurationRevision, 1).also {
+                configurationRevision =
+                    it
+            }
 
         private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
         var localNetworkDependent: Boolean = false
@@ -191,4 +231,12 @@ abstract class ServiceRuntimeRegistryModule {
     @Binds
     @Singleton
     abstract fun bindServiceRuntimeRegistry(registry: DefaultServiceRuntimeRegistry): ServiceRuntimeRegistry
+}
+
+sealed interface RuntimePolicyReloadIntent {
+    data object Automatic : RuntimePolicyReloadIntent
+
+    data class Explicit(
+        val receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
+    ) : RuntimePolicyReloadIntent
 }

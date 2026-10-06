@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RuntimeActivationReceipt
+import com.poyka.ripdpi.data.RuntimeAuthoritySnapshot
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -16,7 +18,6 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
@@ -71,12 +72,10 @@ class SimpleVlessRuntimeMonitorTest {
                     settings,
                     boot,
                 )
-            val monitor = buildMonitor(DefaultServiceStateStore(), settings, awgSelection = selection)
-            val arbiter =
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
+            val controller = RecordingServiceController()
+            val monitor =
+                buildMonitor(DefaultServiceStateStore(), settings, awgSelection = selection, controller = controller)
+            val arbiter = controller.intentArbiter
             val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
             val prepare =
                 launch {
@@ -142,6 +141,7 @@ class SimpleVlessRuntimeMonitorTest {
                     awgSelection = suspendedSelection,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
             runCurrent()
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
@@ -189,13 +189,9 @@ class SimpleVlessRuntimeMonitorTest {
                 launch {
                     monitor.prepare(
                         Mode.VPN,
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ).explicitUserStartGuard(
-                            0L,
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0L),
+                        controller.intentArbiter.explicitUserStartGuard(
+                            controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                            controller.intentArbiter.durableReference(),
                         ),
                     )
                 }
@@ -228,6 +224,7 @@ class SimpleVlessRuntimeMonitorTest {
                     profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
             stateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
             runCurrent()
@@ -261,7 +258,7 @@ class SimpleVlessRuntimeMonitorTest {
                                         "background start denied",
                                     ),
                             ),
-                            ServiceStartResult.Accepted(Mode.VPN),
+                            ServiceStartResult.MaintenanceAccepted(Mode.VPN),
                         ),
                 )
             settings.update {
@@ -276,6 +273,7 @@ class SimpleVlessRuntimeMonitorTest {
                     profiles = listOf(RelayProfileRecord(SeededHysteriaProfileId, RelayKindHysteria2)),
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
             runCurrent()
 
@@ -310,6 +308,7 @@ class SimpleVlessRuntimeMonitorTest {
                     relayCatalog = relayCatalog,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
             runCurrent()
 
@@ -345,6 +344,7 @@ class SimpleVlessRuntimeMonitorTest {
                     awgSelection = awgSelection,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, awgSelection)
             monitor.bind(backgroundScope)
             runCurrent()
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
@@ -372,7 +372,7 @@ class SimpleVlessRuntimeMonitorTest {
                 RecordingServiceController(
                     startupFallbackResults =
                         mutableListOf(
-                            ServiceStartResult.Accepted(Mode.VPN),
+                            ServiceStartResult.MaintenanceAccepted(Mode.VPN),
                             ServiceStartResult.Rejected(
                                 mode = Mode.VPN,
                                 reason =
@@ -380,7 +380,7 @@ class SimpleVlessRuntimeMonitorTest {
                                         "background start denied",
                                     ),
                             ),
-                            ServiceStartResult.Accepted(Mode.VPN),
+                            ServiceStartResult.MaintenanceAccepted(Mode.VPN),
                         ),
                 )
             val awgRequest = sampleAwgRequest()
@@ -398,6 +398,7 @@ class SimpleVlessRuntimeMonitorTest {
                     awgSelection = awgSelection,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, awgSelection)
             monitor.bind(backgroundScope)
             runCurrent()
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
@@ -436,6 +437,7 @@ class SimpleVlessRuntimeMonitorTest {
                     controller = controller,
                 )
 
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
 
             assertEquals(1, stateStore.eventSubscriberCount)
@@ -471,6 +473,7 @@ class SimpleVlessRuntimeMonitorTest {
                     awgSelection = awgSelection,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, awgSelection)
             monitor.bind(backgroundScope)
             runCurrent()
 
@@ -487,13 +490,9 @@ class SimpleVlessRuntimeMonitorTest {
 
             monitor.prepare(
                 Mode.VPN,
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                ).explicitUserStartGuard(
-                    0L,
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0L),
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.intentArbiter.durableReference(),
                 ),
             )
 
@@ -602,6 +601,7 @@ class SimpleVlessRuntimeMonitorTest {
                         ),
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
             runCurrent()
 
@@ -651,6 +651,7 @@ class SimpleVlessRuntimeMonitorTest {
                     awgSelection = awgSelection,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, awgSelection)
             monitor.bind(backgroundScope)
             runCurrent()
 
@@ -699,6 +700,7 @@ class SimpleVlessRuntimeMonitorTest {
                         ),
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, null)
             monitor.bind(backgroundScope)
             runCurrent()
 
@@ -802,13 +804,9 @@ class SimpleVlessRuntimeMonitorTest {
             assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
             monitor.prepare(
                 Mode.VPN,
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                ).explicitUserStartGuard(
-                    0L,
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0L),
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.intentArbiter.durableReference(),
                 ),
             )
             assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
@@ -868,6 +866,7 @@ class SimpleVlessRuntimeMonitorTest {
                     awgSelection = awgSelection,
                     controller = controller,
                 )
+            prepareStartupFixture(monitor, controller, settings, awgSelection)
             monitor.bind(backgroundScope)
             runCurrent()
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("VLESS readiness failed"))
@@ -888,6 +887,26 @@ class SimpleVlessRuntimeMonitorTest {
             assertNull(awgSelection.currentRequest)
         }
 
+    /** Establishes the real explicit preparer before simulating the already configured startup stage. */
+    private suspend fun prepareStartupFixture(
+        monitor: SimpleVlessRuntimeMonitor,
+        controller: RecordingServiceController,
+        settings: AppSettingsRepository,
+        awg: SimpleAwgFallbackSelection?,
+    ) {
+        val stage = settings.snapshot()
+        monitor.prepare(
+            Mode.VPN,
+            controller.intentArbiter.explicitUserStartGuard(
+                controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                controller.testAuthority.reference(),
+            ),
+        )
+        settings.replace(stage)
+        // Setup clears are not effects of the failure/retry operation asserted by these tests.
+        if (awg is RecordingAwgFallbackSelection) awg.clearCalls = 0
+    }
+
     private fun buildMonitor(
         stateStore: ServiceStateStore,
         settings: AppSettingsRepository,
@@ -895,14 +914,16 @@ class SimpleVlessRuntimeMonitorTest {
         relayCatalog: SimpleFailoverRelayCatalog = SimpleFailoverRelayCatalog { profiles },
         awgSelection: SimpleAwgFallbackSelection = RecordingAwgFallbackSelection(),
         controller: RecordingServiceController = RecordingServiceController(),
-    ): SimpleVlessRuntimeMonitor =
-        SimpleVlessRuntimeMonitor(
+    ): SimpleVlessRuntimeMonitor {
+        controller.prepareFixtureStart()
+        return SimpleVlessRuntimeMonitor(
             serviceStateStore = stateStore,
             settingsRepository = settings,
             relayCatalog = relayCatalog,
             awgFallbackSelection = awgSelection,
             startupFallbackController = controller,
         )
+    }
 
     private fun sampleAwgRequest(): AwgActivationRequest =
         AwgActivationRequest(
@@ -987,11 +1008,17 @@ private class RecordingServiceController(
     val userStartCalls = mutableListOf<Mode>()
     val startupFallbackStartCalls = mutableListOf<Mode>()
     val failoverRestartCalls = mutableListOf<Mode>()
-    private var userIntentGeneration = 0L
 
-    override fun recordStart(mode: Mode): ServiceStartResult {
+    override fun recordStart(
+        mode: Mode,
+        receipt: RuntimeActivationReceipt?,
+    ): ServiceStartResult {
         userStartCalls += mode
-        return ServiceStartResult.Accepted(mode)
+        return receipt?.let { ServiceStartResult.Accepted(it) } ?: ServiceStartResult.MaintenanceAccepted(mode)
+    }
+
+    fun prepareFixtureStart() {
+        acceptUserStart()
     }
 
     override fun restartVpnForTransportFailover(
@@ -999,33 +1026,45 @@ private class RecordingServiceController(
         expectedTarget: TransportFailoverTarget,
         reference: com.poyka.ripdpi.data.PauseAuthorityRef,
     ): ServiceStartResult {
+        if (!intentArbiter.isDurableCurrent(reference)) {
+            return ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.Superseded)
+        }
         failoverRestartCalls += Mode.VPN
-        return ServiceStartResult.Accepted(Mode.VPN)
+        return ServiceStartResult.MaintenanceAccepted(Mode.VPN)
     }
 
     override fun captureStartupFallbackLease(): StartupFallbackLease =
-        RecordingStartupFallbackLease(userIntentGeneration)
-
-    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
-        if ((lease as RecordingStartupFallbackLease).generation != userIntentGeneration) {
-            return StartupFallbackDispatchResult.Superseded
+        intentArbiter.serialize {
+            RecordingStartupFallbackLease(
+                intentArbiter.captureExplicitUserIntentGeneration(),
+                testAuthority.snapshotAuthority(),
+            )
         }
-        startupFallbackStartCalls += Mode.VPN
-        val result =
-            if (startupFallbackResults.isEmpty()) {
-                ServiceStartResult.Accepted(Mode.VPN)
+
+    override suspend fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+        val captured = lease as? RecordingStartupFallbackLease ?: return StartupFallbackDispatchResult.Superseded
+        return intentArbiter.runIfExplicitUserIntentCurrent(captured.generation) {
+            if (testAuthority.snapshotAuthority() != captured.snapshot) {
+                StartupFallbackDispatchResult.Superseded
             } else {
-                startupFallbackResults.removeAt(0)
+                startupFallbackStartCalls += Mode.VPN
+                val result =
+                    if (startupFallbackResults.isEmpty()) {
+                        ServiceStartResult.MaintenanceAccepted(Mode.VPN)
+                    } else {
+                        startupFallbackResults.removeAt(0)
+                    }
+                StartupFallbackDispatchResult.Dispatched(result, lease)
             }
-        return StartupFallbackDispatchResult.Dispatched(result)
+        } ?: StartupFallbackDispatchResult.Superseded
     }
 
     fun acceptUserStart() {
-        userIntentGeneration += 1
+        checkNotNull(intentArbiter.dispatchExplicit(testAuthority.reserveStart(Mode.VPN)))
     }
 
     fun acceptUserStop() {
-        userIntentGeneration += 1
+        checkNotNull(intentArbiter.dispatchExplicit(testAuthority.reserveStop()))
     }
 
     override fun recordStop() = Unit
@@ -1033,4 +1072,5 @@ private class RecordingServiceController(
 
 private data class RecordingStartupFallbackLease(
     val generation: Long,
+    val snapshot: RuntimeAuthoritySnapshot,
 ) : StartupFallbackLease

@@ -63,7 +63,7 @@ class DiagnosticsRuntimeCoordinatorTest {
     private suspend fun kotlinx.coroutines.test.TestScope.verifyRawEntryPreservesNewerIntent(paused: Boolean) {
         val state = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
         val controller = FakeServiceController(state)
-        val original = controller.testAuthority.reference()
+        val original = controller.testAuthority.snapshotAuthority()
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         val backing = FakeCoordinatorSettingsRepository()
@@ -1341,9 +1341,15 @@ private class FakeCoordinatorStateStore(
 private class FakeServiceController(
     private val stateStore: FakeCoordinatorStateStore,
 ) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+    init {
+        if (stateStore.status.value.first == AppStatus.Running) {
+            testAppliedRuntimeCommand(testAuthority, stateStore.status.value.second)
+        }
+    }
+
     val runtimeResumeIntentTracker =
         RuntimeResumeIntentTracker(testAuthority)
-    val diagnosticStopReferences = mutableListOf<com.poyka.ripdpi.data.PauseAuthorityRef>()
+    val diagnosticStopReferences = mutableListOf<com.poyka.ripdpi.data.RuntimeAuthoritySnapshot>()
     var stopFailure: Throwable? = null
     var stopAfterTransitionFailure: Throwable? = null
     var startFailure: Throwable? = null
@@ -1358,18 +1364,25 @@ private class FakeServiceController(
     val operations = mutableListOf<String>()
     private var pendingDiagnosticsStopTransition: Boolean = false
 
-    override fun recordStart(mode: Mode): ServiceStartResult =
+    override fun recordStart(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+    ): ServiceStartResult =
         runtimeResumeIntentTracker.withUserStart(
-            action = { start(mode, "user-start") },
+            action = { start(mode, "user-start", receipt) },
             isAccepted = { it is ServiceStartResult.Accepted },
         )
 
     override fun startForDiagnostics(
         mode: Mode,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ): ServiceStartResult {
+        val receipt =
+            testAuthority.authorizeRecovery(mode, reference)
+                ?: return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
+        // Model a platform start already queued before a concurrent explicit Stop.
         beforeDiagnosticsStart?.invoke()
-        val result = start(mode, "diagnostics-start")
+        val result = start(mode, "diagnostics-start", receipt)
         afterDiagnosticsStart?.invoke()
         return result
     }
@@ -1377,6 +1390,7 @@ private class FakeServiceController(
     private fun start(
         mode: Mode,
         operation: String,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
     ): ServiceStartResult {
         operations += operation
         startCount += 1
@@ -1385,21 +1399,22 @@ private class FakeServiceController(
         if (transitionOnStart) {
             stateStore.setStatus(AppStatus.Running, mode)
         }
-        return ServiceStartResult.Accepted(mode)
+        return receipt?.let(ServiceStartResult::Accepted) ?: ServiceStartResult.MaintenanceAccepted(mode)
     }
 
     override fun recordStop() {
+        testAuthority.reserveStop()
         runtimeResumeIntentTracker.recordAcceptedStop()
         stop("user-stop")
     }
 
-    override fun stopForDiagnostics(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
+    override fun stopForDiagnostics(reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot) {
         diagnosticStopReferences += reference
-        if (testAuthority.reference() == reference) stop("diagnostics-stop")
+        if (testAuthority.snapshotAuthority() == reference) stop("diagnostics-stop")
     }
 
-    override fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
-        stop("diagnostics-stop")
+    override fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot) {
+        if (testAuthority.snapshotAuthority() == reference) stop("diagnostics-stop")
     }
 
     private fun stop(operation: String) {

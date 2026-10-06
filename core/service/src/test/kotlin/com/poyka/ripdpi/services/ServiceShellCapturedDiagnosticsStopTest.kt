@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.testPauseAuthority
 import kotlinx.coroutines.CompletableDeferred
@@ -20,7 +19,8 @@ class ServiceShellCapturedDiagnosticsStopTest {
             val authority = testPauseAuthority()
             val arbiter = ServiceIntentArbiter(authority)
             val first =
-                checkNotNull(arbiter.dispatchExplicit(authority.supersede(RuntimeUserCommand.Start(Mode.Proxy))))
+                checkNotNull(arbiter.dispatchExplicit(authority.reserveStart(Mode.Proxy)))
+            val firstSnapshot = authority.snapshotAuthority()
             val entered = CompletableDeferred<Unit>()
             val hold = CompletableDeferred<Unit>()
             var starts = 0
@@ -46,6 +46,11 @@ class ServiceShellCapturedDiagnosticsStopTest {
                 1,
                 explicitUserIntentGeneration = first.processGeneration,
                 durableReference = first.durable.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
+                        first.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                    ),
+                stopSnapshot = firstSnapshot,
             )
             runCurrent()
             entered.await()
@@ -54,14 +59,24 @@ class ServiceShellCapturedDiagnosticsStopTest {
                 2,
                 explicitUserIntentGeneration = first.processGeneration,
                 durableReference = first.durable.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
+                        first.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                    ),
+                stopSnapshot = firstSnapshot,
             )
             val newer =
-                checkNotNull(arbiter.dispatchExplicit(authority.supersede(RuntimeUserCommand.Start(Mode.Proxy))))
+                checkNotNull(arbiter.dispatchExplicit(authority.reserveStart(Mode.Proxy)))
             shell.onStartCommand(
                 startAction,
                 3,
                 explicitUserIntentGeneration = newer.processGeneration,
                 durableReference = newer.durable.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
+                        newer.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                    ),
+                stopSnapshot = null,
             )
             hold.complete(Unit)
             runCurrent()
@@ -76,7 +91,8 @@ class ServiceShellCapturedDiagnosticsStopTest {
             val authority = testPauseAuthority()
             val arbiter = ServiceIntentArbiter(authority)
             val first =
-                checkNotNull(arbiter.dispatchExplicit(authority.supersede(RuntimeUserCommand.Start(Mode.Proxy))))
+                checkNotNull(arbiter.dispatchExplicit(authority.reserveStart(Mode.Proxy)))
+            val firstSnapshot = authority.snapshotAuthority()
             val entered = CompletableDeferred<Unit>()
             val hold = CompletableDeferred<Unit>()
             var stops = 0
@@ -99,6 +115,11 @@ class ServiceShellCapturedDiagnosticsStopTest {
                 1,
                 explicitUserIntentGeneration = first.processGeneration,
                 durableReference = first.durable.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
+                        first.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                    ),
+                stopSnapshot = firstSnapshot,
             )
             runCurrent()
             entered.await()
@@ -107,6 +128,11 @@ class ServiceShellCapturedDiagnosticsStopTest {
                 2,
                 explicitUserIntentGeneration = first.processGeneration,
                 durableReference = first.durable.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent.Activation(
+                        first.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt,
+                    ),
+                stopSnapshot = firstSnapshot,
             )
             val newer = authority.begin(Mode.Proxy, 300_000, authority.snapshotAuthority())
             hold.complete(Unit)

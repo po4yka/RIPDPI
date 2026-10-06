@@ -28,25 +28,34 @@ import kotlin.concurrent.withLock
 interface ServiceController :
     ServiceUserCommands,
     ServiceRecoveryCommands,
-    ServiceTransportMaintenance
+    ServiceTransportMaintenance {
+    fun preflight(mode: Mode): ServiceStartPreflightResult
+}
 
 interface ServiceUserCommands {
-    suspend fun captureRuntimeAuthority(): com.poyka.ripdpi.data.PauseAuthorityRef
+    suspend fun prepareStart(mode: Mode): com.poyka.ripdpi.data.RuntimeActivationReceipt
 
-    suspend fun prepareUserCommand(
-        command: com.poyka.ripdpi.data.RuntimeUserCommand,
-    ): com.poyka.ripdpi.data.DurableCommandReceipt
+    suspend fun prepareStop(): com.poyka.ripdpi.data.RuntimeStopReceipt
+
+    suspend fun prepareStopIfCurrent(
+        expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): com.poyka.ripdpi.data.RuntimeStopReceipt?
+
+    fun startProfileActivation(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.ProfileActivationReceipt,
+    ): ServiceStartResult
 
     suspend fun start(mode: Mode): ServiceStartResult
 
     fun startPrepared(
         mode: Mode,
-        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
     ): ServiceStartResult
 
-    fun stopPrepared(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean
+    fun stopPrepared(receipt: com.poyka.ripdpi.data.RuntimeStopReceipt): Boolean
 
-    fun finishOwnedRuntime(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean
+    fun finishOwnedRuntime(receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt): Boolean
 
     suspend fun stop()
 }
@@ -57,11 +66,11 @@ interface ServiceRecoveryCommands {
     suspend fun authorizeBootPolicyStart(
         mode: Mode,
         expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
-    ): com.poyka.ripdpi.data.BootPolicyStartReceipt?
+    ): com.poyka.ripdpi.data.RuntimeActivationReceipt?
 
     fun startBootPolicy(
         mode: Mode,
-        receipt: com.poyka.ripdpi.data.BootPolicyStartReceipt,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
     ): ServiceStartResult
 
     /**
@@ -71,26 +80,26 @@ interface ServiceRecoveryCommands {
     fun startForBootRecovery(
         mode: Mode,
         broadcastAction: String,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ): ServiceStartResult
 
     /** UI-visible fallback after process death; distinct from a user start. */
     fun startForProcessDeathRecovery(
         mode: Mode,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ): ServiceStartResult
 
     /** Internal diagnostics resume that must not replace explicit user intent. */
     fun startForDiagnostics(
         mode: Mode,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ): ServiceStartResult
 
     /** Internal diagnostics pause that must not replace explicit user intent. */
-    fun stopForDiagnostics(reference: com.poyka.ripdpi.data.PauseAuthorityRef)
+    fun stopForDiagnostics(reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot)
 
     /** Reconcile a user Stop after a diagnostics resume raced it. */
-    fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.PauseAuthorityRef)
+    fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot)
 }
 
 interface ServiceTransportMaintenance {
@@ -107,10 +116,10 @@ interface ServiceTransportMaintenance {
 
 interface StartupFallbackController {
     /** Capture the user-intent generation that owns a potential startup fallback. */
-    fun captureStartupFallbackLease(): StartupFallbackLease = UntrackedStartupFallbackLease
+    fun captureStartupFallbackLease(): StartupFallbackLease
 
     /** Start a fallback only while no newer explicit Start or Stop supersedes [lease]. */
-    fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult
+    suspend fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult
 }
 
 /** Explicit profile activation, distinct from automatic transport failover and ordinary Start. */
@@ -129,14 +138,13 @@ sealed interface StartupFallbackDispatchResult {
 
     data class Dispatched(
         val startResult: ServiceStartResult,
+        val continuationLease: StartupFallbackLease,
     ) : StartupFallbackDispatchResult
 }
 
-private data object UntrackedStartupFallbackLease : StartupFallbackLease
-
 private data class UserIntentStartupFallbackLease(
     val generation: Long,
-    val reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    val snapshot: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
 ) : StartupFallbackLease
 
 internal const val hardKillSwitchRefreshBroadcastAction =
@@ -146,6 +154,12 @@ sealed interface ServiceStartResult {
     val mode: Mode
 
     data class Accepted(
+        val receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
+    ) : ServiceStartResult {
+        override val mode: Mode get() = receipt.mode
+    }
+
+    data class MaintenanceAccepted(
         override val mode: Mode,
     ) : ServiceStartResult
 
@@ -208,29 +222,14 @@ class ServiceIntentArbiter
                 userIntentGeneration == lease.processGeneration && pauseAuthority.isCurrent(lease.durable)
             }
 
-        fun publishIfCurrent(
-            generation: Long,
-            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
-            mode: Mode,
-            publish: () -> Unit,
-        ): Boolean =
-            lock.withLock {
-                if (userIntentGeneration != generation) return@withLock false
-                val permit = pauseAuthority.publicationPermit(reference, mode) ?: return@withLock false
-                pauseAuthority.intentLinearizer.publishIf({ pauseAuthority.allowsPublication(permit) }, publish)
-            }
-
         fun durableReference() = pauseAuthority.reference()
+
+        fun durableSnapshot() = pauseAuthority.snapshotAuthority()
 
         fun isDurableCurrent(reference: com.poyka.ripdpi.data.PauseAuthorityRef) =
             pauseAuthority.reference() == reference
 
         val durableIntentStates get() = pauseAuthority.states
-
-        fun confirmAppliedMode(
-            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
-            mode: Mode,
-        ) = pauseAuthority.confirmAppliedMode(reference, mode)
 
         /** The lease covers the entire suspend DataStore update, while start dispatch remains synchronous. */
         fun tryReserveDoqSave(canSave: () -> Boolean): AutoCloseable? =
@@ -355,10 +354,7 @@ class AcceptedUserStopRecorder
                                 }
 
                                 is AcceptedServiceStop.Notification -> {
-                                    pauseAuthority
-                                        .supersede(
-                                            com.poyka.ripdpi.data.RuntimeUserCommand.Stop,
-                                        ).authority
+                                    pauseAuthority.reserveStop().authority
                                 }
                             } ?: return@runIfExplicitUserIntentCurrent null
                         recordState()
@@ -446,10 +442,10 @@ class DefaultServiceController private constructor(
     override suspend fun authorizeBootPolicyStart(
         mode: Mode,
         expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
-    ): com.poyka.ripdpi.data.BootPolicyStartReceipt? =
+    ): com.poyka.ripdpi.data.RuntimeActivationReceipt? =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             profileRecovery.readRecovered {
-                if (!appSettings.snapshot().startOnBoot || preflight(mode) is ServiceStartResult.Rejected) {
+                if (!appSettings.snapshot().startOnBoot || preflight(mode) is ServiceStartPreflightResult.Rejected) {
                     null
                 } else {
                     serviceIntentArbiter.recovery { pauseAuthority.authorizeBootPolicyStart(mode, expected) }
@@ -459,19 +455,25 @@ class DefaultServiceController private constructor(
 
     override fun startBootPolicy(
         mode: Mode,
-        receipt: com.poyka.ripdpi.data.BootPolicyStartReceipt,
-    ): ServiceStartResult = dispatch.start(mode, bootRecoveryStartAction, expectedDurableReference = receipt.reference)
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt,
+    ): ServiceStartResult =
+        dispatch.start(
+            mode,
+            bootRecoveryStartAction,
+            dispatchLease = serviceIntentArbiter.dispatchExplicit(receipt),
+            expectedDurableReference = receipt.authority,
+        )
 
-    override fun preflight(mode: Mode): ServiceStartResult =
+    override fun preflight(mode: Mode): ServiceStartPreflightResult =
         if (mode == Mode.VPN && VpnService.prepare(context) != null) {
-            ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
+            ServiceStartPreflightResult.Rejected(ServiceStartRejectionReason.VpnConsentMissing)
         } else {
-            ServiceStartResult.Accepted(mode)
+            ServiceStartPreflightResult.Allowed
         }
 
     override fun stopIfCurrent(lease: ServiceDispatchLease): Boolean {
         if (!serviceIntentArbiter.isCurrent(lease)) return false
-        dispatch.stop(stopAction, lease, lease.durable.authority)
+        dispatch.stop(stopAction, lease, lease.durable.authority, pauseAuthority.snapshotAuthority())
         return true
     }
 
@@ -483,19 +485,30 @@ class DefaultServiceController private constructor(
         return dispatch.start(mode, startAction, dispatchLease = lease)
     }
 
+    private fun dispatchRecoveryStart(
+        mode: Mode,
+        action: String,
+        expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): ServiceStartResult =
+        pauseAuthority.authorizeRecovery(mode, expected)?.let { receipt ->
+            serviceIntentArbiter.dispatchExplicit(receipt)?.let { lease ->
+                dispatch.start(mode, action, dispatchLease = lease, expectedDurableReference = receipt.authority)
+            }
+        } ?: ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
+
     override fun startForBootRecovery(
         mode: Mode,
         broadcastAction: String,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ): ServiceStartResult =
-        dispatch.start(
+        dispatchRecoveryStart(
             mode,
             if (broadcastAction == Intent.ACTION_BOOT_COMPLETED) {
                 bootRecoveryStartAction
             } else {
                 packageReplacedRecoveryStartAction
             },
-            expectedDurableReference = reference,
+            expected = reference,
         )
 
     override fun startVpnTransport(
@@ -511,13 +524,13 @@ class DefaultServiceController private constructor(
 
     override fun startForProcessDeathRecovery(
         mode: Mode,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
-    ): ServiceStartResult = dispatch.start(mode, processDeathRecoveryStartAction, expectedDurableReference = reference)
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): ServiceStartResult = dispatchRecoveryStart(mode, processDeathRecoveryStartAction, reference)
 
     override fun startForDiagnostics(
         mode: Mode,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
-    ): ServiceStartResult = dispatch.start(mode, diagnosticsStartAction, expectedDurableReference = reference)
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): ServiceStartResult = dispatchRecoveryStart(mode, diagnosticsStartAction, reference)
 
     override fun restartVpnForTransportFailover(
         requestId: Long,
@@ -533,37 +546,50 @@ class DefaultServiceController private constructor(
         )
 
     override fun captureStartupFallbackLease(): StartupFallbackLease =
-        UserIntentStartupFallbackLease(
-            serviceIntentArbiter.captureExplicitUserIntentGeneration(),
-            pauseAuthority.reference(),
-        )
+        serviceIntentArbiter.serialize {
+            UserIntentStartupFallbackLease(
+                serviceIntentArbiter.captureExplicitUserIntentGeneration(),
+                pauseAuthority.snapshotAuthority(),
+            )
+        }
 
-    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+    override suspend fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
         val captured = lease as? UserIntentStartupFallbackLease ?: return StartupFallbackDispatchResult.Superseded
-        val generation = captured.generation
-        return if (!serviceIntentArbiter.isDurableCurrent(captured.reference) ||
-            pauseAuthority.snapshot() != null
-        ) {
+        val prepared =
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                profileRecovery.readRecovered {
+                    serviceIntentArbiter.runIfExplicitUserIntentCurrent(captured.generation) {
+                        pauseAuthority.authorizeStartupFallback(captured.snapshot)?.let { receipt ->
+                            serviceIntentArbiter.dispatchExplicit(receipt)?.let { dispatchLease ->
+                                dispatchLease to
+                                    UserIntentStartupFallbackLease(
+                                        dispatchLease.processGeneration,
+                                        pauseAuthority.snapshotAuthority(),
+                                    )
+                            }
+                        }
+                    }
+                }
+            }
+        return if (prepared == null) {
             StartupFallbackDispatchResult.Superseded
         } else {
-            serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
-                StartupFallbackDispatchResult.Dispatched(
-                    dispatch.start(Mode.VPN, startupFallbackStartAction, expectedDurableReference = captured.reference),
-                )
-            } ?: StartupFallbackDispatchResult.Superseded
+            StartupFallbackDispatchResult.Dispatched(
+                dispatch.start(Mode.VPN, startupFallbackStartAction, dispatchLease = prepared.first),
+                prepared.second,
+            )
         }
     }
 
-    override fun stopForDiagnostics(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
-        if (serviceIntentArbiter.isDurableCurrent(reference)) dispatch.stop(diagnosticsStopAction, null, reference)
+    override fun stopForDiagnostics(reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot) {
+        if (pauseAuthority.snapshotAuthority() == reference) {
+            dispatch.stop(diagnosticsStopAction, null, reference.reference, expectedSnapshot = reference)
+        }
     }
 
-    override fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
-        if (serviceIntentArbiter.isDurableCurrent(
-                reference,
-            )
-        ) {
-            dispatch.stop(diagnosticsCompensatingStopAction, null, reference)
+    override fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot) {
+        if (pauseAuthority.snapshotAuthority() == reference) {
+            dispatch.stop(diagnosticsCompensatingStopAction, null, reference.reference, expectedSnapshot = reference)
         }
     }
 

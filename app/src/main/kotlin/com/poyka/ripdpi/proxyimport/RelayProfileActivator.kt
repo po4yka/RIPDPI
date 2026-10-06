@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,7 +48,7 @@ class RelayProfileActivator
                 profileMutations.upsertRelay(
                     preparation,
                     profile = mapped.profile,
-                    credentials = mapped.credentials,
+                    credentials = mapped.credentials.copy(updatedAtEpochMillis = System.currentTimeMillis()),
                     enabled = true,
                     select = true,
                     modeAfterImage = modeAfterImage,

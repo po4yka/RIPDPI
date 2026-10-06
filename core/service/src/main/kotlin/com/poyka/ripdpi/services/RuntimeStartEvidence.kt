@@ -31,6 +31,7 @@ internal sealed interface RuntimeStartEvidence {
         val selection: RuntimeConfigurationSelection,
         val effectiveIdentity: RuntimeConfigurationIdentity,
         val tunnel: RuntimeTunnelReadyEvidence,
+        val measurementProof: CandidateConfigurationProof?,
     ) : RuntimeStartEvidence {
         override fun toString(): String = "RuntimeStartEvidence.ProviderReady([REDACTED])"
     }

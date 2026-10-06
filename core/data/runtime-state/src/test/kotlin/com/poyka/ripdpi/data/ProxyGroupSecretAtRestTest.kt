@@ -70,7 +70,10 @@ class ProxyGroupSecretAtRestTest {
                 SharedPreferencesProxyGroupRepository(
                     blobStore,
                     com.poyka.ripdpi.data
-                        .testMutationPreparationSource(),
+                        .testMutationPreparationSource(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                 )
 
             repo.add(sampleGroup())
@@ -88,7 +91,10 @@ class ProxyGroupSecretAtRestTest {
                 SharedPreferencesProxyGroupRepository(
                     blobStore,
                     com.poyka.ripdpi.data
-                        .testMutationPreparationSource(),
+                        .testMutationPreparationSource(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                 ).list().single()
             assertEquals(memberPassword, (loaded.members.single() as ProxyProfile.Trojan).password)
             assertEquals(subToken, loaded.subscription?.token)
@@ -104,7 +110,10 @@ class ProxyGroupSecretAtRestTest {
                 SharedPreferencesProxyGroupRepository(
                     blobStore,
                     com.poyka.ripdpi.data
-                        .testMutationPreparationSource(),
+                        .testMutationPreparationSource(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                 )
             repo.add(sampleGroup())
 

@@ -56,6 +56,8 @@ class ServiceShellStopTest {
                 durableReference =
                     com.poyka.ripdpi.data
                         .PauseAuthorityRef(0),
+                activation = null,
+                stopSnapshot = authority.snapshotAuthority(),
             )
 
             runCurrent()
@@ -109,6 +111,8 @@ class ServiceShellStopTest {
                 durableReference =
                     com.poyka.ripdpi.data
                         .PauseAuthorityRef(0),
+                activation = null,
+                stopSnapshot = authority.snapshotAuthority(),
             )
 
             runCurrent()

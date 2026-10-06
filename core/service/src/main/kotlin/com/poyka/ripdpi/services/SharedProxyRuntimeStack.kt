@@ -4,7 +4,6 @@ import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
-import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
@@ -46,6 +45,7 @@ internal class SharedProxyRuntimeStack(
                 amneziaWgRuntimeSupervisor.runtime != null
 
     suspend fun start(
+        relayInputs: RelayResolutionInputs,
         proxyPreferences: RipDpiProxyPreferences,
         requestedWarpReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
         onRelayExit: suspend (SupervisorExitCause) -> Unit,
@@ -85,7 +85,6 @@ internal class SharedProxyRuntimeStack(
             }
             effectivePreferences = effectivePreferences.withAwgEgressPort(AmneziaWgLocalSocksPort)
         } else {
-            val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
             proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
                 // A fresh relay start clears any stale foreign-relay-failed signal from a
                 // previous session so this session does not begin in a Degraded state.
@@ -93,7 +92,7 @@ internal class SharedProxyRuntimeStack(
                 if (initialRelayRacePlan == null) {
                     upstreamRelaySupervisor.start(
                         config = relayConfig,
-                        quicMigrationConfig = relayQuicMigrationConfig,
+                        inputs = relayInputs,
                         requirements = egressRequirements,
                         onUnexpectedExit = onRelayExit,
                     )
@@ -101,7 +100,7 @@ internal class SharedProxyRuntimeStack(
                     val promoted =
                         upstreamRelaySupervisor.startRace(
                             plan = initialRelayRacePlan,
-                            quicMigrationConfig = relayQuicMigrationConfig,
+                            inputs = relayInputs,
                             onUnexpectedExit = onRelayExit,
                             onState = onInitialRelayRaceState,
                         )

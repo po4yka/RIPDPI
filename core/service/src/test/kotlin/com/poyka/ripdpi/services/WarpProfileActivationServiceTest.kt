@@ -62,6 +62,26 @@ class WarpProfileActivationServiceTest {
             activeId = profileId
         }
 
+        override suspend fun setActiveProfileIdOwned(
+            profileId: String?,
+            authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+            commandId: String,
+        ): Boolean =
+            authority.intentLinearizer.serialize {
+                if (!(
+                        authority.reference() == reference &&
+                            authority.snapshotAuthority().command?.commandId == commandId
+                    )
+                ) {
+                    false
+                } else {
+                    activeId =
+                        profileId
+                    true
+                }
+            }
+
         override suspend fun clearAll() {
             profiles.clear()
             activeId = null

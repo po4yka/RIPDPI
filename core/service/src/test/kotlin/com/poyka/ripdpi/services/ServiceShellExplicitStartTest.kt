@@ -30,13 +30,7 @@ class ServiceShellExplicitStartTest {
         runTest {
             val releaseQueue = CompletableDeferred<Unit>()
             val fixture = Fixture(this, diagnostics = { releaseQueue.await() })
-            fixture.delegate.onStartCommand(
-                diagnosticsStartAction,
-                1,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-            )
+            fixture.deliverDiagnostics()
             runCurrent()
             fixture.deliverStart(fixture.acceptStart())
             fixture.publishAwg()
@@ -96,6 +90,8 @@ class ServiceShellExplicitStartTest {
                 durableReference =
                     com.poyka.ripdpi.data
                         .PauseAuthorityRef(0),
+                activation = null,
+                stopSnapshot = fixture.stopSnapshot,
             )
             runCurrent()
             assertEquals("awg-existing", fixture.selectedProfile)
@@ -107,16 +103,16 @@ class ServiceShellExplicitStartTest {
     fun `delayed dispatched stop cannot invalidate a newer start`() =
         runTest {
             val fixture = Fixture(this)
-            fixture.arbiter.userStop { }
+            fixture.acceptStop()
             val stopGeneration = fixture.arbiter.captureExplicitUserIntentGeneration()
             val startGeneration = fixture.acceptStart()
             fixture.delegate.onStartCommand(
                 stopAction,
                 1,
                 explicitUserIntentGeneration = stopGeneration,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = fixture.stopReference(),
+                activation = null,
+                stopSnapshot = fixture.stopSnapshot,
             )
             fixture.deliverStart(startGeneration)
             runCurrent()
@@ -134,6 +130,8 @@ class ServiceShellExplicitStartTest {
                 durableReference =
                     com.poyka.ripdpi.data
                         .PauseAuthorityRef(0),
+                activation = null,
+                stopSnapshot = fixture.stopSnapshot,
             )
             fixture.deliverStart(fixture.acceptStart())
             runCurrent()
@@ -144,15 +142,15 @@ class ServiceShellExplicitStartTest {
     fun `accepted dispatched stop records without advancing generation twice`() =
         runTest {
             val fixture = Fixture(this)
-            fixture.arbiter.userStop { }
+            fixture.acceptStop()
             val generation = fixture.arbiter.captureExplicitUserIntentGeneration()
             fixture.delegate.onStartCommand(
                 stopAction,
                 1,
                 explicitUserIntentGeneration = generation,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = fixture.stopReference(),
+                activation = null,
+                stopSnapshot = fixture.stopSnapshot,
             )
             runCurrent()
             fixture.checkedStopRecorded.await()
@@ -217,31 +215,73 @@ class ServiceShellExplicitStartTest {
                 ioDispatcher = StandardTestDispatcher(scope.testScheduler),
             )
 
-        fun acceptStart(): Long = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
+        private val starts = mutableMapOf<Long, com.poyka.ripdpi.data.RuntimeActivationReceipt>()
+        private var stopped: com.poyka.ripdpi.data.RuntimeStopReceipt? = null
+        var stopSnapshot = authority.snapshotAuthority()
+            private set
+
+        fun acceptStart(): Long {
+            val receipt = authority.reserveStart(com.poyka.ripdpi.data.Mode.VPN)
+            val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
+            starts[lease.processGeneration] = receipt
+            return lease.processGeneration
+        }
+
+        fun acceptStop(): Long {
+            val receipt = authority.reserveStop()
+            val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
+            stopped = receipt
+            stopSnapshot = authority.snapshotAuthority()
+            return lease.processGeneration
+        }
+
+        fun stopReference() = checkNotNull(stopped).authority
+
+        fun deliverDiagnostics() {
+            val generation = acceptStart()
+            val receipt = checkNotNull(starts[generation])
+            delegate.onStartCommand(
+                diagnosticsStartAction,
+                1,
+                explicitUserIntentGeneration = generation,
+                durableReference = receipt.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent
+                        .Activation(receipt),
+                stopSnapshot = null,
+            )
+        }
 
         fun deliverStart(generation: Long) {
+            val receipt = checkNotNull(starts[generation])
             delegate.onStartCommand(
                 startAction,
                 2,
                 explicitUserIntentGeneration = generation,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = receipt.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent
+                        .Activation(receipt),
+                stopSnapshot = null,
             )
         }
 
         fun publishAwg() {
             arbiter.serialize {
+                val generation = acceptStart()
+                val receipt = checkNotNull(starts[generation])
                 selectedProfile = "awg-newer"
                 delegate.onStartCommand(
                     transportActivationStartAction,
                     3,
                     42L,
                     TransportFailoverTarget(TransportKindAmneziaWg, "awg-newer"),
-                    explicitUserIntentGeneration = acceptStart(),
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
+                    explicitUserIntentGeneration = generation,
+                    durableReference = receipt.authority,
+                    activation =
+                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                            .Activation(receipt),
+                    stopSnapshot = null,
                 )
             }
         }

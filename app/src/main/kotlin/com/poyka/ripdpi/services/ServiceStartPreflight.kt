@@ -9,13 +9,13 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class ServiceStartPreflightResult {
+enum class LocalNetworkStartPreflightResult {
     Allowed,
     LocalNetworkPermissionRequired,
 }
 
 fun interface ServiceStartPreflight {
-    suspend fun check(mode: Mode): ServiceStartPreflightResult
+    suspend fun check(mode: Mode): LocalNetworkStartPreflightResult
 }
 
 @Singleton
@@ -32,13 +32,13 @@ class DefaultServiceStartPreflight internal constructor(
         requireLocalNetworkAccess = localNetworkPreflight::requireAccess,
     )
 
-    override suspend fun check(mode: Mode): ServiceStartPreflightResult {
-        if (localNetworkGranted()) return ServiceStartPreflightResult.Allowed
+    override suspend fun check(mode: Mode): LocalNetworkStartPreflightResult {
+        if (localNetworkGranted()) return LocalNetworkStartPreflightResult.Allowed
         return try {
             requireLocalNetworkAccess(mode)
-            ServiceStartPreflightResult.Allowed
+            LocalNetworkStartPreflightResult.Allowed
         } catch (_: LocalNetworkAccessRequiredException) {
-            ServiceStartPreflightResult.LocalNetworkPermissionRequired
+            LocalNetworkStartPreflightResult.LocalNetworkPermissionRequired
         }
     }
 }

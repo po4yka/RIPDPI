@@ -13,21 +13,14 @@ internal class RequestedRuntimeConfigurationMaterialFactory(
     fun build(
         mode: Mode,
         settings: AppSettings,
-        policy: RequestedRuntimePolicy,
         catalog: RuntimeConfigurationCatalogMaterial,
         tunnelInput: VpnTunnelConfigurationInput,
         groupSelection: RuntimeConfigurationSelection,
+        transportPolicy: CapturedTransportPolicy,
     ): RequestedRuntimeConfiguration {
         val dns = settings.activeDnsSettings()
         val transportMaterial =
-            (
-                if (catalog.selection.provider == "xray") {
-                    listOf(mode.preferenceValue)
-                } else {
-                    connectionPolicyTransportMaterial(mode, policy.preferences, policy.destinationDigest) +
-                        listOf(settings.strategyChainYaml)
-                }
-            ) +
+            transportPolicy.material +
                 vpnConfigurationMaterial(mode, settings) + catalog.material +
                 tunnelInput.packageRoutingRules.filter { mode == Mode.VPN }.map {
                     RipDpiEncodeDefaultsJson.encodeToString(PackageRoutingRule.serializer(), it)
@@ -35,15 +28,15 @@ internal class RequestedRuntimeConfigurationMaterialFactory(
         val dnsMaterial =
             connectionPolicyDnsMaterial(dns) +
                 if (dns.isEncrypted) listOf(settings.encryptedDnsTlsRootsPem) else emptyList()
-        return RequestedRuntimeConfiguration(
+        return transportPolicy.configuration(
             identity = identities.capture(transportMaterial + catalog.warpMaterial.orEmpty(), dnsMaterial),
             selection = groupSelection,
             dns = dns.runtimeDnsSummary(),
             strategy = settings.strategySummary(),
             tunnelInput = tunnelInput,
-            frozenTransportMaterial = transportMaterial,
-            frozenDnsMaterial = dnsMaterial,
-            frozenWarpMaterial = catalog.warpMaterial,
+            transportMaterial = transportMaterial,
+            dnsMaterial = dnsMaterial,
+            warpMaterial = catalog.warpMaterial,
             warpReference = catalog.warpReference,
         )
     }

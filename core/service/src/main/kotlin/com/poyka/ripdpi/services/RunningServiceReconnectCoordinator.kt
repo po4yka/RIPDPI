@@ -24,7 +24,7 @@ import javax.inject.Singleton
 
 /** Guarded framework dispatch; Accepted is dispatch acceptance, never runtime readiness. */
 interface RunningReconnectDispatch {
-    fun preflight(mode: Mode): ServiceStartResult
+    fun preflight(mode: Mode): ServiceStartPreflightResult
 
     fun stopIfCurrent(lease: ServiceDispatchLease): Boolean
 
@@ -200,10 +200,7 @@ class RunningServiceReconnectCoordinator
                     .mapNotNull { it.attemptIdentity()?.first }
                     .toMutableSet()
             val receipt =
-                serviceController.prepareUserCommand(
-                    com.poyka.ripdpi.data.RuntimeUserCommand
-                        .Start(mode),
-                )
+                serviceController.prepareStart(mode)
             val lease = arbiter.dispatchExplicit(receipt) ?: return failure(mode, RunningReconnectFailure.Superseded)
             val generation = lease.processGeneration
             synchronized(cancellationLock) { ownerGeneration = generation }
@@ -261,6 +258,7 @@ class RunningServiceReconnectCoordinator
                 null -> failure(mode, RunningReconnectFailure.Superseded)
                 is ServiceStartResult.Rejected -> failure(mode, RunningReconnectFailure.StartRejected)
                 is ServiceStartResult.Accepted -> awaitReplacement(mode, generation, excluded)
+                is ServiceStartResult.MaintenanceAccepted -> failure(mode, RunningReconnectFailure.StartRejected)
             }
         }
 
@@ -326,14 +324,14 @@ class RunningServiceReconnectCoordinator
             activeMode: Mode,
         ): RunningReconnectFailure? =
             when (val result = dispatch.preflight(mode)) {
-                is ServiceStartResult.Rejected -> {
+                is ServiceStartPreflightResult.Rejected -> {
                     when (result.reason) {
                         ServiceStartRejectionReason.VpnConsentMissing -> RunningReconnectFailure.PermissionRequired
                         else -> RunningReconnectFailure.StartRejected
                     }
                 }
 
-                is ServiceStartResult.Accepted -> {
+                ServiceStartPreflightResult.Allowed -> {
                     if (activeMode == Mode.VPN) {
                         when (liveLockdown.read().status) {
                             AndroidHardKillSwitchStatus.ENABLED -> RunningReconnectFailure.Lockdown

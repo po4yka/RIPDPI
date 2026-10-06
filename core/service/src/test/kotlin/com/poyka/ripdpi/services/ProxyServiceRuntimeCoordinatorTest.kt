@@ -80,16 +80,16 @@ class ProxyServiceRuntimeCoordinatorTest {
             }
             val arbiter =
                 ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
+                    env.commands.authority,
                 )
-            val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            val receipt = env.commands.authority.reserveStart(Mode.Proxy)
+            val generation = checkNotNull(arbiter.dispatchExplicit(receipt)).processGeneration
             val shell =
                 ServiceShellDelegate(
                     serviceScope = backgroundScope,
                     serviceIntentArbiter = arbiter,
                     serviceLabel = "proxy",
-                    onStart = { env.coordinator.start() },
+                    onStart = { env.startCaptured() },
                     onStop = { _, _ -> env.coordinator.stop() },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
@@ -101,9 +101,11 @@ class ProxyServiceRuntimeCoordinatorTest {
                 com.poyka.ripdpi.data.startAction,
                 1,
                 explicitUserIntentGeneration = generation,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = receipt.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent
+                        .Activation(receipt),
+                stopSnapshot = null,
             )
             runCurrent()
             assertTrue(entered.isCompleted)
@@ -142,16 +144,16 @@ class ProxyServiceRuntimeCoordinatorTest {
             }
             val arbiter =
                 ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
+                    env.commands.authority,
                 )
-            val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            val receipt = env.commands.authority.reserveStart(Mode.Proxy)
+            val generation = checkNotNull(arbiter.dispatchExplicit(receipt)).processGeneration
             val shell =
                 ServiceShellDelegate(
                     serviceScope = backgroundScope,
                     serviceIntentArbiter = arbiter,
                     serviceLabel = "proxy",
-                    onStart = { env.coordinator.start() },
+                    onStart = { env.startCaptured() },
                     onStop = { _, _ -> env.coordinator.stop() },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
@@ -163,9 +165,11 @@ class ProxyServiceRuntimeCoordinatorTest {
                 com.poyka.ripdpi.data.startAction,
                 1,
                 explicitUserIntentGeneration = generation,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = receipt.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent
+                        .Activation(receipt),
+                stopSnapshot = null,
             )
             runCurrent()
             assertTrue(enteredPublication.isCompleted)
@@ -202,16 +206,16 @@ class ProxyServiceRuntimeCoordinatorTest {
                 })
             val arbiter =
                 ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
+                    env.commands.authority,
                 )
-            val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
+            val receipt = env.commands.authority.reserveStart(Mode.Proxy)
+            val generation = checkNotNull(arbiter.dispatchExplicit(receipt)).processGeneration
             val shell =
                 ServiceShellDelegate(
                     serviceScope = backgroundScope,
                     serviceIntentArbiter = arbiter,
                     serviceLabel = "proxy",
-                    onStart = { env.coordinator.start() },
+                    onStart = { env.startCaptured() },
                     onStop = { _, _ -> env.coordinator.stop() },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
@@ -223,9 +227,11 @@ class ProxyServiceRuntimeCoordinatorTest {
                 com.poyka.ripdpi.data.startAction,
                 1,
                 explicitUserIntentGeneration = generation,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
+                durableReference = receipt.authority,
+                activation =
+                    com.poyka.ripdpi.data.RuntimeAppliedIntent
+                        .Activation(receipt),
+                stopSnapshot = null,
             )
             runCurrent()
             assertTrue(entered.isCompleted)
@@ -247,7 +253,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
@@ -263,7 +269,7 @@ class ProxyServiceRuntimeCoordinatorTest {
     fun destinationRoutingResolutionFailureStopsFailedService() =
         runTest {
             val env = newEnv()
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.resolver.enqueueFailure(IOException("routing policy unavailable"))
 
@@ -283,7 +289,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                     activationRecorder = AutolearnActivationRecorder { error("database unavailable") },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
@@ -313,7 +319,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(listOf("warp:start", "proxy:start"), env.events.take(2))
@@ -351,7 +357,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertTrue(env.events.contains("awg:start"))
@@ -386,7 +392,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.awgFactory.runtimes
                 .single()
@@ -421,7 +427,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.relayFactory.lastRuntime.complete(17)
             repeat(3) { runCurrent() }
@@ -437,8 +443,8 @@ class ProxyServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
-            env.coordinator.start()
+            env.startCaptured()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(1, env.factory.runtimes.size)
@@ -455,7 +461,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Halted to Mode.Proxy, env.store.status.value)
@@ -469,7 +475,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.factory.lastRuntime.complete(17)
             repeat(3) { runCurrent() }
@@ -484,7 +490,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             val runtime = env.factory.lastRuntime
@@ -515,7 +521,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val firstRuntime = env.factory.lastRuntime
 
@@ -576,7 +582,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -600,7 +606,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         runTest {
             val env = buildStaleReplacementEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -662,7 +668,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -763,6 +769,7 @@ private class DelayedStopProxyRuntime(
 }
 
 private data class ProxyRuntimeCoordinatorEnv(
+    val commands: TestRuntimeCommandSource,
     val coordinator: ProxyServiceRuntimeCoordinator,
     val store: TestServiceStateStore,
     val host: TestProxyServiceHost,
@@ -777,9 +784,12 @@ private data class ProxyRuntimeCoordinatorEnv(
     val resolver: TestConnectionPolicyResolver,
     val autolearnReceipts: List<AutolearnActivationReceipt>,
     val configurations: AppliedRuntimeConfigurationStore,
-)
+) {
+    suspend fun startCaptured() = commands.start(runtimeRegistry.current(Mode.Proxy) != null) { coordinator.start() }
+}
 
 private data class StaleReplacementEnv(
+    val commands: TestRuntimeCommandSource,
     val coordinator: ProxyServiceRuntimeCoordinator,
     val store: TestServiceStateStore,
     val handoverMonitor: TestNetworkHandoverMonitor,
@@ -787,9 +797,12 @@ private data class StaleReplacementEnv(
     val oldRuntime: DelayedStopProxyRuntime,
     val initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
     val newFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
-)
+) {
+    suspend fun startCaptured() = commands.start(runtimeRegistry.current(Mode.Proxy) != null) { coordinator.start() }
+}
 
 private fun TestScope.buildStaleReplacementCoordinator(
+    commands: TestRuntimeCommandSource,
     dispatcher: kotlinx.coroutines.CoroutineDispatcher,
     store: TestServiceStateStore,
     initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
@@ -802,9 +815,8 @@ private fun TestScope.buildStaleReplacementCoordinator(
         configurationLifecycle =
             RuntimeConfigurationLifecycle(
                 AppliedRuntimeConfigurationStore(
-                    PauseAppliedReceiptConsumer(
-                        com.poyka.ripdpi.data
-                            .testPauseAuthority(),
+                    testRuntimeAppliedReceiptConsumer(
+                        commands.authority,
                     ),
                 ),
                 RuntimeConfigurationIdentityFactory(),
@@ -825,6 +837,7 @@ private fun TestScope.buildStaleReplacementCoordinator(
                         relayFactory = TestRipDpiRelayFactory(),
                         naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                         relayProfileStore = TestRelayProfileStore(),
+                        selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                         relayCredentialStore = TestRelayCredentialStore(),
                     ),
                 warpRuntimeSupervisor =
@@ -873,6 +886,7 @@ private fun TestScope.buildStaleReplacementCoordinator(
     )
 
 private fun TestScope.buildStaleReplacementEnv(): StaleReplacementEnv {
+    val commands = TestRuntimeCommandSource(Mode.Proxy)
     val dispatcher = StandardTestDispatcher(testScheduler)
     val store = TestServiceStateStore()
     val events = mutableListOf<String>()
@@ -903,6 +917,7 @@ private fun TestScope.buildStaleReplacementEnv(): StaleReplacementEnv {
         }
     val coordinator =
         buildStaleReplacementCoordinator(
+            commands = commands,
             dispatcher = dispatcher,
             store = store,
             initialFingerprint = initialFingerprint,
@@ -912,6 +927,7 @@ private fun TestScope.buildStaleReplacementEnv(): StaleReplacementEnv {
             proxyFactory = proxyFactory,
         )
     return StaleReplacementEnv(
+        commands = commands,
         coordinator = coordinator,
         store = store,
         handoverMonitor = handoverMonitor,
@@ -920,6 +936,30 @@ private fun TestScope.buildStaleReplacementEnv(): StaleReplacementEnv {
         initialFingerprint = initialFingerprint,
         newFingerprint = newFingerprint,
     )
+}
+
+private fun seedNativeCatalog(
+    commands: TestRuntimeCommandSource,
+    resolutions: List<ConnectionPolicyResolution>,
+): Long {
+    val references =
+        resolutions
+            .mapNotNull { resolution ->
+                resolution.proxyPreferences
+                    .relayConfigOrNull()
+                    ?.takeIf { it.enabled }
+                    ?.profileId
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(com.poyka.ripdpi.data.ProfileUtilityReference::NativeRelay)
+            }.toSet()
+    if (references.isNotEmpty()) {
+        commands.authority.profileUtility.replaceCatalog(
+            references +
+                com.poyka.ripdpi.data.ProfileUtilityReference
+                    .NativeRelay("edge"),
+        )
+    }
+    return checkNotNull(commands.authority.states.value).profileUtility.catalogGeneration
 }
 
 private fun TestScope.newEnv(
@@ -934,8 +974,11 @@ private fun TestScope.newEnv(
     val events = mutableListOf<String>()
     val store = TestServiceStateStore()
     val host = TestProxyServiceHost(backgroundScope)
-    val resolver = TestConnectionPolicyResolver(resolutions.first())
-    resolver.enqueue(*resolutions.toTypedArray())
+    val commands = TestRuntimeCommandSource(Mode.Proxy)
+    val generation = seedNativeCatalog(commands, resolutions)
+    val capturedResolutions = resolutions.map { it.copy(catalogGeneration = generation) }
+    val resolver = TestConnectionPolicyResolver(capturedResolutions.first())
+    resolver.enqueue(*capturedResolutions.toTypedArray())
     val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
     val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
     val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
@@ -948,9 +991,8 @@ private fun TestScope.newEnv(
     val supervisors = buildProxySupervisorBundle(dispatcher, factory, relayFactory, warpFactory, awgFactory)
     val configurations =
         AppliedRuntimeConfigurationStore(
-            PauseAppliedReceiptConsumer(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority(),
+            testRuntimeAppliedReceiptConsumer(
+                commands.authority,
             ),
         )
     val coordinator =
@@ -990,6 +1032,7 @@ private fun TestScope.newEnv(
             clock = TestServiceClock(now = 1_000L),
         )
     return ProxyRuntimeCoordinatorEnv(
+        commands = commands,
         coordinator = coordinator,
         store = store,
         host = host,

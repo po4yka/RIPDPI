@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationAttempt
 internal class RuntimeReadyReceipt(
     val configuration: AppliedRuntimeConfiguration,
     val provisionedRequestedIdentity: RuntimeConfigurationIdentity?,
+    val measurementProof: CandidateConfigurationProof?,
 )
 
 internal class RuntimeReadyReceiptFactory(
@@ -47,55 +48,69 @@ internal class RuntimeReadyReceiptFactory(
                         is RuntimeStartEvidence.ProviderReady -> evidence.tunnel.resolverDns.runtimeDnsSummary()
                         else -> resolution.activeDns.runtimeDnsSummary()
                     },
-                strategy =
-                    when (evidence) {
-                        is RuntimeStartEvidence.ProxySnapshot -> {
-                            val effectiveUi =
-                                com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences(
-                                    evidence.effectivePreferences.toNativeConfigJson(),
-                                )
-                            val family =
-                                effectiveUi
-                                    ?.deriveStrategyLaneFamilies(
-                                        resolution.activeDns,
-                                    )?.tcpStrategyFamily
-                            val custom =
-                                isConsumedCommandLine(evidence.effectivePreferences.toNativeConfigJson()) ||
-                                    effectiveUi?.runtimeContext?.strategyChainYaml?.isNotBlank() == true ||
-                                    (evidence as? RuntimeStartEvidence.VpnSnapshot)
-                                        ?.tunnel
-                                        ?.configurationInput
-                                        ?.settings
-                                        ?.strategyChainYaml
-                                        ?.isNotBlank() ==
-                                    true
-                            com.poyka.ripdpi.data.RuntimeConfigurationStrategy(
-                                enabled = family != null || custom,
-                                family = family,
-                                custom = custom,
-                            )
-                        }
-
-                        is RuntimeStartEvidence.ProviderReady -> {
-                            com.poyka.ripdpi.data
-                                .RuntimeConfigurationStrategy(
-                                    enabled =
-                                        evidence.tunnel.configurationInput.settings.strategyChainYaml
-                                            .isNotBlank(),
-                                    custom =
-                                        evidence.tunnel.configurationInput.settings.strategyChainYaml
-                                            .isNotBlank(),
-                                )
-                        }
-                    },
+                strategy = effectiveStrategy(resolution, evidence),
                 reason = attempt.reason,
             )
-        val provisioned =
-            (evidence as? RuntimeStartEvidence.ProxySnapshot)
-                ?.requestedWarpPatch
-                ?.let { requested.afterRuntimeProvisioning(it, identities) }
-        return RuntimeReadyReceipt(configuration, provisioned)
+        val provisioned = captureProvisionedIdentity(requested, evidence, identities)
+        val measurementProof =
+            when (evidence) {
+                is RuntimeStartEvidence.ProxySnapshot -> {
+                    evidence.consumedUpstreams
+                        .mapNotNull { it.measuredInputProof }
+                        .singleOrNull()
+                }
+
+                is RuntimeStartEvidence.ProviderReady -> {
+                    evidence.measurementProof
+                }
+            }
+        return RuntimeReadyReceipt(configuration, provisioned, measurementProof)
     }
+
+    private fun effectiveStrategy(
+        resolution: ConnectionPolicyResolution,
+        evidence: RuntimeStartEvidence,
+    ): com.poyka.ripdpi.data.RuntimeConfigurationStrategy =
+        when (evidence) {
+            is RuntimeStartEvidence.ProxySnapshot -> {
+                val effectiveUi =
+                    com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences(
+                        evidence.effectivePreferences.toNativeConfigJson(),
+                    )
+                val family =
+                    effectiveUi
+                        ?.deriveStrategyLaneFamilies(
+                            resolution.activeDns,
+                        )?.tcpStrategyFamily
+                val custom =
+                    isConsumedCommandLine(evidence.effectivePreferences.toNativeConfigJson()) ||
+                        effectiveUi?.runtimeContext?.strategyChainYaml?.isNotBlank() == true ||
+                        (evidence as? RuntimeStartEvidence.VpnSnapshot)
+                            ?.tunnel
+                            ?.configurationInput
+                            ?.settings
+                            ?.strategyChainYaml
+                            ?.isNotBlank() ==
+                        true
+                com.poyka.ripdpi.data.RuntimeConfigurationStrategy(
+                    enabled = family != null || custom,
+                    family = family,
+                    custom = custom,
+                )
+            }
+
+            is RuntimeStartEvidence.ProviderReady -> {
+                com.poyka.ripdpi.data
+                    .RuntimeConfigurationStrategy(
+                        enabled =
+                            evidence.tunnel.configurationInput.settings.strategyChainYaml
+                                .isNotBlank(),
+                        custom =
+                            evidence.tunnel.configurationInput.settings.strategyChainYaml
+                                .isNotBlank(),
+                    )
+            }
+        }
 }
 
 private fun isConsumedCommandLine(nativeConfiguration: String): Boolean =

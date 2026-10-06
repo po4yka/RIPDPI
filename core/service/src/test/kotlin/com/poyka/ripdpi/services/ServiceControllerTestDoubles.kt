@@ -639,12 +639,7 @@ internal class TestProxyGroupRepository(
     }
 
     override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-        replaceAll(
-            com.poyka.ripdpi.data
-                .testPauseAuthority()
-                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
-            groups,
-        )
+        state.value = groups
     }
 
     override suspend fun delete(
@@ -986,6 +981,18 @@ internal class TestRelayCredentialStore : RelayCredentialStore {
     }
 }
 
+internal class TestSelectorRelayRuntimeProfileResolver(
+    var selected: SelectedSelectorRelay? = null,
+) : SelectorRelayRuntimeProfileResolver {
+    var resolveCalls: Int = 0
+        private set
+
+    override suspend fun resolve(): SelectedSelectorRelay? {
+        resolveCalls += 1
+        return selected
+    }
+}
+
 internal class TestUpstreamRelayRuntimeConfigResolver(
     var resolvedConfig: ResolvedRipDpiRelayConfig = sampleResolvedRelayConfig(),
     var failure: Throwable? = null,
@@ -996,19 +1003,19 @@ internal class TestUpstreamRelayRuntimeConfigResolver(
 
     override suspend fun resolve(
         config: RipDpiRelayConfig,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+        inputs: RelayResolutionInputs,
     ): ResolvedRipDpiRelayConfig {
-        requests += config to quicMigrationConfig
+        requests += config to inputs.quic
         failure?.let { throw it }
         return resolvedConfig
     }
 
     override suspend fun resolveWithLocalNetworkDependency(
         config: RipDpiRelayConfig,
-        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+        inputs: RelayResolutionInputs,
     ): LocalNetworkAwareRelayConfigResolution =
         LocalNetworkAwareRelayConfigResolution(
-            config = resolve(config, quicMigrationConfig),
+            config = resolve(config, inputs),
             localNetworkDependent = localNetworkDependent,
         )
 }
@@ -1479,6 +1486,7 @@ internal fun sampleResolution(
     localNetworkDependent: Boolean = false,
 ): ConnectionPolicyResolution =
     ConnectionPolicyResolution(
+        catalogGeneration = 0,
         requestedConfiguration = sampleRequestedConfiguration(mode, settings, proxyPreferences, activeDns),
         settings = settings,
         proxyPreferences = proxyPreferences,
@@ -1578,12 +1586,15 @@ internal fun sampleRequestedConfiguration(
     preferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences.fromSettings(settings),
     dns: ActiveDnsSettings = settings.activeDnsSettings(),
 ): RequestedRuntimeConfiguration {
+    val relayInputs = RelayResolutionInputs.capture(settings, RuntimeExperimentSelection())
     val transport =
         connectionPolicyTransportMaterial(mode, preferences) +
-            vpnConfigurationMaterial(mode, settings) + listOf(settings.strategyChainYaml)
+            vpnConfigurationMaterial(mode, settings) + listOf(settings.strategyChainYaml) +
+            relayInputs.identityMaterial()
     val dnsMaterial = connectionPolicyDnsMaterial(dns)
     return RequestedRuntimeConfiguration(
         SampleRuntimeConfigurationIdentities.capture(transport, dnsMaterial),
+        relayInputs,
         com.poyka.ripdpi.data
             .RuntimeConfigurationSelection("native"),
         dns.runtimeDnsSummary(),
@@ -1610,6 +1621,9 @@ internal fun testRequestedRuntimeConfigurationCapture(
             credentials,
             FakeWarpEndpointStore(),
         )
+    val authority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
     return RequestedRuntimeConfigurationCapture(
         RuntimeConfigurationIdentityFactory(),
         RuntimeConfigurationCatalogCapture(
@@ -1619,15 +1633,22 @@ internal fun testRequestedRuntimeConfigurationCapture(
             credentials,
             FakeDurableXrayProfileStore(),
             FakeSelectionStore(),
+            object : SelectorRelayRuntimeProfileResolver {
+                override suspend fun resolve(): SelectedSelectorRelay? = null
+            },
         ),
         routing,
         secrets,
         TestProxyGroupRepository(),
-        com.poyka.ripdpi.data.selector
-            .SharedPreferencesSelectorSelectionStore(
-                context,
-                com.poyka.ripdpi.data
-                    .testMutationPreparationSource(),
-            ),
+        authority,
+        object : RuntimeExperimentSelectionProvider {
+            override fun current() = RuntimeExperimentSelection()
+        },
     )
 }
+
+internal fun testRelayResolutionInputs(
+    quic: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+    tlsProfile: String = com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable,
+    featureFlags: Map<String, Boolean> = emptyMap(),
+): RelayResolutionInputs = RelayResolutionInputs(tlsProfile, featureFlags, quic)

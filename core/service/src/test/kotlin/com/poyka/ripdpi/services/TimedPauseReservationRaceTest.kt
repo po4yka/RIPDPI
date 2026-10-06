@@ -3,7 +3,6 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
-import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.testPauseAuthority
 import com.poyka.ripdpi.data.testProfileRecovery
 import kotlinx.coroutines.CompletableDeferred
@@ -73,7 +72,7 @@ class TimedPauseReservationRaceTest {
                         .readRecovered {
                             startEntered.complete(Unit)
                             commitStart.await()
-                            authority.supersede(RuntimeUserCommand.Start(Mode.Proxy))
+                            authority.reserveStart(Mode.Proxy)
                         }.let { checkNotNull(arbiter.dispatchExplicit(it)) }
                 }
             startEntered.await()
@@ -142,7 +141,7 @@ class TimedPauseReservationRaceTest {
             )
             val olderPause = async { controller.pause(300_000L) }
             reserved.await()
-            val receipt = recovery.readRecovered { authority.supersede(RuntimeUserCommand.Start(Mode.Proxy)) }
+            val receipt = recovery.readRecovered { authority.reserveStart(Mode.Proxy) }
             val newer = checkNotNull(arbiter.dispatchExplicit(receipt))
             returnPause.complete(Unit)
             olderPause.await()

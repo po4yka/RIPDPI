@@ -57,6 +57,7 @@ internal data class ConnectionPolicyResolution(
     val destinationRoutingDigest: String = "",
     val localNetworkDependent: Boolean,
     val requestedConfiguration: RequestedRuntimeConfiguration,
+    val catalogGeneration: Long,
 )
 
 /**
@@ -119,7 +120,8 @@ internal class DefaultConnectionPolicyResolver
             fingerprint: NetworkFingerprint?,
             handoverClassification: String?,
         ): ConnectionPolicyResolution {
-            val baseline = buildBaselineCandidate(mode, resolverOverride, fingerprint)
+            val catalogGeneration = runtimeConfigurationCapture.catalogGeneration()
+            val baseline = buildBaselineCandidate(mode, resolverOverride, fingerprint, catalogGeneration)
             val rememberedResolution =
                 if (baseline.settings.enableCmdSettings ||
                     !baseline.settings.networkStrategyMemoryEnabled ||
@@ -142,6 +144,7 @@ internal class DefaultConnectionPolicyResolver
             mode: Mode,
             resolverOverride: TemporaryResolverOverride?,
             fingerprint: NetworkFingerprint?,
+            catalogGeneration: Long,
         ): BaselineConnectionPolicy {
             val selectedAwgEgress = if (mode == Mode.VPN) selectedAwgEgress() else null
             val captured = captureRequestedStartSettings(mode, selectedAwgEgress)
@@ -180,11 +183,6 @@ internal class DefaultConnectionPolicyResolver
                     routingSnapshot = destinationRoutingSnapshot,
                     fingerprint = fingerprintSnapshot,
                 )
-            val baselineLaneFamilies =
-                rememberedPolicyMatcher.deriveLaneFamilies(
-                    proxyPreferences = baselinePreferences,
-                    activeDns = baselineVpnDnsSelection.activeDns,
-                )
             val baselinePolicy =
                 rememberedPolicyMatcher.baselinePolicy(
                     settings = settings,
@@ -193,9 +191,14 @@ internal class DefaultConnectionPolicyResolver
                     networkScopeKey = networkScopeKey,
                     baselinePreferences = baselinePreferences,
                     baselineVpnDnsSelection = baselineVpnDnsSelection,
-                    baselineLaneFamilies = baselineLaneFamilies,
+                    baselineLaneFamilies =
+                        rememberedPolicyMatcher.deriveLaneFamilies(
+                            proxyPreferences = baselinePreferences,
+                            activeDns = baselineVpnDnsSelection.activeDns,
+                        ),
                 )
             return BaselineConnectionPolicy(
+                catalogGeneration = catalogGeneration,
                 settings = settings,
                 requestedConfiguration = requestedConfiguration,
                 dnsResolution = dnsResolution,
@@ -346,6 +349,7 @@ internal class DefaultConnectionPolicyResolver
                 ConnectionPolicyResolution(
                     settings = baseline.settings,
                     requestedConfiguration = baseline.requestedConfiguration,
+                    catalogGeneration = baseline.catalogGeneration,
                     proxyPreferences = proxyPreferences,
                     activeDns = effectiveDns,
                     vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
@@ -456,6 +460,7 @@ internal class DefaultConnectionPolicyResolver
             ConnectionPolicyResolution(
                 settings = baseline.settings,
                 requestedConfiguration = baseline.requestedConfiguration,
+                catalogGeneration = baseline.catalogGeneration,
                 proxyPreferences = baseline.baselinePreferences,
                 activeDns = baseline.baselineVpnDnsSelection.activeDns,
                 vpnDnsOverride = null,
@@ -475,6 +480,7 @@ internal class DefaultConnectionPolicyResolver
         private data class BaselineConnectionPolicy(
             val settings: AppSettings,
             val requestedConfiguration: RequestedRuntimeConfiguration,
+            val catalogGeneration: Long,
             val dnsResolution: EffectiveDnsResolution,
             val networkScopeKey: String?,
             val directPathCapabilities: List<RipDpiDirectPathCapability>,

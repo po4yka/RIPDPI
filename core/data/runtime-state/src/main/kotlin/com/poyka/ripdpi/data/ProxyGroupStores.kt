@@ -484,39 +484,49 @@ class SharedPreferencesProxyGroupRepository
         private val state = MutableStateFlow(readGroups())
 
         override suspend fun add(group: ProxyGroup) {
-            mutex.withLock {
-                val next = readGroups().filterNot { it.id == group.id } + group
-                writeGroups(next)
+            val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.ImportOnly)
+            intentPreparation.mutateCatalog(preparation) {
+                mutex.withLock {
+                    val next = readGroups().filterNot { it.id == group.id } + group
+                    writeGroups(next)
+                }
             }
         }
 
         override suspend fun update(group: ProxyGroup) {
-            mutex.withLock {
-                val next = readGroups().map { if (it.id == group.id) group else it }
-                writeGroups(next)
+            val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.SavedEdit)
+            intentPreparation.mutateCatalog(preparation) {
+                mutex.withLock {
+                    val next = readGroups().map { if (it.id == group.id) group else it }
+                    writeGroups(next)
+                }
             }
         }
 
         override suspend fun updateGroup(
             id: String,
             transform: (ProxyGroup) -> ProxyGroup,
-        ): ProxyGroup? =
-            mutex.withLock {
-                val groups = readGroups()
-                val current = groups.firstOrNull { it.id == id } ?: return@withLock null
-                val updated = transform(current)
-                writeGroups(groups.map { if (it.id == id) updated else it })
-                updated
+        ): ProxyGroup? {
+            val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.SavedEdit)
+            return intentPreparation.mutateCatalog(preparation) {
+                mutex.withLock {
+                    val groups = readGroups()
+                    val current = groups.firstOrNull { it.id == id } ?: return@withLock null
+                    val updated = transform(current)
+                    writeGroups(groups.map { if (it.id == id) updated else it })
+                    updated
+                }
             }
+        }
 
         override suspend fun delete(
             preparation: ProfileMutationPreparation,
             id: String,
         ) {
-            intentPreparation.commitMutationIntent(preparation)
-            mutex.withLock {
-                val next = readGroups().filterNot { it.id == id }
-                writeGroups(next)
+            intentPreparation.mutateCatalog(preparation) {
+                mutex.withLock {
+                    writeGroups(readGroups().filterNot { it.id == id })
+                }
             }
         }
 
@@ -526,13 +536,16 @@ class SharedPreferencesProxyGroupRepository
             receipt: DurableCommandReceipt,
             groups: List<ProxyGroup>,
         ) {
-            mutex.withLock {
-                writeGroups(groups)
+            intentPreparation.mutateReservedCatalog(receipt) {
+                mutex.withLock { writeGroups(groups) }
             }
         }
 
         override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            mutex.withLock { writeGroups(groups) }
+            val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.Compensation)
+            intentPreparation.mutateCatalog(preparation) {
+                mutex.withLock { writeGroups(groups) }
+            }
         }
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()

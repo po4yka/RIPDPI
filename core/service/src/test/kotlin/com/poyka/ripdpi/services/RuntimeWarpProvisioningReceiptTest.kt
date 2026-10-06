@@ -27,6 +27,7 @@ class RuntimeWarpProvisioningReceiptTest {
         val captured =
             RequestedRuntimeConfiguration(
                 factory.capture(transport + requestedWarpCredentialMaterial(before), dns),
+                RelayResolutionInputs.capture(settings, RuntimeExperimentSelection()),
                 RuntimeConfigurationSelection("native", relayKind = "warp", profileId = before.profileId),
                 settings.activeDnsSettings().runtimeDnsSummary(),
                 settings.strategySummary(),

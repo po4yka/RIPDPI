@@ -35,7 +35,7 @@ internal class XrayConnectFlowDelegate(
         resolution: ConnectionPolicyResolution,
     ) -> Unit,
     /** Re-applies the active connection policy during a handover (native parity). */
-    private val applyActiveConnectionPolicy: (
+    private val applyActiveConnectionPolicy: suspend (
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,

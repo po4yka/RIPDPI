@@ -90,7 +90,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             kind = RelayKindChainRelay,
                             profileId = "chain",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertEquals("entry-hop", resolved.chainEntryProfileId)
@@ -168,7 +168,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             kind = RelayKindChainRelay,
                             profileId = "chain",
                         ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             assertNotNull(resolved.chainEntry)
@@ -353,7 +353,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             relayCredentialStore = threeHopChainCredentialStore(),
                         ).resolve(
                             config = chainRelayConfig(),
-                            quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                            inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                         )
                     }.exceptionOrNull()
 
@@ -408,7 +408,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                 val resolved =
                     resolver(profileStore, credentialStore).resolve(
                         config = chainRelayConfig(),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
 
                 assertEquals(quicKind, resolved.chainEntry?.kind)
@@ -439,7 +439,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                         relayCredentialStore = threeHopChainCredentialStore(),
                     ).resolve(
                         config = chainRelayConfig(),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
                 }.exceptionOrNull()
 
@@ -482,7 +482,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                             },
                     ).resolve(
                         config = chainRelayConfig(),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
                 }.exceptionOrNull()
 
@@ -530,7 +530,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
             val resolved =
                 resolver(profileStore, credentialStore).resolve(
                     config = chainRelayConfig(),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 )
 
             val shadowHop = resolved.chainHops[1]
@@ -569,10 +569,13 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                 resolver(
                     relayProfileStore = profileStore,
                     relayCredentialStore = threeHopChainCredentialStore(),
-                    tlsFingerprintProfile = TlsFingerprintProfileEdgeStable,
                 ).resolve(
                     config = chainRelayConfig(),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                            tlsProfile = TlsFingerprintProfileEdgeStable,
+                        ),
                 )
 
             assertEquals(
@@ -604,7 +607,7 @@ internal class ChainRelayTrustDomainResolverTest : ChainRelayTrustDomainResolver
                 runCatching {
                     resolver(profileStore, threeHopChainCredentialStore()).resolve(
                         config = chainRelayConfig(),
-                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     )
                 }.exceptionOrNull()
 
@@ -645,7 +648,7 @@ internal abstract class ChainRelayTrustDomainResolverTestSupport {
     protected suspend fun resolveThreeHopChain(): ResolvedRipDpiRelayConfig =
         threeHopChainResolver().resolve(
             config = chainRelayConfig(),
-            quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+            inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
         )
 
     protected suspend fun threeHopChainResolver(): DefaultUpstreamRelayRuntimeConfigResolver =
@@ -726,10 +729,10 @@ internal abstract class ChainRelayTrustDomainResolverTestSupport {
     protected fun resolver(
         relayProfileStore: TestRelayProfileStore,
         relayCredentialStore: TestRelayCredentialStore,
-        tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     ): DefaultUpstreamRelayRuntimeConfigResolver =
         DefaultUpstreamRelayRuntimeConfigResolver(
             relayProfileStore = relayProfileStore,
+            selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
             relayCredentialStore = relayCredentialStore,
             relayKindResolverRegistry =
                 createDefaultRelayKindResolverRegistry(
@@ -741,14 +744,6 @@ internal abstract class ChainRelayTrustDomainResolverTestSupport {
                         },
                     masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
                 ),
-            tlsFingerprintProfileProvider =
-                object : OwnedTlsFingerprintProfileProvider {
-                    override fun currentProfile(): String = tlsFingerprintProfile
-                },
-            runtimeExperimentSelectionProvider =
-                object : RuntimeExperimentSelectionProvider {
-                    override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                },
             torRuntimePathProvider = StaticTorRuntimePathProvider(),
             torPluggableTransportProvider = StaticTorPluggableTransportProvider(),
         )

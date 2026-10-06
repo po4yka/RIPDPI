@@ -1,7 +1,12 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PauseAuthorityRef
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeAppliedIntent
+import com.poyka.ripdpi.data.RuntimeAppliedUseIdentity
+import com.poyka.ripdpi.data.RuntimeAppliedUseReceipt
+import com.poyka.ripdpi.data.RuntimeAuthoritySnapshot
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -10,6 +15,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
+import com.poyka.ripdpi.data.testPauseAuthority
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -26,14 +32,13 @@ class ServiceShellDelegateTest {
     @Test
     fun `explicit user start prepares selection before runtime start`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -41,19 +46,13 @@ class ServiceShellDelegateTest {
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 1,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -63,14 +62,13 @@ class ServiceShellDelegateTest {
     @Test
     fun `transport failover restart preserves prepared fallback selection`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val failover = fixture.continuation(fixture.seedRunning())
+
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -82,28 +80,21 @@ class ServiceShellDelegateTest {
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            failover.deliver(
+                delegate,
                 transportFailoverRestartAction,
                 1,
                 transportFailoverRequestId = 11L,
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
-            delegate.onStartCommand(
+            val start = fixture.reserveStart()
+            start.deliver(
+                delegate,
                 startAction,
                 2,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -113,14 +104,12 @@ class ServiceShellDelegateTest {
     @Test
     fun `transport failover without a target rejects the tracked request`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -132,19 +121,15 @@ class ServiceShellDelegateTest {
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            val command = fixture.captureUnstamped()
+            command.deliver(
+                delegate,
                 transportFailoverRestartAction,
                 1,
                 transportFailoverRequestId = 13L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
 
             assertEquals(listOf(13L), rejectedRequests)
@@ -153,15 +138,14 @@ class ServiceShellDelegateTest {
     @Test
     fun `queued transport failover is rejected when command consumer stops`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+
             val keepConsumerBusy = CompletableDeferred<Unit>()
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { keepConsumerBusy.await() },
@@ -173,29 +157,21 @@ class ServiceShellDelegateTest {
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 1,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 transportFailoverRestartAction,
                 1,
                 transportFailoverRequestId = 14L,
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             backgroundScope.cancel()
             runCurrent()
@@ -206,14 +182,13 @@ class ServiceShellDelegateTest {
     @Test
     fun `startup fallback start bypasses explicit user preparation`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val fallback = fixture.reserveStart()
+
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -221,18 +196,13 @@ class ServiceShellDelegateTest {
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            fallback.deliver(
+                delegate,
                 startupFallbackStartAction,
                 1,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -242,14 +212,13 @@ class ServiceShellDelegateTest {
     @Test
     fun `start commands forward their ids to protected runtime cleanup`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+
             val startIds = mutableListOf<Int>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -257,26 +226,18 @@ class ServiceShellDelegateTest {
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 7,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startupFallbackStartAction,
                 8,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -286,29 +247,26 @@ class ServiceShellDelegateTest {
     @Test
     fun `fallback queued during failed cleanup survives the older stop request`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+
             var latestStartId = 0
             var serviceStopped = false
             var replacementRunning = false
             lateinit var delegate: ServiceShellDelegate
             delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStartWithId = { _, startId ->
                         if (startId == 1) {
                             latestStartId = 2
-                            delegate.onStartCommand(
+                            start.deliver(
+                                delegate,
                                 startupFallbackStartAction,
                                 latestStartId,
-                                durableReference =
-                                    com.poyka.ripdpi.data
-                                        .PauseAuthorityRef(0),
                             )
                             requestStopSelfWithFallback(
                                 stopSelfStartId = startId,
@@ -325,20 +283,14 @@ class ServiceShellDelegateTest {
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             latestStartId = 1
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 latestStartId,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -349,15 +301,14 @@ class ServiceShellDelegateTest {
     @Test
     fun `duplicate explicit start does not reprepare a running runtime`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+
             var running = false
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {
@@ -369,28 +320,19 @@ class ServiceShellDelegateTest {
                     shouldPrepareUserStart = { !running },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 1,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 2,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -400,15 +342,14 @@ class ServiceShellDelegateTest {
     @Test
     fun `manual start received while halted keeps VLESS preparation behind a queued fallback`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val start = fixture.reserveStart()
+
             var running = false
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -421,26 +362,18 @@ class ServiceShellDelegateTest {
                     shouldPrepareUserStart = { !running },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startupFallbackStartAction,
                 1,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
-            delegate.onStartCommand(
+            start.deliver(
+                delegate,
                 startAction,
                 2,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -450,45 +383,36 @@ class ServiceShellDelegateTest {
     @Test
     fun proxyShellDelegatesStartAndStopActions() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.Proxy)
+            val start = fixture.reserveStart()
+
             var startCalls = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
                     onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val startResult =
-                delegate.onStartCommand(
+                start.deliver(
+                    delegate,
                     startAction,
                     1,
-                    explicitUserIntentGeneration = 0L,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
+            val stop = fixture.reserveStop()
             val stopResult =
-                delegate.onStartCommand(
+                stop.deliver(
+                    delegate,
                     stopAction,
                     7,
-                    explicitUserIntentGeneration = 0L,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -504,15 +428,14 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `stop action is rejected when service policy forbids disconnect`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val stop = fixture.reserveStop()
+
             var startCalls = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -520,20 +443,14 @@ class ServiceShellStopOwnershipTest {
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val result =
-                delegate.onStartCommand(
+                stop.deliver(
+                    delegate,
                     stopAction,
                     7,
-                    explicitUserIntentGeneration = 0L,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -545,16 +462,15 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `transport failover recomposes without a stop while lockdown forbids disconnect`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val failover = fixture.continuation(fixture.seedRunning())
+
             var startCalls = 0
             var restartCalls = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -566,21 +482,16 @@ class ServiceShellStopOwnershipTest {
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val result =
-                delegate.onStartCommand(
+                failover.deliver(
+                    delegate,
                     transportFailoverRestartAction,
                     8,
                     transportFailoverRequestId = 12L,
                     transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -593,16 +504,15 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `stop action checks current policy for stale notification intent`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val stop = fixture.reserveStop()
+
             var stopAllowed = true
             var startCalls = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -610,20 +520,15 @@ class ServiceShellStopOwnershipTest {
                     isStopAllowed = { stopAllowed },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             stopAllowed = false
             val result =
-                delegate.onStartCommand(
+                stop.deliver(
+                    delegate,
                     notificationStopAction,
                     9,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -635,33 +540,27 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `proxy notification stop remains allowed by default`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.Proxy)
+            val stop = fixture.reserveStop()
+
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
                     onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val result =
-                delegate.onStartCommand(
+                stop.deliver(
+                    delegate,
                     notificationStopAction,
                     11,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -672,20 +571,17 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `diagnostics stop preserves its own resume lease`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            fixture.seedRunning()
+            val stop = fixture.captureDiagnosticsStop()
+
             val tracker =
-                RuntimeResumeIntentTracker(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
+                RuntimeResumeIntentTracker(fixture.authority)
             val lease = tracker.captureResumeLease()
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -695,20 +591,16 @@ class ServiceShellStopOwnershipTest {
                             acceptedStop = { command ->
                                 tracker.recordAcceptedStop()
                                 (command as? AcceptedServiceStop.Prepared)?.reference
-                                    ?: com.poyka.ripdpi.data
-                                        .PauseAuthorityRef(0)
+                                    ?: fixture.authority.reference()
                             },
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(
+            stop.deliver(
+                delegate,
                 diagnosticsStopAction,
                 14,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -719,16 +611,16 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `diagnostics stop durably records its cause before runtime teardown`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            fixture.seedRunning()
+            val stop = fixture.captureDiagnosticsStop()
+
             val operations = mutableListOf<String>()
             val store = RecordingServiceStopArtifactWriteStore(operations)
             val recorder = RoomServiceStopProvenanceRecorder(store, AndroidRuntimeEvidenceClock { 321L })
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -738,19 +630,13 @@ class ServiceShellStopOwnershipTest {
                     },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
-            delegate.onStartCommand(
+            stop.deliver(
+                delegate,
                 diagnosticsStopAction,
                 15,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -779,21 +665,15 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `accepted start restores request order after delayed stop acceptance`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.Proxy)
+
             val tracker =
-                RuntimeResumeIntentTracker(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
+                RuntimeResumeIntentTracker(fixture.authority)
             val lease = tracker.captureResumeLease()
             tracker.withUserStart(action = {})
-            val arbiter =
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = arbiter,
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
@@ -804,30 +684,23 @@ class ServiceShellStopOwnershipTest {
                             acceptedStop = { command ->
                                 tracker.recordAcceptedStop()
                                 (command as? AcceptedServiceStop.Prepared)?.reference
-                                    ?: com.poyka.ripdpi.data
-                                        .PauseAuthorityRef(0)
+                                    ?: fixture.authority.reference()
                             },
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            arbiter.userStop {}
-            delegate.onStartCommand(
+            val stop = fixture.reserveStop()
+            stop.deliver(
+                delegate,
                 stopAction,
                 15,
-                explicitUserIntentGeneration = arbiter.captureExplicitUserIntentGeneration(),
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
-            val newerStart = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
-            delegate.onStartCommand(
+            val start = fixture.reserveStart()
+            start.deliver(
+                delegate,
                 startAction,
                 16,
-                explicitUserIntentGeneration = newerStart,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             runCurrent()
 
@@ -838,21 +711,17 @@ class ServiceShellStopOwnershipTest {
     @Test
     fun `stale diagnostics compensation is skipped after accepted start`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.Proxy)
+            val compensation = fixture.reserveStop().withoutProcessStamp()
+
             val tracker =
-                RuntimeResumeIntentTracker(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
+                RuntimeResumeIntentTracker(fixture.authority)
             tracker.recordAcceptedStop()
             var startCalls = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
@@ -862,29 +731,24 @@ class ServiceShellStopOwnershipTest {
                             acceptedStart = tracker::recordAcceptedStart,
                             acceptedStop = { command ->
                                 (command as? AcceptedServiceStop.Prepared)?.reference
-                                    ?: com.poyka.ripdpi.data
-                                        .PauseAuthorityRef(0)
+                                    ?: fixture.authority.reference()
                             },
                         ),
                     isCompensatingStopCurrent = tracker::isCurrentIntentStopped,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(
+            val start = fixture.reserveStart()
+            start.deliver(
+                delegate,
                 startAction,
                 17,
-                explicitUserIntentGeneration = 0L,
-                durableReference =
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
             )
             val result =
-                delegate.onStartCommand(
+                compensation.deliver(
+                    delegate,
                     diagnosticsCompensatingStopAction,
                     18,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -899,33 +763,27 @@ class ServiceShellRecoveryTest {
     @Test
     fun `null action triggers start for sticky service restart`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val recovery = fixture.recovery()
+
             var startCalls = 0
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val result =
-                delegate.onStartCommand(
+                recovery.deliver(
+                    delegate,
                     null,
                     1,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -936,33 +794,27 @@ class ServiceShellRecoveryTest {
     @Test
     fun `android always-on action triggers recovery start`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val recovery = fixture.recovery()
+
             var startCalls = 0
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val result =
-                delegate.onStartCommand(
+                recovery.deliver(
+                    delegate,
                     android.net.VpnService.SERVICE_INTERFACE,
                     2,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -973,14 +825,13 @@ class ServiceShellRecoveryTest {
     @Test
     fun `android always-on action uses recovery barrier instead of user start`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val recovery = fixture.recovery()
+
             val events = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { events += "user-start" },
@@ -991,19 +842,14 @@ class ServiceShellRecoveryTest {
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             val result =
-                delegate.onStartCommand(
+                recovery.deliver(
+                    delegate,
                     android.net.VpnService.SERVICE_INTERFACE,
                     3,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -1014,14 +860,13 @@ class ServiceShellRecoveryTest {
     @Test
     fun `dedicated recovery actions use recovery barrier`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+            val recovery = fixture.recovery()
+
             val recoveredActions = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { error("recovery must not use the user-start path") },
@@ -1029,10 +874,7 @@ class ServiceShellRecoveryTest {
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             listOf(
@@ -1042,12 +884,10 @@ class ServiceShellRecoveryTest {
             ).forEachIndexed { index, action ->
                 assertEquals(
                     android.app.Service.START_STICKY,
-                    delegate.onStartCommand(
+                    recovery.deliver(
+                        delegate,
                         action,
                         index + 10,
-                        durableReference =
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0),
                     ),
                 )
                 runCurrent()
@@ -1059,33 +899,27 @@ class ServiceShellRecoveryTest {
     @Test
     fun `unknown action is ignored without stopping service`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
+            val command = fixture.captureUnstamped()
             val result =
-                delegate.onStartCommand(
+                command.deliver(
+                    delegate,
                     "unknown",
                     9,
-                    durableReference =
-                        com.poyka.ripdpi.data
-                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -1096,14 +930,12 @@ class ServiceShellRecoveryTest {
     @Test
     fun `onRevoke delegates to revoke handler`() =
         runTest {
+            val fixture = ShellCommandFixture(Mode.VPN)
+
             var revokeCalls = 0
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter =
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ),
+                    serviceIntentArbiter = fixture.arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -1111,10 +943,7 @@ class ServiceShellRecoveryTest {
                     onRevoke = { revokeCalls += 1 },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                     intentCallbacks =
-                        testShellIntentCallbacks {
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0)
-                        },
+                        testShellIntentCallbacks(fixture.authority::reference),
                 )
 
             delegate.onRevoke()
@@ -1141,4 +970,105 @@ private class RecordingServiceStopArtifactWriteStore(
     }
 
     override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
+}
+
+/** Reservations and snapshots are immutable at dispatch; delivery never refreshes authority. */
+private data class CapturedShellCommand(
+    val processGeneration: Long?,
+    val reference: PauseAuthorityRef?,
+    val activation: RuntimeAppliedIntent?,
+    val stopSnapshot: RuntimeAuthoritySnapshot?,
+) {
+    fun withoutProcessStamp() = copy(processGeneration = null)
+
+    fun deliver(
+        delegate: ServiceShellDelegate,
+        action: String?,
+        startId: Int,
+        transportFailoverRequestId: Long? = null,
+        transportFailoverTarget: TransportFailoverTarget? = null,
+    ): Int =
+        delegate.onStartCommand(
+            action,
+            startId,
+            transportFailoverRequestId = transportFailoverRequestId,
+            transportFailoverTarget = transportFailoverTarget,
+            explicitUserIntentGeneration = processGeneration,
+            durableReference = reference,
+            activation = activation,
+            stopSnapshot = stopSnapshot,
+        )
+}
+
+private class ShellCommandFixture(
+    private val mode: Mode,
+) {
+    val authority = testPauseAuthority()
+    val arbiter = ServiceIntentArbiter(authority)
+
+    fun reserveStart(): CapturedShellCommand {
+        val receipt = authority.reserveStart(mode)
+        val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
+        return CapturedShellCommand(
+            lease.processGeneration,
+            receipt.authority,
+            RuntimeAppliedIntent.Activation(receipt),
+            null,
+        )
+    }
+
+    fun reserveStop(): CapturedShellCommand {
+        val receipt = authority.reserveStop()
+        val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
+        return CapturedShellCommand(lease.processGeneration, receipt.authority, null, authority.snapshotAuthority())
+    }
+
+    // Diagnostics owns a temporary teardown of the existing command, preserving its resume lease.
+    fun captureDiagnosticsStop() =
+        CapturedShellCommand(
+            arbiter.captureExplicitUserIntentGeneration(),
+            authority.reference(),
+            null,
+            authority.snapshotAuthority(),
+        )
+
+    fun captureUnstamped() = CapturedShellCommand(null, authority.reference(), null, null)
+
+    /** Establish Running through the checked claim/ACK API, never by inventing an Applied phase. */
+    fun seedRunning(): CapturedShellCommand {
+        val command = reserveStart()
+        val original = checkNotNull(command.activation)
+        val identity = RuntimeAppliedUseIdentity(original.receipt.commandId, 1, mode.preferenceValue)
+        check(authority.claimActivation(original.receipt, identity))
+        check(
+            authority.acknowledgeApplied(
+                original,
+                RuntimeAppliedUseReceipt(identity, emptyList(), 1_800_000_000_000L, 0, true, "0".repeat(64)),
+            ),
+        )
+        return command
+    }
+
+    fun continuation(applied: CapturedShellCommand): CapturedShellCommand {
+        val original = checkNotNull(applied.activation)
+        val identity = RuntimeAppliedUseIdentity(original.receipt.commandId, 1, mode.preferenceValue)
+        val acknowledged = checkNotNull(authority.acknowledgedAttempt(original, identity))
+        return applied.copy(activation = RuntimeAppliedIntent.Continuation(original.receipt, acknowledged.identity))
+    }
+
+    fun recovery(): CapturedShellCommand {
+        seedRunning()
+        return captureRecovery()
+    }
+
+    fun captureRecovery(): CapturedShellCommand {
+        val receipt = checkNotNull(authority.authorizeRecovery(mode, authority.snapshotAuthority()))
+        val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
+        return CapturedShellCommand(
+            lease.processGeneration,
+            receipt.authority,
+            RuntimeAppliedIntent.Recovery(receipt, mode),
+            null,
+        )
+    }
 }

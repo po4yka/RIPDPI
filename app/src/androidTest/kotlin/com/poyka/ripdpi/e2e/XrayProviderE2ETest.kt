@@ -5,13 +5,25 @@ import android.content.Context
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import androidx.lifecycle.ViewModelStore
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PauseAuthorityPersistence
+import com.poyka.ripdpi.data.PauseIntentAuthority
+import com.poyka.ripdpi.data.PausePhase
+import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
+import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
+import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
+import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -28,9 +40,17 @@ import com.poyka.ripdpi.data.xray.XrayProviderProbeKind
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.CandidateRelayMeasurements
+import com.poyka.ripdpi.services.CandidateRelayNetworkEpoch
+import com.poyka.ripdpi.services.CandidateXrayMeasurements
+import com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.SplitTunnelMode
+import com.poyka.ripdpi.services.TimedPauseController
+import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
+import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityMeasurementCoordinator
+import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -81,6 +102,31 @@ class XrayProviderE2ETest {
     @Inject lateinit var selection: XrayProviderSelectionStore
 
     @Inject lateinit var providerProbes: XrayProviderProbeCoordinator
+
+    @Inject lateinit var utilityRecovery: ProfileMutationRecoveryAccess
+
+    @Inject lateinit var utilityMutations: ProfileMutationRecoveryCoordinator
+
+    @Inject lateinit var utilityAuthority: PauseIntentAuthority
+
+    @Inject lateinit var utilityPersistence: PauseAuthorityPersistence
+
+    @Inject lateinit var utilityCatalog: ProfileUtilityCatalogReader
+
+    @Inject lateinit var utilityApplied: AppliedRuntimeConfigurationSource
+
+    @Inject lateinit var utilityPause: TimedPauseController
+
+    @Inject lateinit var utilityEpoch: CandidateRelayNetworkEpoch
+
+    @Inject lateinit var utilityNative: CandidateRelayMeasurements
+
+    @Inject lateinit var utilityXray: CandidateXrayMeasurements
+
+    @Inject lateinit var utilityActivation: MeasuredProfileActivationCoordinator
+
+    @Inject internal lateinit var utilityMeasurement:
+        ProfileUtilityMeasurementCoordinator
 
     private val diagnosticsScope = MainScope()
     private lateinit var diagnostics: DiagnosticsXrayProviderController
@@ -156,6 +202,108 @@ class XrayProviderE2ETest {
             clearTestProbeNetworkEligibility()
         }
     }
+
+    @Test
+    fun profileUtilityRealRealityCandidateSelectsOnlyAfterHttpPayloadAndNativeAppliedAck() =
+        runBlocking {
+            kotlinx.coroutines.withTimeout(90_000L) {
+                utilityRecovery.recover()
+                val id = "profile-utility-owned-xray"
+                val reference =
+                    ProfileUtilityReference
+                        .Xray(id)
+                val link =
+                    "vless://${manifest.getString("uuid")}@10.0.2.2:${manifest.getInt("xhttpPort")}" +
+                        "?type=xhttp&security=reality&sni=fixture.test&pbk=${manifest.getString("publicKey")}" +
+                        "&sid=ab12&fp=chrome&path=%2Fowned-xhttp&mode=auto"
+                val parsed = XrayImportParser().parse(link, XrayProviderBuildInfo.upstreamTag)
+                check(parsed is XrayImportParser.Result.Accepted) { "Owned REALITY fixture validation failed" }
+                val profile = parsed.profile.copy(inbound = parsed.profile.inbound.copy(port = reserveLoopbackPort()))
+                val models = ViewModelStore()
+                var collector: Job? = null
+                ActivityScenario
+                    .launch(
+                        com.poyka.ripdpi.activities.MainActivity::class.java,
+                    ).use {
+                        try {
+                            utilityRecovery.mutateCatalog(
+                                utilityMutations.captureMutation(
+                                    ProfileMutationOrigin.ImportOnly,
+                                ),
+                            ) {
+                                profiles.save(id, profile)
+                            }
+                            selection.update(XrayProviderSelectionRecord())
+                            assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
+                            state.status.first { it == AppStatus.Running to Mode.VPN }
+                            utilityPause.pause(300_000L)
+                            utilityAuthority.states.first {
+                                it?.pause?.phase == PausePhase.Paused
+                            }
+                            kotlinx.coroutines.withTimeout(5_000L) {
+                                while (utilityEpoch.capture() ==
+                                    null
+                                ) {
+                                    kotlinx.coroutines.delay(20)
+                                }
+                            }
+                            val before = readControl("receipts").getInt("count")
+                            val directBefore = readControl("direct-receipts").getInt("count")
+                            val historyBefore = checkNotNull(utilityPersistence.read()).profileUtility.lastSequence
+                            val vm =
+                                ProfileUtilityViewModel(
+                                    utilityCatalog,
+                                    utilityAuthority,
+                                    utilityRecovery,
+                                    utilityApplied,
+                                    utilityMeasurement,
+                                    utilityActivation,
+                                    utilityNative,
+                                    utilityXray,
+                                )
+                            kotlinx.coroutines.withContext(Dispatchers.Main) { models.put("owned-xray-utility", vm) }
+                            collector = launch { vm.uiState.collect {} }
+                            vm.uiState.first { ui -> ui.profiles.any { row -> row.reference == reference } }
+                            vm.updateUrl("http://192.0.2.77/profile-utility-owned-payload")
+                            vm.checkAndSelect(reference)
+                            vm.uiState.first { ui ->
+                                ui.profiles.any { row ->
+                                    row.reference == reference &&
+                                        row.measurement is ProfileMeasurementUiState.Measured
+                                }
+                            }
+                            utilityApplied.applications.first { applications ->
+                                val configured =
+                                    (applications[Mode.VPN] as? RuntimeConfigurationApplication.Applied)
+                                        ?.configuration
+                                configured?.effectiveSelection?.provider == "xray" &&
+                                    configured.effectiveSelection.profileId == id
+                            }
+                            state.status.first { it == AppStatus.Running to Mode.VPN }
+                            val stored = checkNotNull(utilityPersistence.read()).profileUtility
+                            assertEquals(reference, stored.recents.first().reference)
+                            assertEquals(historyBefore + 1, stored.lastSequence)
+                            assertEquals(1, stored.recents.count { it.reference == reference })
+                            assertEquals(null, utilityAuthority.snapshot())
+                            assertTrue(readControl("receipts").getInt("count") > before)
+                            assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+                            assertEquals(false, utilityXray.cleanupPending.value)
+                        } finally {
+                            collector?.cancel()
+                            kotlinx.coroutines.withContext(Dispatchers.Main) { models.clear() }
+                            utilityPause.stop()
+                            state.status.first { it.first == AppStatus.Halted }
+                            utilityRecovery.mutateCatalog(
+                                utilityMutations.captureMutation(
+                                    ProfileMutationOrigin.ExplicitDeletion,
+                                ),
+                            ) {
+                                profiles.clear(id)
+                            }
+                        }
+                    }
+            }
+        }
 
     @Test
     fun bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart() {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">الملفات الشخصية</string>
+    <string name="profile_utility_favorites">المفضلة</string>
+    <string name="profile_utility_recents">المستخدمة مؤخرًا</string>
+    <string name="profile_utility_saved">الملفات المحفوظة</string>
+    <string name="profile_utility_check">فحص</string>
+    <string name="profile_utility_check_select">فحص واختيار</string>
+    <string name="profile_utility_checking">جارٍ الفحص…</string>
+    <string name="profile_utility_measured">HTTP: %1$s مللي ثانية</string>
+    <string name="profile_utility_not_checked">لم يُفحص</string>
+    <string name="profile_utility_unsupported">لا يمكن فحص هذا الملف هنا.</string>
+    <string name="profile_utility_environment_changed">تغيرت الشبكة أو السياسة أو الملف. افحص مرة أخرى.</string>
+    <string name="profile_utility_failed">فشل فحص HTTP. لم يتغير الاختيار.</string>
+    <string name="profile_utility_timeout">انتهت مهلة الفحص. لم يتغير الاختيار.</string>
+    <string name="profile_utility_cleanup_pending">تحرير الموارد الأصلية لم يكتمل بعد. لم يتغير الاختيار.</string>
+    <string name="profile_utility_retry_cleanup">إعادة محاولة التحرير</string>
+    <string name="profile_utility_favorite_add">إضافة %1$s إلى المفضلة</string>
+    <string name="profile_utility_favorite_remove">إزالة %1$s من المفضلة</string>
+    <string name="profile_utility_last_used">آخر استخدام: %1$s</string>
+    <string name="profile_utility_empty">لا توجد ملفات محفوظة.</string>
+    <string name="profile_utility_disclosure">يقيس الفحص طلب HTTP. يطبق الفحص والاختيار الملف فقط بعد نجاح الفحص.</string>
+    <string name="profile_utility_command_failed">تعذر إكمال الأمر. تحقق من حالة الملف.</string>
+    <string name="profile_utility_applying">جارٍ تطبيق الملف…</string>
+    <string name="profile_utility_selection_failed">تعذر تطبيق الملف. تحقق من الملف المحفوظ والملف المطبق.</string>
+    <string name="profile_utility_url">عنوان URL للفحص</string>
+    <string name="profile_utility_applied">الملف المُطبّق</string>
+    <string name="profile_utility_loading">جارٍ تحميل الملفات…</string>
+    <string name="profile_utility_checked_at">تم الفحص: %1$s</string>
+    <string name="profile_utility_busy">Xray مشغول. أوقف الاتصال مؤقتًا أو أنهه، ثم حاول مجددًا.</string>
+    <string name="profile_utility_check_fastest">اختبار واختيار الأسرع</string>
+</resources>

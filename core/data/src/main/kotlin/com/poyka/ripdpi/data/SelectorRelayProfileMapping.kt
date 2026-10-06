@@ -1,35 +1,16 @@
-package com.poyka.ripdpi.proxyimport
+package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayKindAnyTls
-import com.poyka.ripdpi.data.RelayKindHysteria2
-import com.poyka.ripdpi.data.RelayKindMieru
-import com.poyka.ripdpi.data.RelayKindShadowsocks
-import com.poyka.ripdpi.data.RelayKindSsh
-import com.poyka.ripdpi.data.RelayKindTrojan
-import com.poyka.ripdpi.data.RelayKindVless
-import com.poyka.ripdpi.data.RelayKindVlessReality
-import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelaySecurityLayerReality
-import com.poyka.ripdpi.data.RelaySecurityLayerTls
-import com.poyka.ripdpi.data.RelaySshAuthTypePassword
-import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
-import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
-import com.poyka.ripdpi.data.RelayVlessTransportXhttp
-import com.poyka.ripdpi.data.validateNativeRelayProfile
-
-internal data class RelayProfileMapping(
+data class SelectorRelayProfileMapping(
     val profile: RelayProfileRecord,
     val credentials: RelayCredentialRecord,
 )
 
-/** Pure canonical mapping shared by persisted activation and transient candidate probes. */
-internal fun mapRelayProfile(
+/** Pure canonical mapping; transient credentials have unknown timestamp 0, stamped by the persistence owner. */
+fun mapRelayProfile(
     profile: ProxyProfile,
     profileId: String = profile.id,
     tlsFingerprintOverride: String? = null,
-): RelayProfileMapping? {
+): SelectorRelayProfileMapping? {
     val relayKind = relayKindFor(profile)
     if (relayKind == null || !validateNativeRelayProfile(profile)) return null
     val endpoint = relayEndpoint(profile)
@@ -70,7 +51,7 @@ internal fun mapRelayProfile(
             sshStrictHostKey = profile is ProxyProfile.Ssh && profile.strictHostKey,
             udpEnabled = udpEnabled,
         )
-    return RelayProfileMapping(relayProfile, relayCredentials(profileId, profile))
+    return SelectorRelayProfileMapping(relayProfile, relayCredentials(profileId, profile))
 }
 
 /** Relay-kind id for a relay-activatable [profile], or `null` for non-relay kinds. */
@@ -185,11 +166,12 @@ private fun relayCredentials(
 ): RelayCredentialRecord =
     when (profile) {
         is ProxyProfile.Trojan -> {
-            RelayCredentialRecord(profileId = profileId, trojanPassword = profile.password)
+            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, trojanPassword = profile.password)
         }
 
         is ProxyProfile.Shadowsocks -> {
             RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
                 profileId = profileId,
                 shadowsocksMethod = profile.method,
                 shadowsocksPassword = profile.password,
@@ -197,19 +179,20 @@ private fun relayCredentials(
         }
 
         is ProxyProfile.AnyTls -> {
-            RelayCredentialRecord(profileId = profileId, anyTlsPassword = profile.password)
+            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, anyTlsPassword = profile.password)
         }
 
         is ProxyProfile.VlessReality -> {
-            RelayCredentialRecord(profileId = profileId, vlessUuid = profile.uuid)
+            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, vlessUuid = profile.uuid)
         }
 
         is ProxyProfile.Vless -> {
-            RelayCredentialRecord(profileId = profileId, vlessUuid = profile.uuid)
+            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, vlessUuid = profile.uuid)
         }
 
         is ProxyProfile.Hysteria2 -> {
             RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
                 profileId = profileId,
                 hysteriaPassword = profile.password,
                 hysteriaSalamanderKey = profile.obfsPassword,
@@ -223,6 +206,7 @@ private fun relayCredentials(
             // regardless of which caller built it.
             val isKey = profile.authType == RelaySshAuthTypePrivateKey
             RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
                 profileId = profileId,
                 sshUsername = profile.username,
                 sshPassword = profile.password?.takeIf { !isKey },
@@ -233,6 +217,7 @@ private fun relayCredentials(
 
         is ProxyProfile.Mieru -> {
             RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
                 profileId = profileId,
                 mieruUsername = profile.username,
                 mieruPassword = profile.password,

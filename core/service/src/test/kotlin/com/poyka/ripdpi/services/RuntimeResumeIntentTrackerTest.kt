@@ -18,10 +18,7 @@ class RuntimeResumeIntentTrackerTest {
         val tracker = RuntimeResumeIntentTracker(authority)
         val arbiter = ServiceIntentArbiter(authority)
         val receipt =
-            authority.supersede(
-                com.poyka.ripdpi.data.RuntimeUserCommand
-                    .Start(com.poyka.ripdpi.data.Mode.Proxy),
-            )
+            authority.reserveStart(com.poyka.ripdpi.data.Mode.Proxy)
         val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
         val resumeLease = tracker.captureResumeLease()
         val callbackEntered = CountDownLatch(1)
@@ -50,7 +47,7 @@ class RuntimeResumeIntentTrackerTest {
             Thread {
                 try {
                     check(callbackEntered.await(2, TimeUnit.SECONDS))
-                    val stopped = authority.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+                    val stopped = authority.reserveStop()
                     arbiter.serialize {
                         checkNotNull(arbiter.dispatchExplicit(stopped))
                         stopOwnsArbiter.countDown()

@@ -779,6 +779,9 @@ private class TestableConfigSeeder(
 // ---------------------------------------------------------------------------
 
 private class RecordingProxyGroupRepository : ProxyGroupRepository {
+    private val authority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
     val addedGroups = mutableListOf<ProxyGroup>()
 
     override suspend fun add(group: ProxyGroup) {
@@ -803,9 +806,7 @@ private class RecordingProxyGroupRepository : ProxyGroupRepository {
 
     override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
         replaceAll(
-            com.poyka.ripdpi.data
-                .testPauseAuthority()
-                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+            authority.reserveStop(),
             groups,
         )
     }

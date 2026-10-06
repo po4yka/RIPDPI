@@ -326,6 +326,7 @@ internal class VpnServiceRuntimeCoordinator(
                         com.poyka.ripdpi.services.RuntimeStartEvidencePublication(
                             publish = ::publishRuntimeStartEvidence,
                             complete = configurationLifecycle.completion(clock),
+                            publishCaptured = configurationLifecycle::publishIfCurrent,
                         ),
                     startModeTelemetryUpdates = ::startModeTelemetryUpdates,
                 ),
@@ -377,7 +378,7 @@ internal class VpnServiceRuntimeCoordinator(
             handoverClassification = handoverClassification,
         )
 
-    private fun applyActiveConnectionPolicy(
+    private suspend fun applyActiveConnectionPolicy(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,

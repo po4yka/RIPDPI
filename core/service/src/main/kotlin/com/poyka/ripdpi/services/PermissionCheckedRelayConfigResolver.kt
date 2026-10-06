@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.AndroidLocalNetworkAccess
@@ -26,14 +25,14 @@ internal class PermissionCheckedRelayConfigResolver
         LocalNetworkAwareRelayRuntimeConfigResolver {
         override suspend fun resolve(
             config: RipDpiRelayConfig,
-            quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-        ): ResolvedRipDpiRelayConfig = resolveWithLocalNetworkDependency(config, quicMigrationConfig).config
+            inputs: RelayResolutionInputs,
+        ): ResolvedRipDpiRelayConfig = resolveWithLocalNetworkDependency(config, inputs).config
 
         override suspend fun resolveWithLocalNetworkDependency(
             config: RipDpiRelayConfig,
-            quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+            inputs: RelayResolutionInputs,
         ): LocalNetworkAwareRelayConfigResolution {
-            val resolved = delegate.resolve(config, quicMigrationConfig)
+            val resolved = delegate.resolve(config, inputs)
             return LocalNetworkAwareRelayConfigResolution(
                 config = resolved,
                 localNetworkDependent = access.requireRelayEndpoints(resolved),

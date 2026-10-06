@@ -295,6 +295,7 @@ class FailoverCoordinator
 
         private val startupRecoveryMutex = Mutex()
         private var startupRecoveryEpoch = 0L
+        private var startupFallbackLease: StartupFallbackLease? = null
 
         // ── Public API ──────────────────────────────────────────────────────
 
@@ -323,6 +324,7 @@ class FailoverCoordinator
             startupRecoveryMutex.withLock {
                 if (!guard.isCurrent()) return@withLock
                 startupRecoveryEpoch++
+                startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
                 startupRelayProbeAttemptBudget.clear()
                 stopObserving()
                 settingsRepository.update {
@@ -536,7 +538,7 @@ class FailoverCoordinator
                 return
             }
             val pendingEpoch = startupRecoveryMutex.withLock { startupRecoveryEpoch }
-            val lease = startupFallbackController.captureStartupFallbackLease()
+            val lease = startupRecoveryMutex.withLock { startupFallbackLease } ?: return
             val halted =
                 withTimeoutOrNull(STARTUP_HALT_WAIT_TIMEOUT_MILLIS) {
                     serviceStateStore.status.first { (status, mode) ->
@@ -607,6 +609,9 @@ class FailoverCoordinator
                 }
 
                 is StartupFallbackDispatchResult.Dispatched -> {
+                    if (dispatch.startResult is ServiceStartResult.Accepted) {
+                        startupFallbackLease = dispatch.continuationLease
+                    }
                     val result = dispatch.startResult
                     if (result is ServiceStartResult.Rejected) {
                         rollbackStartupSwitch(settingsBeforeSwitch, previousCandidate)
@@ -1103,7 +1108,7 @@ class FailoverCoordinator
          * preserves the in-flight candidate and blocks further switching until reconciliation.
          */
         private suspend fun performSwitch(now: Long): RelayCleanupReceipt {
-            val authorityReference = serviceController.captureRuntimeAuthority()
+            val authorityReference = serviceController.captureRuntimeSnapshot().reference
             if (transportReconciliationPending) {
                 backedOff = true
                 Logger.w { "FailoverCoordinator: waiting for in-flight transport reconciliation" }

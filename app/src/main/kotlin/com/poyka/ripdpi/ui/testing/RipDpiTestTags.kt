@@ -183,6 +183,8 @@ internal object RipDpiTestTags {
     const val SettingsBackgroundGuidanceBanner = "settings-background-guidance-banner"
     const val SettingsSupportBundle = "settings-support-bundle"
     const val SettingsLogs = "settings-logs"
+    const val SettingsProfileUtility = "settings-profile-utility"
+
     const val SettingsSubscriptionFailover = "settings-subscription-failover"
     const val SubscriptionLifecycleBanner = "subscription-lifecycle-banner"
     const val SettingsSubscriptionStatus = "settings-subscription-status"

@@ -122,10 +122,40 @@ The app MUST persist favorite and successfully used recent relay profiles locall
 - **WHEN** the user requests a measured automatic choice
 - **THEN** eligible actual profiles are probed through the existing protected payload probe contract and selection is based on successful observed latency.
 
+#### Scenario: Compare successful HTTP measurements in one environment
+
+- **WHEN** the user requests Check and select fastest for the current saved catalog and probe URL
+- **THEN** the app checks candidates sequentially, selects the lowest successful observed HTTP latency from that one operation, preserves catalog order for equal results, and applies only the exact winning measurement lease. Cancellation, cleanup pending, a changed network or policy, a newer command, or no successful result preserves the current selection and records no successful history.
+
 #### Scenario: Failed measurement or deleted profile
 
 - **WHEN** all measurements fail or a saved profile is deleted
 - **THEN** the current valid selection is preserved, unavailable choice is explained, and favorite/recent metadata does not resurrect the deleted profile.
+
+#### Scenario: Activation authority and successful history
+
+- **WHEN** an explicit profile or selector activation follows a pause
+- **THEN** only its original typed, mode-bound start-capable receipt can authorize the new attempt; a Stop/Reset receipt or forged same-generation envelope cannot start it. The exact positive acknowledgement atomically confirms Running and records the actually applied profile once. Failure terminates that claim and rejects another attempt's replay; an identical completed acknowledgement remains idempotent.
+
+#### Scenario: Automatic selection and active group
+
+- **WHEN** a measured automatic result, DNS refresh, handover or inactive group change is delivered
+- **THEN** it cannot acquire a newer manual activation receipt or manufacture recent-use history. Only the persisted active selector group may reload the active runtime, and a newer manual choice or catalog revision rejects an older result.
+
+#### Scenario: Provider replacement and interrupted persistence
+
+- **WHEN** an explicit selector, standalone AmneziaWG or WARP activation replaces another provider
+- **THEN** one original activation reservation owns the provider after-images and selector publication; recovery cannot replay those pointers over a newer command or manufacture a runtime acknowledgement.
+
+#### Scenario: Cancellation after activation or stop reservation
+
+- **WHEN** the caller is cancelled after its activation is reserved but before the receipt is returned, or after its conditional Stop is reserved
+- **THEN** activation cleanup retains the original receipt and restores only its owned before-image, and the captured Stop completes its dispatch even if metadata clearing fails; stale deactivation cannot reserve Stop against a newer full authority snapshot.
+
+#### Scenario: Recovery of a previously applied runtime
+
+- **WHEN** a stopped runtime is reconstructed or a startup fallback is requested
+- **THEN** continuation requires the original verified applied lineage or the exact permitted ordinary-start fallback lease, and cannot borrow a later Start, measured activation, Stop, Reset or Pause intent.
 
 ### Requirement: REQ-ACCESSIBILITY — Preserve Android presentation and privacy
 
@@ -135,3 +165,62 @@ The implementation MUST use existing RDS tokens, support all ten locales, readab
 
 - **WHEN** the new controls are rendered at accessibility font scale or in RTL
 - **THEN** labels, consequences, selection and actions remain readable and operable without relying on color alone.
+
+
+### Requirement: Measured selection cannot gain fresh authority during recovery
+
+A measured selection SHALL validate its captured scope and reserve the original explicit activation before preparing its persistence journal. Journal replay SHALL preserve that exact reservation and SHALL NOT mint, bind or dispatch activation or record recent use after the transient measurement lease is lost. A new explicit user action SHALL be required for activation after reconstruction. The linearized reservation SHALL perform only synchronous state checks and persistence; profile DAO and native work SHALL remain outside it.
+
+#### Scenario: Process stops between measurement reservation and journal preparation
+- **WHEN** the measured selection has reserved its explicit activation but its journal has not been prepared
+- **THEN** persisted intent remains Stopped/Unbound and reconstruction does not start a runtime or add recent use
+
+#### Scenario: Process stops after measured journal preparation
+- **WHEN** recovery completes a measured selection journal without its original transient measurement lease
+- **THEN** it may finish selection/catalog persistence and does not create or dispatch another activation capability
+
+#### Scenario: Failed preparation races with a newer command
+- **WHEN** measured journal preparation or persistence fails after another command supersedes the reservation
+- **THEN** compensation preserves the newer command and reports the original failure without dispatch or recent use
+
+
+### Requirement: Measured activation preserves its original physical network fence
+
+Measured activation SHALL use one process-owned physical INTERNET + NOT_VPN observer and one immutable transient token with a nonzero registration generation and monotonic event epoch. It SHALL require complete current callback state and a usable, unblocked, nonsuspended physical path. Android validation/captive flags SHALL remain diagnostic fingerprint evidence and SHALL NOT independently prevent explicit local/LAN checks. Measurement completion, reservation, bind/claim and positive ACK SHALL compare the original token; no fresh baseline SHALL replace it.
+
+#### Scenario: The measured command establishes its own VPN
+- **WHEN** the exact measured command creates a VPN default network or initializes its underlay binder while physical network A is unchanged
+- **THEN** those owned changes do not invalidate the physical token and the exact positive ACK may record use once
+
+#### Scenario: Physical network changes and returns
+- **WHEN** physical callbacks observe A to B to A during a measured attempt
+- **THEN** the advanced event epoch rejects the old result or ACK even when the final fingerprint equals A
+
+#### Scenario: Android validation fails but an explicit target is reachable
+- **WHEN** an unvalidated or captive physical path remains usable and an explicit local/LAN check receives a complete successful HTTP response
+- **THEN** validation/captive flags alone do not reject measurement or the exact measured activation
+
+#### Scenario: Physical observation is unusable or belongs to an old registration
+- **WHEN** callback initialization is incomplete, the path is blocked/suspended/unusable, or a callback belongs to a retired registration
+- **THEN** no valid current token is manufactured and no activation or recent-use ACK is accepted
+
+
+### Requirement: Measured activation uses the exact checked policy and consumed configuration
+
+Native and selector measurement SHALL return a private identity of its exact native start configuration. Only owned SOCKS endpoint/socket-protection differences SHALL be normalized. TLS, QUIC, experiment, profile/secret-derived and transient helper launch inputs SHALL remain significant. Binding SHALL capture full immutable post-selection requested inputs outside authority/store locks; service resolution SHALL consume those captured inputs. Claim SHALL compare the captured requested identity and positive ACK SHALL compare actual native consumption with the measurement proof before confirmation or recent use.
+
+#### Scenario: Policy changes after binding
+- **WHEN** TLS, QUIC, relevant experiment flags or DNS policy differ in the captured service attempt after registry binding
+- **THEN** claim/native start rejects the stale proof without adding history
+
+#### Scenario: Live settings return but a different configuration was consumed
+- **WHEN** settings return from A to B to A but the native ready evidence contains B
+- **THEN** positive ACK rejects B and cleans the owned attempt without adding history
+
+#### Scenario: Exact measured configuration is applied
+- **WHEN** the exact intended profile and policy are consumed with only owned SOCKS/socket-protection differences
+- **THEN** the exact measured command may acknowledge once and an identical completed ACK remains idempotent
+
+#### Scenario: A mode binding is replaced or cancelled
+- **WHEN** an attempt is superseded, rejected, cancelled, failed, stopped or replaced
+- **THEN** its exact process-local measured proof is retired and a delayed ACK cannot reuse it

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">Perfiles</string>
+    <string name="profile_utility_favorites">Favoritos</string>
+    <string name="profile_utility_recents">Usados recientemente</string>
+    <string name="profile_utility_saved">Perfiles guardados</string>
+    <string name="profile_utility_check">Comprobar</string>
+    <string name="profile_utility_check_select">Comprobar y seleccionar</string>
+    <string name="profile_utility_checking">Comprobando…</string>
+    <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_not_checked">Sin comprobar</string>
+    <string name="profile_utility_unsupported">Este perfil no se puede comprobar aquí.</string>
+    <string name="profile_utility_environment_changed">La red, la política o el perfil cambiaron. Comprueba de nuevo.</string>
+    <string name="profile_utility_failed">La comprobación HTTP falló. La selección no cambió.</string>
+    <string name="profile_utility_timeout">La comprobación agotó el tiempo. La selección no cambió.</string>
+    <string name="profile_utility_cleanup_pending">La liberación de recursos nativos está pendiente. La selección no cambió.</string>
+    <string name="profile_utility_retry_cleanup">Reintentar liberación</string>
+    <string name="profile_utility_favorite_add">Añadir %1$s a favoritos</string>
+    <string name="profile_utility_favorite_remove">Eliminar %1$s de favoritos</string>
+    <string name="profile_utility_last_used">Último uso: %1$s</string>
+    <string name="profile_utility_empty">No hay perfiles guardados.</string>
+    <string name="profile_utility_disclosure">Comprobar mide una solicitud HTTP. Comprobar y seleccionar aplica el perfil solo tras una comprobación correcta.</string>
+    <string name="profile_utility_command_failed">No se pudo completar el comando. Revisa el estado del perfil.</string>
+    <string name="profile_utility_applying">Aplicando perfil…</string>
+    <string name="profile_utility_selection_failed">No se pudo aplicar el perfil. Revisa los perfiles guardado y aplicado.</string>
+    <string name="profile_utility_url">URL de comprobación</string>
+    <string name="profile_utility_applied">Perfil aplicado</string>
+    <string name="profile_utility_loading">Cargando perfiles…</string>
+    <string name="profile_utility_checked_at">Comprobado: %1$s</string>
+    <string name="profile_utility_busy">Xray está ocupado. Pausa o detén la conexión e inténtalo de nuevo.</string>
+    <string name="profile_utility_check_fastest">Comprobar y elegir el más rápido</string>
+</resources>

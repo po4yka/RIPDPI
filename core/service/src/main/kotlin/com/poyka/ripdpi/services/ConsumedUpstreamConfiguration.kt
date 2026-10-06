@@ -9,6 +9,7 @@ import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 internal class ConsumedUpstreamConfiguration private constructor(
     private val canonical: String,
     val selection: com.poyka.ripdpi.data.RuntimeConfigurationSelection,
+    val measuredInputProof: CandidateConfigurationProof?,
 ) {
     fun identityMaterial(): String = canonical
 
@@ -29,6 +30,7 @@ internal class ConsumedUpstreamConfiguration private constructor(
                         },
                     profileId = config.profileId,
                 ),
+                CandidateConfigurationProofs.relay(config),
             )
 
         fun warp(config: ResolvedRipDpiWarpConfig) =
@@ -56,6 +58,7 @@ internal class ConsumedUpstreamConfiguration private constructor(
                     relayKind = "warp",
                     profileId = config.profileId,
                 ),
+                null,
             )
 
         fun awg(config: ResolvedRipDpiAmneziaWgConfig) =
@@ -67,6 +70,7 @@ internal class ConsumedUpstreamConfiguration private constructor(
                     transport = config.carrier.name.lowercase(),
                     profileId = config.profileId,
                 ),
+                null,
             )
     }
 }

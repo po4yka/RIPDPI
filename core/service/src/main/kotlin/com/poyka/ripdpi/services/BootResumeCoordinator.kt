@@ -47,7 +47,7 @@ class BootResumeCoordinator
                             val receipt = serviceController.authorizeBootPolicyStart(decision.mode, authority) ?: return
                             serviceController.startBootPolicy(decision.mode, receipt)
                         } else {
-                            serviceController.startForBootRecovery(decision.mode, action, reference)
+                            serviceController.startForBootRecovery(decision.mode, action, authority)
                         }
                     reconnectingResumeMode(result, serviceStateStore.status.value.first)
                         ?.let { mode -> serviceStateStore.setStatus(AppStatus.Reconnecting, mode) }

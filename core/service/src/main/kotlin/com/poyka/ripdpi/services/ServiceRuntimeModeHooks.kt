@@ -19,7 +19,7 @@ internal class ServiceRuntimeModeHooks<TSession>(
 internal class ServiceRuntimeStartHooks<TSession>(
     val createRuntimeSession: () -> TSession,
     val resolveInitialConnectionPolicy: suspend () -> ConnectionPolicyResolution,
-    val applyActiveConnectionPolicy: (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
+    val applyActiveConnectionPolicy: suspend (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
     val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> RuntimeStartEvidence,
     val evidencePublication: RuntimeStartEvidencePublication<TSession>,
     val startModeTelemetryUpdates: (TelemetryJobReplacer) -> Unit,

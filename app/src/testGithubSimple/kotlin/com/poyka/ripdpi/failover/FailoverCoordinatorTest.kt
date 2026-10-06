@@ -16,6 +16,8 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessFlowVision
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RuntimeActivationReceipt
+import com.poyka.ripdpi.data.RuntimeAuthoritySnapshot
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
@@ -31,7 +33,6 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
-import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.StartupFallbackController
@@ -127,14 +128,21 @@ private class FakeServiceController(
     val stopCalls = mutableListOf<Unit>()
     val actualStopCalls = mutableListOf<Unit>()
     var beforeTransportRestartResult: () -> Unit = {}
-    var transportRestartResult: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN)
+    var transportRestartResult: ServiceStartResult = ServiceStartResult.MaintenanceAccepted(Mode.VPN)
     var autoConfirmTransportRestart: Boolean = true
     var claimTransportRestartWithoutConfirmation: Boolean = false
     var transportFailoverApplyTracker: TransportFailoverApplyTracker? = null
 
-    override fun recordStart(mode: Mode): ServiceStartResult {
+    override fun recordStart(
+        mode: Mode,
+        receipt: RuntimeActivationReceipt?,
+    ): ServiceStartResult {
         startCalls += mode
-        return ServiceStartResult.Accepted(mode)
+        return receipt?.let { ServiceStartResult.Accepted(it) } ?: ServiceStartResult.MaintenanceAccepted(mode)
+    }
+
+    fun prepareFixtureStart() {
+        checkNotNull(intentArbiter.dispatchExplicit(testAuthority.reserveStart(Mode.VPN)))
     }
 
     override fun recordStop() {
@@ -147,6 +155,9 @@ private class FakeServiceController(
         expectedTarget: TransportFailoverTarget,
         reference: com.poyka.ripdpi.data.PauseAuthorityRef,
     ): ServiceStartResult {
+        if (!intentArbiter.isDurableCurrent(reference)) {
+            return ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.Superseded)
+        }
         transportRestartCalls += Mode.VPN
         transportRestartRequestIds += requestId
         transportRestartTargets += expectedTarget
@@ -156,25 +167,42 @@ private class FakeServiceController(
         startCalls += Mode.VPN
         beforeTransportRestartResult()
         return transportRestartResult.also { result ->
-            if (autoConfirmTransportRestart && result is ServiceStartResult.Accepted) {
+            if (autoConfirmTransportRestart && result is ServiceStartResult.MaintenanceAccepted) {
                 transportFailoverApplyTracker?.let { tracker ->
                     check(tracker.claimApplying(requestId))
                     check(tracker.recordApplied(requestId))
                     tracker.releaseRuntimeOwnership(requestId)
                 }
-            } else if (claimTransportRestartWithoutConfirmation && result is ServiceStartResult.Accepted) {
+            } else if (claimTransportRestartWithoutConfirmation && result is ServiceStartResult.MaintenanceAccepted) {
                 check(transportFailoverApplyTracker?.claimApplying(requestId) == true)
             }
         }
     }
 
-    override fun captureStartupFallbackLease(): StartupFallbackLease = FakeStartupFallbackLease
+    override fun captureStartupFallbackLease(): StartupFallbackLease =
+        intentArbiter.serialize {
+            FakeStartupFallbackLease(
+                intentArbiter.captureExplicitUserIntentGeneration(),
+                testAuthority.snapshotAuthority(),
+            )
+        }
 
-    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
-        StartupFallbackDispatchResult.Dispatched(recordStart(Mode.VPN))
+    override suspend fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+        val captured = lease as? FakeStartupFallbackLease ?: return StartupFallbackDispatchResult.Superseded
+        return intentArbiter.runIfExplicitUserIntentCurrent(captured.generation) {
+            if (testAuthority.snapshotAuthority() != captured.snapshot) {
+                StartupFallbackDispatchResult.Superseded
+            } else {
+                StartupFallbackDispatchResult.Dispatched(recordStart(Mode.VPN, null), lease)
+            }
+        } ?: StartupFallbackDispatchResult.Superseded
+    }
 }
 
-private data object FakeStartupFallbackLease : StartupFallbackLease
+private data class FakeStartupFallbackLease(
+    val generation: Long,
+    val snapshot: RuntimeAuthoritySnapshot,
+) : StartupFallbackLease
 
 private class FakeAppSettingsRepository(
     udpAssociateEnabled: Boolean? = false,
@@ -349,6 +377,7 @@ private fun buildCoordinator(
         FailoverEgressProbe { _, _ -> FailoverEgressProbeResult(succeeded = false) },
     egressHealthMemory: SimpleEgressHealthMemory = RecordingSimpleEgressHealthMemory(),
 ): CoordinatorFixture {
+    controller.prepareFixtureStart()
     val awgRepo =
         AwgProfileRepository(
             FakeAwgProfileDao(awgProfiles),
@@ -489,17 +518,13 @@ class FailoverCoordinatorTest {
                 setRelayProfileId("simple-seed-Hysteria2")
                 setSimpleFailoverAwgProfileId(SIMPLE_SEED_AWG_PROFILE_ID)
             }
-            val (coordinator, _, _) = buildCoordinator(settings = settings, bootSelection = bootSelection)
+            val (coordinator, controller, _) = buildCoordinator(settings = settings, bootSelection = bootSelection)
 
             coordinator.prepare(
                 Mode.VPN,
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                ).explicitUserStartGuard(
-                    0L,
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0L),
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.intentArbiter.durableReference(),
                 ),
             )
 
@@ -517,19 +542,17 @@ class FailoverCoordinatorTest {
         runTest {
             val settings = FakeAppSettingsRepository()
             val boot = TestAwgBootSelection()
-            val arbiter =
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
-            val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
+            val controller = FakeServiceController()
+            val arbiter = controller.intentArbiter
             val updateStarted = CompletableDeferred<Unit>()
             val releaseUpdate = CompletableDeferred<Unit>()
             settings.beforeUpdate = {
                 updateStarted.complete(Unit)
                 releaseUpdate.await()
             }
-            val (coordinator, _, _) = buildCoordinator(settings = settings, bootSelection = boot)
+            val (coordinator, _, _) =
+                buildCoordinator(settings = settings, bootSelection = boot, controller = controller)
+            val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
             val prepare =
                 async {
                     coordinator.prepare(
@@ -1062,7 +1085,7 @@ class FailoverCoordinatorTest {
             assertEquals(RelayKindVlessReality, settings.relayKind())
             assertEquals("reality-1", settings.relayProfileId())
 
-            controller.transportRestartResult = ServiceStartResult.Accepted(Mode.VPN)
+            controller.transportRestartResult = ServiceStartResult.MaintenanceAccepted(Mode.VPN)
             repeat(4) {
                 clock.advance(8_000L)
                 stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
@@ -1337,13 +1360,9 @@ class FailoverCoordinatorTest {
 
             fixture.coordinator.prepare(
                 Mode.VPN,
-                ServiceIntentArbiter(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                ).explicitUserStartGuard(
-                    0L,
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0L),
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.intentArbiter.durableReference(),
                 ),
             )
             runCurrent()
@@ -1455,13 +1474,9 @@ class FailoverCoordinatorTest {
                 async {
                     fixture.coordinator.prepare(
                         Mode.VPN,
-                        ServiceIntentArbiter(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
-                        ).explicitUserStartGuard(
-                            0L,
-                            com.poyka.ripdpi.data
-                                .PauseAuthorityRef(0L),
+                        fixture.controller.intentArbiter.explicitUserStartGuard(
+                            fixture.controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                            fixture.controller.intentArbiter.durableReference(),
                         ),
                     )
                 }
@@ -2349,6 +2364,15 @@ class FailoverCoordinatorTest {
                     settings = settings,
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+            val configuredStage = settings.snapshot()
+            coordinator.prepare(
+                Mode.VPN,
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.testAuthority.reference(),
+                ),
+            )
+            settings.replace(configuredStage)
             coordinator.bind(observeScope)
 
             stateStore.emitFailure(FailureReason.InitialTransportSelectionFailed("capability mismatch"))
@@ -2887,6 +2911,15 @@ class FailoverCoordinatorTest {
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
 
+            val configuredStage = settings.snapshot()
+            coordinator.prepare(
+                Mode.VPN,
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.testAuthority.reference(),
+                ),
+            )
+            settings.replace(configuredStage)
             coordinator.bind(observeScope)
             stateStore.emitFailure(FailureReason.NativeError("transport readiness timed out"))
             assertEquals("Retry must wait until failed startup is fully halted", 0, controller.startCalls.size)
@@ -2945,6 +2978,15 @@ class FailoverCoordinatorTest {
                     awgProfiles = listOf(awg),
                 )
             val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+            val configuredStage = settings.snapshot()
+            coordinator.prepare(
+                Mode.VPN,
+                controller.intentArbiter.explicitUserStartGuard(
+                    controller.intentArbiter.captureExplicitUserIntentGeneration(),
+                    controller.testAuthority.reference(),
+                ),
+            )
+            settings.replace(configuredStage)
             coordinator.bind(observeScope)
 
             stateStore.emitFailure(FailureReason.InitialTransportSelectionFailed("preflight failed"))

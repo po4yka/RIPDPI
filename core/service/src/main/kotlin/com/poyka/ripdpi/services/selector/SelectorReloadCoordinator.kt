@@ -28,31 +28,31 @@ import kotlinx.coroutines.launch
 interface SelectorReloadTrigger {
     /**
      * Hot-reloads the running relay supervisor so traffic flows through the
-     * member profile identified by [profileId]. Must not tear the service down.
+     * member profile identified by [request]. Must not tear the service down.
      */
-    suspend fun hotReload(profileId: String)
+    suspend fun hotReload(request: SelectorReloadRequest)
 
     /** Full service tear-down — only for non-hot-reloadable transitions. */
     suspend fun teardown()
 }
 
 /**
- * Watches a selector group's [selectedProfileId] signal and, while
+ * Watches a selector group's [selectionChanges] signal and, while
  * [start]ed, calls [SelectorReloadTrigger.hotReload] on every *change* to the
  * selection.
  *
  * Semantics:
  * - The initial (seed) value never triggers a reload — only subsequent changes
  *   do, so wiring the coordinator up does not bounce a freshly-started service.
- * - Repeated emissions of the same id are deduplicated; a no-op re-selection
- *   does not cause a redundant reload.
+ * - Repeated emissions of the same captured request are deduplicated; a new manual reservation
+ *   can reload the same member.
  * - A `null` selection (the group has no active member) is skipped — there is
  *   nothing to reload to.
  * - [stop] cancels the watch; later selection changes are ignored.
  */
 class SelectorReloadCoordinator(
     private val scope: CoroutineScope,
-    private val selectedProfileId: Flow<String?>,
+    private val selectionChanges: Flow<SelectorReloadRequest?>,
     private val trigger: SelectorReloadTrigger,
 ) {
     private var watchJob: Job? = null
@@ -72,15 +72,15 @@ class SelectorReloadCoordinator(
         watchJob =
             scope.launch {
                 try {
-                    selectedProfileId
+                    selectionChanges
                         .distinctUntilChanged()
                         .onEach { ready.complete(Unit) }
                         // Startup waits for this seed before reading the durable selection.
                         .drop(1)
                         .filterNotNull()
-                        .collect { profileId ->
+                        .collect { request ->
                             try {
-                                trigger.hotReload(profileId)
+                                trigger.hotReload(request)
                             } catch (cancelled: CancellationException) {
                                 currentCoroutineContext().ensureActive()
                                 Logger.e(cancelled) { "Selector runtime reload timed out" }

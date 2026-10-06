@@ -25,7 +25,7 @@ class ProxyServiceLocalNetworkRevocationTest {
         runTest {
             val env = newEnv(localNetworkDependent = true)
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.permissionWatchdog.emit(
                 PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, detectedAt = 2_000L),
@@ -43,7 +43,7 @@ class ProxyServiceLocalNetworkRevocationTest {
         runTest {
             val env = newEnv(localNetworkDependent = false)
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.permissionWatchdog.emit(
                 PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, detectedAt = 2_000L),
@@ -56,13 +56,18 @@ class ProxyServiceLocalNetworkRevocationTest {
         }
 
     private data class Env(
+        val commands: TestRuntimeCommandSource,
         val coordinator: ProxyServiceRuntimeCoordinator,
         val store: TestServiceStateStore,
         val runtimeRegistry: ServiceRuntimeRegistry,
         val permissionWatchdog: TestPermissionWatchdog,
-    )
+    ) {
+        suspend fun startCaptured() =
+            commands.start(runtimeRegistry.current(Mode.Proxy) != null) { coordinator.start() }
+    }
 
     private fun TestScope.newEnv(localNetworkDependent: Boolean): Env {
+        val commands = TestRuntimeCommandSource(Mode.Proxy)
         val dispatcher = StandardTestDispatcher(testScheduler)
         val store = TestServiceStateStore()
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
@@ -72,9 +77,8 @@ class ProxyServiceLocalNetworkRevocationTest {
                 configurationLifecycle =
                     RuntimeConfigurationLifecycle(
                         AppliedRuntimeConfigurationStore(
-                            PauseAppliedReceiptConsumer(
-                                com.poyka.ripdpi.data
-                                    .testPauseAuthority(),
+                            testRuntimeAppliedReceiptConsumer(
+                                commands.authority,
                             ),
                         ),
                         RuntimeConfigurationIdentityFactory(),
@@ -109,7 +113,7 @@ class ProxyServiceLocalNetworkRevocationTest {
                 ioDispatcher = dispatcher,
                 clock = TestServiceClock(now = 1_000L),
             )
-        return Env(coordinator, store, runtimeRegistry, permissionWatchdog)
+        return Env(commands, coordinator, store, runtimeRegistry, permissionWatchdog)
     }
 
     private fun TestScope.proxySupervisors(dispatcher: kotlinx.coroutines.CoroutineDispatcher) =

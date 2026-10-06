@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">Profile</string>
+    <string name="profile_utility_favorites">Favoriten</string>
+    <string name="profile_utility_recents">Zuletzt verwendet</string>
+    <string name="profile_utility_saved">Gespeicherte Profile</string>
+    <string name="profile_utility_check">Prüfen</string>
+    <string name="profile_utility_check_select">Prüfen und auswählen</string>
+    <string name="profile_utility_checking">Wird geprüft…</string>
+    <string name="profile_utility_measured">HTTP: %1$s ms</string>
+    <string name="profile_utility_not_checked">Nicht geprüft</string>
+    <string name="profile_utility_unsupported">Dieses Profil kann hier nicht geprüft werden.</string>
+    <string name="profile_utility_environment_changed">Netzwerk, Richtlinie oder Profil geändert. Erneut prüfen.</string>
+    <string name="profile_utility_failed">HTTP-Prüfung fehlgeschlagen. Auswahl unverändert.</string>
+    <string name="profile_utility_timeout">Zeitlimit der Prüfung erreicht. Auswahl unverändert.</string>
+    <string name="profile_utility_cleanup_pending">Native Ressourcen werden noch freigegeben. Auswahl unverändert.</string>
+    <string name="profile_utility_retry_cleanup">Freigabe erneut versuchen</string>
+    <string name="profile_utility_favorite_add">%1$s zu Favoriten hinzufügen</string>
+    <string name="profile_utility_favorite_remove">%1$s aus Favoriten entfernen</string>
+    <string name="profile_utility_last_used">Zuletzt verwendet: %1$s</string>
+    <string name="profile_utility_empty">Keine gespeicherten Profile.</string>
+    <string name="profile_utility_disclosure">Prüfen misst eine HTTP-Anfrage. Prüfen und auswählen wendet das Profil erst nach erfolgreicher Prüfung an.</string>
+    <string name="profile_utility_command_failed">Befehl konnte nicht abgeschlossen werden. Profilstatus prüfen.</string>
+    <string name="profile_utility_applying">Profil wird angewendet…</string>
+    <string name="profile_utility_selection_failed">Profil konnte nicht angewendet werden. Gespeichertes und angewendetes Profil prüfen.</string>
+    <string name="profile_utility_url">Prüf-URL</string>
+    <string name="profile_utility_applied">Angewendetes Profil</string>
+    <string name="profile_utility_loading">Profile werden geladen…</string>
+    <string name="profile_utility_checked_at">Geprüft: %1$s</string>
+    <string name="profile_utility_busy">Xray ist beschäftigt. Pausieren oder stoppen Sie die Verbindung und versuchen Sie es erneut.</string>
+    <string name="profile_utility_check_fastest">Prüfen und schnellstes Profil wählen</string>
+</resources>

@@ -30,7 +30,6 @@ import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
-import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
@@ -78,6 +77,7 @@ class UpstreamRelaySupervisorTest {
             assertTrue(
                 runCatching {
                     supervisor.start(
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                         requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                         config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                         onUnexpectedExit = {},
@@ -104,6 +104,7 @@ class UpstreamRelaySupervisorTest {
                     stopTimeoutMillis = 100L,
                 )
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
@@ -130,6 +131,7 @@ class UpstreamRelaySupervisorTest {
                     runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
                 )
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
@@ -170,7 +172,16 @@ class UpstreamRelaySupervisorTest {
                     }
                 }
 
-            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            val promoted =
+                supervisor.startRace(
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                        ),
+                    plan = racePlan(),
+                    onUnexpectedExit = {
+                    },
+                )
 
             assertEquals(InitialRelayTransportClass.UdpObfuscation, promoted.result.selectedCandidate.transportClass)
             assertEquals(HysteriaRacePort, promoted.endpoint.port)
@@ -195,7 +206,16 @@ class UpstreamRelaySupervisorTest {
                     }
                 }
 
-            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            val promoted =
+                supervisor.startRace(
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                        ),
+                    plan = racePlan(),
+                    onUnexpectedExit = {
+                    },
+                )
 
             assertEquals(InitialRelayTransportClass.TlsMimicry, promoted.result.selectedCandidate.transportClass)
             assertEquals(RealityRacePort, promoted.endpoint.port)
@@ -215,7 +235,16 @@ class UpstreamRelaySupervisorTest {
                     RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
                 }
 
-            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            val promoted =
+                supervisor.startRace(
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                        ),
+                    plan = racePlan(),
+                    onUnexpectedExit = {
+                    },
+                )
 
             assertEquals(InitialRelayTransportClass.UdpObfuscation, promoted.result.selectedCandidate.transportClass)
             assertEquals(50L, promoted.result.latencyMs)
@@ -233,7 +262,15 @@ class UpstreamRelaySupervisorTest {
                     RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
                 }
 
-            supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            supervisor.startRace(
+                inputs =
+                    testRelayResolutionInputs(
+                        quic = OwnedRelayQuicMigrationConfig(),
+                    ),
+                plan = racePlan(),
+                onUnexpectedExit = {
+                },
+            )
             assertEquals(1, relayFactory.runtimes.first().stopCount)
             assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
             supervisor.detach()
@@ -269,7 +306,8 @@ class UpstreamRelaySupervisorTest {
                 }
 
             supervisor.startRace(
-                racePlan(),
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                plan = racePlan(),
                 onUnexpectedExit = {},
                 onState = { state ->
                     if (state.state == "selected") events += "race:selected"
@@ -306,7 +344,16 @@ class UpstreamRelaySupervisorTest {
                     RelayActiveProbeResult(true, statusCode = 200, latencyMs = 20L)
                 }
 
-            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            val promoted =
+                supervisor.startRace(
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                        ),
+                    plan = racePlan(),
+                    onUnexpectedExit = {
+                    },
+                )
 
             assertEquals(HysteriaProfileId, promoted.result.selectedCandidate.profileId)
             assertEquals(2, relayFactory.runtimes.size)
@@ -324,7 +371,8 @@ class UpstreamRelaySupervisorTest {
 
             val promoted =
                 supervisor.startRace(
-                    racePlan(cachedFallbackProfileId = RealityProfileId),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    plan = racePlan(cachedFallbackProfileId = RealityProfileId),
                     onUnexpectedExit = {},
                 )
 
@@ -345,7 +393,16 @@ class UpstreamRelaySupervisorTest {
                     RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
                 }
 
-            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+            val promoted =
+                supervisor.startRace(
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                        ),
+                    plan = racePlan(),
+                    onUnexpectedExit = {
+                    },
+                )
 
             assertEquals(RealityProfileId, promoted.result.selectedCandidate.profileId)
             assertTrue(promoted.result.verificationInconclusive)
@@ -366,7 +423,8 @@ class UpstreamRelaySupervisorTest {
             val plan = racePlan().let { it.copy(candidates = it.candidates.take(1)) }
             val promoted =
                 supervisor.startRace(
-                    plan,
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    plan = plan,
                     onUnexpectedExit = {},
                     onState = states::add,
                 )
@@ -395,7 +453,14 @@ class UpstreamRelaySupervisorTest {
                 raceSupervisor(relayFactory) { _, _, _ ->
                     awaitCancellation()
                 }
-            val race = async { supervisor.startRace(racePlan(), onUnexpectedExit = exits::add) }
+            val race =
+                async {
+                    supervisor.startRace(
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        plan = racePlan(),
+                        onUnexpectedExit = exits::add,
+                    )
+                }
             runCurrent()
 
             race.cancelAndJoin()
@@ -418,7 +483,7 @@ class UpstreamRelaySupervisorTest {
                 object : UpstreamRelayRuntimeConfigResolver {
                     override suspend fun resolve(
                         config: RipDpiRelayConfig,
-                        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+                        inputs: RelayResolutionInputs,
                     ) = sampleResolvedRelayConfig(kind = config.kind, profileId = config.profileId).copy(
                         udpEnabled = config.kind == RelayKindHysteria2,
                     )
@@ -499,7 +564,16 @@ class UpstreamRelaySupervisorTest {
                     healthScope = RelayHealthScope(persistentNetworkHash = "network-test", sessionGeneration = 1L),
                 )
 
-            val promoted = supervisor.startRace(plan, onUnexpectedExit = {})
+            val promoted =
+                supervisor.startRace(
+                    inputs =
+                        testRelayResolutionInputs(
+                            quic = OwnedRelayQuicMigrationConfig(),
+                        ),
+                    plan = plan,
+                    onUnexpectedExit = {
+                    },
+                )
 
             assertEquals(RelayKindHysteria2, promoted.result.selectedCandidate.relayKind)
             assertEquals(EgressRequirements(tcpConnect = true, udpAssociate = false), observedRequirements)
@@ -523,6 +597,7 @@ class UpstreamRelaySupervisorTest {
             val error =
                 runCatching {
                     supervisor.start(
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                         config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality),
                         requirements = EgressRequirements(tcpConnect = true, udpAssociate = true),
                         onUnexpectedExit = {},
@@ -549,6 +624,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
@@ -573,6 +649,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
@@ -621,6 +698,7 @@ class UpstreamRelaySupervisorTest {
                 val error =
                     runCatching {
                         supervisor.start(
+                            inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                             requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                             config = RipDpiRelayConfig(enabled = true, kind = resolvedConfig.kind),
                             onUnexpectedExit = {},
@@ -651,6 +729,7 @@ class UpstreamRelaySupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { exits += it },
@@ -677,6 +756,7 @@ class UpstreamRelaySupervisorTest {
             val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { exits += it },
@@ -705,6 +785,7 @@ class UpstreamRelaySupervisorTest {
             val scriptedExits = ScriptedSupervisorExitSequence(ScriptedSupervisorExit.Crash(23))
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { cause ->
@@ -717,6 +798,7 @@ class UpstreamRelaySupervisorTest {
             advanceUntilIdle()
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = { exits += it },
@@ -751,6 +833,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
                 onUnexpectedExit = {},
@@ -814,10 +897,12 @@ class UpstreamRelaySupervisorTest {
                     relayFactory = relayFactory,
                     naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = profileStore,
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore = credentialStore,
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -864,7 +949,7 @@ class UpstreamRelaySupervisorTest {
             supervisor.start(
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config = requestedConfig,
-                quicMigrationConfig = quicMigrationConfig,
+                inputs = testRelayResolutionInputs(quic = quicMigrationConfig),
                 onUnexpectedExit = {},
             )
 
@@ -894,6 +979,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -921,6 +1007,7 @@ class UpstreamRelaySupervisorTest {
                     relayFactory = relayFactory,
                     naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = TestRelayProfileStore(),
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -945,10 +1032,13 @@ class UpstreamRelaySupervisorTest {
                         serverName = "relay.example",
                         udpEnabled = true,
                     ),
-                quicMigrationConfig =
-                    OwnedRelayQuicMigrationConfig(
-                        bindLowPort = true,
-                        migrateAfterHandshake = true,
+                inputs =
+                    testRelayResolutionInputs(
+                        quic =
+                            OwnedRelayQuicMigrationConfig(
+                                bindLowPort = true,
+                                migrateAfterHandshake = true,
+                            ),
                     ),
                 onUnexpectedExit = {},
             )
@@ -981,6 +1071,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -994,17 +1085,6 @@ class UpstreamRelaySupervisorTest {
                         },
                     resolverDependencies =
                         UpstreamRelayResolverDependencies(
-                            runtimeExperimentSelectionProvider =
-                                object : RuntimeExperimentSelectionProvider {
-                                    override fun current(): RuntimeExperimentSelection =
-                                        RuntimeExperimentSelection(
-                                            featureFlags =
-                                                mapOf(
-                                                    com.poyka.ripdpi.data
-                                                        .StrategyFeatureMasqueCloudflareDirect to true,
-                                                ),
-                                        )
-                                },
                             cloudflareMasqueGeohashResolver =
                                 object : CloudflareMasqueGeohashResolver {
                                     override suspend fun resolveHeaderValue(): String? = "u4p-GB"
@@ -1013,6 +1093,12 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs =
+                    testRelayResolutionInputs(
+                        quic = OwnedRelayQuicMigrationConfig(),
+                        featureFlags =
+                            mapOf(com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect to true),
+                    ),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1051,6 +1137,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1065,6 +1152,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
@@ -1092,11 +1180,13 @@ class UpstreamRelaySupervisorTest {
                     relayFactory = TestRipDpiRelayFactory(),
                     naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = TestRelayProfileStore(),
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore = TestRelayCredentialStore(),
                 )
 
             try {
                 supervisor.start(
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
@@ -1141,6 +1231,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1153,6 +1244,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1214,6 +1306,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1232,6 +1325,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1295,6 +1389,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1308,6 +1403,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1347,6 +1443,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1360,6 +1457,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
@@ -1401,6 +1499,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1413,6 +1512,7 @@ class UpstreamRelaySupervisorTest {
                 )
 
             supervisor.start(
+                inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1456,6 +1556,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1470,6 +1571,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
@@ -1511,6 +1613,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1525,18 +1628,16 @@ class UpstreamRelaySupervisorTest {
                             )
                         },
                     resolverDependencies =
-                        UpstreamRelayResolverDependencies(
-                            runtimeExperimentSelectionProvider =
-                                object : RuntimeExperimentSelectionProvider {
-                                    override fun current(): RuntimeExperimentSelection =
-                                        RuntimeExperimentSelection(
-                                            featureFlags = mapOf(StrategyFeatureCloudflarePublish to true),
-                                        )
-                                },
-                        ),
+                        UpstreamRelayResolverDependencies(),
                 )
 
             supervisor.start(
+                inputs =
+                    testRelayResolutionInputs(
+                        quic = OwnedRelayQuicMigrationConfig(),
+                        featureFlags =
+                            mapOf(com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish to true),
+                    ),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1577,6 +1678,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1588,18 +1690,16 @@ class UpstreamRelaySupervisorTest {
                             )
                         },
                     resolverDependencies =
-                        UpstreamRelayResolverDependencies(
-                            runtimeExperimentSelectionProvider =
-                                object : RuntimeExperimentSelectionProvider {
-                                    override fun current(): RuntimeExperimentSelection =
-                                        RuntimeExperimentSelection(
-                                            featureFlags = mapOf(StrategyFeatureFinalmask to true),
-                                        )
-                                },
-                        ),
+                        UpstreamRelayResolverDependencies(),
                 )
 
             supervisor.start(
+                inputs =
+                    testRelayResolutionInputs(
+                        quic = OwnedRelayQuicMigrationConfig(),
+                        featureFlags =
+                            mapOf(com.poyka.ripdpi.data.StrategyFeatureFinalmask to true),
+                    ),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(
@@ -1640,6 +1740,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1653,6 +1754,7 @@ class UpstreamRelaySupervisorTest {
 
             try {
                 supervisor.start(
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                     config =
                         RipDpiRelayConfig(
@@ -1694,6 +1796,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
+                    selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                     relayCredentialStore =
                         TestRelayCredentialStore().apply {
                             save(
@@ -1704,15 +1807,15 @@ class UpstreamRelaySupervisorTest {
                             )
                         },
                     resolverDependencies =
-                        UpstreamRelayResolverDependencies(
-                            tlsFingerprintProfileProvider =
-                                object : OwnedTlsFingerprintProfileProvider {
-                                    override fun currentProfile(): String = TlsFingerprintProfileFirefoxStable
-                                },
-                        ),
+                        UpstreamRelayResolverDependencies(),
                 )
 
             supervisor.start(
+                inputs =
+                    testRelayResolutionInputs(
+                        quic = OwnedRelayQuicMigrationConfig(),
+                        tlsProfile = TlsFingerprintProfileFirefoxStable,
+                    ),
                 requirements = EgressRequirements(tcpConnect = true, udpAssociate = false),
                 config =
                     RipDpiRelayConfig(

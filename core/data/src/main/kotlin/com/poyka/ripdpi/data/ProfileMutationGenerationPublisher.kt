@@ -18,7 +18,7 @@ class ProfileMutationGenerationPublisher
         override val generation = state.asStateFlow()
 
         internal fun completed() {
-            state.update { it + 1L }
+            state.update { Math.addExact(it, 1L) }
         }
     }
 

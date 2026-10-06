@@ -86,11 +86,45 @@ class SimpleHomeScreenTest {
         )
 
     @Test
+    fun `profiles action dispatches its callback without connection or report actions`() {
+        var profiles = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Profiles must not pause the connection") },
+                    onResumePause = { error("Profiles must not resume the connection") },
+                    onStopPause = { error("Profiles must not stop the connection") },
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = { error("Profiles must not change the connection") },
+                    onRunReport = { error("Profiles must not run diagnostics") },
+                    onCancelReport = { error("Profiles must not cancel diagnostics") },
+                    onOpenProfiles = { profiles++ },
+                    onOpenAbout = { error("Profiles must not open About") },
+                )
+            }
+        }
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.SettingsProfileUtility,
+            ).performScrollTo()
+            .assertIsEnabled()
+            .performClick()
+        assertEquals(1, profiles)
+    }
+
+    @Test
     fun `active owned connection exposes bounded pause duration on Simple`() {
         var requestedDuration: Long? = null
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(available = true),
@@ -119,6 +153,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities.HomePauseUiState(
                             phase = com.poyka.ripdpi.data.PausePhase.Paused,
@@ -153,6 +188,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities.HomePauseUiState(
                             phase = com.poyka.ripdpi.data.PausePhase.CleanupPending,
@@ -185,6 +221,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -214,6 +251,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -258,6 +296,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -288,6 +327,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -319,6 +359,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -354,6 +395,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -406,6 +448,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -459,6 +502,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -507,6 +551,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -555,6 +600,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -581,6 +627,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -622,6 +669,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -664,6 +712,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -708,6 +757,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -752,6 +802,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -782,6 +833,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),
@@ -825,6 +877,7 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    onOpenProfiles = {},
                     pauseState =
                         com.poyka.ripdpi.activities
                             .HomePauseUiState(),

@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.DesiredRuntimeState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseIntentAuthority
-import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import kotlinx.coroutines.CompletableDeferred
@@ -61,7 +60,7 @@ class BootResumeCoordinatorTest {
     fun `standing boot preference can start after durable user Stop`() =
         runTest {
             val fixture = Fixture()
-            fixture.authority.supersede(RuntimeUserCommand.Stop)
+            fixture.authority.reserveStop()
             val before = fixture.authority.reference().generation
 
             fixture.coordinator.resume(Intent.ACTION_BOOT_COMPLETED)
@@ -82,7 +81,7 @@ class BootResumeCoordinatorTest {
     fun `disabled boot preference leaves durable Stop and status unchanged`() =
         runTest {
             val fixture = Fixture(startOnBoot = false)
-            fixture.authority.supersede(RuntimeUserCommand.Stop)
+            fixture.authority.reserveStop()
             val before = fixture.authority.snapshotAuthority()
 
             fixture.coordinator.resume(Intent.ACTION_BOOT_COMPLETED)
@@ -109,7 +108,7 @@ class BootResumeCoordinatorTest {
     fun `package replacement consumes running marker and resumes matching durable Running`() =
         runTest {
             val fixture = Fixture(runningAtUpdate = true, startOnBoot = false)
-            fixture.authority.supersede(RuntimeUserCommand.Start(Mode.Proxy))
+            testAppliedRuntimeCommand(fixture.authority, Mode.Proxy)
             val before = fixture.authority.snapshotAuthority()
 
             fixture.coordinator.resume(Intent.ACTION_MY_PACKAGE_REPLACED)
@@ -121,7 +120,7 @@ class BootResumeCoordinatorTest {
                     .single()
                     .action,
             )
-            assertEquals(before, fixture.authority.snapshotAuthority())
+            assertEquals(before.reference, fixture.authority.snapshotAuthority().reference)
             assertEquals(AppStatus.Reconnecting to Mode.Proxy, fixture.state.status.value)
         }
 
@@ -129,7 +128,7 @@ class BootResumeCoordinatorTest {
     fun `package replacement cannot resurrect durable Stop from stale running marker`() =
         runTest {
             val fixture = Fixture(runningAtUpdate = true)
-            fixture.authority.supersede(RuntimeUserCommand.Stop)
+            fixture.authority.reserveStop()
             val before = fixture.authority.snapshotAuthority()
 
             fixture.coordinator.resume(Intent.ACTION_MY_PACKAGE_REPLACED)
@@ -166,7 +165,7 @@ class BootResumeCoordinatorTest {
                 })
             val boot = async { fixture.coordinator.resume(Intent.ACTION_BOOT_COMPLETED) }
             entered.await()
-            fixture.authority.supersede(RuntimeUserCommand.Stop)
+            fixture.authority.reserveStop()
             val newer = fixture.authority.snapshotAuthority()
             release.complete(Unit)
             boot.await()

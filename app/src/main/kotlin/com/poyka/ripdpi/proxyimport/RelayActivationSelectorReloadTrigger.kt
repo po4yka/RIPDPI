@@ -16,7 +16,10 @@ import javax.inject.Singleton
 /** Applies profile changes through the running session; only explicit teardown stops the service. */
 interface RunningRelayRefresher {
     /** Re-pins the running runtime onto the newly-active relay profile. No-op when halted. */
-    suspend fun refresh(isCurrent: suspend () -> Boolean)
+    suspend fun refresh(
+        intent: com.poyka.ripdpi.services.RuntimePolicyReloadIntent,
+        isCurrent: suspend () -> Boolean,
+    )
 
     /** Stops the runtime entirely. */
     suspend fun teardown()
@@ -38,7 +41,9 @@ class RelayActivationSelectorReloadTrigger
     @Inject
     constructor(
         private val groupRepository: ProxyGroupRepository,
-        private val relayProfileActivator: RelayProfileActivator,
+        private val selections: com.poyka.ripdpi.data.selector.SelectorSelectionStore,
+        private val authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        private val stateStore: ServiceStateStore,
         private val relayRefresher: RunningRelayRefresher,
         private val selectionProvider: ActiveSelectorSelectionProvider,
     ) : SelectorReloadTrigger {
@@ -47,60 +52,63 @@ class RelayActivationSelectorReloadTrigger
 
         suspend fun prepare() =
             activationMutex.withLock {
-                repeat(StartupReconcileAttempts) {
-                    val profileId = selectionProvider.selectedProfileId().first() ?: return@withLock
-                    val profile = memberProfile(profileId) ?: return@withLock
-                    check(
-                        relayProfileActivator.activate(
-                            relayProfileActivator.captureMutation(
-                                com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
-                            ),
-                            profile,
-                            profileId,
-                        ),
-                    ) {
-                        "Selected profile cannot be activated"
-                    }
-                    if (selectionProvider.selectedProfileId().first() == profileId &&
-                        memberProfile(profileId) == profile
-                    ) {
-                        preparedProfile = profile
-                        return@withLock
-                    }
-                }
-                error("Selector changed repeatedly during startup")
+                val request = selectionProvider.selectionChanges().first() ?: return@withLock
+                val profile =
+                    memberProfile(request.groupId, request.memberId) ?: error("Active selector member is unavailable")
+                check(
+                    com.poyka.ripdpi.data
+                        .mapRelayProfile(profile) != null,
+                ) { "Selected profile cannot be activated" }
+                preparedProfile = profile
             }
 
         suspend fun afterStart() {
-            val selected = selectionProvider.selectedProfileId().first() ?: return
-            val needsReload = activationMutex.withLock { memberProfile(selected) != preparedProfile }
-            if (needsReload) hotReload(selected)
+            val request = selectionProvider.selectionChanges().first() ?: return
+            val needsReload =
+                activationMutex.withLock {
+                    memberProfile(request.groupId, request.memberId) !=
+                        preparedProfile
+                }
+            if (needsReload) hotReload(request)
         }
 
-        override suspend fun hotReload(profileId: String) {
-            val activatedProfile =
-                activationMutex.withLock {
-                    if (selectionProvider.selectedProfileId().first() != profileId) return@withLock null
-                    val profile = memberProfile(profileId) ?: return@withLock null
-                    if (relayProfileActivator.activate(
-                            relayProfileActivator.captureMutation(
-                                com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
-                            ),
-                            profile,
-                            profileId,
-                        )
-                    ) {
-                        profile
-                    } else {
-                        null
-                    }
+        override suspend fun hotReload(request: com.poyka.ripdpi.services.selector.SelectorReloadRequest) {
+            val group = request.groupId
+            val profileId = request.memberId
+            val profile =
+                if (selectionProvider.activeGroupId() == group &&
+                    selections.snapshot(group).profileId == profileId
+                ) {
+                    memberProfile(group, profileId)
+                } else {
+                    null
                 }
-            // Release activation ownership before entering the service lifecycle mutex.
-            if (activatedProfile != null) {
-                relayRefresher.refresh {
-                    selectionProvider.selectedProfileId().first() == profileId &&
-                        memberProfile(profileId) == activatedProfile
+            if (profile == null) return
+            val intent = reloadIntent(request) ?: return
+            relayRefresher.refresh(intent) {
+                selectionProvider.activeGroupId() == group &&
+                    selections.snapshot(group).profileId == profileId && memberProfile(group, profileId) == profile
+            }
+        }
+
+        private fun reloadIntent(
+            request: com.poyka.ripdpi.services.selector.SelectorReloadRequest,
+        ): com.poyka.ripdpi.services.RuntimePolicyReloadIntent? {
+            val manual = request.manualReceipt
+            if (manual?.origin is com.poyka.ripdpi.data.RuntimeCommandOrigin.MeasuredActivation) return null
+            val record = authority.snapshotAuthority().command
+            return if (manual != null && authority.isCurrent(manual) &&
+                record?.phase == com.poyka.ripdpi.data.RuntimeActivationPhase.Unbound
+            ) {
+                val mode = stateStore.status.value.second
+                authority.bindProfileActivation(manual, mode)?.let {
+                    com.poyka.ripdpi.services.RuntimePolicyReloadIntent
+                        .Explicit(it)
                 }
+            } else if (manual != null) {
+                null
+            } else {
+                com.poyka.ripdpi.services.RuntimePolicyReloadIntent.Automatic
             }
         }
 
@@ -109,12 +117,15 @@ class RelayActivationSelectorReloadTrigger
         }
 
         /** Finds the selected member's profile across every selector group's stored members. */
-        private suspend fun memberProfile(profileId: String): ProxyProfile? =
+        private suspend fun memberProfile(
+            groupId: String,
+            profileId: String,
+        ): ProxyProfile? =
             groupRepository
                 .list()
-                .asSequence()
-                .flatMap { it.members.asSequence() }
-                .firstOrNull { it.id == profileId }
+                .singleOrNull { it.id == groupId }
+                ?.members
+                ?.singleOrNull { it.id == profileId }
     }
 
 /** Reconfigures the registered runtime without releasing foreground service or VPN ownership. */
@@ -126,14 +137,15 @@ class ServiceControllerRunningRelayRefresher
         private val serviceStateStore: ServiceStateStore,
         private val runtimeRegistry: ServiceRuntimeRegistry,
     ) : RunningRelayRefresher {
-        override suspend fun refresh(isCurrent: suspend () -> Boolean) {
+        override suspend fun refresh(
+            intent: com.poyka.ripdpi.services.RuntimePolicyReloadIntent,
+            isCurrent: suspend () -> Boolean,
+        ) {
             val (status, mode) = serviceStateStore.status.value
-            if (status == AppStatus.Running) runtimeRegistry.current(mode)?.reloadConnectionPolicy(isCurrent)
+            if (status == AppStatus.Running) runtimeRegistry.current(mode)?.reloadConnectionPolicy(intent, isCurrent)
         }
 
         override suspend fun teardown() {
             serviceController.stop()
         }
     }
-
-private const val StartupReconcileAttempts = 3

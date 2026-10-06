@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
+import com.poyka.ripdpi.services.selector.SelectorReloadRequest
 import com.poyka.ripdpi.services.selector.SelectorReloadTrigger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,12 +23,15 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SelectorReloadCoordinatorTest {
+    private fun automatic(memberId: String) = SelectorReloadRequest("selector", memberId, null)
+
     /** Records hot-reload invocations so tests can assert on them. */
     private class RecordingReloadTrigger : SelectorReloadTrigger {
         val reloadedProfileIds = mutableListOf<String>()
         var teardownCount = 0
 
-        override suspend fun hotReload(profileId: String) {
+        override suspend fun hotReload(request: SelectorReloadRequest) {
+            val profileId = request.memberId
             reloadedProfileIds += profileId
         }
 
@@ -40,7 +44,7 @@ class SelectorReloadCoordinatorTest {
     fun `stop before first dispatch cancels startup readiness`() =
         runTest {
             val coordinator =
-                SelectorReloadCoordinator(backgroundScope, MutableStateFlow("a"), RecordingReloadTrigger())
+                SelectorReloadCoordinator(backgroundScope, MutableStateFlow(automatic("a")), RecordingReloadTrigger())
             coordinator.start(Mode.VPN)
             coordinator.stop(Mode.VPN)
             runCurrent()
@@ -51,7 +55,7 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `old service destruction retains the new mode owner`() =
         runTest {
-            val selection = MutableStateFlow<String?>("a")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("a"))
             val trigger = RecordingReloadTrigger()
             val coordinator = SelectorReloadCoordinator(backgroundScope, selection, trigger)
             coordinator.start(Mode.VPN)
@@ -59,11 +63,11 @@ class SelectorReloadCoordinatorTest {
             coordinator.start(Mode.Proxy)
             coordinator.start(Mode.Proxy)
             coordinator.stop(Mode.VPN)
-            selection.value = "b"
+            selection.value = automatic("b")
             runCurrent()
             assertEquals(listOf("b"), trigger.reloadedProfileIds)
             coordinator.stop(Mode.Proxy)
-            selection.value = "c"
+            selection.value = automatic("c")
             runCurrent()
             assertEquals(listOf("b"), trigger.reloadedProfileIds)
         }
@@ -71,11 +75,12 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `internal reload timeout does not lose later selection changes`() =
         runTest {
-            val selection = MutableStateFlow<String?>("a")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("a"))
             val calls = mutableListOf<String>()
             val trigger =
                 object : SelectorReloadTrigger {
-                    override suspend fun hotReload(profileId: String) {
+                    override suspend fun hotReload(request: SelectorReloadRequest) {
+                        val profileId = request.memberId
                         calls += profileId
                         if (profileId == "b") withTimeout(100L) { awaitCancellation() }
                     }
@@ -85,12 +90,12 @@ class SelectorReloadCoordinatorTest {
             val coordinator = SelectorReloadCoordinator(backgroundScope, selection, trigger)
             coordinator.start(Mode.VPN)
             runCurrent()
-            selection.value = "b"
+            selection.value = automatic("b")
             runCurrent()
             advanceTimeBy(100L)
             runCurrent()
             coordinator.start(Mode.VPN)
-            selection.value = "c"
+            selection.value = automatic("c")
             runCurrent()
             assertEquals(listOf("b", "c"), calls)
         }
@@ -98,19 +103,19 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `changing the selected profile while running triggers a hot reload`() =
         runTest {
-            val selection = MutableStateFlow<String?>("profile-1")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("profile-1"))
             val trigger = RecordingReloadTrigger()
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
-                    selectedProfileId = selection,
+                    selectionChanges = selection,
                     trigger = trigger,
                 )
 
             coordinator.start(Mode.VPN)
             runCurrent()
 
-            selection.value = "profile-2"
+            selection.value = automatic("profile-2")
             runCurrent()
 
             assertEquals(listOf("profile-2"), trigger.reloadedProfileIds)
@@ -121,12 +126,12 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `the initial selection does not trigger a reload`() =
         runTest {
-            val selection = MutableStateFlow<String?>("profile-1")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("profile-1"))
             val trigger = RecordingReloadTrigger()
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
-                    selectedProfileId = selection,
+                    selectionChanges = selection,
                     trigger = trigger,
                 )
 
@@ -140,21 +145,21 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `consecutive selection changes each trigger their own hot reload`() =
         runTest {
-            val selection = MutableStateFlow<String?>("profile-1")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("profile-1"))
             val trigger = RecordingReloadTrigger()
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
-                    selectedProfileId = selection,
+                    selectionChanges = selection,
                     trigger = trigger,
                 )
 
             coordinator.start(Mode.VPN)
             runCurrent()
 
-            selection.value = "profile-2"
+            selection.value = automatic("profile-2")
             runCurrent()
-            selection.value = "profile-3"
+            selection.value = automatic("profile-3")
             runCurrent()
 
             assertEquals(listOf("profile-2", "profile-3"), trigger.reloadedProfileIds)
@@ -163,22 +168,22 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `re-selecting the same profile does not trigger a redundant reload`() =
         runTest {
-            val selection = MutableStateFlow<String?>("profile-1")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("profile-1"))
             val trigger = RecordingReloadTrigger()
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
-                    selectedProfileId = selection,
+                    selectionChanges = selection,
                     trigger = trigger,
                 )
 
             coordinator.start(Mode.VPN)
             runCurrent()
 
-            selection.value = "profile-2"
+            selection.value = automatic("profile-2")
             runCurrent()
             // Emitting the same value again must be deduplicated.
-            selection.value = "profile-2"
+            selection.value = automatic("profile-2")
             runCurrent()
 
             assertEquals(listOf("profile-2"), trigger.reloadedProfileIds)
@@ -187,12 +192,12 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `a null selection clears without triggering a reload`() =
         runTest {
-            val selection = MutableStateFlow<String?>("profile-1")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("profile-1"))
             val trigger = RecordingReloadTrigger()
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
-                    selectedProfileId = selection,
+                    selectionChanges = selection,
                     trigger = trigger,
                 )
 
@@ -208,12 +213,12 @@ class SelectorReloadCoordinatorTest {
     @Test
     fun `stop halts further reload propagation`() =
         runTest {
-            val selection = MutableStateFlow<String?>("profile-1")
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("profile-1"))
             val trigger = RecordingReloadTrigger()
             val coordinator =
                 SelectorReloadCoordinator(
                     scope = backgroundScope,
-                    selectedProfileId = selection,
+                    selectionChanges = selection,
                     trigger = trigger,
                 )
 
@@ -222,7 +227,7 @@ class SelectorReloadCoordinatorTest {
             coordinator.stop(Mode.VPN)
             runCurrent()
 
-            selection.value = "profile-2"
+            selection.value = automatic("profile-2")
             runCurrent()
 
             assertTrue(trigger.reloadedProfileIds.isEmpty())

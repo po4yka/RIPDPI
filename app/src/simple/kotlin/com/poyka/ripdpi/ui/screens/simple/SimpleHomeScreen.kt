@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,6 +31,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
@@ -53,6 +55,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.home.HomePauseControls
+import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityRoute
+import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
@@ -79,6 +83,17 @@ fun SimpleHomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
+
+    var profilesVisible by rememberSaveable { mutableStateOf(false) }
+    if (profilesVisible) {
+        val profiles: ProfileUtilityViewModel = hiltViewModel()
+        DisposableEffect(profiles) {
+            onDispose { profiles.cancel() }
+        }
+        BackHandler { profilesVisible = false }
+        ProfileUtilityRoute(onBack = { profilesVisible = false }, viewModel = profiles)
+        return
+    }
 
     // This flavor has no nav host, so About is a saved-state overlay rather than a route.
     // AboutRoute brings its own view model, so nothing has to be threaded through here.
@@ -108,6 +123,7 @@ fun SimpleHomeScreen(
         onCancelReport = viewModel::onCancelHomeAnalysis,
         onShareReport = viewModel.onShareHomeAnalysis,
         onSaveReport = viewModel.onSaveHomeAnalysis,
+        onOpenProfiles = { profilesVisible = true },
         onOpenAbout = { aboutVisible = true },
         modifier = modifier,
     )
@@ -131,6 +147,7 @@ internal fun SimpleHomeContent(
     onCancelReport: () -> Unit,
     onShareReport: () -> Unit = {},
     onSaveReport: () -> Unit = {},
+    onOpenProfiles: () -> Unit,
     onOpenAbout: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -229,6 +246,12 @@ internal fun SimpleHomeContent(
                 // Without a nav host or app bar this flavor had no route to version,
                 // licences or the privacy notice at all. The full experience reaches the
                 // same screen from settings.
+                RipDpiButton(
+                    modifier = Modifier.padding(top = spacing.lg).ripDpiTestTag(RipDpiTestTags.SettingsProfileUtility),
+                    text = stringResource(R.string.profile_utility_title),
+                    onClick = onOpenProfiles,
+                    variant = RipDpiButtonVariant.Ghost,
+                )
                 RipDpiButton(
                     modifier =
                         Modifier

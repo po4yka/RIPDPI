@@ -60,8 +60,7 @@ internal class SimpleVlessRuntimeMonitor
         private var activeHysteriaProfileId: String? = null
         private var activeAwgProfileId: String? = null
         private var recoveryEpoch = 0L
-        private var startupFallbackLease: StartupFallbackLease =
-            startupFallbackController.captureStartupFallbackLease()
+        private var startupFallbackLease: StartupFallbackLease? = null
 
         override val activeTransport: StateFlow<ActiveTransportDescriptor?> = _activeTransport.asStateFlow()
 
@@ -72,6 +71,7 @@ internal class SimpleVlessRuntimeMonitor
             if (mode != Mode.VPN) return
             fallbackMutex.withLock {
                 if (!guard.isCurrent()) return@withLock
+                val capturedFallback = startupFallbackController.captureStartupFallbackLease()
                 settingsRepository.update {
                     if (!guard.isCurrent()) return@update
                     setEnableCmdSettings(false)
@@ -86,7 +86,7 @@ internal class SimpleVlessRuntimeMonitor
                     activeHysteriaProfileId = null
                     activeAwgProfileId = null
                     recoveryEpoch += 1
-                    startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
+                    startupFallbackLease = capturedFallback
                     Logger.i { "SimpleVlessRuntimeMonitor: explicit VPN attempt restored embedded VLESS+Reality" }
                 }
             }
@@ -123,7 +123,6 @@ internal class SimpleVlessRuntimeMonitor
                             activeHysteriaProfileId = null
                             activeAwgProfileId = null
                             recoveryEpoch += 1
-                            startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
                         }
                     }
                 }
@@ -154,7 +153,7 @@ internal class SimpleVlessRuntimeMonitor
                     when (startupFallbackStage) {
                         StartupFallbackStage.Vless,
                         StartupFallbackStage.Hysteria2,
-                        -> PendingRecovery(startupFallbackStage, recoveryEpoch, startupFallbackLease)
+                        -> startupFallbackLease?.let { PendingRecovery(startupFallbackStage, recoveryEpoch, it) }
 
                         StartupFallbackStage.Awg -> null
                     }
@@ -231,7 +230,8 @@ internal class SimpleVlessRuntimeMonitor
 
                 is StartupFallbackDispatchResult.Dispatched -> {
                     when (val startResult = result.startResult) {
-                        is ServiceStartResult.Accepted -> {
+                        is ServiceStartResult.Accepted, is ServiceStartResult.MaintenanceAccepted -> {
+                            startupFallbackLease = result.continuationLease
                             startupFallbackStage = StartupFallbackStage.Hysteria2
                         }
 
@@ -288,7 +288,8 @@ internal class SimpleVlessRuntimeMonitor
 
                 is StartupFallbackDispatchResult.Dispatched -> {
                     when (val startResult = result.startResult) {
-                        is ServiceStartResult.Accepted -> {
+                        is ServiceStartResult.Accepted, is ServiceStartResult.MaintenanceAccepted -> {
+                            startupFallbackLease = result.continuationLease
                             startupFallbackStage = StartupFallbackStage.Awg
                         }
 

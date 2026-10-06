@@ -64,6 +64,10 @@ internal class MainConnectionActions(
                 is ServiceStartResult.Accepted -> {
                 }
 
+                is ServiceStartResult.MaintenanceAccepted -> {
+                    error("Expected a mode-bound user start")
+                }
+
                 is ServiceStartResult.Rejected -> {
                     refreshPermissionSnapshot()
                     val message =

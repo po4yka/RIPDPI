@@ -27,7 +27,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -61,19 +63,27 @@ class TimedPauseController
                 ownerObserver =
                     host.scope.launch(Dispatchers.IO) {
                         var previous = authority.snapshot()
-                        authority.states.collect { state ->
-                            val old = previous
-                            previous = state?.pause
-                            if (old != null && state?.pause == null && state?.generation != old.generation) {
-                                cancelAlarm(old)
-                                if (authority.snapshot() == null &&
-                                    authority.reference().generation == state?.generation
-                                ) {
-                                    setPauseBootEnabled(false)
-                                    host.discardIdleShell(old)
+                        authority.states
+                            .map {
+                                it?.copy(
+                                    profileUtility =
+                                        com.poyka.ripdpi.data.ProfileUtilityState
+                                            .empty(),
+                                )
+                            }.distinctUntilChanged()
+                            .collect { state ->
+                                val old = previous
+                                previous = state?.pause
+                                if (old != null && state?.pause == null && state?.generation != old.generation) {
+                                    cancelAlarm(old)
+                                    if (authority.snapshot() == null &&
+                                        authority.reference().generation == state?.generation
+                                    ) {
+                                        setPauseBootEnabled(false)
+                                        host.discardIdleShell(old)
+                                    }
                                 }
                             }
-                        }
                     }
             }
 
@@ -403,9 +413,10 @@ class TimedPauseController
 
                     else -> null
                 }
+            val activation = if (failure == null) authority.claimResume(intent, immediate) else null
             if (failure != null) {
                 authority.transition(intent, PausePhase.Deferred, failure)
-            } else if (authority.claimResume(intent, immediate)) {
+            } else if (activation != null) {
                 authority.snapshot()?.let(host.showPaused)
                 cancelAlarm(intent)
                 try {
@@ -417,7 +428,13 @@ class TimedPauseController
                                 ownerJob?.cancel(CancellationException("Resume intent superseded"))
                             }
                         try {
-                            withContext(PauseResumeAuthority(authority, intent)) { host.resume(intent) }
+                            withContext(
+                                PauseResumeAuthority(authority, intent) +
+                                    RuntimeCommandStartAuthority(
+                                        com.poyka.ripdpi.data.RuntimeAppliedIntent
+                                            .Resume(intent, activation),
+                                    ),
+                            ) { host.resume(intent) }
                         } finally {
                             watcher.cancel()
                         }
@@ -602,14 +619,6 @@ internal class PauseResumeAuthority(
         ) {
             throw CancellationException("Pause resume generation superseded")
         }
-    }
-
-    fun publishIfCurrent(
-        mode: Mode,
-        publish: () -> Unit,
-    ): Boolean {
-        val permit = authority.publicationPermit(intent.reference, mode) ?: return false
-        return authority.intentLinearizer.publishIf({ authority.allowsPublication(permit) }, publish)
     }
 
     companion object Key : kotlin.coroutines.CoroutineContext.Key<PauseResumeAuthority>

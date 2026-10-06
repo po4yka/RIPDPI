@@ -42,7 +42,7 @@ internal class ServiceControllerRuntimeControlActions
                 serviceController
                     .startForDiagnostics(
                         mode,
-                        serviceController.captureRuntimeAuthority(),
+                        serviceController.captureRuntimeSnapshot(),
                     ).toRuntimeControlOutcome()
             } else {
                 serviceController.start(mode).toRuntimeControlOutcome()
@@ -100,8 +100,13 @@ internal class ServiceControllerRuntimeControlActions
 
         private fun ServiceStartResult.toRuntimeControlOutcome(): RuntimeControlOutcome =
             when (this) {
-                is ServiceStartResult.Accepted -> RuntimeControlOutcome.Completed
-                is ServiceStartResult.Rejected -> RuntimeControlOutcome.Rejected(mode = mode, reason = reason)
+                is ServiceStartResult.Accepted, is ServiceStartResult.MaintenanceAccepted -> {
+                    RuntimeControlOutcome.Completed
+                }
+
+                is ServiceStartResult.Rejected -> {
+                    RuntimeControlOutcome.Rejected(mode = mode, reason = reason)
+                }
             }
 
         private companion object {

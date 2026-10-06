@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Tune
@@ -68,6 +69,7 @@ object RipDpiIcons {
     val Lock: ImageVector = Icons.Outlined.Lock
     val LockOpen: ImageVector = Icons.Outlined.LockOpen
     val Copy: ImageVector = Icons.Outlined.ContentCopy
+    val Favorite: ImageVector = Icons.Outlined.Star
     val Share: ImageVector = Icons.Outlined.Share
     val ChevronRight: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight
     val ChevronLeft: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft

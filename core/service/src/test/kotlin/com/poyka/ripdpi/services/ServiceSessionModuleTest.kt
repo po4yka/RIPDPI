@@ -79,7 +79,7 @@ class ServiceSessionModuleTest {
                             testAutolearnActivationReceiptPublisher(),
                             RuntimeConfigurationLifecycle(
                                 AppliedRuntimeConfigurationStore(
-                                    PauseAppliedReceiptConsumer(
+                                    testRuntimeAppliedReceiptConsumer(
                                         com.poyka.ripdpi.data
                                             .testPauseAuthority(),
                                     ),
@@ -213,7 +213,7 @@ class ServiceSessionModuleTest {
                     configurationLifecycle =
                         RuntimeConfigurationLifecycle(
                             AppliedRuntimeConfigurationStore(
-                                PauseAppliedReceiptConsumer(
+                                testRuntimeAppliedReceiptConsumer(
                                     com.poyka.ripdpi.data
                                         .testPauseAuthority(),
                                 ),
@@ -407,6 +407,7 @@ class ServiceSessionModuleTest {
             TestRipDpiRelayFactory(),
             TestRelayProfileStore(),
             TestRelayCredentialStore(),
+            TestSelectorRelayRuntimeProfileResolver(),
         ) {
         var createCalls: Int = 0
         val createdDispatchers = mutableListOf<CoroutineDispatcher>()
@@ -426,6 +427,7 @@ class ServiceSessionModuleTest {
                 relayFactory = TestRipDpiRelayFactory(),
                 naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                 relayProfileStore = TestRelayProfileStore(),
+                selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                 relayCredentialStore = TestRelayCredentialStore(),
                 networkMode = networkMode,
             )

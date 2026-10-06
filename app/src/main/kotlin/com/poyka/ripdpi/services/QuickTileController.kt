@@ -114,7 +114,7 @@ internal class QuickTileController(
                     }
 
                     if (serviceStartPreflight.check(mode) ==
-                        ServiceStartPreflightResult.LocalNetworkPermissionRequired
+                        LocalNetworkStartPreflightResult.LocalNetworkPermissionRequired
                     ) {
                         updateStatus(host)
                         host.launchStartResolution()
@@ -123,6 +123,7 @@ internal class QuickTileController(
 
                     when (val result = serviceController.start(mode)) {
                         is ServiceStartResult.Accepted -> Unit
+                        is ServiceStartResult.MaintenanceAccepted -> error("Expected a mode-bound user start")
                         is ServiceStartResult.Rejected -> handleStartRejected(host, result)
                     }
                 }

@@ -173,9 +173,13 @@ class FakeServiceController : com.poyka.ripdpi.services.TestSynchronousServiceCo
     var hardKillSwitchRefreshCount = 0
     var nextStartResult: ServiceStartResult? = null
 
-    override fun recordStart(mode: Mode): ServiceStartResult {
+    override fun recordStart(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+    ): ServiceStartResult {
         startedModes += mode
-        return nextStartResult ?: ServiceStartResult.Accepted(mode)
+        return nextStartResult
+            ?: (receipt?.let(ServiceStartResult::Accepted) ?: ServiceStartResult.MaintenanceAccepted(mode))
     }
 
     override fun recordStop() {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">Profils</string>
+    <string name="profile_utility_favorites">Favoris</string>
+    <string name="profile_utility_recents">Utilisés récemment</string>
+    <string name="profile_utility_saved">Profils enregistrés</string>
+    <string name="profile_utility_check">Vérifier</string>
+    <string name="profile_utility_check_select">Vérifier et sélectionner</string>
+    <string name="profile_utility_checking">Vérification…</string>
+    <string name="profile_utility_measured">HTTP : %1$s ms</string>
+    <string name="profile_utility_not_checked">Non vérifié</string>
+    <string name="profile_utility_unsupported">Ce profil ne peut pas être vérifié ici.</string>
+    <string name="profile_utility_environment_changed">Le réseau, la règle ou le profil a changé. Vérifiez à nouveau.</string>
+    <string name="profile_utility_failed">La vérification HTTP a échoué. La sélection reste inchangée.</string>
+    <string name="profile_utility_timeout">Le délai de vérification a expiré. La sélection reste inchangée.</string>
+    <string name="profile_utility_cleanup_pending">La libération des ressources natives est en attente. La sélection reste inchangée.</string>
+    <string name="profile_utility_retry_cleanup">Réessayer la libération</string>
+    <string name="profile_utility_favorite_add">Ajouter %1$s aux favoris</string>
+    <string name="profile_utility_favorite_remove">Retirer %1$s des favoris</string>
+    <string name="profile_utility_last_used">Dernière utilisation : %1$s</string>
+    <string name="profile_utility_empty">Aucun profil enregistré.</string>
+    <string name="profile_utility_disclosure">Vérifier mesure une requête HTTP. Vérifier et sélectionner applique le profil uniquement après une vérification réussie.</string>
+    <string name="profile_utility_command_failed">Impossible de terminer la commande. Vérifiez l’état du profil.</string>
+    <string name="profile_utility_applying">Application du profil…</string>
+    <string name="profile_utility_selection_failed">Impossible d’appliquer le profil. Vérifiez les profils enregistré et appliqué.</string>
+    <string name="profile_utility_url">URL de vérification</string>
+    <string name="profile_utility_applied">Profil appliqué</string>
+    <string name="profile_utility_loading">Chargement des profils…</string>
+    <string name="profile_utility_checked_at">Vérifié : %1$s</string>
+    <string name="profile_utility_busy">Xray est occupé. Mettez la connexion en pause ou arrêtez-la, puis réessayez.</string>
+    <string name="profile_utility_check_fastest">Vérifier et sélectionner le plus rapide</string>
+</resources>

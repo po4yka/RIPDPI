@@ -25,6 +25,11 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     ) {
         Logger.i { "Starting ${dependencies.serviceLabel()}" }
 
+        val context = currentCoroutineContext()
+        val originalIntent =
+            checkNotNull(context[RuntimeCommandStartAuthority]) {
+                "Runtime start command was not captured"
+            }.original
         var matchedRememberedPolicy: RememberedNetworkPolicyEntity? = null
         val failure =
             dependencies.lifecycleRunner.start(
@@ -41,6 +46,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 val pauseResume = currentCoroutineContext()[PauseResumeAuthority]
                 pauseResume?.ensureCurrent()
                 val session = callbacks.createRuntimeSession()
+                session.captureOriginalAppliedIntent(originalIntent)
                 session.pauseResumeIntent = pauseResume?.intent
                 callbacks.setRuntimeSession(session)
                 session.networkHandoverState = null
@@ -62,7 +68,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 pauseResume?.ensureCurrent()
                 val authority = currentCoroutineContext()[ExplicitRuntimeStartAuthority]?.guard
                 authority?.ensureCurrentStart()
-                publishStartedSession(session, resolution, runtimeStartEvidence, authority, pauseResume)
+                publishStartedSession(session, resolution, runtimeStartEvidence, pauseResume)
                 callbacks.statusHooks.reportConnected()
                 dependencies.handoverProcessor.startMonitoring()
                 callbacks.startModeTelemetryUpdates()
@@ -97,7 +103,6 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         session: TSession,
         resolution: ConnectionPolicyResolution,
         runtimeStartEvidence: RuntimeStartEvidence,
-        authority: ExplicitUserStartGuard?,
         pauseResume: PauseResumeAuthority?,
     ) {
         callbacks.evidencePublication.publish(
@@ -113,21 +118,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
             dependencies.serviceRuntimeRegistry.register(session)
             callbacks.statusHooks.publishConnected()
         }
-        val published =
-            when {
-                authority != null -> {
-                    authority.publishIfCurrent(session.mode, publish)
-                }
-
-                pauseResume != null -> {
-                    pauseResume.publishIfCurrent(session.mode, publish)
-                }
-
-                else -> {
-                    publish()
-                    true
-                }
-            }
+        val published = callbacks.evidencePublication.publishCaptured(session, publish)
         if (!published) throw CancellationException("Start intent superseded before publication")
     }
 
@@ -359,7 +350,7 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
     val setRuntimeSession: (TSession?) -> Unit,
     val createRuntimeSession: () -> TSession,
     val resolveInitialConnectionPolicy: suspend () -> ConnectionPolicyResolution,
-    val applyActiveConnectionPolicy: (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
+    val applyActiveConnectionPolicy: suspend (TSession, ConnectionPolicyResolution, String, Long) -> Unit,
     val startResolvedRuntime: suspend (TSession, ConnectionPolicyResolution) -> RuntimeStartEvidence,
     val evidencePublication: RuntimeStartEvidencePublication<TSession>,
     val captureFinalTelemetry: suspend () -> Unit = {},
@@ -383,6 +374,7 @@ private fun ExplicitUserStartGuard.ensureCurrentStart() {
 internal class RuntimeStartEvidencePublication<TSession>(
     val publish: suspend (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
     val complete: (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
+    val publishCaptured: (TSession, () -> Unit) -> Boolean,
 )
 
 internal enum class RuntimeStopDisposition { StopService, RetainPausedShell }

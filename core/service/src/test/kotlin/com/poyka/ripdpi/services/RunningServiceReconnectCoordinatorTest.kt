@@ -95,11 +95,11 @@ class RunningServiceReconnectCoordinatorTest {
             fixture.coordinator.observeManualRuntimeAcknowledgments(backgroundScope)
             fixture.apply("old")
             fixture.dispatch.preflightResult =
-                ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing)
+                ServiceStartPreflightResult.Rejected(ServiceStartRejectionReason.VpnConsentMissing)
             fixture.coordinator.reconnect(RunningReconnectRequest.CurrentSaved(Mode.VPN))
             runCurrent()
             assertTrue(fixture.coordinator.reconnectState.value is RunningReconnectState.Failed)
-            fixture.apply("later-manual-runtime")
+            fixture.applyManual("later-manual-runtime")
             runCurrent()
             assertEquals(RunningReconnectState.Idle, fixture.coordinator.reconnectState.value)
         }
@@ -117,9 +117,23 @@ class RunningServiceReconnectCoordinatorTest {
                         Mode.VPN,
                         RuntimeConfigurationSelection("native"),
                         RuntimeConfigurationApplyReason.PolicyRefresh,
+                        originalIntent =
+                            com.poyka.ripdpi.data.RuntimeAppliedIntent.Continuation(
+                                fixture.original("old").receipt,
+                                com.poyka.ripdpi.data
+                                    .RuntimeAppliedUseIdentity("old", 1, Mode.VPN.preferenceValue),
+                            ),
+                        catalogGeneration = 0,
                     )
-                assertTrue(fixture.store.begin(old, fixture.identities.capture(listOf("old"), listOf("dns"))))
-                assertTrue(fixture.store.fail(old, RuntimeConfigurationApplyFailure.RuntimeRejected))
+                assertTrue(
+                    runCatching {
+                        fixture.store.begin(
+                            old,
+                            fixture.identities.capture(listOf("old"), listOf("dns")),
+                        )
+                    }.isFailure,
+                )
+                assertFalse(fixture.store.fail(old, RuntimeConfigurationApplyFailure.RuntimeRejected))
             }
             val reconnect = async { fixture.coordinator.reconnect(RunningReconnectRequest.CurrentSaved(Mode.VPN)) }
             runCurrent()
@@ -191,13 +205,13 @@ class RunningServiceReconnectCoordinatorTest {
         runTest {
             val fixture = Fixture()
             fixture.dispatch.preflightResult =
-                ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing)
+                ServiceStartPreflightResult.Rejected(ServiceStartRejectionReason.VpnConsentMissing)
             assertEquals(
                 RunningReconnectResult.Failed(RunningReconnectFailure.PermissionRequired),
                 fixture.coordinator.reconnect(RunningReconnectRequest.CurrentSaved(Mode.VPN)),
             )
             assertEquals(0, fixture.dispatch.stops)
-            fixture.dispatch.preflightResult = ServiceStartResult.Accepted(Mode.VPN)
+            fixture.dispatch.preflightResult = ServiceStartPreflightResult.Allowed
             fixture.killSwitch.update(AndroidHardKillSwitchSnapshot(AndroidHardKillSwitchStatus.ENABLED))
             assertEquals(
                 RunningReconnectResult.Failed(RunningReconnectFailure.Lockdown),
@@ -238,9 +252,8 @@ class RunningServiceReconnectCoordinatorTest {
         val service = TestServiceStateStore(AppStatus.Running to Mode.VPN)
         val store =
             AppliedRuntimeConfigurationStore(
-                PauseAppliedReceiptConsumer(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
+                testRuntimeAppliedReceiptConsumer(
+                    authority,
                 ),
             )
         val identities = RuntimeConfigurationIdentityFactory()
@@ -263,12 +276,25 @@ class RunningServiceReconnectCoordinatorTest {
                 store,
                 liveLockdown,
                 object : TestSynchronousServiceController() {
-                    override fun recordStart(mode: Mode) = ServiceStartResult.Accepted(mode)
+                    override fun recordStart(
+                        mode: Mode,
+                        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+                    ) = (
+                        receipt?.let(ServiceStartResult::Accepted)
+                            ?: ServiceStartResult.MaintenanceAccepted(mode)
+                    )
 
                     override fun recordStop() = Unit
 
-                    override suspend fun prepareUserCommand(command: com.poyka.ripdpi.data.RuntimeUserCommand) =
-                        authority.supersede(command)
+                    override suspend fun prepareStart(mode: Mode) = authority.reserveStart(mode)
+
+                    override suspend fun prepareStop() = authority.reserveStop()
+
+                    override suspend fun prepareStopIfCurrent(
+                        expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+                    ) = authority.reserveStopIfCurrent(expected)
+
+                    override suspend fun captureRuntimeSnapshot() = authority.snapshotAuthority()
                 },
             )
 
@@ -295,8 +321,26 @@ class RunningServiceReconnectCoordinatorTest {
                         RuntimeConfigurationStrategy(false),
                         attempt.reason,
                     ),
+                    null,
                 ),
             )
+        }
+
+        private val originals = mutableMapOf<String, com.poyka.ripdpi.data.RuntimeAppliedIntent>()
+
+        fun original(runtime: String): com.poyka.ripdpi.data.RuntimeAppliedIntent =
+            originals.getOrPut(runtime) {
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(dispatch.receipt ?: authority.reserveStart(Mode.VPN))
+            }
+
+        fun applyManual(runtime: String) {
+            val receipt = authority.reserveStart(Mode.VPN)
+            checkNotNull(arbiter.dispatchExplicit(receipt))
+            originals[runtime] =
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Activation(receipt)
+            apply(runtime)
         }
 
         private fun attempt(runtime: String) =
@@ -306,18 +350,21 @@ class RunningServiceReconnectCoordinatorTest {
                 Mode.VPN,
                 RuntimeConfigurationSelection("native"),
                 RuntimeConfigurationApplyReason.UserReconnect,
+                originalIntent = original(runtime),
+                catalogGeneration = 0,
             )
     }
 
     private class Dispatch(
         private val service: TestServiceStateStore,
     ) : RunningReconnectDispatch {
-        var preflightResult: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN)
+        var preflightResult: ServiceStartPreflightResult = ServiceStartPreflightResult.Allowed
         var onStop: () -> Unit = {}
         var haltOnStop = true
         var stops = 0
         var starts = 0
         var generation = -1L
+        var receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt? = null
 
         override fun preflight(mode: Mode) = preflightResult
 
@@ -334,7 +381,9 @@ class RunningServiceReconnectCoordinatorTest {
         ): ServiceStartResult {
             starts += 1
             this.generation = lease.processGeneration
-            return ServiceStartResult.Accepted(mode)
+            val captured = lease.durable as com.poyka.ripdpi.data.RuntimeActivationReceipt
+            receipt = captured
+            return ServiceStartResult.Accepted(captured)
         }
     }
 }

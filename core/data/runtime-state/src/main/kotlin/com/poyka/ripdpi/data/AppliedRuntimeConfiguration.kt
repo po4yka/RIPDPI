@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.data
 
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
 
 /** Whitelisted runtime metadata. Secret-bearing configuration identities stay in service ownership. */
+@Serializable
 data class RuntimeConfigurationSelection(
     val provider: String,
     val transport: String? = null,
@@ -12,12 +14,14 @@ data class RuntimeConfigurationSelection(
     val selectorMemberId: String? = null,
 )
 
+@Serializable
 data class RuntimeConfigurationDns(
     val mode: String,
     val providerId: String,
     val protocol: String? = null,
 )
 
+@Serializable
 data class RuntimeConfigurationStrategy(
     val enabled: Boolean,
     val packId: String? = null,
@@ -52,6 +56,8 @@ data class RuntimeConfigurationAttempt(
     val mode: Mode,
     val requestedSelection: RuntimeConfigurationSelection,
     val reason: RuntimeConfigurationApplyReason,
+    val originalIntent: RuntimeAppliedIntent,
+    val catalogGeneration: Long,
 ) {
     override fun toString(): String = "RuntimeConfigurationAttempt(mode=$mode, revision=$revision, reason=$reason)"
 }

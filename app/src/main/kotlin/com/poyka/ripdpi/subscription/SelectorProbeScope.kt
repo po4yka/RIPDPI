@@ -17,7 +17,7 @@ internal data class SelectorProbeScope(
     val cloudflareMemberIds: Set<String>,
     val networkScope: String,
     val underlayGeneration: Long?,
-    val networkEpoch: Pair<Long, Long>,
+    val networkEpoch: com.poyka.ripdpi.services.CandidatePhysicalNetworkToken,
     val environment: CandidateRelayProbeEnvironment,
 )
 
@@ -31,7 +31,7 @@ internal class CurrentSelectorProbeScopeProvider(
     private val groups: ProxyGroupRepository,
     private val network: NetworkFingerprintProvider,
     private val environment: suspend () -> CandidateRelayProbeEnvironment,
-    private val networkEpoch: () -> Pair<Long, Long>?,
+    private val networkEpoch: () -> com.poyka.ripdpi.services.CandidatePhysicalNetworkToken?,
 ) : SelectorProbeScopeProvider {
     @Inject
     constructor(

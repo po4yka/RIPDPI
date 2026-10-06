@@ -525,6 +525,9 @@ class RipDpiVpnService :
             startId: Int,
         ): Int {
             val action = intent?.action
+            if (action == null || action == android.net.VpnService.SERVICE_INTERFACE) {
+                return dispatchStickyRecovery(startId)
+            }
             return when {
                 intent.hasStaleServiceCommand(serviceIntentArbiter) -> {
                     START_STICKY
@@ -536,10 +539,12 @@ class RipDpiVpnService :
                 }
 
                 isServiceRecoveryStartAction(action) &&
-                    !pauseAuthority.allowsRecovery(
-                        intent.durableAuthorityReference() ?: pauseAuthority.reference(),
-                        Mode.VPN,
-                    ) -> {
+                    intent.capturedRuntimeActivation(pauseAuthority, Mode.VPN) == null -> {
+                    discardIdleStart(startId)
+                }
+
+                (action == com.poyka.ripdpi.data.startAction || action == transportActivationStartAction) &&
+                    intent.capturedRuntimeActivation(pauseAuthority, Mode.VPN) == null -> {
                     discardIdleStart(startId)
                 }
 
@@ -547,6 +552,18 @@ class RipDpiVpnService :
                     dispatchActiveCommand(intent, startId)
                 }
             }
+        }
+
+        private suspend fun dispatchStickyRecovery(startId: Int): Int {
+            if (activeSessionAttached) return START_STICKY
+            val recovery =
+                createStickyRecoveryCommand(
+                    this@RipDpiVpnService,
+                    pauseAuthority,
+                    serviceIntentArbiter,
+                    Mode.VPN,
+                )
+            return if (recovery == null) discardIdleStart(startId) else dispatchActiveCommand(recovery, startId)
         }
 
         private fun discardIdleStart(startId: Int): Int {
@@ -613,7 +630,9 @@ class RipDpiVpnService :
                 transportFailoverRequestId = transportFailoverCommand.requestId,
                 transportFailoverTarget = transportFailoverCommand.target,
                 explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
-                durableReference = intent.durableAuthorityReference() ?: pauseAuthority.reference(),
+                durableReference = intent.durableAuthorityReference(),
+                activation = intent.capturedRuntimeActivation(pauseAuthority, Mode.VPN),
+                stopSnapshot = intent.capturedRuntimeStop(),
                 vpnStartGeneration = intent.vpnStartGeneration(),
             )
         }

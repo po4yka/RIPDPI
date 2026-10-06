@@ -75,7 +75,7 @@ data class XrayProfileMetadataRecord(
     // DNS.
     val dnsServers: List<String> = listOf("1.1.1.1", "8.8.8.8"),
     val dnsQueryStrategy: String = "UseIP",
-    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
+    val updatedAtEpochMillis: Long = 0L,
 ) {
     companion object {
         const val SecurityReality = "reality"
@@ -141,6 +141,7 @@ fun XrayProfile.toXrayProfileRecordPair(
                 inboundUdpEnabled = inbound.udpEnabled,
                 dnsServers = dns.servers,
                 dnsQueryStrategy = dns.queryStrategy,
+                updatedAtEpochMillis = System.currentTimeMillis(),
             ),
         secret =
             XrayProfileSecretRecord(

@@ -18,6 +18,55 @@ class TestDirectRelayProfileMutationCoordinator(
         com.poyka.ripdpi.data
             .testPauseAuthority()
 
+    override suspend fun activateStandaloneAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Standalone activation is outside this test boundary")
+
+    override suspend fun compensateStandaloneAwg(
+        receipt: com.poyka.ripdpi.data.ProfileActivationReceipt,
+        expectedProfileId: String,
+    ): Boolean = error("Standalone compensation is outside this test boundary")
+
+    override suspend fun clearStandaloneAwg(
+        receipt: com.poyka.ripdpi.data.RuntimeStopReceipt,
+        expectedProfileId: String,
+    ): Boolean = error("Standalone deactivation is outside this test boundary")
+
+    override suspend fun <T> mutateCatalog(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        block: suspend () -> T,
+    ): T {
+        check(commitMutationIntent(preparation) != com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded)
+        return block()
+    }
+
+    override suspend fun <T> mutateReservedCatalog(
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        block: suspend () -> T,
+    ): T = block()
+
+    override suspend fun activateSelector(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        groupId: String,
+        memberId: String,
+        choice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
+        val outcome = commitMutationIntent(preparation)
+        val receipt =
+            (outcome as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved)?.receipt
+                as? com.poyka.ripdpi.data.ProfileActivationReceipt
+        if (receipt != null) {
+            choice.commitMember(
+                groupId,
+                memberId,
+                com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
+                    .Manual(receipt),
+            )
+        }
+        return outcome
+    }
+
     override suspend fun commitMutationIntent(preparation: com.poyka.ripdpi.data.ProfileMutationPreparation) =
         testAuthority.invalidateForMutation(
             preparation.origin,
@@ -41,9 +90,9 @@ class TestDirectRelayProfileMutationCoordinator(
         block: suspend (com.poyka.ripdpi.data.DurableCommandReceipt) -> Unit,
     ): com.poyka.ripdpi.data.DurableCommandReceipt {
         val receipt =
-            com.poyka.ripdpi.data.testPauseAuthority().supersede(
-                com.poyka.ripdpi.data.RuntimeUserCommand.Stop,
-            )
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+                .reserveStop()
         block(receipt)
         return receipt
     }

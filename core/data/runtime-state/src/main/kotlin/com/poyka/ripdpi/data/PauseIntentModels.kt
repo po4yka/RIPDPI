@@ -27,19 +27,6 @@ data class PauseAuthorityRef(
 @Serializable
 enum class DesiredRuntimeState { LegacyUnknown, Running, Stopped, Paused }
 
-sealed interface RuntimeUserCommand {
-    data class Start(
-        val mode: Mode,
-    ) : RuntimeUserCommand
-
-    data object Stop : RuntimeUserCommand
-}
-
-/** A receipt proves one already committed user command; dispatch may only consume this reference. */
-class DurableCommandReceipt internal constructor(
-    val authority: PauseAuthorityRef,
-)
-
 sealed interface ProfileMutationOutcome {
     data class Reserved(
         val receipt: DurableCommandReceipt,
@@ -88,7 +75,13 @@ data class PauseAuthorityState(
     val lastMutationAuthority: PauseAuthorityRef? = null,
     val desired: DesiredRuntimeState = DesiredRuntimeState.LegacyUnknown,
     val desiredMode: String? = null,
-)
+    val profileUtility: ProfileUtilityState,
+    /** Null means an old/unknown authority record and grants no activation capability. */
+    val command: DurableCommandRecord? = null,
+) {
+    override fun toString(): String =
+        "PauseAuthorityState(generation=$generation, desired=$desired, phase=${pause?.phase})"
+}
 
 data class PauseClockReading(
     val wallMillis: Long,

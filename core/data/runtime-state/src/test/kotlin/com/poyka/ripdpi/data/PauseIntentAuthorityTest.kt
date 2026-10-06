@@ -66,10 +66,25 @@ class PauseIntentAuthorityTest {
         val authority = ready()
         val old = authority.begin(Mode.VPN, 300_000, authority.snapshotAuthority())
         authority.transition(old, PausePhase.Paused, null)
-        authority.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+        val receipt = checkNotNull(authority.claimResume(old, true))
+        val identity = RuntimeAppliedUseIdentity("old-runtime", 1, Mode.VPN.preferenceValue)
+        assertTrue(authority.claimActivation(receipt, identity))
+        authority.reserveStop()
         val newer = authority.begin(Mode.Proxy, 900_000, authority.snapshotAuthority())
-        assertFalse(authority.claimResume(old, true))
-        assertFalse(authority.acknowledgeResume(old, Mode.VPN))
+        assertNull(authority.claimResume(old, true))
+        assertFalse(
+            authority.acknowledgeApplied(
+                RuntimeAppliedIntent.Resume(old, receipt),
+                RuntimeAppliedUseReceipt(
+                    identity,
+                    emptyList(),
+                    1,
+                    checkNotNull(authority.states.value).profileUtility.catalogGeneration,
+                    false,
+                    "0".repeat(64),
+                ),
+            ),
+        )
         assertEquals(newer, authority.snapshot())
     }
 
@@ -78,12 +93,46 @@ class PauseIntentAuthorityTest {
         val authority = ready(clock)
         val intent = authority.begin(Mode.VPN, 300_000, authority.snapshotAuthority())
         authority.transition(intent, PausePhase.Paused, null)
-        assertFalse(authority.claimResume(intent, false))
+        assertNull(authority.claimResume(intent, false))
         clock.now = clock.now.copy(elapsedMillis = clock.now.elapsedMillis + 300_000)
-        assertTrue(authority.claimResume(intent, false))
+        val activation = checkNotNull(authority.claimResume(intent, false))
+        assertTrue(
+            authority.claimActivation(
+                activation,
+                RuntimeAppliedUseIdentity("test-actual-resume", 1, Mode.VPN.preferenceValue),
+            ),
+        )
         assertNotNull(authority.snapshot())
-        assertFalse(authority.acknowledgeResume(intent, Mode.Proxy))
-        assertTrue(authority.acknowledgeResume(intent, Mode.VPN))
+        assertFalse(
+            authority.acknowledgeApplied(
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Resume(intent, activation),
+                com.poyka.ripdpi.data.RuntimeAppliedUseReceipt(
+                    com.poyka.ripdpi.data
+                        .RuntimeAppliedUseIdentity("test-actual-resume", 1, Mode.Proxy.preferenceValue),
+                    emptyList(),
+                    1,
+                    checkNotNull(authority.states.value).profileUtility.catalogGeneration,
+                    false,
+                    "0".repeat(64),
+                ),
+            ),
+        )
+        assertTrue(
+            authority.acknowledgeApplied(
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Resume(intent, activation),
+                com.poyka.ripdpi.data.RuntimeAppliedUseReceipt(
+                    com.poyka.ripdpi.data
+                        .RuntimeAppliedUseIdentity("test-actual-resume", 1, Mode.VPN.preferenceValue),
+                    emptyList(),
+                    1,
+                    checkNotNull(authority.states.value).profileUtility.catalogGeneration,
+                    false,
+                    "0".repeat(64),
+                ),
+            ),
+        )
         assertNull(authority.snapshot())
     }
 
@@ -109,11 +158,31 @@ class PauseIntentAuthorityTest {
         val intent = authority.begin(Mode.VPN, 300_000, authority.snapshotAuthority())
         authority.transition(intent, PausePhase.Paused, null)
         clock.now = clock.now.copy(bootCount = 8)
-        assertFalse(authority.claimResume(intent, false))
+        assertNull(authority.claimResume(intent, false))
         assertEquals(PauseFailure.ClockChanged, authority.snapshot()?.failure)
-        assertTrue(authority.claimResume(intent, true))
+        val activation = checkNotNull(authority.claimResume(intent, true))
+        assertTrue(
+            authority.claimActivation(
+                activation,
+                RuntimeAppliedUseIdentity("test-actual-resume", 1, Mode.VPN.preferenceValue),
+            ),
+        )
         assertNotNull(authority.snapshot())
-        assertTrue(authority.acknowledgeResume(intent, Mode.VPN))
+        assertTrue(
+            authority.acknowledgeApplied(
+                com.poyka.ripdpi.data.RuntimeAppliedIntent
+                    .Resume(intent, activation),
+                com.poyka.ripdpi.data.RuntimeAppliedUseReceipt(
+                    com.poyka.ripdpi.data
+                        .RuntimeAppliedUseIdentity("test-actual-resume", 1, Mode.VPN.preferenceValue),
+                    emptyList(),
+                    1,
+                    checkNotNull(authority.states.value).profileUtility.catalogGeneration,
+                    false,
+                    "0".repeat(64),
+                ),
+            ),
+        )
         assertNull(authority.snapshot())
     }
 
@@ -127,7 +196,15 @@ class PauseIntentAuthorityTest {
                     .RuntimeIntentLinearizer(),
             )
         assertTrue(runCatching { authority.begin(Mode.VPN, 300_000, authority.snapshotAuthority()) }.isFailure)
-        disk.value = PauseAuthorityState(Long.MAX_VALUE, null, null)
+        disk.value =
+            PauseAuthorityState(
+                Long.MAX_VALUE,
+                null,
+                null,
+                profileUtility =
+                    com.poyka.ripdpi.data.ProfileUtilityState
+                        .empty(),
+            )
         val overflow =
             PauseIntentAuthority(
                 disk,
@@ -135,7 +212,7 @@ class PauseIntentAuthorityTest {
                 com.poyka.ripdpi.data
                     .RuntimeIntentLinearizer(),
             )
-        assertTrue(runCatching { overflow.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop) }.isFailure)
+        assertTrue(runCatching { overflow.reserveStop() }.isFailure)
         assertEquals(Long.MAX_VALUE, overflow.reference().generation)
     }
 
@@ -169,7 +246,16 @@ class PauseIntentAuthorityTest {
         assertTrue(runCatching { authority.reserveResetStop() }.isFailure)
         assertEquals(pause, authority.snapshot())
         disk.fail = false
-        disk.value = PauseAuthorityState(Long.MAX_VALUE, null, null, desired = DesiredRuntimeState.Running)
+        disk.value =
+            PauseAuthorityState(
+                Long.MAX_VALUE,
+                null,
+                null,
+                desired = DesiredRuntimeState.Running,
+                profileUtility =
+                    com.poyka.ripdpi.data.ProfileUtilityState
+                        .empty(),
+            )
         val overflow =
             PauseIntentAuthority(
                 disk,

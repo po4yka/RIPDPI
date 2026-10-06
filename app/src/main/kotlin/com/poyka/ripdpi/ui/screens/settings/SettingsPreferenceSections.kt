@@ -84,6 +84,14 @@ internal fun SettingsConnectivitySection(
                 testTag = RipDpiTestTags.SettingsSubscriptionStatus,
             )
             SettingsRow(
+                title = stringResource(R.string.profile_utility_title),
+                subtitle = stringResource(R.string.profile_utility_disclosure),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenProfileUtility,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsProfileUtility,
+            )
+            SettingsRow(
                 title = stringResource(R.string.title_subscription_failover),
                 subtitle = stringResource(R.string.settings_subscription_failover_body),
                 value = stringResource(R.string.settings_manage_action),

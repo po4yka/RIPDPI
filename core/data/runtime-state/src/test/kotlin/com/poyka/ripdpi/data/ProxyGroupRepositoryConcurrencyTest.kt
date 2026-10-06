@@ -29,7 +29,10 @@ class ProxyGroupRepositoryConcurrencyTest {
             SharedPreferencesProxyGroupRepository(
                 FakeProxyGroupBlobStore(),
                 com.poyka.ripdpi.data
-                    .testMutationPreparationSource(),
+                    .testMutationPreparationSource(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
             )
     }
 

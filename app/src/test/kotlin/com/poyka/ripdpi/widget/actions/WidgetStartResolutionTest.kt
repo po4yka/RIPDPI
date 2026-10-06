@@ -6,8 +6,8 @@ import com.poyka.ripdpi.activities.internalVpnControlActivityClassName
 import com.poyka.ripdpi.activities.requestsConfiguredStart
 import com.poyka.ripdpi.activities.requestsHomeTab
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.services.LocalNetworkStartPreflightResult
 import com.poyka.ripdpi.services.ServiceStartPreflight
-import com.poyka.ripdpi.services.ServiceStartPreflightResult
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.test.runTest
@@ -41,7 +41,14 @@ class WidgetStartResolutionTest {
     fun `accepted widget start does not open the app`() {
         val context = ApplicationProvider.getApplicationContext<Application>()
 
-        handleWidgetStartResult(context, ServiceStartResult.Accepted(Mode.Proxy))
+        handleWidgetStartResult(
+            context,
+            ServiceStartResult.Accepted(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .reserveStart(Mode.Proxy),
+            ),
+        )
 
         assertNull(shadowOf(context).nextStartedActivity)
     }
@@ -57,7 +64,7 @@ class WidgetStartResolutionTest {
                 mode = Mode.Proxy,
                 serviceStartPreflight =
                     ServiceStartPreflight {
-                        ServiceStartPreflightResult.LocalNetworkPermissionRequired
+                        LocalNetworkStartPreflightResult.LocalNetworkPermissionRequired
                     },
                 serviceController = serviceController,
             )
@@ -72,9 +79,12 @@ class WidgetStartResolutionTest {
     private class RecordingServiceController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
         var startCount = 0
 
-        override fun recordStart(mode: Mode): ServiceStartResult {
+        override fun recordStart(
+            mode: Mode,
+            receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+        ): ServiceStartResult {
             startCount += 1
-            return ServiceStartResult.Accepted(mode)
+            return (receipt?.let(ServiceStartResult::Accepted) ?: ServiceStartResult.MaintenanceAccepted(mode))
         }
 
         override fun recordStop() = Unit

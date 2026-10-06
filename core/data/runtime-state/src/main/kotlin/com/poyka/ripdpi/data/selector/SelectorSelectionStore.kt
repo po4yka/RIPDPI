@@ -8,7 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,6 +57,15 @@ interface SelectorSelectionStore {
         profileId: String,
     )
 
+    /** Publishes a selection using the original checked activation reservation. */
+    fun selectReserved(
+        groupId: String,
+        profileId: String,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    ): Boolean
+
+    fun manualReceipt(groupId: String): com.poyka.ripdpi.data.DurableCommandReceipt?
+
     /** Drops the persisted selection for [groupId]. No-op when absent. */
     fun clearSelection(groupId: String)
 }
@@ -72,25 +81,46 @@ class SharedPreferencesSelectorSelectionStore
     constructor(
         @ApplicationContext context: Context,
         private val intentPreparation: com.poyka.ripdpi.data.PauseMutationPreparationSource,
+        private val authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        private val activeGroup: SelectorActiveGroupStore,
     ) : SelectorSelectionStore {
         private val preferences = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
         private val flows = HashMap<String, MutableStateFlow<String?>>()
         private val revisions = HashMap<String, Long>()
+        private var clearRevision = 0L
+        private val manualReceipts = HashMap<String, com.poyka.ripdpi.data.DurableCommandReceipt>()
 
-        override fun selectedProfileId(groupId: String): StateFlow<String?> = flowFor(groupId).asStateFlow()
+        override fun selectedProfileId(groupId: String): StateFlow<String?> =
+            object : StateFlow<String?> {
+                override val value: String? get() = preferences.getString(keyFor(groupId), null)
+                override val replayCache: List<String?> get() = listOf(value)
+
+                @OptIn(kotlinx.coroutines.InternalCoroutinesApi::class)
+                override suspend fun collect(collector: kotlinx.coroutines.flow.FlowCollector<String?>): Nothing {
+                    kotlinx.coroutines.flow
+                        .combine(activeGroup.choiceChanges, flowFor(groupId)) { _, _ -> value }
+                        .distinctUntilChanged()
+                        .collect(collector)
+                    kotlinx.coroutines.awaitCancellation()
+                }
+            }
 
         override fun snapshot(groupId: String): SelectorSelectionSnapshot =
-            synchronized(flows) {
-                val profileId = flowFor(groupId).value
+            serializeSelection {
+                val profileId = preferences.getString(keyFor(groupId), null)
                 SelectorSelectionSnapshot(
                     profileId = profileId,
                     isManual = profileId != null && preferences.getBoolean(manualKeyFor(groupId), false),
-                    revision = revisions[groupId] ?: 0L,
+                    revision =
+                        Math.addExact(
+                            Math.addExact(revisions[groupId] ?: 0L, activeGroup.choiceChanges.value),
+                            clearRevision,
+                        ),
                 )
             }
 
         override fun invalidatePendingSelection(groupId: String) {
-            synchronized(flows) {
+            serializeSelection {
                 advanceRevision(groupId)
             }
         }
@@ -100,10 +130,11 @@ class SharedPreferencesSelectorSelectionStore
             expected: SelectorSelectionSnapshot,
             profileId: String,
         ): Boolean =
-            synchronized(flows) {
+            serializeSelection {
                 if (snapshot(groupId) != expected) {
                     false
                 } else {
+                    manualReceipts.remove(groupId)
                     writeSelection(groupId, profileId, isManual = false)
                     true
                 }
@@ -117,24 +148,54 @@ class SharedPreferencesSelectorSelectionStore
                 intentPreparation.captureMutation(
                     com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
                 )
-            if (intentPreparation.commitMutationIntent(
-                    preparation,
-                ) !is com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved
-            ) {
-                return
-            }
-            synchronized(flows) {
-                writeSelection(groupId, profileId, isManual = true)
+            val outcome = intentPreparation.activateSelector(preparation, groupId, profileId, activeGroup)
+            if (outcome is com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved) {
+                authority.intentLinearizer.serialize {
+                    if (authority.isCurrent(outcome.receipt)) {
+                        serializeSelection {
+                            advanceRevision(groupId)
+                            flowFor(groupId).value = preferences.getString(keyFor(groupId), null)
+                        }
+                    }
+                }
             }
         }
 
+        override fun manualReceipt(groupId: String) = activeGroup.manualReceipt(groupId)
+
+        override fun selectReserved(
+            groupId: String,
+            profileId: String,
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        ): Boolean =
+            authority.intentLinearizer.serialize {
+                if (!authority.isCurrent(receipt)) return@serialize false
+                serializeSelection {
+                    val profileReceipt = receipt as? com.poyka.ripdpi.data.ProfileActivationReceipt
+                    if (profileReceipt == null || authority.snapshotAuthority().command?.phase !=
+                        com.poyka.ripdpi.data.RuntimeActivationPhase.Unbound
+                    ) {
+                        false
+                    } else {
+                        activeGroup.commitMember(groupId, profileId, SelectorChoiceOrigin.Manual(profileReceipt))
+                        manualReceipts[groupId] = receipt
+                        advanceRevision(groupId)
+                        flowFor(groupId).value = profileId
+                        true
+                    }
+                }
+            }
+
         override fun clearSelection(groupId: String) {
-            synchronized(flows) {
+            serializeSelection {
                 preferences
                     .edit()
                     .remove(keyFor(groupId))
                     .remove(manualKeyFor(groupId))
-                    .apply()
+                    .commit()
+                    .also { check(it) { "Selector selection persistence failed" } }
+                activeGroup.forgetManualReceipt(groupId)
+                manualReceipts.remove(groupId)
                 advanceRevision(groupId)
                 flowFor(groupId).value = null
             }
@@ -142,17 +203,22 @@ class SharedPreferencesSelectorSelectionStore
 
         /** Clears every persisted selection. Intended for tests and reset flows. */
         fun clearAll() {
-            synchronized(flows) {
-                preferences.edit().clear().commit()
-                flows.forEach { (groupId, flow) ->
-                    advanceRevision(groupId)
-                    flow.value = null
-                }
+            serializeSelection {
+                val nextClear = Math.addExact(clearRevision, 1L)
+                check(preferences.edit().clear().commit()) { "Selector selection persistence failed" }
+                activeGroup.onSelectionsCleared()
+                manualReceipts.clear()
+                clearRevision = nextClear
+                flows.values.forEach { it.value = null }
             }
         }
 
+        /** Same gate as measured commitMember: snapshot comparison and one checked write are indivisible. */
+        private fun <T> serializeSelection(block: () -> T): T =
+            authority.intentLinearizer.serialize { synchronized(flows, block) }
+
         private fun flowFor(groupId: String): MutableStateFlow<String?> =
-            synchronized(flows) {
+            serializeSelection {
                 flows.getOrPut(groupId) {
                     MutableStateFlow(preferences.getString(keyFor(groupId), null))
                 }
@@ -170,12 +236,13 @@ class SharedPreferencesSelectorSelectionStore
                 .putBoolean(manualKeyFor(groupId), isManual)
                 .commit()
                 .also { check(it) { "Selector selection persistence failed" } }
+            if (!isManual) activeGroup.forgetManualReceipt(groupId)
             advanceRevision(groupId)
             flowFor(groupId).value = profileId
         }
 
         private fun advanceRevision(groupId: String) {
-            revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
+            revisions[groupId] = Math.addExact(revisions[groupId] ?: 0L, 1L)
         }
 
         private fun keyFor(groupId: String): String = "$KeyPrefix$groupId"

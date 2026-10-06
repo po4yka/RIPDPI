@@ -152,10 +152,13 @@ class OnboardingModeValidationRunnerTest {
     ) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
         val startedModes = mutableListOf<Mode>()
 
-        override fun recordStart(mode: Mode): ServiceStartResult {
+        override fun recordStart(
+            mode: Mode,
+            receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+        ): ServiceStartResult {
             startedModes += mode
             serviceStateStore.setStatus(AppStatus.Running, mode)
-            return ServiceStartResult.Accepted(mode)
+            return (receipt?.let(ServiceStartResult::Accepted) ?: ServiceStartResult.MaintenanceAccepted(mode))
         }
 
         override fun recordStop() {
@@ -168,7 +171,10 @@ class OnboardingModeValidationRunnerTest {
     ) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
         val startedModes = mutableListOf<Mode>()
 
-        override fun recordStart(mode: Mode): ServiceStartResult {
+        override fun recordStart(
+            mode: Mode,
+            receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+        ): ServiceStartResult {
             startedModes += mode
             return ServiceStartResult.Rejected(mode = mode, reason = reason)
         }
@@ -177,7 +183,14 @@ class OnboardingModeValidationRunnerTest {
     }
 
     private class AcceptedButIdleServiceController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
-        override fun recordStart(mode: Mode): ServiceStartResult = ServiceStartResult.Accepted(mode)
+        override fun recordStart(
+            mode: Mode,
+            receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+        ): ServiceStartResult =
+            (
+                receipt?.let(ServiceStartResult::Accepted)
+                    ?: ServiceStartResult.MaintenanceAccepted(mode)
+            )
 
         override fun recordStop() = Unit
     }

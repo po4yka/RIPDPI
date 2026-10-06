@@ -47,6 +47,7 @@ fun SettingsRoute(
     onOpenAbout: () -> Unit,
     onOpenDataTransparency: () -> Unit,
     onOpenDetectionCheck: () -> Unit,
+    onOpenProfileUtility: () -> Unit,
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
@@ -101,6 +102,7 @@ fun SettingsRoute(
                 onOpenDataTransparency = onOpenDataTransparency,
                 onOpenDetectionCheck = onOpenDetectionCheck,
                 onOpenSubscriptionFailover = onOpenSubscriptionFailover,
+                onOpenProfileUtility = onOpenProfileUtility,
                 onOpenSubscriptionStatus = onOpenSubscriptionStatus,
                 onOpenDomainBypass = onOpenDomainBypass,
                 onOpenRoutingRules = onOpenRoutingRules,
@@ -184,6 +186,7 @@ internal fun SettingsScreen(
 }
 
 internal data class SettingsScreenActions(
+    val onOpenProfileUtility: () -> Unit,
     val onOpenDnsSettings: () -> Unit,
     val onOpenAdvancedSettings: () -> Unit,
     val onOpenCustomization: () -> Unit,
@@ -232,6 +235,7 @@ private fun launchBatteryOptimizationExemption(
 
 private fun previewActions(): SettingsScreenActions =
     SettingsScreenActions(
+        onOpenProfileUtility = { error("Preview profile utility action") },
         onOpenDnsSettings = {},
         onOpenAdvancedSettings = {},
         onOpenCustomization = {},

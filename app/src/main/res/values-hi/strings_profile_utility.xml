@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_utility_title">प्रोफ़ाइल</string>
+    <string name="profile_utility_favorites">पसंदीदा</string>
+    <string name="profile_utility_recents">हाल में उपयोग की गई</string>
+    <string name="profile_utility_saved">सहेजी गई प्रोफ़ाइल</string>
+    <string name="profile_utility_check">जाँचें</string>
+    <string name="profile_utility_check_select">जाँचें और चुनें</string>
+    <string name="profile_utility_checking">जाँच जारी है…</string>
+    <string name="profile_utility_measured">HTTP: %1$s मिलीसेकंड</string>
+    <string name="profile_utility_not_checked">जाँच नहीं हुई</string>
+    <string name="profile_utility_unsupported">इस प्रोफ़ाइल की यहाँ जाँच नहीं हो सकती।</string>
+    <string name="profile_utility_environment_changed">नेटवर्क, नीति या प्रोफ़ाइल बदल गई है। फिर जाँचें।</string>
+    <string name="profile_utility_failed">HTTP जाँच विफल हुई। चयन नहीं बदला।</string>
+    <string name="profile_utility_timeout">जाँच का समय समाप्त हुआ। चयन नहीं बदला।</string>
+    <string name="profile_utility_cleanup_pending">नेटिव संसाधनों की सफ़ाई अभी पूरी नहीं हुई है। चयन नहीं बदला।</string>
+    <string name="profile_utility_retry_cleanup">सफ़ाई फिर आज़माएँ</string>
+    <string name="profile_utility_favorite_add">%1$s को पसंदीदा में जोड़ें</string>
+    <string name="profile_utility_favorite_remove">%1$s को पसंदीदा से हटाएँ</string>
+    <string name="profile_utility_last_used">अंतिम उपयोग: %1$s</string>
+    <string name="profile_utility_empty">कोई सहेजी गई प्रोफ़ाइल नहीं है।</string>
+    <string name="profile_utility_disclosure">जाँच एक HTTP अनुरोध को मापती है। जाँचें और चुनें केवल सफल जाँच के बाद प्रोफ़ाइल लागू करता है।</string>
+    <string name="profile_utility_command_failed">आदेश पूरा नहीं हो सका। प्रोफ़ाइल की स्थिति जाँचें।</string>
+    <string name="profile_utility_applying">प्रोफ़ाइल लागू हो रही है…</string>
+    <string name="profile_utility_selection_failed">प्रोफ़ाइल लागू नहीं हो सकी। सहेजी गई और लागू प्रोफ़ाइल जाँचें।</string>
+    <string name="profile_utility_url">जाँच URL</string>
+    <string name="profile_utility_applied">लागू प्रोफ़ाइल</string>
+    <string name="profile_utility_loading">प्रोफ़ाइल लोड हो रही हैं…</string>
+    <string name="profile_utility_checked_at">जाँच का समय: %1$s</string>
+    <string name="profile_utility_busy">Xray व्यस्त है। कनेक्शन रोकें या बंद करें, फिर दोबारा प्रयास करें।</string>
+    <string name="profile_utility_check_fastest">जाँचकर सबसे तेज़ प्रोफ़ाइल चुनें</string>
+</resources>

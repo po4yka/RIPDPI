@@ -375,6 +375,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.VpnConfig.stableRoute to "config/vpn-screen",
         Route.Settings.stableRoute to "settings-screen",
         Route.BackupRestore.stableRoute to "backup_restore-screen",
+        Route.ProfileUtility.stableRoute to "profile_utility-screen",
         Route.Diagnostics().stableRoute to "diagnostics-screen",
         Route.History.stableRoute to "history-screen",
         Route.Logs.stableRoute to "logs-screen",
@@ -441,6 +442,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
                 ReachabilityMechanism.DeepLink,
             ),
         Route.BackupRestore.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.ProfileUtility.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.Diagnostics().stableRoute to
             setOf(
                 ReachabilityMechanism.TopLevelNavigation,

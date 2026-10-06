@@ -12,15 +12,10 @@ class ExplicitUserStartGuard internal constructor(
     private val generation: Long,
     private val durable: com.poyka.ripdpi.data.PauseAuthorityRef,
 ) {
+    internal val durableReference: com.poyka.ripdpi.data.PauseAuthorityRef get() = durable
+
     fun isCurrent(): Boolean =
         arbiter.runIfExplicitUserIntentCurrent(generation) { arbiter.isDurableCurrent(durable) } == true
-
-    internal fun publishIfCurrent(
-        mode: Mode,
-        publish: () -> Unit,
-    ): Boolean = arbiter.publishIfCurrent(generation, durable, mode, publish)
-
-    internal fun confirmAppliedMode(mode: Mode): Boolean = arbiter.confirmAppliedMode(durable, mode)
 
     fun runIfCurrent(action: () -> Unit): Boolean =
         arbiter.runIfExplicitUserIntentCurrent(generation) {

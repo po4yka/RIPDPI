@@ -28,7 +28,6 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.OrderedServiceStateStore
-import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -763,7 +762,7 @@ class ServiceLifecycleIntegrationTest {
                 RipDpiProxyService::class.java -> Mode.Proxy
                 else -> error("Unsupported integration service: $serviceClass")
             }
-        val receipt = serviceController.prepareUserCommand(RuntimeUserCommand.Start(mode))
+        val receipt = serviceController.prepareStart(mode)
         val lease = checkNotNull(serviceIntentArbiter.dispatchExplicit(receipt))
         val dispatch = {
             check(serviceIntentArbiter.isCurrent(lease))
@@ -772,6 +771,11 @@ class ServiceLifecycleIntegrationTest {
                     appContext,
                     Intent(appContext, serviceClass).apply {
                         action = startAction
+                        putExtra(
+                            "runtimeActivationEnvelope",
+                            com.poyka.ripdpi.serialization.RipDpiContractJson
+                                .encodeToString(receipt.envelope()),
+                        )
                         putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
                         putExtra(durableIntentGenerationExtra, lease.durable.authority.generation)
                         if (mode == Mode.VPN) {
@@ -780,7 +784,7 @@ class ServiceLifecycleIntegrationTest {
                     },
                 )
             checkNotNull(component)
-            ServiceStartResult.Accepted(mode)
+            ServiceStartResult.Accepted(receipt)
         }
         val result = if (mode == Mode.VPN) serviceIntentArbiter.dispatchVpnStart(dispatch) else dispatch()
         assertTrue("Prepared lifecycle fixture start must be accepted", result is ServiceStartResult.Accepted)

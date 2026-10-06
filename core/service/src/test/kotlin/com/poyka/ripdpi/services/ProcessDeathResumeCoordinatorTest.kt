@@ -95,7 +95,7 @@ class ProcessDeathResumeCoordinatorTest {
             assertEquals(listOf(Mode.VPN), controller.startedModes)
             assertEquals(AppStatus.Halted to Mode.VPN, state.status.value)
 
-            controller.result = ServiceStartResult.Accepted(Mode.VPN)
+            controller.result = null
             coordinator.resumeIfNeeded()
 
             assertEquals(listOf(Mode.VPN, Mode.VPN), controller.startedModes)
@@ -183,7 +183,7 @@ class ProcessDeathResumeCoordinatorTest {
             val coordinator = coordinator(store, state, controller, arbiter = arbiter)
 
             arbiter.userStart(
-                action = { ServiceStartResult.Accepted(Mode.Proxy) },
+                action = { ServiceStartResult.Accepted(controller.testAuthority.reserveStart(Mode.Proxy)) },
                 isAccepted = { true },
             )
             coordinator.resumeIfNeeded()
@@ -319,23 +319,33 @@ private class FakeProcessDeathBootStore(
 }
 
 private class RecordingProcessDeathServiceController(
-    var result: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN),
+    var result: ServiceStartResult? = null,
 ) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+    init {
+        testAppliedRuntimeCommand(testAuthority, Mode.VPN)
+    }
+
     val startedModes = mutableListOf<Mode>()
     var processDeathStarts = 0
         private set
 
-    override fun recordStart(mode: Mode): ServiceStartResult {
+    override fun recordStart(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+    ): ServiceStartResult {
         startedModes += mode
-        return result
+        return result ?: ServiceStartResult.Accepted(checkNotNull(receipt))
     }
 
     override fun startForProcessDeathRecovery(
         mode: Mode,
-        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+        reference: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
     ): ServiceStartResult {
         processDeathStarts += 1
-        return recordStart(mode)
+        val receipt =
+            testAuthority.authorizeRecovery(mode, reference)
+                ?: return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
+        return recordStart(mode, receipt)
     }
 
     override fun recordStop() = Unit

@@ -195,6 +195,7 @@ class SettingsPreferencesScreenTest {
         onOpenVpnPermissionDialog: () -> Unit = {},
     ): SettingsScreenActions =
         SettingsScreenActions(
+            onOpenProfileUtility = { error("Unexpected profile utility action") },
             onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},

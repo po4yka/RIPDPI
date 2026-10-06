@@ -65,7 +65,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             repeat(3) { runCurrent() }
             routingSource.policy = destinationRoutingPolicy()
             advanceTimeBy(1_000L)
@@ -90,7 +90,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                     validatedAt = env.clock.nowMillis(),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             repeat(3) { runCurrent() }
 
             val activePolicy =
@@ -125,7 +125,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 validatedAt = env.clock.nowMillis(),
             )
 
-            env.coordinator.start()
+            env.startCaptured()
             repeat(3) { runCurrent() }
 
             var persisted = env.recordStore.snapshot().single()
@@ -134,7 +134,7 @@ class ProxyServiceAutoApplyLifecycleTest {
             assertEquals(1, persisted.consecutiveFailureCount)
             assertNotNull(env.rememberedPolicies.findValidatedMatch(fingerprint.scopeKey(), Mode.Proxy))
 
-            env.coordinator.start()
+            env.startCaptured()
             repeat(3) { runCurrent() }
 
             persisted = env.recordStore.snapshot().single()
@@ -144,7 +144,7 @@ class ProxyServiceAutoApplyLifecycleTest {
             assertNotNull(persisted.suppressedUntil)
             assertNull(env.rememberedPolicies.findValidatedMatch(fingerprint.scopeKey(), Mode.Proxy))
 
-            env.coordinator.start()
+            env.startCaptured()
             repeat(3) { runCurrent() }
 
             val activePolicy =
@@ -170,7 +170,7 @@ class ProxyServiceAutoApplyLifecycleTest {
 
             assertNull(env.rememberedPolicies.findValidatedMatch(fingerprint.scopeKey(), Mode.Proxy))
 
-            env.coordinator.start()
+            env.startCaptured()
             repeat(3) { runCurrent() }
 
             val activePolicy =
@@ -188,6 +188,7 @@ class ProxyServiceAutoApplyLifecycleTest {
         runtimeFactory: () -> TestProxyRuntime = { TestProxyRuntime() },
         destinationRoutingPolicySource: DestinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
     ): Env {
+        val commands = TestRuntimeCommandSource(Mode.Proxy)
         val dispatcher = StandardTestDispatcher(testScheduler)
         val clock = TestServiceClock(now = 1_000L)
         val recordStore = InMemoryRememberedNetworkPolicyRecordStore(nowProvider = clock::nowMillis)
@@ -241,9 +242,8 @@ class ProxyServiceAutoApplyLifecycleTest {
                 configurationLifecycle =
                     RuntimeConfigurationLifecycle(
                         AppliedRuntimeConfigurationStore(
-                            PauseAppliedReceiptConsumer(
-                                com.poyka.ripdpi.data
-                                    .testPauseAuthority(),
+                            testRuntimeAppliedReceiptConsumer(
+                                commands.authority,
                             ),
                         ),
                         RuntimeConfigurationIdentityFactory(),
@@ -264,6 +264,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                                 relayFactory = TestRipDpiRelayFactory(),
                                 naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                                 relayProfileStore = TestRelayProfileStore(),
+                                selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
                                 relayCredentialStore = TestRelayCredentialStore(),
                             ),
                         warpRuntimeSupervisor =
@@ -307,6 +308,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 clock = clock,
             )
         return Env(
+            commands = commands,
             coordinator = coordinator,
             rememberedPolicies = rememberedPolicies,
             recordStore = recordStore,
@@ -354,6 +356,7 @@ class ProxyServiceAutoApplyLifecycleTest {
         )
 
     private data class Env(
+        val commands: TestRuntimeCommandSource,
         val coordinator: ProxyServiceRuntimeCoordinator,
         val rememberedPolicies: DefaultRememberedNetworkPolicyStore,
         val recordStore: InMemoryRememberedNetworkPolicyRecordStore,
@@ -361,7 +364,10 @@ class ProxyServiceAutoApplyLifecycleTest {
         val store: TestServiceStateStore,
         val factory: TestRipDpiProxyFactory,
         val clock: TestServiceClock,
-    )
+    ) {
+        suspend fun startCaptured() =
+            commands.start(runtimeRegistry.current(Mode.Proxy) != null) { coordinator.start() }
+    }
 }
 
 private class MutableDestinationRoutingPolicySource : DestinationRoutingPolicySource {

@@ -176,7 +176,7 @@ class QuickTileControllerTest {
                     serviceStateStore = FakeServiceStateStore(),
                     serviceStartPreflight =
                         ServiceStartPreflight {
-                            ServiceStartPreflightResult.LocalNetworkPermissionRequired
+                            LocalNetworkStartPreflightResult.LocalNetworkPermissionRequired
                         },
                 )
             val host = FakeQuickTileHost()
@@ -346,7 +346,8 @@ class QuickTileControllerTest {
     }
 
     private data object AllowedServiceStartPreflight : ServiceStartPreflight {
-        override suspend fun check(mode: Mode): ServiceStartPreflightResult = ServiceStartPreflightResult.Allowed
+        override suspend fun check(mode: Mode): LocalNetworkStartPreflightResult =
+            LocalNetworkStartPreflightResult.Allowed
     }
 
     private class FakeQuickTileHost(

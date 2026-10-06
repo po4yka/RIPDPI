@@ -12,6 +12,7 @@ import com.poyka.ripdpi.core.XrayProtectController
 import com.poyka.ripdpi.core.XrayProviderOrchestrator
 import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
@@ -63,6 +64,7 @@ import java.io.IOException
 @Suppress("detekt.LargeClass")
 class VpnServiceRuntimeCoordinatorTest {
     private data class Env(
+        val commands: TestRuntimeCommandSource,
         val coordinator: VpnServiceRuntimeCoordinator,
         val store: TestServiceStateStore,
         val host: TestVpnServiceHost,
@@ -83,14 +85,19 @@ class VpnServiceRuntimeCoordinatorTest {
         val events: MutableList<String>,
         val autolearnReceipts: List<AutolearnActivationReceipt>,
         val configurations: AppliedRuntimeConfigurationStore,
-    )
+    ) {
+        suspend fun startCaptured() =
+            commands.start(store.status.value.first == AppStatus.Running && runtimeRegistry.current(Mode.VPN) != null) {
+                coordinator.start()
+            }
+    }
 
     @Test
     fun successfulStartRunsProxyBeforeTunnel() =
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(
@@ -113,7 +120,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val nativeReady = CompletableDeferred<Unit>()
             val env = newEnv().also { it.bridgeFactory.bridge.beforeStart = { nativeReady.await() } }
 
-            val startup = backgroundScope.launch { env.coordinator.start() }
+            val startup = backgroundScope.launch { env.startCaptured() }
             runCurrent()
 
             assertEquals(listOf("proxy:start", "vpn:establish", "tunnel:start"), env.events.take(3))
@@ -145,7 +152,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     }
                 }
 
-            val startup = backgroundScope.launch { env.coordinator.start() }
+            val startup = backgroundScope.launch { env.startCaptured() }
             runCurrent()
 
             assertFalse(env.tunnelProvider.session.closed)
@@ -185,7 +192,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(listOf("warp:start", "proxy:start", "vpn:establish", "tunnel:start"), env.events.take(4))
@@ -215,7 +222,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.relayFactory.lastRuntime.complete(17)
             repeat(3) { runCurrent() }
@@ -233,7 +240,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.coordinator.stop()
             runCurrent()
@@ -257,7 +264,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     }
                 }
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
@@ -271,7 +278,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.coordinator.stop()
             runCurrent()
@@ -286,7 +293,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             val updatedSettings =
@@ -329,7 +336,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(
@@ -371,7 +378,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -446,7 +453,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ).copy(udpEnabled = true),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val requestId = env.transportFailoverApplyTracker.begin()
             env.coordinator.restartAfterTransportFailover(requestId, target)
@@ -501,7 +508,7 @@ class VpnServiceRuntimeCoordinatorTest {
                             profileId = target.profileId,
                         ).copy(udpEnabled = true),
                 )
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val requestId = env.transportFailoverApplyTracker.begin()
             val restart =
@@ -567,7 +574,7 @@ class VpnServiceRuntimeCoordinatorTest {
                             ),
                         ),
                 )
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val requestId = env.transportFailoverApplyTracker.begin()
 
@@ -620,7 +627,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                     transportFailoverRuntimeTimeoutMillis = 50L,
                 )
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val requestId = env.transportFailoverApplyTracker.begin()
             val restart =
@@ -686,7 +693,7 @@ class VpnServiceRuntimeCoordinatorTest {
                             profileId = target.profileId,
                         ),
                 )
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val requestId = env.transportFailoverApplyTracker.begin()
 
@@ -722,7 +729,7 @@ class VpnServiceRuntimeCoordinatorTest {
     fun cancelledTransportFailoverCommandCannotMutateOrDemoteRuntime() =
         runTest {
             val env = newEnv()
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val requestId = env.transportFailoverApplyTracker.begin()
             env.transportFailoverApplyTracker.cancel(requestId)
@@ -757,11 +764,11 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
@@ -780,7 +787,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             val initialTunnelConfig = requireNotNull(env.bridgeFactory.bridge.startedConfig)
@@ -843,7 +850,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(0, env.factory.runtimes.size)
@@ -867,6 +874,11 @@ class VpnServiceRuntimeCoordinatorTest {
                     mode = Mode.VPN,
                     settings = updatedSettings,
                     activeDns = updatedSettings.activeDnsSettings(),
+                ).copy(
+                    catalogGeneration =
+                        checkNotNull(
+                            env.commands.authority.states.value,
+                        ).profileUtility.catalogGeneration,
                 ),
             )
             env.tunnelProvider.session = TestVpnTunnelSession(tunFd = 8, events = env.events)
@@ -916,7 +928,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     ).copy(destinationRoutingDigest = updatedPolicy.canonicalDigest)
                 val env = newEnv(resolutions = listOf(initialResolution))
 
-                env.coordinator.start()
+                env.startCaptured()
                 runCurrent()
                 env.resolver.enqueue(updatedResolution)
                 env.tunnelProvider.session = TestVpnTunnelSession(tunFd = 8, events = env.events)
@@ -967,7 +979,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val existingTun = env.tunnelProvider.session
             env.resolver.enqueue(updatedResolution)
@@ -987,7 +999,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val initialResolution = routingResolution(DestinationRoutingAction.BLOCK, "route-block")
             val env = newEnv(resolutions = listOf(initialResolution))
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val existingTun = env.tunnelProvider.session
             val activeSession = env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession
@@ -1025,7 +1037,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val updatedResolution = routingResolution(DestinationRoutingAction.DIRECT, "route-b")
             val env = newEnv(resolutions = listOf(initialResolution))
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val existingTun = env.tunnelProvider.session
             env.factory.runtimes
@@ -1053,7 +1065,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val updatedResolution = routingResolution(DestinationRoutingAction.DIRECT, "route-b")
             val env = newEnv(resolutions = listOf(initialResolution))
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val existingTun = env.tunnelProvider.session
             env.resolver.enqueue(updatedResolution)
@@ -1099,7 +1111,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             val initialConfig = env.bridgeFactory.bridge.startedConfig
@@ -1120,7 +1132,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv(resolutions = listOf(plainDnsResolution()))
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.bridgeFactory.bridge.telemetryFailure = IOException("telemetry boom")
 
@@ -1142,7 +1154,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.bridgeFactory.bridge.telemetry =
                 NativeRuntimeSnapshot(
@@ -1203,7 +1215,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.bridgeFactory.bridge.telemetry =
@@ -1302,7 +1314,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -1351,7 +1363,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -1378,7 +1390,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv(resolutions = listOf(plainDnsResolution()))
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.bridgeFactory.bridge.telemetry =
@@ -1401,7 +1413,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val session = env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession
             assertTrue(session.currentDns?.isEncrypted == true)
@@ -1426,7 +1438,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val session = env.runtimeRegistry.current(Mode.VPN) as VpnRuntimeSession
             assertTrue(session.currentDns?.isEncrypted == true)
@@ -1455,7 +1467,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     it.tunnelProvider.establishFailure = IllegalStateException("VPN permission denied")
                 }
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
@@ -1468,7 +1480,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.permissionWatchdog.emit(
@@ -1493,7 +1505,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     resolutions = listOf(sampleResolution(mode = Mode.VPN, localNetworkDependent = true)),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.permissionWatchdog.emit(
                 PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, detectedAt = 2_000L),
@@ -1511,7 +1523,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.permissionWatchdog.emit(
                 PermissionChangeEvent(PermissionChangeEvent.KIND_LOCAL_NETWORK, detectedAt = 2_000L),
@@ -1528,7 +1540,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.vpnProtectFailureMonitor.report(
@@ -1551,7 +1563,7 @@ class VpnServiceRuntimeCoordinatorTest {
     fun vpnProtectFailureImmediatelyAfterStartIsObserved() =
         runTest {
             val env = newEnv()
-            env.coordinator.start()
+            env.startCaptured()
             env.vpnProtectFailureMonitor.report(
                 VpnProtectFailureEvent(
                     fd = 42,
@@ -1590,7 +1602,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -1628,7 +1640,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     resolutions = listOf(sampleResolution(mode = Mode.VPN, policySignature = "initial")),
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             assertNotNull(env.runtimeRegistry.current(Mode.VPN)?.diagnosticsInPathRouteLease)
             repeat(5) {
@@ -1682,7 +1694,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val stopEntered = CompletableDeferred<Unit>()
             val allowStop = CompletableDeferred<Unit>()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.bridgeFactory.bridge.beforeStop = {
                 stopEntered.complete(Unit)
@@ -1743,7 +1755,7 @@ class VpnServiceRuntimeCoordinatorTest {
             val stopEntered = CompletableDeferred<Unit>()
             val allowStop = CompletableDeferred<Unit>()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.bridgeFactory.bridge.beforeStop = {
                 stopEntered.complete(Unit)
@@ -1806,7 +1818,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             assertNotNull(env.runtimeRegistry.current(Mode.VPN))
             assertEquals(1, xrayBridge.startCount)
@@ -1861,7 +1873,7 @@ class VpnServiceRuntimeCoordinatorTest {
                     },
                 )
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.handoverMonitor.emit(
                 NetworkHandoverEvent(
@@ -1885,7 +1897,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = buildStaleProxyExitEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             env.handoverMonitor.emit(
@@ -1908,6 +1920,7 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     private data class StaleProxyExitEnv(
+        val commands: TestRuntimeCommandSource,
         val coordinator: VpnServiceRuntimeCoordinator,
         val store: TestServiceStateStore,
         val handoverMonitor: TestNetworkHandoverMonitor,
@@ -1915,9 +1928,15 @@ class VpnServiceRuntimeCoordinatorTest {
         val oldRuntime: DelayedStopVpnProxyRuntime,
         val newFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
         val initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
-    )
+    ) {
+        suspend fun startCaptured() =
+            commands.start(store.status.value.first == AppStatus.Running && runtimeRegistry.current(Mode.VPN) != null) {
+                coordinator.start()
+            }
+    }
 
     private fun TestScope.buildStaleProxyExitEnv(): StaleProxyExitEnv {
+        val commands = TestRuntimeCommandSource(Mode.VPN)
         val dispatcher = StandardTestDispatcher(testScheduler)
         val store = TestServiceStateStore()
         val events = mutableListOf<String>()
@@ -1952,6 +1971,7 @@ class VpnServiceRuntimeCoordinatorTest {
             }
         val coordinator =
             buildStaleProxyExitCoordinator(
+                commands = commands,
                 dispatcher = dispatcher,
                 store = store,
                 events = events,
@@ -1963,6 +1983,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 proxyFactory = proxyFactory,
             )
         return StaleProxyExitEnv(
+            commands = commands,
             coordinator = coordinator,
             store = store,
             handoverMonitor = handoverMonitor,
@@ -1974,6 +1995,7 @@ class VpnServiceRuntimeCoordinatorTest {
     }
 
     private fun TestScope.buildStaleProxyExitCoordinator(
+        commands: TestRuntimeCommandSource,
         dispatcher: kotlinx.coroutines.CoroutineDispatcher,
         store: TestServiceStateStore,
         events: MutableList<String>,
@@ -1992,9 +2014,8 @@ class VpnServiceRuntimeCoordinatorTest {
             configurationLifecycle =
                 RuntimeConfigurationLifecycle(
                     AppliedRuntimeConfigurationStore(
-                        PauseAppliedReceiptConsumer(
-                            com.poyka.ripdpi.data
-                                .testPauseAuthority(),
+                        testRuntimeAppliedReceiptConsumer(
+                            commands.authority,
                         ),
                     ),
                     RuntimeConfigurationIdentityFactory(),
@@ -2179,6 +2200,7 @@ class VpnServiceRuntimeCoordinatorTest {
             relayFactory = TestRipDpiRelayFactory(),
             naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
             relayProfileStore = TestRelayProfileStore(),
+            selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
             relayCredentialStore = TestRelayCredentialStore(),
         )
 
@@ -2209,7 +2231,7 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             val updatedSettings =
@@ -2269,7 +2291,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 VpnAppRoutingPlan.Disallow(settings.appRoutingEnabledPresetIdsList.toSet())
             }
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             env.resolver.enqueue(
                 sampleResolution(
@@ -2284,7 +2306,13 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.bridgeFactory.bridge.startedConfigs.size)
             assertEquals(0, env.bridgeFactory.bridge.stopCount)
             assertEquals(1, env.events.count { it == "vpn:establish" })
-            assertTrue(requireNotNull(env.runtimeRegistry.current(Mode.VPN)).reloadConnectionPolicy { true })
+            assertTrue(
+                requireNotNull(
+                    env.runtimeRegistry.current(Mode.VPN),
+                ).reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) {
+                    true
+                },
+            )
             runCurrent()
             assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
@@ -2295,7 +2323,7 @@ class VpnServiceRuntimeCoordinatorTest {
     fun tunnelRefreshFailureTransitionsToFailedAndKeepsReplacementTunOpen() =
         runTest {
             val env = newEnv()
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val originalSession = env.tunnelProvider.session
             val replacementSession = TestVpnTunnelSession(tunFd = 8, events = env.events)
@@ -2317,7 +2345,7 @@ class VpnServiceRuntimeCoordinatorTest {
     fun failedRuntimeStartClosesRetainedTunAndCreatesFreshSession() =
         runTest {
             val env = newEnv()
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
             val failedSession = TestVpnTunnelSession(tunFd = 8, events = env.events)
             env.tunnelProvider.session = failedSession
@@ -2335,7 +2363,7 @@ class VpnServiceRuntimeCoordinatorTest {
             env.bridgeFactory.bridge.startFailure = null
             env.resolver.enqueue(sampleResolution(mode = Mode.VPN, policySignature = "recovered"))
 
-            env.coordinator.start()
+            env.startCaptured()
             runCurrent()
 
             assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
@@ -2372,7 +2400,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         ).copy(udpEnabled = true),
                 )
             val requestId = env.transportFailoverApplyTracker.begin()
-            env.coordinator.activateTransport(requestId, target)
+            env.commands.start(false) { env.coordinator.activateTransport(requestId, target) }
             runCurrent()
             assertEquals(
                 TransportFailoverApplyOutcome.Applied,
@@ -2418,7 +2446,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 )
             val requestId = env.transportFailoverApplyTracker.begin()
 
-            env.coordinator.activateTransport(requestId, target)
+            env.commands.start(false) { env.coordinator.activateTransport(requestId, target) }
 
             assertEquals(
                 TransportFailoverApplyOutcome.TimedOutInFlight,
@@ -2466,7 +2494,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 )
             val requestId = env.transportFailoverApplyTracker.begin()
 
-            env.coordinator.activateTransport(requestId, target)
+            env.commands.start(false) { env.coordinator.activateTransport(requestId, target) }
 
             assertEquals(
                 TransportFailoverApplyOutcome.TimedOutInFlight,
@@ -2484,7 +2512,9 @@ class VpnServiceRuntimeCoordinatorTest {
         runTest {
             val env = newEnv()
             val requestId = env.transportFailoverApplyTracker.begin()
-            env.coordinator.activateTransport(requestId, TransportFailoverTarget(TransportKindAmneziaWg, "missing"))
+            env.commands.start(false) {
+                env.coordinator.activateTransport(requestId, TransportFailoverTarget(TransportKindAmneziaWg, "missing"))
+            }
             runCurrent()
             assertEquals(
                 TransportFailoverApplyOutcome.RollbackSafeFailure,
@@ -2526,8 +2556,36 @@ class VpnServiceRuntimeCoordinatorTest {
         val events = mutableListOf<String>()
         val store = TestServiceStateStore()
         val host = TestVpnServiceHost(backgroundScope)
-        val resolver = TestConnectionPolicyResolver(resolutions.first())
-        resolver.enqueue(*resolutions.toTypedArray())
+        val commands = TestRuntimeCommandSource(Mode.VPN)
+        val references =
+            resolutions
+                .mapNotNull { resolution ->
+                    resolution.proxyPreferences
+                        .relayConfigOrNull()
+                        ?.takeIf { it.enabled }
+                        ?.profileId
+                        ?.takeIf(String::isNotBlank)
+                        ?.let(com.poyka.ripdpi.data.ProfileUtilityReference::NativeRelay)
+                }.toSet() +
+                buildSet<com.poyka.ripdpi.data.ProfileUtilityReference> {
+                    if (resolutions.any { it.proxyPreferences.relayConfigOrNull()?.enabled == true }) {
+                        add(
+                            com.poyka.ripdpi.data.ProfileUtilityReference
+                                .NativeRelay(relayRuntimeConfig.profileId),
+                        )
+                    }
+                    if (xrayProviderSessionControllerFactory != null) {
+                        add(
+                            com.poyka.ripdpi.data.ProfileUtilityReference
+                                .Xray("default"),
+                        )
+                    }
+                }
+        if (references.isNotEmpty()) commands.authority.profileUtility.replaceCatalog(references)
+        val catalog = checkNotNull(commands.authority.states.value).profileUtility.catalogGeneration
+        val capturedResolutions = resolutions.map { it.copy(catalogGeneration = catalog) }
+        val resolver = TestConnectionPolicyResolver(capturedResolutions.first())
+        resolver.enqueue(*capturedResolutions.toTypedArray())
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
         val relayFactory = TestRipDpiRelayFactory { relayRuntimeFactory(events) }
@@ -2560,9 +2618,8 @@ class VpnServiceRuntimeCoordinatorTest {
             xrayProviderSessionControllerFactory?.invoke(tunnelRuntime, dispatcher)
         val configurations =
             AppliedRuntimeConfigurationStore(
-                PauseAppliedReceiptConsumer(
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
+                testRuntimeAppliedReceiptConsumer(
+                    commands.authority,
                 ),
             )
         val coordinator =
@@ -2646,6 +2703,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 xrayProviderSessionController = xrayProviderSessionController,
             )
         return Env(
+            commands = commands,
             coordinator = coordinator,
             store = store,
             host = host,
