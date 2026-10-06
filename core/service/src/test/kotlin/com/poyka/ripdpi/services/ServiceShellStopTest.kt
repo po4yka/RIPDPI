@@ -3,8 +3,10 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,26 +18,49 @@ class ServiceShellStopTest {
     @Test
     fun `accepted notification stop invalidates diagnostics resume lease`() =
         runTest {
-            val tracker = RuntimeResumeIntentTracker()
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val arbiter = ServiceIntentArbiter(authority)
+            val stopped = CompletableDeferred<Unit>()
+            val tracker = RuntimeResumeIntentTracker(authority)
             val lease = tracker.captureResumeLease()
             val store = NotificationStopBootStore(running = true)
-            val recorder = AcceptedUserStopRecorder(store, tracker, ServiceIntentArbiter())
+            val recorder =
+                AcceptedUserStopRecorder(
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    bootSessionStateStore = store,
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = arbiter,
+                )
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter = arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { _, _ -> },
                     intentCallbacks =
                         ServiceShellIntentCallbacks(
-                            acceptedStop = recorder::record,
+                            acceptedStop = { command -> recorder.record(command).also { stopped.complete(Unit) } },
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(notificationStopAction, 12)
+            delegate.onStartCommand(
+                notificationStopAction,
+                12,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
 
+            runCurrent()
+            stopped.await()
+            runCurrent()
             val ownership = tracker.ownership(lease)
             assertFalse(store.wasRunningAtUpdate())
             assertTrue(ownership is ResumeLeaseOwnership.Superseded)
@@ -45,13 +70,27 @@ class ServiceShellStopTest {
     @Test
     fun `rejected notification stop preserves diagnostics resume lease`() =
         runTest {
-            val tracker = RuntimeResumeIntentTracker()
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val arbiter = ServiceIntentArbiter(authority)
+            val stopped = CompletableDeferred<Unit>()
+            val tracker = RuntimeResumeIntentTracker(authority)
             val lease = tracker.captureResumeLease()
             val store = NotificationStopBootStore(running = true)
-            val recorder = AcceptedUserStopRecorder(store, tracker, ServiceIntentArbiter())
+            val recorder =
+                AcceptedUserStopRecorder(
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    bootSessionStateStore = store,
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = arbiter,
+                )
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter = arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -59,13 +98,20 @@ class ServiceShellStopTest {
                     isStopAllowed = { false },
                     intentCallbacks =
                         ServiceShellIntentCallbacks(
-                            acceptedStop = recorder::record,
+                            acceptedStop = { command -> recorder.record(command).also { stopped.complete(Unit) } },
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(notificationStopAction, 13)
+            delegate.onStartCommand(
+                notificationStopAction,
+                13,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
 
+            runCurrent()
             assertTrue(store.wasRunningAtUpdate())
             assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
         }

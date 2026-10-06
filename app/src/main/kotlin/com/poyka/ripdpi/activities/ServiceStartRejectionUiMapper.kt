@@ -15,6 +15,10 @@ internal fun ServiceStartRejectionReason.validationRecoveryKind(): OnboardingVal
             OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION
         }
 
+        ServiceStartRejectionReason.PausePending, ServiceStartRejectionReason.Superseded -> {
+            OnboardingValidationRecoveryKind.RETRY
+        }
+
         ServiceStartRejectionReason.DnsSettingsUpdatePending -> {
             OnboardingValidationRecoveryKind.RETRY
         }
@@ -38,6 +42,10 @@ internal fun ServiceStartRejectionReason.displayMessage(stringResolver: StringRe
 
         ServiceStartRejectionReason.VpnConsentMissing -> {
             stringResolver.getString(R.string.permissions_vpn_error_body)
+        }
+
+        ServiceStartRejectionReason.PausePending, ServiceStartRejectionReason.Superseded -> {
+            stringResolver.getString(R.string.pause_deferred)
         }
 
         ServiceStartRejectionReason.DnsSettingsUpdatePending -> {

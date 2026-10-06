@@ -31,7 +31,6 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
@@ -119,7 +118,7 @@ private class FakeServiceStateStore(
 
 private class FakeServiceController(
     private val stateStore: FakeServiceStateStore? = null,
-) : ServiceController,
+) : com.poyka.ripdpi.services.TestSynchronousServiceController(),
     StartupFallbackController {
     val startCalls = mutableListOf<Mode>()
     val transportRestartCalls = mutableListOf<Mode>()
@@ -133,12 +132,12 @@ private class FakeServiceController(
     var claimTransportRestartWithoutConfirmation: Boolean = false
     var transportFailoverApplyTracker: TransportFailoverApplyTracker? = null
 
-    override fun start(mode: Mode): ServiceStartResult {
+    override fun recordStart(mode: Mode): ServiceStartResult {
         startCalls += mode
         return ServiceStartResult.Accepted(mode)
     }
 
-    override fun stop() {
+    override fun recordStop() {
         actualStopCalls += Unit
         stateStore?.setStatus(AppStatus.Halted, Mode.VPN)
     }
@@ -146,6 +145,7 @@ private class FakeServiceController(
     override fun restartVpnForTransportFailover(
         requestId: Long,
         expectedTarget: TransportFailoverTarget,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
     ): ServiceStartResult {
         transportRestartCalls += Mode.VPN
         transportRestartRequestIds += requestId
@@ -171,7 +171,7 @@ private class FakeServiceController(
     override fun captureStartupFallbackLease(): StartupFallbackLease = FakeStartupFallbackLease
 
     override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
-        StartupFallbackDispatchResult.Dispatched(start(Mode.VPN))
+        StartupFallbackDispatchResult.Dispatched(recordStart(Mode.VPN))
 }
 
 private data object FakeStartupFallbackLease : StartupFallbackLease
@@ -349,7 +349,15 @@ private fun buildCoordinator(
         FailoverEgressProbe { _, _ -> FailoverEgressProbeResult(succeeded = false) },
     egressHealthMemory: SimpleEgressHealthMemory = RecordingSimpleEgressHealthMemory(),
 ): CoordinatorFixture {
-    val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
+    val awgRepo =
+        AwgProfileRepository(
+            FakeAwgProfileDao(awgProfiles),
+            FakeAwgCredentialStore(),
+            com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
+                FakeAwgProfileDao(awgProfiles),
+                FakeAwgCredentialStore(),
+            ),
+        )
     val awgSelection =
         SimpleAwgEgressSelection(
             awgRepo,
@@ -483,7 +491,17 @@ class FailoverCoordinatorTest {
             }
             val (coordinator, _, _) = buildCoordinator(settings = settings, bootSelection = bootSelection)
 
-            coordinator.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
+            coordinator.prepare(
+                Mode.VPN,
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ).explicitUserStartGuard(
+                    0L,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0L),
+                ),
+            )
 
             assertFalse(settings.snapshot().enableCmdSettings)
             assertTrue(settings.relayEnabled())
@@ -499,7 +517,11 @@ class FailoverCoordinatorTest {
         runTest {
             val settings = FakeAppSettingsRepository()
             val boot = TestAwgBootSelection()
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
             val updateStarted = CompletableDeferred<Unit>()
             val releaseUpdate = CompletableDeferred<Unit>()
@@ -508,13 +530,25 @@ class FailoverCoordinatorTest {
                 releaseUpdate.await()
             }
             val (coordinator, _, _) = buildCoordinator(settings = settings, bootSelection = boot)
-            val prepare = async { coordinator.prepare(Mode.VPN, arbiter.explicitUserStartGuard(generation)) }
+            val prepare =
+                async {
+                    coordinator.prepare(
+                        Mode.VPN,
+                        arbiter.explicitUserStartGuard(generation, arbiter.durableReference()),
+                    )
+                }
             updateStarted.await()
             arbiter.userStart({ boot.setActiveAwgProfileId("awg-newer") }) { true }
             releaseUpdate.complete(Unit)
             prepare.await()
             assertEquals("awg-newer", boot.activeAwgProfileId())
-            coordinator.prepare(Mode.VPN, arbiter.explicitUserStartGuard(arbiter.captureExplicitUserIntentGeneration()))
+            coordinator.prepare(
+                Mode.VPN,
+                arbiter.explicitUserStartGuard(
+                    arbiter.captureExplicitUserIntentGeneration(),
+                    arbiter.durableReference(),
+                ),
+            )
             assertNull(boot.activeAwgProfileId())
         }
 
@@ -1301,7 +1335,17 @@ class FailoverCoordinatorTest {
             runCurrent()
             assertEquals(1, controller.transportRestartRequestIds.size)
 
-            fixture.coordinator.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
+            fixture.coordinator.prepare(
+                Mode.VPN,
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ).explicitUserStartGuard(
+                    0L,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0L),
+                ),
+            )
             runCurrent()
 
             assertTrue(settings.relayEnabled())
@@ -1408,7 +1452,19 @@ class FailoverCoordinatorTest {
             }
             fallbackWriteStarted.await()
             val prepare =
-                async { fixture.coordinator.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L)) }
+                async {
+                    fixture.coordinator.prepare(
+                        Mode.VPN,
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ).explicitUserStartGuard(
+                            0L,
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0L),
+                        ),
+                    )
+                }
             runCurrent()
 
             releaseFallbackWrite.complete(Unit)

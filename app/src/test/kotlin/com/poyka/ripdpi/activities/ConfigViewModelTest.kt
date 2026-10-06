@@ -829,6 +829,12 @@ class ConfigViewModelProviderModeTest {
                             appSettingsRepository = appSettingsRepository,
                             relayProfileStore = relayProfileStore,
                             relayCredentialStore = relayCredentialStore,
+                            profileMutations =
+                                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                    relayProfileStore,
+                                    relayCredentialStore,
+                                    appSettingsRepository,
+                                ),
                         ),
                     relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
                     networkSnapshotProvider = FakeNativeNetworkSnapshotProvider(),
@@ -1749,6 +1755,12 @@ private fun createConfigViewModel(
                         appSettingsRepository = appSettingsRepository,
                         relayProfileStore = relayProfileStore,
                         relayCredentialStore = relayCredentialStore,
+                        profileMutations =
+                            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                relayProfileStore,
+                                relayCredentialStore,
+                                appSettingsRepository,
+                            ),
                     ),
                 relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
                 networkSnapshotProvider = FakeNativeNetworkSnapshotProvider(),
@@ -2186,7 +2198,10 @@ internal class RecordingXrayNativeProviderSelection(
 ) : XrayNativeProviderSelection {
     val selectedModes = mutableListOf<Mode>()
 
-    override suspend fun selectNativeMode(mode: Mode) {
+    override suspend fun selectNativeMode(
+        origin: com.poyka.ripdpi.data.ProfileMutationOrigin,
+        mode: Mode,
+    ) {
         failure?.let { throw it }
         selectedModes += mode
         repository.update { setRipdpiMode(mode.preferenceValue) }

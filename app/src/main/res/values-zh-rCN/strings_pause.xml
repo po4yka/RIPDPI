@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">暂停连接</string>
+    <string name="pause_until">暂停至 %1$s</string>
+    <string name="pause_releasing">正在释放连接资源…</string>
+    <string name="pause_resuming">正在恢复连接…</string>
+    <string name="pause_cleanup_pending">资源清理尚未完成，暂停尚未确认。</string>
+    <string name="pause_deferred">恢复连接需要处理</string>
+    <string name="pause_saved_settings">此模式将使用当前保存的设置恢复。编辑设置会保留暂停；启动、停止、激活或删除配置会取消暂停。</string>
+    <string name="pause_remaining">剩余 %1$s 分钟</string>
+    <string name="pause_resume_now">立即恢复</string>
+    <string name="pause_stop">停止并取消恢复</string>
+    <string name="pause_persistence_failed">无法保存指令。连接状态未改变。</string>
+    <string name="pause_duration_minutes">%1$s 分钟</string>
+    <string name="pause_clock_failed">时钟或启动标识已改变。请检查恢复条件。</string>
+    <string name="pause_consent_required">恢复连接需要 VPN 权限。</string>
+    <string name="pause_lockdown">Android VPN 锁定状态不允许此操作。</string>
+    <string name="pause_background_restricted">Android 推迟了后台恢复。请打开应用。</string>
+    <string name="pause_user_stopped">Android 记录了用户停止操作，已禁止自动恢复。</string>
+    <string name="pause_resume_failed">运行服务未确认恢复后的配置。</string>
+ </resources>

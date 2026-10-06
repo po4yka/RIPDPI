@@ -123,6 +123,12 @@ private fun SimpleCompletedReport(
     summary: String = "Two recommended settings are ready to review.",
 ) {
     SimpleHomeContent(
+        pauseState =
+            com.poyka.ripdpi.activities
+                .HomePauseUiState(),
+        onPause = { error("Unexpected pause in inactive fixture") },
+        onResumePause = { error("Unexpected resume in inactive fixture") },
+        onStopPause = { error("Unexpected stop in inactive fixture") },
         connectionState = ConnectionState.Disconnected,
         diagnostics =
             HomeDiagnosticsUiState(
@@ -147,6 +153,12 @@ private fun SimpleCompletedReport(
 @Composable
 private fun SimpleRunningReport() {
     SimpleHomeContent(
+        pauseState =
+            com.poyka.ripdpi.activities
+                .HomePauseUiState(),
+        onPause = { error("Unexpected pause in inactive fixture") },
+        onResumePause = { error("Unexpected resume in inactive fixture") },
+        onStopPause = { error("Unexpected stop in inactive fixture") },
         connectionState = ConnectionState.Disconnected,
         diagnostics =
             HomeDiagnosticsUiState(
@@ -179,6 +191,12 @@ private fun SimpleRunningReport() {
 @Composable
 private fun SimpleExpandedHome(supportingText: String = "Ready to analyze this network") {
     SimpleHomeContent(
+        pauseState =
+            com.poyka.ripdpi.activities
+                .HomePauseUiState(),
+        onPause = { error("Unexpected pause in inactive fixture") },
+        onResumePause = { error("Unexpected resume in inactive fixture") },
+        onStopPause = { error("Unexpected stop in inactive fixture") },
         connectionState = ConnectionState.Disconnected,
         diagnostics =
             HomeDiagnosticsUiState(

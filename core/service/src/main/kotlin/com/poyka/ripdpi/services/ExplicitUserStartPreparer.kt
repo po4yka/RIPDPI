@@ -10,13 +10,26 @@ import dagger.hilt.components.SingletonComponent
 class ExplicitUserStartGuard internal constructor(
     private val arbiter: ServiceIntentArbiter,
     private val generation: Long,
+    private val durable: com.poyka.ripdpi.data.PauseAuthorityRef,
 ) {
-    fun isCurrent(): Boolean = arbiter.runIfExplicitUserIntentCurrent(generation) { true } == true
+    fun isCurrent(): Boolean =
+        arbiter.runIfExplicitUserIntentCurrent(generation) { arbiter.isDurableCurrent(durable) } == true
+
+    internal fun publishIfCurrent(
+        mode: Mode,
+        publish: () -> Unit,
+    ): Boolean = arbiter.publishIfCurrent(generation, durable, mode, publish)
+
+    internal fun confirmAppliedMode(mode: Mode): Boolean = arbiter.confirmAppliedMode(durable, mode)
 
     fun runIfCurrent(action: () -> Unit): Boolean =
         arbiter.runIfExplicitUserIntentCurrent(generation) {
-            action()
-            true
+            if (!arbiter.isDurableCurrent(durable)) {
+                false
+            } else {
+                action()
+                true
+            }
         } == true
 }
 

@@ -78,7 +78,12 @@ class ServiceSessionModuleTest {
                         RuntimeStartReceiptPublishers(
                             testAutolearnActivationReceiptPublisher(),
                             RuntimeConfigurationLifecycle(
-                                AppliedRuntimeConfigurationStore(),
+                                AppliedRuntimeConfigurationStore(
+                                    PauseAppliedReceiptConsumer(
+                                        com.poyka.ripdpi.data
+                                            .testPauseAuthority(),
+                                    ),
+                                ),
                                 RuntimeConfigurationIdentityFactory(),
                             ),
                         ),
@@ -97,18 +102,7 @@ class ServiceSessionModuleTest {
                     rootHelperManager = RootHelperManager(),
                 )
 
-            assertEquals(1, proxyFactory.createCalls)
-            assertEquals(1, relayFactory.createCalls)
-            assertEquals(1, warpFactory.createCalls)
-            assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
-            assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
-            assertEquals(
-                RelayRuntimeNetworkMode.Proxy,
-                relayFactory.networkModes.single(),
-            )
-            assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
-            assertEquals(Mode.Proxy, statusFactory.createdModes.single())
-            assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
+            assertProxyFactoriesInvoked(proxyFactory, relayFactory, warpFactory, statusFactory, dispatchers)
             assertNotNull(coordinator)
         }
 
@@ -218,7 +212,12 @@ class ServiceSessionModuleTest {
                 VpnServiceSessionModule.provideVpnCoordinator(
                     configurationLifecycle =
                         RuntimeConfigurationLifecycle(
-                            AppliedRuntimeConfigurationStore(),
+                            AppliedRuntimeConfigurationStore(
+                                PauseAppliedReceiptConsumer(
+                                    com.poyka.ripdpi.data
+                                        .testPauseAuthority(),
+                                ),
+                            ),
                             RuntimeConfigurationIdentityFactory(),
                         ),
                     selectorListeners = emptySet(),
@@ -251,6 +250,27 @@ class ServiceSessionModuleTest {
             assertVpnFactoriesInvoked(proxyFactory, relayFactory, warpFactory, statusFactory, dispatchers)
             assertNotNull(coordinator)
         }
+
+    private fun assertProxyFactoriesInvoked(
+        proxyFactory: RecordingProxyRuntimeSupervisorFactory,
+        relayFactory: RecordingUpstreamRelaySupervisorFactory,
+        warpFactory: RecordingWarpRuntimeSupervisorFactory,
+        statusFactory: RecordingServiceStatusReporterFactory,
+        dispatchers: AppCoroutineDispatchers,
+    ) {
+        assertEquals(1, proxyFactory.createCalls)
+        assertEquals(1, relayFactory.createCalls)
+        assertEquals(1, warpFactory.createCalls)
+        assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
+        assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
+        assertEquals(
+            RelayRuntimeNetworkMode.Proxy,
+            relayFactory.networkModes.single(),
+        )
+        assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
+        assertEquals(Mode.Proxy, statusFactory.createdModes.single())
+        assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
+    }
 
     private fun assertVpnFactoriesInvoked(
         proxyFactory: RecordingProxyRuntimeSupervisorFactory,

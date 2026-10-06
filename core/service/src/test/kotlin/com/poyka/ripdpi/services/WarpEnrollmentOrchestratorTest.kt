@@ -36,6 +36,51 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class WarpEnrollmentOrchestratorTest {
     @Test
+    fun `older profile reset captures deletion before store mutex and preserves newer pause`() =
+        runTest {
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val profiles = FakeWarpProfileStore()
+            val credentials = FakeWarpCredentialStore()
+            val endpoints = FakeWarpEndpointStore()
+            val backing = TestProfileMutationCoordinator(TestAppSettingsRepository(), profiles, credentials, endpoints)
+            var outcome: com.poyka.ripdpi.data.ProfileMutationOutcome? = null
+            val mutations =
+                object : com.poyka.ripdpi.data.ProfileMutationCoordinator by backing {
+                    override suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
+                        com.poyka.ripdpi.data
+                            .ProfileMutationPreparation(origin, authority.reference())
+
+                    override suspend fun deleteWarp(
+                        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                        profileId: String,
+                        clearActive: Boolean,
+                    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
+                        outcome =
+                            authority.invalidateForMutation(
+                                preparation.origin,
+                                "blocked-reset",
+                                preparation.expectedPauseAuthority,
+                            )
+                        backing.deleteWarp(preparation, profileId, clearActive)
+                        return checkNotNull(outcome)
+                    }
+                }
+            val lock = WarpStoreMutationLock()
+            lock.mutex.lock()
+            val service = DefaultWarpCredentialProfileMutationService(profiles, credentials, endpoints, lock, mutations)
+            val reset =
+                async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { service.resetProfile("reset-fixture") }
+            assertFalse(reset.isCompleted)
+            val newer = authority.begin(com.poyka.ripdpi.data.Mode.Proxy, 300_000, authority.snapshotAuthority())
+            lock.mutex.unlock()
+            reset.await()
+            assertEquals(com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded, outcome)
+            assertEquals(newer, authority.snapshot())
+        }
+
+    @Test
     fun `consumer registration stores profile credentials endpoint and app metadata`() =
         runTest {
             val consumerAccessValue = fixtureAccessValue("consumer")
@@ -389,7 +434,10 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(1, proxyFactory.runtimes[0].stopCount)
             assertEquals(1, proxyFactory.runtimes[1].stopCount)
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+class WarpEndpointScannerTest {
     @Test
     fun `endpoint scanner clears stale scoped endpoint and falls back to healthy global endpoint`() =
         runTest {
@@ -646,39 +694,39 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(8854, resolved?.port)
             assertEquals(fullBuiltInWarpMatrixSize(), probe.calls)
         }
-
-    private fun sampleProvisioningResult(): WarpProvisioningResult =
-        WarpProvisioningResult(
-            credentials =
-                WarpCredentials(
-                    profileId = DefaultWarpProfileId,
-                    deviceId = "device-123",
-                    accessToken = fixtureAccessValue("provisioning"),
-                    privateKey = "private-key",
-                    publicKey = "public-key",
-                ),
-            accountId = "account-123",
-            accountType = "free",
-            warpPlus = false,
-            premiumData = 0L,
-            quota = 0L,
-            license = null,
-            interfaceAddressV4 = "172.16.0.2/32",
-            interfaceAddressV6 = "2606:4700:110:8a36::2/128",
-            peerPublicKey = "peer-public-key",
-            endpoint =
-                WarpEndpointCacheEntry(
-                    networkScopeKey = "",
-                    host = "engage.cloudflareclient.com",
-                    ipv4 = "162.159.192.1",
-                    port = 2408,
-                    source = "registration",
-                ),
-            reservedBytes = byteArrayOf(1, 2, 3),
-        )
-
-    private fun fixtureAccessValue(suffix: String): String = listOf("access", "value", suffix).joinToString("-")
 }
+
+private fun sampleProvisioningResult(): WarpProvisioningResult =
+    WarpProvisioningResult(
+        credentials =
+            WarpCredentials(
+                profileId = DefaultWarpProfileId,
+                deviceId = "device-123",
+                accessToken = fixtureAccessValue("provisioning"),
+                privateKey = "private-key",
+                publicKey = "public-key",
+            ),
+        accountId = "account-123",
+        accountType = "free",
+        warpPlus = false,
+        premiumData = 0L,
+        quota = 0L,
+        license = null,
+        interfaceAddressV4 = "172.16.0.2/32",
+        interfaceAddressV6 = "2606:4700:110:8a36::2/128",
+        peerPublicKey = "peer-public-key",
+        endpoint =
+            WarpEndpointCacheEntry(
+                networkScopeKey = "",
+                host = "engage.cloudflareclient.com",
+                ipv4 = "162.159.192.1",
+                port = 2408,
+                source = "registration",
+            ),
+        reservedBytes = byteArrayOf(1, 2, 3),
+    )
+
+private fun fixtureAccessValue(suffix: String): String = listOf("access", "value", suffix).joinToString("-")
 
 class WarpStoreCompensationTest {
     @Test

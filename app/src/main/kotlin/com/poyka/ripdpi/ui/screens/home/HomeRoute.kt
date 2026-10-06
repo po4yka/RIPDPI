@@ -20,7 +20,11 @@ fun HomeRoute(
     onOpenVpnConfig: () -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
+    pauseViewModel: com.poyka.ripdpi.activities.HomePauseViewModel =
+        androidx.hilt.lifecycle.viewmodel.compose
+            .hiltViewModel(),
 ) {
+    val pause = pauseViewModel.uiState.collectAsStateWithLifecycle().value
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val homeDiagnostics = viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle().value
     val homeDiagnosticCard = viewModel.homeDiagnosticCard.collectAsStateWithLifecycle().value
@@ -29,6 +33,10 @@ fun HomeRoute(
     val modesExpanded = modesDisclosure.expanded.collectAsStateWithLifecycle().value
     HomeScreen(
         uiState = uiState,
+        pause = pause,
+        onPause = pauseViewModel::pause,
+        onResumePause = pauseViewModel::resume,
+        onStopPause = pauseViewModel::stop,
         initialModesExpanded = modesExpanded,
         onModesExpandedChange = remember(viewModel) { modesDisclosure::onExpandedChange },
         homeDiagnostics = homeDiagnostics,

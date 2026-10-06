@@ -41,6 +41,7 @@ abstract class ServiceRuntimeSession
 
         private var autolearnActivationGeneration: Long = 0L
         private var configurationRevision: Long = 0L
+        internal var pauseResumeIntent: com.poyka.ripdpi.data.PauseIntent? = null
         internal var configurationAttempt: com.poyka.ripdpi.data.RuntimeConfigurationAttempt? = null
         internal var effectiveConfigurationIdentity: RuntimeConfigurationIdentity? = null
         internal var effectiveProviderIdentity: RuntimeConfigurationIdentity? = null

@@ -31,6 +31,7 @@ import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
@@ -129,6 +130,7 @@ data class RipDpiNavHostLaunchRequests(
 @Composable
 fun RipDpiNavHost(
     mainViewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     modifier: Modifier = Modifier,
     startDestination: Route = Route.Home,
     actions: RipDpiNavHostActions = RipDpiNavHostActions(),
@@ -217,6 +219,7 @@ fun RipDpiNavHost(
             motion = motion,
             actions = actions,
             mainViewModel = mainViewModel,
+            pauseViewModel = pauseViewModel,
             permissionSummary = mainUiState.permissionSummary,
             diagnosticsInitialSection = diagnosticsInitialSection.value,
             onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
@@ -242,6 +245,7 @@ private fun ResponsiveNavContent(
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     permissionSummary: PermissionSummaryUiState,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
@@ -265,6 +269,7 @@ private fun ResponsiveNavContent(
                     motion = motion,
                     actions = actions,
                     mainViewModel = mainViewModel,
+                    pauseViewModel = pauseViewModel,
                     permissionSummary = permissionSummary,
                     diagnosticsInitialSection = diagnosticsInitialSection,
                     onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
@@ -279,6 +284,7 @@ private fun ResponsiveNavContent(
             motion = motion,
             actions = actions,
             mainViewModel = mainViewModel,
+            pauseViewModel = pauseViewModel,
             permissionSummary = permissionSummary,
             diagnosticsInitialSection = diagnosticsInitialSection,
             onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
@@ -377,6 +383,7 @@ private fun RipDpiNavGraph(
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     permissionSummary: PermissionSummaryUiState,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
@@ -397,6 +404,7 @@ private fun RipDpiNavGraph(
             navController = navController,
             actions = actions,
             mainViewModel = mainViewModel,
+            pauseViewModel = pauseViewModel,
             diagnosticsInitialSection = diagnosticsInitialSection,
             onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
         )
@@ -417,6 +425,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     navController: NavHostController,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
@@ -431,7 +440,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onOpenXrayImport = { navController.navigate(Route.XrayImport) { launchSingleTop = true } },
         )
     }
-    addHomeRoute(navController, mainViewModel, onDiagnosticsInitialSectionChanged)
+    addHomeRoute(navController, mainViewModel, pauseViewModel, onDiagnosticsInitialSectionChanged)
     composable<Route.Diagnostics>(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://diagnostics" }),
     ) { backStackEntry ->
@@ -489,6 +498,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
 private fun NavGraphBuilder.addHomeRoute(
     navController: NavHostController,
     mainViewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
     composable<Route.Home>(
@@ -512,6 +522,7 @@ private fun NavGraphBuilder.addHomeRoute(
             onOpenVpnConfig = { navController.navigateConfigSubRoute(Route.VpnConfig) },
             onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
             viewModel = mainViewModel,
+            pauseViewModel = pauseViewModel,
         )
     }
 }

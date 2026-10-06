@@ -29,16 +29,32 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
                     onStop = { _, _ -> },
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startAction,
+                1,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf("prepare", "start"), operations)
@@ -50,7 +66,11 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
@@ -61,6 +81,11 @@ class ServiceShellDelegateTest {
                         ),
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             delegate.onStartCommand(
@@ -68,8 +93,18 @@ class ServiceShellDelegateTest {
                 1,
                 transportFailoverRequestId = 11L,
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
             )
-            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startAction,
+                2,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf("fallback-restart", "prepare", "start"), operations)
@@ -81,7 +116,11 @@ class ServiceShellDelegateTest {
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -92,12 +131,20 @@ class ServiceShellDelegateTest {
                             reject = rejectedRequests::add,
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             delegate.onStartCommand(
                 transportFailoverRestartAction,
                 1,
                 transportFailoverRequestId = 13L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
             )
 
             assertEquals(listOf(13L), rejectedRequests)
@@ -110,7 +157,11 @@ class ServiceShellDelegateTest {
             val rejectedRequests = mutableListOf<Long>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { keepConsumerBusy.await() },
@@ -121,8 +172,20 @@ class ServiceShellDelegateTest {
                             reject = rejectedRequests::add,
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
-            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startAction,
+                1,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             delegate.onStartCommand(
@@ -130,6 +193,9 @@ class ServiceShellDelegateTest {
                 1,
                 transportFailoverRequestId = 14L,
                 transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
             )
             backgroundScope.cancel()
             runCurrent()
@@ -143,16 +209,31 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { operations += "start" },
                     onStop = { _, _ -> },
                     beforeUserStart = { operations += "prepare" },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            delegate.onStartCommand(startupFallbackStartAction, 1)
+            delegate.onStartCommand(
+                startupFallbackStartAction,
+                1,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf("start"), operations)
@@ -164,17 +245,39 @@ class ServiceShellDelegateTest {
             val startIds = mutableListOf<Int>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStartWithId = { _, startId -> startIds += startId },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            delegate.onStartCommand(startAction, 7, explicitUserIntentGeneration = 0L)
-            delegate.onStartCommand(startupFallbackStartAction, 8)
+            delegate.onStartCommand(
+                startAction,
+                7,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
+            delegate.onStartCommand(
+                startupFallbackStartAction,
+                8,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf(7, 8), startIds)
@@ -189,14 +292,24 @@ class ServiceShellDelegateTest {
             lateinit var delegate: ServiceShellDelegate
             delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStartWithId = { _, startId ->
                         if (startId == 1) {
                             latestStartId = 2
-                            delegate.onStartCommand(startupFallbackStartAction, latestStartId)
+                            delegate.onStartCommand(
+                                startupFallbackStartAction,
+                                latestStartId,
+                                durableReference =
+                                    com.poyka.ripdpi.data
+                                        .PauseAuthorityRef(0),
+                            )
                             requestStopSelfWithFallback(
                                 stopSelfStartId = startId,
                                 stopSelfResult = { stoppingStartId ->
@@ -211,10 +324,22 @@ class ServiceShellDelegateTest {
                     },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             latestStartId = 1
-            delegate.onStartCommand(startAction, latestStartId, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startAction,
+                latestStartId,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertFalse(serviceStopped)
@@ -228,7 +353,11 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {
@@ -239,11 +368,30 @@ class ServiceShellDelegateTest {
                     beforeUserStart = { operations += "prepare" },
                     shouldPrepareUserStart = { !running },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startAction,
+                1,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
-            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startAction,
+                2,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf("prepare", "start", "start"), operations)
@@ -256,7 +404,11 @@ class ServiceShellDelegateTest {
             val operations = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -268,10 +420,28 @@ class ServiceShellDelegateTest {
                     beforeUserStart = { operations += "prepare-vless" },
                     shouldPrepareUserStart = { !running },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            delegate.onStartCommand(startupFallbackStartAction, 1)
-            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = 0L)
+            delegate.onStartCommand(
+                startupFallbackStartAction,
+                1,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
+            delegate.onStartCommand(
+                startAction,
+                2,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf("fallback", "prepare-vless", "manual"), operations)
@@ -284,17 +454,42 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
                     onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val startResult = delegate.onStartCommand(startAction, 1, explicitUserIntentGeneration = 0L)
+            val startResult =
+                delegate.onStartCommand(
+                    startAction,
+                    1,
+                    explicitUserIntentGeneration = 0L,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
-            val stopResult = delegate.onStartCommand(stopAction, 7, explicitUserIntentGeneration = 0L)
+            val stopResult =
+                delegate.onStartCommand(
+                    stopAction,
+                    7,
+                    explicitUserIntentGeneration = 0L,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, startResult)
@@ -302,7 +497,10 @@ class ServiceShellDelegateTest {
             assertEquals(1, startCalls)
             assertEquals(listOf(7), stopIds)
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+class ServiceShellStopOwnershipTest {
     @Test
     fun `stop action is rejected when service policy forbids disconnect`() =
         runTest {
@@ -310,16 +508,33 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { startId, _ -> stopIds += startId },
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val result = delegate.onStartCommand(stopAction, 7, explicitUserIntentGeneration = 0L)
+            val result =
+                delegate.onStartCommand(
+                    stopAction,
+                    7,
+                    explicitUserIntentGeneration = 0L,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -335,7 +550,11 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
@@ -346,6 +565,11 @@ class ServiceShellDelegateTest {
                         ),
                     isStopAllowed = { false },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             val result =
@@ -354,6 +578,9 @@ class ServiceShellDelegateTest {
                     8,
                     transportFailoverRequestId = 12L,
                     transportFailoverTarget = TransportFailoverTarget(RelayKindVlessReality, "reality-1"),
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
                 )
             runCurrent()
 
@@ -371,17 +598,33 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { startId, _ -> stopIds += startId },
                     isStopAllowed = { stopAllowed },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             stopAllowed = false
-            val result = delegate.onStartCommand(notificationStopAction, 9)
+            val result =
+                delegate.onStartCommand(
+                    notificationStopAction,
+                    9,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -395,15 +638,31 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
                     onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val result = delegate.onStartCommand(notificationStopAction, 11)
+            val result =
+                delegate.onStartCommand(
+                    notificationStopAction,
+                    11,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_NOT_STICKY, result)
@@ -413,24 +672,44 @@ class ServiceShellDelegateTest {
     @Test
     fun `diagnostics stop preserves its own resume lease`() =
         runTest {
-            val tracker = RuntimeResumeIntentTracker()
+            val tracker =
+                RuntimeResumeIntentTracker(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val lease = tracker.captureResumeLease()
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { startId, _ -> stopIds += startId },
                     intentCallbacks =
                         ServiceShellIntentCallbacks(
-                            acceptedStop = { tracker.recordAcceptedStop() },
+                            acceptedStop = { command ->
+                                tracker.recordAcceptedStop()
+                                (command as? AcceptedServiceStop.Prepared)?.reference
+                                    ?: com.poyka.ripdpi.data
+                                        .PauseAuthorityRef(0)
+                            },
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(diagnosticsStopAction, 14)
+            delegate.onStartCommand(
+                diagnosticsStopAction,
+                14,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             assertEquals(listOf(14), stopIds)
@@ -445,7 +724,11 @@ class ServiceShellDelegateTest {
             val recorder = RoomServiceStopProvenanceRecorder(store, AndroidRuntimeEvidenceClock { 321L })
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
@@ -454,9 +737,21 @@ class ServiceShellDelegateTest {
                         operations += "stop"
                     },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            delegate.onStartCommand(diagnosticsStopAction, 15)
+            delegate.onStartCommand(
+                diagnosticsStopAction,
+                15,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             val event = requireNotNull(store.event)
@@ -484,12 +779,21 @@ class ServiceShellDelegateTest {
     @Test
     fun `accepted start restores request order after delayed stop acceptance`() =
         runTest {
-            val tracker = RuntimeResumeIntentTracker()
+            val tracker =
+                RuntimeResumeIntentTracker(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val lease = tracker.captureResumeLease()
             tracker.withUserStart(action = {})
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter = arbiter,
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = {},
@@ -497,13 +801,34 @@ class ServiceShellDelegateTest {
                     intentCallbacks =
                         ServiceShellIntentCallbacks(
                             acceptedStart = tracker::recordAcceptedStart,
-                            acceptedStop = { tracker.recordAcceptedStop() },
+                            acceptedStop = { command ->
+                                tracker.recordAcceptedStop()
+                                (command as? AcceptedServiceStop.Prepared)?.reference
+                                    ?: com.poyka.ripdpi.data
+                                        .PauseAuthorityRef(0)
+                            },
                         ),
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(stopAction, 15, explicitUserIntentGeneration = 0L)
-            delegate.onStartCommand(startAction, 16, explicitUserIntentGeneration = 0L)
+            arbiter.userStop {}
+            delegate.onStartCommand(
+                stopAction,
+                15,
+                explicitUserIntentGeneration = arbiter.captureExplicitUserIntentGeneration(),
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
+            val newerStart = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
+            delegate.onStartCommand(
+                startAction,
+                16,
+                explicitUserIntentGeneration = newerStart,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
 
             val ownership = tracker.ownership(lease) as ResumeLeaseOwnership.Superseded
@@ -513,13 +838,21 @@ class ServiceShellDelegateTest {
     @Test
     fun `stale diagnostics compensation is skipped after accepted start`() =
         runTest {
-            val tracker = RuntimeResumeIntentTracker()
+            val tracker =
+                RuntimeResumeIntentTracker(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             tracker.recordAcceptedStop()
             var startCalls = 0
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "proxy",
                     onStart = { startCalls += 1 },
@@ -527,35 +860,73 @@ class ServiceShellDelegateTest {
                     intentCallbacks =
                         ServiceShellIntentCallbacks(
                             acceptedStart = tracker::recordAcceptedStart,
+                            acceptedStop = { command ->
+                                (command as? AcceptedServiceStop.Prepared)?.reference
+                                    ?: com.poyka.ripdpi.data
+                                        .PauseAuthorityRef(0)
+                            },
                         ),
                     isCompensatingStopCurrent = tracker::isCurrentIntentStopped,
                     ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            delegate.onStartCommand(startAction, 17, explicitUserIntentGeneration = 0L)
-            val result = delegate.onStartCommand(diagnosticsCompensatingStopAction, 18)
+            delegate.onStartCommand(
+                startAction,
+                17,
+                explicitUserIntentGeneration = 0L,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
+            val result =
+                delegate.onStartCommand(
+                    diagnosticsCompensatingStopAction,
+                    18,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
             assertEquals(1, startCalls)
             assertEquals(emptyList<Int?>(), stopIds)
         }
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+class ServiceShellRecoveryTest {
     @Test
     fun `null action triggers start for sticky service restart`() =
         runTest {
             var startCalls = 0
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val result = delegate.onStartCommand(null, 1)
+            val result =
+                delegate.onStartCommand(
+                    null,
+                    1,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -568,15 +939,31 @@ class ServiceShellDelegateTest {
             var startCalls = 0
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { startCalls += 1 },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val result = delegate.onStartCommand(android.net.VpnService.SERVICE_INTERFACE, 2)
+            val result =
+                delegate.onStartCommand(
+                    android.net.VpnService.SERVICE_INTERFACE,
+                    2,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -589,7 +976,11 @@ class ServiceShellDelegateTest {
             val events = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { events += "user-start" },
@@ -599,9 +990,21 @@ class ServiceShellDelegateTest {
                     },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val result = delegate.onStartCommand(android.net.VpnService.SERVICE_INTERFACE, 3)
+            val result =
+                delegate.onStartCommand(
+                    android.net.VpnService.SERVICE_INTERFACE,
+                    3,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -614,13 +1017,22 @@ class ServiceShellDelegateTest {
             val recoveredActions = mutableListOf<String>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = { error("recovery must not use the user-start path") },
                     onStartWithId = { _, _ -> recoveredActions += "recovered" },
                     onStop = { _, _ -> },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             listOf(
@@ -628,7 +1040,16 @@ class ServiceShellDelegateTest {
                 packageReplacedRecoveryStartAction,
                 processDeathRecoveryStartAction,
             ).forEachIndexed { index, action ->
-                assertEquals(android.app.Service.START_STICKY, delegate.onStartCommand(action, index + 10))
+                assertEquals(
+                    android.app.Service.START_STICKY,
+                    delegate.onStartCommand(
+                        action,
+                        index + 10,
+                        durableReference =
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0),
+                    ),
+                )
                 runCurrent()
             }
 
@@ -641,15 +1062,31 @@ class ServiceShellDelegateTest {
             val stopIds = mutableListOf<Int?>()
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { startId, _ -> stopIds += startId },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
-            val result = delegate.onStartCommand("unknown", 9)
+            val result =
+                delegate.onStartCommand(
+                    "unknown",
+                    9,
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                )
             runCurrent()
 
             assertEquals(android.app.Service.START_STICKY, result)
@@ -662,13 +1099,22 @@ class ServiceShellDelegateTest {
             var revokeCalls = 0
             val delegate =
                 ServiceShellDelegate(
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                     serviceScope = backgroundScope,
                     serviceLabel = "vpn",
                     onStart = {},
                     onStop = { _, _ -> },
                     onRevoke = { revokeCalls += 1 },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0)
+                        },
                 )
 
             delegate.onRevoke()

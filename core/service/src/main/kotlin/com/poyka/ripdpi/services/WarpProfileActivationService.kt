@@ -35,7 +35,12 @@ class DefaultWarpProfileActivationService
             profile: WarpProfile,
             scannerMode: String,
         ) {
-            persistProfile(profile, scannerMode, activate = true)
+            persistProfile(
+                com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                profile,
+                scannerMode,
+                activate = true,
+            )
         }
 
         override suspend fun markProfileNeedsAttention(profile: WarpProfile) =
@@ -44,6 +49,7 @@ class DefaultWarpProfileActivationService
                 val previousProfile = profileStore.load(profile.id) ?: return@withLock
                 val updatedProfile = previousProfile.copy(setupState = WarpSetupStateNeedsAttention)
                 persistProfile(
+                    origin = com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
                     profile = updatedProfile,
                     scannerMode = updatedProfile.lastScannerModeOrAutomatic(),
                     activate = profileStore.activeProfileId() == profile.id,
@@ -51,17 +57,23 @@ class DefaultWarpProfileActivationService
             }
 
         override suspend fun clearActiveProfile(profileId: String) {
-            profileMutations.deactivateWarp(profileId)
+            profileMutations.deactivateWarp(
+                profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion),
+                profileId,
+            )
         }
 
         private suspend fun persistProfile(
+            origin: com.poyka.ripdpi.data.ProfileMutationOrigin,
             profile: WarpProfile,
             scannerMode: String,
             activate: Boolean,
         ) {
+            val preparation = profileMutations.captureMutation(origin)
             profileMutations.recover()
             val credentials = credentialStore.load(profile.id) ?: error("No WARP credentials found for ${profile.id}")
             profileMutations.upsertWarp(
+                preparation,
                 profile = profile,
                 credentials = credentials,
                 endpoints = endpointStore.loadAll(profile.id),

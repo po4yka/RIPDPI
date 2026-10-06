@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.R
@@ -43,6 +44,7 @@ internal fun MainActivityContent(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
     exportPreview: ExportPreviewViewModel,
+    pauseViewModelFactory: @Composable () -> HomePauseViewModel = { hiltViewModel() },
 ) {
     val startupState by viewModel.startupState.collectAsStateWithLifecycle()
 
@@ -64,6 +66,7 @@ internal fun MainActivityContent(
                     controller = controller,
                     startupState = startupState,
                     exportPreview = exportPreview,
+                    pauseViewModelFactory = pauseViewModelFactory,
                 )
             }
         }
@@ -116,7 +119,9 @@ private fun ReadyMainActivityContent(
     controller: MainActivityShellController,
     startupState: MainStartupState,
     exportPreview: ExportPreviewViewModel,
+    pauseViewModelFactory: @Composable () -> HomePauseViewModel,
 ) {
+    val pauseViewModel = pauseViewModelFactory()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -144,6 +149,7 @@ private fun ReadyMainActivityContent(
             AppExperienceContent(
                 startDestination = startupState.startDestination,
                 viewModel = viewModel,
+                pauseViewModel = pauseViewModel,
                 controller = controller,
                 shellState = shellState,
                 snackbarHostState = snackbarHostState,

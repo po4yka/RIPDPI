@@ -134,7 +134,12 @@ class MieruProfileViewModel
                     runCatching {
                         val original = editingDraft
                         if (original == null) {
-                            relayActivator.activate(profile)
+                            relayActivator.activate(
+                                relayActivator.captureMutation(
+                                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                                ),
+                                profile,
+                            )
                         } else {
                             relayArtifacts.persist(
                                 original.copy(

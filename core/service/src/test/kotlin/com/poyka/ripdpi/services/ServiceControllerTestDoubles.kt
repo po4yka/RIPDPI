@@ -638,8 +638,28 @@ internal class TestProxyGroupRepository(
         state.value = state.value.map { if (it.id == group.id) group else it }
     }
 
-    override suspend fun delete(id: String) {
+    override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+        replaceAll(
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+            groups,
+        )
+    }
+
+    override suspend fun delete(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        id: String,
+    ) {
         state.value = state.value.filterNot { it.id == id }
+    }
+
+    override suspend fun replaceAll(
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        groups: List<ProxyGroup>,
+    ) {
+        state.value =
+            groups
     }
 
     override suspend fun list(): List<ProxyGroup> = state.value
@@ -1604,6 +1624,10 @@ internal fun testRequestedRuntimeConfigurationCapture(
         secrets,
         TestProxyGroupRepository(),
         com.poyka.ripdpi.data.selector
-            .SharedPreferencesSelectorSelectionStore(context),
+            .SharedPreferencesSelectorSelectionStore(
+                context,
+                com.poyka.ripdpi.data
+                    .testMutationPreparationSource(),
+            ),
     )
 }

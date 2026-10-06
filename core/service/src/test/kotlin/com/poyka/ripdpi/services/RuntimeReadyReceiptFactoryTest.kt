@@ -74,7 +74,13 @@ class RuntimeReadyReceiptFactoryTest {
     }
 
     @Test fun `DNS only receipt preserves effective transport and acknowledges actual forced resolver`() {
-        val store = AppliedRuntimeConfigurationStore()
+        val store =
+            AppliedRuntimeConfigurationStore(
+                PauseAppliedReceiptConsumer(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ),
+            )
         val lifecycle = RuntimeConfigurationLifecycle(store, identities)
         val resolution = sampleResolution(Mode.VPN)
         val session = VpnRuntimeSession("current")

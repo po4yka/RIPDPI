@@ -61,18 +61,36 @@ class VpnServiceSessionHardKillSwitchLifecycleTest {
         sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>,
     ): VpnServiceSessionLifecycle {
         val service = Robolectric.buildService(RipDpiVpnService::class.java).get()
-        val runtimeResumeIntentTracker = RuntimeResumeIntentTracker()
+        val runtimeResumeIntentTracker =
+            RuntimeResumeIntentTracker(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            )
         return VpnServiceSessionLifecycle(
-            serviceIntentArbiter = ServiceIntentArbiter(),
+            serviceIntentArbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ),
             service = service,
             sessionComponentBuilderProvider = sessionComponentBuilderProvider,
             activeProtectSocketPathProvider = ActiveProtectSocketPathProvider(),
             runtimeResumeIntentTracker = runtimeResumeIntentTracker,
             acceptedUserStopRecorder =
                 AcceptedUserStopRecorder(
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority =
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
                     bootSessionStateStore = NoopBootSessionStateStore,
                     runtimeResumeIntentTracker = runtimeResumeIntentTracker,
-                    serviceIntentArbiter = ServiceIntentArbiter(),
+                    serviceIntentArbiter =
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
                 ),
             transportFailoverApplyTracker = TransportFailoverApplyTracker(),
             serviceStopProvenanceRecorder = ServiceStopProvenanceRecorder { _, _ -> },

@@ -121,6 +121,32 @@ internal class VpnServiceSessionLifecycle(
         }.getOrThrow()
     }
 
+    suspend fun startForPauseResume() {
+        checkNotNull(coordinator).start()
+    }
+
+    suspend fun releaseRetainingShell(guard: RuntimeStopGuard): RuntimeStopOutcome {
+        val current = coordinator
+        return if (current == null) {
+            RuntimeStopOutcome.FullyReleased
+        } else {
+            val outcome = current.stop(guard = guard, disposition = RuntimeStopDisposition.RetainPausedShell)
+            if (outcome != RuntimeStopOutcome.FullyReleased) {
+                outcome
+            } else {
+                try {
+                    cleanup.destroySession(current::onDestroy, ::cleanupNativeProtect)
+                    hardKillSwitchRefreshBroadcastLifecycle.close()
+                    stateInitializer?.close()
+                    clearSessionReferences()
+                    RuntimeStopOutcome.FullyReleased
+                } catch (_: IllegalStateException) {
+                    RuntimeStopOutcome.CleanupPending
+                }
+            }
+        }
+    }
+
     fun destroy() {
         hardKillSwitchRefreshBroadcastLifecycle.close()
         val runtimeCoordinator = coordinator

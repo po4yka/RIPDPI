@@ -25,7 +25,12 @@ class ProxyGroupRepositoryConcurrencyTest {
     fun setUp() {
         // An in-memory blob store gives each test an isolated, AndroidKeyStore-free
         // backing for the repository under test.
-        repository = SharedPreferencesProxyGroupRepository(FakeProxyGroupBlobStore())
+        repository =
+            SharedPreferencesProxyGroupRepository(
+                FakeProxyGroupBlobStore(),
+                com.poyka.ripdpi.data
+                    .testMutationPreparationSource(),
+            )
     }
 
     @Test

@@ -184,13 +184,8 @@ class BackupRestoreUseCase
         private val ruleDao: RuleDao,
         private val settingsRepository: AppSettingsRepository,
         private val privateDataStore: BackupPrivateDataStore,
+        private val profileMutations: com.poyka.ripdpi.data.ProfileMutationCoordinator,
     ) {
-        constructor(
-            groupRepository: ProxyGroupRepository,
-            ruleDao: RuleDao,
-            settingsRepository: AppSettingsRepository,
-        ) : this(groupRepository, ruleDao, settingsRepository, BackupPrivateDataStore.Empty)
-
         /** Parses [json] into a [BackupPreview] without touching any store. */
         fun preview(json: String): BackupPreviewResult =
             when (val imported = importBackup(json, "Backup preview parse failed")) {
@@ -283,6 +278,10 @@ class BackupRestoreUseCase
             staged: StagedRestore,
             selection: RestoreSelection,
         ): RestoreResult {
+            val preparation =
+                profileMutations.captureMutation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
+                )
             val preimage =
                 try {
                     capturePreimage(staged)
@@ -294,13 +293,23 @@ class BackupRestoreUseCase
                 }
             val progress = RestoreCommitProgress()
             return try {
+                var receipt: com.poyka.ripdpi.data.DurableCommandReceipt? = null
                 staged.privateData?.let {
                     progress.privateData = true
-                    privateDataStore.replaceAll(it)
+                    val outcome = privateDataStore.replaceAll(preparation, it)
+                    receipt = (outcome as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved)?.receipt
                 }
                 staged.groups?.let {
                     progress.groups = true
-                    groupRepository.replaceAll(it)
+                    val checked =
+                        receipt
+                            ?: (
+                                profileMutations.commitMutationIntent(
+                                    preparation,
+                                ) as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved
+                            )?.receipt
+                    if (checked == null) error("Profile restore intent was superseded")
+                    groupRepository.replaceAll(checked, it)
                 }
                 staged.rules?.let {
                     progress.rules = true
@@ -318,12 +327,12 @@ class BackupRestoreUseCase
                 )
                 RestoreResult.Success(restartRequired = true)
             } catch (cancelled: CancellationException) {
-                withContext(NonCancellable) { rollback(preimage, progress) }
+                withContext(NonCancellable) { rollback(preimage, progress, preparation) }
                     .filterNot { rollbackFailure -> rollbackFailure === cancelled }
                     .forEach(cancelled::addSuppressed)
                 throw cancelled
             } catch (failure: Exception) {
-                val rollbackFailures = withContext(NonCancellable) { rollback(preimage, progress) }
+                val rollbackFailures = withContext(NonCancellable) { rollback(preimage, progress, preparation) }
                 rollbackFailures
                     .filterNot { rollbackFailure -> rollbackFailure === failure }
                     .forEach(failure::addSuppressed)
@@ -352,6 +361,7 @@ class BackupRestoreUseCase
         private suspend fun rollback(
             preimage: RestorePreimage,
             progress: RestoreCommitProgress,
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         ): List<Exception> {
             val failures = mutableListOf<Exception>()
 
@@ -365,8 +375,18 @@ class BackupRestoreUseCase
 
             if (progress.settings) compensate { settingsRepository.replace(requireNotNull(preimage.settings)) }
             if (progress.rules) compensate { ruleDao.replaceAll(requireNotNull(preimage.rules)) }
-            if (progress.groups) compensate { groupRepository.replaceAll(requireNotNull(preimage.groups)) }
-            if (progress.privateData) compensate { privateDataStore.replaceAll(requireNotNull(preimage.privateData)) }
+            if (progress.groups) compensate { groupRepository.compensateReplacement(requireNotNull(preimage.groups)) }
+            if (progress.privateData) {
+                compensate {
+                    privateDataStore.replaceAll(
+                        com.poyka.ripdpi.data.ProfileMutationPreparation(
+                            com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                            preparation.expectedPauseAuthority,
+                        ),
+                        requireNotNull(preimage.privateData),
+                    )
+                }
+            }
             return failures
         }
 

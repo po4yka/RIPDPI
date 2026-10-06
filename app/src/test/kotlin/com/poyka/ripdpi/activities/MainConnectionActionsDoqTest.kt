@@ -44,7 +44,7 @@ class MainConnectionActionsDoqTest {
                     refreshPermissionSnapshot = {},
                 )
 
-            actions.startMode(Mode.VPN)
+            actions.startMode(Mode.VPN).join()
 
             assertTrue(controller.startedModes.isEmpty())
             assertEquals(ConnectionState.Disconnected, state.value.connectionState)
@@ -53,7 +53,7 @@ class MainConnectionActionsDoqTest {
                 (effects.replayCache.single() as MainEffect.ShowError).message,
             )
 
-            actions.startMode(Mode.Proxy)
+            actions.startMode(Mode.Proxy).join()
             assertEquals(listOf(Mode.Proxy), controller.startedModes)
         }
 }

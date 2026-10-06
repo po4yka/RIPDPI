@@ -6,7 +6,6 @@ import com.poyka.ripdpi.activities.internalVpnControlActivityClassName
 import com.poyka.ripdpi.activities.requestsConfiguredStart
 import com.poyka.ripdpi.activities.requestsHomeTab
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartPreflight
 import com.poyka.ripdpi.services.ServiceStartPreflightResult
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
@@ -70,14 +69,14 @@ class WidgetStartResolutionTest {
             assertEquals(0, serviceController.startCount)
         }
 
-    private class RecordingServiceController : ServiceController {
+    private class RecordingServiceController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
         var startCount = 0
 
-        override fun start(mode: Mode): ServiceStartResult {
+        override fun recordStart(mode: Mode): ServiceStartResult {
             startCount += 1
             return ServiceStartResult.Accepted(mode)
         }
 
-        override fun stop() = Unit
+        override fun recordStop() = Unit
     }
 }

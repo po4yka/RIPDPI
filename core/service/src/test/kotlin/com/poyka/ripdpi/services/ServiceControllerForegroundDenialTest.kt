@@ -5,8 +5,10 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DesiredRuntimeState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.stopAction
@@ -31,646 +33,947 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.S], shadows = [ShadowServiceControllerVpnPrepareService::class])
 class ServiceControllerForegroundDenialTest {
-    @Test
-    fun validTransportFailoverIntentPreservesExactIdentity() {
-        val decoded =
-            Intent(transportFailoverRestartAction)
-                .putExtra(transportFailoverRequestIdExtra, 17L)
-                .putExtra(transportFailoverTargetKindExtra, RelayKindVlessReality)
-                .putExtra(transportFailoverTargetProfileIdExtra, "reality-17")
-                .decodeTransportFailoverCommand()
-
-        assertEquals(17L, decoded.requestId)
-        assertEquals(
-            TransportFailoverTarget(RelayKindVlessReality, "reality-17"),
-            decoded.target,
-        )
-    }
+    private val authority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
 
     @Test
-    fun malformedTransportFailoverIntentDecodesFailClosed() {
-        val decoded =
-            Intent(transportFailoverRestartAction)
-                .putExtra(transportFailoverRequestIdExtra, "not-a-long")
-                .putExtra(transportFailoverTargetKindExtra, " ")
-                .putExtra(transportFailoverTargetProfileIdExtra, "")
-                .decodeTransportFailoverCommand()
+    fun validTransportFailoverIntentPreservesExactIdentity() =
+        kotlinx.coroutines.test.runTest {
+            val decoded =
+                Intent(transportFailoverRestartAction)
+                    .putExtra(transportFailoverRequestIdExtra, 17L)
+                    .putExtra(transportFailoverTargetKindExtra, RelayKindVlessReality)
+                    .putExtra(transportFailoverTargetProfileIdExtra, "reality-17")
+                    .decodeTransportFailoverCommand()
 
-        assertNull(decoded.requestId)
-        assertNull(decoded.target)
-    }
-
-    @Test
-    fun foregroundServiceDenialRejectsProxyStartWithoutReportingRunning() {
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val starter =
-            RecordingForegroundServiceStarter {
-                throw IllegalStateException("foreground start denied")
-            }
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
+            assertEquals(17L, decoded.requestId)
+            assertEquals(
+                TransportFailoverTarget(RelayKindVlessReality, "reality-17"),
+                decoded.target,
             )
+        }
 
-        val result = controller.start(Mode.Proxy)
+    @Test
+    fun malformedTransportFailoverIntentDecodesFailClosed() =
+        kotlinx.coroutines.test.runTest {
+            val decoded =
+                Intent(transportFailoverRestartAction)
+                    .putExtra(transportFailoverRequestIdExtra, "not-a-long")
+                    .putExtra(transportFailoverTargetKindExtra, " ")
+                    .putExtra(transportFailoverTargetProfileIdExtra, "")
+                    .decodeTransportFailoverCommand()
 
-        assertTrue(result is ServiceStartResult.Rejected)
-        assertTrue(
-            (result as ServiceStartResult.Rejected).reason is ServiceStartRejectionReason.ForegroundServiceBlocked,
-        )
-        assertEquals(AppStatus.Halted to Mode.Proxy, serviceStateStore.status.value)
-        assertEquals(1, starter.startCount)
-        assertTrue(serviceStateStore.eventHistory.isEmpty())
-        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-    }
+            assertNull(decoded.requestId)
+            assertNull(decoded.target)
+        }
+
+    @Test
+    fun foregroundServiceDenialRejectsProxyStartWithoutReportingRunning() =
+        kotlinx.coroutines.test.runTest {
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val starter =
+                RecordingForegroundServiceStarter {
+                    throw IllegalStateException("foreground start denied")
+                }
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            val result = controller.start(Mode.Proxy)
+
+            assertTrue(result is ServiceStartResult.Rejected)
+            assertTrue(
+                (result as ServiceStartResult.Rejected).reason is ServiceStartRejectionReason.ForegroundServiceBlocked,
+            )
+            assertEquals(AppStatus.Halted to Mode.Proxy, serviceStateStore.status.value)
+            assertEquals(1, starter.startCount)
+            assertTrue(serviceStateStore.eventHistory.isEmpty())
+            assertTrue(tracker.ownership(lease) is ResumeLeaseOwnership.Superseded)
+        }
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.TIRAMISU], shadows = [ShadowServiceControllerVpnPrepareService::class])
-    fun missingNotificationsDoNotBlockForegroundIntent() {
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
+    fun missingNotificationsDoNotBlockForegroundIntent() =
+        kotlinx.coroutines.test.runTest {
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        val result = controller.start(Mode.Proxy)
+            val result = controller.start(Mode.Proxy)
 
-        assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
-        assertEquals(1, starter.startCount)
-        assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
-    }
-
-    @Test
-    fun missingVpnConsentRejectsVpnStartBeforeForegroundIntent() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = Intent("shadow.vpn.permission")
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
-
-        val result = controller.start(Mode.VPN)
-
-        assertEquals(
-            ServiceStartResult.Rejected(
-                mode = Mode.VPN,
-                reason = ServiceStartRejectionReason.VpnConsentMissing,
-            ),
-            result,
-        )
-        assertEquals(0, starter.startCount)
-    }
+            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+            assertEquals(1, starter.startCount)
+            assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
+        }
 
     @Test
-    fun acceptedProxyStartIssuesForegroundIntent() {
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
+    fun missingVpnConsentRejectsVpnStartBeforeForegroundIntent() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = Intent("shadow.vpn.permission")
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            val result = controller.start(Mode.VPN)
+
+            assertEquals(
+                ServiceStartResult.Rejected(
+                    mode = Mode.VPN,
+                    reason = ServiceStartRejectionReason.VpnConsentMissing,
+                ),
+                result,
             )
-
-        val result = controller.start(Mode.Proxy)
-
-        assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
-        assertEquals(1, starter.startCount)
-        assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
-    }
+            assertEquals(0, starter.startCount)
+        }
 
     @Test
-    fun acceptedVpnStartIssuesForegroundIntent() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
+    fun acceptedProxyStartIssuesForegroundIntent() =
+        kotlinx.coroutines.test.runTest {
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        val result = controller.start(Mode.VPN)
+            val result = controller.start(Mode.Proxy)
 
-        assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
-        assertEquals(1, starter.startCount)
-        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
-    }
-
-    @Test
-    fun doqSaveAndVpnDispatchCannotOverlapWhileStatusIsHalted() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val arbiter = ServiceIntentArbiter()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = RuntimeResumeIntentTracker(),
-                serviceIntentArbiter = arbiter,
-            )
-
-        val saveLease = checkNotNull(arbiter.tryReserveDoqSave { true })
-        assertEquals(
-            ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.DnsSettingsUpdatePending),
-            controller.start(Mode.VPN),
-        )
-        assertEquals(0, starter.startCount)
-        saveLease.close()
-
-        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
-        assertEquals(1, starter.startCount)
-        assertNull(arbiter.tryReserveDoqSave { true })
-        arbiter.completeVpnStart(arbiter.captureVpnStartGeneration())
-        checkNotNull(arbiter.tryReserveDoqSave { true }).close()
-    }
+            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+            assertEquals(1, starter.startCount)
+            assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
+        }
 
     @Test
-    fun transportFailoverUsesInternalVpnRestartAction() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
-            )
+    fun acceptedVpnStartIssuesForegroundIntent() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        val target = TransportFailoverTarget(RelayKindVlessReality, "reality-1")
-        val result = controller.restartVpnForTransportFailover(requestId = 41L, expectedTarget = target)
+            val result = controller.start(Mode.VPN)
 
-        assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
-        assertEquals(transportFailoverRestartAction, starter.lastIntent?.action)
-        assertEquals(41L, starter.lastIntent?.getLongExtra(transportFailoverRequestIdExtra, 0L))
-        assertEquals(RelayKindVlessReality, starter.lastIntent?.getStringExtra(transportFailoverTargetKindExtra))
-        assertEquals("reality-1", starter.lastIntent?.getStringExtra(transportFailoverTargetProfileIdExtra))
-        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
-        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-    }
-
-    @Test
-    fun explicitTransportStartCarriesTargetAndSupersedesResumeLease() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
-            )
-        val target = TransportFailoverTarget(TransportKindAmneziaWg, "awg-editor")
-        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.startVpnTransport(42L, target))
-        assertEquals(transportActivationStartAction, starter.lastIntent?.action)
-        assertEquals(target, starter.lastIntent.decodeTransportFailoverCommand().target)
-        assertEquals(42L, starter.lastIntent.decodeTransportFailoverCommand().requestId)
-        assertFalse(tracker.ownership(lease) == ResumeLeaseOwnership.Owned)
-    }
+            assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
+            assertEquals(1, starter.startCount)
+            assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+        }
 
     @Test
-    fun startupFallbackUsesInternalVpnStartAction() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
+    fun doqSaveAndVpnDispatchCannotOverlapWhileStatusIsHalted() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val arbiter = ServiceIntentArbiter(authority)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Halted to Mode.Proxy,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = arbiter,
+                )
+
+            val saveLease = checkNotNull(arbiter.tryReserveDoqSave { true })
+            assertEquals(
+                ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.DnsSettingsUpdatePending),
+                controller.start(Mode.VPN),
             )
+            assertEquals(0, starter.startCount)
+            saveLease.close()
 
-        val fallbackLease = controller.captureStartupFallbackLease()
-        val result = controller.startVpnForStartupFallback(fallbackLease)
-
-        assertEquals(
-            StartupFallbackDispatchResult.Dispatched(ServiceStartResult.Accepted(Mode.VPN)),
-            result,
-        )
-        assertEquals(startupFallbackStartAction, starter.lastIntent?.action)
-        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
-        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-    }
+            assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
+            assertEquals(1, starter.startCount)
+            assertNull(arbiter.tryReserveDoqSave { true })
+            arbiter.completeVpnStart(arbiter.captureVpnStartGeneration())
+            checkNotNull(arbiter.tryReserveDoqSave { true }).close()
+        }
 
     @Test
-    fun newerUserStartSupersedesCapturedStartupFallback() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
-        val fallbackLease = controller.captureStartupFallbackLease()
+    fun transportFailoverUsesInternalVpnRestartAction() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Running to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
-        val result = controller.startVpnForStartupFallback(fallbackLease)
+            val target = TransportFailoverTarget(RelayKindVlessReality, "reality-1")
+            val result =
+                controller.restartVpnForTransportFailover(
+                    requestId = 41L,
+                    expectedTarget = target,
+                    reference = controller.captureRuntimeAuthority(),
+                )
 
-        assertEquals(StartupFallbackDispatchResult.Superseded, result)
-        assertEquals(1, starter.startCount)
-    }
-
-    @Test
-    fun newerUserStopSupersedesCapturedStartupFallback() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
-        val fallbackLease = controller.captureStartupFallbackLease()
-
-        controller.stop()
-        val result = controller.startVpnForStartupFallback(fallbackLease)
-
-        assertEquals(StartupFallbackDispatchResult.Superseded, result)
-        assertEquals(1, starter.startCount)
-        assertEquals(stopAction, starter.lastIntent?.action)
-    }
-
-    @Test
-    fun bootAndProcessDeathRecoveryUseDistinctInternalActions() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
-
-        assertEquals(
-            ServiceStartResult.Accepted(Mode.VPN),
-            controller.startForBootRecovery(Mode.VPN, Intent.ACTION_BOOT_COMPLETED),
-        )
-        assertEquals(bootRecoveryStartAction, starter.lastIntent?.action)
-
-        assertEquals(
-            ServiceStartResult.Accepted(Mode.VPN),
-            controller.startForBootRecovery(Mode.VPN, Intent.ACTION_MY_PACKAGE_REPLACED),
-        )
-        assertEquals(packageReplacedRecoveryStartAction, starter.lastIntent?.action)
-
-        assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.startForProcessDeathRecovery(Mode.VPN))
-        assertEquals(processDeathRecoveryStartAction, starter.lastIntent?.action)
-    }
+            assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
+            assertEquals(transportFailoverRestartAction, starter.lastIntent?.action)
+            assertEquals(41L, starter.lastIntent?.getLongExtra(transportFailoverRequestIdExtra, 0L))
+            assertEquals(RelayKindVlessReality, starter.lastIntent?.getStringExtra(transportFailoverTargetKindExtra))
+            assertEquals("reality-1", starter.lastIntent?.getStringExtra(transportFailoverTargetProfileIdExtra))
+            assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
 
     @Test
-    fun explicitStopRequestPreservesRunningMarkerUntilServiceAcceptsIt() {
-        val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = RecordingForegroundServiceStarter(),
-                bootSessionStateStore = store,
+    fun explicitTransportStartCarriesTargetAndSupersedesResumeLease() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = TestServiceStateStore(),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+            val target = TransportFailoverTarget(TransportKindAmneziaWg, "awg-editor")
+            assertEquals(
+                ServiceStartResult.Accepted(Mode.VPN),
+                controller.startVpnTransport(
+                    42L,
+                    target,
+                    controller.prepareUserCommand(RuntimeUserCommand.Start(Mode.VPN)),
+                ),
             )
+            assertEquals(transportActivationStartAction, starter.lastIntent?.action)
+            assertEquals(target, starter.lastIntent.decodeTransportFailoverCommand().target)
+            assertEquals(42L, starter.lastIntent.decodeTransportFailoverCommand().requestId)
+            assertFalse(tracker.ownership(lease) == ResumeLeaseOwnership.Owned)
+        }
+}
 
-        controller.stop()
-
-        assertTrue(store.wasRunningAtUpdate())
-    }
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [Build.VERSION_CODES.S], shadows = [ShadowServiceControllerVpnPrepareService::class])
+class ServiceControllerRecoveryDispatchTest {
+    private val authority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
 
     @Test
-    fun automationAcceptedStopClearsRunningMarkerWithoutServiceCallback() {
-        val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
-                serviceAutomationController =
-                    Optional.of(
-                        object : ServiceAutomationController {
-                            override fun interceptStop(currentMode: Mode): Boolean = true
-                        },
-                    ),
-                foregroundServiceStarter = RecordingForegroundServiceStarter(),
-                bootSessionStateStore = store,
+    fun startupFallbackUsesInternalVpnStartAction() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Halted to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            val fallbackLease = controller.captureStartupFallbackLease()
+            val result = controller.startVpnForStartupFallback(fallbackLease)
+
+            assertEquals(
+                StartupFallbackDispatchResult.Dispatched(ServiceStartResult.Accepted(Mode.VPN)),
+                result,
             )
-
-        controller.stop()
-
-        assertFalse(store.wasRunningAtUpdate())
-    }
+            assertEquals(startupFallbackStartAction, starter.lastIntent?.action)
+            assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
 
     @Test
-    fun diagnosticsStopPreservesResumeIntentAndUpdateMarker() {
-        val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = store,
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
-            )
+    fun newerUserStartSupersedesCapturedStartupFallback() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Halted to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+            val fallbackLease = controller.captureStartupFallbackLease()
 
-        controller.stopForDiagnostics()
+            assertEquals(ServiceStartResult.Accepted(Mode.VPN), controller.start(Mode.VPN))
+            val result = controller.startVpnForStartupFallback(fallbackLease)
 
-        assertEquals(diagnosticsStopAction, starter.lastIntent?.action)
-        assertTrue(store.wasRunningAtUpdate())
-        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-    }
-
-    @Test
-    fun diagnosticsStartUsesInternalActionWithoutReplacingUserIntent() {
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
-            )
-
-        val result = controller.startForDiagnostics(Mode.Proxy)
-
-        assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
-        assertEquals(diagnosticsStartAction, starter.lastIntent?.action)
-        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-    }
+            assertEquals(StartupFallbackDispatchResult.Superseded, result)
+            assertEquals(1, starter.startCount)
+        }
 
     @Test
-    fun diagnosticsResumeDoesNotAcquireUserIntentArbiterWhileHoldingLease() {
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val arbiter = ServiceIntentArbiter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = RecordingForegroundServiceStarter(),
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = arbiter,
-            )
-        val lockHeld = CountDownLatch(1)
-        val releaseLock = CountDownLatch(1)
-        val lockExecutor = Executors.newSingleThreadExecutor()
-        val diagnosticsExecutor = Executors.newSingleThreadExecutor()
-        val lockOwner =
-            lockExecutor.submit {
-                arbiter.serialize {
-                    lockHeld.countDown()
-                    releaseLock.await(5, TimeUnit.SECONDS)
-                }
-            }
+    fun newerUserStopSupersedesCapturedStartupFallback() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Running to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+            val fallbackLease = controller.captureStartupFallbackLease()
 
-        try {
-            assertTrue(lockHeld.await(2, TimeUnit.SECONDS))
-            val diagnosticsResume =
-                diagnosticsExecutor.submit<ServiceStartResult?> {
-                    tracker.runIfOwned(lease) {
-                        controller.startForDiagnostics(Mode.Proxy)
+            controller.stop()
+            val result = controller.startVpnForStartupFallback(fallbackLease)
+
+            assertEquals(StartupFallbackDispatchResult.Superseded, result)
+            assertEquals(1, starter.startCount)
+            assertEquals(stopAction, starter.lastIntent?.action)
+        }
+
+    @Test
+    fun bootAndProcessDeathRecoveryUseDistinctInternalActions() =
+        kotlinx.coroutines.test.runTest {
+            val reference = authority.supersede(RuntimeUserCommand.Start(Mode.VPN)).authority
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Halted to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            assertEquals(
+                ServiceStartResult.Accepted(Mode.VPN),
+                controller.startForBootRecovery(Mode.VPN, Intent.ACTION_BOOT_COMPLETED, reference),
+            )
+            assertEquals(bootRecoveryStartAction, starter.lastIntent?.action)
+
+            assertEquals(
+                ServiceStartResult.Accepted(Mode.VPN),
+                controller.startForBootRecovery(Mode.VPN, Intent.ACTION_MY_PACKAGE_REPLACED, reference),
+            )
+            assertEquals(packageReplacedRecoveryStartAction, starter.lastIntent?.action)
+
+            assertEquals(
+                ServiceStartResult.Accepted(Mode.VPN),
+                controller.startForProcessDeathRecovery(Mode.VPN, reference),
+            )
+            assertEquals(processDeathRecoveryStartAction, starter.lastIntent?.action)
+        }
+
+    @Test
+    fun explicitStopRequestPreservesRunningMarkerUntilServiceAcceptsIt() =
+        kotlinx.coroutines.test.runTest {
+            val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                    bootSessionStateStore = store,
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            controller.stop()
+
+            assertTrue(store.wasRunningAtUpdate())
+            assertEquals(DesiredRuntimeState.Stopped, authority.snapshotAuthority().desired)
+            assertFalse(authority.allowsRecovery(authority.reference(), Mode.Proxy))
+        }
+
+    @Test
+    fun automationAcceptedStopClearsRunningMarkerWithoutServiceCallback() =
+        kotlinx.coroutines.test.runTest {
+            val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Running to Mode.Proxy,
+                        ),
+                    serviceAutomationController =
+                        Optional.of(
+                            object : ServiceAutomationController {
+                                override fun interceptStop(currentMode: Mode): Boolean = true
+                            },
+                        ),
+                    foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                    bootSessionStateStore = store,
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            controller.stop()
+
+            assertFalse(store.wasRunningAtUpdate())
+        }
+
+    @Test
+    fun diagnosticsStopPreservesResumeIntentAndUpdateMarker() =
+        kotlinx.coroutines.test.runTest {
+            val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = store,
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            controller.stopForDiagnostics(lease.durableAuthority)
+
+            assertEquals(diagnosticsStopAction, starter.lastIntent?.action)
+            assertTrue(store.wasRunningAtUpdate())
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
+
+    @Test
+    fun diagnosticsStartUsesInternalActionWithoutReplacingUserIntent() =
+        kotlinx.coroutines.test.runTest {
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            val result = controller.startForDiagnostics(Mode.Proxy, lease.durableAuthority)
+
+            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), result)
+            assertEquals(diagnosticsStartAction, starter.lastIntent?.action)
+            assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
+        }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [Build.VERSION_CODES.S], shadows = [ShadowServiceControllerVpnPrepareService::class])
+class ServiceControllerIntentFencingTest {
+    private val authority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
+
+    @Test
+    fun diagnosticsResumeDoesNotAcquireUserIntentArbiterWhileHoldingLease() =
+        kotlinx.coroutines.test.runTest {
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val arbiter = ServiceIntentArbiter(authority)
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Halted to Mode.Proxy,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = arbiter,
+                )
+            val lockHeld = CountDownLatch(1)
+            val releaseLock = CountDownLatch(1)
+            val lockExecutor = Executors.newSingleThreadExecutor()
+            val diagnosticsExecutor = Executors.newSingleThreadExecutor()
+            val lockOwner =
+                lockExecutor.submit {
+                    arbiter.serialize {
+                        lockHeld.countDown()
+                        releaseLock.await(5, TimeUnit.SECONDS)
                     }
                 }
 
-            assertEquals(ServiceStartResult.Accepted(Mode.Proxy), diagnosticsResume.get(2, TimeUnit.SECONDS))
-        } finally {
-            releaseLock.countDown()
-            lockOwner.get(2, TimeUnit.SECONDS)
-            lockExecutor.shutdownNow()
-            diagnosticsExecutor.shutdownNow()
+            try {
+                assertTrue(lockHeld.await(2, TimeUnit.SECONDS))
+                val diagnosticsResume =
+                    diagnosticsExecutor.submit<ServiceStartResult?> {
+                        tracker.runIfOwned(lease) {
+                            controller.startForDiagnostics(Mode.Proxy, lease.durableAuthority)
+                        }
+                    }
+
+                assertEquals(ServiceStartResult.Accepted(Mode.Proxy), diagnosticsResume.get(2, TimeUnit.SECONDS))
+            } finally {
+                releaseLock.countDown()
+                lockOwner.get(2, TimeUnit.SECONDS)
+                lockExecutor.shutdownNow()
+                diagnosticsExecutor.shutdownNow()
+            }
         }
-    }
 
     @Test
-    fun explicitStopRequestWaitsForServiceAcceptanceBeforeInvalidatingResume() {
-        val tracker = RuntimeResumeIntentTracker()
-        val lease = tracker.captureResumeLease()
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = RecordingForegroundServiceStarter(),
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-                runtimeResumeIntentTracker = tracker,
-                serviceIntentArbiter = ServiceIntentArbiter(),
-            )
+    fun explicitStopRequestInvalidatesDurableResumeBeforeServiceAcceptance() =
+        kotlinx.coroutines.test.runTest {
+            val tracker = RuntimeResumeIntentTracker(authority)
+            val lease = tracker.captureResumeLease()
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = tracker,
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        controller.stop()
+            controller.stop()
 
-        assertEquals(ResumeLeaseOwnership.Owned, tracker.ownership(lease))
-    }
+            assertTrue(tracker.ownership(lease) is ResumeLeaseOwnership.Superseded)
+            assertEquals(DesiredRuntimeState.Stopped, authority.snapshotAuthority().desired)
+        }
+
+    @Test
+    fun staleRecoveryReferenceCannotDispatchAfterUserStop() =
+        kotlinx.coroutines.test.runTest {
+            val reference = authority.supersede(RuntimeUserCommand.Start(Mode.Proxy)).authority
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                    pauseAuthority = authority,
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                )
+
+            controller.stop()
+            val result = controller.startForProcessDeathRecovery(Mode.Proxy, reference)
+
+            assertEquals(ServiceStartResult.Rejected(Mode.Proxy, ServiceStartRejectionReason.Superseded), result)
+            assertEquals(1, starter.startCount)
+            assertEquals(stopAction, starter.lastIntent?.action)
+            assertEquals(DesiredRuntimeState.Stopped, authority.snapshotAuthority().desired)
+        }
 
     // T2 — stop routing: stop() reads the current mode from serviceStateStore and
     // dispatches the stop Intent to the matching service class, never the wrong one.
-    @Test
-    fun stopWhileProxyActiveRoutesStopToProxyService() {
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
-
-        controller.stop()
-
-        assertEquals(1, starter.startCount)
-        assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
-    }
 
     @Test
-    fun stopWhileVpnActiveRoutesStopToVpnService() {
-        ShadowServiceControllerVpnPrepareService.prepareIntent = null
-        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = RuntimeEnvironment.getApplication(),
-                serviceStateStore = serviceStateStore,
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
+    fun stopWhileProxyActiveRoutesStopToProxyService() =
+        kotlinx.coroutines.test.runTest {
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        controller.stop()
+            controller.stop()
 
-        assertEquals(1, starter.startCount)
-        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
-    }
-
-    @Test
-    fun stopThenLateRefreshOnlyStartsStopAndBroadcastsRefresh() {
-        val context: android.app.Application = RuntimeEnvironment.getApplication()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = context,
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
-
-        controller.stop()
-        controller.refreshHardKillSwitchState()
-
-        assertEquals(1, starter.startCount)
-        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
-        assertEquals(stopAction, starter.lastIntent?.action)
-        val refreshBroadcasts =
-            shadowOf(context).broadcastIntents.filter { it.action == hardKillSwitchRefreshBroadcastAction }
-        assertEquals(1, refreshBroadcasts.size)
-        assertEquals(context.packageName, refreshBroadcasts.single().`package`)
-    }
+            assertEquals(1, starter.startCount)
+            assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
+        }
 
     @Test
-    fun haltedVpnDoesNotDispatchHardKillSwitchRefresh() {
-        val context: android.app.Application = RuntimeEnvironment.getApplication()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = context,
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
-            )
+    fun stopWhileVpnActiveRoutesStopToVpnService() =
+        kotlinx.coroutines.test.runTest {
+            ShadowServiceControllerVpnPrepareService.prepareIntent = null
+            val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = RuntimeEnvironment.getApplication(),
+                    serviceStateStore = serviceStateStore,
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        controller.refreshHardKillSwitchState()
+            controller.stop()
 
-        assertEquals(0, starter.startCount)
-        assertTrue(
-            shadowOf(context).broadcastIntents.none { it.action == hardKillSwitchRefreshBroadcastAction },
-        )
-    }
+            assertEquals(1, starter.startCount)
+            assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+        }
 
     @Test
-    fun runningProxyDoesNotDispatchHardKillSwitchRefresh() {
-        val context: android.app.Application = RuntimeEnvironment.getApplication()
-        val starter = RecordingForegroundServiceStarter()
-        val controller =
-            DefaultServiceController(
-                context = context,
-                serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
-                serviceAutomationController = Optional.empty(),
-                foregroundServiceStarter = starter,
-                bootSessionStateStore = InMemoryBootSessionStateStore(),
+    fun stopThenLateRefreshOnlyStartsStopAndBroadcastsRefresh() =
+        kotlinx.coroutines.test.runTest {
+            val context: android.app.Application = RuntimeEnvironment.getApplication()
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = context,
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Running to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            controller.stop()
+            controller.refreshHardKillSwitchState()
+
+            assertEquals(1, starter.startCount)
+            assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+            assertEquals(stopAction, starter.lastIntent?.action)
+            val refreshBroadcasts =
+                shadowOf(context).broadcastIntents.filter { it.action == hardKillSwitchRefreshBroadcastAction }
+            assertEquals(1, refreshBroadcasts.size)
+            assertEquals(context.packageName, refreshBroadcasts.single().`package`)
+        }
+
+    @Test
+    fun haltedVpnDoesNotDispatchHardKillSwitchRefresh() =
+        kotlinx.coroutines.test.runTest {
+            val context: android.app.Application = RuntimeEnvironment.getApplication()
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = context,
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Halted to Mode.VPN,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
+
+            controller.refreshHardKillSwitchState()
+
+            assertEquals(0, starter.startCount)
+            assertTrue(
+                shadowOf(context).broadcastIntents.none { it.action == hardKillSwitchRefreshBroadcastAction },
             )
+        }
 
-        controller.refreshHardKillSwitchState()
+    @Test
+    fun runningProxyDoesNotDispatchHardKillSwitchRefresh() =
+        kotlinx.coroutines.test.runTest {
+            val context: android.app.Application = RuntimeEnvironment.getApplication()
+            val starter = RecordingForegroundServiceStarter()
+            val controller =
+                DefaultServiceController(
+                    appSettings = TestAppSettingsRepository(),
+                    profileRecovery =
+                        com.poyka.ripdpi.data
+                            .testProfileRecovery(),
+                    pauseAuthority = authority,
+                    context = context,
+                    serviceStateStore =
+                        TestServiceStateStore(
+                            initialStatus =
+                                AppStatus.Running to Mode.Proxy,
+                        ),
+                    serviceAutomationController = Optional.empty(),
+                    foregroundServiceStarter = starter,
+                    bootSessionStateStore = InMemoryBootSessionStateStore(),
+                    runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                    serviceIntentArbiter = ServiceIntentArbiter(authority),
+                )
 
-        assertEquals(0, starter.startCount)
-        assertTrue(
-            shadowOf(context).broadcastIntents.none { it.action == hardKillSwitchRefreshBroadcastAction },
-        )
-    }
+            controller.refreshHardKillSwitchState()
+
+            assertEquals(0, starter.startCount)
+            assertTrue(
+                shadowOf(context).broadcastIntents.none { it.action == hardKillSwitchRefreshBroadcastAction },
+            )
+        }
 }
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.S])
 class ServiceIntentGenerationTest {
-    @Test
-    fun `dispatch carries generation already visible to delivery`() {
-        val arbiter = ServiceIntentArbiter()
-        val intents = mutableListOf<Intent>()
-        val starter =
-            object : ForegroundServiceStarter {
-                override fun startForegroundService(
-                    context: Context,
-                    intent: Intent,
-                ) {
-                    assertEquals(arbiter.captureExplicitUserIntentGeneration(), intent.explicitUserIntentGeneration())
-                    intents += intent
-                }
-            }
-        val controller = controller(arbiter, starter)
-        controller.start(Mode.Proxy)
-        controller.start(Mode.Proxy)
-        assertEquals(listOf(1L, 2L), intents.map { it.explicitUserIntentGeneration() })
-    }
+    private val authority =
+        com.poyka.ripdpi.data
+            .testPauseAuthority()
 
     @Test
-    fun `rejected dispatch restores previous generation and recovery authority`() {
-        val arbiter = ServiceIntentArbiter()
-        val controller = controller(arbiter, RecordingForegroundServiceStarter { error("denied") })
-        assertTrue(controller.start(Mode.Proxy) is ServiceStartResult.Rejected)
-        assertEquals(0L, arbiter.captureExplicitUserIntentGeneration())
-        assertEquals("still-owned", arbiter.recovery { "still-owned" })
-    }
+    fun `dispatch carries generation already visible to delivery`() =
+        kotlinx.coroutines.test.runTest {
+            val arbiter = ServiceIntentArbiter(authority)
+            val intents = mutableListOf<Intent>()
+            val starter =
+                object : ForegroundServiceStarter {
+                    override fun startForegroundService(
+                        context: Context,
+                        intent: Intent,
+                    ) {
+                        assertEquals(
+                            arbiter.captureExplicitUserIntentGeneration(),
+                            intent.explicitUserIntentGeneration(),
+                        )
+                        intents += intent
+                    }
+                }
+            val controller = controller(arbiter, starter)
+            controller.start(Mode.Proxy)
+            controller.start(Mode.Proxy)
+            assertEquals(listOf(1L, 2L), intents.map { it.explicitUserIntentGeneration() })
+        }
+
+    @Test
+    fun `rejected dispatch retains reserved generation and blocks stale recovery`() =
+        kotlinx.coroutines.test.runTest {
+            val arbiter = ServiceIntentArbiter(authority)
+            val controller = controller(arbiter, RecordingForegroundServiceStarter { error("denied") })
+            assertTrue(controller.start(Mode.Proxy) is ServiceStartResult.Rejected)
+            assertEquals(1L, arbiter.captureExplicitUserIntentGeneration())
+            assertEquals(1L, authority.reference().generation)
+            assertNull(arbiter.recovery { "stale-recovery" })
+        }
 
     private fun controller(
         arbiter: ServiceIntentArbiter,
         starter: ForegroundServiceStarter,
     ) = DefaultServiceController(
+        appSettings = TestAppSettingsRepository(),
+        profileRecovery =
+            com.poyka.ripdpi.data
+                .testProfileRecovery(),
+        pauseAuthority = authority,
         context = RuntimeEnvironment.getApplication(),
-        serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Halted to Mode.Proxy),
+        serviceStateStore =
+            TestServiceStateStore(
+                initialStatus =
+                    AppStatus.Halted to Mode.Proxy,
+            ),
         serviceAutomationController = Optional.empty(),
         foregroundServiceStarter = starter,
         bootSessionStateStore = InMemoryBootSessionStateStore(),
-        runtimeResumeIntentTracker = RuntimeResumeIntentTracker(),
+        runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
         serviceIntentArbiter = arbiter,
     )
 }

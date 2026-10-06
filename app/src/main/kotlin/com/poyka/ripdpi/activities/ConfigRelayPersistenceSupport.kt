@@ -441,7 +441,13 @@ internal suspend fun migrateLegacyChainHopProfile(
         relayProfileStore.save(profile)
         relayCredentialStore.save(credentials)
     } else {
-        profileMutations.upsertRelay(profile, credentials, enabled = false, select = false)
+        profileMutations.upsertRelay(
+            profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+            profile,
+            credentials,
+            enabled = false,
+            select = false,
+        )
     }
     return profileId
 }

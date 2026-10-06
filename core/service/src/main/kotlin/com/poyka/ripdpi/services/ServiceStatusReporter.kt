@@ -60,7 +60,10 @@ internal class ServiceStatusReporter(
     val startedAt: Long?
         get() = serviceStateStore.telemetry.value.serviceStartedAt
 
+    fun publishConnectedState() = statusPersistence.applyStatus(ServiceStatus.Connected, null)
+
     fun reportStatus(
+        publication: ServiceStatusPublication,
         newStatus: ServiceStatus,
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
@@ -73,7 +76,10 @@ internal class ServiceStatusReporter(
         failureReason: FailureReason? = null,
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     ) {
-        statusPersistence.applyStatus(newStatus, failureReason)
+        when (publication) {
+            ServiceStatusPublication.Apply -> statusPersistence.applyStatus(newStatus, failureReason)
+            ServiceStatusPublication.ConnectedAlreadyPublished -> check(newStatus == ServiceStatus.Connected)
+        }
         val priorJournalStatus = journalStatus.getAndSet(newStatus)
         if (priorJournalStatus != newStatus) {
             when (newStatus) {
@@ -207,3 +213,5 @@ private fun FailureReason?.startupJournalKind(): String =
         is FailureReason.PermissionLost -> "permission_lost"
         null -> "unavailable"
     }
+
+internal enum class ServiceStatusPublication { Apply, ConnectedAlreadyPublished }

@@ -27,6 +27,19 @@ internal class TestProfileMutationCoordinator(
     private val credentials: WarpCredentialStore,
     private val endpoints: WarpEndpointStore,
 ) : ProfileMutationCoordinator {
+    override suspend fun commitMutationIntent(preparation: com.poyka.ripdpi.data.ProfileMutationPreparation) =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
+
+    override suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
+        com.poyka.ripdpi.data
+            .ProfileMutationPreparation(
+                origin,
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .reference(),
+            )
+
     private var mutationRevision = 0L
 
     override fun warpRuntimeRevision(profileId: String): Long = mutationRevision
@@ -37,15 +50,25 @@ internal class TestProfileMutationCoordinator(
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
 
-    override suspend fun runReset(block: suspend () -> Unit) = block()
+    override suspend fun runReset(
+        block: suspend (com.poyka.ripdpi.data.DurableCommandReceipt) -> Unit,
+    ): com.poyka.ripdpi.data.DurableCommandReceipt {
+        val receipt =
+            com.poyka.ripdpi.data.testPauseAuthority().supersede(
+                com.poyka.ripdpi.data.RuntimeUserCommand.Stop,
+            )
+        block(receipt)
+        return receipt
+    }
 
     override suspend fun upsertWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: WarpProfile,
         credentials: WarpCredentials,
         endpoints: List<WarpEndpointCacheEntry>,
         activate: Boolean,
         scannerMode: String,
-    ) {
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         val preimage = stagedPreimages.remove(profile.id) ?: capturePreimage(profile.id)
         if (!activate) stagedPreimages[profile.id] = preimage
         runCatching {
@@ -71,6 +94,9 @@ internal class TestProfileMutationCoordinator(
             { settings.replace(preimage.settings) },
         )
         mutationRevision += 1L
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 
     override suspend fun upsertWarpForRuntimeProvisioning(
@@ -87,21 +113,35 @@ internal class TestProfileMutationCoordinator(
         ) {
             return false
         }
-        upsertWarp(profile, credentials, endpoints, activate, scannerMode)
+        upsertWarp(
+            captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile),
+            profile,
+            credentials,
+            endpoints,
+            activate,
+            scannerMode,
+        )
         return true
     }
 
     override suspend fun deleteWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
         clearActive: Boolean,
-    ) {
-        if (clearActive) deactivateWarp(profileId)
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
+        if (clearActive) deactivateWarp(preparation, profileId)
         endpoints.clearProfile(profileId)
         credentials.clear(profileId)
         profiles.remove(profileId)
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 
-    override suspend fun deactivateWarp(profileId: String) {
+    override suspend fun deactivateWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         if (profiles.activeProfileId() == profileId || settings.snapshot().warpProfileId == profileId) {
             profiles.setActiveProfileId(null)
             settings.update {
@@ -112,16 +152,24 @@ internal class TestProfileMutationCoordinator(
                 setWarpLastScannerMode(WarpScannerModeAutomatic)
             }
         }
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 
     override suspend fun upsertAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: AwgProfileEntity,
         secrets: AwgSecrets,
     ) = unsupported()
 
-    override suspend fun deleteAwg(profileId: String) = unsupported()
+    override suspend fun deleteAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ) = unsupported()
 
     override suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
         credentials: RelayCredentialRecord,
         enabled: Boolean,
@@ -133,6 +181,7 @@ internal class TestProfileMutationCoordinator(
     ) = unsupported()
 
     override suspend fun replacePrivateBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         data: BackupPrivateDataV1,
         rollbackData: BackupPrivateDataV1?,
     ) = unsupported()

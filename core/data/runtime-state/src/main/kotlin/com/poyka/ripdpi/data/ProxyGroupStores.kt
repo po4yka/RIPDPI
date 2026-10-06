@@ -451,25 +451,21 @@ interface ProxyGroupRepository {
         }
 
     /** Removes the group identified by [id]. No-op when absent. */
-    suspend fun delete(id: String)
+    suspend fun delete(
+        preparation: ProfileMutationPreparation,
+        id: String,
+    )
 
     /** Returns all stored groups ordered by [ProxyGroup.order]. */
     suspend fun list(): List<ProxyGroup>
 
-    /**
-     * Replaces the entire group collection with [groups]. Used by the
-     * backup-restore swap so a restore never leaves a partially overwritten group
-     * set.
-     *
-     * The default implementation deletes the current groups and re-adds [groups]
-     * through the existing mutators; the SharedPreferences-backed repository
-     * overrides it with a single atomic persisted write. The default keeps existing
-     * test fakes source-compatible without forcing each to reimplement the swap.
-     */
-    suspend fun replaceAll(groups: List<ProxyGroup>) {
-        list().forEach { delete(it.id) }
-        groups.forEach { add(it) }
-    }
+    /** Replaces the group collection after the caller durably reserves its explicit restore/reset receipt. */
+    suspend fun replaceAll(
+        receipt: DurableCommandReceipt,
+        groups: List<ProxyGroup>,
+    )
+
+    suspend fun compensateReplacement(groups: List<ProxyGroup>)
 
     /** Hot stream of the group collection; re-emits after every mutation. */
     fun groups(): Flow<List<ProxyGroup>>
@@ -480,6 +476,7 @@ class SharedPreferencesProxyGroupRepository
     @Inject
     constructor(
         private val blobStore: ProxyGroupBlobStore,
+        private val intentPreparation: PauseMutationPreparationSource,
     ) : ProxyGroupRepository {
         private val json = RipDpiJson
         private val listSerializer = ListSerializer(ProxyGroup.serializer())
@@ -512,7 +509,11 @@ class SharedPreferencesProxyGroupRepository
                 updated
             }
 
-        override suspend fun delete(id: String) {
+        override suspend fun delete(
+            preparation: ProfileMutationPreparation,
+            id: String,
+        ) {
+            intentPreparation.commitMutationIntent(preparation)
             mutex.withLock {
                 val next = readGroups().filterNot { it.id == id }
                 writeGroups(next)
@@ -521,19 +522,20 @@ class SharedPreferencesProxyGroupRepository
 
         override suspend fun list(): List<ProxyGroup> = readGroups()
 
-        override suspend fun replaceAll(groups: List<ProxyGroup>) {
+        override suspend fun replaceAll(
+            receipt: DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) {
             mutex.withLock {
                 writeGroups(groups)
             }
         }
 
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-
-        /** Clears all persisted groups. Intended for tests and reset flows. */
-        fun clearAll() {
-            blobStore.clear()
-            state.value = emptyList()
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            mutex.withLock { writeGroups(groups) }
         }
+
+        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
 
         private fun readGroups(): List<ProxyGroup> =
             blobStore.read()?.let { json.decodeFromString(listSerializer, it) } ?: emptyList()

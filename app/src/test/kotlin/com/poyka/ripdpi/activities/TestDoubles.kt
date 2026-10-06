@@ -55,7 +55,6 @@ import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -168,18 +167,18 @@ class FakeServiceStateStore(
     }
 }
 
-class FakeServiceController : ServiceController {
+class FakeServiceController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
     val startedModes = mutableListOf<Mode>()
     var stopCount = 0
     var hardKillSwitchRefreshCount = 0
     var nextStartResult: ServiceStartResult? = null
 
-    override fun start(mode: Mode): ServiceStartResult {
+    override fun recordStart(mode: Mode): ServiceStartResult {
         startedModes += mode
         return nextStartResult ?: ServiceStartResult.Accepted(mode)
     }
 
-    override fun stop() {
+    override fun recordStop() {
         stopCount += 1
     }
 

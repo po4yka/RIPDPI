@@ -254,7 +254,11 @@ class StandaloneAmneziaWgActivatorTest {
         runTest {
             val controller = RecordingServiceController(autoApply = false)
             val store = RecordingBootSessionStateStore(activeAwgId = "old-profile")
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
             val activation = launch { activator.activate(sampleRequest("awg-same")) }
             runCurrent()
@@ -268,7 +272,11 @@ class StandaloneAmneziaWgActivatorTest {
         runTest {
             val controller = RecordingServiceController()
             val store = RecordingBootSessionStateStore()
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
             activator.activate(sampleRequest("awg-old"))
             arbiter.userStart({ store.setActiveAwgProfileId(null) }) { true }
@@ -282,7 +290,11 @@ class StandaloneAmneziaWgActivatorTest {
         runTest {
             val controller = RecordingServiceController()
             val store = RecordingBootSessionStateStore()
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
             activator.activate(sampleRequest("awg-same"))
             arbiter.userStart({ store.setActiveAwgProfileId("awg-same") }) { true }
@@ -297,7 +309,7 @@ class StandaloneAmneziaWgActivatorTest {
         bootSessionStateStore: BootSessionStateStore,
         loadProfile: suspend (String) -> AwgActivationRequest?,
         providerSelectionStore: FakeSelectionStore = FakeSelectionStore(),
-        serviceIntentArbiter: ServiceIntentArbiter = ServiceIntentArbiter(),
+        serviceIntentArbiter: ServiceIntentArbiter = ServiceIntentArbiter(serviceController.testAuthority),
     ): DefaultStandaloneAmneziaWgActivator {
         val tracker = TransportFailoverApplyTracker()
         serviceController.tracker = tracker
@@ -309,6 +321,7 @@ class StandaloneAmneziaWgActivatorTest {
             tracker,
             providerSelectionStore,
             serviceIntentArbiter,
+            serviceController.testAuthority,
         )
     }
 
@@ -332,7 +345,7 @@ class StandaloneAmneziaWgActivatorTest {
     private class RecordingServiceController(
         private val startResult: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN),
         private val autoApply: Boolean = true,
-    ) : ServiceController,
+    ) : com.poyka.ripdpi.services.TestSynchronousServiceController(),
         VpnTransportActivationController {
         lateinit var tracker: TransportFailoverApplyTracker
         val targets = mutableListOf<TransportFailoverTarget>()
@@ -341,6 +354,7 @@ class StandaloneAmneziaWgActivatorTest {
         override fun startVpnTransport(
             requestId: Long,
             expectedTarget: TransportFailoverTarget,
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
         ): ServiceStartResult {
             this.requestId = requestId
             targets += expectedTarget
@@ -349,18 +363,18 @@ class StandaloneAmneziaWgActivatorTest {
                 check(tracker.recordApplied(requestId))
                 tracker.releaseRuntimeOwnership(requestId)
             }
-            return start(Mode.VPN)
+            return recordStart(Mode.VPN)
         }
 
         val startCalls = mutableListOf<Mode>()
         var stopCalls = 0
 
-        override fun start(mode: Mode): ServiceStartResult {
+        override fun recordStart(mode: Mode): ServiceStartResult {
             startCalls += mode
             return startResult
         }
 
-        override fun stop() {
+        override fun recordStop() {
             stopCalls++
         }
     }

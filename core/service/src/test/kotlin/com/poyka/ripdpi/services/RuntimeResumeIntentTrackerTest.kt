@@ -11,8 +11,77 @@ import java.util.concurrent.TimeUnit
 
 class RuntimeResumeIntentTrackerTest {
     @Test
+    fun `start callback and accepted stop have no tracker arbiter lock inversion`() {
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val tracker = RuntimeResumeIntentTracker(authority)
+        val arbiter = ServiceIntentArbiter(authority)
+        val receipt =
+            authority.supersede(
+                com.poyka.ripdpi.data.RuntimeUserCommand
+                    .Start(com.poyka.ripdpi.data.Mode.Proxy),
+            )
+        val lease = checkNotNull(arbiter.dispatchExplicit(receipt))
+        val resumeLease = tracker.captureResumeLease()
+        val callbackEntered = CountDownLatch(1)
+        val stopOwnsArbiter = CountDownLatch(1)
+        val startAccepted =
+            java.util.concurrent.atomic
+                .AtomicBoolean(true)
+        val failures =
+            java.util.concurrent.atomic
+                .AtomicReference<Throwable?>()
+        val start =
+            Thread {
+                try {
+                    startAccepted.set(
+                        tracker.withUserStart(action = {
+                            callbackEntered.countDown()
+                            check(stopOwnsArbiter.await(2, TimeUnit.SECONDS))
+                            arbiter.serialize { arbiter.isCurrent(lease) }
+                        }, isAccepted = { it }),
+                    )
+                } catch (failure: Throwable) {
+                    failures.set(failure)
+                }
+            }.apply { isDaemon = true }
+        val stop =
+            Thread {
+                try {
+                    check(callbackEntered.await(2, TimeUnit.SECONDS))
+                    val stopped = authority.supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
+                    arbiter.serialize {
+                        checkNotNull(arbiter.dispatchExplicit(stopped))
+                        stopOwnsArbiter.countDown()
+                        tracker.recordAcceptedStop()
+                    }
+                } catch (failure: Throwable) {
+                    failures.set(failure)
+                }
+            }.apply { isDaemon = true }
+        start.start()
+        stop.start()
+        stop.join(3_000)
+        start.join(3_000)
+        assertFalse("Accepted stop deadlocked waiting for the tracker", stop.isAlive)
+        assertFalse("Start deadlocked waiting for the arbiter", start.isAlive)
+        failures.get()?.let { throw it }
+        assertFalse(startAccepted.get())
+        assertEquals(
+            UserRuntimeIntent.Stopped,
+            (tracker.ownership(resumeLease) as ResumeLeaseOwnership.Superseded).intent,
+        )
+        assertFalse(arbiter.isCurrent(lease))
+    }
+
+    @Test
     fun `accepting an already requested start preserves a later scan lease`() {
-        val tracker = RuntimeResumeIntentTracker()
+        val tracker =
+            RuntimeResumeIntentTracker(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            )
         tracker.withUserStart(action = {})
         val lease = tracker.captureResumeLease()
 
@@ -23,7 +92,11 @@ class RuntimeResumeIntentTrackerTest {
 
     @Test
     fun `accepted start after an intervening stop supersedes the scan lease`() {
-        val tracker = RuntimeResumeIntentTracker()
+        val tracker =
+            RuntimeResumeIntentTracker(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            )
         tracker.withUserStart(action = {})
         val lease = tracker.captureResumeLease()
         tracker.recordAcceptedStop()
@@ -36,7 +109,11 @@ class RuntimeResumeIntentTrackerTest {
 
     @Test
     fun `stale stopped generation cannot compensate after newer user start`() {
-        val tracker = RuntimeResumeIntentTracker()
+        val tracker =
+            RuntimeResumeIntentTracker(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            )
         val lease = tracker.captureResumeLease()
         tracker.recordAcceptedStop()
         val stopped = tracker.ownership(lease) as ResumeLeaseOwnership.Superseded
@@ -54,7 +131,11 @@ class RuntimeResumeIntentTrackerTest {
 
     @Test
     fun `newer user start dispatches after in-flight compensation`() {
-        val tracker = RuntimeResumeIntentTracker()
+        val tracker =
+            RuntimeResumeIntentTracker(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            )
         val lease = tracker.captureResumeLease()
         tracker.recordAcceptedStop()
         val stopped = tracker.ownership(lease) as ResumeLeaseOwnership.Superseded
@@ -80,7 +161,8 @@ class RuntimeResumeIntentTrackerTest {
                     })
                 }
 
-            assertFalse(userStart.isDone)
+            userStart.get(5, TimeUnit.SECONDS)
+            assertTrue(userStart.isDone)
             releaseCompensation.countDown()
             assertTrue(compensation.get(5, TimeUnit.SECONDS))
             userStart.get(5, TimeUnit.SECONDS)

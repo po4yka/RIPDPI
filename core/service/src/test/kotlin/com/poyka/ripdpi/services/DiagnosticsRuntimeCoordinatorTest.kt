@@ -49,6 +49,62 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsRuntimeCoordinatorTest {
     @Test
+    fun `raw entry suspended on projection cannot stop newer explicit start`() =
+        runTest {
+            verifyRawEntryPreservesNewerIntent(paused = false)
+        }
+
+    @Test
+    fun `raw entry suspended on projection cannot adopt newer timed pause`() =
+        runTest {
+            verifyRawEntryPreservesNewerIntent(paused = true)
+        }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.verifyRawEntryPreservesNewerIntent(paused: Boolean) {
+        val state = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+        val controller = FakeServiceController(state)
+        val original = controller.testAuthority.reference()
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val backing = FakeCoordinatorSettingsRepository()
+        val settings =
+            object : AppSettingsRepository by backing {
+                override val settings: Flow<AppSettings> =
+                    kotlinx.coroutines.flow.flow {
+                        entered.complete(Unit)
+                        release.await()
+                        emit(backing.snapshot())
+                    }
+            }
+        val coordinator = buildCoordinator(controller, state, settings)
+        var blockRan = false
+        val scan = async { coordinator.runRawPathScan { blockRan = true } }
+        runCurrent()
+        entered.await()
+        val newerPause =
+            if (paused) {
+                controller.testAuthority.begin(
+                    Mode.Proxy,
+                    300_000L,
+                    controller.testAuthority.snapshotAuthority(),
+                )
+            } else {
+                null
+            }
+        if (!paused) controller.start(Mode.Proxy)
+        val newer = controller.testAuthority.snapshotAuthority()
+        release.complete(Unit)
+        scan.await()
+
+        assertEquals(listOf(original), controller.diagnosticStopReferences)
+        assertEquals(0, controller.stopCount)
+        assertFalse(blockRan)
+        assertEquals(AppStatus.Running to Mode.Proxy, state.status.value)
+        assertEquals(newer, controller.testAuthority.snapshotAuthority())
+        if (paused) assertEquals(newerPause, controller.testAuthority.snapshot())
+    }
+
+    @Test
     fun `missing runtime and unpublished lease have distinct acquisition reasons`() =
         runTest {
             val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.VPN)
@@ -1071,7 +1127,7 @@ class DiagnosticsRuntimeCoordinatorIntentRaceTest {
         runTest {
             val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
             val controller = FakeServiceController(stateStore)
-            controller.afterDiagnosticsStart = controller::stop
+            controller.afterDiagnosticsStart = controller::recordStop
             val coordinator =
                 buildCoordinator(
                     controller,
@@ -1098,7 +1154,7 @@ class DiagnosticsRuntimeCoordinatorIntentRaceTest {
         runTest {
             val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
             val controller = FakeServiceController(stateStore)
-            controller.beforeDiagnosticsStart = controller::stop
+            controller.beforeDiagnosticsStart = controller::recordStop
             val coordinator =
                 buildCoordinator(
                     controller,
@@ -1284,8 +1340,10 @@ private class FakeCoordinatorStateStore(
 
 private class FakeServiceController(
     private val stateStore: FakeCoordinatorStateStore,
-) : ServiceController {
-    val runtimeResumeIntentTracker = RuntimeResumeIntentTracker()
+) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+    val runtimeResumeIntentTracker =
+        RuntimeResumeIntentTracker(testAuthority)
+    val diagnosticStopReferences = mutableListOf<com.poyka.ripdpi.data.PauseAuthorityRef>()
     var stopFailure: Throwable? = null
     var stopAfterTransitionFailure: Throwable? = null
     var startFailure: Throwable? = null
@@ -1300,13 +1358,16 @@ private class FakeServiceController(
     val operations = mutableListOf<String>()
     private var pendingDiagnosticsStopTransition: Boolean = false
 
-    override fun start(mode: Mode): ServiceStartResult =
+    override fun recordStart(mode: Mode): ServiceStartResult =
         runtimeResumeIntentTracker.withUserStart(
             action = { start(mode, "user-start") },
             isAccepted = { it is ServiceStartResult.Accepted },
         )
 
-    override fun startForDiagnostics(mode: Mode): ServiceStartResult {
+    override fun startForDiagnostics(
+        mode: Mode,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult {
         beforeDiagnosticsStart?.invoke()
         val result = start(mode, "diagnostics-start")
         afterDiagnosticsStart?.invoke()
@@ -1327,12 +1388,17 @@ private class FakeServiceController(
         return ServiceStartResult.Accepted(mode)
     }
 
-    override fun stop() {
+    override fun recordStop() {
         runtimeResumeIntentTracker.recordAcceptedStop()
         stop("user-stop")
     }
 
-    override fun stopForDiagnostics() {
+    override fun stopForDiagnostics(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
+        diagnosticStopReferences += reference
+        if (testAuthority.reference() == reference) stop("diagnostics-stop")
+    }
+
+    override fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
         stop("diagnostics-stop")
     }
 

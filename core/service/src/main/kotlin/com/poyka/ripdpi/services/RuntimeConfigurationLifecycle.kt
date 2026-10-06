@@ -30,7 +30,9 @@ internal class RuntimeConfigurationLifecycle
                     requestedSelection = requested.selection,
                     reason = reason.applyReason(),
                 )
-            if (store.begin(attempt, requested.identity)) session.configurationAttempt = attempt
+            session.pauseResumeIntent?.let { store.bindPauseResume(attempt, it) }
+            check(store.begin(attempt, requested.identity)) { "Configuration attempt was rejected" }
+            session.configurationAttempt = attempt
         }
 
         fun ready(
@@ -41,7 +43,7 @@ internal class RuntimeConfigurationLifecycle
             authority: ExplicitUserStartGuard?,
         ) {
             val requested = resolution.requestedConfiguration
-            val attempt = session.configurationAttempt ?: return
+            val attempt = checkNotNull(session.configurationAttempt) { "Configuration attempt was not captured" }
             val receipt = receipts.build(session, resolution, evidence, observedAt, attempt)
             val configuration = receipt.configuration
             val provisioned = receipt.provisionedRequestedIdentity
@@ -53,8 +55,12 @@ internal class RuntimeConfigurationLifecycle
                 }
             }
             if (authority == null) {
-                acknowledge()
-            } else if (!authority.runIfCurrent { acknowledge() }) {
+                check(acknowledge()) { "Runtime configuration acknowledgment rejected" }
+            } else if (!authority.runIfCurrent {
+                    check(acknowledge()) { "Runtime configuration acknowledgment rejected" }
+                    check(authority.confirmAppliedMode(session.mode)) { "Applied mode acknowledgment was superseded" }
+                }
+            ) {
                 throw kotlinx.coroutines.CancellationException("Start intent superseded before acknowledgment")
             }
         }

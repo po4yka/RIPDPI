@@ -30,7 +30,13 @@ class ServiceShellExplicitStartTest {
         runTest {
             val releaseQueue = CompletableDeferred<Unit>()
             val fixture = Fixture(this, diagnostics = { releaseQueue.await() })
-            fixture.delegate.onStartCommand(diagnosticsStartAction, 1)
+            fixture.delegate.onStartCommand(
+                diagnosticsStartAction,
+                1,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
             fixture.deliverStart(fixture.acceptStart())
             fixture.publishAwg()
@@ -84,7 +90,13 @@ class ServiceShellExplicitStartTest {
         runTest {
             val fixture = Fixture(this)
             fixture.selectedProfile = "awg-existing"
-            fixture.delegate.onStartCommand(startAction, 1)
+            fixture.delegate.onStartCommand(
+                startAction,
+                1,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
             assertEquals("awg-existing", fixture.selectedProfile)
             assertEquals(0, fixture.acceptedStarts)
@@ -98,7 +110,14 @@ class ServiceShellExplicitStartTest {
             fixture.arbiter.userStop { }
             val stopGeneration = fixture.arbiter.captureExplicitUserIntentGeneration()
             val startGeneration = fixture.acceptStart()
-            fixture.delegate.onStartCommand(stopAction, 1, explicitUserIntentGeneration = stopGeneration)
+            fixture.delegate.onStartCommand(
+                stopAction,
+                1,
+                explicitUserIntentGeneration = stopGeneration,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             fixture.deliverStart(startGeneration)
             runCurrent()
             assertEquals(startGeneration, fixture.arbiter.captureExplicitUserIntentGeneration())
@@ -109,7 +128,13 @@ class ServiceShellExplicitStartTest {
     fun `queued notification stop cannot stop a newer accepted start`() =
         runTest {
             val fixture = Fixture(this)
-            fixture.delegate.onStartCommand(notificationStopAction, 1)
+            fixture.delegate.onStartCommand(
+                notificationStopAction,
+                1,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             fixture.deliverStart(fixture.acceptStart())
             runCurrent()
             assertEquals(listOf("ordinary-start"), fixture.operations)
@@ -121,7 +146,16 @@ class ServiceShellExplicitStartTest {
             val fixture = Fixture(this)
             fixture.arbiter.userStop { }
             val generation = fixture.arbiter.captureExplicitUserIntentGeneration()
-            fixture.delegate.onStartCommand(stopAction, 1, explicitUserIntentGeneration = generation)
+            fixture.delegate.onStartCommand(
+                stopAction,
+                1,
+                explicitUserIntentGeneration = generation,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
+            runCurrent()
+            fixture.checkedStopRecorded.await()
             runCurrent()
             assertEquals(generation, fixture.arbiter.captureExplicitUserIntentGeneration())
             assertEquals(listOf("stop"), fixture.operations)
@@ -132,12 +166,24 @@ class ServiceShellExplicitStartTest {
         diagnostics: suspend () -> Unit = {},
         prepare: suspend () -> Unit = {},
     ) {
-        val arbiter = ServiceIntentArbiter()
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
+        val checkedStopRecorded = kotlinx.coroutines.CompletableDeferred<Unit>()
         val operations = mutableListOf<String>()
         var selectedProfile: String? = null
         var acceptedStarts = 0
         private val recorder =
-            AcceptedUserStopRecorder(InMemoryBootSessionStateStore(), RuntimeResumeIntentTracker(), arbiter)
+            AcceptedUserStopRecorder(
+                profileRecovery =
+                    com.poyka.ripdpi.data
+                        .testProfileRecovery(),
+                pauseAuthority = authority,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+                runtimeResumeIntentTracker = RuntimeResumeIntentTracker(authority),
+                serviceIntentArbiter = arbiter,
+            )
         val delegate =
             ServiceShellDelegate(
                 serviceScope = scope.backgroundScope,
@@ -155,7 +201,9 @@ class ServiceShellExplicitStartTest {
                 intentCallbacks =
                     ServiceShellIntentCallbacks(
                         acceptedStart = { acceptedStarts++ },
-                        acceptedStop = recorder::record,
+                        acceptedStop = { command ->
+                            recorder.record(command).also { checkedStopRecorded.complete(Unit) }
+                        },
                     ),
                 transportFailoverCommandHandler =
                     TransportFailoverCommandHandler(
@@ -172,7 +220,14 @@ class ServiceShellExplicitStartTest {
         fun acceptStart(): Long = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
 
         fun deliverStart(generation: Long) {
-            delegate.onStartCommand(startAction, 2, explicitUserIntentGeneration = generation)
+            delegate.onStartCommand(
+                startAction,
+                2,
+                explicitUserIntentGeneration = generation,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
         }
 
         fun publishAwg() {
@@ -184,6 +239,9 @@ class ServiceShellExplicitStartTest {
                     42L,
                     TransportFailoverTarget(TransportKindAmneziaWg, "awg-newer"),
                     explicitUserIntentGeneration = acceptStart(),
+                    durableReference =
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
                 )
             }
         }

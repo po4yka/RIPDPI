@@ -11,7 +11,12 @@ internal class ProfileMutationJournalRecoveryReader(
 
     suspend fun read(): RecoverablePendingMutation? {
         val pending = journal.pending() ?: return null
-        check(pending.schemaVersion == ProfileMutationIntentSchemaVersion) { "Unsupported profile mutation journal" }
+        check(
+            pending.schemaVersion in setOf(1, ProfileMutationIntentSchemaVersion),
+        ) { "Unsupported profile mutation journal" }
+        if (pending.schemaVersion == 2 && (pending.origin == null || pending.expectedPauseAuthority == null)) {
+            throw ProfileMutationJournalCorruptionException("Profile mutation provenance is missing")
+        }
         val intent = decode(pending)
         if (intent.family != pending.family) {
             throw ProfileMutationJournalCorruptionException("Profile mutation journal family mismatch")

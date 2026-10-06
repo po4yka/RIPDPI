@@ -223,7 +223,10 @@ internal class VpnServiceRuntimeCoordinator(
                             beforeFailureStatus = beforeFailureStatus,
                         )
                     },
-                    stopService = { guard -> stop(guard = guard) },
+                    stopService = { guard ->
+                        stop(guard = guard) !=
+                            com.poyka.ripdpi.services.RuntimeStopOutcome.Superseded
+                    },
                 ),
         )
     private val tunnelRefreshCoordinator =
@@ -347,6 +350,8 @@ internal class VpnServiceRuntimeCoordinator(
                 ),
             statusHooks =
                 ServiceRuntimeStatusHooks(
+                    publishConnected = ::publishConnected,
+                    reportConnected = ::reportConnected,
                     updateStatus = ::updateStatus,
                     classifyStartupFailure = ::classifyStartupFailure,
                 ),
@@ -619,7 +624,15 @@ internal class VpnServiceRuntimeCoordinator(
         expectedTarget: TransportFailoverTarget,
     ): TransportFailoverPreparation? {
         val session = currentTransportFailoverSession(requestId)
-        val resolution = session?.let { resolveTransportFailoverPolicy(requestId, expectedTarget) }
+        val resolution =
+            session?.let {
+                resolveVpnTransportFailoverPolicy(
+                    requestId,
+                    expectedTarget,
+                    transportFailoverApplyTracker,
+                    ::resolveInitialConnectionPolicy,
+                )
+            }
         return if (
             session != null &&
             resolution != null &&
@@ -644,32 +657,6 @@ internal class VpnServiceRuntimeCoordinator(
             session = currentSession
         }
         return session
-    }
-
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun resolveTransportFailoverPolicy(
-        requestId: Long,
-        expectedTarget: TransportFailoverTarget,
-    ): ConnectionPolicyResolution? {
-        val resolution =
-            try {
-                resolveInitialConnectionPolicy()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Exception) {
-                transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
-                Logger.w(error) { "Failed to resolve transport failover request=$requestId" }
-                null
-            }
-        return if (resolution?.transportFailoverTargetOrNull() == expectedTarget) {
-            resolution
-        } else {
-            resolution?.let {
-                transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)
-                Logger.w { "Resolved policy does not match transport failover request=$requestId" }
-            }
-            null
-        }
     }
 
     private suspend fun updateFailedStatusAfterRetainingProviderBarrier(
@@ -699,7 +686,7 @@ internal class VpnServiceRuntimeCoordinator(
         ) {
             beforeFailureStatus()
             retainProviderFailClosedBarrierIfActiveLocked()
-        }
+        } != com.poyka.ripdpi.services.RuntimeStopOutcome.Superseded
 
     private suspend fun retainProviderFailClosedBarrierIfActiveLocked() {
         if (xrayProviderSessionController?.isActive != true) return
@@ -722,7 +709,28 @@ internal class VpnServiceRuntimeCoordinator(
         }
         configurationLifecycle.serviceStatusChanged(runtimeSession, newStatus)
         status = newStatus
+        reportStatusEffects(newStatus, failureReason, com.poyka.ripdpi.services.ServiceStatusPublication.Apply)
+    }
+
+    private fun publishConnected() {
+        status = ServiceStatus.Connected
+        statusReporter.publishConnectedState()
+    }
+
+    private fun reportConnected() =
+        reportStatusEffects(
+            ServiceStatus.Connected,
+            null,
+            com.poyka.ripdpi.services.ServiceStatusPublication.ConnectedAlreadyPublished,
+        )
+
+    private fun reportStatusEffects(
+        newStatus: ServiceStatus,
+        failureReason: FailureReason?,
+        publication: com.poyka.ripdpi.services.ServiceStatusPublication,
+    ) {
         statusReporter.reportStatus(
+            publication,
             newStatus = newStatus,
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,

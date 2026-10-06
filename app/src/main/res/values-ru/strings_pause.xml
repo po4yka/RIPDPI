@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">Приостановить соединение</string>
+    <string name="pause_until">Пауза до %1$s</string>
+    <string name="pause_releasing">Освобождение ресурсов соединения…</string>
+    <string name="pause_resuming">Возобновление соединения…</string>
+    <string name="pause_cleanup_pending">Освобождение ресурсов не завершено. Пауза ещё не подтверждена.</string>
+    <string name="pause_deferred">Возобновление требует внимания</string>
+    <string name="pause_saved_settings">Возобновление использует этот режим с текущими сохранёнными настройками. Обычные изменения сохраняют паузу; запуск, остановка, активация или удаление профиля отменяют её.</string>
+    <string name="pause_remaining">Осталось минут: %1$s</string>
+    <string name="pause_resume_now">Возобновить сейчас</string>
+    <string name="pause_stop">Остановить и отменить возобновление</string>
+    <string name="pause_persistence_failed">Не удалось сохранить команду. Состояние соединения не изменилось.</string>
+    <string name="pause_duration_minutes">%1$s мин.</string>
+    <string name="pause_clock_failed">Часы или идентификатор загрузки изменились. Проверьте условия возобновления.</string>
+    <string name="pause_consent_required">Для возобновления нужно разрешение VPN.</string>
+    <string name="pause_lockdown">Состояние блокировки VPN в Android не разрешает это действие.</string>
+    <string name="pause_background_restricted">Android отложил фоновое возобновление. Откройте приложение.</string>
+    <string name="pause_user_stopped">Android зафиксировал остановку пользователем. Автовозобновление отключено.</string>
+    <string name="pause_resume_failed">Среда выполнения не подтвердила возобновлённую конфигурацию.</string>
+ </resources>

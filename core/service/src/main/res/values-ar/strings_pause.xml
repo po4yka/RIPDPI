@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">إيقاف الاتصال مؤقتًا</string>
+    <string name="pause_notification_until">متوقف حتى %1$s</string>
+    <string name="pause_notification_cleanup">لم يكتمل التنظيف. لم يُؤكد الإيقاف المؤقت بعد.</string>
+    <string name="pause_notification_resuming">جارٍ استئناف الاتصال…</string>
+    <string name="pause_notification_deferred">الاستئناف يحتاج إلى مراجعة</string>
+    <string name="pause_notification_resume">استئناف الآن</string>
+ </resources>

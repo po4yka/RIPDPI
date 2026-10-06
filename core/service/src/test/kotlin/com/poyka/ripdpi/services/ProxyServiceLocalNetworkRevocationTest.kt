@@ -71,7 +71,12 @@ class ProxyServiceLocalNetworkRevocationTest {
             ProxyServiceRuntimeCoordinator(
                 configurationLifecycle =
                     RuntimeConfigurationLifecycle(
-                        AppliedRuntimeConfigurationStore(),
+                        AppliedRuntimeConfigurationStore(
+                            PauseAppliedReceiptConsumer(
+                                com.poyka.ripdpi.data
+                                    .testPauseAuthority(),
+                            ),
+                        ),
                         RuntimeConfigurationIdentityFactory(),
                     ),
                 host = TestProxyServiceHost(backgroundScope),

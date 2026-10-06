@@ -10,7 +10,6 @@ import com.poyka.ripdpi.services.RunningReconnectFailure
 import com.poyka.ripdpi.services.RunningReconnectResult
 import com.poyka.ripdpi.services.RunningReconnectState
 import com.poyka.ripdpi.services.RunningServiceReconnect
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -29,7 +28,7 @@ internal class FakeAppliedRuntimeConfigurationSource : AppliedRuntimeConfigurati
 
 /** UI action test double. Positive provider readiness is exercised by core service tests. */
 internal class FakeRunningServiceReconnect(
-    private val controller: ServiceController? = null,
+    private val controller: com.poyka.ripdpi.services.TestSynchronousServiceController? = null,
     private val service: ServiceStateStore? = null,
 ) : RunningServiceReconnect {
     override val reconnectState = MutableStateFlow<RunningReconnectState>(RunningReconnectState.Idle)

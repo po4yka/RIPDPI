@@ -25,6 +25,8 @@ import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -42,7 +44,8 @@ class RipDpiProxyService :
     lateinit var serviceStateStore: ServiceStateStore
 
     @Inject
-    lateinit var rootHelperManager: RootHelperManager
+    lateinit var rootHelperManagerProvider: Provider<RootHelperManager>
+    private val rootHelperManager get() = rootHelperManagerProvider.get()
 
     @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<ProxyServiceSessionComponentBuilder>
@@ -63,7 +66,24 @@ class RipDpiProxyService :
     internal lateinit var serviceStopProvenanceRecorder: RoomServiceStopProvenanceRecorder
 
     @Inject
-    lateinit var selectorRuntimeLifecycleListeners: Set<@JvmSuppressWildcards SelectorRuntimeLifecycleListener>
+    lateinit var selectorRuntimeLifecycleListenersProvider:
+        Provider<Set<@JvmSuppressWildcards SelectorRuntimeLifecycleListener>>
+    private val selectorRuntimeLifecycleListeners get() = selectorRuntimeLifecycleListenersProvider.get()
+
+    @Inject lateinit var profileRecovery: com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
+
+    @Inject lateinit var pauseController: TimedPauseController
+
+    @Inject lateinit var pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority
+
+    private val activeOwnership = ActiveSessionOwnership()
+    private val activeSessionAttached get() = activeOwnership.hasOwnership
+
+    @Volatile private var lastPausedStartId = 0
+
+    @Volatile private var latestStartId = 0
+    private val entryMutex = kotlinx.coroutines.sync.Mutex()
+    private var destroyCleanupJob: kotlinx.coroutines.Job? = null
 
     private var sessionComponent: ProxyServiceSessionComponent? = null
     private var stateInitializer: ServiceSessionStateInitializer? = null
@@ -81,55 +101,159 @@ class RipDpiProxyService :
             NOTIFICATION_CHANNEL_ID,
             R.string.proxy_channel_name,
         )
-        sessionComponent = sessionComponentBuilderProvider.get().host(this).build()
-        val sessionEntryPoint =
-            EntryPoints.get(
-                checkNotNull(sessionComponent),
-                ProxyServiceSessionEntryPoint::class.java,
-            )
+        pauseController.attach(pauseHost)
+    }
+
+    private suspend fun ensureActiveSession() {
+        if (activeOwnership.attached) return
         runCatching {
-            val initializer = sessionEntryPoint.stateInitializer()
-            stateInitializer = initializer
-            val stateStore = initializer.initialize(Mode.Proxy)
-            val runtimeCoordinator = sessionEntryPoint.coordinator()
-            sessionStateStore = stateStore
-            coordinator = runtimeCoordinator
-            shellDelegate =
-                ServiceShellDelegate(
-                    serviceScope = lifecycleScope,
-                    serviceIntentArbiter = serviceIntentArbiter,
-                    serviceLabel = "proxy",
-                    onStart = runtimeCoordinator::start,
-                    onStartWithId = { _, startId -> runtimeCoordinator.start(stopSelfStartId = startId) },
-                    onStop = { startId, provenance ->
-                        serviceStopProvenanceRecorder.record(Mode.Proxy, provenance)
-                        runtimeCoordinator.stop(startId)
-                    },
-                    intentCallbacks =
-                        ServiceShellIntentCallbacks(
-                            acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
-                            acceptedStop = acceptedUserStopRecorder::record,
-                        ),
-                    isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
+            activeOwnership.attach {
+                activeOwnership.own { stateInitializer?.close() }
+                activeOwnership.own { coordinator?.onDestroy() }
+                activeOwnership.own { shellDelegate?.close() }
+
+                sessionComponent = sessionComponentBuilderProvider.get().host(this).build()
+                val sessionEntryPoint =
+                    EntryPoints.get(
+                        checkNotNull(sessionComponent),
+                        ProxyServiceSessionEntryPoint::class.java,
+                    )
+                runCatching {
+                    val initializer = sessionEntryPoint.stateInitializer()
+                    stateInitializer = initializer
+                    val stateStore = initializer.initialize(Mode.Proxy)
+                    val runtimeCoordinator = sessionEntryPoint.coordinator()
+                    val ownedRootHelper = rootHelperManager
+                    activeOwnership.own { ownedRootHelper.stopOnDestroy() }
+                    sessionStateStore = stateStore
+                    coordinator = runtimeCoordinator
+                    shellDelegate =
+                        ServiceShellDelegate(
+                            serviceScope = lifecycleScope,
+                            serviceIntentArbiter = serviceIntentArbiter,
+                            serviceLabel = "proxy",
+                            onStart = runtimeCoordinator::start,
+                            onStartWithId = { _, startId -> runtimeCoordinator.start(stopSelfStartId = startId) },
+                            onStop = { startId, provenance ->
+                                serviceStopProvenanceRecorder.record(Mode.Proxy, provenance)
+                                runtimeCoordinator.stop(startId)
+                            },
+                            intentCallbacks =
+                                ServiceShellIntentCallbacks(
+                                    acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
+                                    acceptedStop = acceptedUserStopRecorder::record,
+                                ),
+                            isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
+                        )
+                }.getOrThrow()
+                selectorRuntimeLifecycleListeners.forEach { listener ->
+                    activeOwnership.own { listener.stop(Mode.Proxy) }
+                    listener.start(Mode.Proxy)
+                }
+            }
+        }.onFailure { failure ->
+            if (failure !is Exception) throw failure
+            if (activeOwnership.hasOwnership) {
+                pauseController.retainPartialCleanup(
+                    pauseHost,
                 )
-        }.onFailure {
-            stateInitializer?.close()
-            clearSessionReferences()
+            } else {
+                clearSessionReferences()
+            }
         }.getOrThrow()
-        selectorRuntimeLifecycleListeners.forEach { it.start(Mode.Proxy) }
+    }
+
+    /** Called only under entryMutex; native and ancillary ownership must both be released. */
+    private suspend fun releaseActiveSession(guard: RuntimeStopGuard): RuntimeStopOutcome =
+        when {
+            !guard.isCurrent() -> {
+                RuntimeStopOutcome.Superseded
+            }
+
+            !activeSessionAttached -> {
+                RuntimeStopOutcome.FullyReleased
+            }
+
+            !activeOwnership.attached -> {
+                activeOwnership.release().also {
+                    if (it ==
+                        RuntimeStopOutcome.FullyReleased
+                    ) {
+                        clearSessionReferences()
+                    }
+                }
+            }
+
+            else -> {
+                val result =
+                    checkNotNull(coordinator).stop(
+                        guard = guard,
+                        disposition = RuntimeStopDisposition.RetainPausedShell,
+                    )
+                val outcome = if (result == RuntimeStopOutcome.FullyReleased) activeOwnership.release() else result
+                if (outcome == RuntimeStopOutcome.FullyReleased) clearSessionReferences()
+                outcome
+            }
+        }
+
+    private val pauseHost by lazy {
+        PausedServiceHost(
+            identity = this,
+            mode = Mode.Proxy,
+            scope = serviceScope,
+            release = { intent ->
+                entryMutex.withLock {
+                    releaseActiveSession(RuntimeStopGuard(isCurrent = { pauseAuthority.isCurrent(intent) }))
+                }
+            },
+            resume = { intent ->
+                entryMutex.withLock {
+                    if (pauseAuthority.isCurrent(intent)) {
+                        ensureActiveSession()
+                        checkNotNull(coordinator).start()
+                    }
+                }
+            },
+            showPaused = { intent ->
+                lastPausedStartId = latestStartId
+                startPausedForeground(this, intent, NOTIFICATION_CHANNEL_ID, FOREGROUND_SERVICE_ID)
+            },
+            stopShell = { lease ->
+                entryMutex.withLock {
+                    val guard = RuntimeStopGuard(isCurrent = { serviceIntentArbiter.isCurrent(lease) })
+                    val outcome = releaseActiveSession(guard)
+                    if (outcome == RuntimeStopOutcome.FullyReleased && guard.isCurrent()) stopSelf()
+                    if (guard.isCurrent()) outcome else RuntimeStopOutcome.Superseded
+                }
+            },
+            discardIdleShell = { old ->
+                entryMutex.withLock {
+                    if (!activeSessionAttached && pauseAuthority.snapshot() == null) {
+                        if (pauseAuthority.reference().generation != old.generation && lastPausedStartId > 0) {
+                            stopSelfResult(lastPausedStartId)
+                        }
+                    }
+                }
+            },
+        )
     }
 
     override fun onDestroy() {
-        selectorRuntimeLifecycleListeners.forEach { it.stop(Mode.Proxy) }
+        pauseController.detach(this)
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
-        try {
-            coordinator?.onDestroy()
-            rootHelperManager.stopOnDestroy()
-        } finally {
-            stateInitializer?.close()
-            clearSessionReferences()
-            super.onDestroy()
-        }
+        destroyCleanupJob =
+            kotlinx.coroutines
+                .CoroutineScope(
+                    kotlinx.coroutines.Dispatchers.IO,
+                ).launch(kotlinx.coroutines.NonCancellable) {
+                    entryMutex.withLock {
+                        val outcome = releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
+                        if (outcome != RuntimeStopOutcome.FullyReleased) {
+                            Logger.e { "Proxy destruction retained cleanup ownership" }
+                        }
+                    }
+                }
+        super.onDestroy()
     }
 
     override fun onStartCommand(
@@ -138,6 +262,66 @@ class RipDpiProxyService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        latestStartId = startId
+        startForegroundService()
+        serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                entryMutex.withLock {
+                    profileRecovery.recover()
+                    if (!pauseController.handleShellStart(pauseHost, intent)) dispatchAfterRecovery(intent, startId)
+                }
+            }.onFailure { failure ->
+                if (failure !is Exception || failure is kotlinx.coroutines.CancellationException) throw failure
+                Logger.e { "Proxy recovery prerequisite failed: ${failure::class.java.simpleName}" }
+                if (activeOwnership.hasOwnership) {
+                    pauseController.retainPartialCleanup(pauseHost)
+                } else {
+                    stopSelf(startId)
+                }
+            }
+        }
+        return START_STICKY
+    }
+
+    private suspend fun dispatchAfterRecovery(
+        intent: Intent?,
+        startId: Int,
+    ): Int {
+        val action = intent?.action
+        return when {
+            intent.hasStaleServiceCommand(serviceIntentArbiter) -> {
+                START_STICKY
+            }
+
+            action == TimedPauseController.PauseRestoreAction ||
+                (isUserServiceStopAction(action) && !activeSessionAttached) -> {
+                discardIdleStart(startId)
+            }
+
+            isServiceRecoveryStartAction(action) &&
+                !pauseAuthority.allowsRecovery(
+                    intent.durableAuthorityReference() ?: pauseAuthority.reference(),
+                    Mode.Proxy,
+                ) -> {
+                discardIdleStart(startId)
+            }
+
+            else -> {
+                dispatchActiveCommand(intent, startId)
+            }
+        }
+    }
+
+    private fun discardIdleStart(startId: Int): Int {
+        if (!activeSessionAttached) stopSelf(startId)
+        return if (activeSessionAttached) START_STICKY else START_NOT_STICKY
+    }
+
+    private suspend fun dispatchActiveCommand(
+        intent: Intent?,
+        startId: Int,
+    ): Int {
+        ensureActiveSession()
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.StartCommand)
         runtimeEvidenceReporter.runForegroundCall(
             Mode.Proxy,
@@ -160,6 +344,7 @@ class RipDpiProxyService :
             intent?.action,
             startId,
             explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
+            durableReference = intent.durableAuthorityReference() ?: pauseAuthority.reference(),
         )
     }
 

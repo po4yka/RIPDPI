@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">暂停连接</string>
+    <string name="pause_notification_until">暂停至 %1$s</string>
+    <string name="pause_notification_cleanup">资源清理尚未完成，暂停尚未确认。</string>
+    <string name="pause_notification_resuming">正在恢复连接…</string>
+    <string name="pause_notification_deferred">恢复连接需要处理</string>
+    <string name="pause_notification_resume">立即恢复</string>
+ </resources>

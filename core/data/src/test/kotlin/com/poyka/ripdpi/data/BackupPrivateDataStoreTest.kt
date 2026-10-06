@@ -50,6 +50,9 @@ class BackupPrivateDataStoreTest {
         val xraySelection = SharedPreferencesXrayProviderSelectionStore(context)
         val profileMutations =
             ProfileMutationRecoveryCoordinator(
+                pauseAuthority =
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
                 mutationGeneration = ProfileMutationGenerationPublisher(),
                 stores =
                     ProfileMutationStores(
@@ -126,7 +129,14 @@ class BackupPrivateDataStoreTest {
                         ),
                 )
 
-            store.replaceAll(expected)
+            store.replaceAll(
+                com.poyka.ripdpi.data.ProfileMutationPreparation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+                ),
+                expected,
+            )
 
             assertEquals(expected, store.snapshot())
             assertTrue(warpEndpoints.loadAll("old-warp").isEmpty())

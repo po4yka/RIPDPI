@@ -2,7 +2,10 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -10,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelStore
 import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.ReadyAppStartupReadiness
@@ -53,11 +57,43 @@ import java.util.concurrent.CopyOnWriteArrayList
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35])
 class MainActivityContentTest {
+    private var pauseVmCreations = 0
+
     @get:Rule
     val composeRule = createComposeRule()
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    @Composable
+    private fun rememberPauseViewModelForTest(): HomePauseViewModel {
+        val store = remember { ViewModelStore() }
+        val pauseViewModel =
+            remember {
+                pauseVmCreations += 1
+                val authority =
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority()
+                val state =
+                    com.poyka.ripdpi.data
+                        .DefaultServiceStateStore()
+                val controller =
+                    com.poyka.ripdpi.services.TimedPauseController(
+                        RuntimeEnvironment.getApplication(),
+                        authority,
+                        com.poyka.ripdpi.data
+                            .TestBackupMutationCoordinator(),
+                        state,
+                        com.poyka.ripdpi.services
+                            .LiveVpnLockdownReader(),
+                        com.poyka.ripdpi.services
+                            .ServiceIntentArbiter(authority),
+                    )
+                HomePauseViewModel(controller, authority, state).also { store.put("pause", it) }
+            }
+        DisposableEffect(store) { onDispose { store.clear() } }
+        return pauseViewModel
+    }
 
     @Test
     fun `composition initializes the view model once`() {
@@ -69,6 +105,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             recomposeTrigger.intValue
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -98,6 +135,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview =
                     androidx.compose.runtime.remember {
                         createExportPreviewForTest()
@@ -109,10 +147,12 @@ class MainActivityContentTest {
         composeRule.waitForIdle()
 
         assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+        assertEquals(0, pauseVmCreations)
         composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryPending).assertIsDisplayed()
 
         composeRule.runOnIdle { readiness.state.value = AppStartupReadinessState.Ready }
         composeRule.waitUntil(timeoutMillis = 5_000) { permissionStatusProvider.currentSnapshotCalls > 0 }
+        composeRule.waitUntil(timeoutMillis = 5_000) { pauseVmCreations == 1 }
     }
 
     @Test
@@ -128,6 +168,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview =
                     androidx.compose.runtime.remember {
                         createExportPreviewForTest()
@@ -139,6 +180,7 @@ class MainActivityContentTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryFailure).assertIsDisplayed()
         assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+        assertEquals(0, pauseVmCreations)
         composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryRetry).performClick()
         composeRule.waitForIdle()
 
@@ -164,6 +206,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -196,6 +239,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -245,6 +289,7 @@ class MainActivityContentTest {
             )
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -266,6 +311,7 @@ class MainActivityContentTest {
         val viewModel = createViewModel()
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -293,6 +339,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,

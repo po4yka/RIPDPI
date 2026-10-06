@@ -159,7 +159,14 @@ class VpnTunnelRefreshCoordinatorTest {
                 coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)
                 assertEquals(2, events.count { it == "vpn:establish" })
 
-                groups.delete("group-1")
+                groups.delete(
+                    com.poyka.ripdpi.data.ProfileMutationPreparation(
+                        com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                    ),
+                    "group-1",
+                )
                 resolver.enqueue(refreshResolution(runtime, initialSettings))
                 sessionProvider.session = TestVpnTunnelSession(tunFd = 9, events = events)
                 coordinator.refreshIfNeeded(session, interfacePolicyChangeObserved = true)

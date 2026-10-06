@@ -1,13 +1,10 @@
 package com.poyka.ripdpi.proxyimport
 
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,13 +31,11 @@ class RelayProfileActivator
     constructor(
         private val profileMutations: ProfileMutationCoordinator,
     ) {
-        constructor(
-            relayProfileStore: RelayProfileStore,
-            relayCredentialStore: RelayCredentialStore,
-            settingsRepository: AppSettingsRepository,
-        ) : this(DirectRelayProfileMutationCoordinator(relayProfileStore, relayCredentialStore, settingsRepository))
+        suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
+            profileMutations.captureMutation(origin)
 
         suspend fun activate(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
             tlsFingerprintOverride: String? = null,
@@ -48,114 +43,16 @@ class RelayProfileActivator
             xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
         ): Boolean {
             val mapped = mapRelayProfile(profile, profileId, tlsFingerprintOverride) ?: return false
-            profileMutations.upsertRelay(
-                profile = mapped.profile,
-                credentials = mapped.credentials,
-                enabled = true,
-                select = true,
-                modeAfterImage = modeAfterImage,
-                xraySelectionAfterImage = xraySelectionAfterImage,
-            )
-            return true
+            val outcome =
+                profileMutations.upsertRelay(
+                    preparation,
+                    profile = mapped.profile,
+                    credentials = mapped.credentials,
+                    enabled = true,
+                    select = true,
+                    modeAfterImage = modeAfterImage,
+                    xraySelectionAfterImage = xraySelectionAfterImage,
+                )
+            return outcome !is com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded
         }
     }
-
-private class DirectRelayProfileMutationCoordinator(
-    private val profiles: RelayProfileStore,
-    private val credentials: RelayCredentialStore,
-    private val settings: AppSettingsRepository,
-) : ProfileMutationCoordinator {
-    override fun warpRuntimeRevision(profileId: String): Long = 0L
-
-    override suspend fun recover() = Unit
-
-    override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
-
-    override suspend fun runReset(block: suspend () -> Unit) = block()
-
-    override suspend fun upsertRelay(
-        profile: RelayProfileRecord,
-        credentials: RelayCredentialRecord,
-        enabled: Boolean,
-        select: Boolean,
-        settingsAfterImage: com.poyka.ripdpi.proto.AppSettings?,
-        modeAfterImage: String?,
-        xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
-        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
-    ) {
-        if (expectedState != null) {
-            require(
-                profiles.load(profile.id) == expectedState.profile &&
-                    this.credentials.load(profile.id) == expectedState.credentials,
-            )
-        }
-        profiles.save(profile)
-        this.credentials.save(credentials)
-        check(xraySelectionAfterImage == null) { "Direct relay activation cannot update Xray provider selection" }
-        if (settingsAfterImage != null) {
-            settings.replace(settingsAfterImage)
-        } else if (select || modeAfterImage != null) {
-            settings.update {
-                setRelayEnabled(enabled)
-                setRelayKind(profile.kind)
-                setRelayProfileId(profile.id)
-                setRelayServer(profile.server)
-                setRelayServerPort(profile.serverPort)
-                setRelayServerName(profile.serverName)
-                setRelayRealityPublicKey(profile.realityPublicKey)
-                setRelayRealityShortId(profile.realityShortId)
-                setRelayVlessTransport(profile.vlessTransport)
-                setRelayXhttpPath(profile.xhttpPath)
-                setRelayXhttpHost(profile.xhttpHost)
-                setRelayXhttpMode(profile.xhttpMode)
-                setRelayUdpEnabled(profile.udpEnabled)
-                setRelayMieruProtocol(profile.mieruProtocol)
-                setRelayMieruMultiplexing(profile.mieruMultiplexing)
-                setRelayMieruMtu(profile.mieruMtu)
-                setRelaySshAuthType(profile.sshAuthType)
-                setRelaySshHostKeyFingerprint(profile.sshHostKeyFingerprint)
-                setRelaySshStrictHostKey(profile.sshStrictHostKey)
-                modeAfterImage?.let(::setRipdpiMode)
-            }
-        }
-    }
-
-    override suspend fun upsertAwg(
-        profile: com.poyka.ripdpi.data.awg.AwgProfileEntity,
-        secrets: com.poyka.ripdpi.data.awg.AwgSecrets,
-    ) = unsupported()
-
-    override suspend fun deleteAwg(profileId: String) = unsupported()
-
-    override suspend fun upsertWarp(
-        profile: com.poyka.ripdpi.data.WarpProfile,
-        credentials: com.poyka.ripdpi.data.WarpCredentials,
-        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
-        activate: Boolean,
-        scannerMode: String,
-    ) = unsupported()
-
-    override suspend fun upsertWarpForRuntimeProvisioning(
-        profile: com.poyka.ripdpi.data.WarpProfile,
-        credentials: com.poyka.ripdpi.data.WarpCredentials,
-        endpoints: List<com.poyka.ripdpi.data.WarpEndpointCacheEntry>,
-        activate: Boolean,
-        scannerMode: String,
-        expectedCredentials: com.poyka.ripdpi.data.WarpCredentials,
-        expectedRevision: Long,
-    ): Boolean = unsupported()
-
-    override suspend fun deleteWarp(
-        profileId: String,
-        clearActive: Boolean,
-    ) = unsupported()
-
-    override suspend fun deactivateWarp(profileId: String) = unsupported()
-
-    override suspend fun replacePrivateBackup(
-        data: com.poyka.ripdpi.data.backup.BackupPrivateDataV1,
-        rollbackData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
-    ) = unsupported()
-
-    private fun unsupported(): Nothing = error("Only Relay mutations are supported")
-}

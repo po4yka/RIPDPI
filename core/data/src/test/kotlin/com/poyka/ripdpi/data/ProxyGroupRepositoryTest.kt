@@ -14,7 +14,11 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyGroupRepositoryTest {
     private fun newRepository(): SharedPreferencesProxyGroupRepository =
-        SharedPreferencesProxyGroupRepository(FakeProxyGroupBlobStore())
+        SharedPreferencesProxyGroupRepository(
+            FakeProxyGroupBlobStore(),
+            com.poyka.ripdpi.data
+                .testMutationPreparationSource(),
+        )
 
     private fun group(
         id: String,
@@ -85,7 +89,14 @@ class ProxyGroupRepositoryTest {
             repository.add(group("g1"))
             repository.add(group("g2"))
 
-            repository.delete("g1")
+            repository.delete(
+                com.poyka.ripdpi.data.ProfileMutationPreparation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+                ),
+                "g1",
+            )
 
             assertEquals(listOf("g2"), repository.list().map(ProxyGroup::id))
             assertNull(repository.list().firstOrNull { it.id == "g1" })
@@ -95,7 +106,12 @@ class ProxyGroupRepositoryTest {
     fun `package rules survive reload and disappear with their group`() =
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
-            val first = SharedPreferencesProxyGroupRepository(blobStore)
+            val first =
+                SharedPreferencesProxyGroupRepository(
+                    blobStore,
+                    com.poyka.ripdpi.data
+                        .testMutationPreparationSource(),
+                )
             val rule =
                 PackageRoutingRule(
                     packageName = "com.persisted.app",
@@ -104,11 +120,28 @@ class ProxyGroupRepositoryTest {
                 )
             first.add(group("g1").copy(packageRoutingRules = listOf(rule)))
 
-            val reloaded = SharedPreferencesProxyGroupRepository(blobStore)
+            val reloaded =
+                SharedPreferencesProxyGroupRepository(
+                    blobStore,
+                    com.poyka.ripdpi.data
+                        .testMutationPreparationSource(),
+                )
             assertEquals(listOf(rule), reloaded.list().single().packageRoutingRules)
 
-            reloaded.delete("g1")
-            val afterDelete = SharedPreferencesProxyGroupRepository(blobStore)
+            reloaded.delete(
+                com.poyka.ripdpi.data.ProfileMutationPreparation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+                ),
+                "g1",
+            )
+            val afterDelete =
+                SharedPreferencesProxyGroupRepository(
+                    blobStore,
+                    com.poyka.ripdpi.data
+                        .testMutationPreparationSource(),
+                )
             assertTrue(afterDelete.list().isEmpty())
         }
 
@@ -126,7 +159,14 @@ class ProxyGroupRepositoryTest {
                 repository.update(group("g1").copy(name = "renamed"))
                 assertEquals("renamed", awaitItem().single().name)
 
-                repository.delete("g1")
+                repository.delete(
+                    com.poyka.ripdpi.data.ProfileMutationPreparation(
+                        com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                        com.poyka.ripdpi.data
+                            .PauseAuthorityRef(0),
+                    ),
+                    "g1",
+                )
                 assertEquals(emptyList<ProxyGroup>(), awaitItem())
 
                 cancelAndIgnoreRemainingEvents()

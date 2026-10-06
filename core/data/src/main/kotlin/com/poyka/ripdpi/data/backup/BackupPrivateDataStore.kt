@@ -22,17 +22,10 @@ import javax.inject.Singleton
 interface BackupPrivateDataStore {
     suspend fun snapshot(): BackupPrivateDataV1
 
-    suspend fun replaceAll(data: BackupPrivateDataV1)
-
-    companion object {
-        /** Test/default seam for callers that exercise only the legacy group-backed section. */
-        val Empty: BackupPrivateDataStore =
-            object : BackupPrivateDataStore {
-                override suspend fun snapshot(): BackupPrivateDataV1 = BackupPrivateDataV1()
-
-                override suspend fun replaceAll(data: BackupPrivateDataV1) = Unit
-            }
-    }
+    suspend fun replaceAll(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        data: BackupPrivateDataV1,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome
 }
 
 /** Production implementation with preimage compensation around the heterogeneous stores. */
@@ -86,10 +79,13 @@ class DefaultBackupPrivateDataStore
             )
         }
 
-        override suspend fun replaceAll(data: BackupPrivateDataV1) {
+        override suspend fun replaceAll(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            data: BackupPrivateDataV1,
+        ): com.poyka.ripdpi.data.ProfileMutationOutcome {
             data.validate()
             val preimage = snapshot()
-            profileMutations.replacePrivateBackup(data, rollbackData = preimage)
+            return profileMutations.replacePrivateBackup(preparation, data, rollbackData = preimage)
         }
 
         private fun BackupPrivateDataV1.validate() = validateBackupPrivateData()

@@ -46,6 +46,7 @@ class ProfileImportConfirmViewModel
     @Inject
     constructor(
         private val repository: ProxyGroupRepository,
+        private val profileMutations: com.poyka.ripdpi.data.PauseMutationPreparationSource,
         private val relayActivator: RelayProfileActivator,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ProfileImportConfirmUiState())
@@ -104,23 +105,46 @@ class ProfileImportConfirmViewModel
                 val groupId = UUID.randomUUID().toString()
                 val result =
                     validateNativeRelayProfileResult(profile).mapCatching {
-                        repository.add(
-                            ProxyGroup(
-                                id = groupId,
-                                name = profile.displayName,
-                                type = ProxyGroupType.BASIC,
-                                order = nextOrder(),
-                                isSelector = false,
-                                subscription = null,
-                            ),
-                        )
-                        relayActivator.activate(profile).also { activated ->
-                            if (!activated) {
-                                // Roll back the phantom group so a dead-end import
-                                // does not accumulate a non-working entry.
-                                repository.delete(groupId)
+                        val preparation =
+                            profileMutations.captureMutation(
+                                com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                            )
+                        val order = nextOrder()
+                        runCatching {
+                            repository.add(
+                                ProxyGroup(
+                                    id = groupId,
+                                    name = profile.displayName,
+                                    type = ProxyGroupType.BASIC,
+                                    order = order,
+                                    isSelector = false,
+                                    subscription = null,
+                                ),
+                            )
+                            relayActivator.activate(preparation, profile).also { activated ->
+                                if (!activated) {
+                                    repository.delete(
+                                        profileMutations.captureMutation(
+                                            com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                                        ),
+                                        groupId,
+                                    )
+                                }
                             }
-                        }
+                        }.onFailure { failure ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                                runCatching {
+                                    repository.delete(
+                                        profileMutations.captureMutation(
+                                            com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                                        ),
+                                        groupId,
+                                    )
+                                }.exceptionOrNull()?.let { cleanupFailure ->
+                                    if (cleanupFailure !== failure) failure.addSuppressed(cleanupFailure)
+                                }
+                            }
+                        }.getOrThrow()
                     }
                 _uiState.update {
                     result.fold(

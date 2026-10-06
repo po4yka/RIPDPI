@@ -92,7 +92,10 @@ data class XrayProviderSelection(
  * activate the relay exactly as before.
  */
 interface XrayNativeProviderSelection {
-    suspend fun selectNativeMode(mode: Mode)
+    suspend fun selectNativeMode(
+        origin: com.poyka.ripdpi.data.ProfileMutationOrigin,
+        mode: Mode,
+    )
 }
 
 class DefaultXrayProfilePersistence
@@ -180,6 +183,7 @@ class DefaultXrayProfilePersistence
                         "Xray provider selected without a validated profile"
                     }
                 xrayProviderMutations.upsertXrayProvider(
+                    profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
                     profileId = DefaultXrayProfileId,
                     profile = profile,
                     selection =
@@ -193,23 +197,28 @@ class DefaultXrayProfilePersistence
                 // libXray owns the connection: no native relay activation.
                 return
             }
-            persistNativeOption(option, profiles)
+            persistNativeOption(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation, option, profiles)
         }
 
-        override suspend fun selectNativeMode(mode: Mode) {
+        override suspend fun selectNativeMode(
+            origin: com.poyka.ripdpi.data.ProfileMutationOrigin,
+            mode: Mode,
+        ) {
             val option =
                 if (mode == Mode.Proxy) {
                     XrayServiceModeOption.NativeProxy
                 } else {
                     XrayServiceModeOption.NativeDirect
                 }
-            persistNativeOption(option, emptyList())
+            persistNativeOption(origin, option, emptyList())
         }
 
         private suspend fun persistNativeOption(
+            origin: com.poyka.ripdpi.data.ProfileMutationOrigin,
             option: XrayServiceModeOption,
             profiles: List<ProxyProfile>,
         ) {
+            val preparation = profileMutations.captureMutation(origin)
             // Native options: clear only the active provider selection so the service
             // layer does not branch onto the libXray runner. Keep the durable Xray
             // profile available for an explicit switch back/recreated ViewModel.
@@ -223,11 +232,13 @@ class DefaultXrayProfilePersistence
             val nativeProfile = profiles.firstOrNull { relayActivator.supports(it) }
             if (nativeProfile == null) {
                 xrayProviderMutations.selectNativeProvider(
+                    preparation,
                     selection = nativeSelection,
                     modeAfterImage = mode.preferenceValue,
                 )
             } else {
                 relayActivator.activate(
+                    preparation,
                     profile = nativeProfile,
                     modeAfterImage = mode.preferenceValue,
                     xraySelectionAfterImage = nativeSelection,

@@ -185,7 +185,12 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                     Logger.d { "$label starting; runtime mode = $projection" }
                     if (runtimeWasRunning) {
                         runtimeControlPlane.execute(
-                            RuntimeControlCommand.StopRuntime(RuntimeControlReason.DiagnosticsRawPathScan),
+                            RuntimeControlCommand.StopRuntime(
+                                RuntimeControlReason.DiagnosticsRawPathScan,
+                                com.poyka.ripdpi.service.runtime.control.RuntimeControlStopOwnership.Captured(
+                                    resumeLease.durableAuthority,
+                                ),
+                            ),
                         )
                         checkNotNull(rawPathWindow).stopIssued = true
                         waitForStatus(AppStatus.Halted)
@@ -308,7 +313,7 @@ internal class DefaultDiagnosticsRuntimeCoordinator
                 }
                 val startResult =
                     runtimeResumeIntentTracker.runIfOwned(resumeLease) {
-                        serviceController.startForDiagnostics(mode)
+                        serviceController.startForDiagnostics(mode, resumeLease.durableAuthority)
                     }
                 when {
                     startResult == null -> {
@@ -447,7 +452,9 @@ internal class DefaultDiagnosticsRuntimeCoordinator
             val stopped =
                 waitState.compensatedGeneration == ownership.generation ||
                     runtimeResumeIntentTracker.runCompensatingStopIfCurrent(ownership) {
-                        serviceController.stopForDiagnosticsCompensation()
+                        serviceController.stopForDiagnosticsCompensation(
+                            ownership.durableAuthority,
+                        )
                     }
             return ResumeWaitState(
                 resolved = serviceStateStore.status.value.first == AppStatus.Halted,

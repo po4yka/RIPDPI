@@ -76,8 +76,7 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
                         hooks.startHooks.startModeTelemetryUpdates(::replaceTelemetryJob)
                     },
                     onAfterStopCleanup = hooks.stopHooks.onAfterStopCleanup,
-                    updateStatus = hooks.statusHooks.updateStatus,
-                    classifyStartupFailure = hooks.statusHooks.classifyStartupFailure,
+                    statusHooks = hooks.statusHooks,
                 ),
         )
 
@@ -96,10 +95,12 @@ internal class ServiceRuntimeSessionLifecycle<TSession>(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
+        disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
     ) = startStopOrchestrator.stop(
         stopSelfStartId = stopSelfStartId,
         skipRuntimeShutdown = skipRuntimeShutdown,
         guard = guard,
+        disposition = disposition,
     )
 
     suspend fun failAndStop(

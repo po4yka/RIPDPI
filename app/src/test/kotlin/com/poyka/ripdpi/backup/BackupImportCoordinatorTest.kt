@@ -446,7 +446,13 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val repository =
                 object : ProxyGroupRepository by MutableGroupRepository() {
-                    override suspend fun replaceAll(groups: List<ProxyGroup>): Unit = throw IOException("boom")
+                    override suspend fun replaceAll(
+                        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+                        groups: List<ProxyGroup>,
+                    ): Unit = throw IOException("boom")
+
+                    override suspend fun compensateReplacement(groups: List<ProxyGroup>): Unit =
+                        throw IOException("rollback boom")
                 }
             val h = harness(groupRepository = repository)
             h.coordinator.openImport { json.byteInputStream() }
@@ -508,7 +514,10 @@ class BackupImportCoordinatorTest {
             val cancellation = CancellationException("cancelled")
             val repository =
                 object : ProxyGroupRepository by MutableGroupRepository() {
-                    override suspend fun replaceAll(groups: List<ProxyGroup>): Unit = throw cancellation
+                    override suspend fun replaceAll(
+                        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+                        groups: List<ProxyGroup>,
+                    ): Unit = throw cancellation
                 }
             val h = harness(groupRepository = repository)
             h.coordinator.openImport { json.byteInputStream() }
@@ -551,6 +560,12 @@ class BackupImportCoordinatorTest {
                 groupRepository = groupRepository,
                 ruleDao = FakeRuleDao(),
                 settingsRepository = FakeAppSettingsRepository(),
+                privateDataStore =
+                    com.poyka.ripdpi.data
+                        .testEmptyBackupPrivateDataStore(),
+                profileMutations =
+                    com.poyka.ripdpi.data
+                        .TestBackupMutationCoordinator(),
             )
         val dispatcher = StandardTestDispatcher(testScheduler)
         val coordinator =
@@ -623,11 +638,26 @@ class BackupImportCoordinatorTest {
 
         override suspend fun update(group: ProxyGroup) = Unit
 
-        override suspend fun delete(id: String) = Unit
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            replaceAll(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                groups,
+            )
+        }
+
+        override suspend fun delete(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            id: String,
+        ) = Unit
 
         override suspend fun list(): List<ProxyGroup> = groups.toList()
 
-        override suspend fun replaceAll(groups: List<ProxyGroup>) {
+        override suspend fun replaceAll(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) {
             this.groups.clear()
             this.groups.addAll(groups)
             state.value = this.groups.toList()

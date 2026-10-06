@@ -148,7 +148,12 @@ class SshProfileViewModel
                     runCatching {
                         val original = editingDraft
                         if (original == null) {
-                            relayActivator.activate(profile)
+                            relayActivator.activate(
+                                relayActivator.captureMutation(
+                                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                                ),
+                                profile,
+                            )
                         } else {
                             val authChanged = profile.authType != original.relaySshAuthType
                             relayArtifacts.persist(

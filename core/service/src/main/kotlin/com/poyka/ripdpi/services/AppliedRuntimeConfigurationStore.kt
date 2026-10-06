@@ -19,7 +19,9 @@ import javax.inject.Singleton
 @Singleton
 internal class AppliedRuntimeConfigurationStore
     @Inject
-    constructor() : AppliedRuntimeConfigurationSource {
+    constructor(
+        private val pauseReceipts: PauseAppliedReceiptConsumer,
+    ) : AppliedRuntimeConfigurationSource {
         private val lock = Any()
         private val applicationState =
             MutableStateFlow<Map<Mode, RuntimeConfigurationApplication>>(
@@ -41,6 +43,11 @@ internal class AppliedRuntimeConfigurationStore
         fun observeSavedConfiguration(observer: SavedRuntimeConfigurationObserver) {
             observer.observe(this)
         }
+
+        fun bindPauseResume(
+            attempt: RuntimeConfigurationAttempt,
+            intent: com.poyka.ripdpi.data.PauseIntent,
+        ) = synchronized(lock) { pauseReceipts.bind(attempt, intent) }
 
         fun begin(
             attempt: RuntimeConfigurationAttempt,
@@ -78,6 +85,7 @@ internal class AppliedRuntimeConfigurationStore
                 ) {
                     false
                 } else {
+                    if (!pauseReceipts.acknowledge(attempt)) return@synchronized false
                     lastAcknowledged[attempt.mode] = configuration
                     acknowledgedIdentities[attempt.mode] = checkNotNull(requestedIdentities[attempt.mode])
                     applicationState.value = applicationState.value +
@@ -127,6 +135,7 @@ internal class AppliedRuntimeConfigurationStore
             mode: Mode,
             runtimeId: String,
         ) = synchronized(lock) {
+            pauseReceipts.stopped(runtimeId)
             revokedRuntimes += runtimeId
             if (attempts[mode]?.runtimeId == runtimeId) {
                 if (applicationState.value[mode] !is RuntimeConfigurationApplication.Failed) {

@@ -66,7 +66,6 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.RunningReconnectDispatch
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
@@ -116,56 +115,93 @@ class FakeInstrumentedAppSettingsRepository(
 }
 
 class RecordingInstrumentedServiceController :
-    ServiceController,
+    com.poyka.ripdpi.services.TestSynchronousServiceController(),
     StartupFallbackController,
     VpnTransportActivationController,
     RunningReconnectDispatch {
-    val intentArbiter = ServiceIntentArbiter()
+    val intentArbiter = ServiceIntentArbiter(testAuthority)
     val startedModes = CopyOnWriteArrayList<Mode>()
     val transportStarts = CopyOnWriteArrayList<Pair<Long, TransportFailoverTarget>>()
     var preflightRejection: ServiceStartRejectionReason? = null
     var stopCount: Int = 0
         private set
 
-    override fun start(mode: Mode): ServiceStartResult =
-        intentArbiter.userStart(
-            action = { recordStart(mode) },
-            isAccepted = { it is ServiceStartResult.Accepted },
-        )
+    override fun recordStart(mode: Mode): ServiceStartResult {
+        startedModes += mode
+        return ServiceStartResult.Accepted(mode)
+    }
 
-    override fun stop() {
-        intentArbiter.userStop { stopCount += 1 }
+    override fun recordStop() {
+        stopCount += 1
+    }
+
+    override fun startPrepared(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    ): ServiceStartResult {
+        if (intentArbiter.dispatchExplicit(receipt) == null) {
+            return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.Superseded)
+        }
+        return recordStart(mode)
+    }
+
+    override fun stopPrepared(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean {
+        if (intentArbiter.dispatchExplicit(receipt) == null) return false
+        recordStop()
+        return true
+    }
+
+    override fun finishOwnedRuntime(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean {
+        if (!testAuthority.finishOwnedRuntime(receipt)) return false
+        return stopPrepared(receipt)
     }
 
     override fun preflight(mode: Mode): ServiceStartResult =
         preflightRejection?.let { ServiceStartResult.Rejected(mode, it) } ?: ServiceStartResult.Accepted(mode)
 
-    override fun stopIfCurrent(generation: Long): Boolean =
-        intentArbiter.runIfExplicitUserIntentCurrent(generation) {
-            stopCount += 1
-            true
-        } ?: false
+    override fun stopIfCurrent(lease: com.poyka.ripdpi.services.ServiceDispatchLease): Boolean {
+        if (!intentArbiter.isCurrent(lease)) return false
+        recordStop()
+        return true
+    }
 
     override fun startIfCurrent(
         mode: Mode,
-        generation: Long,
-    ): ServiceStartResult? = intentArbiter.runIfExplicitUserIntentCurrent(generation) { recordStart(mode) }
+        lease: com.poyka.ripdpi.services.ServiceDispatchLease,
+    ): ServiceStartResult? = if (intentArbiter.isCurrent(lease)) recordStart(mode) else null
 
-    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult =
-        StartupFallbackDispatchResult.Dispatched(recordStart(Mode.VPN))
+    override fun captureStartupFallbackLease(): StartupFallbackLease =
+        RecordingStartupFallbackLease(
+            intentArbiter.captureExplicitUserIntentGeneration(),
+            testAuthority.reference(),
+        )
+
+    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+        val captured = lease as? RecordingStartupFallbackLease ?: return StartupFallbackDispatchResult.Superseded
+        if (!intentArbiter.isDurableCurrent(captured.reference) || testAuthority.snapshot() != null) {
+            return StartupFallbackDispatchResult.Superseded
+        }
+        return intentArbiter.runIfExplicitUserIntentCurrent(captured.generation) {
+            StartupFallbackDispatchResult.Dispatched(recordStart(Mode.VPN))
+        } ?: StartupFallbackDispatchResult.Superseded
+    }
 
     override fun startVpnTransport(
         requestId: Long,
         expectedTarget: TransportFailoverTarget,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
     ): ServiceStartResult {
+        if (intentArbiter.dispatchExplicit(receipt) == null) {
+            return ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.Superseded)
+        }
         transportStarts += requestId to expectedTarget
-        return start(Mode.VPN)
+        return recordStart(Mode.VPN)
     }
 
-    private fun recordStart(mode: Mode): ServiceStartResult {
-        startedModes += mode
-        return ServiceStartResult.Accepted(mode)
-    }
+    private data class RecordingStartupFallbackLease(
+        val generation: Long,
+        val reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ) : StartupFallbackLease
 }
 
 class MutablePermissionStatusProvider(

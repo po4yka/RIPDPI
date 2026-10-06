@@ -39,16 +39,22 @@ internal class ServiceControllerRuntimeControlActions
             reason: RuntimeControlReason,
         ): RuntimeControlOutcome =
             if (reason == RuntimeControlReason.DiagnosticsRawPathScan) {
-                serviceController.startForDiagnostics(mode).toRuntimeControlOutcome()
+                serviceController
+                    .startForDiagnostics(
+                        mode,
+                        serviceController.captureRuntimeAuthority(),
+                    ).toRuntimeControlOutcome()
             } else {
                 serviceController.start(mode).toRuntimeControlOutcome()
             }
 
-        override suspend fun stopRuntime(reason: RuntimeControlReason): RuntimeControlOutcome {
-            if (reason == RuntimeControlReason.DiagnosticsRawPathScan) {
-                serviceController.stopForDiagnostics()
-            } else {
-                serviceController.stop()
+        override suspend fun stopRuntime(
+            reason: RuntimeControlReason,
+            ownership: RuntimeControlStopOwnership,
+        ): RuntimeControlOutcome {
+            when (ownership) {
+                RuntimeControlStopOwnership.ExplicitUser -> serviceController.stop()
+                is RuntimeControlStopOwnership.Captured -> serviceController.stopForDiagnostics(ownership.reference)
             }
             return RuntimeControlOutcome.Completed
         }

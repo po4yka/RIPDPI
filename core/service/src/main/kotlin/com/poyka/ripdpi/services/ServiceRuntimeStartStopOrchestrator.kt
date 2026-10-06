@@ -38,7 +38,10 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                     )
                 },
             ) {
+                val pauseResume = currentCoroutineContext()[PauseResumeAuthority]
+                pauseResume?.ensureCurrent()
                 val session = callbacks.createRuntimeSession()
+                session.pauseResumeIntent = pauseResume?.intent
                 callbacks.setRuntimeSession(session)
                 session.networkHandoverState = null
                 val resolution = callbacks.resolveInitialConnectionPolicy()
@@ -56,24 +59,11 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                         resolution,
                     )
                 currentCoroutineContext().ensureActive()
+                pauseResume?.ensureCurrent()
                 val authority = currentCoroutineContext()[ExplicitRuntimeStartAuthority]?.guard
                 authority?.ensureCurrentStart()
-                callbacks.evidencePublication.publish(
-                    session,
-                    resolution,
-                    runtimeStartEvidence,
-                )
-                currentCoroutineContext().ensureActive()
-                val complete = {
-                    callbacks.evidencePublication.complete(session, resolution, runtimeStartEvidence)
-                    dependencies.serviceRuntimeRegistry.register(session)
-                    callbacks.updateStatus(ServiceStatus.Connected, null)
-                }
-                if (authority == null) {
-                    complete()
-                } else if (!authority.runIfCurrent(complete)) {
-                    throw CancellationException("Start intent superseded before completion")
-                }
+                publishStartedSession(session, resolution, runtimeStartEvidence, authority, pauseResume)
+                callbacks.statusHooks.reportConnected()
                 dependencies.handoverProcessor.startMonitoring()
                 callbacks.startModeTelemetryUpdates()
                 dependencies.loopOwner.startPermissionWatchdog()
@@ -94,8 +84,8 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                     runCatching { dependencies.rememberedNetworkPolicyStore.recordFailure(policy) }
                         .onFailure { Logger.e(it) { "Failed to record remembered policy startup failure" } }
                 }
-                val failureReason = callbacks.classifyStartupFailure(classifiedError)
-                callbacks.updateStatus(ServiceStatus.Failed, failureReason)
+                val failureReason = callbacks.statusHooks.classifyStartupFailure(classifiedError)
+                callbacks.statusHooks.updateStatus(ServiceStatus.Failed, failureReason)
             }
         } finally {
             withContext(NonCancellable) { stop(stopSelfStartId = stopSelfStartId) }
@@ -103,23 +93,63 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         if (cancellation != null) throw cancellation
     }
 
+    private suspend fun publishStartedSession(
+        session: TSession,
+        resolution: ConnectionPolicyResolution,
+        runtimeStartEvidence: RuntimeStartEvidence,
+        authority: ExplicitUserStartGuard?,
+        pauseResume: PauseResumeAuthority?,
+    ) {
+        callbacks.evidencePublication.publish(
+            session,
+            resolution,
+            runtimeStartEvidence,
+        )
+        currentCoroutineContext().ensureActive()
+        pauseResume?.ensureGeneration()
+        // ACK completes with Store -> linearizer -> authority lock order before publication takes its gate.
+        callbacks.evidencePublication.complete(session, resolution, runtimeStartEvidence)
+        val publish = {
+            dependencies.serviceRuntimeRegistry.register(session)
+            callbacks.statusHooks.publishConnected()
+        }
+        val published =
+            when {
+                authority != null -> {
+                    authority.publishIfCurrent(session.mode, publish)
+                }
+
+                pauseResume != null -> {
+                    pauseResume.publishIfCurrent(session.mode, publish)
+                }
+
+                else -> {
+                    publish()
+                    true
+                }
+            }
+        if (!published) throw CancellationException("Start intent superseded before publication")
+    }
+
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
-    ): Boolean =
+        disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
+    ): RuntimeStopOutcome =
         stopInternal(
             stopSelfStartId = stopSelfStartId,
             skipRuntimeShutdown = skipRuntimeShutdown,
             guard = guard,
             terminalFailure = guard?.failureReason,
+            disposition = disposition,
         )
 
     suspend fun failAndStop(
         failureReason: FailureReason,
         guard: RuntimeStopGuard? = null,
         beforeStopFinalization: suspend () -> Unit,
-    ): Boolean =
+    ): RuntimeStopOutcome =
         stopInternal(
             stopSelfStartId = null,
             skipRuntimeShutdown = false,
@@ -134,31 +164,37 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         guard: RuntimeStopGuard? = null,
         terminalFailure: FailureReason?,
         beforeStopFinalization: suspend () -> Unit = {},
-    ): Boolean {
+        disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
+    ): RuntimeStopOutcome {
         Logger.i { "Stopping ${dependencies.serviceLabel()}" }
         if (guard == null) dependencies.handoverProcessor.cancel()
         var terminalTelemetryCancellation: CancellationException? = null
-        val accepted =
+        val outcome =
             try {
-                dependencies.lifecycleRunner.stop(guard) {
-                    if (guard != null) dependencies.handoverProcessor.cancel()
-                    terminalTelemetryCancellation =
-                        finalizeAfterStopCallback(beforeStopFinalization) {
-                            finalizeRuntimeStop(
-                                skipRuntimeShutdown = skipRuntimeShutdown,
-                                stopSelfStartId = stopSelfStartId,
-                                requestServiceStop = true,
-                                terminalFailure = terminalFailure,
-                            )
-                        }
-                }
+                val accepted =
+                    dependencies.lifecycleRunner.stop(guard) {
+                        if (guard != null) dependencies.handoverProcessor.cancel()
+                        terminalTelemetryCancellation =
+                            finalizeAfterStopCallback(beforeStopFinalization) {
+                                finalizeRuntimeStop(
+                                    skipRuntimeShutdown = skipRuntimeShutdown,
+                                    stopSelfStartId = stopSelfStartId,
+                                    requestServiceStop = disposition == RuntimeStopDisposition.StopService,
+                                    terminalFailure = terminalFailure,
+                                )
+                            }
+                    }
+                if (accepted) RuntimeStopOutcome.FullyReleased else RuntimeStopOutcome.Superseded
             } catch (_: RuntimeCleanupPendingException) {
                 // Native cleanup is unconfirmed. Keep ownership so stop can be retried.
-                callbacks.updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Runtime cleanup is incomplete"))
-                true
+                callbacks.statusHooks.updateStatus(
+                    ServiceStatus.Failed,
+                    FailureReason.NativeError("Runtime cleanup is incomplete"),
+                )
+                RuntimeStopOutcome.CleanupPending
             }
         terminalTelemetryCancellation?.let { throw it }
-        return accepted
+        return outcome
     }
 
     private suspend fun finalizeRuntimeStop(
@@ -177,13 +213,18 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
         withContext(NonCancellable) {
             runCatching { callbacks.stopModeRuntime(skipRuntimeShutdown) }
                 .onFailure { failure ->
-                    if (failure is RuntimeCleanupPendingException) throw failure
-                    Logger.e(failure) { "Failed to stop ${dependencies.serviceLabel()} runtime" }
+                    throw if (failure is RuntimeCleanupPendingException) {
+                        failure
+                    } else {
+                        RuntimeCleanupPendingException(
+                            failure,
+                        )
+                    }
                 }
 
             val session = callbacks.currentSession()
             runCatching {
-                callbacks.updateStatus(
+                callbacks.statusHooks.updateStatus(
                     if (terminalFailure == null) ServiceStatus.Disconnected else ServiceStatus.Failed,
                     terminalFailure,
                 )
@@ -193,7 +234,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
             dependencies.loopOwner.cancelTelemetry()
             runCatching { callbacks.onAfterStopCleanup(session) }
                 .onFailure { failure ->
-                    Logger.e(failure) { "Failed to clean up stopped ${dependencies.serviceLabel()} runtime" }
+                    throw RuntimeCleanupPendingException(failure)
                 }
             runCatching { session?.clearActiveConnectionPolicy() }
                 .onFailure { failure ->
@@ -325,8 +366,7 @@ internal class ServiceRuntimeStartStopCallbacks<TSession>(
     val stopModeRuntime: suspend (Boolean) -> Unit,
     val startModeTelemetryUpdates: () -> Unit,
     val onAfterStopCleanup: (TSession?) -> Unit,
-    val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
-    val classifyStartupFailure: (Exception) -> FailureReason,
+    val statusHooks: ServiceRuntimeStatusHooks,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
 
 /** Evaluated under the lifecycle mutex before any teardown side effect. */
@@ -344,3 +384,7 @@ internal class RuntimeStartEvidencePublication<TSession>(
     val publish: suspend (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
     val complete: (TSession, ConnectionPolicyResolution, RuntimeStartEvidence) -> Unit,
 )
+
+internal enum class RuntimeStopDisposition { StopService, RetainPausedShell }
+
+enum class RuntimeStopOutcome { FullyReleased, Superseded, CleanupPending }

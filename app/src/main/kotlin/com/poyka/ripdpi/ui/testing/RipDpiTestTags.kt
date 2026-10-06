@@ -62,6 +62,12 @@ internal object RipDpiTestTags {
     const val HomePermissionRecommendationBanner = "home-permission-recommendation-banner"
     const val HomeBackgroundGuidanceBanner = "home-background-guidance-banner"
     const val HomeHardKillSwitchBanner = "home-hard-kill-switch-banner"
+    const val HomePauseControls = "home-pause-controls"
+    const val HomePauseOpen = "home-pause-open"
+    const val HomePauseResume = "home-pause-resume"
+    const val HomePauseStop = "home-pause-stop"
+    const val HomePauseDurationSheet = "home-pause-duration-sheet"
+
     const val HomeSetupHealthRow = "home-setup-health-row"
     const val HomeSetupHealthDetails = "home-setup-health-details"
     const val HomeSetupHealthAction = "home-setup-health-action"
@@ -590,3 +596,5 @@ internal fun Modifier.ripDpiAutomationTreeRoot(): Modifier =
     semantics {
         testTagsAsResourceId = true
     }
+
+internal fun RipDpiTestTags.homePauseDuration(minutes: Int) = "home-pause-duration-$minutes"

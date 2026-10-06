@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">Приостановить соединение</string>
+    <string name="pause_notification_until">Пауза до %1$s</string>
+    <string name="pause_notification_cleanup">Освобождение ресурсов не завершено. Пауза ещё не подтверждена.</string>
+    <string name="pause_notification_resuming">Возобновление соединения…</string>
+    <string name="pause_notification_deferred">Возобновление требует внимания</string>
+    <string name="pause_notification_resume">Возобновить сейчас</string>
+ </resources>

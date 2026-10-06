@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">Suspendre la connexion</string>
+    <string name="pause_until">En pause jusqu’à %1$s</string>
+    <string name="pause_releasing">Libération des ressources de connexion…</string>
+    <string name="pause_resuming">Reprise de la connexion…</string>
+    <string name="pause_cleanup_pending">Le nettoyage est incomplet. La pause n’est pas encore confirmée.</string>
+    <string name="pause_deferred">La reprise nécessite votre attention</string>
+    <string name="pause_saved_settings">Ce mode reprend avec les paramètres enregistrés actuels. Les modifications conservent la pause ; démarrer, arrêter, activer ou supprimer un profil l’annule.</string>
+    <string name="pause_remaining">%1$s minutes restantes</string>
+    <string name="pause_resume_now">Reprendre maintenant</string>
+    <string name="pause_stop">Arrêter et annuler la reprise</string>
+    <string name="pause_persistence_failed">Impossible d’enregistrer la commande. L’état de la connexion reste inchangé.</string>
+    <string name="pause_duration_minutes">%1$s minutes</string>
+    <string name="pause_clock_failed">L’horloge ou l’identité du démarrage a changé. Vérifiez la récupération.</string>
+    <string name="pause_consent_required">L’autorisation VPN est requise pour reprendre.</string>
+    <string name="pause_lockdown">Le verrouillage VPN Android ne permet pas cette action.</string>
+    <string name="pause_background_restricted">Android a différé la reprise en arrière-plan. Ouvrez l’application.</string>
+    <string name="pause_user_stopped">Android a enregistré un arrêt utilisateur. La reprise automatique est désactivée.</string>
+    <string name="pause_resume_failed">Le service n’a pas confirmé la configuration reprise.</string>
+ </resources>

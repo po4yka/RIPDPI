@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">Pausar conexão</string>
+    <string name="pause_until">Pausada até %1$s</string>
+    <string name="pause_releasing">Liberando recursos da conexão…</string>
+    <string name="pause_resuming">Retomando conexão…</string>
+    <string name="pause_cleanup_pending">A limpeza está incompleta. A pausa ainda não foi confirmada.</string>
+    <string name="pause_deferred">A retomada requer atenção</string>
+    <string name="pause_saved_settings">Este modo retoma com as configurações salvas atuais. Edições mantêm a pausa; iniciar, parar, ativar ou excluir um perfil a cancela.</string>
+    <string name="pause_remaining">Restam %1$s minutos</string>
+    <string name="pause_resume_now">Retomar agora</string>
+    <string name="pause_stop">Parar e cancelar retomada</string>
+    <string name="pause_persistence_failed">Não foi possível salvar o comando. O estado da conexão permanece inalterado.</string>
+    <string name="pause_duration_minutes">%1$s minutos</string>
+    <string name="pause_clock_failed">O relógio ou a identidade de inicialização mudou. Confira a recuperação.</string>
+    <string name="pause_consent_required">É necessária permissão VPN para retomar.</string>
+    <string name="pause_lockdown">O bloqueio VPN do Android não permite esta ação.</string>
+    <string name="pause_background_restricted">O Android adiou a retomada em segundo plano. Abra o aplicativo.</string>
+    <string name="pause_user_stopped">O Android registrou uma parada pelo usuário. A retomada automática está desativada.</string>
+    <string name="pause_resume_failed">O serviço não confirmou a configuração retomada.</string>
+ </resources>

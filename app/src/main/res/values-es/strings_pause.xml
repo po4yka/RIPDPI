@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">Pausar conexión</string>
+    <string name="pause_until">En pausa hasta %1$s</string>
+    <string name="pause_releasing">Liberando recursos de conexión…</string>
+    <string name="pause_resuming">Reanudando conexión…</string>
+    <string name="pause_cleanup_pending">La limpieza está incompleta. La pausa aún no está confirmada.</string>
+    <string name="pause_deferred">La reanudación requiere atención</string>
+    <string name="pause_saved_settings">Se reanuda este modo con la configuración guardada actual. Las ediciones conservan la pausa; iniciar, detener, activar o eliminar un perfil la cancela.</string>
+    <string name="pause_remaining">Quedan %1$s minutos</string>
+    <string name="pause_resume_now">Reanudar ahora</string>
+    <string name="pause_stop">Detener y cancelar reanudación</string>
+    <string name="pause_persistence_failed">No se pudo guardar el comando. El estado de la conexión no ha cambiado.</string>
+    <string name="pause_duration_minutes">%1$s minutos</string>
+    <string name="pause_clock_failed">Cambió el reloj o la identidad de arranque. Revise la recuperación.</string>
+    <string name="pause_consent_required">Se necesita permiso VPN para reanudar.</string>
+    <string name="pause_lockdown">El bloqueo VPN de Android no permite esta acción.</string>
+    <string name="pause_background_restricted">Android aplazó la recuperación en segundo plano. Abra la aplicación.</string>
+    <string name="pause_user_stopped">Android registró una detención del usuario. No se reanudará automáticamente.</string>
+    <string name="pause_resume_failed">El servicio no confirmó la configuración reanudada.</string>
+ </resources>

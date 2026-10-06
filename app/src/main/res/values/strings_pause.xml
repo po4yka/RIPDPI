@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">Pause connection</string>
+    <string name="pause_until">Paused until %1$s</string>
+    <string name="pause_releasing">Releasing connection resources…</string>
+    <string name="pause_resuming">Resuming connection…</string>
+    <string name="pause_cleanup_pending">Connection cleanup is incomplete. Pause is not yet confirmed.</string>
+    <string name="pause_deferred">Resume needs attention</string>
+    <string name="pause_saved_settings">Resume uses this mode with your current saved settings. Saved edits keep the pause; Start, Stop, profile activation or deletion cancels it.</string>
+    <string name="pause_remaining">%1$s minutes remaining</string>
+    <string name="pause_resume_now">Resume now</string>
+    <string name="pause_stop">Stop and cancel resume</string>
+    <string name="pause_persistence_failed">Command could not be saved. Connection state is unchanged.</string>
+    <string name="pause_duration_minutes">%1$s minutes</string>
+    <string name="pause_clock_failed">The clock or boot identity changed. Choose Resume now to review recovery.</string>
+    <string name="pause_consent_required">VPN permission is required before resuming.</string>
+    <string name="pause_lockdown">Android VPN lockdown state does not allow this action.</string>
+    <string name="pause_background_restricted">Android deferred background recovery. Open the app to resume.</string>
+    <string name="pause_user_stopped">Android recorded a user stop. Automatic resume is suppressed.</string>
+    <string name="pause_resume_failed">The runtime did not confirm the resumed configuration.</string>
+ </resources>

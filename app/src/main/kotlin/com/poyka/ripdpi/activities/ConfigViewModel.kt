@@ -16,8 +16,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +32,7 @@ class ConfigViewModel
     @Inject
     constructor(
         savedStateHandle: SavedStateHandle,
-        dependencies: ConfigViewModelDependencies,
+        private val dependencies: ConfigViewModelDependencies,
         importDependencies: ConfigImportDependencies,
         private val stringResolver: StringResolver,
     ) : ViewModel() {
@@ -43,7 +41,6 @@ class ConfigViewModel
         private val relayPresetCatalog = dependencies.relayPresetCatalog
         private val networkSnapshotProvider = dependencies.networkSnapshotProvider
         private val serviceStateStore = dependencies.serviceStateStore
-        private val reconnectCoordinator = dependencies.reconnectCoordinator
         private val serviceController = dependencies.serviceController
         private val latestDirectModeOutcomeStore = dependencies.latestDirectModeOutcomeStore
         private val capabilityObserver = dependencies.capabilityObserver
@@ -241,7 +238,10 @@ class ConfigViewModel
 
             viewModelScope.launch {
                 if (mode == Mode.Proxy) {
-                    xrayNativeProviderSelection.selectNativeMode(mode)
+                    xrayNativeProviderSelection.selectNativeMode(
+                        com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
+                        mode,
+                    )
                 } else {
                     appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
                 }
@@ -252,18 +252,26 @@ class ConfigViewModel
             mode: Mode,
             enabled: Boolean,
         ) {
-            activeSaveJob.get()?.let { saveJob ->
-                suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
-                viewModelScope.launch {
+            viewModelScope.launch {
+                val receipt =
+                    serviceController.prepareUserCommand(
+                        if (enabled) {
+                            com.poyka.ripdpi.data.RuntimeUserCommand.Start(
+                                mode,
+                            )
+                        } else {
+                            com.poyka.ripdpi.data.RuntimeUserCommand.Stop
+                        },
+                    )
+                activeSaveJob.get()?.let { saveJob ->
+                    suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest)
                     saveJob.join()
-                    toggleRuntimeMode(mode, enabled)
                 }
-                return
-            }
-            if (enabled) {
-                startConfigRuntimeMode(mode, serviceController, stringResolver, _effects)
-            } else {
-                stopConfigRuntimeMode(mode, serviceStateStore, serviceController)
+                if (enabled) {
+                    startConfigRuntimeMode(mode, serviceController, stringResolver, _effects, receipt)
+                } else {
+                    stopConfigRuntimeMode(mode, serviceStateStore, serviceController, receipt)
+                }
             }
         }
 
@@ -525,49 +533,20 @@ class ConfigViewModel
         private suspend fun saveDraft(request: ConfigSaveRequest) {
             val save =
                 runCatching {
-                    val relayProfileRecords = relayArtifacts.listProfiles()
-                    if (
-                        validateConfigDraft(
-                            draft = request.draft,
-                            supportsMasquePrivacyPass = supportsMasquePrivacyPass,
-                            relayProfiles = relayProfileRecords,
-                        ).isNotEmpty()
-                    ) {
-                        ConfigSaveOutcome.ValidationFailed
-                    } else {
-                        val persistedDraft = relayArtifacts.prepareForPersistence(request.draft)
-                        currentCoroutineContext().ensureActive()
-                        if (editorSession.value.sessionId != request.sessionId) {
-                            ConfigSaveOutcome.Stale
-                        } else {
-                            val savedDraft = relayArtifacts.persist(persistedDraft)
-                            if (persistedDraft.mode == Mode.Proxy) {
-                                xrayNativeProviderSelection.selectNativeMode(persistedDraft.mode)
-                            }
-                            currentCoroutineContext().ensureActive()
-                            if (editorSession.value.sessionId != request.sessionId) {
-                                ConfigSaveOutcome.Stale
-                            } else {
-                                applySavedConfigDraftToRunningService(
-                                    draft = persistedDraft,
-                                    appSettingsRepository = appSettingsRepository,
-                                    serviceStateStore = serviceStateStore,
-                                    reconnectCoordinator = reconnectCoordinator,
-                                    onReconnectFailure = { result ->
-                                        _effects.tryEmit(ConfigEffect.Message(result.reason.message(stringResolver)))
-                                    },
-                                    onUnsupportedVpnDns = {
-                                        _effects.tryEmit(
-                                            ConfigEffect.Message(
-                                                stringResolver.getString(R.string.dns_custom_doq_unavailable),
-                                            ),
-                                        )
-                                    },
-                                )
-                                ConfigSaveOutcome.Saved(savedDraft)
-                            }
-                        }
-                    }
+                    persistConfigSaveRequest(
+                        request = request,
+                        dependencies = dependencies,
+                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                        editorSession = editorSession,
+                        onReconnectFailure = { result ->
+                            _effects.tryEmit(ConfigEffect.Message(result.reason.message(stringResolver)))
+                        },
+                        onUnsupportedVpnDns = {
+                            _effects.tryEmit(
+                                ConfigEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
+                            )
+                        },
+                    )
                 }
             val error = save.exceptionOrNull()
             if (error is CancellationException) {

@@ -53,7 +53,13 @@ class RuntimeControlPlaneTest {
             val controller = FakeServiceController(stateStore)
             val plane = DefaultRuntimeControlPlane(ServiceControllerRuntimeControlActions(controller, stateStore))
 
-            val outcome = plane.execute(RuntimeControlCommand.StopRuntime(RuntimeControlReason.UserStop))
+            val outcome =
+                plane.execute(
+                    RuntimeControlCommand.StopRuntime(
+                        RuntimeControlReason.UserStop,
+                        RuntimeControlStopOwnership.ExplicitUser,
+                    ),
+                )
 
             assertEquals(RuntimeControlOutcome.Completed, outcome)
             assertEquals(1, controller.stopCount)
@@ -148,7 +154,12 @@ class RuntimeControlPlaneTest {
             val plane = DefaultRuntimeControlPlane(actions)
 
             plane.execute(RuntimeControlCommand.StartRuntime(Mode.VPN, RuntimeControlReason.ServiceStart))
-            plane.execute(RuntimeControlCommand.StopRuntime(RuntimeControlReason.UserStop))
+            plane.execute(
+                RuntimeControlCommand.StopRuntime(
+                    RuntimeControlReason.UserStop,
+                    RuntimeControlStopOwnership.ExplicitUser,
+                ),
+            )
             plane.execute(RuntimeControlCommand.RestartRuntime(RuntimeControlReason.NetworkHandover))
             plane.execute(RuntimeControlCommand.ApplyNetworkSnapshot(RuntimeControlReason.NetworkHandover))
             plane.execute(
@@ -177,7 +188,7 @@ class RuntimeControlPlaneTest {
 
 private class FakeServiceController(
     private val stateStore: FakeServiceStateStore,
-) : ServiceController {
+) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
     var startCount: Int = 0
         private set
     var stopCount: Int = 0
@@ -186,7 +197,7 @@ private class FakeServiceController(
         private set
     var nextStartResult: ServiceStartResult? = null
 
-    override fun start(mode: Mode): ServiceStartResult {
+    override fun recordStart(mode: Mode): ServiceStartResult {
         startCount += 1
         lastStartMode = mode
         nextStartResult?.let { return it }
@@ -194,7 +205,7 @@ private class FakeServiceController(
         return ServiceStartResult.Accepted(mode)
     }
 
-    override fun stop() {
+    override fun recordStop() {
         stopCount += 1
         stateStore.setStatus(AppStatus.Halted, stateStore.status.value.second)
     }
@@ -239,7 +250,10 @@ private class RecordingRuntimeControlActions : RuntimeControlActions {
         return RuntimeControlOutcome.Completed
     }
 
-    override suspend fun stopRuntime(reason: RuntimeControlReason): RuntimeControlOutcome {
+    override suspend fun stopRuntime(
+        reason: RuntimeControlReason,
+        ownership: RuntimeControlStopOwnership,
+    ): RuntimeControlOutcome {
         invoked += "stopRuntime"
         return RuntimeControlOutcome.Completed
     }

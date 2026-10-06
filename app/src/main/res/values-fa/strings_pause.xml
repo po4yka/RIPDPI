@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">توقف موقت اتصال</string>
+    <string name="pause_until">توقف تا %1$s</string>
+    <string name="pause_releasing">در حال آزادسازی منابع اتصال…</string>
+    <string name="pause_resuming">در حال ازسرگیری اتصال…</string>
+    <string name="pause_cleanup_pending">پاک‌سازی کامل نشده است. توقف هنوز تأیید نشده است.</string>
+    <string name="pause_deferred">ازسرگیری نیاز به بررسی دارد</string>
+    <string name="pause_saved_settings">این حالت با تنظیمات ذخیره‌شده فعلی از سر گرفته می‌شود. ویرایش‌ها توقف را حفظ می‌کنند؛ شروع، توقف، فعال‌سازی یا حذف نمایه آن را لغو می‌کند.</string>
+    <string name="pause_remaining">%1$s دقیقه باقی مانده</string>
+    <string name="pause_resume_now">ازسرگیری اکنون</string>
+    <string name="pause_stop">توقف و لغو ازسرگیری</string>
+    <string name="pause_persistence_failed">فرمان ذخیره نشد. وضعیت اتصال تغییری نکرده است.</string>
+    <string name="pause_duration_minutes">%1$s دقیقه</string>
+    <string name="pause_clock_failed">ساعت یا شناسه راه‌اندازی تغییر کرده است. بازیابی را بررسی کنید.</string>
+    <string name="pause_consent_required">برای ازسرگیری مجوز VPN لازم است.</string>
+    <string name="pause_lockdown">وضعیت قفل VPN اندروید اجازه این کار را نمی‌دهد.</string>
+    <string name="pause_background_restricted">اندروید بازیابی پس‌زمینه را به تعویق انداخت. برنامه را باز کنید.</string>
+    <string name="pause_user_stopped">اندروید توقف کاربر را ثبت کرده است. ازسرگیری خودکار غیرفعال است.</string>
+    <string name="pause_resume_failed">سرویس تنظیمات ازسرگرفته‌شده را تأیید نکرد.</string>
+ </resources>

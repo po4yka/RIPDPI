@@ -15,6 +15,7 @@ import com.poyka.ripdpi.ui.screens.simple.SimpleHomeScreen
 internal fun AppExperienceContent(
     @Suppress("UNUSED_PARAMETER") startDestination: Route,
     viewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     @Suppress("UNUSED_PARAMETER") controller: MainActivityShellController,
     @Suppress("UNUSED_PARAMETER") shellState: MainActivityShellState,
     snackbarHostState: SnackbarHostState,
@@ -28,6 +29,7 @@ internal fun AppExperienceContent(
     )
     SimpleHomeScreen(
         viewModel = viewModel,
+        pauseViewModel = pauseViewModel,
         snackbarHostState = snackbarHostState,
     )
 }

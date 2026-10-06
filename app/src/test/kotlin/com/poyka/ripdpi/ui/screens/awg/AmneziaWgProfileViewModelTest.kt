@@ -80,7 +80,13 @@ class AmneziaWgProfileViewModelTest {
     private val activator = RecordingStandaloneAmneziaWgActivator()
     private val dao = InMemoryAwgProfileDao()
     private val credentialStore = InMemoryAwgCredentialStore()
-    private val repository = AwgProfileRepository(dao, credentialStore)
+    private val repository =
+        AwgProfileRepository(
+            dao,
+            credentialStore,
+            com.poyka.ripdpi.data.awg
+                .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
+        )
     private val permissionBridge = FakePermissionPlatformBridge(vpnPermissionIntent = null)
 
     private fun viewModel() =

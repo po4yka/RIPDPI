@@ -50,7 +50,17 @@ class RelayActivationSelectorReloadTrigger
                 repeat(StartupReconcileAttempts) {
                     val profileId = selectionProvider.selectedProfileId().first() ?: return@withLock
                     val profile = memberProfile(profileId) ?: return@withLock
-                    check(relayProfileActivator.activate(profile, profileId)) { "Selected profile cannot be activated" }
+                    check(
+                        relayProfileActivator.activate(
+                            relayProfileActivator.captureMutation(
+                                com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
+                            ),
+                            profile,
+                            profileId,
+                        ),
+                    ) {
+                        "Selected profile cannot be activated"
+                    }
                     if (selectionProvider.selectedProfileId().first() == profileId &&
                         memberProfile(profileId) == profile
                     ) {
@@ -72,7 +82,18 @@ class RelayActivationSelectorReloadTrigger
                 activationMutex.withLock {
                     if (selectionProvider.selectedProfileId().first() != profileId) return@withLock null
                     val profile = memberProfile(profileId) ?: return@withLock null
-                    if (relayProfileActivator.activate(profile, profileId)) profile else null
+                    if (relayProfileActivator.activate(
+                            relayProfileActivator.captureMutation(
+                                com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
+                            ),
+                            profile,
+                            profileId,
+                        )
+                    ) {
+                        profile
+                    } else {
+                        null
+                    }
                 }
             // Release activation ownership before entering the service lifecycle mutex.
             if (activatedProfile != null) {

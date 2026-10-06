@@ -41,6 +41,7 @@ internal class DefaultStandaloneAmneziaWgActivator
         private val applyTracker: TransportFailoverApplyTracker,
         private val providerSelectionStore: XrayProviderSelectionStore,
         private val serviceIntentArbiter: ServiceIntentArbiter,
+        private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
     ) : StandaloneAmneziaWgActivator,
         AwgEgressSelectionSource {
         @Inject
@@ -52,6 +53,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             applyTracker: TransportFailoverApplyTracker,
             providerSelectionStore: XrayProviderSelectionStore,
             serviceIntentArbiter: ServiceIntentArbiter,
+            pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
         ) : this(
             serviceController = serviceController,
             bootSessionStateStore = bootSessionStateStore,
@@ -60,6 +62,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             applyTracker = applyTracker,
             providerSelectionStore = providerSelectionStore,
             serviceIntentArbiter = serviceIntentArbiter,
+            pauseAuthority = pauseAuthority,
         )
 
         internal constructor(
@@ -70,6 +73,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             applyTracker: TransportFailoverApplyTracker,
             providerSelectionStore: XrayProviderSelectionStore,
             serviceIntentArbiter: ServiceIntentArbiter,
+            pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
         ) : this(
             serviceController,
             bootSessionStateStore,
@@ -78,6 +82,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             applyTracker,
             providerSelectionStore,
             serviceIntentArbiter,
+            pauseAuthority,
         )
 
         // Explicit standalone selection wins until a normal/simple start clears its pointer.
@@ -98,11 +103,16 @@ internal class DefaultStandaloneAmneziaWgActivator
         override suspend fun activate(request: AwgActivationRequest) {
             request.requireRuntimeReady()
             lifecycleLock.withLock {
+                val receipt =
+                    serviceController.prepareUserCommand(
+                        com.poyka.ripdpi.data.RuntimeUserCommand
+                            .Start(com.poyka.ripdpi.data.Mode.VPN),
+                    )
                 var previous: PreviousSelection? = null
                 val native = XrayProviderSelectionRecord.of(VpnProviderKind.Native, null)
                 val requestId = applyTracker.begin()
                 try {
-                    previous = selectionLock.withLock { publishActivation(request, requestId, native) }
+                    previous = selectionLock.withLock { publishActivation(request, requestId, native, receipt) }
                     when (applyTracker.awaitOutcome(requestId, ApplyTimeoutMillis)) {
                         TransportFailoverApplyOutcome.Applied -> {
                             Unit
@@ -134,8 +144,10 @@ internal class DefaultStandaloneAmneziaWgActivator
             request: AwgActivationRequest,
             requestId: Long,
             native: XrayProviderSelectionRecord,
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
         ): PreviousSelection? =
             serviceIntentArbiter.serialize {
+                if (!pauseAuthority.isCurrent(receipt)) return@serialize null
                 val previous =
                     PreviousSelection(
                         bootSessionStateStore.activeAwgProfileId(),
@@ -150,6 +162,7 @@ internal class DefaultStandaloneAmneziaWgActivator
                         activationController.startVpnTransport(
                             requestId,
                             TransportFailoverTarget(TransportKindAmneziaWg, request.profileId),
+                            receipt,
                         )
                     }
                 if (dispatch.isFailure || dispatch.getOrNull() is ServiceStartResult.Rejected) {
@@ -189,24 +202,28 @@ internal class DefaultStandaloneAmneziaWgActivator
 
         override suspend fun deactivate() {
             lifecycleLock.withLock {
+                val receipt = serviceController.prepareUserCommand(com.poyka.ripdpi.data.RuntimeUserCommand.Stop)
                 selectionLock.withLock {
-                    serviceIntentArbiter.serialize {
-                        val currentId = bootSessionStateStore.activeAwgProfileId()
-                        val ownsSelection =
-                            currentId != null &&
-                                providerSelectionStore.current().kind == VpnProviderKind.Native &&
-                                (selectedRequest == null || selectedRequest?.profileId == currentId) &&
-                                (
-                                    selectedGeneration == null ||
-                                        selectedGeneration == serviceIntentArbiter.captureExplicitUserIntentGeneration()
-                                )
-                        if (ownsSelection) {
-                            selectedRequest = null
-                            selectedGeneration = null
-                            bootSessionStateStore.setActiveAwgProfileId(null)
-                            serviceController.stop()
+                    val shouldStop =
+                        serviceIntentArbiter.serialize {
+                            val currentId = bootSessionStateStore.activeAwgProfileId()
+                            val ownsSelection =
+                                currentId != null &&
+                                    providerSelectionStore.current().kind == VpnProviderKind.Native &&
+                                    (selectedRequest == null || selectedRequest?.profileId == currentId) &&
+                                    (
+                                        selectedGeneration == null ||
+                                            selectedGeneration ==
+                                            serviceIntentArbiter.captureExplicitUserIntentGeneration()
+                                    )
+                            if (ownsSelection) {
+                                selectedRequest = null
+                                selectedGeneration = null
+                                bootSessionStateStore.setActiveAwgProfileId(null)
+                            }
+                            ownsSelection
                         }
-                    }
+                    if (shouldStop) serviceController.stopPrepared(receipt)
                 }
             }
         }

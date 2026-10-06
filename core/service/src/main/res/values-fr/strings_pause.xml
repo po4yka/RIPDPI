@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">Suspendre la connexion</string>
+    <string name="pause_notification_until">En pause jusqu’à %1$s</string>
+    <string name="pause_notification_cleanup">Le nettoyage est incomplet. La pause n’est pas encore confirmée.</string>
+    <string name="pause_notification_resuming">Reprise de la connexion…</string>
+    <string name="pause_notification_deferred">La reprise nécessite votre attention</string>
+    <string name="pause_notification_resume">Reprendre maintenant</string>
+ </resources>

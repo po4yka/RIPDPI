@@ -63,7 +63,7 @@ class BackupExportUseCaseTest {
     private fun useCase(
         groups: List<ProxyGroup> = emptyList(),
         settings: AppSettings = AppSettings.getDefaultInstance(),
-        privateDataStore: BackupPrivateDataStore = BackupPrivateDataStore.Empty,
+        privateDataStore: BackupPrivateDataStore = testEmptyBackupPrivateDataStore(),
     ): BackupExportUseCase =
         BackupExportUseCase(
             groupRepository = FakeGroupRepository(groups),
@@ -112,7 +112,10 @@ class BackupExportUseCaseTest {
                         return privateData
                     }
 
-                    override suspend fun replaceAll(data: BackupPrivateDataV1) = error("unused")
+                    override suspend fun replaceAll(
+                        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                        data: BackupPrivateDataV1,
+                    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("unused")
                 }
 
             val full = useCase(privateDataStore = store).gather(BackupVariant.FULL, "1.0.0", 0L)
@@ -319,7 +322,24 @@ class BackupExportUseCaseTest {
 
         override suspend fun update(group: ProxyGroup) = error("unused")
 
-        override suspend fun delete(id: String) = error("unused")
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            replaceAll(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                groups,
+            )
+        }
+
+        override suspend fun delete(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            id: String,
+        ) = error("unused")
+
+        override suspend fun replaceAll(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) = error("unused")
 
         override suspend fun list(): List<ProxyGroup> = groups
 

@@ -50,12 +50,6 @@ class BackupExportUseCase
         private val settingsRepository: AppSettingsRepository,
         private val privateDataStore: BackupPrivateDataStore,
     ) {
-        constructor(
-            groupRepository: ProxyGroupRepository,
-            ruleDao: RuleDao,
-            settingsRepository: AppSettingsRepository,
-        ) : this(groupRepository, ruleDao, settingsRepository, BackupPrivateDataStore.Empty)
-
         /**
          * Builds and writes a backup of [variant] to [output].
          *

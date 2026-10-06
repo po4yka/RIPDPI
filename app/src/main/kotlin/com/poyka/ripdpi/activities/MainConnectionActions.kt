@@ -53,37 +53,39 @@ internal class MainConnectionActions(
         observeServiceEvents()
     }
 
-    fun startMode(mode: Mode) {
-        if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
-            mutations.trySend(MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)))
-            return
-        }
-        setConnectingState()
-        when (val result = serviceController.start(mode)) {
-            is ServiceStartResult.Accepted -> {
+    fun startMode(mode: Mode) =
+        mutations.launch {
+            if (mode == Mode.VPN && hasUnsupportedVpnDoq(currentSettings())) {
+                mutations.trySend(MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)))
+                return@launch
             }
+            setConnectingState()
+            when (val result = serviceController.start(mode)) {
+                is ServiceStartResult.Accepted -> {
+                }
 
-            is ServiceStartResult.Rejected -> {
-                refreshPermissionSnapshot()
-                val message =
-                    stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
-                        ": " +
-                        result.reason.displayMessage(stringResolver)
-                showError(message)
+                is ServiceStartResult.Rejected -> {
+                    refreshPermissionSnapshot()
+                    val message =
+                        stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName) +
+                            ": " +
+                            result.reason.displayMessage(stringResolver)
+                    showError(message)
+                }
             }
         }
-    }
 
-    fun stop() {
-        val wasConnecting = runtimeState.value.connectionState == ConnectionState.Connecting
-        serviceController.stop()
-        // An accepted start can still be suspended before the service publishes a
-        // non-Halted status. In that window there is no status edge for observeStatus()
-        // to consume after Stop, so clear the optimistic Connecting state locally.
-        if (wasConnecting) {
-            onHalted()
+    fun stop() =
+        mutations.launch {
+            val wasConnecting = runtimeState.value.connectionState == ConnectionState.Connecting
+            serviceController.stop()
+            // An accepted start can still be suspended before the service publishes a
+            // non-Halted status. In that window there is no status edge for observeStatus()
+            // to consume after Stop, so clear the optimistic Connecting state locally.
+            if (wasConnecting) {
+                onHalted()
+            }
         }
-    }
 
     fun dismissError() {
         runtimeState.update { current ->

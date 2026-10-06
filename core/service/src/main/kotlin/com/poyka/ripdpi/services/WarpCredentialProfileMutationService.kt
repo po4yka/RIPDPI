@@ -104,8 +104,13 @@ class DefaultWarpCredentialProfileMutationService
                     interfaceAddressV4 = request.interfaceAddressV4,
                     interfaceAddressV6 = request.interfaceAddressV6,
                 )
+            val preparation =
+                profileMutations.captureMutation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                )
             return mutationLock.mutex.withLock {
                 profileMutations.upsertWarp(
+                    preparation,
                     profile = profile,
                     credentials = credentials,
                     endpoints = endpointStore.loadAll(profileId),
@@ -116,15 +121,21 @@ class DefaultWarpCredentialProfileMutationService
             }
         }
 
-        override suspend fun resetProfile(profileId: String) =
+        override suspend fun resetProfile(profileId: String) {
+            val preparation =
+                profileMutations.captureMutation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                )
             mutationLock.mutex.withLock {
                 profileMutations.recover()
                 profileMutations.deleteWarp(
+                    preparation,
                     profileId = profileId,
                     clearActive = profileStore.activeProfileId() == profileId,
                 )
                 Unit
             }
+        }
 
         private suspend fun mutateProfile(
             profileId: String,
@@ -137,6 +148,7 @@ class DefaultWarpCredentialProfileMutationService
                 val (updatedProfile, updatedCredentials) = transform(profile, credentials)
                 val activate = profileStore.activeProfileId() == profileId
                 profileMutations.upsertWarp(
+                    profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
                     profile = updatedProfile,
                     credentials = updatedCredentials,
                     endpoints = endpointStore.loadAll(profileId),

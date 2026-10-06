@@ -51,27 +51,50 @@ class NativeRelayProfileActivator
          * is a relay-activatable kind, activates it as the live native relay. Suspends
          * until the group, stores, and settings have been written.
          */
+        suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
+            relayProfileActivator.captureMutation(origin)
+
         suspend fun activate(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
             profile: ProxyProfile,
             modeAfterImage: String? = null,
             xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
         ) {
             validateNativeRelayProfile(profile)
             val groupId = UUID.randomUUID().toString()
-            repository.add(
-                ProxyGroup(
-                    id = groupId,
-                    name = profile.displayName,
-                    type = ProxyGroupType.BASIC,
-                    order = repository.list().size,
-                    isSelector = false,
-                    subscription = null,
-                ),
-            )
-            relayProfileActivator.activate(
-                profile = profile,
-                modeAfterImage = modeAfterImage,
-                xraySelectionAfterImage = xraySelectionAfterImage,
-            )
+            val order = repository.list().size
+            runCatching {
+                repository.add(
+                    ProxyGroup(
+                        id = groupId,
+                        name = profile.displayName,
+                        type = ProxyGroupType.BASIC,
+                        order = order,
+                        isSelector = false,
+                        subscription = null,
+                    ),
+                )
+                check(
+                    relayProfileActivator.activate(
+                        preparation,
+                        profile = profile,
+                        modeAfterImage = modeAfterImage,
+                        xraySelectionAfterImage = xraySelectionAfterImage,
+                    ),
+                ) {
+                    "Native activation was superseded"
+                }
+            }.onFailure { failure ->
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    runCatching {
+                        repository.delete(
+                            captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation),
+                            groupId,
+                        )
+                    }.exceptionOrNull()?.let { cleanupFailure ->
+                        if (cleanupFailure !== failure) failure.addSuppressed(cleanupFailure)
+                    }
+                }
+            }.getOrThrow()
         }
     }

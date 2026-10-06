@@ -40,6 +40,12 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun HomeScreen(
     uiState: MainUiState,
+    pause: com.poyka.ripdpi.activities.HomePauseUiState =
+        com.poyka.ripdpi.activities
+            .HomePauseUiState(),
+    onPause: (Long) -> Unit = {},
+    onResumePause: () -> Unit = {},
+    onStopPause: () -> Unit = {},
     homeDiagnostics: HomeDiagnosticsUiState = uiState.homeDiagnostics,
     diagnosticCard: HomeModeCardUiState = uiState.diagnosticCard,
     subscriptionExpiry: SubscriptionExpirySummaryUiState = SubscriptionExpirySummaryUiState(),
@@ -102,6 +108,10 @@ fun HomeScreen(
                 },
             testTag = RipDpiTestTags.ConnectionActuatorButton,
         )
+
+        if (pause.available || pause.phase != null || pause.requestFailed) {
+            HomePauseControls(pause, onPause, onResumePause, onStopPause)
+        }
 
         // One slot, ordered by severity. Setup health, the Xray provider stage,
         // the network condition and subscription expiry each used to render

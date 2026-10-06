@@ -75,7 +75,14 @@ class WarpRuntimeProvisioningFlowTest {
             entered.await()
             val currentCredentials = oldCredentials.copy(privateKey = "current-user-key")
             val currentProfile = profile.copy(displayName = "User renamed")
-            mutations.upsertWarp(currentProfile, currentCredentials, emptyList(), false, WarpScannerModeAutomatic)
+            mutations.upsertWarp(
+                mutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+                currentProfile,
+                currentCredentials,
+                emptyList(),
+                false,
+                WarpScannerModeAutomatic,
+            )
             val currentSettings = settings.snapshot()
             completion.completeExceptionally(WarpProvisioningException.AuthFailure("old request rejected"))
             assertTrue(refreshing.await().isFailure)
@@ -128,6 +135,7 @@ class WarpRuntimeProvisioningFlowTest {
                             if (!changed) {
                                 changed = true
                                 mutations.upsertWarp(
+                                    mutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
                                     profile,
                                     originalCredentials.copy(privateKey = "user-edited-key"),
                                     listOf(originalEndpoint),
@@ -135,6 +143,7 @@ class WarpRuntimeProvisioningFlowTest {
                                     WarpScannerModeAutomatic,
                                 )
                                 mutations.upsertWarp(
+                                    mutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
                                     profile,
                                     originalCredentials,
                                     listOf(originalEndpoint),

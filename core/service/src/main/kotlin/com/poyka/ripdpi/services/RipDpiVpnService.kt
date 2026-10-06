@@ -23,6 +23,8 @@ import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.util.Optional
 import java.util.UUID
 import javax.inject.Inject
@@ -52,7 +54,8 @@ class RipDpiVpnService :
     lateinit var vpnDhtMitigationPolicy: VpnDhtMitigationPolicy
 
     @Inject
-    lateinit var rootHelperManager: RootHelperManager
+    lateinit var rootHelperManagerProvider: Provider<RootHelperManager>
+    private val rootHelperManager get() = rootHelperManagerProvider.get()
 
     @Inject
     lateinit var hardKillSwitchStateStore: AndroidHardKillSwitchStateStore
@@ -100,8 +103,22 @@ class RipDpiVpnService :
     internal lateinit var transportFailoverApplyTracker: TransportFailoverApplyTracker
 
     @Inject
-    lateinit var selectorRuntimeLifecycleListeners:
-        Set<@JvmSuppressWildcards com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener>
+    lateinit var selectorRuntimeLifecycleListenersProvider:
+        Provider<Set<@JvmSuppressWildcards com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener>>
+    private val selectorRuntimeLifecycleListeners get() = selectorRuntimeLifecycleListenersProvider.get()
+
+    @Inject lateinit var pauseController: TimedPauseController
+
+    @Inject lateinit var pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority
+
+    private val activeOwnership = ActiveSessionOwnership()
+    private val activeSessionAttached get() = activeOwnership.hasOwnership
+
+    @Volatile private var lastPausedStartId = 0
+
+    @Volatile private var latestStartId = 0
+    private val entryMutex = kotlinx.coroutines.sync.Mutex()
+    private var destroyCleanupJob: kotlinx.coroutines.Job? = null
 
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
@@ -118,6 +135,8 @@ class RipDpiVpnService :
 
     @Inject lateinit var liveVpnLockdownReader: LiveVpnLockdownReader
 
+    private val runtimeCommands = RuntimeCommands()
+
     override fun onCreate() {
         super.onCreate()
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created)
@@ -129,34 +148,101 @@ class RipDpiVpnService :
                 onUnlocked = recoveryReceiptCollector::recordUserUnlocked,
             )
         notificationController.registerChannel(this)
-        underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
-        underlyingNetworkBinder.start()
-        vpnRouteObservationAuthority.start()
-        sessionLifecycle =
-            VpnServiceSessionLifecycle(
-                service = this,
-                sessionComponentBuilderProvider = sessionComponentBuilderProvider,
-                activeProtectSocketPathProvider = activeProtectSocketPathProvider,
-                runtimeResumeIntentTracker = runtimeResumeIntentTracker,
-                serviceIntentArbiter = serviceIntentArbiter,
-                acceptedUserStopRecorder = acceptedUserStopRecorder,
-                transportFailoverApplyTracker = transportFailoverApplyTracker,
-                serviceStopProvenanceRecorder = serviceStopProvenanceRecorder,
-                beforeUserStart = { guard ->
-                    explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN, guard)
-                },
-                awaitStartupReadiness = {
-                    serviceRecoveryStartGate.orElse(null)?.awaitReady() ?: true
-                },
-                recoverProfileMutations = profileMutationCoordinator::recover,
-                awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,
-            )
-        shellDelegate = sessionLifecycle.createShellDelegate()
-        // Start the selector-runtime loops (member hot-reload + latency failover)
-        // for the lifetime of the service. Each listener is idempotent.
-        selectorRuntimeLifecycleListeners.forEach { it.start(Mode.VPN) }
         refreshHardKillSwitchState()
         liveVpnLockdownReader.register(this, ::refreshHardKillSwitchState)
+        pauseController.attach(pauseHost)
+    }
+
+    private suspend fun ensureActiveSession() {
+        if (activeOwnership.attached) return
+        runCatching {
+            activeOwnership.attach {
+                activeOwnership.own { if (::underlyingNetworkBinder.isInitialized) underlyingNetworkBinder.stop() }
+                activeOwnership.own { vpnRouteObservationAuthority.stop() }
+                activeOwnership.own { if (::sessionLifecycle.isInitialized) sessionLifecycle.destroy() }
+                activeOwnership.own { if (::shellDelegate.isInitialized) shellDelegate.close() }
+
+                underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this, directDnsUnderlayAuthority)
+                underlyingNetworkBinder.start()
+                vpnRouteObservationAuthority.start()
+                sessionLifecycle =
+                    VpnServiceSessionLifecycle(
+                        service = this,
+                        sessionComponentBuilderProvider = sessionComponentBuilderProvider,
+                        activeProtectSocketPathProvider = activeProtectSocketPathProvider,
+                        runtimeResumeIntentTracker = runtimeResumeIntentTracker,
+                        serviceIntentArbiter = serviceIntentArbiter,
+                        acceptedUserStopRecorder = acceptedUserStopRecorder,
+                        transportFailoverApplyTracker = transportFailoverApplyTracker,
+                        serviceStopProvenanceRecorder = serviceStopProvenanceRecorder,
+                        beforeUserStart = { guard ->
+                            explicitUserStartPreparer.orElse(null)?.prepare(Mode.VPN, guard)
+                        },
+                        awaitStartupReadiness = {
+                            serviceRecoveryStartGate.orElse(null)?.awaitReady() ?: true
+                        },
+                        recoverProfileMutations = profileMutationCoordinator::recover,
+                        awaitRecoveryUnderlay = underlyingNetworkBinder::awaitEligibleUnderlay,
+                    )
+                shellDelegate = sessionLifecycle.createShellDelegate()
+                val ownedRootHelper = rootHelperManager
+                activeOwnership.own { ownedRootHelper.stopOnDestroy() }
+                // Start the selector-runtime loops (member hot-reload + latency failover)
+                // for the lifetime of the service. Each listener is idempotent.
+                selectorRuntimeLifecycleListeners.forEach { listener ->
+                    activeOwnership.own { listener.stop(Mode.VPN) }
+                    listener.start(Mode.VPN)
+                }
+            }
+        }.onFailure { failure ->
+            if (failure !is Exception) throw failure
+            if (activeOwnership.hasOwnership) pauseController.retainPartialCleanup(pauseHost)
+        }.getOrThrow()
+    }
+
+    /** Called only under entryMutex; native and ancillary ownership must both be released. */
+    private val pauseHost by lazy {
+        PausedServiceHost(
+            identity = this,
+            mode = Mode.VPN,
+            scope = serviceScope,
+            release = { intent ->
+                entryMutex.withLock {
+                    runtimeCommands.releaseActiveSession(
+                        RuntimeStopGuard(isCurrent = { pauseAuthority.isCurrent(intent) }),
+                    )
+                }
+            },
+            resume = { intent ->
+                entryMutex.withLock {
+                    if (pauseAuthority.isCurrent(intent)) {
+                        ensureActiveSession()
+                        sessionLifecycle.startForPauseResume()
+                    }
+                }
+            },
+            showPaused = { intent ->
+                lastPausedStartId = latestStartId
+                startPausedForeground(this, intent, "RIPDPIVpn", 1)
+            },
+            stopShell = { lease ->
+                entryMutex.withLock {
+                    val guard = RuntimeStopGuard(isCurrent = { serviceIntentArbiter.isCurrent(lease) })
+                    val outcome = runtimeCommands.releaseActiveSession(guard)
+                    if (outcome == RuntimeStopOutcome.FullyReleased && guard.isCurrent()) stopSelf()
+                    if (guard.isCurrent()) outcome else RuntimeStopOutcome.Superseded
+                }
+            },
+            discardIdleShell = { old ->
+                entryMutex.withLock {
+                    if (!activeSessionAttached && pauseAuthority.snapshot() == null) {
+                        if (pauseAuthority.reference().generation != old.generation && lastPausedStartId > 0) {
+                            stopSelfResult(lastPausedStartId)
+                        }
+                    }
+                }
+            },
+        )
     }
 
     override fun onDestroy() {
@@ -165,11 +251,20 @@ class RipDpiVpnService :
         recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
         activeRecoveryGeneration = null
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Destroyed)
-        selectorRuntimeLifecycleListeners.forEach { it.stop(Mode.VPN) }
-        sessionLifecycle.destroy()
-        vpnRouteObservationAuthority.stop()
-        underlyingNetworkBinder.stop()
-        rootHelperManager.stopOnDestroy()
+        pauseController.detach(this)
+        destroyCleanupJob =
+            kotlinx.coroutines
+                .CoroutineScope(
+                    kotlinx.coroutines.Dispatchers.IO,
+                ).launch(kotlinx.coroutines.NonCancellable) {
+                    entryMutex.withLock {
+                        val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
+                        if (outcome != RuntimeStopOutcome.FullyReleased) {
+                            co.touchlab.kermit.Logger
+                                .e { "VPN destruction retained cleanup ownership" }
+                        }
+                    }
+                }
         super.onDestroy()
     }
 
@@ -179,67 +274,47 @@ class RipDpiVpnService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
-        val startAction = intent?.action
-        val recoveryGeneration =
-            if (isRecoveryReceiptStartAction(startAction)) {
-                recoveryReceiptCollector.beginStart(
-                    action = startAction,
-                    serviceInstanceId = recoveryServiceInstanceId,
-                )
-            } else {
-                null
+        latestStartId = startId
+        notificationController.startForeground(this)
+        serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                entryMutex.withLock {
+                    profileMutationCoordinator.recover()
+                    if (!pauseController.handleShellStart(
+                            pauseHost,
+                            intent,
+                        )
+                    ) {
+                        runtimeCommands.dispatchAfterRecovery(intent, startId)
+                    }
+                }
+            }.onFailure { failure ->
+                if (failure !is Exception || failure is kotlinx.coroutines.CancellationException) throw failure
+                co.touchlab.kermit.Logger
+                    .e { "VPN recovery prerequisite failed: ${failure::class.java.simpleName}" }
+                if (activeOwnership.hasOwnership) {
+                    pauseController.retainPartialCleanup(pauseHost)
+                } else {
+                    stopSelf(startId)
+                }
             }
-        activeRecoveryGeneration = recoveryGeneration ?: activeRecoveryGeneration
-        runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.StartCommand)
-        runtimeEvidenceReporter.runForegroundCall(
-            Mode.VPN,
-            DeviceRuntimeForegroundCallKind.Initial,
-            DeviceRuntimeForegroundServiceType.SpecialUse,
-        ) {
-            notificationController.startForeground(this)
         }
-        val policy = refreshHardKillSwitchState()
-        if (recoveryGeneration != null) {
-            val userUnlocked =
-                runCatching {
-                    getSystemService(android.os.UserManager::class.java)?.isUserUnlocked
-                }.getOrNull()
-            recoveryReceiptCollector.recordForegroundService(
-                generation = recoveryGeneration,
-                userUnlocked = userUnlocked,
-                policy = policy,
-            )
-            recoveryUserUnlockReceiver.observeIfLocked(userUnlocked)
-        }
-        // A null action is Android re-delivering a START_STICKY intent after the
-        // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from
-        // a Halted baseline — i.e. a genuinely fresh process whose store re-init'd to
-        // Halted. Guarding on Halted is load-bearing: a null re-delivery to a process
-        // whose service is still Running must not demote it to Reconnecting (which
-        // would also wipe serviceStartedAt), because the runtime start that follows
-        // is then rejected as already-running and would never restore Running —
-        // leaving the status stuck. Reconnecting is overwritten by Running on connect
-        // or Halted if the resume fails.
-        val sessionStateStore = sessionLifecycle.stateStore
-        if (isServiceRecoveryStartAction(intent?.action) &&
-            sessionStateStore.status.value.first == AppStatus.Halted
-        ) {
-            sessionStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
-        }
-        val transportFailoverCommand = intent.decodeTransportFailoverCommand()
-        return shellDelegate.onStartCommand(
-            action = intent?.action,
-            startId = startId,
-            transportFailoverRequestId = transportFailoverCommand.requestId,
-            transportFailoverTarget = transportFailoverCommand.target,
-            explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
-            vpnStartGeneration = intent.vpnStartGeneration(),
-        )
+        return START_STICKY
     }
 
     override fun onRevoke() {
         refreshHardKillSwitchState()
-        shellDelegate.onRevoke()
+        if (activeSessionAttached) {
+            shellDelegate.onRevoke()
+        } else {
+            pauseAuthority.snapshot()?.let {
+                pauseAuthority.transition(
+                    it,
+                    com.poyka.ripdpi.data.PausePhase.Deferred,
+                    com.poyka.ripdpi.data.PauseFailure.ConsentRequired,
+                )
+            }
+        }
     }
 
     override fun updateNotification(
@@ -399,7 +474,7 @@ class RipDpiVpnService :
             }
         }
 
-        applyDhtMitigation(builder, interfaceSettings)
+        runtimeCommands.applyDhtMitigation(builder, interfaceSettings)
         refreshHardKillSwitchState()
         return builder
     }
@@ -421,31 +496,155 @@ class RipDpiVpnService :
         return snapshot
     }
 
-    private fun applyDhtMitigation(
-        builder: Builder,
-        settings: AppSettings,
-    ) {
-        val supportsRouteExclusion = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-        val plan =
-            vpnDhtMitigationPolicy.buildPlan(
-                settings = settings,
-                supportsRouteExclusion = supportsRouteExclusion,
-            )
+    /** Native session commands retain access only to their owning service instance. */
+    private inner class RuntimeCommands {
+        suspend fun releaseActiveSession(guard: RuntimeStopGuard): RuntimeStopOutcome =
+            when {
+                !guard.isCurrent() -> {
+                    RuntimeStopOutcome.Superseded
+                }
 
-        if (supportsRouteExclusion) {
-            plan.excludedRoutes.forEach { route ->
-                runCatching {
-                    builder.excludeRoute(IpPrefix(java.net.InetAddress.getByName(route.address), route.prefixLength))
-                }.onFailure { error ->
-                    Logger.w(error) {
-                        "Failed to exclude DHT trigger route ${route.address}/${route.prefixLength}"
-                    }
+                !activeSessionAttached -> {
+                    RuntimeStopOutcome.FullyReleased
+                }
+
+                !activeOwnership.attached -> {
+                    activeOwnership.release()
+                }
+
+                else -> {
+                    val result = sessionLifecycle.releaseRetainingShell(guard)
+                    val outcome = if (result == RuntimeStopOutcome.FullyReleased) activeOwnership.release() else result
+                    outcome
+                }
+            }
+
+        suspend fun dispatchAfterRecovery(
+            intent: Intent?,
+            startId: Int,
+        ): Int {
+            val action = intent?.action
+            return when {
+                intent.hasStaleServiceCommand(serviceIntentArbiter) -> {
+                    START_STICKY
+                }
+
+                action == TimedPauseController.PauseRestoreAction ||
+                    (isUserServiceStopAction(action) && !activeSessionAttached) -> {
+                    discardIdleStart(startId)
+                }
+
+                isServiceRecoveryStartAction(action) &&
+                    !pauseAuthority.allowsRecovery(
+                        intent.durableAuthorityReference() ?: pauseAuthority.reference(),
+                        Mode.VPN,
+                    ) -> {
+                    discardIdleStart(startId)
+                }
+
+                else -> {
+                    dispatchActiveCommand(intent, startId)
                 }
             }
         }
 
-        plan.warningMessage?.let { warning ->
-            Logger.w { warning }
+        private fun discardIdleStart(startId: Int): Int {
+            if (!activeSessionAttached) stopSelf(startId)
+            return if (activeSessionAttached) START_STICKY else START_NOT_STICKY
+        }
+
+        private suspend fun dispatchActiveCommand(
+            intent: Intent?,
+            startId: Int,
+        ): Int {
+            ensureActiveSession()
+            val startAction = intent?.action
+            val recoveryGeneration =
+                if (isRecoveryReceiptStartAction(startAction)) {
+                    recoveryReceiptCollector.beginStart(
+                        action = startAction,
+                        serviceInstanceId = recoveryServiceInstanceId,
+                    )
+                } else {
+                    null
+                }
+            activeRecoveryGeneration = recoveryGeneration ?: activeRecoveryGeneration
+            runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.StartCommand)
+            runtimeEvidenceReporter.runForegroundCall(
+                Mode.VPN,
+                DeviceRuntimeForegroundCallKind.Initial,
+                DeviceRuntimeForegroundServiceType.SpecialUse,
+            ) {
+                notificationController.startForeground(this@RipDpiVpnService)
+            }
+            val policy = refreshHardKillSwitchState()
+            if (recoveryGeneration != null) {
+                val userUnlocked =
+                    runCatching {
+                        getSystemService(android.os.UserManager::class.java)?.isUserUnlocked
+                    }.getOrNull()
+                recoveryReceiptCollector.recordForegroundService(
+                    generation = recoveryGeneration,
+                    userUnlocked = userUnlocked,
+                    policy = policy,
+                )
+                recoveryUserUnlockReceiver.observeIfLocked(userUnlocked)
+            }
+            // A null action is Android re-delivering a START_STICKY intent after the
+            // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from
+            // a Halted baseline — i.e. a genuinely fresh process whose store re-init'd to
+            // Halted. Guarding on Halted is load-bearing: a null re-delivery to a process
+            // whose service is still Running must not demote it to Reconnecting (which
+            // would also wipe serviceStartedAt), because the runtime start that follows
+            // is then rejected as already-running and would never restore Running —
+            // leaving the status stuck. Reconnecting is overwritten by Running on connect
+            // or Halted if the resume fails.
+            val sessionStateStore = sessionLifecycle.stateStore
+            if (isServiceRecoveryStartAction(intent?.action) &&
+                sessionStateStore.status.value.first == AppStatus.Halted
+            ) {
+                sessionStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+            }
+            val transportFailoverCommand = intent.decodeTransportFailoverCommand()
+            return shellDelegate.onStartCommand(
+                action = intent?.action,
+                startId = startId,
+                transportFailoverRequestId = transportFailoverCommand.requestId,
+                transportFailoverTarget = transportFailoverCommand.target,
+                explicitUserIntentGeneration = intent.explicitUserIntentGeneration(),
+                durableReference = intent.durableAuthorityReference() ?: pauseAuthority.reference(),
+                vpnStartGeneration = intent.vpnStartGeneration(),
+            )
+        }
+
+        fun applyDhtMitigation(
+            builder: Builder,
+            settings: AppSettings,
+        ) {
+            val supportsRouteExclusion = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            val plan =
+                vpnDhtMitigationPolicy.buildPlan(
+                    settings = settings,
+                    supportsRouteExclusion = supportsRouteExclusion,
+                )
+
+            if (supportsRouteExclusion) {
+                plan.excludedRoutes.forEach { route ->
+                    runCatching {
+                        builder.excludeRoute(
+                            IpPrefix(java.net.InetAddress.getByName(route.address), route.prefixLength),
+                        )
+                    }.onFailure { error ->
+                        Logger.w(error) {
+                            "Failed to exclude DHT trigger route ${route.address}/${route.prefixLength}"
+                        }
+                    }
+                }
+            }
+
+            plan.warningMessage?.let { warning ->
+                Logger.w { warning }
+            }
         }
     }
 

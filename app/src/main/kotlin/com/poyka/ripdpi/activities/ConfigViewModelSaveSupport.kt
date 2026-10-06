@@ -10,6 +10,8 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -56,13 +58,14 @@ internal suspend fun applySavedConfigDraftToRunningService(
     if (result is com.poyka.ripdpi.services.RunningReconnectResult.Failed) onReconnectFailure(result)
 }
 
-internal fun startConfigRuntimeMode(
+internal suspend fun startConfigRuntimeMode(
     mode: Mode,
     serviceController: ServiceController,
     stringResolver: StringResolver,
     effects: MutableSharedFlow<ConfigEffect>,
+    receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
 ) {
-    when (val result = serviceController.start(mode)) {
+    when (val result = serviceController.startPrepared(mode, receipt)) {
         is ServiceStartResult.Accepted -> {
             return
         }
@@ -82,9 +85,10 @@ internal fun stopConfigRuntimeMode(
     mode: Mode,
     serviceStateStore: ServiceStateStore,
     serviceController: ServiceController,
+    receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
 ) {
     if (serviceStateStore.status.value == AppStatus.Running to mode) {
-        serviceController.stop()
+        serviceController.stopPrepared(receipt)
     }
 }
 
@@ -117,6 +121,54 @@ internal sealed interface ConfigSaveOutcome {
     ) : ConfigSaveOutcome
 
     data object Stale : ConfigSaveOutcome
+}
+
+internal suspend fun persistConfigSaveRequest(
+    request: ConfigSaveRequest,
+    dependencies: ConfigViewModelDependencies,
+    supportsMasquePrivacyPass: Boolean,
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
+    onUnsupportedVpnDns: () -> Unit,
+): ConfigSaveOutcome {
+    val relayArtifacts = dependencies.relayArtifacts
+    val relayProfileRecords = relayArtifacts.listProfiles()
+    if (
+        validateConfigDraft(
+            draft = request.draft,
+            supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+            relayProfiles = relayProfileRecords,
+        ).isNotEmpty()
+    ) {
+        return ConfigSaveOutcome.ValidationFailed
+    }
+    val persistedDraft = relayArtifacts.prepareForPersistence(request.draft)
+    currentCoroutineContext().ensureActive()
+    return if (editorSession.value.sessionId != request.sessionId) {
+        ConfigSaveOutcome.Stale
+    } else {
+        val savedDraft = relayArtifacts.persist(persistedDraft)
+        if (persistedDraft.mode == Mode.Proxy) {
+            dependencies.xrayNativeProviderSelection.selectNativeMode(
+                com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
+                persistedDraft.mode,
+            )
+        }
+        currentCoroutineContext().ensureActive()
+        if (editorSession.value.sessionId != request.sessionId) {
+            ConfigSaveOutcome.Stale
+        } else {
+            applySavedConfigDraftToRunningService(
+                draft = persistedDraft,
+                appSettingsRepository = dependencies.appSettingsRepository,
+                serviceStateStore = dependencies.serviceStateStore,
+                reconnectCoordinator = dependencies.reconnectCoordinator,
+                onReconnectFailure = onReconnectFailure,
+                onUnsupportedVpnDns = onUnsupportedVpnDns,
+            )
+            ConfigSaveOutcome.Saved(savedDraft)
+        }
+    }
 }
 
 internal fun beginConfigSave(

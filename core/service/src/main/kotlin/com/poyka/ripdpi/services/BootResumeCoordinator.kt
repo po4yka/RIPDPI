@@ -26,6 +26,9 @@ class BootResumeCoordinator
         private val log = Logger.withTag("BootResumeCoordinator")
 
         suspend fun resume(action: String) {
+            val authority = serviceController.captureRuntimeSnapshot()
+            val reference = authority.reference
+            if (authority.pause != null) return
             val pointer = bootSessionStateStore.lastSession()
             val wasRunningAtUpdate = bootSessionStateStore.wasRunningAtUpdate()
             val resumable = pointer != null && profileGuard.isResumable(pointer.profileId)
@@ -39,7 +42,13 @@ class BootResumeCoordinator
 
             when (val decision = decideBootResume(action, pointer, resumable, wasRunningAtUpdate)) {
                 is BootResumeDecision.Resume -> {
-                    val result = serviceController.startForBootRecovery(decision.mode, action)
+                    val result =
+                        if (action == Intent.ACTION_BOOT_COMPLETED) {
+                            val receipt = serviceController.authorizeBootPolicyStart(decision.mode, authority) ?: return
+                            serviceController.startBootPolicy(decision.mode, receipt)
+                        } else {
+                            serviceController.startForBootRecovery(decision.mode, action, reference)
+                        }
                     reconnectingResumeMode(result, serviceStateStore.status.value.first)
                         ?.let { mode -> serviceStateStore.setStatus(AppStatus.Reconnecting, mode) }
                     log.i { "boot resume ($action): starting ${decision.mode} -> $result" }

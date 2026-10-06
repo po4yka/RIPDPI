@@ -231,14 +231,29 @@ class ResetAllSettingsUseCaseTest {
             state.value = groups.toList()
         }
 
-        override suspend fun delete(id: String) {
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            replaceAll(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                groups,
+            )
+        }
+
+        override suspend fun delete(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            id: String,
+        ) {
             groups.removeAll { it.id == id }
             state.value = groups.toList()
         }
 
         override suspend fun list(): List<ProxyGroup> = groups.toList()
 
-        override suspend fun replaceAll(groups: List<ProxyGroup>) {
+        override suspend fun replaceAll(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) {
             if (replaceAllCalls++ == 0) recordCallsAtFirstWrite = onReplace?.invoke() ?: 0
             this.groups.clear()
             this.groups.addAll(groups)

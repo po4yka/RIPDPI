@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">Verbindung pausieren</string>
+    <string name="pause_until">Pausiert bis %1$s</string>
+    <string name="pause_releasing">Verbindungsressourcen werden freigegeben…</string>
+    <string name="pause_resuming">Verbindung wird fortgesetzt…</string>
+    <string name="pause_cleanup_pending">Die Bereinigung ist unvollständig. Die Pause ist noch nicht bestätigt.</string>
+    <string name="pause_deferred">Fortsetzung erfordert Aufmerksamkeit</string>
+    <string name="pause_saved_settings">Dieser Modus wird mit den aktuellen gespeicherten Einstellungen fortgesetzt. Bearbeitungen behalten die Pause; Start, Stopp, Profilaktivierung oder Löschung hebt sie auf.</string>
+    <string name="pause_remaining">Noch %1$s Minuten</string>
+    <string name="pause_resume_now">Jetzt fortsetzen</string>
+    <string name="pause_stop">Stoppen und Fortsetzung abbrechen</string>
+    <string name="pause_persistence_failed">Der Befehl konnte nicht gespeichert werden. Der Verbindungsstatus bleibt unverändert.</string>
+    <string name="pause_duration_minutes">%1$s Minuten</string>
+    <string name="pause_clock_failed">Uhr oder Startidentität wurde geändert. Prüfen Sie die Wiederherstellung.</string>
+    <string name="pause_consent_required">Zum Fortsetzen ist eine VPN-Berechtigung erforderlich.</string>
+    <string name="pause_lockdown">Die Android-VPN-Sperre erlaubt diese Aktion nicht.</string>
+    <string name="pause_background_restricted">Android hat die Hintergrundfortsetzung verschoben. Öffnen Sie die App.</string>
+    <string name="pause_user_stopped">Android hat einen Benutzerstopp aufgezeichnet. Automatische Fortsetzung ist unterdrückt.</string>
+    <string name="pause_resume_failed">Der Dienst hat die fortgesetzte Konfiguration nicht bestätigt.</string>
+ </resources>

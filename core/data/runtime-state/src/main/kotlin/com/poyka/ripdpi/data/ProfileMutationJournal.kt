@@ -35,6 +35,8 @@ data class PendingProfileMutation(
     val mutationId: String = UUID.randomUUID().toString(),
     val family: ProfileMutationFamily,
     val payload: String,
+    val origin: ProfileMutationOrigin?,
+    val expectedPauseAuthority: PauseAuthorityRef?,
 )
 
 interface ProfileMutationJournal {
@@ -88,7 +90,7 @@ class EncryptedProfileMutationJournal
                 withContext(Dispatchers.IO) {
                     try {
                         blobStore.getStringStrict(PendingEntryKey)?.let {
-                            json.decodeFromString(PendingProfileMutation.serializer(), it)
+                            decodePendingProfileMutation(it)
                         }
                     } catch (cancellation: CancellationException) {
                         throw cancellation
@@ -113,7 +115,7 @@ class EncryptedProfileMutationJournal
             withContext(Dispatchers.IO) {
                 val pending =
                     blobStore.getStringStrict(PendingEntryKey)?.let {
-                        json.decodeFromString(PendingProfileMutation.serializer(), it)
+                        decodePendingProfileMutation(it)
                     }
                 check(pending?.mutationId == expectedMutationId) { "Profile mutation journal id changed" }
                 blobStore.putString(
@@ -128,7 +130,7 @@ class EncryptedProfileMutationJournal
                 withContext(Dispatchers.IO) {
                     val pending =
                         blobStore.getStringStrict(PendingEntryKey)?.let {
-                            json.decodeFromString(PendingProfileMutation.serializer(), it)
+                            decodePendingProfileMutation(it)
                         } ?: return@withContext
                     check(pending.mutationId == mutationId) { "Profile mutation journal id changed" }
                     blobStore.remove(PendingEntryKey)
@@ -153,7 +155,28 @@ private fun unreadableMarker(cause: Exception) =
         cause = cause,
     )
 
-private const val CurrentProfileMutationSchemaVersion = 1
+private const val CurrentProfileMutationSchemaVersion = 2
+
+/** This decoder exists only for the one-way startup migration. New records are strict v2. */
+private fun decodePendingProfileMutation(encoded: String): PendingProfileMutation {
+    val json = com.poyka.ripdpi.serialization.RipDpiContractJson
+    val element = json.parseToJsonElement(encoded)
+    val version =
+        (element as kotlinx.serialization.json.JsonObject)["schemaVersion"]?.let {
+            (it as kotlinx.serialization.json.JsonPrimitive).content.toInt()
+        } ?: throw kotlinx.serialization.SerializationException("Profile mutation schema is missing")
+    if (version != 1) return json.decodeFromJsonElement(PendingProfileMutation.serializer(), element)
+    val legacy = json.decodeFromJsonElement(LegacyPendingProfileMutation.serializer(), element)
+    return PendingProfileMutation(1, legacy.mutationId, legacy.family, legacy.payload, null, null)
+}
+
+@Serializable
+private data class LegacyPendingProfileMutation(
+    val schemaVersion: Int = 1,
+    val mutationId: String,
+    val family: ProfileMutationFamily,
+    val payload: String,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)

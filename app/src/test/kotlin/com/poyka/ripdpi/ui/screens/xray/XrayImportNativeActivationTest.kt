@@ -36,6 +36,7 @@ import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -73,7 +74,16 @@ class XrayImportNativeActivationTest {
             val credentials = FakeRelayCredentialStore()
             val settings = FakeAppSettingsRepository()
             val activator =
-                NativeRelayProfileActivator(groups, RelayProfileActivator(profiles, credentials, settings))
+                NativeRelayProfileActivator(
+                    groups,
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                    ),
+                )
             val profile =
                 ProxyProfile.Mieru(
                     id = "mieru-import",
@@ -88,7 +98,10 @@ class XrayImportNativeActivationTest {
                 )
 
             assertTrue(activator.supports(profile))
-            activator.activate(profile)
+            activator.activate(
+                activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                profile,
+            )
 
             assertEquals(RelayKindMieru, settings.snapshot().relayKind)
             assertEquals("high", profiles.load(DefaultRelayProfileId)?.mieruMultiplexing)
@@ -106,7 +119,13 @@ class XrayImportNativeActivationTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
 
             val config =
@@ -120,7 +139,10 @@ class XrayImportNativeActivationTest {
                 } ] }
                 """.trimIndent()
 
-            activator.activate(firstProfile(config))
+            activator.activate(
+                activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                firstProfile(config),
+            )
 
             val settings = settingsRepository.snapshot()
             val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
@@ -148,7 +170,13 @@ class XrayImportNativeActivationTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
             val malformedPublicKey = "not-a-valid-reality-public-key"
             val config =
@@ -162,7 +190,13 @@ class XrayImportNativeActivationTest {
                 } ] }
                 """.trimIndent()
 
-            val error = runCatching { activator.activate(firstProfile(config)) }.exceptionOrNull()
+            val error =
+                runCatching {
+                    activator.activate(
+                        activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                        firstProfile(config),
+                    )
+                }.exceptionOrNull()
 
             assertTrue(error is IllegalArgumentException)
             assertFalse(error?.message.orEmpty().contains(malformedPublicKey))
@@ -182,7 +216,13 @@ class XrayImportNativeActivationTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
             val unsupportedMode = "packet-up"
             val config =
@@ -197,7 +237,13 @@ class XrayImportNativeActivationTest {
                 } ] }
                 """.trimIndent()
 
-            val error = runCatching { activator.activate(firstProfile(config)) }.exceptionOrNull()
+            val error =
+                runCatching {
+                    activator.activate(
+                        activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                        firstProfile(config),
+                    )
+                }.exceptionOrNull()
 
             assertTrue(error is IllegalArgumentException)
             assertFalse(error?.message.orEmpty().contains(unsupportedMode))
@@ -217,7 +263,13 @@ class XrayImportNativeActivationTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
 
             val config =
@@ -232,7 +284,10 @@ class XrayImportNativeActivationTest {
                 } ] }
                 """.trimIndent()
 
-            activator.activate(firstProfile(config))
+            activator.activate(
+                activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                firstProfile(config),
+            )
 
             val settings = settingsRepository.snapshot()
             val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
@@ -253,7 +308,14 @@ class XrayImportNativeActivationTest {
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
-            val activator = RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository)
+            val activator =
+                RelayProfileActivator(
+                    com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                        relayProfileStore,
+                        relayCredentialStore,
+                        settingsRepository,
+                    ),
+                )
             val profile =
                 ProxyProfile.VlessReality(
                     id = "id",
@@ -271,7 +333,12 @@ class XrayImportNativeActivationTest {
                     xhttpHost = "",
                 )
 
-            assertTrue(activator.activate(profile))
+            assertTrue(
+                activator.activate(
+                    activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                    profile,
+                ),
+            )
 
             val stored = relayProfileStore.load(DefaultRelayProfileId)!!
             assertEquals(RelayVlessTransportXhttp, stored.vlessTransport)
@@ -289,7 +356,14 @@ class XrayImportNativeActivationTest {
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
-            val activator = RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository)
+            val activator =
+                RelayProfileActivator(
+                    com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                        relayProfileStore,
+                        relayCredentialStore,
+                        settingsRepository,
+                    ),
+                )
             val profile =
                 ProxyProfile.Hysteria2(
                     id = "id",
@@ -303,7 +377,12 @@ class XrayImportNativeActivationTest {
                     insecure = true,
                 )
 
-            assertTrue(activator.activate(profile))
+            assertTrue(
+                activator.activate(
+                    activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                    profile,
+                ),
+            )
 
             val stored = relayProfileStore.load(DefaultRelayProfileId)!!
             val credentials = relayCredentialStore.load(DefaultRelayProfileId)!!
@@ -319,7 +398,14 @@ class XrayImportNativeActivationTest {
         runTest {
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
-            val activator = RelayProfileActivator(relayProfileStore, relayCredentialStore, FakeAppSettingsRepository())
+            val activator =
+                RelayProfileActivator(
+                    com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                        relayProfileStore,
+                        relayCredentialStore,
+                        FakeAppSettingsRepository(),
+                    ),
+                )
             val profile =
                 ProxyProfile.Vless(
                     id = "id",
@@ -335,7 +421,12 @@ class XrayImportNativeActivationTest {
                     xhttpHost = "",
                 )
 
-            assertTrue(activator.activate(profile))
+            assertTrue(
+                activator.activate(
+                    activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                    profile,
+                ),
+            )
 
             val stored = relayProfileStore.load(DefaultRelayProfileId)!!
             assertEquals(com.poyka.ripdpi.data.RelayKindVless, stored.kind)
@@ -357,7 +448,13 @@ class XrayImportNativeActivationTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
 
             val config =
@@ -366,7 +463,10 @@ class XrayImportNativeActivationTest {
                   { "address": "tj.example", "port": 443, "password": "tj-secret" } ] } } ] }
                 """.trimIndent()
 
-            activator.activate(firstProfile(config))
+            activator.activate(
+                activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                firstProfile(config),
+            )
 
             val settings = settingsRepository.snapshot()
             assertTrue(settings.relayEnabled)
@@ -498,7 +598,13 @@ class XrayProviderPersistenceTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
             val persistence =
                 persistence(
@@ -540,7 +646,13 @@ class XrayProviderPersistenceTest {
             val activator =
                 NativeRelayProfileActivator(
                     repository,
-                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            relayProfileStore,
+                            relayCredentialStore,
+                            settingsRepository,
+                        ),
+                    ),
                 )
             val persistence =
                 persistence(
@@ -751,7 +863,32 @@ private class FakeProxyGroupRepository : ProxyGroupRepository {
         state.value = state.value.map { if (it.id == group.id) group else it }
     }
 
-    override suspend fun delete(id: String) {
+    override suspend fun replaceAll(
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        groups: List<ProxyGroup>,
+    ) {
+        val preparation =
+            com.poyka.ripdpi.data.ProfileMutationPreparation(
+                com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                receipt.authority,
+            )
+        list().forEach { delete(preparation, it.id) }
+        groups.forEach { add(it) }
+    }
+
+    override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+        replaceAll(
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+            groups,
+        )
+    }
+
+    override suspend fun delete(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        id: String,
+    ) {
         state.value = state.value.filterNot { it.id == id }
     }
 
@@ -856,27 +993,36 @@ private class FakeXrayProfileMutationCoordinator(
     override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
 
     override suspend fun upsertXrayProvider(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
         profile: XrayProfile,
         selection: XrayProviderSelectionRecord,
         modeAfterImage: String,
-    ) {
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         failure?.let { throw it }
         durableProfileStore.save(profileId, profile)
         settingsRepository.update { setRipdpiMode(modeAfterImage) }
         durableSelectionStore.update(selection)
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 
     override suspend fun selectNativeProvider(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         selection: XrayProviderSelectionRecord,
         modeAfterImage: String,
-    ) {
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         failure?.let { throw it }
         settingsRepository.update { setRipdpiMode(modeAfterImage) }
         durableSelectionStore.update(selection)
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 
     override suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
         credentials: RelayCredentialRecord,
         enabled: Boolean,
@@ -885,7 +1031,7 @@ private class FakeXrayProfileMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
-    ) {
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         failure?.let { throw it }
         relayProfileStore?.save(profile)
         relayCredentialStore?.save(credentials)
@@ -918,6 +1064,9 @@ private class FakeXrayProfileMutationCoordinator(
             }
         }
         xraySelectionAfterImage?.let(durableSelectionStore::update)
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 }
 
@@ -946,4 +1095,233 @@ private fun firstProfile(input: String): ProxyProfile {
     val result = XrayConfigImportParser.parse(input, groupId = "xray-import")
     assertTrue(result is XrayConfigImportResult.Translated)
     return (result as XrayConfigImportResult.Translated).profiles.first()
+}
+
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35])
+class NativeRelayActivationFenceTest {
+    @Test
+    fun `failed metadata compensation preserves original activation failure`() =
+        runTest {
+            verifyCompensationFailurePreserves(IllegalStateException("Activation rejected"))
+        }
+
+    @Test
+    fun `failed metadata compensation preserves exact cancellation`() =
+        runTest {
+            verifyCompensationFailurePreserves(kotlinx.coroutines.CancellationException("Import cancelled"))
+        }
+
+    private suspend fun verifyCompensationFailurePreserves(failure: Throwable) {
+        val settings = FakeAppSettingsRepository()
+        val profiles = FakeRelayProfileStore()
+        val mutations =
+            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                profiles,
+                FakeRelayCredentialStore(),
+                settings,
+            )
+        val real =
+            com.poyka.ripdpi.data
+                .SharedPreferencesProxyGroupRepository(MemoryGroupBlob(), mutations)
+        val cleanup = java.io.IOException("Metadata rollback failed")
+        val repository =
+            object : ProxyGroupRepository by real {
+                override suspend fun delete(
+                    preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                    id: String,
+                ) {
+                    assertEquals(com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation, preparation.origin)
+                    throw cleanup
+                }
+            }
+        val rejected =
+            object : ProfileMutationCoordinator by mutations {
+                override suspend fun upsertRelay(
+                    preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                    profile: RelayProfileRecord,
+                    credentials: RelayCredentialRecord,
+                    enabled: Boolean,
+                    select: Boolean,
+                    settingsAfterImage: AppSettings?,
+                    modeAfterImage: String?,
+                    xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
+                    expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+                ): com.poyka.ripdpi.data.ProfileMutationOutcome = throw failure
+            }
+        val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(rejected))
+        val actual =
+            runCatching {
+                activator.activate(
+                    activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                    profile(),
+                )
+            }.exceptionOrNull()
+        org.junit.Assert.assertSame(failure, actual)
+        assertEquals(listOf(cleanup), checkNotNull(actual).suppressed.toList())
+        assertEquals(1, real.list().size)
+        assertTrue(profiles.list().isEmpty())
+        assertFalse(settings.snapshot().relayEnabled)
+    }
+
+    @Test
+    fun `empty catalog metadata cannot select index zero before checked native activation`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            val profiles = FakeRelayProfileStore()
+            val credentials = FakeRelayCredentialStore()
+            val mutations =
+                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                    profiles,
+                    credentials,
+                    settings,
+                )
+            val repository =
+                com.poyka.ripdpi.data
+                    .SharedPreferencesProxyGroupRepository(MemoryGroupBlob(), mutations)
+            val selections =
+                com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore(
+                    org.robolectric.RuntimeEnvironment.getApplication(),
+                    mutations,
+                )
+            var publications = 0
+            val checked =
+                object : ProfileMutationCoordinator by mutations {
+                    override suspend fun upsertRelay(
+                        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+                        profile: RelayProfileRecord,
+                        credentials: RelayCredentialRecord,
+                        enabled: Boolean,
+                        select: Boolean,
+                        settingsAfterImage: AppSettings?,
+                        modeAfterImage: String?,
+                        xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
+                        expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState?,
+                    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
+                        val metadata = repository.list().single()
+                        assertFalse(metadata.isSelector)
+                        assertTrue(metadata.members.isEmpty())
+                        assertNull(selections.snapshot(metadata.id).profileId)
+                        assertFalse(settings.snapshot().relayEnabled)
+                        publications++
+                        return mutations.upsertRelay(
+                            preparation,
+                            profile,
+                            credentials,
+                            enabled,
+                            select,
+                            settingsAfterImage,
+                            modeAfterImage,
+                            xraySelectionAfterImage,
+                            expectedState,
+                        )
+                    }
+                }
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(checked))
+            activator.activate(
+                activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                profile(),
+            )
+            assertEquals(1, publications)
+            assertEquals(1, repository.list().size)
+            assertNull(selections.snapshot(repository.list().single().id).profileId)
+            assertTrue(settings.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `older activation preserves newer pause and compensates only newly created metadata`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            val mutations =
+                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                    FakeRelayProfileStore(),
+                    FakeRelayCredentialStore(),
+                    settings,
+                )
+            val real =
+                com.poyka.ripdpi.data
+                    .SharedPreferencesProxyGroupRepository(MemoryGroupBlob(), mutations)
+            val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val repository =
+                object : ProxyGroupRepository by real {
+                    override suspend fun list(): List<ProxyGroup> {
+                        entered.complete(Unit)
+                        release.await()
+                        return real.list()
+                    }
+                }
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(mutations))
+            val preparation = activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation)
+            val activation = async { runCatching { activator.activate(preparation, profile()) } }
+            entered.await()
+            val newer = mutations.testAuthority.begin(Mode.Proxy, 900_000, mutations.testAuthority.snapshotAuthority())
+            release.complete(Unit)
+            assertTrue(activation.await().isFailure)
+            assertEquals(newer, mutations.testAuthority.snapshot())
+            assertTrue(real.list().isEmpty())
+        }
+
+    @Test
+    fun `failed metadata write compensates its after write image without activating a profile`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            val profiles = FakeRelayProfileStore()
+            val mutations =
+                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                    profiles,
+                    FakeRelayCredentialStore(),
+                    settings,
+                )
+            val blob = MemoryGroupBlob().apply { failNextAfterWrite = true }
+            val repository =
+                com.poyka.ripdpi.data
+                    .SharedPreferencesProxyGroupRepository(blob, mutations)
+            val activator = NativeRelayProfileActivator(repository, RelayProfileActivator(mutations))
+            val pause = mutations.testAuthority.begin(Mode.Proxy, 300_000, mutations.testAuthority.snapshotAuthority())
+            assertTrue(
+                runCatching {
+                    activator.activate(
+                        activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                        profile(),
+                    )
+                }.isFailure,
+            )
+            assertTrue(repository.list().isEmpty())
+            assertTrue(profiles.list().isEmpty())
+            assertFalse(settings.snapshot().relayEnabled)
+            assertEquals(pause, mutations.testAuthority.snapshot())
+        }
+
+    private fun profile() =
+        ProxyProfile.Mieru(
+            id = "native-fence",
+            displayName = "Fixture",
+            groupId = "import",
+            server = "relay.example",
+            serverPort = 443,
+            username = "fixture",
+            password = "fixture",
+            multiplexing = "high",
+            mtu = 1280,
+        )
+
+    private class MemoryGroupBlob : com.poyka.ripdpi.data.ProxyGroupBlobStore {
+        private var json: String? = null
+        var failNextAfterWrite = false
+
+        override fun read() = json
+
+        override fun write(json: String) {
+            this.json = json
+            if (failNextAfterWrite) {
+                failNextAfterWrite = false
+                error("Metadata commit failed after write")
+            }
+        }
+
+        override fun clear() {
+            json = null
+        }
+    }
 }

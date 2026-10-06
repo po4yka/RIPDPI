@@ -43,7 +43,16 @@ class AnyTlsProfileViewModelTest {
         profileStore: RelayProfileStore,
         credentialStore: RelayCredentialStore,
         settings: AppSettingsRepository,
-    ): AnyTlsProfileViewModel = AnyTlsProfileViewModel(RelayProfileActivator(profileStore, credentialStore, settings))
+    ): AnyTlsProfileViewModel =
+        AnyTlsProfileViewModel(
+            RelayProfileActivator(
+                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                    profileStore,
+                    credentialStore,
+                    settings,
+                ),
+            ),
+        )
 
     @Test
     fun `saving a complete anytls editor activates the native relay`() =

@@ -279,13 +279,23 @@ class ConfigSeederTest {
         relaySettings = FakeAppSettingsRepository()
         relayProfileActivator =
             RelayProfileActivator(
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
-                settingsRepository = relaySettings,
+                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                    profiles = relayProfileStore,
+                    credentials = relayCredentialStore,
+                    settings = relaySettings,
+                ),
             )
         awgDao = InMemoryAwgProfileDao()
         awgCredentials = InMemoryAwgCredentialStore()
-        awgProfileRepository = AwgProfileRepository(dao = awgDao, credentialStore = awgCredentials)
+        awgProfileRepository =
+            AwgProfileRepository(
+                dao = awgDao,
+                credentialStore = awgCredentials,
+                com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
+                    dao = awgDao,
+                    credentials = awgCredentials,
+                ),
+            )
     }
 
     private fun makeSeeder(bundleJson: String? = FAKE_BUNDLE): TestableConfigSeeder =
@@ -778,7 +788,32 @@ private class RecordingProxyGroupRepository : ProxyGroupRepository {
 
     override suspend fun update(group: ProxyGroup) = Unit
 
-    override suspend fun delete(id: String) = Unit
+    override suspend fun replaceAll(
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        groups: List<ProxyGroup>,
+    ) {
+        val preparation =
+            com.poyka.ripdpi.data.ProfileMutationPreparation(
+                com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                receipt.authority,
+            )
+        list().forEach { delete(preparation, it.id) }
+        groups.forEach { add(it) }
+    }
+
+    override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+        replaceAll(
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+            groups,
+        )
+    }
+
+    override suspend fun delete(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        id: String,
+    ) = Unit
 
     override suspend fun list(): List<ProxyGroup> = addedGroups.toList()
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">कनेक्शन रोकें</string>
+    <string name="pause_until">%1$s तक विराम</string>
+    <string name="pause_releasing">कनेक्शन संसाधन मुक्त हो रहे हैं…</string>
+    <string name="pause_resuming">कनेक्शन फिर शुरू हो रहा है…</string>
+    <string name="pause_cleanup_pending">सफाई अधूरी है। विराम की पुष्टि अभी नहीं हुई है।</string>
+    <string name="pause_deferred">फिर शुरू करने के लिए ध्यान चाहिए</string>
+    <string name="pause_saved_settings">यह मोड वर्तमान सहेजी गई सेटिंग से शुरू होगा। साधारण बदलाव विराम रखते हैं; शुरू करना, रोकना, प्रोफ़ाइल सक्रिय करना या हटाना इसे रद्द करता है।</string>
+    <string name="pause_remaining">%1$s मिनट बाकी</string>
+    <string name="pause_resume_now">अभी फिर शुरू करें</string>
+    <string name="pause_stop">रोकें और फिर शुरू करना रद्द करें</string>
+    <string name="pause_persistence_failed">आदेश सहेजा नहीं जा सका। कनेक्शन की स्थिति नहीं बदली है।</string>
+    <string name="pause_duration_minutes">%1$s मिनट</string>
+    <string name="pause_clock_failed">घड़ी या बूट पहचान बदल गई है। बहाली की शर्तें जाँचें।</string>
+    <string name="pause_consent_required">फिर शुरू करने के लिए VPN अनुमति चाहिए।</string>
+    <string name="pause_lockdown">Android VPN लॉक स्थिति यह कार्रवाई नहीं करने देती।</string>
+    <string name="pause_background_restricted">Android ने पृष्ठभूमि बहाली टाल दी है। ऐप खोलें।</string>
+    <string name="pause_user_stopped">Android ने उपयोगकर्ता द्वारा रोका जाना दर्ज किया। स्वतः बहाली बंद है।</string>
+    <string name="pause_resume_failed">सेवा ने बहाल कॉन्फ़िगरेशन की पुष्टि नहीं की।</string>
+ </resources>

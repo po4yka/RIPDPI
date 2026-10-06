@@ -102,9 +102,22 @@ class RecoveringConnectionPolicyResolverTest {
         }
 }
 
-private class RecoveryOnlyProfileMutationCoordinator(
+internal class RecoveryOnlyProfileMutationCoordinator(
     private val recovery: suspend () -> Unit,
 ) : ProfileMutationCoordinator {
+    override suspend fun commitMutationIntent(preparation: com.poyka.ripdpi.data.ProfileMutationPreparation) =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
+
+    override suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
+        com.poyka.ripdpi.data
+            .ProfileMutationPreparation(
+                origin,
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .reference(),
+            )
+
     override fun warpRuntimeRevision(profileId: String): Long = 0L
 
     override suspend fun recover() = recovery()
@@ -114,16 +127,21 @@ private class RecoveryOnlyProfileMutationCoordinator(
         return block()
     }
 
-    override suspend fun runReset(block: suspend () -> Unit) = unsupported()
+    override suspend fun runReset(block: suspend (com.poyka.ripdpi.data.DurableCommandReceipt) -> Unit) = unsupported()
 
     override suspend fun upsertAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: AwgProfileEntity,
         secrets: AwgSecrets,
     ) = unsupported()
 
-    override suspend fun deleteAwg(profileId: String) = unsupported()
+    override suspend fun deleteAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ) = unsupported()
 
     override suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
         credentials: RelayCredentialRecord,
         enabled: Boolean,
@@ -135,6 +153,7 @@ private class RecoveryOnlyProfileMutationCoordinator(
     ) = unsupported()
 
     override suspend fun upsertWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: WarpProfile,
         credentials: WarpCredentials,
         endpoints: List<WarpEndpointCacheEntry>,
@@ -153,13 +172,18 @@ private class RecoveryOnlyProfileMutationCoordinator(
     ): Boolean = unsupported()
 
     override suspend fun deleteWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
         clearActive: Boolean,
     ) = unsupported()
 
-    override suspend fun deactivateWarp(profileId: String) = unsupported()
+    override suspend fun deactivateWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ) = unsupported()
 
     override suspend fun replacePrivateBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         data: BackupPrivateDataV1,
         rollbackData: BackupPrivateDataV1?,
     ) = unsupported()

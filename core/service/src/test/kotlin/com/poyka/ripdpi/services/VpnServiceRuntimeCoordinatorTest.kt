@@ -1991,7 +1991,12 @@ class VpnServiceRuntimeCoordinatorTest {
         return VpnServiceRuntimeCoordinator(
             configurationLifecycle =
                 RuntimeConfigurationLifecycle(
-                    AppliedRuntimeConfigurationStore(),
+                    AppliedRuntimeConfigurationStore(
+                        PauseAppliedReceiptConsumer(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ),
+                    ),
                     RuntimeConfigurationIdentityFactory(),
                 ),
             vpnHost = host,
@@ -2553,7 +2558,13 @@ class VpnServiceRuntimeCoordinatorTest {
             )
         val xrayProviderSessionController =
             xrayProviderSessionControllerFactory?.invoke(tunnelRuntime, dispatcher)
-        val configurations = AppliedRuntimeConfigurationStore()
+        val configurations =
+            AppliedRuntimeConfigurationStore(
+                PauseAppliedReceiptConsumer(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ),
+            )
         val coordinator =
             VpnServiceRuntimeCoordinator(
                 configurationLifecycle =

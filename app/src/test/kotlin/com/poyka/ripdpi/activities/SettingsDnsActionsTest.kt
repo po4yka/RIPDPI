@@ -280,7 +280,11 @@ class SettingsDnsActionsTest {
     @Test
     fun `doq save lease rejects vpn dispatch until data store update completes`() =
         runTest {
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val backing =
                 FakeAppSettingsRepository(
                     com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
@@ -327,7 +331,11 @@ class SettingsDnsActionsTest {
     @Test
     fun `doq save refuses a pending vpn start before status leaves halted`() =
         runTest {
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val repository =
                 FakeAppSettingsRepository(
                     com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
@@ -445,7 +453,11 @@ class SettingsDnsActionsTest {
         repository: AppSettingsRepository = FakeAppSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
-        serviceIntentArbiter: ServiceIntentArbiter = ServiceIntentArbiter(),
+        serviceIntentArbiter: ServiceIntentArbiter =
+            ServiceIntentArbiter(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            ),
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main),
     ): SettingsDnsActions =
         SettingsDnsActions(

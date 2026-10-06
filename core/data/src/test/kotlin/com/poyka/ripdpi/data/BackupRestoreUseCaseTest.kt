@@ -88,7 +88,7 @@ class BackupRestoreUseCaseTest {
     private fun exportUseCase(
         groups: FakeGroupRepository,
         settings: FakeAppSettingsRepository,
-        privateDataStore: BackupPrivateDataStore = BackupPrivateDataStore.Empty,
+        privateDataStore: BackupPrivateDataStore = testEmptyBackupPrivateDataStore(),
     ) = BackupExportUseCase(
         groupRepository = groups,
         ruleDao = ruleDao,
@@ -99,12 +99,13 @@ class BackupRestoreUseCaseTest {
     private fun restoreUseCase(
         groups: FakeGroupRepository,
         settings: FakeAppSettingsRepository,
-        privateDataStore: BackupPrivateDataStore = BackupPrivateDataStore.Empty,
+        privateDataStore: BackupPrivateDataStore = testEmptyBackupPrivateDataStore(),
     ) = BackupRestoreUseCase(
         groupRepository = groups,
         ruleDao = ruleDao,
         settingsRepository = settings,
         privateDataStore = privateDataStore,
+        profileMutations = TestBackupMutationCoordinator(),
     )
 
     private fun settingsWithPort(port: Int): AppSettings =
@@ -622,14 +623,29 @@ class BackupRestoreUseCaseTest {
             state.value = groups.toList()
         }
 
-        override suspend fun delete(id: String) {
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            replaceAll(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                groups,
+            )
+        }
+
+        override suspend fun delete(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            id: String,
+        ) {
             groups.removeAll { it.id == id }
             state.value = groups.toList()
         }
 
         override suspend fun list(): List<ProxyGroup> = groups.toList()
 
-        override suspend fun replaceAll(groups: List<ProxyGroup>) {
+        override suspend fun replaceAll(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) {
             replaceCalls += 1
             check(!failOnReplace || replaceCalls > 1) { "group replace failed" }
             this.groups.clear()
@@ -685,8 +701,13 @@ class BackupRestoreUseCaseTest {
     ) : BackupPrivateDataStore {
         override suspend fun snapshot(): BackupPrivateDataV1 = data
 
-        override suspend fun replaceAll(data: BackupPrivateDataV1) {
+        override suspend fun replaceAll(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            data: BackupPrivateDataV1,
+        ): com.poyka.ripdpi.data.ProfileMutationOutcome {
             this.data = data
+            return com.poyka.ripdpi.data
+                .testMutationOutcome(preparation.origin)
         }
     }
 }

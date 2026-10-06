@@ -115,7 +115,7 @@ class XrayProviderE2ETest {
         previousSelection = runBlocking { selection.current() }
         previousProfile = runBlocking { profiles.load(ProfileId) }
         initialized = true
-        controller.stop()
+        runBlocking { controller.stop() }
         awaitUntil { state.status.value.first == AppStatus.Halted }
         ensureLocalNetworkAccessGranted(context)
         ensureVpnConsentGranted(context)
@@ -143,7 +143,7 @@ class XrayProviderE2ETest {
     fun restore() {
         try {
             if (!initialized) return
-            controller.stop()
+            runBlocking { controller.stop() }
             awaitUntil { state.status.value.first == AppStatus.Halted }
             runBlocking {
                 previousProfile?.let { profiles.save(ProfileId, it) } ?: profiles.clear(ProfileId)
@@ -184,7 +184,7 @@ class XrayProviderE2ETest {
                     ?.contains("26.3.27") == true,
             )
             assertLiveDiagnosticsAction()
-            controller.stop()
+            runBlocking { controller.stop() }
             awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
             awaitUntil { diagnostics.probeReport.value == null }
             assertNull("Stopped provider must unbind its diagnostics action", providerProbes.runProbes())
@@ -267,7 +267,7 @@ class XrayProviderE2ETest {
             )
             assertEquals(before, readControl("receipts").getInt("count"))
             assertEquals(AppStatus.Running, state.status.value.first)
-            controller.stop()
+            runBlocking { controller.stop() }
             awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
             assertDirectSentinelReachable("after-$network")
         }
@@ -372,7 +372,7 @@ class XrayProviderE2ETest {
                 ),
             )
         }
-        assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
+        assertTrue(runBlocking { controller.start(Mode.VPN) } is ServiceStartResult.Accepted)
         awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000L)
         awaitUntil(failureMessage = {
             val telemetry = state.telemetry.value

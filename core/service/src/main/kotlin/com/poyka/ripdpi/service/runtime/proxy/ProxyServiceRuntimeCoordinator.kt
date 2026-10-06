@@ -150,7 +150,7 @@ internal class ProxyServiceRuntimeCoordinator(
             serviceLabel = "proxy",
             startHooks =
                 ServiceRuntimeStartHooks(
-                    createRuntimeSession = ::createRuntimeSession,
+                    createRuntimeSession = { ProxyRuntimeSession() },
                     resolveInitialConnectionPolicy = { connectionPolicyResolver.resolve(mode = Mode.Proxy) },
                     applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
                     startResolvedRuntime = ::startResolvedRuntime,
@@ -172,17 +172,17 @@ internal class ProxyServiceRuntimeCoordinator(
                     restartAfterHandover = { session, resolution, appliedAt ->
                         restartResolvedRuntime(session, resolution, appliedAt, "network_handover")
                     },
-                    classifyFailure = ::classifyHandoverFailure,
+                    classifyFailure = { classifyFailureReason(it) },
                 ),
             statusHooks =
                 ServiceRuntimeStatusHooks(
+                    publishConnected = ::publishConnected,
+                    reportConnected = ::reportConnected,
                     updateStatus = ::updateStatus,
-                    classifyStartupFailure = ::classifyStartupFailure,
+                    classifyStartupFailure = { classifyFailureReason(it) },
                 ),
             permissionHooks = ServiceRuntimePermissionHooks(::onPermissionRevoked),
         )
-
-    private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
     private suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,
@@ -430,7 +430,28 @@ internal class ProxyServiceRuntimeCoordinator(
         }
         if (newStatus == ServiceStatus.Disconnected) configurationLifecycle.stopped(runtimeSession)
         status = newStatus
+        reportStatusEffects(newStatus, failureReason, com.poyka.ripdpi.services.ServiceStatusPublication.Apply)
+    }
+
+    private fun publishConnected() {
+        status = ServiceStatus.Connected
+        statusReporter.publishConnectedState()
+    }
+
+    private fun reportConnected() =
+        reportStatusEffects(
+            ServiceStatus.Connected,
+            null,
+            com.poyka.ripdpi.services.ServiceStatusPublication.ConnectedAlreadyPublished,
+        )
+
+    private fun reportStatusEffects(
+        newStatus: ServiceStatus,
+        failureReason: FailureReason?,
+        publication: com.poyka.ripdpi.services.ServiceStatusPublication,
+    ) {
         statusReporter.reportStatus(
+            publication,
             newStatus = newStatus,
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
@@ -458,8 +479,4 @@ internal class ProxyServiceRuntimeCoordinator(
             }
         }
     }
-
-    private fun classifyStartupFailure(error: Exception): FailureReason = classifyFailureReason(error)
-
-    private fun classifyHandoverFailure(error: Exception): FailureReason = classifyFailureReason(error)
 }

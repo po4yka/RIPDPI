@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">توقف موقت اتصال</string>
+    <string name="pause_notification_until">توقف تا %1$s</string>
+    <string name="pause_notification_cleanup">پاک‌سازی کامل نشده است. توقف هنوز تأیید نشده است.</string>
+    <string name="pause_notification_resuming">در حال ازسرگیری اتصال…</string>
+    <string name="pause_notification_deferred">ازسرگیری نیاز به بررسی دارد</string>
+    <string name="pause_notification_resume">ازسرگیری اکنون</string>
+ </resources>

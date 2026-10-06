@@ -77,11 +77,17 @@ class AnyTlsProfileViewModel
             _uiState.update { it.copy(saving = true, errorMessage = null) }
             viewModelScope.launch {
                 val activated =
-                    runCatching { relayActivator.activate(profile) }
-                        .getOrElse { error ->
-                            if (error is CancellationException) throw error
-                            false
-                        }
+                    runCatching {
+                        relayActivator.activate(
+                            relayActivator.captureMutation(
+                                com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                            ),
+                            profile,
+                        )
+                    }.getOrElse { error ->
+                        if (error is CancellationException) throw error
+                        false
+                    }
                 _uiState.update {
                     if (activated) {
                         it.copy(saving = false)

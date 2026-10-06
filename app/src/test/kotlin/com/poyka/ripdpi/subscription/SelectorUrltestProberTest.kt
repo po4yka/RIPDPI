@@ -555,7 +555,7 @@ class SelectorUrltestProberTest {
             return true
         }
 
-        override fun select(
+        override suspend fun select(
             groupId: String,
             profileId: String,
         ) = write(groupId, profileId, true)

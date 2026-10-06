@@ -1103,6 +1103,7 @@ class FailoverCoordinator
          * preserves the in-flight candidate and blocks further switching until reconciliation.
          */
         private suspend fun performSwitch(now: Long): RelayCleanupReceipt {
+            val authorityReference = serviceController.captureRuntimeAuthority()
             if (transportReconciliationPending) {
                 backedOff = true
                 Logger.w { "FailoverCoordinator: waiting for in-flight transport reconciliation" }
@@ -1162,6 +1163,7 @@ class FailoverCoordinator
                     serviceController.restartVpnForTransportFailover(
                         requestId = requestId,
                         expectedTarget = nextCandidate.transportFailoverTarget(),
+                        reference = authorityReference,
                     )
                 if (result is ServiceStartResult.Rejected) {
                     transportFailoverApplyTracker.recordRollbackSafeFailure(requestId)

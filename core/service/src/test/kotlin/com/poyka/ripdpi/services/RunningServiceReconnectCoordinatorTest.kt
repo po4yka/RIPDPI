@@ -231,9 +231,18 @@ class RunningServiceReconnectCoordinatorTest {
         }
 
     private class Fixture {
-        val arbiter = ServiceIntentArbiter()
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val arbiter = ServiceIntentArbiter(authority)
         val service = TestServiceStateStore(AppStatus.Running to Mode.VPN)
-        val store = AppliedRuntimeConfigurationStore()
+        val store =
+            AppliedRuntimeConfigurationStore(
+                PauseAppliedReceiptConsumer(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ),
+            )
         val identities = RuntimeConfigurationIdentityFactory()
         val killSwitch =
             object : AndroidHardKillSwitchStateStore {
@@ -246,7 +255,22 @@ class RunningServiceReconnectCoordinatorTest {
             }
         val dispatch = Dispatch(service)
         val liveLockdown = LiveVpnLockdownReader().apply { register(this@Fixture) { killSwitch.snapshot.value } }
-        val coordinator = RunningServiceReconnectCoordinator(dispatch, arbiter, service, store, liveLockdown)
+        val coordinator =
+            RunningServiceReconnectCoordinator(
+                dispatch,
+                arbiter,
+                service,
+                store,
+                liveLockdown,
+                object : TestSynchronousServiceController() {
+                    override fun recordStart(mode: Mode) = ServiceStartResult.Accepted(mode)
+
+                    override fun recordStop() = Unit
+
+                    override suspend fun prepareUserCommand(command: com.poyka.ripdpi.data.RuntimeUserCommand) =
+                        authority.supersede(command)
+                },
+            )
 
         fun fail(runtime: String) {
             val attempt = attempt(runtime)
@@ -297,7 +321,7 @@ class RunningServiceReconnectCoordinatorTest {
 
         override fun preflight(mode: Mode) = preflightResult
 
-        override fun stopIfCurrent(generation: Long): Boolean {
+        override fun stopIfCurrent(lease: ServiceDispatchLease): Boolean {
             stops += 1
             onStop()
             if (haltOnStop) service.setStatus(AppStatus.Halted, Mode.VPN)
@@ -306,10 +330,10 @@ class RunningServiceReconnectCoordinatorTest {
 
         override fun startIfCurrent(
             mode: Mode,
-            generation: Long,
+            lease: ServiceDispatchLease,
         ): ServiceStartResult {
             starts += 1
-            this.generation = generation
+            this.generation = lease.processGeneration
             return ServiceStartResult.Accepted(mode)
         }
     }

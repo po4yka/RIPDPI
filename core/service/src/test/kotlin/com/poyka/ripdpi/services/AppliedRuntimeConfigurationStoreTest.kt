@@ -26,7 +26,13 @@ class AppliedRuntimeConfigurationStoreTest {
     @Test
     fun `provisioning receipt preserves concurrent edits and user revert`() =
         runTest {
-            val store = AppliedRuntimeConfigurationStore()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                )
             val next = attempt("runtime", 1)
             val captured = identity("old-credential", "captured-dns")
             val provisioned = identity("automatic-credential", "captured-dns")
@@ -51,7 +57,13 @@ class AppliedRuntimeConfigurationStoreTest {
     @Test
     fun `process starts unknown and old runtime or revision cannot acknowledge a replacement`() =
         runTest {
-            val store = AppliedRuntimeConfigurationStore()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                )
             assertEquals(RuntimeConfigurationApplication.Unknown, store.applications.value[Mode.VPN])
             val old = attempt("old-runtime", 1)
             val newer = attempt("new-runtime", 1)
@@ -75,7 +87,13 @@ class AppliedRuntimeConfigurationStoreTest {
     @Test
     fun `failure retains last confirmation without claiming current configuration applied`() =
         runTest {
-            val store = AppliedRuntimeConfigurationStore()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                )
             val initial = attempt("runtime", 1)
             store.begin(initial, identity("old"))
             store.acknowledge(initial, applied(initial))
@@ -99,7 +117,13 @@ class AppliedRuntimeConfigurationStoreTest {
     @Test
     fun `saved request compares with acknowledged request and DNS patches retain transport changes`() =
         runTest {
-            val store = AppliedRuntimeConfigurationStore()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                )
             val initial = attempt("runtime", 1)
             val requested = identity("transport", "dns")
             store.observeSaved(Mode.VPN, requested)
@@ -123,7 +147,13 @@ class AppliedRuntimeConfigurationStoreTest {
     @Test
     fun `automatic DNS fallback does not acknowledge a saved DNS edit`() =
         runTest {
-            val store = AppliedRuntimeConfigurationStore()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                )
             val initial = attempt("runtime", 1)
             store.begin(initial, identity("transport", "dns"))
             store.acknowledge(initial, applied(initial))
@@ -137,7 +167,13 @@ class AppliedRuntimeConfigurationStoreTest {
     @Test
     fun `caller cancellation after commit preserves confirmed configuration`() =
         runTest {
-            val store = AppliedRuntimeConfigurationStore()
+            val store =
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                )
             val next = attempt("cancelled-caller", 1)
             val receipt = applied(next)
             val caller =

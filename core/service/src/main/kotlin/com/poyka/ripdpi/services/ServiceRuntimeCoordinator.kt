@@ -169,10 +169,12 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
         guard: RuntimeStopGuard? = null,
+        disposition: RuntimeStopDisposition = RuntimeStopDisposition.StopService,
     ) = sessionLifecycle.stop(
         stopSelfStartId = stopSelfStartId,
         skipRuntimeShutdown = skipRuntimeShutdown,
-        guard = guard,
+        guard = guard ?: kotlinx.coroutines.currentCoroutineContext()[RuntimeStopAuthority]?.guard,
+        disposition = disposition,
     )
 
     protected suspend fun failAndStopRuntime(

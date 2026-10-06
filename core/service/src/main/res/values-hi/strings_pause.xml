@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">कनेक्शन रोकें</string>
+    <string name="pause_notification_until">%1$s तक विराम</string>
+    <string name="pause_notification_cleanup">सफाई अधूरी है। विराम की पुष्टि अभी नहीं हुई है।</string>
+    <string name="pause_notification_resuming">कनेक्शन फिर शुरू हो रहा है…</string>
+    <string name="pause_notification_deferred">फिर शुरू करने के लिए ध्यान चाहिए</string>
+    <string name="pause_notification_resume">अभी फिर शुरू करें</string>
+ </resources>

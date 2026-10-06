@@ -66,9 +66,9 @@ class ResetAllSettingsUseCase
                 // Hold the profile-mutation mutex from marker removal through the full wipe.
                 // A concurrent mutator can only start after reset has finished, so its intent
                 // can never be replayed as resurrection of data that belonged to this reset.
-                profileMutations.runReset {
+                profileMutations.runReset { receipt ->
                     // 2. Groups + embedded profiles (covers ProxyEntity / ProxyGroup / Subscription).
-                    groupRepository.replaceAll(emptyList())
+                    groupRepository.replaceAll(receipt, emptyList())
 
                     // 3. Routing rules.
                     ruleDao.deleteAll()

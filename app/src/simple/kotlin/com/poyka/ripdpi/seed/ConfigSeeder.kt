@@ -176,6 +176,9 @@ open class ConfigSeeder
                     for ((profile, profileId) in orderedProfiles) {
                         val applied =
                             relayProfileActivator.activate(
+                                relayProfileActivator.captureMutation(
+                                    com.poyka.ripdpi.data.ProfileMutationOrigin.Bootstrap,
+                                ),
                                 profile = profile,
                                 profileId = profileId,
                                 tlsFingerprintOverride =
@@ -220,6 +223,7 @@ open class ConfigSeeder
         private suspend fun pinPrimaryRuntime(primaryReality: ProxyProfile.VlessReality) {
             check(
                 relayProfileActivator.activate(
+                    relayProfileActivator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.Bootstrap),
                     profile = primaryReality,
                     profileId = seedRelayProfileId(primaryReality),
                 ),

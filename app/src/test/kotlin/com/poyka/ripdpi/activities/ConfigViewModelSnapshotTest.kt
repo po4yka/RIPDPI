@@ -84,6 +84,12 @@ class ConfigViewModelSnapshotTest {
                             appSettingsRepository = appSettingsRepository,
                             relayProfileStore = relayProfileStore,
                             relayCredentialStore = InMemoryRelayCredentialStore(),
+                            profileMutations =
+                                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                    relayProfileStore,
+                                    InMemoryRelayCredentialStore(),
+                                    appSettingsRepository,
+                                ),
                         ),
                     relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
                     networkSnapshotProvider = networkSnapshotProvider,

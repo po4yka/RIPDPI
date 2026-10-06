@@ -38,7 +38,18 @@ class ConfigRelayArtifactRepositoryTest {
             for (kind in kinds) {
                 val profiles = FailingRelayProfileStore()
                 val credentials = FailingRelayCredentialRepository()
-                val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+                val repository =
+                    ConfigRelayArtifactRepository(
+                        FailingSettingsRepository(),
+                        profiles,
+                        credentials,
+                        profileMutations =
+                            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                profiles,
+                                credentials,
+                                FailingSettingsRepository(),
+                            ),
+                    )
                 val profile =
                     RelayProfileRecord(
                         id = "imported-$kind",
@@ -169,7 +180,18 @@ class ConfigRelayArtifactRepositoryTest {
             for (kind in listOf(RelayKindSsh, RelayKindMieru)) {
                 val profiles = FailingRelayProfileStore()
                 val credentials = FailingRelayCredentialRepository()
-                val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+                val repository =
+                    ConfigRelayArtifactRepository(
+                        FailingSettingsRepository(),
+                        profiles,
+                        credentials,
+                        profileMutations =
+                            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                profiles,
+                                credentials,
+                                FailingSettingsRepository(),
+                            ),
+                    )
                 val profile =
                     RelayProfileRecord(
                         id = "imported-$kind",
@@ -236,7 +258,18 @@ class ConfigRelayArtifactRepositoryTest {
         runTest {
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    FailingSettingsRepository(),
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            FailingSettingsRepository(),
+                        ),
+                )
             profiles.save(RelayProfileRecord(id = "first", server = "first.example"))
             profiles.save(RelayProfileRecord(id = "second", server = "second.example"))
             val draft =
@@ -265,6 +298,12 @@ class ConfigRelayArtifactRepositoryTest {
                     FailingSettingsRepository(),
                     profiles,
                     FailingRelayCredentialRepository(),
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            FailingRelayCredentialRepository(),
+                            FailingSettingsRepository(),
+                        ),
                 )
             profiles.save(RelayProfileRecord(id = "original", server = "original.example"))
             val draft = repository.hydrate(ConfigDraft(relayProfileId = "original"))
@@ -279,7 +318,18 @@ class ConfigRelayArtifactRepositoryTest {
         runTest {
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    FailingSettingsRepository(),
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            FailingSettingsRepository(),
+                        ),
+                )
             val profile =
                 RelayProfileRecord(
                     id = "imported",
@@ -305,7 +355,18 @@ class ConfigRelayArtifactRepositoryTest {
         runTest {
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    FailingSettingsRepository(),
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            FailingSettingsRepository(),
+                        ),
+                )
             val profile = RelayProfileRecord(id = "shared", kind = RelayKindAnyTls, server = "old.example")
             val secret = RelayCredentialRecord(profileId = "shared", anyTlsPassword = "old-secret")
             profiles.save(profile)
@@ -325,7 +386,18 @@ class ConfigRelayArtifactRepositoryTest {
             val settings = FailingSettingsRepository()
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
             val profile =
                 RelayProfileRecord(
                     id = "selected",
@@ -350,7 +422,18 @@ class ConfigRelayArtifactRepositoryTest {
         runTest {
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(FailingSettingsRepository(), profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    FailingSettingsRepository(),
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            FailingSettingsRepository(),
+                        ),
+                )
             profiles.save(RelayProfileRecord(id = "inactive", kind = RelayKindAnyTls, server = "inactive.example"))
             credentials.save(RelayCredentialRecord(profileId = "inactive", anyTlsPassword = "secret-fixture"))
 
@@ -402,7 +485,18 @@ class ConfigRelayArtifactRepositoryTest {
             val settings = FailingSettingsRepository()
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
             val profileId = "anytls-imported"
             val passwordFixture = "anytls-editor-fixture"
             profiles.save(RelayProfileRecord(id = profileId, kind = RelayKindAnyTls, server = "relay.example"))
@@ -430,7 +524,9 @@ class ConfigRelayArtifactRepositoryTest {
             assertTrue(requireNotNull(credentials.load(profileId)).updatedAtEpochMillis > 1L)
             assertEquals(8443, profiles.load(profileId)?.serverPort)
         }
+}
 
+class ConfigRelayArtifactPersistenceFailureTest {
     @Test
     fun `journaled relay persistence keeps the complete config settings after-image`() =
         runTest {
@@ -460,7 +556,18 @@ class ConfigRelayArtifactRepositoryTest {
             val settings = FailingSettingsRepository()
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
             val profileId = "relay-atomic"
             val previousDraft =
                 AppSettingsSerializer.defaultValue.toConfigDraft().copy(
@@ -490,7 +597,18 @@ class ConfigRelayArtifactRepositoryTest {
             val settings = FailingSettingsRepository()
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
             val profileId = "relay-atomic"
             val previousDraft =
                 AppSettingsSerializer.defaultValue.toConfigDraft().copy(
@@ -523,7 +641,18 @@ class ConfigRelayArtifactRepositoryTest {
             val settings = FailingSettingsRepository()
             val profiles = FailingRelayProfileStore()
             val credentials = FailingRelayCredentialRepository()
-            val repository = ConfigRelayArtifactRepository(settings, profiles, credentials)
+            val repository =
+                ConfigRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
             val profileId = "relay-atomic"
             val previousDraft =
                 AppSettingsSerializer.defaultValue.toConfigDraft().copy(
@@ -556,6 +685,7 @@ private class RecordingRelayMutationCoordinator(
     private val credentials: RelayCredentialRepository,
 ) : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
     override suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
         credentials: RelayCredentialRecord,
         enabled: Boolean,
@@ -564,7 +694,7 @@ private class RecordingRelayMutationCoordinator(
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
-    ) {
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome {
         if (expectedState != null) {
             require(
                 profiles.load(profile.id) == expectedState.profile &&
@@ -576,6 +706,9 @@ private class RecordingRelayMutationCoordinator(
         check(modeAfterImage == null)
         check(xraySelectionAfterImage == null)
         settings.replace(requireNotNull(settingsAfterImage))
+
+        return com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
     }
 }
 
@@ -601,6 +734,10 @@ private class FailingSettingsRepository : AppSettingsRepository {
 
     override suspend fun replace(settings: AppSettings) {
         state.value = settings
+        if (failNextUpdateAfterWrite) {
+            failNextUpdateAfterWrite = false
+            error("settings replacement failed after write")
+        }
     }
 }
 
@@ -625,7 +762,11 @@ private class FailingRelayProfileStore : RelayProfileStore {
     }
 }
 
-private class FailingRelayCredentialRepository : RelayCredentialRepository {
+private class FailingRelayCredentialRepository : com.poyka.ripdpi.data.RelayCredentialStore {
+    override suspend fun clearAll() {
+        records.clear()
+    }
+
     private val records = linkedMapOf<String, RelayCredentialRecord>()
     var failNextSaveAfterWrite = false
 

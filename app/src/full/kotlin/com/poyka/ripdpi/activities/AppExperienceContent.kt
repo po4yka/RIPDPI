@@ -16,6 +16,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 internal fun AppExperienceContent(
     startDestination: Route,
     viewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     controller: MainActivityShellController,
     shellState: MainActivityShellState,
     snackbarHostState: SnackbarHostState,
@@ -25,6 +26,7 @@ internal fun AppExperienceContent(
     RipDpiNavHost(
         startDestination = startDestination,
         mainViewModel = viewModel,
+        pauseViewModel = pauseViewModel,
         actions =
             RipDpiNavHostActions(
                 onSaveLogs = controller::requestSaveLogs,

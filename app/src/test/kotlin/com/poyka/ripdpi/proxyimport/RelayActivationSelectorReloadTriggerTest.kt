@@ -77,9 +77,11 @@ class RelayActivationSelectorReloadTriggerTest {
                 RelayActivationSelectorReloadTrigger(
                     groups,
                     RelayProfileActivator(
-                        FakeRelayProfileStore(),
-                        FakeRelayCredentialStore(),
-                        FakeAppSettingsRepository(),
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            FakeRelayProfileStore(),
+                            FakeRelayCredentialStore(),
+                            FakeAppSettingsRepository(),
+                        ),
                     ),
                     refresher,
                     ActiveSelectorSelectionProvider(groups, selections),
@@ -101,9 +103,11 @@ class RelayActivationSelectorReloadTriggerTest {
                     groupRepository = groups,
                     relayProfileActivator =
                         RelayProfileActivator(
-                            relayProfileStore = profileStore,
-                            relayCredentialStore = FakeRelayCredentialStore(),
-                            settingsRepository = settings,
+                            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                profiles = profileStore,
+                                credentials = FakeRelayCredentialStore(),
+                                settings = settings,
+                            ),
                         ),
                     relayRefresher = refresher,
                     selectionProvider = ActiveSelectorSelectionProvider(groups, selections),
@@ -131,9 +135,11 @@ class RelayActivationSelectorReloadTriggerTest {
                     groupRepository = groups,
                     relayProfileActivator =
                         RelayProfileActivator(
-                            relayProfileStore = profileStore,
-                            relayCredentialStore = FakeRelayCredentialStore(),
-                            settingsRepository = FakeAppSettingsRepository(),
+                            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                profiles = profileStore,
+                                credentials = FakeRelayCredentialStore(),
+                                settings = FakeAppSettingsRepository(),
+                            ),
                         ),
                     relayRefresher = refresher,
                     selectionProvider = ActiveSelectorSelectionProvider(groups, selections),
@@ -158,9 +164,11 @@ class RelayActivationSelectorReloadTriggerTest {
                     groupRepository = groups,
                     relayProfileActivator =
                         RelayProfileActivator(
-                            relayProfileStore = profileStore,
-                            relayCredentialStore = FakeRelayCredentialStore(),
-                            settingsRepository = FakeAppSettingsRepository(),
+                            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                                profiles = profileStore,
+                                credentials = FakeRelayCredentialStore(),
+                                settings = FakeAppSettingsRepository(),
+                            ),
                         ),
                     relayRefresher = refresher,
                     selectionProvider = ActiveSelectorSelectionProvider(groups, selections),
@@ -196,7 +204,13 @@ class RelayActivationSelectorReloadTriggerTest {
             val trigger =
                 RelayActivationSelectorReloadTrigger(
                     groups,
-                    RelayProfileActivator(profiles, FakeRelayCredentialStore(), settings),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            FakeRelayCredentialStore(),
+                            settings,
+                        ),
+                    ),
                     refresher,
                     ActiveSelectorSelectionProvider(groups, TestSelections("b")),
                 )
@@ -217,7 +231,13 @@ class RelayActivationSelectorReloadTriggerTest {
             val trigger =
                 RelayActivationSelectorReloadTrigger(
                     groups,
-                    RelayProfileActivator(FakeRelayProfileStore(), FakeRelayCredentialStore(), settings),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            FakeRelayProfileStore(),
+                            FakeRelayCredentialStore(),
+                            settings,
+                        ),
+                    ),
                     refresher,
                     ActiveSelectorSelectionProvider(groups, selections),
                 )
@@ -242,7 +262,13 @@ class RelayActivationSelectorReloadTriggerTest {
             val trigger =
                 RelayActivationSelectorReloadTrigger(
                     groups,
-                    RelayProfileActivator(FakeRelayProfileStore(), FakeRelayCredentialStore(), settings),
+                    RelayProfileActivator(
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            FakeRelayProfileStore(),
+                            FakeRelayCredentialStore(),
+                            settings,
+                        ),
+                    ),
                     refresher,
                     provider,
                 )
@@ -275,7 +301,7 @@ class RelayActivationSelectorReloadTriggerTest {
             profileId: String,
         ): Boolean = false
 
-        override fun select(
+        override suspend fun select(
             groupId: String,
             profileId: String,
         ) {
@@ -313,7 +339,32 @@ class RelayActivationSelectorReloadTriggerTest {
             state.value = state.value.map { if (it.id == group.id) group else it }
         }
 
-        override suspend fun delete(id: String) {
+        override suspend fun replaceAll(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) {
+            val preparation =
+                com.poyka.ripdpi.data.ProfileMutationPreparation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                    receipt.authority,
+                )
+            list().forEach { delete(preparation, it.id) }
+            groups.forEach { add(it) }
+        }
+
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            replaceAll(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                groups,
+            )
+        }
+
+        override suspend fun delete(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            id: String,
+        ) {
             state.value = state.value.filterNot { it.id == id }
         }
 

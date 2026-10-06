@@ -89,6 +89,16 @@ abstract class ProfileMutationCoordinatorModule {
 
     @Binds
     @Singleton
+    abstract fun bindPauseMutationPreparationSource(
+        coordinator: ProfileMutationRecoveryCoordinator,
+    ): PauseMutationPreparationSource
+
+    @Binds
+    @Singleton
+    abstract fun bindRecoveryAccess(coordinator: ProfileMutationRecoveryCoordinator): ProfileMutationRecoveryAccess
+
+    @Binds
+    @Singleton
     abstract fun bindXrayProviderMutationCoordinator(
         coordinator: ProfileMutationRecoveryCoordinator,
     ): XrayProviderMutationCoordinator

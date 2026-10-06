@@ -96,6 +96,7 @@ class ProxySupervisorExitHandlerTest {
         // Force the sticky signal onto a fresh live snapshot so the test can read relayFailed.
         fun currentRelayFailed(): Boolean {
             statusReporter.reportStatus(
+                ServiceStatusPublication.Apply,
                 newStatus = ServiceStatus.Connected,
                 activePolicy = null,
                 consumePendingNetworkHandoverClass = { null },

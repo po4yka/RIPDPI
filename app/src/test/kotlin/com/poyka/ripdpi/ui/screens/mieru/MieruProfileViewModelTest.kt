@@ -53,8 +53,24 @@ class MieruProfileViewModelTest {
         settings: AppSettingsRepository,
     ): MieruProfileViewModel =
         MieruProfileViewModel(
-            RelayProfileActivator(profileStore, credentialStore, settings),
-            ConfigRelayArtifactRepository(settings, profileStore, credentialStore),
+            RelayProfileActivator(
+                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                    profileStore,
+                    credentialStore,
+                    settings,
+                ),
+            ),
+            ConfigRelayArtifactRepository(
+                settings,
+                profileStore,
+                credentialStore,
+                profileMutations =
+                    com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                        profileStore,
+                        credentialStore,
+                        settings,
+                    ),
+            ),
         )
 
     @Test

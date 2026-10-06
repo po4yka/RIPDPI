@@ -164,7 +164,12 @@ class MainActivity : AppCompatActivity() {
             if (!applySelectorSelectionIntent(
                     intent = intent,
                     verifies = selectorShortcutCapability::verifies,
-                    select = selectorSelectionStore::select,
+                    select = {
+                        groupId,
+                        profileId,
+                        ->
+                        lifecycleScope.launch { selectorSelectionStore.select(groupId, profileId) }
+                    },
                 )
             ) {
                 Logger.w { "Rejected selector selection without a valid shortcut capability" }

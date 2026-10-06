@@ -16,7 +16,6 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
@@ -61,20 +60,43 @@ class SimpleVlessRuntimeMonitorTest {
             val boot = TestAwgBootSelection()
             val selection =
                 SimpleAwgEgressSelection(
-                    AwgProfileRepository(FakeAwgProfileDao(), FakeAwgCredentialStore()),
+                    AwgProfileRepository(
+                        FakeAwgProfileDao(),
+                        FakeAwgCredentialStore(),
+                        com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
+                            FakeAwgProfileDao(),
+                            FakeAwgCredentialStore(),
+                        ),
+                    ),
                     settings,
                     boot,
                 )
             val monitor = buildMonitor(DefaultServiceStateStore(), settings, awgSelection = selection)
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
-            val prepare = launch { monitor.prepare(Mode.VPN, arbiter.explicitUserStartGuard(generation)) }
+            val prepare =
+                launch {
+                    monitor.prepare(
+                        Mode.VPN,
+                        arbiter.explicitUserStartGuard(generation, arbiter.durableReference()),
+                    )
+                }
             updateStarted.await()
             arbiter.userStart({ boot.setActiveAwgProfileId("awg-newer") }) { true }
             releaseUpdate.complete(Unit)
             prepare.join()
             assertEquals("awg-newer", boot.activeAwgProfileId())
-            monitor.prepare(Mode.VPN, arbiter.explicitUserStartGuard(arbiter.captureExplicitUserIntentGeneration()))
+            monitor.prepare(
+                Mode.VPN,
+                arbiter.explicitUserStartGuard(
+                    arbiter.captureExplicitUserIntentGeneration(),
+                    arbiter.durableReference(),
+                ),
+            )
             assertNull(boot.activeAwgProfileId())
         }
 
@@ -87,7 +109,14 @@ class SimpleVlessRuntimeMonitorTest {
             val bootSelection = TestAwgBootSelection()
             val selection =
                 SimpleAwgEgressSelection(
-                    AwgProfileRepository(FakeAwgProfileDao(), FakeAwgCredentialStore()),
+                    AwgProfileRepository(
+                        FakeAwgProfileDao(),
+                        FakeAwgCredentialStore(),
+                        com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
+                            FakeAwgProfileDao(),
+                            FakeAwgCredentialStore(),
+                        ),
+                    ),
                     settings,
                     bootSelection,
                 )
@@ -156,7 +185,20 @@ class SimpleVlessRuntimeMonitorTest {
             stateStore.emitFailed(Sender.VPN, FailureReason.NativeError("stale startup failure"))
             runCurrent()
 
-            val preparation = launch { monitor.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L)) }
+            val preparation =
+                launch {
+                    monitor.prepare(
+                        Mode.VPN,
+                        ServiceIntentArbiter(
+                            com.poyka.ripdpi.data
+                                .testPauseAuthority(),
+                        ).explicitUserStartGuard(
+                            0L,
+                            com.poyka.ripdpi.data
+                                .PauseAuthorityRef(0L),
+                        ),
+                    )
+                }
             runCurrent()
 
             assertTrue(preparation.isCompleted)
@@ -443,7 +485,17 @@ class SimpleVlessRuntimeMonitorTest {
             assertEquals(emptyList<Mode>(), controller.userStartCalls)
             assertEquals(emptyList<Mode>(), controller.failoverRestartCalls)
 
-            monitor.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
+            monitor.prepare(
+                Mode.VPN,
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ).explicitUserStartGuard(
+                    0L,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0L),
+                ),
+            )
 
             val prepared = settings.snapshot()
             assertEquals(true, prepared.relayEnabled)
@@ -748,7 +800,17 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
 
             assertEquals(emptyList<Mode>(), controller.startupFallbackStartCalls)
-            monitor.prepare(Mode.VPN, ServiceIntentArbiter().explicitUserStartGuard(0L))
+            monitor.prepare(
+                Mode.VPN,
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ).explicitUserStartGuard(
+                    0L,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0L),
+                ),
+            )
             assertEquals(RelayKindVlessReality, settings.snapshot().relayKind)
         }
 
@@ -920,14 +982,14 @@ private class RecordingAwgFallbackSelection(
 
 private class RecordingServiceController(
     private val startupFallbackResults: MutableList<ServiceStartResult> = mutableListOf(),
-) : ServiceController,
+) : com.poyka.ripdpi.services.TestSynchronousServiceController(),
     StartupFallbackController {
     val userStartCalls = mutableListOf<Mode>()
     val startupFallbackStartCalls = mutableListOf<Mode>()
     val failoverRestartCalls = mutableListOf<Mode>()
     private var userIntentGeneration = 0L
 
-    override fun start(mode: Mode): ServiceStartResult {
+    override fun recordStart(mode: Mode): ServiceStartResult {
         userStartCalls += mode
         return ServiceStartResult.Accepted(mode)
     }
@@ -935,6 +997,7 @@ private class RecordingServiceController(
     override fun restartVpnForTransportFailover(
         requestId: Long,
         expectedTarget: TransportFailoverTarget,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
     ): ServiceStartResult {
         failoverRestartCalls += Mode.VPN
         return ServiceStartResult.Accepted(Mode.VPN)
@@ -965,7 +1028,7 @@ private class RecordingServiceController(
         userIntentGeneration += 1
     }
 
-    override fun stop() = Unit
+    override fun recordStop() = Unit
 }
 
 private data class RecordingStartupFallbackLease(

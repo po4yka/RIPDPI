@@ -149,37 +149,37 @@ class OnboardingModeValidationRunnerTest {
 
     private class RunningServiceController(
         private val serviceStateStore: FakeServiceStateStore,
-    ) : ServiceController {
+    ) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
         val startedModes = mutableListOf<Mode>()
 
-        override fun start(mode: Mode): ServiceStartResult {
+        override fun recordStart(mode: Mode): ServiceStartResult {
             startedModes += mode
             serviceStateStore.setStatus(AppStatus.Running, mode)
             return ServiceStartResult.Accepted(mode)
         }
 
-        override fun stop() {
+        override fun recordStop() {
             serviceStateStore.setStatus(AppStatus.Halted, serviceStateStore.status.value.second)
         }
     }
 
     private class RejectingServiceController(
         private val reason: ServiceStartRejectionReason,
-    ) : ServiceController {
+    ) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
         val startedModes = mutableListOf<Mode>()
 
-        override fun start(mode: Mode): ServiceStartResult {
+        override fun recordStart(mode: Mode): ServiceStartResult {
             startedModes += mode
             return ServiceStartResult.Rejected(mode = mode, reason = reason)
         }
 
-        override fun stop() = Unit
+        override fun recordStop() = Unit
     }
 
-    private class AcceptedButIdleServiceController : ServiceController {
-        override fun start(mode: Mode): ServiceStartResult = ServiceStartResult.Accepted(mode)
+    private class AcceptedButIdleServiceController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+        override fun recordStart(mode: Mode): ServiceStartResult = ServiceStartResult.Accepted(mode)
 
-        override fun stop() = Unit
+        override fun recordStop() = Unit
     }
 
     private class RecordingOwnedTlsClientFactory : OwnedTlsClientFactory {

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import androidx.core.content.ContextCompat
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
@@ -26,34 +25,81 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.concurrent.withLock
 
-interface ServiceController {
-    fun start(mode: Mode): ServiceStartResult
+interface ServiceController :
+    ServiceUserCommands,
+    ServiceRecoveryCommands,
+    ServiceTransportMaintenance
 
-    /** Boot/package-replacement recovery start; unlike [start], this is not a newer explicit user intent. */
+interface ServiceUserCommands {
+    suspend fun captureRuntimeAuthority(): com.poyka.ripdpi.data.PauseAuthorityRef
+
+    suspend fun prepareUserCommand(
+        command: com.poyka.ripdpi.data.RuntimeUserCommand,
+    ): com.poyka.ripdpi.data.DurableCommandReceipt
+
+    suspend fun start(mode: Mode): ServiceStartResult
+
+    fun startPrepared(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    ): ServiceStartResult
+
+    fun stopPrepared(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean
+
+    fun finishOwnedRuntime(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): Boolean
+
+    suspend fun stop()
+}
+
+interface ServiceRecoveryCommands {
+    suspend fun captureRuntimeSnapshot(): com.poyka.ripdpi.data.RuntimeAuthoritySnapshot
+
+    suspend fun authorizeBootPolicyStart(
+        mode: Mode,
+        expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): com.poyka.ripdpi.data.BootPolicyStartReceipt?
+
+    fun startBootPolicy(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.BootPolicyStartReceipt,
+    ): ServiceStartResult
+
+    /**
+     * Boot/package-replacement recovery start; unlike [ServiceUserCommands.start],
+     * this is not a newer explicit user intent.
+     */
     fun startForBootRecovery(
         mode: Mode,
         broadcastAction: String,
-    ): ServiceStartResult = start(mode)
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult
 
     /** UI-visible fallback after process death; distinct from a user start. */
-    fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult = start(mode)
+    fun startForProcessDeathRecovery(
+        mode: Mode,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult
 
-    fun stop()
+    /** Internal diagnostics resume that must not replace explicit user intent. */
+    fun startForDiagnostics(
+        mode: Mode,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult
 
+    /** Internal diagnostics pause that must not replace explicit user intent. */
+    fun stopForDiagnostics(reference: com.poyka.ripdpi.data.PauseAuthorityRef)
+
+    /** Reconcile a user Stop after a diagnostics resume raced it. */
+    fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.PauseAuthorityRef)
+}
+
+interface ServiceTransportMaintenance {
     /** Recompose the active VPN transport without accepting a user Stop or releasing the TUN barrier. */
     fun restartVpnForTransportFailover(
         requestId: Long,
         expectedTarget: TransportFailoverTarget,
-    ): ServiceStartResult = start(Mode.VPN)
-
-    /** Internal diagnostics resume that must not replace explicit user intent. */
-    fun startForDiagnostics(mode: Mode): ServiceStartResult = start(mode)
-
-    /** Internal diagnostics pause that must not replace explicit user intent. */
-    fun stopForDiagnostics() = stop()
-
-    /** Reconcile a user Stop after a diagnostics resume raced it. */
-    fun stopForDiagnosticsCompensation() = stopForDiagnostics()
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult
 
     /** Ask a running VPN service to refresh its cached Android lockdown state. */
     fun refreshHardKillSwitchState() = Unit
@@ -72,6 +118,7 @@ interface VpnTransportActivationController {
     fun startVpnTransport(
         requestId: Long,
         expectedTarget: TransportFailoverTarget,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
     ): ServiceStartResult
 }
 
@@ -89,6 +136,7 @@ private data object UntrackedStartupFallbackLease : StartupFallbackLease
 
 private data class UserIntentStartupFallbackLease(
     val generation: Long,
+    val reference: com.poyka.ripdpi.data.PauseAuthorityRef,
 ) : StartupFallbackLease
 
 internal const val hardKillSwitchRefreshBroadcastAction =
@@ -108,6 +156,10 @@ sealed interface ServiceStartResult {
 }
 
 sealed interface ServiceStartRejectionReason {
+    data object PausePending : ServiceStartRejectionReason
+
+    data object Superseded : ServiceStartRejectionReason
+
     data object NotificationsPermissionMissing : ServiceStartRejectionReason
 
     data object VpnConsentMissing : ServiceStartRejectionReason
@@ -130,7 +182,9 @@ interface ForegroundServiceStarter {
 @Singleton
 class ServiceIntentArbiter
     @Inject
-    constructor() {
+    constructor(
+        private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+    ) {
         private val lock = ReentrantLock()
         private var explicitUserIntentRecorded = false
         private var userIntentGeneration = 0L
@@ -139,6 +193,44 @@ class ServiceIntentArbiter
         private var doqSaveInProgress = false
         private val pendingVpnStarts = mutableSetOf<Long>()
         private var vpnStartGeneration = 0L
+
+        fun dispatchExplicit(receipt: com.poyka.ripdpi.data.DurableCommandReceipt): ServiceDispatchLease? =
+            lock.withLock {
+                if (!pauseAuthority.isCurrent(receipt)) return@withLock null
+                explicitUserIntentRecorded = true
+                userIntentGeneration = Math.addExact(userIntentGeneration, 1)
+                explicitGenerationState.value = userIntentGeneration
+                ServiceDispatchLease(receipt, userIntentGeneration)
+            }
+
+        fun isCurrent(lease: ServiceDispatchLease): Boolean =
+            lock.withLock {
+                userIntentGeneration == lease.processGeneration && pauseAuthority.isCurrent(lease.durable)
+            }
+
+        fun publishIfCurrent(
+            generation: Long,
+            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+            mode: Mode,
+            publish: () -> Unit,
+        ): Boolean =
+            lock.withLock {
+                if (userIntentGeneration != generation) return@withLock false
+                val permit = pauseAuthority.publicationPermit(reference, mode) ?: return@withLock false
+                pauseAuthority.intentLinearizer.publishIf({ pauseAuthority.allowsPublication(permit) }, publish)
+            }
+
+        fun durableReference() = pauseAuthority.reference()
+
+        fun isDurableCurrent(reference: com.poyka.ripdpi.data.PauseAuthorityRef) =
+            pauseAuthority.reference() == reference
+
+        val durableIntentStates get() = pauseAuthority.states
+
+        fun confirmAppliedMode(
+            reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+            mode: Mode,
+        ) = pauseAuthority.confirmAppliedMode(reference, mode)
 
         /** The lease covers the entire suspend DataStore update, while start dispatch remains synchronous. */
         fun tryReserveDoqSave(canSave: () -> Boolean): AutoCloseable? =
@@ -218,7 +310,10 @@ class ServiceIntentArbiter
                 true
             }
 
-        fun explicitUserStartGuard(generation: Long): ExplicitUserStartGuard = ExplicitUserStartGuard(this, generation)
+        fun explicitUserStartGuard(
+            generation: Long,
+            durable: com.poyka.ripdpi.data.PauseAuthorityRef,
+        ): ExplicitUserStartGuard = ExplicitUserStartGuard(this, generation, durable)
 
         fun captureExplicitUserIntentGeneration(): Long = lock.withLock { userIntentGeneration }
 
@@ -244,14 +339,33 @@ class AcceptedUserStopRecorder
         private val bootSessionStateStore: BootSessionStateStore,
         private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
         private val serviceIntentArbiter: ServiceIntentArbiter,
+        private val profileRecovery: com.poyka.ripdpi.data.ProfileMutationRecoveryAccess,
+        private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
     ) {
-        fun record(generation: Long? = null) {
-            if (generation == null) {
-                serviceIntentArbiter.userStop(::recordState)
-            } else {
-                serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation, ::recordState)
+        internal suspend fun record(command: AcceptedServiceStop): com.poyka.ripdpi.data.PauseAuthorityRef? =
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                profileRecovery.readRecovered {
+                    serviceIntentArbiter.runIfExplicitUserIntentCurrent(command.processGeneration) {
+                        val reference =
+                            when (command) {
+                                is AcceptedServiceStop.Prepared -> {
+                                    command.reference.takeIf(
+                                        serviceIntentArbiter::isDurableCurrent,
+                                    )
+                                }
+
+                                is AcceptedServiceStop.Notification -> {
+                                    pauseAuthority
+                                        .supersede(
+                                            com.poyka.ripdpi.data.RuntimeUserCommand.Stop,
+                                        ).authority
+                                }
+                            } ?: return@runIfExplicitUserIntentCurrent null
+                        recordState()
+                        reference
+                    }
+                }
             }
-        }
 
         private fun recordState() {
             bootSessionStateStore.setWasRunningAtUpdate(false)
@@ -272,280 +386,197 @@ class ContextCompatForegroundServiceStarter
     }
 
 @Singleton
-class DefaultServiceController
+class DefaultServiceController private constructor(
+    private val context: Context,
+    private val serviceStateStore: ServiceStateStore,
+    private val serviceIntentArbiter: ServiceIntentArbiter,
+    private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+    private val appSettings: com.poyka.ripdpi.data.AppSettingsRepository,
+    private val profileRecovery: com.poyka.ripdpi.data.ProfileMutationRecoveryAccess,
+    runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+    private val dispatch: ServiceControllerDispatch,
+) : ServiceController,
+    ServiceUserCommands by PreparedServiceUserCommands(
+        dispatch,
+        profileRecovery,
+        pauseAuthority,
+        serviceIntentArbiter,
+        runtimeResumeIntentTracker,
+    ),
+    VpnTransportActivationController,
+    StartupFallbackController,
+    RunningReconnectDispatch {
     @Inject
     constructor(
-        @param:ApplicationContext private val context: Context,
-        private val serviceStateStore: ServiceStateStore,
-        private val serviceAutomationController: Optional<ServiceAutomationController>,
-        private val foregroundServiceStarter: ForegroundServiceStarter,
-        private val bootSessionStateStore: BootSessionStateStore,
-        private val runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
-        private val serviceIntentArbiter: ServiceIntentArbiter,
-    ) : ServiceController,
-        VpnTransportActivationController,
-        StartupFallbackController,
-        RunningReconnectDispatch {
-        internal constructor(
-            context: Context,
-            serviceStateStore: ServiceStateStore,
-            serviceAutomationController: Optional<ServiceAutomationController>,
-            foregroundServiceStarter: ForegroundServiceStarter,
-            bootSessionStateStore: BootSessionStateStore,
-        ) : this(
-            context = context,
-            serviceStateStore = serviceStateStore,
-            serviceAutomationController = serviceAutomationController,
-            foregroundServiceStarter = foregroundServiceStarter,
-            bootSessionStateStore = bootSessionStateStore,
-            runtimeResumeIntentTracker = RuntimeResumeIntentTracker(),
-            serviceIntentArbiter = ServiceIntentArbiter(),
+        @ApplicationContext context: Context,
+        serviceStateStore: ServiceStateStore,
+        serviceAutomationController: Optional<ServiceAutomationController>,
+        foregroundServiceStarter: ForegroundServiceStarter,
+        bootSessionStateStore: BootSessionStateStore,
+        runtimeResumeIntentTracker: RuntimeResumeIntentTracker,
+        serviceIntentArbiter: ServiceIntentArbiter,
+        pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        appSettings: com.poyka.ripdpi.data.AppSettingsRepository,
+        profileRecovery: com.poyka.ripdpi.data.ProfileMutationRecoveryAccess,
+    ) : this(
+        context,
+        serviceStateStore,
+        serviceIntentArbiter,
+        pauseAuthority,
+        appSettings,
+        profileRecovery,
+        runtimeResumeIntentTracker,
+        ServiceControllerDispatch(
+            context,
+            serviceStateStore,
+            serviceAutomationController,
+            foregroundServiceStarter,
+            bootSessionStateStore,
+            runtimeResumeIntentTracker,
+            serviceIntentArbiter,
+            pauseAuthority,
+        ),
+    )
+
+    override suspend fun captureRuntimeSnapshot(): com.poyka.ripdpi.data.RuntimeAuthoritySnapshot =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            profileRecovery.readRecovered { pauseAuthority.snapshotAuthority() }
+        }
+
+    override suspend fun authorizeBootPolicyStart(
+        mode: Mode,
+        expected: com.poyka.ripdpi.data.RuntimeAuthoritySnapshot,
+    ): com.poyka.ripdpi.data.BootPolicyStartReceipt? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            profileRecovery.readRecovered {
+                if (!appSettings.snapshot().startOnBoot || preflight(mode) is ServiceStartResult.Rejected) {
+                    null
+                } else {
+                    serviceIntentArbiter.recovery { pauseAuthority.authorizeBootPolicyStart(mode, expected) }
+                }
+            }
+        }
+
+    override fun startBootPolicy(
+        mode: Mode,
+        receipt: com.poyka.ripdpi.data.BootPolicyStartReceipt,
+    ): ServiceStartResult = dispatch.start(mode, bootRecoveryStartAction, expectedDurableReference = receipt.reference)
+
+    override fun preflight(mode: Mode): ServiceStartResult =
+        if (mode == Mode.VPN && VpnService.prepare(context) != null) {
+            ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
+        } else {
+            ServiceStartResult.Accepted(mode)
+        }
+
+    override fun stopIfCurrent(lease: ServiceDispatchLease): Boolean {
+        if (!serviceIntentArbiter.isCurrent(lease)) return false
+        dispatch.stop(stopAction, lease, lease.durable.authority)
+        return true
+    }
+
+    override fun startIfCurrent(
+        mode: Mode,
+        lease: ServiceDispatchLease,
+    ): ServiceStartResult? {
+        if (!serviceIntentArbiter.isCurrent(lease)) return null
+        return dispatch.start(mode, startAction, dispatchLease = lease)
+    }
+
+    override fun startForBootRecovery(
+        mode: Mode,
+        broadcastAction: String,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult =
+        dispatch.start(
+            mode,
+            if (broadcastAction == Intent.ACTION_BOOT_COMPLETED) {
+                bootRecoveryStartAction
+            } else {
+                packageReplacedRecoveryStartAction
+            },
+            expectedDurableReference = reference,
         )
 
-        @Suppress("ReturnCount")
-        override fun start(mode: Mode): ServiceStartResult =
-            serviceIntentArbiter.userStart(
-                action = {
-                    runtimeResumeIntentTracker.withUserStart(
-                        action = { startInternal(mode, startAction) },
-                        isAccepted = { it is ServiceStartResult.Accepted },
-                    )
-                },
-                isAccepted = { it is ServiceStartResult.Accepted },
-            )
+    override fun startVpnTransport(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+    ): ServiceStartResult {
+        val lease =
+            serviceIntentArbiter.dispatchExplicit(receipt)
+                ?: return ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.Superseded)
+        return dispatch.start(Mode.VPN, transportActivationStartAction, requestId, expectedTarget, lease)
+    }
 
-        override fun preflight(mode: Mode): ServiceStartResult =
-            if (mode == Mode.VPN && VpnService.prepare(context) != null) {
-                ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
-            } else {
-                ServiceStartResult.Accepted(mode)
-            }
+    override fun startForProcessDeathRecovery(
+        mode: Mode,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult = dispatch.start(mode, processDeathRecoveryStartAction, expectedDurableReference = reference)
 
-        override fun stopIfCurrent(generation: Long): Boolean =
+    override fun startForDiagnostics(
+        mode: Mode,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult = dispatch.start(mode, diagnosticsStartAction, expectedDurableReference = reference)
+
+    override fun restartVpnForTransportFailover(
+        requestId: Long,
+        expectedTarget: TransportFailoverTarget,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult =
+        dispatch.start(
+            mode = Mode.VPN,
+            action = transportFailoverRestartAction,
+            transportFailoverRequestId = requestId,
+            transportFailoverTarget = expectedTarget,
+            expectedDurableReference = reference,
+        )
+
+    override fun captureStartupFallbackLease(): StartupFallbackLease =
+        UserIntentStartupFallbackLease(
+            serviceIntentArbiter.captureExplicitUserIntentGeneration(),
+            pauseAuthority.reference(),
+        )
+
+    override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
+        val captured = lease as? UserIntentStartupFallbackLease ?: return StartupFallbackDispatchResult.Superseded
+        val generation = captured.generation
+        return if (!serviceIntentArbiter.isDurableCurrent(captured.reference) ||
+            pauseAuthority.snapshot() != null
+        ) {
+            StartupFallbackDispatchResult.Superseded
+        } else {
             serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
-                stopInternal(stopAction)
-                true
-            } ?: false
-
-        override fun startIfCurrent(
-            mode: Mode,
-            generation: Long,
-        ): ServiceStartResult? =
-            serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
-                runtimeResumeIntentTracker.withUserStart(
-                    action = { startInternal(mode, startAction) },
-                    isAccepted = { it is ServiceStartResult.Accepted },
-                )
-            }
-
-        override fun startForBootRecovery(
-            mode: Mode,
-            broadcastAction: String,
-        ): ServiceStartResult =
-            startInternal(
-                mode,
-                if (broadcastAction == Intent.ACTION_BOOT_COMPLETED) {
-                    bootRecoveryStartAction
-                } else {
-                    packageReplacedRecoveryStartAction
-                },
-            )
-
-        override fun startVpnTransport(
-            requestId: Long,
-            expectedTarget: TransportFailoverTarget,
-        ): ServiceStartResult =
-            serviceIntentArbiter.userStart(
-                action = {
-                    runtimeResumeIntentTracker.withUserStart(
-                        action = {
-                            startInternal(Mode.VPN, transportActivationStartAction, requestId, expectedTarget)
-                        },
-                        isAccepted = { it is ServiceStartResult.Accepted },
-                    )
-                },
-                isAccepted = { it is ServiceStartResult.Accepted },
-            )
-
-        override fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult =
-            startInternal(mode, processDeathRecoveryStartAction)
-
-        override fun startForDiagnostics(mode: Mode): ServiceStartResult = startInternal(mode, diagnosticsStartAction)
-
-        @Suppress("ReturnCount")
-        private fun startInternal(
-            mode: Mode,
-            action: String,
-            transportFailoverRequestId: Long? = null,
-            transportFailoverTarget: TransportFailoverTarget? = null,
-        ): ServiceStartResult {
-            if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
-                return ServiceStartResult.Accepted(mode)
-            }
-            return if (mode == Mode.VPN) {
-                serviceIntentArbiter.dispatchVpnStart {
-                    dispatchStartInternal(mode, action, transportFailoverRequestId, transportFailoverTarget)
-                }
-            } else {
-                dispatchStartInternal(mode, action, transportFailoverRequestId, transportFailoverTarget)
-            }
-        }
-
-        @Suppress("ReturnCount")
-        private fun dispatchStartInternal(
-            mode: Mode,
-            action: String,
-            transportFailoverRequestId: Long? = null,
-            transportFailoverTarget: TransportFailoverTarget? = null,
-        ): ServiceStartResult {
-            if (mode == Mode.VPN && VpnService.prepare(context) != null) {
-                Logger.i {
-                    "Cannot start VPN service: VPN consent not given"
-                }
-                return ServiceStartResult.Rejected(mode, ServiceStartRejectionReason.VpnConsentMissing)
-            }
-            when (mode) {
-                Mode.VPN -> {
-                    Logger.i { "Starting VPN" }
-                    val intent =
-                        Intent(context, RipDpiVpnService::class.java).apply {
-                            this.action = action
-                            stampExplicitIntent(action)
-                            putExtra(vpnStartGenerationExtra, serviceIntentArbiter.captureVpnStartGeneration())
-                            transportFailoverRequestId?.let { requestId ->
-                                putExtra(transportFailoverRequestIdExtra, requestId)
-                            }
-                            transportFailoverTarget?.let { target ->
-                                putExtra(transportFailoverTargetKindExtra, target.transportKind)
-                                putExtra(transportFailoverTargetProfileIdExtra, target.profileId)
-                            }
-                        }
-                    try {
-                        foregroundServiceStarter.startForegroundService(context, intent)
-                    } catch (e: IllegalStateException) {
-                        // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
-                        Logger.w(e) { "Foreground service start blocked" }
-                        return ServiceStartResult.Rejected(
-                            mode = mode,
-                            reason = ServiceStartRejectionReason.ForegroundServiceBlocked(e.message),
-                        )
-                    }
-                }
-
-                Mode.Proxy -> {
-                    Logger.i { "Starting proxy" }
-                    val intent =
-                        Intent(context, RipDpiProxyService::class.java).apply {
-                            this.action = action
-                            stampExplicitIntent(action)
-                        }
-                    try {
-                        foregroundServiceStarter.startForegroundService(context, intent)
-                    } catch (e: IllegalStateException) {
-                        // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
-                        Logger.w(e) { "Foreground service start blocked" }
-                        return ServiceStartResult.Rejected(
-                            mode = mode,
-                            reason = ServiceStartRejectionReason.ForegroundServiceBlocked(e.message),
-                        )
-                    }
-                }
-            }
-            return ServiceStartResult.Accepted(mode)
-        }
-
-        private fun Intent.stampExplicitIntent(action: String) {
-            if (action == startAction || action == transportActivationStartAction || action == stopAction) {
-                putExtra(explicitUserIntentGenerationExtra, serviceIntentArbiter.captureExplicitUserIntentGeneration())
-            }
-        }
-
-        override fun stop() {
-            serviceIntentArbiter.userStop {
-                stopInternal(action = stopAction)
-            }
-        }
-
-        override fun restartVpnForTransportFailover(
-            requestId: Long,
-            expectedTarget: TransportFailoverTarget,
-        ): ServiceStartResult =
-            startInternal(
-                mode = Mode.VPN,
-                action = transportFailoverRestartAction,
-                transportFailoverRequestId = requestId,
-                transportFailoverTarget = expectedTarget,
-            )
-
-        override fun captureStartupFallbackLease(): StartupFallbackLease =
-            UserIntentStartupFallbackLease(serviceIntentArbiter.captureExplicitUserIntentGeneration())
-
-        override fun startVpnForStartupFallback(lease: StartupFallbackLease): StartupFallbackDispatchResult {
-            val generation =
-                (lease as? UserIntentStartupFallbackLease)?.generation
-                    ?: return StartupFallbackDispatchResult.Superseded
-            return serviceIntentArbiter.runIfExplicitUserIntentCurrent(generation) {
                 StartupFallbackDispatchResult.Dispatched(
-                    startInternal(Mode.VPN, startupFallbackStartAction),
+                    dispatch.start(Mode.VPN, startupFallbackStartAction, expectedDurableReference = captured.reference),
                 )
             } ?: StartupFallbackDispatchResult.Superseded
         }
+    }
 
-        override fun stopForDiagnostics() {
-            stopInternal(action = diagnosticsStopAction)
-        }
+    override fun stopForDiagnostics(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
+        if (serviceIntentArbiter.isDurableCurrent(reference)) dispatch.stop(diagnosticsStopAction, null, reference)
+    }
 
-        override fun stopForDiagnosticsCompensation() {
-            stopInternal(action = diagnosticsCompensatingStopAction)
-        }
-
-        override fun refreshHardKillSwitchState() {
-            val (status, mode) = serviceStateStore.status.value
-            if (status != AppStatus.Running || mode != Mode.VPN) {
-                return
-            }
-            context.sendBroadcast(
-                Intent(hardKillSwitchRefreshBroadcastAction).setPackage(context.packageName),
+    override fun stopForDiagnosticsCompensation(reference: com.poyka.ripdpi.data.PauseAuthorityRef) {
+        if (serviceIntentArbiter.isDurableCurrent(
+                reference,
             )
-        }
-
-        private fun stopInternal(action: String) {
-            val currentMode = serviceStateStore.status.value.second
-            if (serviceAutomationController.map { it.interceptStop(currentMode) }.orElse(false)) {
-                if (action == stopAction) {
-                    // Automation consumed the user Stop, so no service callback will
-                    // record acceptance. Commit the same durable intent here.
-                    bootSessionStateStore.setWasRunningAtUpdate(false)
-                    runtimeResumeIntentTracker.recordAcceptedStop()
-                }
-                return
-            }
-            val intent =
-                when (currentMode) {
-                    Mode.VPN -> {
-                        Logger.i { "Stopping VPN" }
-                        Intent(context, RipDpiVpnService::class.java).apply {
-                            this.action = action
-                            stampExplicitIntent(action)
-                        }
-                    }
-
-                    Mode.Proxy -> {
-                        Logger.i { "Stopping proxy" }
-                        Intent(context, RipDpiProxyService::class.java).apply {
-                            this.action = action
-                            stampExplicitIntent(action)
-                        }
-                    }
-                }
-            try {
-                foregroundServiceStarter.startForegroundService(context, intent)
-            } catch (e: IllegalStateException) {
-                // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
-                Logger.w(e) { "Foreground service start blocked" }
-            }
+        ) {
+            dispatch.stop(diagnosticsCompensatingStopAction, null, reference)
         }
     }
+
+    override fun refreshHardKillSwitchState() {
+        val (status, mode) = serviceStateStore.status.value
+        if (status != AppStatus.Running || mode != Mode.VPN) {
+            return
+        }
+        context.sendBroadcast(
+            Intent(hardKillSwitchRefreshBroadcastAction).setPackage(context.packageName),
+        )
+    }
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -586,3 +617,8 @@ internal abstract class DiagnosticsRuntimeCoordinatorModule {
         coordinator: DefaultDiagnosticsRuntimeCoordinator,
     ): DiagnosticsRuntimeCoordinator
 }
+
+data class ServiceDispatchLease(
+    val durable: com.poyka.ripdpi.data.DurableCommandReceipt,
+    val processGeneration: Long,
+)

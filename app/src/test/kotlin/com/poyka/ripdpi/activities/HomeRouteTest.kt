@@ -60,6 +60,7 @@ class HomeRouteTest {
                     onOpenVpnConfig = {},
                     onOpenVpnPermissionDialog = {},
                     viewModel = viewModel,
+                    pauseViewModel = createPauseViewModel(),
                 )
             }
         }
@@ -81,6 +82,28 @@ class HomeRouteTest {
         composeRule.runOnIdle {
             assertFalse(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
         }
+    }
+
+    private fun createPauseViewModel(): HomePauseViewModel {
+        val authority =
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+        val state =
+            com.poyka.ripdpi.data
+                .DefaultServiceStateStore()
+        val controller =
+            com.poyka.ripdpi.services.TimedPauseController(
+                RuntimeEnvironment.getApplication(),
+                authority,
+                com.poyka.ripdpi.data
+                    .TestBackupMutationCoordinator(),
+                state,
+                com.poyka.ripdpi.services
+                    .LiveVpnLockdownReader(),
+                com.poyka.ripdpi.services
+                    .ServiceIntentArbiter(authority),
+            )
+        return HomePauseViewModel(controller, authority, state)
     }
 
     private fun createViewModel(appSettingsRepository: AppSettingsRepository): MainViewModel {

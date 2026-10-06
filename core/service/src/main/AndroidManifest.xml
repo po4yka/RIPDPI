@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <application>
+        <receiver android:name="com.poyka.ripdpi.services.PauseDeadlineReceiver" android:exported="false" />
+        <receiver android:name="com.poyka.ripdpi.services.PauseBootReceiver" android:enabled="false" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <!-- Bound-only key observation: no TUN, FGS, or advertised VPN component. -->
         <service android:name="com.poyka.ripdpi.services.SshHostKeyProbeService"
             android:permission="android.permission.BIND_VPN_SERVICE"

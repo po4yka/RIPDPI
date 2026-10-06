@@ -240,7 +240,12 @@ class ProxyServiceAutoApplyLifecycleTest {
             ProxyServiceRuntimeCoordinator(
                 configurationLifecycle =
                     RuntimeConfigurationLifecycle(
-                        AppliedRuntimeConfigurationStore(),
+                        AppliedRuntimeConfigurationStore(
+                            PauseAppliedReceiptConsumer(
+                                com.poyka.ripdpi.data
+                                    .testPauseAuthority(),
+                            ),
+                        ),
                         RuntimeConfigurationIdentityFactory(),
                     ),
                 host = host,

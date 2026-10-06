@@ -216,11 +216,26 @@ class BackupResetCoordinatorTest {
 
         override suspend fun update(group: ProxyGroup) = Unit
 
-        override suspend fun delete(id: String) = Unit
+        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+            replaceAll(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+                groups,
+            )
+        }
+
+        override suspend fun delete(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            id: String,
+        ) = Unit
 
         override suspend fun list(): List<ProxyGroup> = emptyList()
 
-        override suspend fun replaceAll(groups: List<ProxyGroup>) = Unit
+        override suspend fun replaceAll(
+            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            groups: List<ProxyGroup>,
+        ) = Unit
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
     }

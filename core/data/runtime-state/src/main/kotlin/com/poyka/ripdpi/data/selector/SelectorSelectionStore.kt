@@ -52,7 +52,7 @@ interface SelectorSelectionStore {
     ): Boolean
 
     /** Sets [profileId] as the active member of the selector group [groupId]. */
-    fun select(
+    suspend fun select(
         groupId: String,
         profileId: String,
     )
@@ -71,6 +71,7 @@ class SharedPreferencesSelectorSelectionStore
     @Inject
     constructor(
         @ApplicationContext context: Context,
+        private val intentPreparation: com.poyka.ripdpi.data.PauseMutationPreparationSource,
     ) : SelectorSelectionStore {
         private val preferences = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
         private val flows = HashMap<String, MutableStateFlow<String?>>()
@@ -108,10 +109,20 @@ class SharedPreferencesSelectorSelectionStore
                 }
             }
 
-        override fun select(
+        override suspend fun select(
             groupId: String,
             profileId: String,
         ) {
+            val preparation =
+                intentPreparation.captureMutation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                )
+            if (intentPreparation.commitMutationIntent(
+                    preparation,
+                ) !is com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved
+            ) {
+                return
+            }
             synchronized(flows) {
                 writeSelection(groupId, profileId, isManual = true)
             }
@@ -157,7 +168,8 @@ class SharedPreferencesSelectorSelectionStore
                 .edit()
                 .putString(keyFor(groupId), profileId)
                 .putBoolean(manualKeyFor(groupId), isManual)
-                .apply()
+                .commit()
+                .also { check(it) { "Selector selection persistence failed" } }
             advanceRevision(groupId)
             flowFor(groupId).value = profileId
         }

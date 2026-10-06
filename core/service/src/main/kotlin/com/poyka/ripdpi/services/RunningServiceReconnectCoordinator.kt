@@ -26,11 +26,11 @@ import javax.inject.Singleton
 interface RunningReconnectDispatch {
     fun preflight(mode: Mode): ServiceStartResult
 
-    fun stopIfCurrent(generation: Long): Boolean
+    fun stopIfCurrent(lease: ServiceDispatchLease): Boolean
 
     fun startIfCurrent(
         mode: Mode,
-        generation: Long,
+        lease: ServiceDispatchLease,
     ): ServiceStartResult?
 }
 
@@ -112,6 +112,7 @@ class RunningServiceReconnectCoordinator
         private val serviceState: ServiceStateStore,
         private val configurations: AppliedRuntimeConfigurationSource,
         private val liveLockdown: LiveVpnLockdownReader,
+        private val serviceController: ServiceController,
     ) : RunningServiceReconnect {
         private val mutex = Mutex()
         private val state = MutableStateFlow<RunningReconnectState>(RunningReconnectState.Idle)
@@ -198,11 +199,13 @@ class RunningServiceReconnectCoordinator
                 configurations.applications.value.values
                     .mapNotNull { it.attemptIdentity()?.first }
                     .toMutableSet()
-            val generation =
-                arbiter.userStart(
-                    action = { arbiter.captureExplicitUserIntentGeneration() },
-                    isAccepted = { true },
+            val receipt =
+                serviceController.prepareUserCommand(
+                    com.poyka.ripdpi.data.RuntimeUserCommand
+                        .Start(mode),
                 )
+            val lease = arbiter.dispatchExplicit(receipt) ?: return failure(mode, RunningReconnectFailure.Superseded)
+            val generation = lease.processGeneration
             synchronized(cancellationLock) { ownerGeneration = generation }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val stopFailure =
@@ -210,7 +213,7 @@ class RunningServiceReconnectCoordinator
                         request,
                     )
                 ) {
-                    stopRuntime(mode, generation)
+                    stopRuntime(mode, lease)
                 } else {
                     RunningReconnectFailure.Superseded
                 }
@@ -219,16 +222,17 @@ class RunningServiceReconnectCoordinator
             } else {
                 configurations.applications.value.values
                     .mapNotNullTo(excluded) { it.attemptIdentity()?.first }
-                startReplacement(mode, generation, excluded)
+                startReplacement(mode, lease, excluded)
             }
         }
 
         private suspend fun stopRuntime(
             mode: Mode,
-            generation: Long,
+            lease: ServiceDispatchLease,
         ): RunningReconnectFailure? {
+            val generation = lease.processGeneration
             state.value = RunningReconnectState.Stopping(mode)
-            return if (!dispatch.stopIfCurrent(generation)) {
+            return if (!dispatch.stopIfCurrent(lease)) {
                 RunningReconnectFailure.Superseded
             } else {
                 val halted =
@@ -247,12 +251,13 @@ class RunningServiceReconnectCoordinator
 
         private suspend fun startReplacement(
             mode: Mode,
-            generation: Long,
+            lease: ServiceDispatchLease,
             excluded: Set<String>,
         ): RunningReconnectResult {
+            val generation = lease.processGeneration
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             state.value = RunningReconnectState.Starting(mode)
-            return when (dispatch.startIfCurrent(mode, generation)) {
+            return when (dispatch.startIfCurrent(mode, lease)) {
                 null -> failure(mode, RunningReconnectFailure.Superseded)
                 is ServiceStartResult.Rejected -> failure(mode, RunningReconnectFailure.StartRejected)
                 is ServiceStartResult.Accepted -> awaitReplacement(mode, generation, excluded)

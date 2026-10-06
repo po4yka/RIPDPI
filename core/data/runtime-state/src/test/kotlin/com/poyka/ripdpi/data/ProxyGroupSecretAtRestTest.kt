@@ -66,7 +66,12 @@ class ProxyGroupSecretAtRestTest {
     fun `groups are persisted only through the sealed blob store, and secrets round-trip`() =
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
-            val repo = SharedPreferencesProxyGroupRepository(blobStore)
+            val repo =
+                SharedPreferencesProxyGroupRepository(
+                    blobStore,
+                    com.poyka.ripdpi.data
+                        .testMutationPreparationSource(),
+                )
 
             repo.add(sampleGroup())
 
@@ -79,7 +84,12 @@ class ProxyGroupSecretAtRestTest {
             assertTrue("subscription token must be inside the to-be-sealed blob", persisted.contains(subToken))
 
             assertTrue(persisted.contains("fixture-mirror-token"))
-            val loaded = SharedPreferencesProxyGroupRepository(blobStore).list().single()
+            val loaded =
+                SharedPreferencesProxyGroupRepository(
+                    blobStore,
+                    com.poyka.ripdpi.data
+                        .testMutationPreparationSource(),
+                ).list().single()
             assertEquals(memberPassword, (loaded.members.single() as ProxyProfile.Trojan).password)
             assertEquals(subToken, loaded.subscription?.token)
             assertEquals(sampleGroup().subscription?.mirrors, loaded.subscription?.mirrors)
@@ -90,10 +100,22 @@ class ProxyGroupSecretAtRestTest {
     fun `deleting the last group clears the sealed blob`() =
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
-            val repo = SharedPreferencesProxyGroupRepository(blobStore)
+            val repo =
+                SharedPreferencesProxyGroupRepository(
+                    blobStore,
+                    com.poyka.ripdpi.data
+                        .testMutationPreparationSource(),
+                )
             repo.add(sampleGroup())
 
-            repo.delete("g1")
+            repo.delete(
+                com.poyka.ripdpi.data.ProfileMutationPreparation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitDeletion,
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+                ),
+                "g1",
+            )
 
             assertEquals(emptyList<ProxyGroup>(), repo.list())
         }

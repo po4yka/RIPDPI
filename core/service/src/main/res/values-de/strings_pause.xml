@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_notification_title">Verbindung pausieren</string>
+    <string name="pause_notification_until">Pausiert bis %1$s</string>
+    <string name="pause_notification_cleanup">Die Bereinigung ist unvollständig. Die Pause ist noch nicht bestätigt.</string>
+    <string name="pause_notification_resuming">Verbindung wird fortgesetzt…</string>
+    <string name="pause_notification_deferred">Fortsetzung erfordert Aufmerksamkeit</string>
+    <string name="pause_notification_resume">Jetzt fortsetzen</string>
+ </resources>

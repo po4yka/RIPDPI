@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.service.runtime.control
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PauseAuthorityRef
 
 /**
  * A typed request for a runtime change, routed through [RuntimeControlPlane].
@@ -25,6 +26,7 @@ internal sealed interface RuntimeControlCommand {
     /** Stop the runtime. */
     data class StopRuntime(
         override val reason: RuntimeControlReason,
+        val ownership: RuntimeControlStopOwnership,
     ) : RuntimeControlCommand
 
     /** Stop then start the runtime, preserving the active mode. */
@@ -52,4 +54,13 @@ internal sealed interface RuntimeControlCommand {
     data class RefreshDns(
         override val reason: RuntimeControlReason,
     ) : RuntimeControlCommand
+}
+
+/** Explicit user commands reserve intent; owned stops retain the original captured authority. */
+internal sealed interface RuntimeControlStopOwnership {
+    data object ExplicitUser : RuntimeControlStopOwnership
+
+    data class Captured(
+        val reference: PauseAuthorityRef,
+    ) : RuntimeControlStopOwnership
 }

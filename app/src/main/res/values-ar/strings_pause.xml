@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pause_action">إيقاف الاتصال مؤقتًا</string>
+    <string name="pause_until">متوقف حتى %1$s</string>
+    <string name="pause_releasing">جارٍ تحرير موارد الاتصال…</string>
+    <string name="pause_resuming">جارٍ استئناف الاتصال…</string>
+    <string name="pause_cleanup_pending">لم يكتمل التنظيف. لم يُؤكد الإيقاف المؤقت بعد.</string>
+    <string name="pause_deferred">الاستئناف يحتاج إلى مراجعة</string>
+    <string name="pause_saved_settings">يُستأنف هذا الوضع بالإعدادات المحفوظة الحالية. تعديلات الإعدادات تحفظ التوقف؛ البدء أو الإيقاف أو تفعيل ملف أو حذفه يلغيه.</string>
+    <string name="pause_remaining">تبقى %1$s دقيقة</string>
+    <string name="pause_resume_now">استئناف الآن</string>
+    <string name="pause_stop">إيقاف وإلغاء الاستئناف</string>
+    <string name="pause_persistence_failed">تعذّر حفظ الأمر. حالة الاتصال لم تتغيّر.</string>
+    <string name="pause_duration_minutes">%1$s دقيقة</string>
+    <string name="pause_clock_failed">تغيّرت الساعة أو هوية بدء التشغيل. راجع الاستعادة.</string>
+    <string name="pause_consent_required">يلزم إذن VPN للاستئناف.</string>
+    <string name="pause_lockdown">لا تسمح حالة قفل VPN في Android بهذا الإجراء.</string>
+    <string name="pause_background_restricted">أجّل Android الاستعادة في الخلفية. افتح التطبيق.</string>
+    <string name="pause_user_stopped">سجّل Android إيقافًا من المستخدم. أُوقف الاستئناف التلقائي.</string>
+    <string name="pause_resume_failed">لم تؤكد الخدمة إعدادات الاتصال المستأنف.</string>
+ </resources>

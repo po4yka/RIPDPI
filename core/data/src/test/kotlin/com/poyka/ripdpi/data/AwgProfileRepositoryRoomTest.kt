@@ -54,7 +54,13 @@ class AwgProfileRepositoryRoomTest {
         failingDao = FailingAwgProfileDao(db.awgProfileDao())
         dao = failingDao
         credentialStore = FakeAwgCredentialStore()
-        repository = AwgProfileRepository(dao, credentialStore)
+        repository =
+            AwgProfileRepository(
+                dao,
+                credentialStore,
+                com.poyka.ripdpi.data.awg
+                    .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
+            )
     }
 
     @After

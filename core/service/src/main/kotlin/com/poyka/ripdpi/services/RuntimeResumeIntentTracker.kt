@@ -13,11 +13,18 @@ import javax.inject.Singleton
 @Singleton
 class RuntimeResumeIntentTracker
     @Inject
-    constructor() {
+    constructor(
+        private val pauseAuthority: com.poyka.ripdpi.data.PauseIntentAuthority,
+    ) {
         private val lock = Any()
         private var state = State()
 
-        internal fun captureResumeLease(): ResumeLease = synchronized(lock) { ResumeLease(state.generation) }
+        internal fun currentDurableAuthority() = pauseAuthority.reference()
+
+        internal fun captureResumeLease(): ResumeLease =
+            synchronized(lock) {
+                ResumeLease(state.generation, pauseAuthority.reference())
+            }
 
         internal fun ownership(lease: ResumeLease): ResumeLeaseOwnership =
             synchronized(lock) {
@@ -27,47 +34,44 @@ class RuntimeResumeIntentTracker
         internal fun <T : Any> runIfOwned(
             lease: ResumeLease,
             action: () -> T,
-        ): T? =
-            synchronized(lock) {
-                if (ownershipLocked(lease) == ResumeLeaseOwnership.Owned) {
-                    action()
-                } else {
-                    null
-                }
-            }
+        ): T? = if (ownership(lease) == ResumeLeaseOwnership.Owned) action() else null
 
         internal fun runCompensatingStopIfCurrent(
             expected: ResumeLeaseOwnership.Superseded,
             action: () -> Unit,
-        ): Boolean =
-            synchronized(lock) {
-                val isCurrentStop =
-                    state.generation == expected.generation &&
-                        state.intent == UserRuntimeIntent.Stopped
-                if (isCurrentStop) {
-                    action()
+        ): Boolean {
+            val currentStop =
+                synchronized(lock) {
+                    state.generation == expected.generation && state.intent == UserRuntimeIntent.Stopped
                 }
-                isCurrentStop
-            }
+            if (currentStop) action()
+            return currentStop
+        }
 
         @Suppress("TooGenericExceptionCaught")
         internal fun <T> withUserStart(
             action: () -> T,
             isAccepted: (T) -> Boolean = { true },
-        ): T =
-            synchronized(lock) {
-                val previous = state
-                recordLocked(UserRuntimeIntent.Running)
-                try {
-                    action().also { result ->
-                        if (!isAccepted(result)) {
-                            state = previous
-                        }
-                    }
-                } catch (failure: Exception) {
-                    state = previous
-                    throw failure
+        ): T {
+            val reservation =
+                synchronized(lock) {
+                    val previous = state
+                    recordLocked(UserRuntimeIntent.Running)
+                    previous to state
                 }
+            try {
+                return action().also { result ->
+                    if (!isAccepted(result)) rollbackStartIfOwned(reservation)
+                }
+            } catch (failure: Exception) {
+                rollbackStartIfOwned(reservation)
+                throw failure
+            }
+        }
+
+        private fun rollbackStartIfOwned(reservation: Pair<State, State>) =
+            synchronized(lock) {
+                if (state == reservation.second) state = reservation.first
             }
 
         internal fun recordAcceptedStart() {
@@ -90,12 +94,15 @@ class RuntimeResumeIntentTracker
             }
 
         private fun ownershipLocked(lease: ResumeLease): ResumeLeaseOwnership =
-            if (state.generation == lease.generation && state.intent != UserRuntimeIntent.Stopped) {
+            if (state.generation == lease.generation && state.intent != UserRuntimeIntent.Stopped &&
+                pauseAuthority.reference() == lease.durableAuthority
+            ) {
                 ResumeLeaseOwnership.Owned
             } else {
                 ResumeLeaseOwnership.Superseded(
                     generation = state.generation,
                     intent = state.intent,
+                    durableAuthority = state.durableAuthority ?: lease.durableAuthority,
                 )
             }
 
@@ -104,17 +111,20 @@ class RuntimeResumeIntentTracker
                 State(
                     generation = state.generation + 1,
                     intent = intent,
+                    durableAuthority = pauseAuthority.reference(),
                 )
         }
 
         private data class State(
             val generation: Long = 0,
             val intent: UserRuntimeIntent = UserRuntimeIntent.Unknown,
+            val durableAuthority: com.poyka.ripdpi.data.PauseAuthorityRef? = null,
         )
     }
 
 internal data class ResumeLease(
     val generation: Long,
+    val durableAuthority: com.poyka.ripdpi.data.PauseAuthorityRef,
 )
 
 internal sealed interface ResumeLeaseOwnership {
@@ -123,6 +133,7 @@ internal sealed interface ResumeLeaseOwnership {
     data class Superseded(
         val generation: Long,
         val intent: UserRuntimeIntent,
+        val durableAuthority: com.poyka.ripdpi.data.PauseAuthorityRef,
     ) : ResumeLeaseOwnership
 }
 

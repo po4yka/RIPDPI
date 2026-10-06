@@ -673,12 +673,12 @@ class DiagnosticsNetworkE2ETest {
     private fun startService(serviceClass: Class<*>) {
         startedServices += serviceClass
         val mode = if (serviceClass == RipDpiVpnService::class.java) Mode.VPN else Mode.Proxy
-        assertTrue(serviceController.start(mode) is ServiceStartResult.Accepted)
+        assertTrue(runBlocking { serviceController.start(mode) } is ServiceStartResult.Accepted)
     }
 
     private fun stopService(serviceClass: Class<*>) {
         if (startedServices.remove(serviceClass)) {
-            serviceController.stop()
+            runBlocking { serviceController.stop() }
         } else {
             appContext.stopService(Intent(appContext, serviceClass))
         }

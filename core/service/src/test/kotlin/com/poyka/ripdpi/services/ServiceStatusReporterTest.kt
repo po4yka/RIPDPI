@@ -35,6 +35,7 @@ class ServiceStatusReporterTest {
             )
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Connected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -64,6 +65,7 @@ class ServiceStatusReporterTest {
             )
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Failed,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -98,6 +100,7 @@ class ServiceStatusReporterTest {
             )
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Connected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -139,6 +142,7 @@ class ServiceStatusReporterTest {
         )
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Connected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -183,6 +187,7 @@ class ServiceStatusReporterTest {
         val reason = FailureReason.NativeError("boom")
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Failed,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -240,6 +245,7 @@ class ServiceStatusReporterTest {
         val reporter = testReporter(store = store, mode = Mode.VPN, sender = Sender.VPN, now = 77L)
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Disconnected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -306,6 +312,7 @@ class ServiceStatusReporterTest {
         val reason = FailureReason.NativeError("boom")
 
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Failed,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -401,6 +408,7 @@ class ServiceStatusReporterTest {
 
         // First call transitions Halted → Running; setStatus increments restartCount to 1.
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Connected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
@@ -447,6 +455,7 @@ class ServiceStatusReporterTest {
         // Status-only update: reportStatus is called WITHOUT a snapshot arg, so the
         // projection receives the default-null xrayProviderSnapshot.
         reporter.reportStatus(
+            ServiceStatusPublication.Apply,
             newStatus = ServiceStatus.Connected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },

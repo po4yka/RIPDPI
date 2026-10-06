@@ -94,7 +94,14 @@ class AmneziaWgProfileScreenTest {
 
                 override suspend fun deactivate() = Unit
             },
-            AwgProfileRepository(InMemoryAwgProfileDao(), InMemoryAwgCredentialStore()),
+            AwgProfileRepository(
+                InMemoryAwgProfileDao(),
+                InMemoryAwgCredentialStore(),
+                com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
+                    InMemoryAwgProfileDao(),
+                    InMemoryAwgCredentialStore(),
+                ),
+            ),
             permissionBridge,
             clipboard,
         )

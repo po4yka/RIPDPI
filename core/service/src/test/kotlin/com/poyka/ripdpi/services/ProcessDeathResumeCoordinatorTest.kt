@@ -108,7 +108,11 @@ class ProcessDeathResumeCoordinatorTest {
             val store = FakeProcessDeathBootStore(running = true)
             val state = DefaultServiceStateStore()
             val controller = RecordingProcessDeathServiceController()
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val guardEntered = CompletableDeferred<Unit>()
             val releaseGuard = CompletableDeferred<Unit>()
             val stopOwnsArbiter = CountDownLatch(1)
@@ -171,7 +175,11 @@ class ProcessDeathResumeCoordinatorTest {
             val store = FakeProcessDeathBootStore(running = true)
             val state = DefaultServiceStateStore()
             val controller = RecordingProcessDeathServiceController()
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val coordinator = coordinator(store, state, controller, arbiter = arbiter)
 
             arbiter.userStart(
@@ -266,7 +274,11 @@ class ProcessDeathResumeCoordinatorTest {
         state: DefaultServiceStateStore,
         controller: ServiceController,
         resumable: Boolean = true,
-        arbiter: ServiceIntentArbiter = ServiceIntentArbiter(),
+        arbiter: ServiceIntentArbiter =
+            ServiceIntentArbiter(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            ),
         profileGuard: (suspend (String) -> Boolean)? = null,
     ): ProcessDeathResumeCoordinator =
         ProcessDeathResumeCoordinator(
@@ -308,20 +320,23 @@ private class FakeProcessDeathBootStore(
 
 private class RecordingProcessDeathServiceController(
     var result: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN),
-) : ServiceController {
+) : com.poyka.ripdpi.services.TestSynchronousServiceController() {
     val startedModes = mutableListOf<Mode>()
     var processDeathStarts = 0
         private set
 
-    override fun start(mode: Mode): ServiceStartResult {
+    override fun recordStart(mode: Mode): ServiceStartResult {
         startedModes += mode
         return result
     }
 
-    override fun startForProcessDeathRecovery(mode: Mode): ServiceStartResult {
+    override fun startForProcessDeathRecovery(
+        mode: Mode,
+        reference: com.poyka.ripdpi.data.PauseAuthorityRef,
+    ): ServiceStartResult {
         processDeathStarts += 1
-        return start(mode)
+        return recordStart(mode)
     }
 
-    override fun stop() = Unit
+    override fun recordStop() = Unit
 }

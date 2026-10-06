@@ -96,7 +96,22 @@ The app MUST allow an active eligible connection to pause for a chosen bounded d
 #### Scenario: Deadline or cancellation
 
 - **WHEN** the deadline arrives or the user explicitly cancels the pause
-- **THEN** the scheduler atomically consumes or invalidates that intent and never restarts a connection the user cancelled.
+- **THEN** cancellation atomically invalidates that intent; deadline delivery starts only a matching eligible lease, and the intent is cleared only after a positive matching applied-runtime acknowledgement. A stale callback never restarts a newer or cancelled intent, and Android-delayed or denied recovery is displayed honestly.
+
+#### Scenario: Checked pause and cleanup
+
+- **WHEN** pause persistence or native cleanup fails
+- **THEN** an unpersisted request keeps the active runtime; cleanup-pending never claims Paused. Paused foreground reconstruction creates no native/TUN/protect/selector/probe resources.
+
+#### Scenario: Journal recovery and newer intent
+
+- **WHEN** profile mutation recovery runs across a process interruption or legacy journal migration
+- **THEN** required typed provenance and a durable expected-generation fence protect the current intent before replay. Recovery and compensation cannot invalidate or resurrect a newer pause; unknown legacy provenance is not silently defaulted.
+
+#### Scenario: Explicit resume after clock or boot change
+
+- **WHEN** automatic timing proof is unavailable after a clock or boot change
+- **THEN** automatic recovery remains deferred, while an eligible explicit Resume now action can resume the recorded chosen mode using current settings without declaring the old deadline valid. Only its positive matching applied acknowledgement clears the pending pause.
 
 ### Requirement: REQ-PROFILES — Persist useful selections and measure automatic choice
 

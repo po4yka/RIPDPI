@@ -14,22 +14,53 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 
 object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
+    override suspend fun commitMutationIntent(preparation: com.poyka.ripdpi.data.ProfileMutationPreparation) =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
+
+    override suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
+        com.poyka.ripdpi.data
+            .ProfileMutationPreparation(
+                origin,
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+                    .reference(),
+            )
+
     override fun warpRuntimeRevision(profileId: String): Long = 0L
 
     override suspend fun recover() = Unit
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
 
-    override suspend fun runReset(block: suspend () -> Unit) = block()
+    override suspend fun runReset(
+        block: suspend (com.poyka.ripdpi.data.DurableCommandReceipt) -> Unit,
+    ): com.poyka.ripdpi.data.DurableCommandReceipt {
+        val receipt =
+            com.poyka.ripdpi.data.testPauseAuthority().supersede(
+                com.poyka.ripdpi.data.RuntimeUserCommand.Stop,
+            )
+        block(receipt)
+        return receipt
+    }
 
     override suspend fun upsertAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: AwgProfileEntity,
         secrets: AwgSecrets,
-    ) = Unit
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 
-    override suspend fun deleteAwg(profileId: String) = Unit
+    override suspend fun deleteAwg(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 
     override suspend fun upsertRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: RelayProfileRecord,
         credentials: RelayCredentialRecord,
         enabled: Boolean,
@@ -38,15 +69,20 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
         modeAfterImage: String?,
         xraySelectionAfterImage: XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
-    ) = Unit
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 
     override suspend fun upsertWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profile: WarpProfile,
         credentials: WarpCredentials,
         endpoints: List<WarpEndpointCacheEntry>,
         activate: Boolean,
         scannerMode: String,
-    ) = Unit
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 
     override suspend fun upsertWarpForRuntimeProvisioning(
         profile: com.poyka.ripdpi.data.WarpProfile,
@@ -59,14 +95,25 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
     ): Boolean = error("Unexpected runtime provisioning in no-op test coordinator")
 
     override suspend fun deleteWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
         clearActive: Boolean,
-    ) = Unit
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 
-    override suspend fun deactivateWarp(profileId: String) = Unit
+    override suspend fun deactivateWarp(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 
     override suspend fun replacePrivateBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         data: BackupPrivateDataV1,
         rollbackData: BackupPrivateDataV1?,
-    ) = Unit
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome =
+        com.poyka.ripdpi.data
+            .testMutationOutcome(preparation.origin)
 }

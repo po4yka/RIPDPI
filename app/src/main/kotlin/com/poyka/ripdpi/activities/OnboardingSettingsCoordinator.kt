@@ -41,7 +41,10 @@ class OnboardingSettingsCoordinator
             persona: String,
         ) {
             if (mode == Mode.Proxy) {
-                xrayNativeProviderSelection.selectNativeMode(mode)
+                xrayNativeProviderSelection.selectNativeMode(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
+                    mode,
+                )
             }
             appSettingsRepository.update {
                 setRipdpiMode(mode.preferenceValue)
@@ -52,7 +55,10 @@ class OnboardingSettingsCoordinator
 
         suspend fun complete(state: OnboardingUiState) {
             if (state.selectedMode == Mode.Proxy) {
-                xrayNativeProviderSelection.selectNativeMode(state.selectedMode)
+                xrayNativeProviderSelection.selectNativeMode(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
+                    state.selectedMode,
+                )
             }
             appSettingsRepository.update {
                 setOnboardingComplete(true)

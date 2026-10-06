@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartRejectionReason.DnsSettingsUpdatePending
 import com.poyka.ripdpi.services.ServiceStartRejectionReason.ForegroundServiceBlocked
 import com.poyka.ripdpi.services.ServiceStartRejectionReason.NotificationsPermissionMissing
@@ -131,7 +132,7 @@ internal class QuickTileController(
             AppStatus.Reconnecting,
             AppStatus.Running,
             -> {
-                serviceController.stop()
+                actionScope.launch { serviceController.stop() }
             }
         }
     }
@@ -149,11 +150,24 @@ internal class QuickTileController(
         when (result.reason) {
             NotificationsPermissionMissing,
             VpnConsentMissing,
-            -> host.launchStartResolution()
+            -> {
+                host.launchStartResolution()
+            }
 
-            DnsSettingsUpdatePending -> host.showStartFailure(result.mode.senderName)
+            ServiceStartRejectionReason.PausePending, ServiceStartRejectionReason.Superseded -> {
+                host
+                    .showStartFailure(
+                        result.mode.senderName,
+                    )
+            }
 
-            is ForegroundServiceBlocked -> host.showStartFailure(result.mode.senderName)
+            DnsSettingsUpdatePending -> {
+                host.showStartFailure(result.mode.senderName)
+            }
+
+            is ForegroundServiceBlocked -> {
+                host.showStartFailure(result.mode.senderName)
+            }
         }
     }
 

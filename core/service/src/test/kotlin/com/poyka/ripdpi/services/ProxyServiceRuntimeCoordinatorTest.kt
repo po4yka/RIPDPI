@@ -78,7 +78,11 @@ class ProxyServiceRuntimeCoordinatorTest {
                     }
                 }
             }
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
             val shell =
                 ServiceShellDelegate(
@@ -88,8 +92,19 @@ class ProxyServiceRuntimeCoordinatorTest {
                     onStart = { env.coordinator.start() },
                     onStop = { _, _ -> env.coordinator.stop() },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            arbiter.durableReference()
+                        },
                 )
-            shell.onStartCommand(com.poyka.ripdpi.data.startAction, 1, explicitUserIntentGeneration = generation)
+            shell.onStartCommand(
+                com.poyka.ripdpi.data.startAction,
+                1,
+                explicitUserIntentGeneration = generation,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
             assertTrue(entered.isCompleted)
             assertTrue(arbiter.cancelIfCurrent(generation))
@@ -125,7 +140,11 @@ class ProxyServiceRuntimeCoordinatorTest {
                     }
                 }
             }
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
             val shell =
                 ServiceShellDelegate(
@@ -135,8 +154,19 @@ class ProxyServiceRuntimeCoordinatorTest {
                     onStart = { env.coordinator.start() },
                     onStop = { _, _ -> env.coordinator.stop() },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            arbiter.durableReference()
+                        },
                 )
-            shell.onStartCommand(com.poyka.ripdpi.data.startAction, 1, explicitUserIntentGeneration = generation)
+            shell.onStartCommand(
+                com.poyka.ripdpi.data.startAction,
+                1,
+                explicitUserIntentGeneration = generation,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
             assertTrue(enteredPublication.isCompleted)
             assertTrue(acknowledgments.isEmpty())
@@ -170,7 +200,11 @@ class ProxyServiceRuntimeCoordinatorTest {
                         }
                     }
                 })
-            val arbiter = ServiceIntentArbiter()
+            val arbiter =
+                ServiceIntentArbiter(
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                )
             val generation = arbiter.userStart({ arbiter.captureExplicitUserIntentGeneration() }, { true })
             val shell =
                 ServiceShellDelegate(
@@ -180,8 +214,19 @@ class ProxyServiceRuntimeCoordinatorTest {
                     onStart = { env.coordinator.start() },
                     onStop = { _, _ -> env.coordinator.stop() },
                     ioDispatcher = StandardTestDispatcher(testScheduler),
+                    intentCallbacks =
+                        testShellIntentCallbacks {
+                            arbiter.durableReference()
+                        },
                 )
-            shell.onStartCommand(com.poyka.ripdpi.data.startAction, 1, explicitUserIntentGeneration = generation)
+            shell.onStartCommand(
+                com.poyka.ripdpi.data.startAction,
+                1,
+                explicitUserIntentGeneration = generation,
+                durableReference =
+                    com.poyka.ripdpi.data
+                        .PauseAuthorityRef(0),
+            )
             runCurrent()
             assertTrue(entered.isCompleted)
             assertTrue(arbiter.cancelIfCurrent(generation))
@@ -756,7 +801,12 @@ private fun TestScope.buildStaleReplacementCoordinator(
     ProxyServiceRuntimeCoordinator(
         configurationLifecycle =
             RuntimeConfigurationLifecycle(
-                AppliedRuntimeConfigurationStore(),
+                AppliedRuntimeConfigurationStore(
+                    PauseAppliedReceiptConsumer(
+                        com.poyka.ripdpi.data
+                            .testPauseAuthority(),
+                    ),
+                ),
                 RuntimeConfigurationIdentityFactory(),
             ),
         host = TestProxyServiceHost(backgroundScope),
@@ -896,7 +946,13 @@ private fun TestScope.newEnv(
     val handoverEvents = TestPolicyHandoverEventStore()
     val autolearnReceipts = mutableListOf<AutolearnActivationReceipt>()
     val supervisors = buildProxySupervisorBundle(dispatcher, factory, relayFactory, warpFactory, awgFactory)
-    val configurations = AppliedRuntimeConfigurationStore()
+    val configurations =
+        AppliedRuntimeConfigurationStore(
+            PauseAppliedReceiptConsumer(
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            ),
+        )
     val coordinator =
         ProxyServiceRuntimeCoordinator(
             configurationLifecycle =

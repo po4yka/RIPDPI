@@ -39,6 +39,8 @@ internal class ServiceRuntimeHandoverHooks<TSession>(
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession
 
 internal class ServiceRuntimeStatusHooks(
+    val publishConnected: () -> Unit,
+    val reportConnected: () -> Unit,
     val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
     val classifyStartupFailure: (Exception) -> FailureReason,
 )

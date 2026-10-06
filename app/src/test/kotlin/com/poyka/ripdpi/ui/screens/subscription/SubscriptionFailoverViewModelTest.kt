@@ -285,7 +285,32 @@ private class FakeProxyGroupRepository : ProxyGroupRepository {
         state.value = state.value.map { if (it.id == group.id) group else it }
     }
 
-    override suspend fun delete(id: String) {
+    override suspend fun replaceAll(
+        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+        groups: List<ProxyGroup>,
+    ) {
+        val preparation =
+            com.poyka.ripdpi.data.ProfileMutationPreparation(
+                com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
+                receipt.authority,
+            )
+        list().forEach { delete(preparation, it.id) }
+        groups.forEach { add(it) }
+    }
+
+    override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
+        replaceAll(
+            com.poyka.ripdpi.data
+                .testPauseAuthority()
+                .supersede(com.poyka.ripdpi.data.RuntimeUserCommand.Stop),
+            groups,
+        )
+    }
+
+    override suspend fun delete(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        id: String,
+    ) {
         state.value = state.value.filterNot { it.id == id }
     }
 

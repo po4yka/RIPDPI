@@ -22,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,7 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.homePauseDuration
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -84,12 +86,111 @@ class SimpleHomeScreenTest {
         )
 
     @Test
+    fun `active owned connection exposes bounded pause duration on Simple`() {
+        var requestedDuration: Long? = null
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(available = true),
+                    onPause = { requestedDuration = it },
+                    onResumePause = { error("No pending pause") },
+                    onStopPause = { error("No pending pause") },
+                    connectionState = ConnectionState.Connected,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homePauseDuration(15)).performClick()
+        composeRule.runOnIdle { assertEquals(900_000L, requestedDuration) }
+    }
+
+    @Test
+    fun `Simple paused state exposes real Resume and Stop callbacks`() {
+        var resumes = 0
+        var stops = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities.HomePauseUiState(
+                            phase = com.poyka.ripdpi.data.PausePhase.Paused,
+                            mode = com.poyka.ripdpi.data.Mode.VPN,
+                            deadlineWallMillis = 1_791_224_100_000L,
+                            remainingMillis = 300_000L,
+                        ),
+                    onPause = { error("Already paused") },
+                    onResumePause = { resumes += 1 },
+                    onStopPause = { stops += 1 },
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).performScrollTo().performClick()
+        composeRule.runOnIdle {
+            assertEquals(1, resumes)
+            assertEquals(1, stops)
+        }
+    }
+
+    @Test
+    fun `Simple retained cleanup never offers Resume and permits retry Stop`() {
+        var stops = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities.HomePauseUiState(
+                            phase = com.poyka.ripdpi.data.PausePhase.CleanupPending,
+                        ),
+                    onPause = { error("Cleanup pending") },
+                    onResumePause = { error("Cleanup pending") },
+                    onStopPause = {
+                        stops +=
+                            1
+                    },
+                    connectionState = ConnectionState.Disconnected,
+                    diagnostics = HomeDiagnosticsUiState(),
+                    activeTransport = null,
+                    snackbarHostState = SnackbarHostState(),
+                    onToggleConnection = {},
+                    onRunReport = {},
+                    onCancelReport = {},
+                )
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(1, stops) }
+    }
+
+    @Test
     fun `connected session exposes enabled disconnect when lockdown is off`() {
         var toggleClicks = 0
 
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connected,
                     connectionActuator = lockedActuator(),
                     blocksDisconnect = false,
@@ -113,6 +214,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connected,
                     // What the shared resolver would hand this screen.
                     connectionActuator =
@@ -151,6 +258,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connected,
                     connectionActuator = lockedActuator(deactivationEnabled = false),
                     blocksDisconnect = true,
@@ -175,6 +288,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connected,
                     connectionActuator = lockedActuator(),
                     blocksDisconnect = false,
@@ -200,6 +319,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connecting,
                     connectionActuator =
                         HomeConnectionActuatorUiState(
@@ -229,6 +354,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     blocksDisconnect = true,
@@ -275,6 +406,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics = diagnostics,
@@ -322,6 +459,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics = diagnostics,
@@ -364,6 +507,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics = diagnostics,
@@ -406,6 +555,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     diagnostics = diagnostics,
                     activeTransport = null,
@@ -426,6 +581,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     diagnostics =
                         HomeDiagnosticsUiState(
@@ -461,6 +622,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     diagnostics = diagnostics,
                     activeTransport = null,
@@ -497,6 +664,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics = diagnostics,
@@ -535,6 +708,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics = diagnostics,
@@ -573,6 +752,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics = diagnostics,
@@ -597,6 +782,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics =
@@ -634,6 +825,12 @@ class SimpleHomeScreenTest {
         composeRule.setContent {
             RipDpiTheme {
                 SimpleHomeContent(
+                    pauseState =
+                        com.poyka.ripdpi.activities
+                            .HomePauseUiState(),
+                    onPause = { error("Unexpected pause in inactive fixture") },
+                    onResumePause = { error("Unexpected resume in inactive fixture") },
+                    onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     diagnostics = diagnostics,
                     activeTransport = null,

@@ -37,6 +37,8 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.activities.HomePauseUiState
+import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
@@ -50,6 +52,7 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
+import com.poyka.ripdpi.ui.screens.home.HomePauseControls
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
@@ -68,9 +71,11 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun SimpleHomeScreen(
     viewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
+    val pauseState by pauseViewModel.uiState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
     val activeTransport by viewModel.activeTransportDescriptor.collectAsStateWithLifecycle()
@@ -85,6 +90,10 @@ fun SimpleHomeScreen(
     }
 
     SimpleHomeContent(
+        pauseState = pauseState,
+        onPause = { pauseViewModel.pause(it) },
+        onResumePause = { pauseViewModel.resume() },
+        onStopPause = { pauseViewModel.stop() },
         connectionState = uiState.connectionState,
         connectionActuator = uiState.connectionActuator,
         blocksDisconnect = uiState.hardKillSwitch.blocksDisconnect,
@@ -106,6 +115,10 @@ fun SimpleHomeScreen(
 
 @Composable
 internal fun SimpleHomeContent(
+    pauseState: HomePauseUiState,
+    onPause: (Long) -> Unit,
+    onResumePause: () -> Unit,
+    onStopPause: () -> Unit,
     connectionState: ConnectionState,
     connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
     blocksDisconnect: Boolean = false,
@@ -184,6 +197,9 @@ internal fun SimpleHomeContent(
                 RipDpiAdaptiveColumns(
                     primary = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (pauseState.available || pauseState.phase != null || pauseState.requestFailed) {
+                                HomePauseControls(pauseState, onPause, onResumePause, onStopPause)
+                            }
                             SimpleHomeIdentity(
                                 connectionActuator = actuatorState,
                                 protocolLabel = protocolLabel,

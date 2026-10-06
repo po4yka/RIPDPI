@@ -20,7 +20,10 @@ internal interface RuntimeControlActions {
     ): RuntimeControlOutcome
 
     /** Stop the runtime. */
-    suspend fun stopRuntime(reason: RuntimeControlReason): RuntimeControlOutcome
+    suspend fun stopRuntime(
+        reason: RuntimeControlReason,
+        ownership: RuntimeControlStopOwnership,
+    ): RuntimeControlOutcome
 
     /** Stop then start the runtime, preserving the active mode. */
     suspend fun restartRuntime(reason: RuntimeControlReason): RuntimeControlOutcome

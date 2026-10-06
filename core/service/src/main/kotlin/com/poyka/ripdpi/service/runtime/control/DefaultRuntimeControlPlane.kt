@@ -20,7 +20,7 @@ internal class DefaultRuntimeControlPlane(
         val outcome =
             when (command) {
                 is RuntimeControlCommand.StartRuntime -> actions.startRuntime(command.mode, command.reason)
-                is RuntimeControlCommand.StopRuntime -> actions.stopRuntime(command.reason)
+                is RuntimeControlCommand.StopRuntime -> actions.stopRuntime(command.reason, command.ownership)
                 is RuntimeControlCommand.RestartRuntime -> actions.restartRuntime(command.reason)
                 is RuntimeControlCommand.ApplyNetworkSnapshot -> actions.applyNetworkSnapshot(command.reason)
                 is RuntimeControlCommand.ApplyPolicyPatch -> actions.applyPolicyPatch(command.reason, command.patch)
