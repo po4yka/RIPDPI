@@ -150,6 +150,22 @@ class SelectorRuntimeInstrumentedTest {
         assertTrue((relayBindings as ObservedNativeRelayBindings).native is RipDpiRelayNativeBindings)
     }
 
+    private fun describeApplication(application: RuntimeConfigurationApplication): String =
+        when (application) {
+            is RuntimeConfigurationApplication.Applying -> {
+                "Applying(revision=${application.attempt.revision},reason=${application.attempt.reason}," +
+                    "previous=${application.previous?.revision})"
+            }
+
+            is RuntimeConfigurationApplication.Applied -> {
+                "Applied(revision=${application.configuration.revision},reason=${application.configuration.reason})"
+            }
+
+            else -> {
+                application::class.java.simpleName
+            }
+        }
+
     private fun CoroutineScope.observeUtility(
         vm: ProfileUtilityViewModel,
         phase: MutableStateFlow<String>,
@@ -167,7 +183,7 @@ class SelectorRuntimeInstrumentedTest {
                     "${row.reference::class.java.simpleName}(expected=${row.reference == expected}," +
                         "$measurement,recent=${row.recentSequence},applied=${row.applied})"
                 }
-            val types = applications.mapValues { it.value::class.java.simpleName }
+            val types = applications.mapValues { describeApplication(it.value) }
             "${this@SelectorRuntimeInstrumentedTest.javaClass.simpleName}:Phase=$currentPhase; " +
                 "catalog=${ui.catalogState}/${ui.catalogGeneration}; failure=${ui.failure}; " +
                 "cleanup=${ui.cleanupPending}; rows=$rows; status=$status; applications=$types"
@@ -192,7 +208,7 @@ class SelectorRuntimeInstrumentedTest {
                     else -> measurement::class.java.simpleName
                 }
             }
-        val applications = applied.applications.value.mapValues { it.value::class.java.simpleName }
+        val applications = applied.applications.value.mapValues { describeApplication(it.value) }
         val snapshot =
             "Phase=$phase; catalog=${ui.catalogState}/${ui.catalogGeneration}; " +
                 "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications"
