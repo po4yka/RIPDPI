@@ -56,9 +56,10 @@ internal suspend fun stopIntegrationTestServices(
     val entryPoint =
         EntryPointAccessors.fromApplication(context, IntegrationServiceCleanupEntryPoint::class.java)
     val stateStore = entryPoint.serviceStateStore()
-    val arbiter = entryPoint.serviceIntentArbiter()
     try {
-        entryPoint.serviceController().stop()
+        if (stateStore.status.value.first != AppStatus.Halted) {
+            entryPoint.serviceController().stop()
+        }
         withTimeout(10_000L) {
             stateStore.status.first { (status, _) -> status == AppStatus.Halted }
         }

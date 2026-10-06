@@ -247,10 +247,12 @@ internal interface HardKillSwitchRefreshLifecycle : AutoCloseable {
 }
 
 internal class HardKillSwitchRefreshBroadcastLifecycle(
-    private val context: Context,
+    context: Context,
     private val onRefreshState: () -> Unit,
     private val onRefreshNotification: () -> Unit,
 ) : HardKillSwitchRefreshLifecycle {
+    // Session cleanup can finish after Android has destroyed the service context.
+    private val context = context.applicationContext
     private var receiver: BroadcastReceiver? = null
 
     override fun start() {
