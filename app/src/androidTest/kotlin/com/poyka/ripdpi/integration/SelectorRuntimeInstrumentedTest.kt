@@ -2,6 +2,7 @@ package com.poyka.ripdpi.integration
 
 import android.Manifest
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ActivityScenario
 import androidx.test.rule.GrantPermissionRule
@@ -47,9 +48,13 @@ import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -145,6 +150,35 @@ class SelectorRuntimeInstrumentedTest {
         assertTrue((relayBindings as ObservedNativeRelayBindings).native is RipDpiRelayNativeBindings)
     }
 
+    private fun CoroutineScope.observeUtility(
+        vm: ProfileUtilityViewModel,
+        phase: MutableStateFlow<String>,
+        expected: ProfileUtilityReference,
+    ) = launch {
+        var logged = 0
+        combine(vm.uiState, state.status, applied.applications, phase) { ui, status, applications, currentPhase ->
+            val rows =
+                ui.profiles.map { row ->
+                    val measurement =
+                        when (val measured = row.measurement) {
+                            is ProfileMeasurementUiState.Failed -> "Failed:${measured.reason}"
+                            else -> measured::class.java.simpleName
+                        }
+                    "${row.reference::class.java.simpleName}(expected=${row.reference == expected}," +
+                        "$measurement,recent=${row.recentSequence},applied=${row.applied})"
+                }
+            val types = applications.mapValues { it.value::class.java.simpleName }
+            "${this@SelectorRuntimeInstrumentedTest.javaClass.simpleName}:Phase=$currentPhase; " +
+                "catalog=${ui.catalogState}/${ui.catalogGeneration}; failure=${ui.failure}; " +
+                "cleanup=${ui.cleanupPending}; rows=$rows; status=$status; applications=$types"
+        }.distinctUntilChanged().collect { snapshot ->
+            if (logged < 64) {
+                Log.i("ProfileUtilityNative", snapshot)
+                logged++
+            }
+        }
+    }
+
     private fun utilityPhaseTimeout(
         phase: String,
         vm: ProfileUtilityViewModel,
@@ -159,11 +193,11 @@ class SelectorRuntimeInstrumentedTest {
                 }
             }
         val applications = applied.applications.value.mapValues { it.value::class.java.simpleName }
-        return AssertionError(
+        val snapshot =
             "Phase=$phase; catalog=${ui.catalogState}/${ui.catalogGeneration}; " +
-                "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications",
-            failure,
-        )
+                "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications"
+        Log.e("ProfileUtilityNative", snapshot)
+        return AssertionError(snapshot, failure)
     }
 
     @Test
@@ -212,6 +246,7 @@ class SelectorRuntimeInstrumentedTest {
                     SharedCandidateHttpFixture(3).use { http ->
                         NativeCandidateFixture(false, http.port, 1).use { peerA ->
                             NativeCandidateFixture(false, http.port, 2).use { peerB ->
+                                val phase = MutableStateFlow("selector/catalog")
                                 val models = ViewModelStore()
                                 var collector: kotlinx.coroutines.Job? = null
                                 try {
@@ -252,10 +287,12 @@ class SelectorRuntimeInstrumentedTest {
                                     withTimeout(5_000L) { while (networkEpoch.capture() == null) delay(20) }
                                     val vm = createUtilityViewModel()
                                     withContext(Dispatchers.Main) { models.put("selector-utility", vm) }
-                                    collector = launch { vm.uiState.collect {} }
+                                    collector = observeUtility(vm, phase, referenceB)
                                     vm.uiState.first { it.profiles.any { row -> row.reference == referenceB } }
                                     vm.updateUrl(http.probeUrl)
+                                    phase.value = "selector/manual-dispatch"
                                     vm.checkAndSelect(referenceB)
+                                    phase.value = "selector/manual-applied"
                                     try {
                                         applied.applications.first { values ->
                                             val selected =
@@ -267,6 +304,7 @@ class SelectorRuntimeInstrumentedTest {
                                     } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
                                         throw utilityPhaseTimeout("selector-applied", vm, failure)
                                     }
+                                    phase.value = "selector/manual-running"
                                     state.status.first { it == AppStatus.Running to Mode.Proxy }
                                     assertEquals(
                                         referenceB,
@@ -275,12 +313,16 @@ class SelectorRuntimeInstrumentedTest {
                                             .first()
                                             .reference,
                                     )
+                                    phase.value = "selector/manual-history"
                                     val beforeFastest =
                                         checkNotNull(
                                             persistence.read(),
                                         ).profileUtility.lastSequence
+                                    phase.value = "selector/fastest-dispatch"
                                     vm.checkAndSelectFastest()
+                                    phase.value = "selector/fastest-http-payload"
                                     withContext(Dispatchers.IO) { http.assertPayloadRequests() }
+                                    phase.value = "selector/fastest-measured"
                                     val measured =
                                         try {
                                             vm.uiState.first { ui ->
@@ -303,6 +345,7 @@ class SelectorRuntimeInstrumentedTest {
                                             }.minBy { row ->
                                                 (row.measurement as ProfileMeasurementUiState.Measured).latencyMillis
                                             }.reference
+                                    phase.value = "selector/fastest-applied-history"
                                     applied.applications.first { values ->
                                         val selected =
                                             (values[Mode.Proxy] as? RuntimeConfigurationApplication.Applied)
@@ -314,7 +357,9 @@ class SelectorRuntimeInstrumentedTest {
                                             checkNotNull(persistence.read()).profileUtility.lastSequence >
                                             beforeFastest
                                     }
+                                    phase.value = "selector/fastest-running"
                                     state.status.first { it == AppStatus.Running to Mode.Proxy }
+                                    phase.value = "selector/fastest-history-assertions"
                                     val stored = checkNotNull(persistence.read()).profileUtility
                                     assertEquals(expected, stored.recents.first().reference)
                                     assertEquals(beforeFastest + 1, stored.lastSequence)
@@ -353,6 +398,7 @@ class SelectorRuntimeInstrumentedTest {
             val previousHandles = observed.handles.toSet()
             ActivityScenario.launch(MainActivity::class.java).use {
                 NativeCandidateFixture(truncated = false, sharedHttpPort = null, exchanges = 1).use { fixture ->
+                    val phase = MutableStateFlow("native/catalog")
                     val viewModels = ViewModelStore()
                     var collector: kotlinx.coroutines.Job? = null
                     try {
@@ -394,12 +440,17 @@ class SelectorRuntimeInstrumentedTest {
                         val beforeSelection = settings.snapshot()
                         val vm = createUtilityViewModel()
                         withContext(Dispatchers.Main) { viewModels.put("profiles", vm) }
-                        collector = launch { vm.uiState.collect {} }
+                        collector = observeUtility(vm, phase, reference)
+                        phase.value = "native/catalog-row"
                         val initial = vm.uiState.first { it.profiles.any { row -> row.reference == reference } }
+                        phase.value = "native/favorite"
                         vm.favorite(reference, initial.catalogGeneration, true)
+                        phase.value = "native/favorite-observed"
                         vm.uiState.first { it.profiles.any { row -> row.reference == reference && row.favorite } }
                         vm.updateUrl(fixture.probeUrl)
+                        phase.value = "native/dispatch"
                         if (select) vm.checkAndSelect(reference) else vm.check(reference)
+                        phase.value = "native/measured"
                         try {
                             vm.uiState.first { ui ->
                                 ui.profiles.any { row ->
@@ -411,15 +462,18 @@ class SelectorRuntimeInstrumentedTest {
                         }
                         fixture.assertRelayedRequest()
                         if (select) {
+                            phase.value = "native/applied"
                             applied.applications.first { applications ->
                                 (applications[Mode.Proxy] as? RuntimeConfigurationApplication.Applied)
                                     ?.configuration
                                     ?.effectiveSelection
                                     ?.profileId == profileId
                             }
+                            phase.value = "native/running"
                             state.status.first { it == AppStatus.Running to Mode.Proxy }
                             assertEquals(profileId, settings.snapshot().relayProfileId)
                             assertEquals(null, authority.snapshot())
+                            phase.value = "native/history-assertions"
                             val stored = checkNotNull(persistence.read()).profileUtility
                             assertEquals(reference, stored.recents.first().reference)
                             assertTrue(stored.recents.first().sequence > (beforeHistory.firstOrNull()?.sequence ?: 0))
@@ -431,12 +485,14 @@ class SelectorRuntimeInstrumentedTest {
                             observed.assertRetiredSince(previousHandles)
                         }
                         assertTrue(reference in checkNotNull(persistence.read()).profileUtility.favorites)
+                        phase.value = "native/recreate"
                         collector.cancelAndJoin()
                         collector = null
                         withContext(Dispatchers.Main) { viewModels.clear() }
                         val recreated = createUtilityViewModel()
                         withContext(Dispatchers.Main) { viewModels.put("profiles", recreated) }
-                        collector = launch { recreated.uiState.collect {} }
+                        collector = observeUtility(recreated, phase, reference)
+                        phase.value = "native/recreated-favorite"
                         val restored =
                             recreated.uiState.first { ui ->
                                 ui.profiles.any { row ->

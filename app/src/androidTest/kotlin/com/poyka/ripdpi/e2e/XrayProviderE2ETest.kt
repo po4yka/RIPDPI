@@ -59,6 +59,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -203,6 +206,40 @@ class XrayProviderE2ETest {
         }
     }
 
+    private fun CoroutineScope.observeUtility(
+        vm: ProfileUtilityViewModel,
+        phase: MutableStateFlow<String>,
+        expected: ProfileUtilityReference,
+    ) = launch {
+        var logged = 0
+        combine(
+            vm.uiState,
+            state.status,
+            utilityApplied.applications,
+            phase,
+        ) { ui, status, applications, currentPhase ->
+            val rows =
+                ui.profiles.map { row ->
+                    val measurement =
+                        when (val measured = row.measurement) {
+                            is ProfileMeasurementUiState.Failed -> "Failed:${measured.reason}"
+                            else -> measured::class.java.simpleName
+                        }
+                    "${row.reference::class.java.simpleName}(expected=${row.reference == expected}," +
+                        "$measurement,recent=${row.recentSequence},applied=${row.applied})"
+                }
+            val types = applications.mapValues { it.value::class.java.simpleName }
+            "${this@XrayProviderE2ETest.javaClass.simpleName}:Phase=$currentPhase; " +
+                "catalog=${ui.catalogState}/${ui.catalogGeneration}; failure=${ui.failure}; " +
+                "cleanup=${ui.cleanupPending}; rows=$rows; status=$status; applications=$types"
+        }.distinctUntilChanged().collect { snapshot ->
+            if (logged < 64) {
+                Log.i("ProfileUtilityNative", snapshot)
+                logged++
+            }
+        }
+    }
+
     private fun utilityPhaseTimeout(
         phase: String,
         vm: ProfileUtilityViewModel,
@@ -217,11 +254,11 @@ class XrayProviderE2ETest {
                 }
             }
         val applications = utilityApplied.applications.value.mapValues { it.value::class.java.simpleName }
-        return AssertionError(
+        val snapshot =
             "Phase=$phase; catalog=${ui.catalogState}/${ui.catalogGeneration}; " +
-                "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications",
-            failure,
-        )
+                "failure=${ui.failure}; rows=$rows; status=${state.status.value}; applications=$applications"
+        Log.e("ProfileUtilityNative", snapshot)
+        return AssertionError(snapshot, failure)
     }
 
     @Test
@@ -240,6 +277,7 @@ class XrayProviderE2ETest {
                 val parsed = XrayImportParser().parse(link, XrayProviderBuildInfo.upstreamTag)
                 check(parsed is XrayImportParser.Result.Accepted) { "Owned REALITY fixture validation failed" }
                 val profile = parsed.profile.copy(inbound = parsed.profile.inbound.copy(port = reserveLoopbackPort()))
+                val phase = MutableStateFlow("xray/catalog")
                 val models = ViewModelStore()
                 var collector: Job? = null
                 ActivityScenario
@@ -283,10 +321,13 @@ class XrayProviderE2ETest {
                                     utilityXray,
                                 )
                             kotlinx.coroutines.withContext(Dispatchers.Main) { models.put("owned-xray-utility", vm) }
-                            collector = launch { vm.uiState.collect {} }
+                            collector = observeUtility(vm, phase, reference)
+                            phase.value = "xray/catalog-row"
                             vm.uiState.first { ui -> ui.profiles.any { row -> row.reference == reference } }
                             vm.updateUrl("http://192.0.2.77/profile-utility-owned-payload")
+                            phase.value = "xray/dispatch"
                             vm.checkAndSelect(reference)
+                            phase.value = "xray/measured"
                             try {
                                 vm.uiState.first { ui ->
                                     ui.profiles.any { row ->
@@ -297,6 +338,7 @@ class XrayProviderE2ETest {
                             } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
                                 throw utilityPhaseTimeout("utility-measured", vm, failure)
                             }
+                            phase.value = "xray/applied"
                             utilityApplied.applications.first { applications ->
                                 val configured =
                                     (applications[Mode.VPN] as? RuntimeConfigurationApplication.Applied)
@@ -304,7 +346,9 @@ class XrayProviderE2ETest {
                                 configured?.effectiveSelection?.provider == "xray" &&
                                     configured.effectiveSelection.profileId == id
                             }
+                            phase.value = "xray/running-history"
                             state.status.first { it == AppStatus.Running to Mode.VPN }
+                            phase.value = "xray/history-assertions"
                             val stored = checkNotNull(utilityPersistence.read()).profileUtility
                             assertEquals(reference, stored.recents.first().reference)
                             assertEquals(historyBefore + 1, stored.lastSequence)
