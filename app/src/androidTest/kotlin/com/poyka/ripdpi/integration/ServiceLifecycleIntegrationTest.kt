@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.OrderedServiceStateStore
+import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -44,8 +45,10 @@ import com.poyka.ripdpi.services.PermissionWatchdogModule
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.ServiceIntentArbiter
+import com.poyka.ripdpi.services.ServiceUserCommands
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
+import com.poyka.ripdpi.services.durableIntentGenerationExtra
 import com.poyka.ripdpi.services.explicitUserIntentGenerationExtra
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
@@ -145,6 +148,9 @@ class ServiceLifecycleIntegrationTest {
 
     @Inject
     lateinit var serviceIntentArbiter: ServiceIntentArbiter
+
+    @Inject
+    lateinit var serviceUserCommands: ServiceUserCommands
 
     @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
@@ -749,33 +755,31 @@ class ServiceLifecycleIntegrationTest {
         }
     }
 
-    private fun startService(serviceClass: Class<*>) {
-        serviceIntentArbiter.userStart(
-            action = {
-                ContextCompat.startForegroundService(
-                    appContext,
-                    Intent(appContext, serviceClass).setAction(startAction).putExtra(
-                        explicitUserIntentGenerationExtra,
-                        serviceIntentArbiter.captureExplicitUserIntentGeneration(),
-                    ),
-                )
-            },
-            isAccepted = { true },
+    private suspend fun startService(serviceClass: Class<*>) {
+        val mode = if (serviceClass == RipDpiVpnService::class.java) Mode.VPN else Mode.Proxy
+        val receipt = serviceUserCommands.prepareUserCommand(RuntimeUserCommand.Start(mode))
+        val lease = checkNotNull(serviceIntentArbiter.dispatchExplicit(receipt))
+        ContextCompat.startForegroundService(
+            appContext,
+            Intent(appContext, serviceClass)
+                .setAction(startAction)
+                .putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
+                .putExtra(durableIntentGenerationExtra, receipt.authority.generation),
         )
     }
 
-    private fun stopService() {
-        serviceIntentArbiter.userStop {
-            val mode = IntegrationTestOverrides.serviceStateStore.status.value.second
-            val serviceClass =
-                if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
-            appContext.startService(
-                Intent(appContext, serviceClass).setAction(stopAction).putExtra(
-                    explicitUserIntentGenerationExtra,
-                    serviceIntentArbiter.captureExplicitUserIntentGeneration(),
-                ),
-            )
-        }
+    private suspend fun stopService() {
+        val receipt = serviceUserCommands.prepareUserCommand(RuntimeUserCommand.Stop)
+        val lease = checkNotNull(serviceIntentArbiter.dispatchExplicit(receipt))
+        val mode = IntegrationTestOverrides.serviceStateStore.status.value.second
+        val serviceClass =
+            if (mode == Mode.VPN) RipDpiVpnService::class.java else RipDpiProxyService::class.java
+        appContext.startService(
+            Intent(appContext, serviceClass)
+                .setAction(stopAction)
+                .putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
+                .putExtra(durableIntentGenerationExtra, receipt.authority.generation),
+        )
     }
 
     private suspend fun awaitStatus(
