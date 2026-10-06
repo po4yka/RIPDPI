@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import dagger.hilt.EntryPoints
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Provider
 
@@ -31,6 +33,7 @@ internal class VpnServiceSessionLifecycle(
     private val hardKillSwitchRefreshBroadcastLifecycle: HardKillSwitchRefreshLifecycle =
         HardKillSwitchRefreshBroadcastLifecycle(
             context = service,
+            ownerScope = service.serviceScope,
             onRefreshState = service::refreshHardKillSwitchState,
             onRefreshNotification = service::refreshForegroundNotification,
         ),
@@ -123,6 +126,10 @@ internal class VpnServiceSessionLifecycle(
 
     suspend fun startForPauseResume() {
         checkNotNull(coordinator).start()
+    }
+
+    fun closeRefreshReceiver() {
+        hardKillSwitchRefreshBroadcastLifecycle.close()
     }
 
     suspend fun releaseRetainingShell(guard: RuntimeStopGuard): RuntimeStopOutcome {
@@ -248,13 +255,16 @@ internal interface HardKillSwitchRefreshLifecycle : AutoCloseable {
 
 internal class HardKillSwitchRefreshBroadcastLifecycle(
     context: Context,
+    private val ownerScope: CoroutineScope,
     private val onRefreshState: () -> Unit,
     private val onRefreshNotification: () -> Unit,
 ) : HardKillSwitchRefreshLifecycle {
-    // Session cleanup can finish after Android has destroyed the service context.
     private val context = context.applicationContext
+
+    @Volatile
     private var receiver: BroadcastReceiver? = null
 
+    @Synchronized
     override fun start() {
         if (receiver != null) {
             return
@@ -265,6 +275,7 @@ internal class HardKillSwitchRefreshBroadcastLifecycle(
                     context: Context?,
                     intent: Intent?,
                 ) {
+                    if (!ownerScope.isActive || receiver !== this) return
                     if (
                         intent?.action == hardKillSwitchRefreshBroadcastAction &&
                         intent.`package` == this@HardKillSwitchRefreshBroadcastLifecycle.context.packageName
@@ -283,6 +294,7 @@ internal class HardKillSwitchRefreshBroadcastLifecycle(
         receiver = candidate
     }
 
+    @Synchronized
     override fun close() {
         val registeredReceiver = receiver ?: return
         context.unregisterReceiver(registeredReceiver)

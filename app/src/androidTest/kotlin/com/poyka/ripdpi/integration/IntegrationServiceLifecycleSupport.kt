@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.OrderedServiceStateStore
+import com.poyka.ripdpi.data.RuntimeUserCommand
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
@@ -56,9 +57,14 @@ internal suspend fun stopIntegrationTestServices(
     val entryPoint =
         EntryPointAccessors.fromApplication(context, IntegrationServiceCleanupEntryPoint::class.java)
     val stateStore = entryPoint.serviceStateStore()
+    val arbiter = entryPoint.serviceIntentArbiter()
     try {
-        if (stateStore.status.value.first != AppStatus.Halted) {
-            entryPoint.serviceController().stop()
+        val controller = entryPoint.serviceController()
+        if (stateStore.status.value.first == AppStatus.Halted) {
+            val receipt = controller.prepareUserCommand(RuntimeUserCommand.Stop)
+            checkNotNull(arbiter.dispatchExplicit(receipt))
+        } else {
+            controller.stop()
         }
         withTimeout(10_000L) {
             stateStore.status.first { (status, _) -> status == AppStatus.Halted }

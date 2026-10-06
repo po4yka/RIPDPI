@@ -258,6 +258,7 @@ class RipDpiVpnService :
                     kotlinx.coroutines.Dispatchers.IO,
                 ).launch(kotlinx.coroutines.NonCancellable) {
                     entryMutex.withLock {
+                        if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
                         val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
                         if (outcome != RuntimeStopOutcome.FullyReleased) {
                             co.touchlab.kermit.Logger

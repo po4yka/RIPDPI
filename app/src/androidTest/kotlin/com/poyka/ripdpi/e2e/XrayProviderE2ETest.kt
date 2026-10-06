@@ -282,6 +282,7 @@ class XrayProviderE2ETest {
         buildString {
             append("label=").append(label)
             append(" probeUid=").append(probe.probeUid ?: "unavailable")
+            append(" probeLocalPort=").append(probe.localPort ?: "unavailable")
             append(" probeOk=").append(probe.ok)
             append(" responsePresent=").append(!probe.response.isNullOrEmpty())
             append(" failureKind=").append(safeProbeDiagnostic(probe.failureKind))

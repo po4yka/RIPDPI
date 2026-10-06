@@ -1,16 +1,19 @@
 package com.poyka.ripdpi.services
 
 import android.app.Application
-import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.ContextWrapper
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
-import android.os.IBinder
+import android.os.Handler
 import android.os.Looper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -20,31 +23,51 @@ import org.robolectric.annotation.Config
 @Config(sdk = [Build.VERSION_CODES.VANILLA_ICE_CREAM])
 class HardKillSwitchRefreshBroadcastLifecycleTest {
     @Test
-    fun `session receiver can close after its service context is destroyed`() {
+    fun `queued refresh cannot call destroyed owner before asynchronous unregister`() {
         val application: Application = RuntimeEnvironment.getApplication()
-        val service = Robolectric.buildService(ReceiverHostService::class.java).create()
+        val owner = CoroutineScope(Job())
         val operations = mutableListOf<String>()
         val lifecycle =
             HardKillSwitchRefreshBroadcastLifecycle(
-                context = service.get(),
-                onRefreshState = { operations += "state" },
-                onRefreshNotification = { operations += "notification" },
+                application,
+                owner,
+                { operations += "state" },
+                { operations += "notification" },
             )
         lifecycle.start()
-        val registration =
-            shadowOf(application).registeredReceivers.single {
-                it.intentFilter.hasAction(hardKillSwitchRefreshBroadcastAction)
-            }
-        assertSame(application, registration.context)
-
-        service.destroy()
-        lifecycle.close()
-        lifecycle.close()
-        application.sendBroadcast(
-            Intent(hardKillSwitchRefreshBroadcastAction).setPackage(application.packageName),
-        )
+        application.sendBroadcast(Intent(hardKillSwitchRefreshBroadcastAction).setPackage(application.packageName))
+        owner.cancel()
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(emptyList<String>(), operations)
+        lifecycle.close()
+    }
+
+    @Test
+    fun `receiver uses application registration when transient service context is destroyed`() {
+        val application: Application = RuntimeEnvironment.getApplication()
+        val serviceContext =
+            object : ContextWrapper(application) {
+                override fun registerReceiver(
+                    receiver: BroadcastReceiver?,
+                    filter: IntentFilter,
+                    broadcastPermission: String?,
+                    scheduler: Handler?,
+                    flags: Int,
+                ): Intent? = error("Service receiver registration no longer has a live context")
+            }
+        val operations = mutableListOf<String>()
+        val lifecycle =
+            HardKillSwitchRefreshBroadcastLifecycle(
+                serviceContext,
+                CoroutineScope(Job()),
+                { operations += "state" },
+                { operations += "notification" },
+            )
+        lifecycle.start()
+        application.sendBroadcast(Intent(hardKillSwitchRefreshBroadcastAction).setPackage(application.packageName))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("state", "notification"), operations)
+        lifecycle.close()
     }
 
     @Test
@@ -54,6 +77,7 @@ class HardKillSwitchRefreshBroadcastLifecycleTest {
         val lifecycle =
             HardKillSwitchRefreshBroadcastLifecycle(
                 context = context,
+                ownerScope = CoroutineScope(Job()),
                 onRefreshState = { operations += "state" },
                 onRefreshNotification = { operations += "notification" },
             )
@@ -75,9 +99,5 @@ class HardKillSwitchRefreshBroadcastLifecycleTest {
         context.sendBroadcast(refreshIntent)
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(listOf("state", "notification"), operations)
-    }
-
-    class ReceiverHostService : Service() {
-        override fun onBind(intent: Intent?): IBinder? = null
     }
 }
