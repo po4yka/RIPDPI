@@ -79,6 +79,11 @@ The app MUST present export scope and supported redaction before diagnostic summ
 - **WHEN** preview is cancelled, replaced or cleared while preparation completes late
 - **THEN** the stale generation cannot launch export, owned artifact/record cleanup is serialized, and cancellation or cleanup failure is preserved.
 
+#### Scenario: Preparation finishes with a long log excerpt on a small display
+- **WHEN** a local export sheet transitions from Preparing to Ready with a long log excerpt
+- **THEN** its available height remains stable and its confirm/cancel actions remain visible
+- **AND** the preview scrolls independently without truncating the saved file
+
 ### Requirement: REQ-PAUSE — Persist timed connection pause intent
 
 The app MUST allow an active eligible connection to pause for a chosen bounded duration, preserve a local resume intent before stopping, display its real deadline, and safely resume or explain a failed resume after process interruption. Explicit disconnect/cancel MUST invalidate pending resume. It MUST respect revoked VPN consent and operating-system background limits.

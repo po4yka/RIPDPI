@@ -65,6 +65,42 @@ class ExportPreviewSheetTest {
         }
     }
 
+    @Test
+    @Config(sdk = [35], qualifiers = "w320dp-h640dp-mdpi")
+    fun `long log preparation keeps sheet anchor and pinned actions stable`() {
+        var presentation by mutableStateOf<ExportPreviewPresentation>(ExportPreviewPresentation.Preparing)
+        var confirmed = 0
+        var cancelled = 0
+        composeRule.setContent {
+            RipDpiTheme { ExportPreviewSheet(presentation, { confirmed++ }, { cancelled++ }, {}) }
+        }
+        composeRule.onNodeWithTag(ExportPreviewTestTags.Cancel).assertIsDisplayed()
+        val preparingTop =
+            composeRule
+                .onNodeWithTag(
+                    ExportPreviewTestTags.Sheet,
+                ).fetchSemanticsNode()
+                .boundsInRoot.top
+
+        composeRule.runOnIdle {
+            presentation = fixture(ExportPreviewPurpose.SaveLogs).copy(summary = "Long local log excerpt\n".repeat(180))
+        }
+
+        composeRule.onNodeWithTag(ExportPreviewTestTags.Confirm).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(ExportPreviewTestTags.Cancel).assertIsDisplayed().performClick()
+        val readyTop =
+            composeRule
+                .onNodeWithTag(
+                    ExportPreviewTestTags.Sheet,
+                ).fetchSemanticsNode()
+                .boundsInRoot.top
+        assertEquals(preparingTop, readyTop, 0.1f)
+        composeRule.runOnIdle {
+            assertEquals(1, confirmed)
+            assertEquals(1, cancelled)
+        }
+    }
+
     @Test fun `preparing and error allow cancellation without confirmation`() {
         var presentation by mutableStateOf<ExportPreviewPresentation>(ExportPreviewPresentation.Preparing)
         var confirmed = 0

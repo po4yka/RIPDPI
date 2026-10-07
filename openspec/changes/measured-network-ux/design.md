@@ -123,3 +123,9 @@ Use the repository's test-only custom HTTP DoH settings pattern and emulator-hos
 ## Native readiness publication correction
 
 API36/37 source-CI acceptance exposed the proxy readiness callback executing before listener metadata publication. Publish listener/reset metadata before the running Release store, ready event and callback, and acquire running before reading dependent snapshot metadata. Keep the existing atomic strengths, callback ABI, startup validation, cleanup and all acceptance deadlines. A deterministic observer reads real telemetry during the callback; targeted Rust and native Android acceptance gate this correction.
+
+## Stable export-sheet constraints
+
+Committed ordinary API37 UI acceptance exposed a long-log Preparing-to-Ready transition retaining the former compact sheet offset and hiding the pinned actions. The export sheet reserves full available height across states; its existing weighted content list scrolls while Save/Cancel remain pinned. The shared RDS sheet and static preview card remain unchanged.
+
+The matching references are `docs/design/rds/preview/vpn-export-consent.html` and `components-bottom-sheet.html`. The full-height reservation is a functional constraint for asynchronous preview loading; colors, typography, spacing, consent content and static RDS preview cards retain their existing implementation.

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.components.export
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -40,7 +41,7 @@ internal fun ExportPreviewSheet(
     RipDpiBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.export_preview_title),
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         icon = RipDpiIcons.Share,
         testTag = ExportPreviewTestTags.Sheet,
         scrollPolicy = RipDpiSheetScrollPolicy.Content,
