@@ -182,6 +182,9 @@ class XrayProviderE2ETest {
         runBlocking { controller.stop() }
         awaitUntil { state.status.value.first == AppStatus.Halted }
         ensureLocalNetworkAccessGranted(context)
+        if (android.os.Build.VERSION.SDK_INT >= com.poyka.ripdpi.data.LocalNetworkPermissionApi) {
+            ensureLocalNetworkAccessGranted(InstrumentationRegistry.getInstrumentation().context)
+        }
         ensureVpnConsentGranted(context)
         manifest = readControl("manifest")
         val dnsHttpPort = manifest.getInt("dnsHttpPort").also { require(it in 1..65_535) }

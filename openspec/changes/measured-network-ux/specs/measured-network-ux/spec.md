@@ -263,3 +263,12 @@ The native proxy SHALL publish its listener address and running metadata before 
 - **WHEN** the actual native readiness observer reads the proxy snapshot before `mark_running` returns
 - **THEN** the snapshot reports the running state and bound listener address
 - **AND** callback execution holds no telemetry or observer lock
+
+### Requirement: REQ-PROBE-LAN-GRANT — Own distinct-UID probe permissions
+
+The Android test probe APK SHALL declare and obtain its own local-network permission on API37 before the owned LAN acceptance begins. The grant helper SHALL check permission for the named package, not the instrumentation caller UID. Production permission policy and negative routing assertions SHALL remain unchanged.
+
+#### Scenario: A distinct test UID probes the owned LAN sentinel
+- **WHEN** the API37 test probe is prepared for the owned Xray acceptance
+- **THEN** its manifest declares ACCESS_LOCAL_NETWORK and its package permission is granted
+- **AND** the probe remains distinct from the target app UID

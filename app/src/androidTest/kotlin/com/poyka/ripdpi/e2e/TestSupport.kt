@@ -14,7 +14,6 @@ import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
-import androidx.core.content.ContextCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -899,13 +898,17 @@ fun ensureLocalNetworkAccessGranted(context: Context) {
                 return
             }
         }
-    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) return
+    if (context.packageManager.checkPermission(permission, context.packageName) ==
+        PackageManager.PERMISSION_GRANTED
+    ) {
+        return
+    }
 
     val instrumentation = InstrumentationRegistry.getInstrumentation()
     val descriptor = instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} $permission")
     ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use(BufferedReader::readText)
     awaitUntil(timeoutMs = LocalNetworkPermissionGrantTimeoutMs, pollMs = 100) {
-        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        context.packageManager.checkPermission(permission, context.packageName) == PackageManager.PERMISSION_GRANTED
     }
 }
 
