@@ -37,12 +37,13 @@ const destination = "192.0.2.77:80"
 const ownedDNSName = "owned.test."
 
 type peerManifest struct {
-	TCPPort    int    `json:"tcpPort"`
-	XHTTPPort  int    `json:"xhttpPort"`
-	DirectPort int    `json:"directPort"`
-	DNSPort    int    `json:"dnsPort,omitempty"`
-	PublicKey  string `json:"publicKey"`
-	UUID       string `json:"uuid"`
+	TCPPort     int    `json:"tcpPort"`
+	XHTTPPort   int    `json:"xhttpPort"`
+	DirectPort  int    `json:"directPort"`
+	DNSPort     int    `json:"dnsPort,omitempty"`
+	DNSHTTPPort int    `json:"dnsHttpPort"`
+	PublicKey   string `json:"publicKey"`
+	UUID        string `json:"uuid"`
 }
 
 type peer struct {
@@ -121,6 +122,10 @@ func startPeer(ctx context.Context) (*peer, error) {
 	}
 	p.closers = append(p.closers, dnsListener)
 	go p.serveOwnedDNS(dnsListener)
+	dnsHTTPListener, err := p.startOwnedDNSHTTP()
+	if err != nil {
+		return nil, err
+	}
 	// Hold both reservations simultaneously; never derive an adjacent port.
 	tcp, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -133,12 +138,13 @@ func startPeer(ctx context.Context) (*peer, error) {
 	}
 	defer xhttp.Close()
 	p.manifest = peerManifest{
-		TCPPort:    tcp.Addr().(*net.TCPAddr).Port,
-		XHTTPPort:  xhttp.Addr().(*net.TCPAddr).Port,
-		DirectPort: directListener.Addr().(*net.TCPAddr).Port,
-		DNSPort:    dnsListener.LocalAddr().(*net.UDPAddr).Port,
-		PublicKey:  base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
-		UUID:       peerID,
+		TCPPort:     tcp.Addr().(*net.TCPAddr).Port,
+		XHTTPPort:   xhttp.Addr().(*net.TCPAddr).Port,
+		DirectPort:  directListener.Addr().(*net.TCPAddr).Port,
+		DNSPort:     dnsListener.LocalAddr().(*net.UDPAddr).Port,
+		DNSHTTPPort: dnsHTTPListener.Addr().(*net.TCPAddr).Port,
+		PublicKey:   base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
+		UUID:        peerID,
 	}
 	inbounds := []any{}
 	for _, network := range []string{"tcp", "xhttp"} {
@@ -165,10 +171,13 @@ func startPeer(ctx context.Context) (*peer, error) {
 			map[string]any{"tag": "deny", "protocol": "blackhole"},
 			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": map[string]any{"redirect": echoListener.Addr().String()}},
 			map[string]any{"tag": "owned-dns", "protocol": "freedom", "settings": map[string]any{"redirect": dnsListener.LocalAddr().String()}},
+			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": map[string]any{"redirect": dnsHTTPListener.Addr().String()}},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
+			// Host tests and the emulator alias reach only this owned HTTP port.
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"127.0.0.1/32", "10.0.2.2/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
 		}},
 	}
 	_ = tcp.Close()

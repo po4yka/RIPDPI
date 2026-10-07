@@ -242,3 +242,15 @@ Malformed or oversized unused underlay input MUST NOT affect policy coverage or 
 #### Scenario: Effective Android Builder inputs change
 - **WHEN** routes, DNS, app policy, proxy, MTU, metered state, DHT exclusions or applied underlying networks require a different Android interface
 - **THEN** the runtime uses the actual replacement path and keeps native readiness separate from generation-matched route evidence without promising an unverified zero-gap handover
+
+### Requirement: REQ-OWNED-XRAY-DNS — Isolate native Xray acceptance DNS
+
+Native Xray acceptance MUST use the independently owned peer for its encrypted resolver and MUST retain default-deny routing for every unowned target. The fixture MUST validate bounded DNS-message requests and return deterministic DNS responses without public upstream access. Production resolver and failover behavior MUST remain unchanged.
+
+#### Scenario: Owned background DNS preserves the tested producer
+- **WHEN** the positive native Xray case performs its original DNS payload check
+- **THEN** its configured resolver is the owned DoH endpoint and the original UDP receipt and packet-counter assertions run without an unrelated public-resolver failure
+
+#### Scenario: Malformed or unowned request
+- **WHEN** a malformed, oversized or unsupported DoH request arrives, or Xray traffic targets an unowned endpoint
+- **THEN** the handler rejects the invalid request and the peer retains its existing default blackhole routing

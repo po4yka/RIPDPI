@@ -15,6 +15,9 @@ import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseAuthorityPersistence
 import com.poyka.ripdpi.data.PauseIntentAuthority
@@ -181,6 +184,7 @@ class XrayProviderE2ETest {
         ensureLocalNetworkAccessGranted(context)
         ensureVpnConsentGranted(context)
         manifest = readControl("manifest")
+        val dnsHttpPort = manifest.getInt("dnsHttpPort").also { require(it in 1..65_535) }
         runBlocking {
             settings.update {
                 ripdpiMode = Mode.VPN.preferenceValue
@@ -195,8 +199,31 @@ class XrayProviderE2ETest {
                 desyncHttps = false
                 desyncUdp = false
                 setStrategyChains(emptyList(), emptyList())
+                // Same test-only HTTP DoH pattern as applyFixtureEncryptedDns.
+                setDnsMode(DnsModeEncrypted)
+                setDnsProviderId(DnsProviderCustom)
+                setDnsIp("10.0.2.2")
+                setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+                setEncryptedDnsHost("10.0.2.2")
+                setEncryptedDnsPort(dnsHttpPort)
+                setEncryptedDnsTlsServerName("10.0.2.2")
+                clearEncryptedDnsBootstrapIps()
+                addEncryptedDnsBootstrapIps("10.0.2.2")
+                setEncryptedDnsDohUrl("http://10.0.2.2:$dnsHttpPort/dns-query")
+                setEncryptedDnsDnscryptProviderName("")
+                setEncryptedDnsDnscryptPublicKey("")
+                setEncryptedDnsTlsRootsPem("")
+                clearEncryptedDnsOdohProxyUrl()
+                clearEncryptedDnsOdohProxyOperatorId()
+                clearEncryptedDnsOdohTargetHost()
+                clearEncryptedDnsOdohTargetPath()
+                clearEncryptedDnsOdohTargetOperatorId()
+                clearEncryptedDnsOdohConfigSource()
+                clearEncryptedDnsOdohConfigsHex()
+                clearEncryptedDnsOdohConfigsRetrievedAtSecs()
+                clearEncryptedDnsOdohConfigsTtlSecs()
+                setDetectionCheckDnsRouteThroughProxy(false)
             }
-            settings.applyPacketSmokePlainDns(proxyPort = settings.snapshot().proxyPort, dnsIp = "192.0.2.53")
         }
     }
 
