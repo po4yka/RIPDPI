@@ -2,7 +2,7 @@
 id: EPC-1791124000119505
 title: Implement measured network UX and durable connection controls
 kind: epic
-status: doing
+status: done
 area: epic
 priority: high
 owner: Codex sequential delivery
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: measured-network-ux
 created: 2026-10-04
-updated: 2026-10-04
+updated: 2026-10-07
+closed_at: "2026-10-07T06:47:27Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All seven runnable UX slices delivered on main; final source 199e8c2f6 passed CI37579049092 (47 successful jobs), native JNI/owned-peer acceptance, five committed ordinary export scenarios, source/locale/static gates and all 396 PNGs. Emulator, clock and expiry/recipient gaps remain explicit in verification.
 ---
 
 ## Goal

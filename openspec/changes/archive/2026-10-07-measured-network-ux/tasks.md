@@ -24,7 +24,7 @@ For the profile utility slice, `pause_implementation` exclusively owns productio
 - [x] EPC-1791124244103077 Explain measured metrics with aggregation and freshness #epic !high @item:EPC-1791124000119505
 - [x] EPC-1791124244595215 Show applied configuration and actionable recovery states #epic !high @item:EPC-1791124000119505
 - [x] EPC-1791124245093725 Search grouped diagnostic and saved relay profiles #epic !high @item:EPC-1791124000119505
-- [ ] EPC-1791124245588453 Preview diagnostic exports before explicit sharing or saving #epic !high @item:EPC-1791124000119505
+- [x] EPC-1791124245588453 Preview diagnostic exports before explicit sharing or saving #epic !high @item:EPC-1791124000119505
 - [x] EPC-1791124246073345 Persist and safely resume timed connection pauses #epic !high @item:EPC-1791124000119505
 - [x] EPC-1791124246556219 Persist profile favorites and recents and expose measured selection #epic !high @item:EPC-1791124000119505
 

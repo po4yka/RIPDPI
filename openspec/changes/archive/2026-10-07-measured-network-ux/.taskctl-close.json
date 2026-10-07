@@ -1,0 +1,11 @@
+{
+  "change": "measured-network-ux",
+  "evidence_summary": "All seven runnable UX slices delivered on main; final source 199e8c2f6 passed CI37579049092 (47 successful jobs), native JNI/owned-peer acceptance, five committed ordinary export scenarios, source/locale/static gates and all 396 PNGs. Emulator, clock and expiry/recipient gaps remain explicit in verification.",
+  "execution_sha256": "5f0883c73f161de164fd980feeed8698b6d22b46602af02cd9609b18957ec4fd",
+  "issue_sha256": "bc2620b6e9a6b94ccc2f5678ee90793d6c7ce827319bee1c49085373e344efdf",
+  "outcome": "done",
+  "prepared_at": "2026-10-07T06:47:27Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "EPC-1791124000119505"
+}
