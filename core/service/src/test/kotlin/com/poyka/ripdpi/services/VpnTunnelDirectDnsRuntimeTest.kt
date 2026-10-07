@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.routing.DestinationRoutingAction
+import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
+import com.poyka.ripdpi.core.routing.DestinationRoutingRule
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
@@ -28,7 +31,16 @@ class VpnTunnelDirectDnsRuntimeTest {
                     activeDns = activeDns,
                     routingSnapshot =
                         DestinationRoutingPolicySnapshot.Available(
-                            DestinationRoutingPolicy(canonicalDigest = "empty-test-policy"),
+                            DestinationRoutingPolicy(
+                                rules =
+                                    listOf(
+                                        DestinationRoutingRule(
+                                            action = DestinationRoutingAction.DIRECT,
+                                            network = DestinationRoutingNetwork.BOTH,
+                                        ),
+                                    ),
+                                canonicalDigest = "direct-test-policy",
+                            ),
                         ),
                     underlayDnsServers = listOf("192.0.2.53", "2001:db8::53"),
                     underlayLeaseGeneration = 23L,
@@ -83,7 +95,16 @@ class VpnTunnelDirectDnsRuntimeTest {
                     activeDns = activeDns,
                     routingSnapshot =
                         DestinationRoutingPolicySnapshot.Available(
-                            DestinationRoutingPolicy(canonicalDigest = "empty-test-policy"),
+                            DestinationRoutingPolicy(
+                                rules =
+                                    listOf(
+                                        DestinationRoutingRule(
+                                            action = DestinationRoutingAction.DIRECT,
+                                            network = DestinationRoutingNetwork.BOTH,
+                                        ),
+                                    ),
+                                canonicalDigest = "direct-test-policy",
+                            ),
                         ),
                     underlayDnsServers = listOf("192.0.2.53"),
                     underlayLeaseGeneration = 23L,
@@ -327,7 +348,16 @@ class VpnTunnelDirectDnsRuntimeTest {
             activeDns = activeDns,
             routingSnapshot =
                 DestinationRoutingPolicySnapshot.Available(
-                    DestinationRoutingPolicy(canonicalDigest = "empty-test-policy"),
+                    DestinationRoutingPolicy(
+                        rules =
+                            listOf(
+                                DestinationRoutingRule(
+                                    action = DestinationRoutingAction.DIRECT,
+                                    network = DestinationRoutingNetwork.BOTH,
+                                ),
+                            ),
+                        canonicalDigest = "direct-test-policy",
+                    ),
                 ),
             underlayDnsServers = listOf("192.0.2.53"),
             underlayLeaseGeneration = 23L,

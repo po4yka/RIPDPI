@@ -204,23 +204,22 @@ internal class VpnTunnelRuntime(
                 profileInterface = profileInterface,
                 configurationInput = configurationInput,
             )
-        // Builder.establish() has already installed Android's default routes.
-        // Retain this session as a fail-closed barrier until native forwarding
-        // reaches its readiness point or the orchestrated Failed cleanup closes
-        // it. Closing it here would briefly restore direct routing before the
-        // service can publish Failed.
+        // Builder.establish() can return before Android's route updates converge.
+        // Retain ownership until native readiness or orchestrated Failed cleanup;
+        // once routes are installed, this session blocks traffic if forwarding fails.
+        // Closing it here would remove that barrier before Failed is published.
         pendingSession = pendingTunnel.session
         pendingRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
         startBridge(pendingTunnel, retainFailedBridge = false)
     }
 
     /**
-     * Replaces an active Android VPN interface without exposing a direct-path gap.
+     * Replaces an active Android VPN interface while retaining cleanup ownership.
      *
-     * Android keeps the old interface active when establishing the replacement fails,
-     * and switches routes to the replacement only after establishment succeeds. From
-     * that point this runtime deliberately retains the replacement session even if the
-     * native bridge cannot start, so the TUN remains a fail-closed traffic barrier.
+     * Android keeps the old interface when establishment fails. Successful establishment
+     * deactivates it while route updates can still be pending, so retaining a descriptor
+     * does not guarantee a zero-gap handover. This runtime retains the replacement even
+     * if native startup fails; after route convergence it remains a traffic barrier.
      */
     @Suppress("TooGenericExceptionCaught")
     suspend fun rebuild(
@@ -255,9 +254,8 @@ internal class VpnTunnelRuntime(
                 configurationInput = configurationInput,
             )
 
-        // Establishment has already moved Android routing to this replacement TUN.
-        // Publish it before retiring the old bridge so every subsequent failure keeps
-        // a live interface that captures traffic instead of falling back to direct.
+        // Own the replacement before retiring the old bridge, including failure paths.
+        // Android routing may still be converging; descriptor ownership is not route evidence.
         tunSession = pendingTunnel.session
         activeRouteLifecycleGeneration = pendingTunnel.lifecycleGeneration
         forwardingLease.set(null)

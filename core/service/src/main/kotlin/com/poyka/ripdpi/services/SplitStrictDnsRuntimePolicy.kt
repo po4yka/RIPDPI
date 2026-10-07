@@ -122,7 +122,6 @@ class ValidatedSplitStrictDnsPolicy private constructor(
         ): ValidatedSplitStrictDnsPolicy {
             require(activeDns.isEncrypted) { "Split-strict proxy resolver must be encrypted" }
             val bootstrap = numericAddressesOrEmpty(activeDns.encryptedDnsBootstrapIps, "bootstrap")
-            val underlay = numericAddressesOrEmpty(underlayDnsServers)
             val policy =
                 when (routingSnapshot) {
                     is DestinationRoutingPolicySnapshot.Available -> routingSnapshot.policy
@@ -131,6 +130,9 @@ class ValidatedSplitStrictDnsPolicy private constructor(
             require(policy.defaultAction == DestinationRoutingAction.TUNNELED) {
                 "Split-strict DNS requires a tunneled default route"
             }
+            val usesDirectDns = policy.hasUsableDirectDnsRule()
+            val underlay =
+                if (usesDirectDns) numericAddressesOrEmpty(underlayDnsServers) else NumericAddresses(emptyList())
             return ValidatedSplitStrictDnsPolicy(
                 destinationRouting = policy,
                 directResolverCandidates = underlay.values,
@@ -149,11 +151,19 @@ class ValidatedSplitStrictDnsPolicy private constructor(
                             }
                         }
                     },
-                underlayLeaseGeneration = underlayLeaseGeneration,
+                underlayLeaseGeneration = underlayLeaseGeneration.takeIf { usesDirectDns },
             )
         }
     }
 }
+
+private fun DestinationRoutingPolicy.hasUsableDirectDnsRule(): Boolean =
+    rules.any { rule ->
+        rule.action == DestinationRoutingAction.DIRECT &&
+            rule.network == DestinationRoutingNetwork.BOTH &&
+            rule.ipRanges.isEmpty() &&
+            rule.destinationPorts.isEmpty()
+    }
 
 private data class NumericAddresses(
     val values: List<String>,

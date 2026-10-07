@@ -225,17 +225,19 @@ Native and selector measurement SHALL return a private identity of its exact nat
 - **WHEN** an attempt is superseded, rejected, cancelled, failed, stopped or replaced
 - **THEN** its exact process-local measured proof is retired and a delayed ACK cannot reuse it
 
-### Requirement: REQ-TUN-REFRESH — Preserve unchanged Android interface during native refresh
+### Requirement: REQ-TUN-REFRESH — Ignore unused direct DNS inputs during refresh
 
-The runtime MUST distinguish complete Android Builder identity from native resolver/bridge configuration. A native-only refresh with unchanged Builder identity MUST preserve the owned TUN session and descriptor, retire the old native consumer before starting another, and publish readiness only for the current successful bridge. A retained descriptor or VPN capability MUST NOT be described as proof of installed routes or absence of a platform replacement gap.
+The runtime MUST normalize direct resolver candidates and underlay generation away when no usable DIRECT rule can select direct DNS. It MUST retain the split policy, encrypted bootstrap pins and proxy DNS behavior. Effective DIRECT rules MUST retain their underlay guards and refresh on changed consumed inputs. A retained descriptor or VPN capability MUST NOT be described as proof of installed routes or absence of a platform replacement gap.
 
-#### Scenario: Resolver refresh keeps the same Android interface
-- **WHEN** native resolver configuration changes while all effective Android Builder inputs remain equal
-- **THEN** the refresh keeps one established TUN and its lifecycle generation, restarts the native bridge and prevents stale forwarding evidence from certifying the new bridge
+Malformed or oversized unused underlay input MUST NOT affect policy coverage or effective signature. Validation of consumed DIRECT underlay and encrypted bootstrap inputs MUST remain intact.
 
-#### Scenario: Bridge refresh fails or is cancelled
-- **WHEN** retirement or replacement startup fails or is cancelled
-- **THEN** no ready forwarding lease is published, cleanup ownership remains explicit and the installed TUN is retained until an owned stop completes
+#### Scenario: Underlay epoch changes without effective DIRECT rules
+- **WHEN** an empty, tunneled, blocked or constrained non-direct-DNS policy receives different underlay candidates or generation
+- **THEN** its effective DNS signature remains unchanged, no no-op TUN rebuild is requested and proxy DNS policy and bootstrap pins remain present
+
+#### Scenario: Underlay epoch changes for usable DIRECT rules
+- **WHEN** a DIRECT rule with BOTH network and no IP/port constraints can select direct DNS and its consumed underlay inputs change
+- **THEN** the runtime retains candidate and generation guards and requests the actual required refresh
 
 #### Scenario: Effective Android Builder inputs change
 - **WHEN** routes, DNS, app policy, proxy, MTU, metered state, DHT exclusions or applied underlying networks require a different Android interface

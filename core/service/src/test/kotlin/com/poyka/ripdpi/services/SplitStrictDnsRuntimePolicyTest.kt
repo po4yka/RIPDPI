@@ -15,10 +15,83 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SplitStrictDnsRuntimePolicyTest {
+    @Test
+    fun `policies without direct dns capability discard unused underlay inputs`() {
+        val policies =
+            listOf(
+                emptyList(),
+                listOf(rule(DestinationRoutingAction.TUNNELED, exact("example.org"))),
+                listOf(rule(DestinationRoutingAction.BLOCK, exact("example.org"))),
+                listOf(rule(DestinationRoutingAction.DIRECT, exact("example.org"), DestinationRoutingNetwork.TCP)),
+                listOf(rule(DestinationRoutingAction.DIRECT, exact("example.org"), DestinationRoutingNetwork.UDP)),
+                listOf(
+                    rule(
+                        DestinationRoutingAction.DIRECT,
+                        exact("example.org"),
+                        ports = listOf(DestinationPortRange(53, 53)),
+                    ),
+                ),
+                listOf(
+                    rule(
+                        DestinationRoutingAction.DIRECT,
+                        exact("example.org"),
+                        ipRanges = listOf(DestinationIpMatcher(DestinationIpMatcherKind.CIDR, "192.0.2.0/24")),
+                    ),
+                ),
+            )
+
+        policies.forEach { rules ->
+            val initial = plan(rules, underlay = emptyList())
+            val first = plan(rules, underlay = listOf("192.0.2.53"), underlayLeaseGeneration = 17L)
+            val warm = plan(rules, underlay = listOf("192.0.2.54"), underlayLeaseGeneration = 18L)
+            val invalid = plan(rules, underlay = listOf("underlay.example"), underlayLeaseGeneration = 19L)
+            val oversized = plan(rules, underlay = List(17) { "192.0.2.${it + 1}" }, underlayLeaseGeneration = 20L)
+
+            assertEquals(initial.canonicalDigest, first.canonicalDigest)
+            assertEquals(first.canonicalDigest, warm.canonicalDigest)
+            listOf(initial, first, warm, invalid, oversized).forEach { policy ->
+                assertEquals(initial.canonicalDigest, policy.canonicalDigest)
+                assertEquals(initial.policyCoverageReason, policy.policyCoverageReason)
+                assertTrue(policy.directResolverCandidates.isEmpty())
+                assertNull(policy.underlayLeaseGeneration)
+                assertEquals(listOf("94.140.14.14"), policy.bootstrapPins)
+                assertEquals(rules, policy.destinationRouting.rules)
+                assertEquals(initial.decide("example.org"), policy.decide("example.org"))
+                assertEquals(initial.decide("unmatched.example"), policy.decide("unmatched.example"))
+            }
+            val expectedPlane =
+                if (rules.firstOrNull()?.action == DestinationRoutingAction.BLOCK) {
+                    DnsResolverPlane.BLOCK
+                } else {
+                    DnsResolverPlane.PROXY
+                }
+            assertEquals(expectedPlane, warm.decide("example.org").plane)
+        }
+    }
+
+    @Test
+    fun `domainless direct rule retains candidates and underlay generation`() {
+        val rules =
+            listOf(
+                DestinationRoutingRule(
+                    action = DestinationRoutingAction.DIRECT,
+                    network = DestinationRoutingNetwork.BOTH,
+                ),
+            )
+        val policy = plan(rules, underlay = listOf("192.0.2.53"), underlayLeaseGeneration = 17L)
+
+        assertEquals(listOf("192.0.2.53"), policy.directResolverCandidates)
+        assertEquals(17L, policy.underlayLeaseGeneration)
+        assertEquals(listOf("94.140.14.14"), policy.bootstrapPins)
+        assertEquals(DnsResolverPlane.DIRECT, policy.decide("any.example").plane)
+        assertEquals(policy.directResolverCandidates, policy.decide("any.example").resolverCandidates)
+    }
+
     @Test
     fun `projects only domain-only both-network rules in first-match order`() {
         val plan =
@@ -122,6 +195,30 @@ class SplitStrictDnsRuntimePolicyTest {
     }
 
     @Test
+    fun `eligible direct rejects invalid underlay with validation reason and no bootstrap fallback`() {
+        val rules = listOf(rule(DestinationRoutingAction.DIRECT, exact("direct.example")))
+        val invalidUnderlays =
+            listOf(
+                listOf("192.0.2.53", "underlay.example") to "direct_resolver_invalid",
+                List(17) { "192.0.2.${it + 1}" } to "direct_resolver_list_too_large",
+            )
+
+        invalidUnderlays.forEach { (underlay, reason) ->
+            val policy = plan(rules, underlay = underlay, underlayLeaseGeneration = 17L)
+            val decision = policy.decide("direct.example")
+
+            assertEquals(reason, policy.policyCoverageReason)
+            assertEquals(reason, policy.decide("unmatched.example").coverageReason)
+            assertTrue(policy.directResolverCandidates.isEmpty())
+            assertEquals(listOf("94.140.14.14"), policy.bootstrapPins)
+            assertEquals(17L, policy.underlayLeaseGeneration)
+            assertEquals(DnsResolverPlane.PROXY, decision.plane)
+            assertEquals("direct_resolver_unavailable", decision.coverageReason)
+            assertTrue(decision.resolverCandidates.isEmpty())
+        }
+    }
+
+    @Test
     fun `invalid observed and bootstrap resolver values are rejected without using dnsIp`() {
         val activeDns =
             AppSettingsSerializer.defaultValue.activeDnsSettings().copy(
@@ -196,6 +293,7 @@ class SplitStrictDnsRuntimePolicyTest {
         rules: List<DestinationRoutingRule>,
         underlay: List<String> = listOf("192.0.2.53", "2001:db8::53"),
         bootstrap: List<String> = listOf("94.140.14.14"),
+        underlayLeaseGeneration: Long? = null,
     ): ValidatedSplitStrictDnsPolicy =
         ValidatedSplitStrictDnsPolicy.build(
             activeDns =
@@ -204,6 +302,7 @@ class SplitStrictDnsRuntimePolicyTest {
                 ),
             routingSnapshot = availablePolicy(rules),
             underlayDnsServers = underlay,
+            underlayLeaseGeneration = underlayLeaseGeneration,
         )
 
     private fun availablePolicy(rules: List<DestinationRoutingRule>) =
