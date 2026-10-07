@@ -10,6 +10,8 @@ Root owns these planning records and integration. One implementation writer at a
 
 Export source and its three approved archive fixtures are integrated at `cbf07ec1`; the isolated fixture worktree remains preserved. The unexplained earlier Xray direct request remains an open acceptance incident and is not declared fixed by the later green diagnostic CI.
 
+Export acceptance additionally requires the repeated API35 TUN refresh incident to pass without weakened negative assertions. A transparent real-provider observer first compares actual Builder inputs; the resulting native-only refresh correction must pass ownership/cancellation regressions, real native API35 acceptance, combined gates and exact-SHA terminal CI before this step can close. Diagnostic metadata is not completion.
+
 For timed pause, `pause_implementation` owns production/test Kotlin, manifest and all ten app/service locale resource sets in `network-ux-pause`, except Root's two independent UI tests. Root owns all Markdown/planning, acceptance and integration, and exclusively writes `HomePauseControlsTest.kt` and `HomePauseScreenshotTest.kt` in `network-ux-pause-ui-tests` against 14 hash-frozen read-only UI/model/tag/locale files. Neither writer edits the other's files. Baselines remain frozen until their owning review/recording. Scope and export steps remain open until their required acceptance is recorded; isolated pause implementation does not close them.
 
 ## Execution

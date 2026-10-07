@@ -224,3 +224,19 @@ Native and selector measurement SHALL return a private identity of its exact nat
 #### Scenario: A mode binding is replaced or cancelled
 - **WHEN** an attempt is superseded, rejected, cancelled, failed, stopped or replaced
 - **THEN** its exact process-local measured proof is retired and a delayed ACK cannot reuse it
+
+### Requirement: REQ-TUN-REFRESH — Preserve unchanged Android interface during native refresh
+
+The runtime MUST distinguish complete Android Builder identity from native resolver/bridge configuration. A native-only refresh with unchanged Builder identity MUST preserve the owned TUN session and descriptor, retire the old native consumer before starting another, and publish readiness only for the current successful bridge. A retained descriptor or VPN capability MUST NOT be described as proof of installed routes or absence of a platform replacement gap.
+
+#### Scenario: Resolver refresh keeps the same Android interface
+- **WHEN** native resolver configuration changes while all effective Android Builder inputs remain equal
+- **THEN** the refresh keeps one established TUN and its lifecycle generation, restarts the native bridge and prevents stale forwarding evidence from certifying the new bridge
+
+#### Scenario: Bridge refresh fails or is cancelled
+- **WHEN** retirement or replacement startup fails or is cancelled
+- **THEN** no ready forwarding lease is published, cleanup ownership remains explicit and the installed TUN is retained until an owned stop completes
+
+#### Scenario: Effective Android Builder inputs change
+- **WHEN** routes, DNS, app policy, proxy, MTU, metered state, DHT exclusions or applied underlying networks require a different Android interface
+- **THEN** the runtime uses the actual replacement path and keeps native readiness separate from generation-matched route evidence without promising an unverified zero-gap handover

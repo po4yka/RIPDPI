@@ -49,11 +49,15 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.SplitTunnelMode
 import com.poyka.ripdpi.services.TimedPauseController
+import com.poyka.ripdpi.services.VpnTunnelSessionProvider
+import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityMeasurementCoordinator
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
+import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.UninstallModules
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -84,7 +88,13 @@ import javax.inject.Inject
 
 /** Real VpnService, Keystore, gomobile engine and TUN; independent host peer, never a public server. */
 @HiltAndroidTest
+@UninstallModules(VpnTunnelSessionProviderModule::class)
 class XrayProviderE2ETest {
+    // JUnit creates a fresh test instance, so each case has its own eight-event budget.
+    @BindValue
+    @JvmField
+    val vpnTunnelSessionProvider: VpnTunnelSessionProvider = ObservedVpnTunnelSessionProvider()
+
     @get:Rule(order = 0)
     val hilt = HiltAndroidRule(this)
 
