@@ -245,6 +245,25 @@ mod tests {
         assert_eq!(count.load(Ordering::Relaxed), 1);
     }
 
+    #[test]
+    fn readiness_observer_sees_published_listener_before_mark_running_returns() {
+        let state = Arc::new(ProxyTelemetryState::new(None));
+        let observer_state = Arc::downgrade(&state);
+        let observed = Arc::new(std::sync::Mutex::new(None));
+        let callback_observed = Arc::clone(&observed);
+        state.set_readiness_observer(Arc::new(move || {
+            let snapshot = observer_state.upgrade().expect("state remains owned").snapshot();
+            *callback_observed.lock().expect("observation lock") = Some(snapshot);
+        }));
+
+        state.mark_running("127.0.0.1:18080".to_string(), 64, 1);
+
+        let snapshot = observed.lock().expect("observation lock").take().expect("readiness callback ran");
+        assert_eq!(snapshot.state, "running");
+        assert_eq!(snapshot.health, "healthy");
+        assert_eq!(snapshot.listener_address.as_deref(), Some("127.0.0.1:18080"));
+    }
+
     /// No readiness observer installed: `mark_running`/`notify_ready` is a
     /// no-op (no panic).
     #[test]

@@ -254,3 +254,12 @@ Native Xray acceptance MUST use the independently owned peer for its encrypted r
 #### Scenario: Malformed or unowned request
 - **WHEN** a malformed, oversized or unsupported DoH request arrives, or Xray traffic targets an unowned endpoint
 - **THEN** the handler rejects the invalid request and the peer retains its existing default blackhole routing
+
+### Requirement: REQ-PROXY-READY — Publish the listener before readiness
+
+The native proxy SHALL publish its listener address and running metadata before a runtime-ready event or callback can be observed. Snapshot readers SHALL acquire the running publication before reading dependent listener metadata. Startup timeouts and endpoint validation SHALL remain unchanged.
+
+#### Scenario: A synchronous readiness callback immediately reads telemetry
+- **WHEN** the actual native readiness observer reads the proxy snapshot before `mark_running` returns
+- **THEN** the snapshot reports the running state and bound listener address
+- **AND** callback execution holds no telemetry or observer lock

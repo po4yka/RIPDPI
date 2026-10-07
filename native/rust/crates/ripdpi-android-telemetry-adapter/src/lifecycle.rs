@@ -20,8 +20,16 @@ fn is_transient_network_error(error: &std::io::Error) -> bool {
 
 impl ProxyTelemetryState {
     pub fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
+        self.update_strings(|s| {
+            s.listener_address = Some(bind_addr.clone());
+            s.adaptive_trigger_mask = None;
+            s.adaptive_last_trigger = None;
+            s.adaptive_override_reason = None;
+            s.morph_hint_family = None;
+            s.morph_rollback_reason = None;
+        });
         // Ordering: Release -- pairs with Acquire loads in snapshot() to publish the running
-        // state transition; readers on other threads must see all preceding writes.
+        // listener metadata before snapshots acquire running and before either readiness signal.
         self.running.store(true, Ordering::Release);
         // Ordering: Release -- pairs with Acquire load in snapshot(); signals override cleared.
         self.adaptive_override_active.store(false, Ordering::Release);
@@ -31,14 +39,6 @@ impl ProxyTelemetryState {
         // ADR 0003) at the same point the `runtime_ready` telemetry fires, so
         // the Kotlin wrapper need not poll. No-op when no observer is set.
         self.notify_ready();
-        self.update_strings(|s| {
-            s.listener_address = Some(bind_addr.clone());
-            s.adaptive_trigger_mask = None;
-            s.adaptive_last_trigger = None;
-            s.adaptive_override_reason = None;
-            s.morph_hint_family = None;
-            s.morph_rollback_reason = None;
-        });
     }
 
     pub fn mark_stopped(&self) {

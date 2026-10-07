@@ -50,6 +50,12 @@ impl ProxyTelemetryState {
     }
 
     pub fn snapshot(&self) -> NativeRuntimeSnapshot {
+        // Drain readiness events before dependent fields: an event observed here was
+        // emitted after listener publication, and its channel receive synchronizes that write.
+        let native_events = drain_proxy_events().into_iter().map(NativeRuntimeEvent::from).collect();
+        // Ordering: Acquire -- pairs with mark_running's Release after listener metadata.
+        // Read dependent strings afterward and use one lifecycle observation for state/health.
+        let running = self.running.load(Ordering::Acquire);
         let strings = self.strings.load();
         let listener_address = strings.listener_address.clone();
         let upstream_address = strings.upstream_address.clone();
@@ -79,10 +85,8 @@ impl ProxyTelemetryState {
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
             schema_version: SNAPSHOT_SCHEMA_VERSION,
-            // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.
-            state: if self.running.load(Ordering::Acquire) { "running".to_string() } else { "idle".to_string() },
-            // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.
-            health: if self.running.load(Ordering::Acquire) {
+            state: if running { "running".to_string() } else { "idle".to_string() },
+            health: if running {
                 // Ordering: Relaxed -- counter read for display only, no happens-before needed.
                 if self.total_errors.load(Ordering::Relaxed) == 0 {
                     "healthy".to_string()
@@ -171,7 +175,7 @@ impl ProxyTelemetryState {
             chain_exit_state: None,
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
             direct_path_learning_signals,
-            native_events: drain_proxy_events().into_iter().map(NativeRuntimeEvent::from).collect(),
+            native_events,
             latency_distributions: LatencyDistributions {
                 tcp_connect: self.tcp_connect_histogram.snapshot(),
                 tls_handshake: self.tls_handshake_histogram.snapshot(),
