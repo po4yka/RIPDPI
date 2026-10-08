@@ -1,7 +1,7 @@
 ---
 task_id: DAT-1791480001436232
 change: recover-renewed-subscriptions
-commit_sha: b6878fdbeedc4f36153033e463702fb934379fb6
+commit_sha: 151c8ea881a21e765717d8e86c5261204a61b9d6
 local: passed
 local_evidence: 38 targeted app tests and app ktlint/detekt passed. After user authorization, the two expired-state screenshots were recorded and both subscription screenshot suites passed (5 tests, 10 images).
 remote_ci: not_applicable
@@ -39,4 +39,4 @@ The recovery behavior and final combined application tests passed on `7a4a87a9d9
 - Both images were visually reviewed. The refresh button and the larger card are the only changes. Neither image has clipped or overlapping content. Each image is byte-identical to its previously reviewed actual artifact.
 - `:app:verifyRoborazziGithubFullDebug --tests 'com.poyka.ripdpi.ui.screenshot.SubscriptionStatusScreenshotTest' --tests 'com.poyka.ripdpi.ui.screenshot.SubscriptionImportConfirmScreenshotTest'` passed: 5 tests, 10 images, no failures, errors, or skips.
 - Both commands used `-Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true -Pripdpi.nativeCpuBudget=2 --no-daemon --max-workers=2`, 5 GiB Gradle and 3 GiB Kotlin heaps, and 15-second HTTP timeouts.
-- The snapshot writer changed no application source or other golden family. Task closure and the final commit receipt remain with the integration owner.
+- The snapshot writer changed no application source or other golden family. Commit `151c8ea881a21e765717d8e86c5261204a61b9d6` contains the verified images. Fetch and rebase against `origin/main` left that commit unchanged.

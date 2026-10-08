@@ -2,7 +2,7 @@
 id: DAT-1791480001436232
 title: Recover renewed subscriptions through manual refresh
 kind: bug
-status: review
+status: done
 area: data
 priority: medium
 owner: Subscription recovery writer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: recover-renewed-subscriptions
 created: 2026-10-08
 updated: 2026-10-08
+closed_at: "2026-10-08T18:15:31Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Manual recovery source tests and static checks passed; authorized expired-theme snapshots verified with 5 screenshot tests and 10 images at 151c8ea881a21e765717d8e86c5261204a61b9d6.
 ---
 
 ## Goal

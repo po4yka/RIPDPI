@@ -1,0 +1,11 @@
+{
+  "change": "recover-renewed-subscriptions",
+  "evidence_summary": "Manual recovery source tests and static checks passed; authorized expired-theme snapshots verified with 5 screenshot tests and 10 images at 151c8ea881a21e765717d8e86c5261204a61b9d6.",
+  "execution_sha256": "e1fe909a9cacc3c4537bfbba65fb645ce98304c4dfcb976e9cfefe514915314b",
+  "issue_sha256": "6fd26a16dc3ab6ecd9c8c92cb0f1f999f24e4d0ff7fde5682f49ffcf25edcb3c",
+  "outcome": "done",
+  "prepared_at": "2026-10-08T18:15:31Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1791480001436232"
+}
