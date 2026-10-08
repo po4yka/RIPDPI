@@ -198,6 +198,7 @@ private fun createVpnPathCompositeService(
             homeRunPersistence = HomeDiagnosticsRunPersistence(stores, TestDiagnosticsHistoryClock(), json),
             probeResultCache = VpnRuntimeProbeResultCache,
         ),
+    networkScopeFactory = stableHomeNetworkScopeFactory(),
     networkHandoverMonitor =
         object : NetworkHandoverMonitor {
             override val events = MutableSharedFlow<NetworkHandoverEvent>()

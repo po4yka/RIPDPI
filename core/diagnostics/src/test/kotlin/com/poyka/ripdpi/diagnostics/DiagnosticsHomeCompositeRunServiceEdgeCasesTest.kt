@@ -569,6 +569,7 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
                     probeResultCache = EdgeCaseNoOpProbeResultCache(),
                 ),
             networkHandoverMonitor = EdgeCaseNoOpNetworkHandoverMonitor(),
+            networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = vpnRouteEvidenceProvider,
             stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),

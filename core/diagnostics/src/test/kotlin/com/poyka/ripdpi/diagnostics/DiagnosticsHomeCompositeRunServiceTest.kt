@@ -113,6 +113,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
@@ -218,6 +219,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
@@ -406,6 +408,7 @@ private fun serializedLifecycleFixture(scope: CoroutineScope): SerializedLifecyc
             diagnosticsHomeWorkflowService = serializedLifecycleWorkflowService(),
             persistencePorts = serializedLifecyclePersistencePorts(stores),
             networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+            networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
             stageExecutor =
@@ -510,6 +513,7 @@ class DiagnosticsHomeCompositeRunSettlementTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
@@ -619,6 +623,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
@@ -703,35 +708,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
-                DefaultDiagnosticsHomeCompositeRunService(
-                    detectionStageRunner = NoopHomeDetectionStageRunner,
-                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
-                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
-                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
-                    diagnosticsProfileCatalog = stores,
-                    diagnosticsHomeWorkflowService = workflowService,
-                    persistencePorts =
-                        HomeCompositePersistencePorts(
-                            scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
-                            homeRunPersistence =
-                                HomeDiagnosticsRunPersistence(
-                                    stores,
-                                    TestDiagnosticsHistoryClock(),
-                                    diagnosticsTestJson(),
-                                ),
-                            probeResultCache = NoOpProbeResultCache(),
-                        ),
-                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                createHomeCompositeRunService(
+                    stores = stores,
+                    timelineSource = timelineSource,
+                    scanController = scanController,
+                    workflowService = workflowService,
                     serviceStateStore = serviceStateStore,
-                    vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
-                    stageExecutor =
-                        HomeCompositeStageExecutor(
-                            diagnosticsScanController = scanController,
-                            diagnosticsTimelineSource = timelineSource,
-                            serviceStateStore = serviceStateStore,
-                        ),
-                    json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
 
@@ -882,6 +864,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
@@ -972,6 +955,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = monitor,
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
@@ -1094,6 +1078,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             probeResultCache = NoOpProbeResultCache(),
                         ),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
                     stageExecutor =
@@ -1287,6 +1272,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     probeResultCache = NoOpProbeResultCache(),
                 ),
             networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+            networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
             stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),

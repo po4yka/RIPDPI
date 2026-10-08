@@ -129,6 +129,7 @@ class DiagnosticsHomeCompositeRunPersistenceServiceTest {
                     probeResultCache = PersistenceNoOpProbeResultCache(),
                 ),
             networkHandoverMonitor = PersistenceNoOpNetworkHandoverMonitor(),
+            networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
             stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),

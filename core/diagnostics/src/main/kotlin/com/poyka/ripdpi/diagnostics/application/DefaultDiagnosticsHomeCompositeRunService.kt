@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.VpnRouteEvidenceProvider
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsNetworkScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
@@ -53,6 +54,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
         private val persistencePorts: HomeCompositePersistencePorts,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
+        private val networkScopeFactory: DiagnosticsNetworkScopeFactory,
         private val serviceStateStore: ServiceStateStore,
         private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
         private val stageExecutor: HomeCompositeStageExecutor,
@@ -102,6 +104,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             )
 
         override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
+            val networkScope = networkScopeFactory.capture()
             val runId = UUID.randomUUID().toString()
             progressState.update { current ->
                 current +
@@ -128,7 +131,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             )
                     )
             }
-            admitAndLaunchRun(runId, options) { executeRun(runId) }
+            admitAndLaunchRun(runId, options) { executeRun(runId, networkScope) }
             return DiagnosticsHomeCompositeRunStarted(runId = runId)
         }
 
@@ -172,6 +175,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         override suspend fun startQuickAnalysis(
             options: DiagnosticsHomeRunOptions,
         ): DiagnosticsHomeCompositeRunStarted {
+            val networkScope = networkScopeFactory.capture()
             val runId = UUID.randomUUID().toString()
             progressState.update { current ->
                 current +
@@ -233,13 +237,18 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                             ?.status ==
                             DiagnosticsHomeCompositeStageStatus.RUNNING
                     },
-                    finalizeRun = ::finalizeRun,
+                    finalizeRun = { id, audit, coverage, dnsIssues, changed ->
+                        finalizeRun(id, audit, coverage, dnsIssues, changed, networkScope)
+                    },
                 )
             }
             return DiagnosticsHomeCompositeRunStarted(runId = runId)
         }
 
-        private suspend fun executeRun(runId: String) {
+        private suspend fun executeRun(
+            runId: String,
+            networkScope: DiagnosticsNetworkScope,
+        ) {
             log.i { "started runId=$runId stages=${HomeCompositeStageSpecs.size}" }
             val auditSpec = HomeCompositeStageSpecs[0]
             val auditIndex = 0
@@ -282,6 +291,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     coverageNote = null,
                     dnsIssuesDetected = false,
                     networkChanged = false,
+                    networkScope = networkScope,
                 )
                 return
             }
@@ -295,6 +305,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     coverageNote = null,
                     dnsIssuesDetected = false,
                     networkChanged = false,
+                    networkScope = networkScope,
                 )
                 return
             }
@@ -306,7 +317,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             val networkChangedDuringRun = networkEvents.isNotEmpty()
             val coverageNote = crossValidateHomeStrategy(runId, progressState, scanRecordStore, json)
             val dnsIssuesDetected = detectHomeRunDnsIssues(runId, progressState, scanRecordStore, json)
-            finalizeRun(runId, auditOutcome, coverageNote, dnsIssuesDetected, networkChangedDuringRun)
+            finalizeRun(runId, auditOutcome, coverageNote, dnsIssuesDetected, networkChangedDuringRun, networkScope)
             log.i {
                 val outcome = completedRuns[runId]
                 "run completed: completed=${outcome?.completedStageCount}" +
@@ -683,6 +694,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             coverageNote: String?,
             dnsIssuesDetected: Boolean,
             networkChanged: Boolean,
+            networkScope: DiagnosticsNetworkScope,
         ) {
             packetCaptureCoordinator.settle(runId)
             val detectionResult = runDetectionResults.remove(runId)
@@ -694,6 +706,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     coverageNote = coverageNote,
                     dnsIssuesDetected = dnsIssuesDetected,
                     networkChanged = networkChanged,
+                    networkScope = networkScope,
                     detectionResult = detectionResult,
                     previousOutcome = previousOutcome,
                     packetCaptureDisposition = packetCaptureCoordinator.disposition(runId),
@@ -708,31 +721,3 @@ internal object UnavailableVpnRouteEvidenceProvider : VpnRouteEvidenceProvider {
 
     override fun capture(): VpnRouteEvidence = VpnRouteEvidence()
 }
-
-private fun passiveVpnRouteEvidenceSummary(evidence: PassiveVpnRouteEvidence): String =
-    when (evidence.disposition) {
-        PassiveVpnRouteEvidenceDisposition.CAPTURED -> {
-            "Captured sessionless VPN route evidence: route=${evidence.routeAxis} " +
-                "forwarding=${evidence.forwardingAxis} target_reachability=unverified."
-        }
-
-        PassiveVpnRouteEvidenceDisposition.NOT_VPN_MODE -> {
-            "Skipped because the active runtime is not VPN mode."
-        }
-
-        PassiveVpnRouteEvidenceDisposition.STALE_GENERATION -> {
-            "Skipped because VPN route evidence did not match the current generation."
-        }
-
-        PassiveVpnRouteEvidenceDisposition.INCOMPLETE_EVIDENCE -> {
-            "Skipped because current VPN route evidence is incomplete or not owner-verified."
-        }
-
-        PassiveVpnRouteEvidenceDisposition.INELIGIBLE_LIFECYCLE -> {
-            "Skipped because the VPN route lifecycle is not active."
-        }
-
-        PassiveVpnRouteEvidenceDisposition.STALE_FORWARDING_GENERATION -> {
-            "Skipped because VPN forwarding evidence belongs to a different generation."
-        }
-    }

@@ -105,3 +105,31 @@ private val CapturableVpnRouteLifecycleStates =
         VpnRouteLifecycleState.Established,
         VpnRouteLifecycleState.BridgeReady,
     )
+
+internal fun passiveVpnRouteEvidenceSummary(evidence: PassiveVpnRouteEvidence): String =
+    when (evidence.disposition) {
+        PassiveVpnRouteEvidenceDisposition.CAPTURED -> {
+            "Captured sessionless VPN route evidence: route=${evidence.routeAxis} " +
+                "forwarding=${evidence.forwardingAxis} target_reachability=unverified."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.NOT_VPN_MODE -> {
+            "Skipped because the active runtime is not VPN mode."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.STALE_GENERATION -> {
+            "Skipped because VPN route evidence did not match the current generation."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.INCOMPLETE_EVIDENCE -> {
+            "Skipped because current VPN route evidence is incomplete or not owner-verified."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.INELIGIBLE_LIFECYCLE -> {
+            "Skipped because the VPN route lifecycle is not active."
+        }
+
+        PassiveVpnRouteEvidenceDisposition.STALE_FORWARDING_GENERATION -> {
+            "Skipped because VPN forwarding evidence belongs to a different generation."
+        }
+    }

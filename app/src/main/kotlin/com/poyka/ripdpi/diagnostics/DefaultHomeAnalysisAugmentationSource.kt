@@ -66,7 +66,7 @@ class DefaultHomeAnalysisAugmentationSource
                             cellularOperatorCode = fingerprint?.cellular?.operatorCode,
                         )
                     val captivePortal =
-                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
+                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
                     val mtu = linkPropertiesMtuOrNull(linkProps)
                     val ipv6Reachable =
                         measureHomeIpv6Reachability(

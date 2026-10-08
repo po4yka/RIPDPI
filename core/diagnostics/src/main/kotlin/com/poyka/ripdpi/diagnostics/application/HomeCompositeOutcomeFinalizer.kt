@@ -4,6 +4,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
+import com.poyka.ripdpi.diagnostics.application.DiagnosticsNetworkScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ internal data class HomeCompositeFinalizationRequest(
     val detectionResult: HomeDetectionStageOutcome?,
     val previousOutcome: DiagnosticsHomeCompositeOutcome?,
     val packetCaptureDisposition: DiagnosticsHomePacketCaptureDisposition,
+    val networkScope: DiagnosticsNetworkScope? = null,
 )
 
 internal class HomeCompositeOutcomeFinalizer(
@@ -42,7 +44,8 @@ internal class HomeCompositeOutcomeFinalizer(
 ) {
     suspend fun finalize(request: HomeCompositeFinalizationRequest) {
         val baseOutcome = buildBaseOutcome(request)
-        val augmentedOutcome = augmentOutcome(request, baseOutcome)
+        val augmented = augmentOutcome(request, baseOutcome)
+        val augmentedOutcome = if (request.hasCurrentNetworkScope()) augmented else augmented.withoutNetworkAuthority()
         val reproAction = augmentedOutcome.internetLossReproAction()
         val (synthHeadline, synthSteps) = synthesizeActionableSummary(augmentedOutcome)
         publish(
@@ -97,12 +100,18 @@ internal class HomeCompositeOutcomeFinalizer(
             detectionDecisionSignals = detectionResult?.decisionSignals.orEmpty(),
             installedVpnDetectorCount = catalogSnapshot.installedVpnDetectorCount.takeIf { it >= 0 },
             installedVpnDetectorTopApps = catalogSnapshot.topDetectorPackages,
-            networkCharacter = runCatching { analysisAugmentationSource.networkCharacter() }.getOrNull(),
+            networkCharacter = request.measureNetwork { analysisAugmentationSource.networkCharacter() },
             strategyEffectiveness = effectivenessLedger,
             routingSanity = runCatching { analysisAugmentationSource.routingSanity() }.getOrNull(),
-            regressionDelta = computeRegressionDelta(baseOutcome, request.previousOutcome),
-            bufferbloat = runCatching { analysisAugmentationSource.bufferbloat() }.getOrNull(),
-            dnsCharacterization = runCatching { analysisAugmentationSource.dnsCharacterization() }.getOrNull(),
+            regressionDelta =
+                computeRegressionDelta(
+                    baseOutcome,
+                    request.previousOutcome?.takeIf {
+                        it.fingerprintHash != null && it.fingerprintHash == baseOutcome.fingerprintHash
+                    },
+                ),
+            bufferbloat = request.measureNetwork { analysisAugmentationSource.bufferbloat() },
+            dnsCharacterization = request.measureNetwork { analysisAugmentationSource.dnsCharacterization() },
             connectivityAssessment =
                 buildConnectivityAssessment(
                     runId = request.runId,

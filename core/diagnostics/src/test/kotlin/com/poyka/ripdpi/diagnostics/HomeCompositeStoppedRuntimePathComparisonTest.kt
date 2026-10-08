@@ -111,6 +111,7 @@ class HomeCompositeStoppedRuntimePathComparisonTest {
                                 ),
                             probeResultCache = StoppedRuntimeProbeResultCache,
                         ),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     networkHandoverMonitor =
                         object : NetworkHandoverMonitor {
                             override val events = MutableSharedFlow<NetworkHandoverEvent>()

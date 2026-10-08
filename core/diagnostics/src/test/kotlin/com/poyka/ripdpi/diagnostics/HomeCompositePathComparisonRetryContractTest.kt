@@ -146,6 +146,7 @@ class HomeCompositePathComparisonRetryContractTest {
                                 ),
                             probeResultCache = NoopPathComparisonProbeResultCache,
                         ),
+                    networkScopeFactory = stableHomeNetworkScopeFactory(),
                     networkHandoverMonitor =
                         object : NetworkHandoverMonitor {
                             override val events = MutableSharedFlow<NetworkHandoverEvent>()
