@@ -230,6 +230,9 @@ val forwardedInstrumentationArguments =
         "ripdpi.fixtureControlHost",
         "ripdpi.fixtureControlPort",
         "ripdpi.xrayFixturePort",
+        "ripdpi.xrayFixtureHost",
+        "ripdpi.xrayControlHost",
+        "ripdpi.acceptanceRunId",
         "ripdpi.packetSmokeDeviceProfile",
         "ripdpi.runNetworkTests",
     )

@@ -1,0 +1,142 @@
+name: Local VPN acceptance
+
+on:
+  pull_request:
+    paths:
+      - "test-lab/acceptance/**"
+      - "test-lab/lima/ripdpi-acceptance.yaml"
+      - "scripts/ci/run-android-local-acceptance.py"
+      - "scripts/fixtures/xray-provider-peer/**"
+      - "scripts/tests/test_android_local_acceptance.py"
+      - "native/rust/crates/ripdpi-hysteria2/tests/upstream_interop.rs"
+      - ".github/workflows/local-acceptance.yml"
+  workflow_dispatch:
+    inputs:
+      run_android:
+        description: Build APKs and run real Android TUN acceptance
+        type: boolean
+        default: false
+  schedule:
+    - cron: "50 3 * * 2,5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate catalog and regression controls
+        run: |
+          python3 test-lab/acceptance/generate_manifest.py --check
+          python3 test-lab/acceptance/lab.py validate
+          python3 -m unittest discover -s test-lab/acceptance/tests -v
+          python3 -m unittest discover -s test-lab/acceptance/vm/tests -v
+          python3 -m unittest discover -s test-lab/acceptance/peers -p 'test_*.py' -v
+          python3 -m unittest scripts.tests.test_android_local_acceptance -v
+
+  routed:
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prepare isolated Linux routing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends iproute2 nftables tcpdump ethtool
+      - name: Run real TCP and UDP fault controls
+        run: sudo python3 test-lab/acceptance/lab.py run --profile routed --out-dir "$RUNNER_TEMP/routed-acceptance"
+      - name: Publish metadata only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: routed-acceptance-report
+          path: |
+            ${{ runner.temp }}/routed-acceptance/report.json
+            ${{ runner.temp }}/routed-acceptance/report.xml
+          retention-days: 7
+
+  peers:
+    needs: contracts
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          setup-java: "false"
+          setup-gradle: "false"
+          skip-android-sdk-ndk: "true"
+          rust-targets: ""
+          rust-cache-shared-key: local-acceptance-peers
+      - name: Prepare pinned peers and native tests
+        run: python3 test-lab/acceptance/lab.py prepare --profile native --out-dir "$RUNNER_TEMP/peer-preparation"
+      - name: Run exact native protocol cases
+        run: python3 test-lab/acceptance/lab.py run --profile native --out-dir "$RUNNER_TEMP/peer-acceptance"
+      - name: Publish metadata only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: peer-acceptance-report
+          path: |
+            ${{ runner.temp }}/peer-acceptance/report.json
+            ${{ runner.temp }}/peer-acceptance/report.xml
+          retention-days: 7
+
+  android:
+    needs: contracts
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: local-acceptance-android
+      - uses: ./.github/actions/build-xray
+      - name: Build source-pinned pluggable transports
+        run: >-
+          ./gradlew :core:engine:buildPluggableTransportAssets
+          -Pripdpi.nativeAbisOverride=x86_64
+          -Pripdpi.pluggableTransportAssetsMode=source
+          -Pripdpi.pluggableTransportAssetsStrictFailures=true
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start disposable emulator
+        run: bash scripts/ci/start-android-emulator.sh --avd local-acceptance --api 35 --arch x86_64 --target google_apis --boot-timeout 600
+      - name: Prepare APKs once
+        run: |
+          serial="$(adb devices | awk '/^emulator-.*device$/ {print $1}')"
+          test "$(printf '%s\n' "$serial" | wc -l)" -eq 1
+          echo "ACCEPTANCE_SERIAL=$serial" >> "$GITHUB_ENV"
+          python3 test-lab/acceptance/lab.py prepare --profile android --serial "$serial" --out-dir "$RUNNER_TEMP/android-preparation"
+      - name: Run real TUN and independent Xray scenarios
+        run: |
+          python3 test-lab/acceptance/lab.py run --profile android \
+            --serial "$ACCEPTANCE_SERIAL" \
+            --prepared-dir "$RUNNER_TEMP/android-preparation/android" \
+            --out-dir "$RUNNER_TEMP/android-acceptance"
+      - name: Stop owned emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd local-acceptance
+      - name: Publish metadata only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-acceptance-report
+          path: |
+            ${{ runner.temp }}/android-acceptance/report.json
+            ${{ runner.temp }}/android-acceptance/report.xml
+          retention-days: 7

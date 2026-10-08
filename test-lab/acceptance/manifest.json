@@ -1,0 +1,959 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "native": [
+      "native-tuic-tcp",
+      "native-tuic-tls-rejection",
+      "native-trojan-tcp",
+      "native-hysteria2-tcp",
+      "native-masque-udp",
+      "native-masque-tls-rejection",
+      "native-naiveproxy-tcp",
+      "native-naiveproxy-recovery",
+      "native-shadowtls-tcp",
+      "native-shadowsocks-tcp",
+      "native-shadowsocks-udp",
+      "native-trojan-udp",
+      "native-vless-xudp",
+      "native-vless-xhttp",
+      "native-cloudflare-adapter",
+      "native-tor-capability",
+      "native-chain-tcp",
+      "independent-ssh-password",
+      "independent-ssh-private-key",
+      "independent-ssh-host-key-rejection",
+      "independent-mieru-tcp",
+      "independent-mieru-multiplex",
+      "independent-mieru-stop",
+      "independent-anytls-tcp",
+      "independent-anytls-udp",
+      "independent-anytls-auth-rejection",
+      "independent-awg-tcp-udp",
+      "independent-hysteria2-tcp-udp",
+      "independent-hysteria2-auth-rejection",
+      "independent-hysteria2-tls-rejection"
+    ],
+    "android": [
+      "android-xray",
+      "android-network"
+    ],
+    "routed": [
+      "routed-baseline-drop-recovery",
+      "routed-udp-block",
+      "routed-tcp-app-blackhole",
+      "routed-delay",
+      "routed-loss",
+      "routed-reorder",
+      "routed-mtu-blackhole",
+      "routed-ipv6-block",
+      "packet-fidelity"
+    ],
+    "packet": [
+      "packet-engine"
+    ],
+    "core": [
+      "android-xray",
+      "android-network",
+      "independent-hysteria2-tcp-udp",
+      "independent-hysteria2-auth-rejection",
+      "independent-hysteria2-tls-rejection",
+      "independent-awg-tcp-udp",
+      "routed-baseline-drop-recovery"
+    ],
+    "full": [
+      "native-tuic-tcp",
+      "native-tuic-tls-rejection",
+      "native-trojan-tcp",
+      "native-hysteria2-tcp",
+      "native-masque-udp",
+      "native-masque-tls-rejection",
+      "native-naiveproxy-tcp",
+      "native-naiveproxy-recovery",
+      "native-shadowtls-tcp",
+      "native-shadowsocks-tcp",
+      "native-shadowsocks-udp",
+      "native-trojan-udp",
+      "native-vless-xudp",
+      "native-vless-xhttp",
+      "native-cloudflare-adapter",
+      "native-tor-capability",
+      "native-chain-tcp",
+      "independent-ssh-password",
+      "independent-ssh-private-key",
+      "independent-ssh-host-key-rejection",
+      "independent-mieru-tcp",
+      "independent-mieru-multiplex",
+      "independent-mieru-stop",
+      "independent-anytls-tcp",
+      "independent-anytls-udp",
+      "independent-anytls-auth-rejection",
+      "independent-awg-tcp-udp",
+      "independent-hysteria2-tcp-udp",
+      "independent-hysteria2-auth-rejection",
+      "independent-hysteria2-tls-rejection",
+      "android-xray",
+      "android-network",
+      "routed-baseline-drop-recovery",
+      "routed-udp-block",
+      "routed-tcp-app-blackhole",
+      "routed-delay",
+      "routed-loss",
+      "routed-reorder",
+      "routed-mtu-blackhole",
+      "routed-ipv6-block",
+      "packet-fidelity",
+      "packet-engine"
+    ]
+  },
+  "external_boundaries": [
+    {
+      "id": "cloudflare-tunnel",
+      "reason": "Local adapter checks do not test the Cloudflare network."
+    },
+    {
+      "id": "warp",
+      "reason": "Local AWG or MASQUE does not test Cloudflare registration or service."
+    },
+    {
+      "id": "tor",
+      "reason": "Local capability checks do not test public Tor or Snowflake connectivity."
+    },
+    {
+      "id": "apps-script",
+      "reason": "Local transport checks do not test the Google Apps Script service."
+    },
+    {
+      "id": "physical-android",
+      "reason": "Emulator acceptance does not replace OEM power management or physical Wi-Fi/cellular handover."
+    },
+    {
+      "id": "carrier-dpi",
+      "reason": "Local fault classifiers do not reproduce every ISP packet inspection system."
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "native-tuic-tcp",
+      "adapter": "peers",
+      "protocol": "tuic_v5",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-tuic-tls-rejection",
+      "adapter": "peers",
+      "protocol": "tuic_v5",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-trojan-tcp",
+      "adapter": "peers",
+      "protocol": "trojan",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-hysteria2-tcp",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-masque-udp",
+      "adapter": "peers",
+      "protocol": "masque",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-masque-tls-rejection",
+      "adapter": "peers",
+      "protocol": "masque",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-naiveproxy-tcp",
+      "adapter": "peers",
+      "protocol": "naiveproxy",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-naiveproxy-recovery",
+      "adapter": "peers",
+      "protocol": "naiveproxy",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-shadowtls-tcp",
+      "adapter": "peers",
+      "protocol": "shadowtls_v3",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-shadowsocks-tcp",
+      "adapter": "peers",
+      "protocol": "shadowsocks",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-shadowsocks-udp",
+      "adapter": "peers",
+      "protocol": "shadowsocks",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-trojan-udp",
+      "adapter": "peers",
+      "protocol": "trojan",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-vless-xudp",
+      "adapter": "peers",
+      "protocol": "vless_reality",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-vless-xhttp",
+      "adapter": "peers",
+      "protocol": "vless",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-cloudflare-adapter",
+      "adapter": "peers",
+      "protocol": "cloudflare_tunnel",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-tor-capability",
+      "adapter": "peers",
+      "protocol": "tor",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "native-chain-tcp",
+      "adapter": "peers",
+      "protocol": "chain_relay",
+      "tier": "native-contract",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed"
+      ]
+    },
+    {
+      "id": "independent-ssh-password",
+      "adapter": "peers",
+      "protocol": "ssh",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-ssh-private-key",
+      "adapter": "peers",
+      "protocol": "ssh",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-ssh-host-key-rejection",
+      "adapter": "peers",
+      "protocol": "ssh",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-mieru-tcp",
+      "adapter": "peers",
+      "protocol": "mieru",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-mieru-multiplex",
+      "adapter": "peers",
+      "protocol": "mieru",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-mieru-stop",
+      "adapter": "peers",
+      "protocol": "mieru",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-anytls-tcp",
+      "adapter": "peers",
+      "protocol": "anytls",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-anytls-udp",
+      "adapter": "peers",
+      "protocol": "anytls",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-anytls-auth-rejection",
+      "adapter": "peers",
+      "protocol": "anytls",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-awg-tcp-udp",
+      "adapter": "peers",
+      "protocol": "amneziawg",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-tcp-udp",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-auth-rejection",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-hysteria2-tls-rejection",
+      "adapter": "peers",
+      "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "android-xray",
+      "adapter": "android",
+      "protocol": "vless-reality-xhttp",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "bothTransportsRouteDistinctUidTrafficThroughRealTunAndRestart",
+        "wrongIdentityCannotReachPeerOrFallBackToDirect",
+        "peerLossAndRecoveryPreservesTunAndRejectsDirectBypass"
+      ]
+    },
+    {
+      "id": "android-network",
+      "adapter": "android",
+      "protocol": "direct-tun-dns",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "environmentSupportsFixtureReachabilityAndVpnConsent",
+        "localAcceptanceTunTcpUdpFaultAndRecovery",
+        "vpnServiceRoutesHostnameTrafficThroughEncryptedDnsWithoutRestartLoop",
+        "vpnServiceEncryptedDnsFaultBreaksHostnameShellRoundTrip",
+        "vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip"
+      ]
+    },
+    {
+      "id": "routed-baseline-drop-recovery",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "fault_tcp",
+        "fault_udp",
+        "fault_counter_incremented"
+      ]
+    },
+    {
+      "id": "routed-udp-block",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "fault_tcp",
+        "fault_udp",
+        "fault_counter_incremented"
+      ]
+    },
+    {
+      "id": "routed-tcp-app-blackhole",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "fault_tcp",
+        "fault_udp",
+        "fault_counter_incremented",
+        "tcp_application_established_before_fault",
+        "established_tcp_application_blackholed"
+      ]
+    },
+    {
+      "id": "routed-delay",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "delay_observed",
+        "netem_present"
+      ]
+    },
+    {
+      "id": "routed-loss",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "loss_observed",
+        "netem_present"
+      ]
+    },
+    {
+      "id": "routed-reorder",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "reorder_path_usable",
+        "reorder_observed",
+        "netem_present"
+      ]
+    },
+    {
+      "id": "routed-mtu-blackhole",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "small_udp_passes",
+        "large_udp_dropped",
+        "fault_counter_incremented"
+      ]
+    },
+    {
+      "id": "routed-ipv6-block",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "routed-fault",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "fault_tcp",
+        "fault_udp",
+        "fault_counter_incremented",
+        "ipv6_blocked"
+      ]
+    },
+    {
+      "id": "packet-fidelity",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "packet-fidelity",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 300,
+      "checks": [
+        "capture_processes_ready",
+        "management_baseline",
+        "no_public_route_ipv4",
+        "no_public_route_ipv6",
+        "external_data_egress_unreachable",
+        "management_survives_fault",
+        "peer_receipts_match_baseline_and_recovery",
+        "baseline_ipv4_tcp",
+        "baseline_ipv4_udp",
+        "baseline_ipv6_tcp",
+        "baseline_ipv6_udp",
+        "recovery_ipv4_tcp",
+        "recovery_ipv4_udp",
+        "recovery_ipv6_tcp",
+        "recovery_ipv6_udp",
+        "fault_tcp",
+        "fault_udp",
+        "fault_counter_incremented",
+        "native_udp_payload_on_both_router_sides",
+        "native_router_hop_limit_decrement"
+      ]
+    },
+    {
+      "id": "packet-engine",
+      "adapter": "vm",
+      "protocol": "tcp-udp-ipv4-ipv6",
+      "tier": "packet-fidelity",
+      "platforms": [
+        "linux"
+      ],
+      "timeout_seconds": 3600,
+      "checks": [
+        "packet_engine_process_succeeded",
+        "eight_generated_cases_executed",
+        "engine_no_orphan_processes",
+        "cli_packet_smoke_tcp_split_family:fixture-manifest.json",
+        "cli_packet_smoke_tcp_split_family:fixture-events.json",
+        "cli_packet_smoke_tcp_split_family:cli-stderr.log",
+        "cli_packet_smoke_tcp_split_family:test-output.txt",
+        "cli_packet_smoke_tcp_split_family:capture.pcap",
+        "cli_packet_smoke_tcp_split_family:capture.tshark.json",
+        "cli_packet_smoke_tcp_split_family:exact_test_executed",
+        "cli_packet_smoke_tcp_split_family:captured_packets",
+        "cli_packet_smoke_tcp_disorder_family:fixture-manifest.json",
+        "cli_packet_smoke_tcp_disorder_family:fixture-events.json",
+        "cli_packet_smoke_tcp_disorder_family:cli-stderr.log",
+        "cli_packet_smoke_tcp_disorder_family:test-output.txt",
+        "cli_packet_smoke_tcp_disorder_family:capture.pcap",
+        "cli_packet_smoke_tcp_disorder_family:capture.tshark.json",
+        "cli_packet_smoke_tcp_disorder_family:exact_test_executed",
+        "cli_packet_smoke_tcp_disorder_family:captured_packets",
+        "cli_packet_smoke_tcp_fake_family:fixture-manifest.json",
+        "cli_packet_smoke_tcp_fake_family:fixture-events.json",
+        "cli_packet_smoke_tcp_fake_family:cli-stderr.log",
+        "cli_packet_smoke_tcp_fake_family:test-output.txt",
+        "cli_packet_smoke_tcp_fake_family:capture.pcap",
+        "cli_packet_smoke_tcp_fake_family:capture.tshark.json",
+        "cli_packet_smoke_tcp_fake_family:exact_test_executed",
+        "cli_packet_smoke_tcp_fake_family:captured_packets",
+        "cli_packet_smoke_tcp_oob_family:fixture-manifest.json",
+        "cli_packet_smoke_tcp_oob_family:fixture-events.json",
+        "cli_packet_smoke_tcp_oob_family:cli-stderr.log",
+        "cli_packet_smoke_tcp_oob_family:test-output.txt",
+        "cli_packet_smoke_tcp_oob_family:capture.pcap",
+        "cli_packet_smoke_tcp_oob_family:capture.tshark.json",
+        "cli_packet_smoke_tcp_oob_family:exact_test_executed",
+        "cli_packet_smoke_tcp_oob_family:captured_packets",
+        "cli_packet_smoke_tcp_disoob_family:fixture-manifest.json",
+        "cli_packet_smoke_tcp_disoob_family:fixture-events.json",
+        "cli_packet_smoke_tcp_disoob_family:cli-stderr.log",
+        "cli_packet_smoke_tcp_disoob_family:test-output.txt",
+        "cli_packet_smoke_tcp_disoob_family:capture.pcap",
+        "cli_packet_smoke_tcp_disoob_family:capture.tshark.json",
+        "cli_packet_smoke_tcp_disoob_family:exact_test_executed",
+        "cli_packet_smoke_tcp_disoob_family:captured_packets",
+        "cli_packet_smoke_tcp_transport_knobs_family:fixture-manifest.json",
+        "cli_packet_smoke_tcp_transport_knobs_family:fixture-events.json",
+        "cli_packet_smoke_tcp_transport_knobs_family:cli-stderr.log",
+        "cli_packet_smoke_tcp_transport_knobs_family:test-output.txt",
+        "cli_packet_smoke_tcp_transport_knobs_family:capture.pcap",
+        "cli_packet_smoke_tcp_transport_knobs_family:capture.tshark.json",
+        "cli_packet_smoke_tcp_transport_knobs_family:exact_test_executed",
+        "cli_packet_smoke_tcp_transport_knobs_family:captured_packets",
+        "cli_packet_smoke_udp_quic_family:fixture-manifest.json",
+        "cli_packet_smoke_udp_quic_family:fixture-events.json",
+        "cli_packet_smoke_udp_quic_family:cli-stderr.log",
+        "cli_packet_smoke_udp_quic_family:test-output.txt",
+        "cli_packet_smoke_udp_quic_family:capture.pcap",
+        "cli_packet_smoke_udp_quic_family:capture.tshark.json",
+        "cli_packet_smoke_udp_quic_family:exact_test_executed",
+        "cli_packet_smoke_udp_quic_family:captured_packets",
+        "cli_packet_smoke_adaptive_family:fixture-manifest.json",
+        "cli_packet_smoke_adaptive_family:fixture-events.json",
+        "cli_packet_smoke_adaptive_family:cli-stderr.log",
+        "cli_packet_smoke_adaptive_family:test-output.txt",
+        "cli_packet_smoke_adaptive_family:capture.pcap",
+        "cli_packet_smoke_adaptive_family:capture.tshark.json",
+        "cli_packet_smoke_adaptive_family:host-autolearn.json",
+        "cli_packet_smoke_adaptive_family:exact_test_executed",
+        "cli_packet_smoke_adaptive_family:captured_packets"
+      ]
+    }
+  ]
+}

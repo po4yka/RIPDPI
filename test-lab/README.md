@@ -2,6 +2,13 @@
 
 This lab provides a repeatable local "mock internet" for RIPDPI debug builds. It is intended for Android Emulator runs through `10.0.2.2` and physical-device runs through the MacBook LAN IP. On macOS, `start-lab.sh` runs DNS and UDP echo endpoints as host processes because Docker Desktop UDP port forwarding can receive datagrams without returning replies reliably.
 
+## Strict local acceptance
+
+Use [the acceptance system](acceptance/README.md) for an executable protocol
+catalog, independent peers, real Android TUN cases, Linux routed faults, and
+run-bound JSON/JUnit evidence. The debug probe below remains a smoke tool; its
+connected state and mock-relay handshake are not protocol acceptance.
+
 ## Quick Start
 
 ```bash

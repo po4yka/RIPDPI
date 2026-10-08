@@ -9,14 +9,15 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-VM = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(VM))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import lab_vm
 import pcap
 import router
 import packet_engine
 import run as vm_run
 import cancel
+
+VM = Path(__file__).resolve().parents[1]
 
 
 class InputTests(unittest.TestCase):
