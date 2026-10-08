@@ -19,6 +19,7 @@ containerd:
   user: false
 portForwards:
   - guestPortRange: [1, 65535]
+    guestIP: 0.0.0.0
     proto: any
     ignore: true
 provision:
