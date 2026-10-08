@@ -64,7 +64,7 @@ fn dns_probe_gates_single_fallback_success_as_oracle_unavailable() {
 }
 
 #[test]
-fn dns_probe_marks_retried_udp_timeout_as_transient() {
+fn dns_probe_marks_exhausted_udp_timeout_as_unavailable_without_recovery() {
     let outcome = classify_dns_probe_outcome(
         &Err("Try again (os error 11)".to_string()),
         &Ok(vec!["198.51.100.77".to_string()]),
@@ -76,7 +76,29 @@ fn dns_probe_marks_retried_udp_timeout_as_transient() {
         false,
     );
 
-    assert_eq!(outcome, "udp_timeout_transient");
+    assert_eq!(outcome, "dns_unavailable");
+}
+
+#[test]
+fn dns_probe_timeout_failure_stays_unavailable_across_paths_and_retry_counts() {
+    for path_mode in [ScanPathMode::RawPath, ScanPathMode::InPath] {
+        for error_kind in ["timeout", "would_block"] {
+            for attempt_count in [1, 3] {
+                let outcome = classify_dns_probe_outcome(
+                    &Err("UDP DNS timed out".to_string()),
+                    &Ok(vec!["198.51.100.77".to_string()]),
+                    &path_mode,
+                    "3600",
+                    &BTreeSet::new(),
+                    Some(error_kind),
+                    attempt_count,
+                    false,
+                );
+
+                assert_eq!(outcome, "dns_unavailable");
+            }
+        }
+    }
 }
 
 #[test]

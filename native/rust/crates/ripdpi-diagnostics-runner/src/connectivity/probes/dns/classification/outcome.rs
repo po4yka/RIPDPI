@@ -35,8 +35,9 @@ pub(super) fn classify_dns_probe_outcome(
         },
         (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
         (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
-        (Err(_), Ok(_)) if is_transient_udp_timeout_evidence(udp_error_kind, udp_attempt_count) => {
-            "udp_timeout_transient".to_string()
+        (Err(_), Ok(_)) if is_udp_timeout_evidence(udp_error_kind, udp_attempt_count) => {
+            // Failed attempts do not prove recovery or provider interference.
+            "dns_unavailable".to_string()
         }
         (Err(_), Ok(_)) => {
             if matches!(path_mode, ScanPathMode::InPath) {
@@ -49,6 +50,6 @@ pub(super) fn classify_dns_probe_outcome(
     }
 }
 
-fn is_transient_udp_timeout_evidence(udp_error_kind: Option<&str>, udp_attempt_count: usize) -> bool {
-    matches!(udp_error_kind, Some("timeout" | "would_block")) && udp_attempt_count > 1
+fn is_udp_timeout_evidence(udp_error_kind: Option<&str>, udp_attempt_count: usize) -> bool {
+    matches!(udp_error_kind, Some("timeout" | "would_block")) && udp_attempt_count > 0
 }
