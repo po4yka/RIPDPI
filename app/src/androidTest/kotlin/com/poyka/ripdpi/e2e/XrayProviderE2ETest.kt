@@ -154,6 +154,8 @@ class XrayProviderE2ETest {
     private var previousProfile: XrayProfile? = null
     private lateinit var manifest: JSONObject
     private var controlPort = 0
+    private var fixtureHost = "10.0.2.2"
+    private var controlHost = "10.0.2.2"
     private var failureJob: Job? = null
 
     @Volatile private var lastFailure: String? = null
@@ -165,6 +167,8 @@ class XrayProviderE2ETest {
         assumeTrue("Requires independent owned Xray fixture", configuredPort != null)
         check(isLikelyEmulator()) { "This acceptance lane only targets the owned emulator" }
         controlPort = requireNotNull(configuredPort).toInt().also { require(it in 1..65_535) }
+        fixtureHost = InstrumentationRegistry.getArguments().getString("ripdpi.xrayFixtureHost") ?: "10.0.2.2"
+        controlHost = InstrumentationRegistry.getArguments().getString("ripdpi.xrayControlHost") ?: fixtureHost
         hilt.inject()
         diagnostics = DiagnosticsXrayProviderController(diagnosticsScope, state, providerProbes)
         failureJob =
@@ -205,14 +209,14 @@ class XrayProviderE2ETest {
                 // Same test-only HTTP DoH pattern as applyFixtureEncryptedDns.
                 setDnsMode(DnsModeEncrypted)
                 setDnsProviderId(DnsProviderCustom)
-                setDnsIp("10.0.2.2")
+                setDnsIp(fixtureHost)
                 setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
-                setEncryptedDnsHost("10.0.2.2")
+                setEncryptedDnsHost(fixtureHost)
                 setEncryptedDnsPort(dnsHttpPort)
-                setEncryptedDnsTlsServerName("10.0.2.2")
+                setEncryptedDnsTlsServerName(fixtureHost)
                 clearEncryptedDnsBootstrapIps()
-                addEncryptedDnsBootstrapIps("10.0.2.2")
-                setEncryptedDnsDohUrl("http://10.0.2.2:$dnsHttpPort/dns-query")
+                addEncryptedDnsBootstrapIps(fixtureHost)
+                setEncryptedDnsDohUrl("http://$fixtureHost:$dnsHttpPort/dns-query")
                 setEncryptedDnsDnscryptProviderName("")
                 setEncryptedDnsDnscryptPublicKey("")
                 setEncryptedDnsTlsRootsPem("")
@@ -350,7 +354,7 @@ class XrayProviderE2ETest {
                     ProfileUtilityReference
                         .Xray(id)
                 val link =
-                    "vless://${manifest.getString("uuid")}@10.0.2.2:${manifest.getInt("xhttpPort")}" +
+                    "vless://${manifest.getString("uuid")}@$fixtureHost:${manifest.getInt("xhttpPort")}" +
                         "?type=xhttp&security=reality&sni=fixture.test&pbk=${manifest.getString("publicKey")}" +
                         "&sid=ab12&fp=chrome&path=%2Fowned-xhttp&mode=auto"
                 val parsed = XrayImportParser().parse(link, XrayProviderBuildInfo.upstreamTag)
@@ -489,6 +493,35 @@ class XrayProviderE2ETest {
         }
     }
 
+    @Test
+    fun peerLossAndRecoveryPreservesTunAndRejectsDirectBypass() {
+        for (network in listOf("tcp", "xhttp")) {
+            assertDirectSentinelReachable("before-$network")
+            start(network, wrongIdentity = false)
+            awaitOwnedPeerEcho(network)
+            val restartCount = state.telemetry.value.restartCount
+            readControl("peer/stop", "POST")
+            try {
+                val before = readControl("receipts").getInt("count")
+                val directBefore = readControl("direct-receipts").getInt("count")
+                assertTrue("Stopped peer must reject the payload", exchange("peer-stopped").response.isNullOrEmpty())
+                val direct = exchange("peer-stopped-direct", fixtureHost, manifest.getInt("directPort"))
+                assertTrue("Peer loss must not enable a direct bypass", direct.response.isNullOrEmpty())
+                assertEquals(before, readControl("receipts").getInt("count"))
+                assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+            } finally {
+                readControl("peer/start", "POST")
+            }
+            awaitOwnedPeerEcho(network)
+            assertOwnedDnsThroughProvider()
+            assertEquals(restartCount, state.telemetry.value.restartCount)
+            assertEquals(AppStatus.Running, state.status.value.first)
+            runBlocking { controller.stop() }
+            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+            assertDirectSentinelReachable("after-$network")
+        }
+    }
+
     private fun assertLiveDiagnosticsAction() {
         assertNull("Diagnostics must not run automatically", diagnostics.probeReport.value)
         InstrumentationRegistry.getInstrumentation().runOnMainSync { diagnostics.runProbe() }
@@ -543,7 +576,7 @@ class XrayProviderE2ETest {
             // TUN may acknowledge TCP before upstream authentication; no application data may return.
             assertTrue(exchange("wrong-identity").response.isNullOrEmpty())
             val telemetryBeforeDirect = state.telemetry.value
-            val direct = exchange("wrong-identity-direct", "10.0.2.2", manifest.getInt("directPort"))
+            val direct = exchange("wrong-identity-direct", fixtureHost, manifest.getInt("directPort"))
             val directAttribution =
                 probeAttribution(
                     label = "wrong-identity-direct",
@@ -622,7 +655,7 @@ class XrayProviderE2ETest {
     private fun assertDirectSentinelReachable(label: String): Int {
         val before = readControl("direct-receipts").getInt("count")
         val telemetryBeforeDirect = state.telemetry.value
-        val response = exchange(label, "10.0.2.2", manifest.getInt("directPort"))
+        val response = exchange(label, fixtureHost, manifest.getInt("directPort"))
         val baselineAttribution =
             probeAttribution(
                 label = label,
@@ -654,7 +687,7 @@ class XrayProviderE2ETest {
         val identity = if (wrongIdentity) "00000000-0000-4000-8000-000000000001" else manifest.getString("uuid")
         val port = manifest.getInt(if (network == "tcp") "tcpPort" else "xhttpPort")
         val link =
-            "vless://$identity@10.0.2.2:$port?type=$network&security=reality" +
+            "vless://$identity@$fixtureHost:$port?type=$network&security=reality" +
                 "&sni=fixture.test&pbk=${manifest.getString("publicKey")}&sid=ab12&fp=chrome" +
                 if (network == "xhttp") "&path=%2Fowned-xhttp&mode=auto" else "&flow=xtls-rprx-vision"
         val accepted = XrayImportParser().parse(link, XrayProviderBuildInfo.upstreamTag)
@@ -718,9 +751,13 @@ class XrayProviderE2ETest {
         return requireNotNull(latest)
     }
 
-    private fun readControl(path: String): JSONObject {
-        val connection = URI("http://10.0.2.2:$controlPort/$path").toURL().openConnection() as HttpURLConnection
+    private fun readControl(
+        path: String,
+        method: String = "GET",
+    ): JSONObject {
+        val connection = URI("http://$controlHost:$controlPort/$path").toURL().openConnection() as HttpURLConnection
         return try {
+            connection.requestMethod = method
             connection.connectTimeout = 3_000
             connection.readTimeout = 3_000
             connection.instanceFollowRedirects = false

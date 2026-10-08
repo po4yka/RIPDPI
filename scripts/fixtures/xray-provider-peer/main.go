@@ -19,8 +19,10 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -37,6 +39,8 @@ const destination = "192.0.2.77:80"
 const ownedDNSName = "owned.test."
 
 type peerManifest struct {
+	Version     string `json:"version"`
+	RunID       string `json:"runId"`
 	TCPPort     int    `json:"tcpPort"`
 	XHTTPPort   int    `json:"xhttpPort"`
 	DirectPort  int    `json:"directPort"`
@@ -54,13 +58,41 @@ type peer struct {
 	dnsLastQuery atomic.Value
 	requests     requestReceipts
 	closers      []io.Closer
+	options      peerOptions
+	instanceMu   sync.Mutex
+	instance     *core.Instance
+	config       any
+}
+
+type peerOptions struct {
+	BindHost      string
+	AdvertiseHost string
+	RunID         string
+}
+
+func validateLocalHost(host string) error {
+	address, err := netip.ParseAddr(host)
+	if err != nil || !address.Is4() || (!address.IsPrivate() && !address.IsLoopback()) {
+		return fmt.Errorf("expected a numeric loopback or private IPv4 address")
+	}
+	return nil
 }
 
 func startPeer(ctx context.Context) (*peer, error) {
+	return startPeerWithOptions(ctx, peerOptions{BindHost: "127.0.0.1", AdvertiseHost: "10.0.2.2"})
+}
+
+func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, error) {
+	if err := validateLocalHost(options.BindHost); err != nil {
+		return nil, err
+	}
+	if err := validateLocalHost(options.AdvertiseHost); err != nil {
+		return nil, err
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	p := &peer{requests: requestReceipts{startedAt: time.Now()}}
+	p := &peer{requests: requestReceipts{startedAt: time.Now()}, options: options}
 	ready := false
 	defer func() {
 		if !ready {
@@ -101,7 +133,7 @@ func startPeer(ctx context.Context) (*peer, error) {
 	}
 	p.closers = append(p.closers, echo)
 	go func() { _ = echo.Serve(echoListener) }()
-	directListener, err := net.Listen("tcp4", "127.0.0.1:0")
+	directListener, err := net.Listen("tcp4", net.JoinHostPort(options.BindHost, "0"))
 	if err != nil {
 		return nil, err
 	}
@@ -127,17 +159,19 @@ func startPeer(ctx context.Context) (*peer, error) {
 		return nil, err
 	}
 	// Hold both reservations simultaneously; never derive an adjacent port.
-	tcp, err := net.Listen("tcp4", "127.0.0.1:0")
+	tcp, err := net.Listen("tcp4", net.JoinHostPort(options.BindHost, "0"))
 	if err != nil {
 		return nil, err
 	}
 	defer tcp.Close()
-	xhttp, err := net.Listen("tcp4", "127.0.0.1:0")
+	xhttp, err := net.Listen("tcp4", net.JoinHostPort(options.BindHost, "0"))
 	if err != nil {
 		return nil, err
 	}
 	defer xhttp.Close()
 	p.manifest = peerManifest{
+		Version:     core.Version(),
+		RunID:       options.RunID,
 		TCPPort:     tcp.Addr().(*net.TCPAddr).Port,
 		XHTTPPort:   xhttp.Addr().(*net.TCPAddr).Port,
 		DirectPort:  directListener.Addr().(*net.TCPAddr).Port,
@@ -153,7 +187,7 @@ func startPeer(ctx context.Context) (*peer, error) {
 			port, flow = p.manifest.XHTTPPort, ""
 		}
 		inbounds = append(inbounds, map[string]any{
-			"tag": network, "listen": "127.0.0.1", "port": port, "protocol": "vless",
+			"tag": network, "listen": options.BindHost, "port": port, "protocol": "vless",
 			"settings": map[string]any{"decryption": "none", "clients": []any{map[string]any{"id": peerID, "flow": flow}}},
 			"streamSettings": map[string]any{
 				"network": network, "security": "reality",
@@ -177,7 +211,7 @@ func startPeer(ctx context.Context) (*peer, error) {
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 			// Host tests and the emulator alias reach only this owned HTTP port.
-			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"127.0.0.1/32", "10.0.2.2/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
 		}},
 	}
 	_ = tcp.Close()
@@ -186,7 +220,8 @@ func startPeer(ctx context.Context) (*peer, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.closers = append(p.closers, instance)
+	p.instance = instance
+	p.config = config
 	if err := awaitRealityMetadata(ctx, decoyListener.Addr().String()); err != nil {
 		return nil, err
 	}
@@ -311,7 +346,30 @@ func decoyCertificate() (tls.Certificate, error) {
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: private}, nil
 }
 
+func (p *peer) setRunning(running bool) error {
+	p.instanceMu.Lock()
+	defer p.instanceMu.Unlock()
+	if !running {
+		if p.instance != nil {
+			err := p.instance.Close()
+			p.instance = nil
+			return err
+		}
+		return nil
+	}
+	if p.instance != nil {
+		return nil
+	}
+	instance, err := startInstance(p.config)
+	if err != nil {
+		return err
+	}
+	p.instance = instance
+	return nil
+}
+
 func (p *peer) close() {
+	_ = p.setRunning(false)
 	for i := len(p.closers) - 1; i >= 0; i-- {
 		_ = p.closers[i].Close()
 	}
@@ -319,6 +377,15 @@ func (p *peer) close() {
 
 func (p *peer) controlHandler() http.Handler {
 	mux := http.NewServeMux()
+	for path, running := range map[string]bool{"/peer/start": true, "/peer/stop": false} {
+		mux.HandleFunc("POST "+path, func(w http.ResponseWriter, _ *http.Request) {
+			if err := p.setRunning(running); err != nil {
+				http.Error(w, "peer transition failed", http.StatusInternalServerError)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]bool{"running": running})
+		})
+	}
 	mux.HandleFunc("GET /manifest", func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode(p.manifest) })
 	mux.HandleFunc("GET /receipts", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]int64{"count": p.count.Load()})
@@ -336,9 +403,39 @@ func (p *peer) controlHandler() http.Handler {
 	return mux
 }
 
+// Published data and management ports share the VM ingress address even when
+// their listeners bind separate namespace addresses.
+func (p *peer) listenControl(host string, port int) (net.Listener, error) {
+	for attempt := 0; attempt < 16; attempt++ {
+		listener, err := net.Listen("tcp4", net.JoinHostPort(host, fmt.Sprint(port)))
+		if err != nil {
+			return nil, err
+		}
+		selected := listener.Addr().(*net.TCPAddr).Port
+		if selected != p.manifest.TCPPort && selected != p.manifest.XHTTPPort &&
+			selected != p.manifest.DirectPort && selected != p.manifest.DNSHTTPPort {
+			return listener, nil
+		}
+		_ = listener.Close()
+		if port != 0 {
+			return nil, fmt.Errorf("control port overlaps a published data port")
+		}
+	}
+	return nil, fmt.Errorf("no distinct control port available")
+}
+
 func main() {
 	readyFile := flag.String("ready-file", "", "Exclusive path for the public readiness manifest")
+	bindHost := flag.String("bind-host", "127.0.0.1", "Private IPv4 address for data listeners")
+	advertiseHost := flag.String("advertise-host", "10.0.2.2", "Private IPv4 address used by the Android client")
+	controlHost := flag.String("control-host", "127.0.0.1", "Private IPv4 address on the separate management path")
+	controlPort := flag.Int("control-port", 0, "Management port; zero allocates a port")
+	runID := flag.String("run-id", "", "Acceptance run identity")
 	flag.Parse()
+	if validateLocalHost(*controlHost) != nil || *controlPort < 0 || *controlPort > 65535 {
+		fmt.Fprintln(os.Stderr, "invalid management address or port")
+		os.Exit(2)
+	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	output := os.Stdout
@@ -351,13 +448,13 @@ func main() {
 		}
 		defer output.Close()
 	}
-	p, err := startPeer(ctx)
+	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "owned Xray peer startup failed")
 		os.Exit(1)
 	}
 	defer p.close()
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	listener, err := p.listenControl(*controlHost, *controlPort)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "owned control listener failed")
 		os.Exit(1)

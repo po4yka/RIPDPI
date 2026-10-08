@@ -583,3 +583,77 @@ func parseDNSAnswer(payload []byte, name string) (net.IP, error) {
 	}
 	return nil, fmt.Errorf("missing A answer for %s", name)
 }
+
+func TestPeerStopStartPreservesIdentityAndManagement(t *testing.T) {
+	p, err := startPeer(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.close()
+	before := p.manifest
+	control := httptest.NewServer(p.controlHandler())
+	defer control.Close()
+	client := &http.Client{Timeout: 3 * time.Second}
+	for _, action := range []string{"stop", "start"} {
+		response, err := client.Post(control.URL+"/peer/"+action, "application/json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("transition failed: %d", response.StatusCode)
+		}
+		connection, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", p.manifest.TCPPort), time.Second)
+		if action == "stop" && err == nil {
+			connection.Close()
+			t.Fatal("stopped peer still accepts TCP")
+		}
+		if action == "start" && err != nil {
+			t.Fatalf("restarted peer unavailable: %v", err)
+		}
+		if connection != nil {
+			connection.Close()
+		}
+		if p.manifest != before {
+			t.Fatal("restart changed public peer identity")
+		}
+		if action == "start" {
+			for _, network := range []string{"tcp", "xhttp"} {
+				reply, err := p.exchange(network, false, destination)
+				if err != nil || !strings.Contains(reply, "xray-owned-echo") {
+					t.Fatalf("%s did not recover after restart: %v", network, err)
+				}
+			}
+		}
+	}
+}
+
+func TestPeerRejectsPublicAndWildcardBindAddresses(t *testing.T) {
+	for _, host := range []string{"0.0.0.0", "8.8.8.8", "example.com", "::", "::1"} {
+		if validateLocalHost(host) == nil {
+			t.Fatalf("accepted non-local address %s", host)
+		}
+	}
+	for _, host := range []string{"127.0.0.1", "10.203.1.6", "192.168.105.2"} {
+		if err := validateLocalHost(host); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestControlPortIsDistinctFromPublishedDataPorts(t *testing.T) {
+	p, err := startPeer(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.close()
+	listener, err := p.listenControl("127.0.0.1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	port := listener.Addr().(*net.TCPAddr).Port
+	if port == p.manifest.TCPPort || port == p.manifest.XHTTPPort || port == p.manifest.DirectPort || port == p.manifest.DNSHTTPPort {
+		t.Fatal("control listener overlaps the data plane")
+	}
+}
