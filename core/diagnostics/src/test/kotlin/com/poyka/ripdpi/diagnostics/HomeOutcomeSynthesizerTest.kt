@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class HomeOutcomeSynthesizerTest {
@@ -42,5 +43,22 @@ class HomeOutcomeSynthesizerTest {
         val (headline) = synthesizeActionableSummary(outcome)
 
         assertEquals("Applied 2 bypass settings.", headline)
+    }
+
+    @Test
+    fun `possible proxy and unavailable DoH summaries do not assert detection`() {
+        val classes = listOf(HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY, HomeDnsResolverClass.DOH_UNREACHABLE)
+        classes.forEach { resolverClass ->
+            val outcome =
+                DiagnosticsHomeCompositeOutcome(
+                    runId = "dns-uncertain",
+                    actionable = false,
+                    headline = "Analysis",
+                    summary = "DNS observations",
+                    dnsCharacterization = HomeDnsCharacterization(resolverClass = resolverClass),
+                )
+            val (_, steps) = synthesizeActionableSummary(outcome)
+            assertFalse(steps.any { "detected" in it || "hijacked" in it })
+        }
     }
 }

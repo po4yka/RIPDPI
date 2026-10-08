@@ -6,12 +6,12 @@ import org.junit.Test
 
 class BlockLayerDiagnosisMapperTest {
     @Test
-    fun `dns failure maps to encrypted dns`() {
+    fun `dns failure does not establish poisoning`() {
         val diagnosis = BlockLayerDiagnosisMapper.fromDpiError(DpiProbeError.DnsFail)
 
-        assertEquals(BlockLayer.DNS_POISONING, diagnosis?.layer)
+        assertEquals(BlockLayer.UNKNOWN, diagnosis?.layer)
         assertEquals(BypassStrategyClass.ENCRYPTED_DNS, diagnosis?.bypassClass)
-        assertEquals(EvidenceConfidence.HIGH, diagnosis?.confidence)
+        assertEquals(EvidenceConfidence.LOW, diagnosis?.confidence)
     }
 
     @Test

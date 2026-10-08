@@ -14,7 +14,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.Socket
@@ -168,45 +167,7 @@ class DefaultHomeAnalysisAugmentationSource
                         val canarySystemIps = resolveSystem(DnsCanaryHost)
                         val dohControlIps = resolveDoh(DnsControlHost)
                         val dohCanaryIps = resolveDoh(DnsCanaryHost)
-                        val notes = mutableListOf<String>()
-                        val poisoned = mutableListOf<String>()
-                        val resolverClass =
-                            when {
-                                dohControlIps == null -> {
-                                    notes += "DoH endpoint $DohEndpoint unreachable"
-                                    HomeDnsResolverClass.DOH_UNREACHABLE
-                                }
-
-                                systemIps.isEmpty() -> {
-                                    HomeDnsResolverClass.UNKNOWN
-                                }
-
-                                differingIpSets(systemIps, dohControlIps) -> {
-                                    notes += "$DnsControlHost: system vs DoH disagree"
-                                    poisoned += DnsControlHost
-                                    if (dohCanaryIps != null && differingIpSets(canarySystemIps, dohCanaryIps)) {
-                                        poisoned += DnsCanaryHost
-                                    }
-                                    HomeDnsResolverClass.POSSIBLE_POISONING
-                                }
-
-                                dohCanaryIps != null && differingIpSets(canarySystemIps, dohCanaryIps) -> {
-                                    notes += "$DnsCanaryHost differs vs DoH ground truth"
-                                    poisoned += DnsCanaryHost
-                                    HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY
-                                }
-
-                                else -> {
-                                    HomeDnsResolverClass.SYSTEM_RESOLVER_OK
-                                }
-                            }
-                        HomeDnsCharacterization(
-                            resolverClass = resolverClass,
-                            systemResolver = systemIps.firstOrNull(),
-                            dohEndpoint = DohEndpoint,
-                            poisonedHosts = poisoned.distinct(),
-                            notes = notes,
-                        )
+                        characterizeHomeDns(systemIps, canarySystemIps, dohControlIps, dohCanaryIps)
                     }.getOrNull()
                 }
             }
@@ -294,15 +255,6 @@ class DefaultHomeAnalysisAugmentationSource
                 val ok = loadJob.await()
                 result to ok
             }
-
-        private fun differingIpSets(
-            a: List<String>,
-            b: List<String>,
-        ): Boolean {
-            val aV4 = a.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
-            val bV4 = b.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
-            return aV4.isNotEmpty() && bV4.isNotEmpty() && (aV4 intersect bV4).isEmpty()
-        }
     }
 
 internal fun homeNetworkIdentitySignal(
