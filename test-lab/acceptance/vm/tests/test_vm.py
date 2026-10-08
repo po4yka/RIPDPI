@@ -21,6 +21,12 @@ VM = Path(__file__).resolve().parents[1]
 
 
 class InputTests(unittest.TestCase):
+    def test_vm_template_disables_auto_forward_on_all_guest_addresses(self):
+        template = (VM.parents[1]/'lima/ripdpi-acceptance.yaml').read_text()
+        rule = template.split('portForwards:', 1)[1].split('provision:', 1)[0]
+        for expected in ('guestIP: 0.0.0.0', 'guestIPMustBeZero: false', 'proto: any', 'ignore: true'):
+            self.assertIn(expected, rule)
+
     def test_names_are_run_owned_and_interface_names_fit_linux(self):
         a = router.identity('request-a')
         b = router.identity('request-b')
