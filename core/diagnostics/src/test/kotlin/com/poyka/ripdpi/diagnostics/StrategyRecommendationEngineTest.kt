@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StrategyRecommendationEngineTest {
@@ -59,7 +60,7 @@ class StrategyRecommendationEngineTest {
     }
 
     @Test
-    fun `confirm good verdict recommends transport pivot instead of fingerprint tuning`() {
+    fun `confirm good verdict recommends a transport trial without causal certainty`() {
         val report =
             strategyReport(emptyList()).copy(
                 confirmGoodDpiVerdict =
@@ -82,7 +83,9 @@ class StrategyRecommendationEngineTest {
 
         assertNotNull(recommendation)
         assertEquals("udp_quic", recommendation?.recommendedFamily)
-        assertEquals(StrategyRecommendationConfidence.HIGH, recommendation?.confidence)
+        assertEquals(StrategyRecommendationConfidence.MEDIUM, recommendation?.confidence)
+        assertEquals("unknown", recommendation?.blockingPattern)
+        assertTrue(recommendation!!.rationale.contains("QUIC Initial"))
     }
 
     private fun strategyReport(results: List<ProbeResult>): ScanReport =

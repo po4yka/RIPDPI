@@ -4089,12 +4089,12 @@ Quelle: %2$s</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
-    <string name="diagnostics_confirm_good_dpi_summary">Mögliche Confirm-Good-DPI: Reality-Handshakes waren erfolgreich, aber nutzbare Daten kamen nicht an.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Reality-Handshakes waren erfolgreich, aber Nutzdaten kamen nicht an. Die Ursache ist ungeklärt.</string>
     <string name="diagnostics_connection_concurrency_summary">Bewertung von TLS-Fingerabdruck und gleichzeitigen Verbindungen zur selben Website</string>
     <string name="diagnostics_connection_concurrency_recommendation">Das gelernte Browserprofil und das sichere Verbindungslimit gelten ab dem nächsten Dienststart. Browser-TLS kann diese Steuerung im Proxy-Modus umgehen.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Zwei verschiedene Reality-Verbindungen blieben nach dem Handshake stehen.</string>
-    <string name="diagnostics_confirm_good_dpi_evidence_quic">Eine QUIC-Kontrollprüfung im selben Netzwerk war erfolgreich.</string>
-    <string name="diagnostics_confirm_good_dpi_recommendation">Verwende einen getesteten UDP/QUIC-Relay. Eine andere TLS-Signatur hilft wahrscheinlich nicht.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">Ein QUIC-Initial-Test erhielt im selben Netzwerk eine Antwort; das bestätigt nicht den Anwendungspfad.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Versuchen Sie ein getestetes UDP/QUIC-Relay und prüfen Sie dann die Anwendungsdaten.</string>
     <string name="subscription_signal_notification_channel">Abonnementstatus</string>
     <string name="subscription_signal_notification_title">Abonnement erfordert Aufmerksamkeit</string>
     <string name="subscription_signal_notification_expired">%1$s ist abgelaufen. Gespeicherte Relays könnten veraltet sein.</string>

@@ -4094,12 +4094,12 @@ fakeddisorder endhost</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
-    <string name="diagnostics_confirm_good_dpi_summary">احتمال DPI از نوع confirm-good: دست‌دهی‌های Reality موفق بودند، اما دادهٔ قابل استفاده دریافت نشد.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">دست‌دهی Reality موفق بود، اما دادهٔ قابل استفاده نرسید. علت مشخص نیست.</string>
     <string name="diagnostics_connection_concurrency_summary">ارزیابی اثر انگشت TLS و اتصال‌های هم‌زمان به یک سایت</string>
     <string name="diagnostics_connection_concurrency_recommendation">نمایهٔ مرورگر آموخته‌شده و سقف امن در شروع بعدی سرویس اعمال می‌شوند. TLS مرورگر در حالت پراکسی ممکن است این کنترل را دور بزند.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">دو جریان متفاوت Reality پس از دست‌دهی متوقف شدند.</string>
-    <string name="diagnostics_confirm_good_dpi_evidence_quic">آزمون QUIC در همان شبکه موفق بود.</string>
-    <string name="diagnostics_confirm_good_dpi_recommendation">از یک رلهٔ آزموده‌شدهٔ UDP/QUIC استفاده کنید. تغییر اثرانگشت TLS احتمالاً کمکی نمی‌کند.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">آزمون QUIC Initial در همان شبکه پاسخ گرفت؛ این مسیر برنامه را تأیید نمی‌کند.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">یک رلهٔ UDP/QUIC آزمایش‌شده را امتحان کنید، سپس دادهٔ برنامه را بررسی کنید.</string>
     <string name="subscription_signal_notification_channel">وضعیت اشتراک</string>
     <string name="subscription_signal_notification_title">اشتراک نیاز به بررسی دارد</string>
     <string name="subscription_signal_notification_expired">اعتبار %1$s تمام شده است. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</string>

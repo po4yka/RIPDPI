@@ -7,7 +7,7 @@ pub(crate) fn classify_quic_diagnoses(results: &[ProbeResult], sink: &mut Diagno
         if !matches!(result.outcome.as_str(), "quic_initial_response" | "quic_response") {
             sink.push(Diagnosis {
                 code: "quic_blocked".to_string(),
-                summary: format!("QUIC appears blocked or degraded for {}", result.target),
+                summary: format!("QUIC Initial probe did not receive a valid response from {}", result.target),
                 severity: "warning".to_string(),
                 target: Some(result.target.clone()),
                 evidence: diagnosis_evidence(result, &["status", "error", "latencyMs"]),

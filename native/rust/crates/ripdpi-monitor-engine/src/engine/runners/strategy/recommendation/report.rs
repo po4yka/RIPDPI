@@ -62,7 +62,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
             quic_candidate_label: quic_w.label.clone(),
             quic_candidate_layout_family: quic_w.quic_layout_family.clone(),
             rationale: if confirm_good_corroborated {
-                "Reality application data stalled after successful handshakes; QUIC succeeded, so pivot transport family"
+                "Reality application data stalled after successful handshakes; a QUIC Initial response supports testing another transport family"
                     .to_string()
             } else {
                 format!(

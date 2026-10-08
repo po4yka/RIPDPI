@@ -18,7 +18,7 @@ fn classify_service_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if is_http_failure(bootstrap_status) {
         sink.push(Diagnosis {
             code: "service_bootstrap_blocked".to_string(),
-            summary: format!("{service_name} bootstrap endpoint is blocked"),
+            summary: format!("{service_name} bootstrap request failed"),
             severity: "negative".to_string(),
             target: Some(service_name.clone()),
             evidence: diagnosis_evidence(result, &["bootstrapStatus", "bootstrapDetail", "gatewayStatus"]),
@@ -29,7 +29,7 @@ fn classify_service_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if is_http_failure(media_status) {
         sink.push(Diagnosis {
             code: "service_media_blocked".to_string(),
-            summary: format!("{service_name} media endpoint is blocked or throttled"),
+            summary: format!("{service_name} media request failed"),
             severity: "negative".to_string(),
             target: Some(service_name.clone()),
             evidence: diagnosis_evidence(result, &["mediaStatus", "mediaDetail"]),
@@ -40,7 +40,7 @@ fn classify_service_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if is_quic_failure(quic_status) {
         sink.push(Diagnosis {
             code: "quic_blocked".to_string(),
-            summary: format!("QUIC appears blocked or degraded for {service_name}"),
+            summary: format!("QUIC Initial probe did not receive a valid response from {service_name}"),
             severity: "warning".to_string(),
             target: Some(service_name),
             evidence: diagnosis_evidence(result, &["quicStatus", "quicError"]),

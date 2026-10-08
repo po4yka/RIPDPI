@@ -4,7 +4,9 @@ use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
 pub(crate) fn classify_throughput_diagnosis(results: &[ProbeResult], sink: &mut DiagnosisSink) {
-    let throughput_results = results.iter().filter(|result| result.probe_type == "throughput_window");
+    let throughput_results = results
+        .iter()
+        .filter(|result| result.probe_type == "throughput_window" && result.outcome == "throughput_measured");
     let mut control_medians = Vec::<u64>::new();
     let mut suspicious = Vec::<(&ProbeResult, u64)>::new();
 

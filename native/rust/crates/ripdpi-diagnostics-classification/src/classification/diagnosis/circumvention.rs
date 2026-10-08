@@ -17,7 +17,7 @@ fn classify_circumvention_result(result: &ProbeResult, sink: &mut DiagnosisSink)
     if is_http_failure(bootstrap_status) {
         sink.push(Diagnosis {
             code: "circumvention_bootstrap_blocked".to_string(),
-            summary: format!("{tool_name} bootstrap endpoint is blocked"),
+            summary: format!("{tool_name} bootstrap request failed"),
             severity: "negative".to_string(),
             target: Some(tool_name.clone()),
             evidence: diagnosis_evidence(result, &["bootstrapStatus", "bootstrapDetail"]),
@@ -28,7 +28,7 @@ fn classify_circumvention_result(result: &ProbeResult, sink: &mut DiagnosisSink)
     if is_tls_failure(handshake_status) {
         sink.push(Diagnosis {
             code: "circumvention_handshake_blocked".to_string(),
-            summary: format!("{tool_name} handshake endpoint is blocked"),
+            summary: format!("{tool_name} handshake failed"),
             severity: "negative".to_string(),
             target: Some(tool_name),
             evidence: diagnosis_evidence(result, &["handshakeStatus", "handshakeError"]),

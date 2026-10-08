@@ -384,6 +384,52 @@ mod tests {
         }
     }
 
+    #[test]
+    fn confirm_good_report_does_not_treat_quic_as_matched_application_control() {
+        let mut request = scan_request(ScanKind::StrategyProbe, vec![], None);
+        request.confirm_good_dpi_evidence = Some(ConfirmGoodDpiEvidence {
+            source: ConfirmGoodDpiEvidenceSource::Active,
+            stalled_flow_count: 2,
+            distinct_target_count: 2,
+            catalog_profile_validated: true,
+            reality_handshake_confirmed: true,
+            application_response_bytes: 0,
+            quic_control_succeeded: false,
+        });
+        let strategy_report: crate::types::StrategyProbeReport = serde_json::from_value(serde_json::json!({
+            "suiteId": "test",
+            "tcpCandidates": [],
+            "quicCandidates": [],
+            "recommendation": {
+                "tcpCandidateId": "baseline",
+                "tcpCandidateLabel": "Baseline",
+                "quicCandidateId": "baseline",
+                "quicCandidateLabel": "Baseline",
+                "rationale": "QUIC response observed",
+                "recommendedProxyConfigJson": "{}",
+                "transportPivot": {
+                    "reasonCode": "confirm_good_dpi_suspected",
+                    "preferredFamily": "UDP_QUIC",
+                    "viability": "CONFIRMED"
+                }
+            }
+        }))
+        .unwrap();
+        let report = build_report(
+            ReportBuildContext { session_id: "test".into(), request, started_at: 0, execution_plan: None },
+            "test".into(),
+            vec![],
+            vec![],
+            Some(strategy_report),
+            None,
+        );
+        let diagnosis = report.diagnoses.iter().find(|value| value.code == "confirm_good_dpi_suspected").unwrap();
+        assert_eq!(diagnosis.control_validated, None);
+        assert!(diagnosis.summary.contains("QUIC Initial"));
+        assert!(!diagnosis.recommendation.as_deref().unwrap().contains("fingerprints"));
+        assert!(report.confirm_good_dpi_verdict.unwrap().evidence.quic_control_succeeded);
+    }
+
     fn scan_request(
         kind: ScanKind,
         probe_tasks: Vec<crate::types::ProbeTask>,

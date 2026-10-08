@@ -45,24 +45,30 @@ fn classify_dns_tampering_result(
 
 fn push_dns_tampering(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<String>, sink: &mut DiagnosisSink) {
     let injection_suspected = failure_detail_value(result, "dnsInjectionSuspected") == Some("true");
-    let (mechanism, summary) = if result.outcome == "dns_nxdomain_mismatch" {
+    let (observation_kind, summary) = if result.outcome == "dns_nxdomain_mismatch" {
         (
-            "record_deletion",
+            "nxdomain_difference",
+            format!("UDP DNS returned NXDOMAIN for {} while encrypted DNS returned addresses", result.target),
+        )
+    } else if injection_suspected {
+        (
+            "unusual_timing_answer_difference",
             format!(
-                "DNS records for {} deleted (NXDOMAIN) while encrypted resolver returns valid addresses",
+                "UDP and encrypted DNS answers for {} differed; response timing was marked as unusual",
                 result.target
             ),
         )
-    } else if injection_suspected {
-        ("injection", format!("DNS response for {} injected in under 5ms with substituted answers", result.target))
     } else {
-        ("substitution", format!("DNS answers for {} were substituted", result.target))
+        (
+            "answer_difference",
+            format!("DNS answers for {} differed from the expected or encrypted DNS answers", result.target),
+        )
     };
     let mut evidence = diagnosis_evidence(
         result,
         &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs", "expected"],
     );
-    evidence.push(format!("mechanism={mechanism}"));
+    evidence.push(format!("observation={observation_kind}"));
     sink.push(Diagnosis {
         code: "dns_tampering".to_string(),
         summary,
@@ -108,7 +114,7 @@ fn push_dns_injection(result: &ProbeResult, sink: &mut DiagnosisSink) {
     sink.push(Diagnosis {
         code: "dns_injection_suspected".to_string(),
         summary: format!(
-            "DNS response for {} arrived in under 5ms with substituted answers, suggesting in-path injection",
+            "UDP and encrypted DNS answers for {} differed; response timing was marked as unusual",
             result.target
         ),
         severity: "negative".to_string(),
@@ -135,7 +141,7 @@ fn push_dns_response_anomaly(result: &ProbeResult, sink: &mut DiagnosisSink) {
     sink.push(Diagnosis {
         code: "dns_response_anomaly".to_string(),
         summary: format!(
-            "DNS response for {} shows protocol-level forgery indicators (score {score}): {signals}",
+            "DNS response for {} shows protocol-level anomalies (score {score}): {signals}",
             result.target
         ),
         severity: "warning".to_string(),
@@ -153,7 +159,9 @@ fn push_dns_response_anomaly(result: &ProbeResult, sink: &mut DiagnosisSink) {
                 "udpMaxTtl",
             ],
         ),
-        recommendation: Some("Enable encrypted DNS to bypass forged responses".to_string()),
+        recommendation: Some(
+            "Compare UDP and encrypted DNS results; anomalies alone do not identify their cause".to_string(),
+        ),
         control_validated: None,
     });
 }
@@ -166,11 +174,11 @@ fn push_dns_cname_redirect(result: &ProbeResult, sink: &mut DiagnosisSink) {
 
     sink.push(Diagnosis {
         code: "dns_cname_redirect".to_string(),
-        summary: format!("DNS response for {} contains CNAME redirect to {}", result.target, cname_targets),
+        summary: format!("DNS response for {} contains CNAME aliases to {}", result.target, cname_targets),
         severity: "warning".to_string(),
         target: Some(result.target.clone()),
         evidence: diagnosis_evidence(result, &["udpCnameTargets", "udpAddresses", "encryptedAddresses"]),
-        recommendation: Some("Enable encrypted DNS to bypass DNS-based redirect".to_string()),
+        recommendation: Some("Compare the CNAME answers from UDP and encrypted DNS".to_string()),
         control_validated: None,
     });
 }
@@ -206,7 +214,9 @@ fn push_dns_record_divergence(result: &ProbeResult, sink: &mut DiagnosisSink) {
                 "encryptedRecordTypes",
             ],
         ),
-        recommendation: Some("Enable encrypted DNS to bypass DNS-level censorship".to_string()),
+        recommendation: Some(
+            "Compare UDP and encrypted DNS results; record differences alone do not identify their cause".to_string(),
+        ),
         control_validated: None,
     });
 }
@@ -215,13 +225,53 @@ fn push_dns_injection_suspected(result: &ProbeResult, sink: &mut DiagnosisSink) 
     sink.push(Diagnosis {
         code: "dns_injection_suspected".to_string(),
         summary: format!(
-            "DNS response for {} arrived in under 5ms with substituted or suspiciously divergent answers, suggesting in-path injection",
+            "UDP and encrypted DNS answers for {} differed; response timing was marked as unusual",
             result.target
         ),
         severity: "negative".to_string(),
         target: Some(result.target.clone()),
-        evidence: diagnosis_evidence(result, &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs"]),
+        evidence: diagnosis_evidence(
+            result,
+            &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs"],
+        ),
         recommendation: None,
         control_validated: None,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::ProbeDetail;
+
+    #[test]
+    fn dns_differences_do_not_claim_record_deletion_or_injection() {
+        for (outcome, expected) in [
+            (
+                "dns_nxdomain_mismatch",
+                "UDP DNS returned NXDOMAIN for target.example while encrypted DNS returned addresses",
+            ),
+            (
+                "dns_sinkhole_substitution",
+                "UDP and encrypted DNS answers for target.example differed; response timing was marked as unusual",
+            ),
+        ] {
+            let result = ProbeResult {
+                probe_type: "dns_integrity".into(),
+                target: "target.example".into(),
+                outcome: outcome.into(),
+                details: vec![ProbeDetail { key: "dnsInjectionSuspected".into(), value: "true".into() }],
+            };
+            let mut sink = DiagnosisSink::new();
+            classify_dns_diagnoses(&[result], &BTreeMap::new(), &mut BTreeSet::new(), &mut sink);
+            let diagnoses = sink.into_vec();
+            assert_eq!(diagnoses.iter().find(|diagnosis| diagnosis.code == "dns_tampering").unwrap().summary, expected);
+            assert!(diagnoses.iter().all(|diagnosis| !diagnosis.summary.contains("injection")));
+            assert!(
+                diagnoses
+                    .iter()
+                    .all(|diagnosis| !diagnosis.evidence.iter().any(|value| value.starts_with("mechanism=")))
+            );
+        }
+    }
 }

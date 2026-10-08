@@ -36,20 +36,19 @@ pub(crate) fn build_report(
     let diagnoses = confirm_good_dpi_verdict.as_ref().map_or_else(Vec::new, |_| {
         vec![Diagnosis {
             code: "confirm_good_dpi_suspected".to_string(),
-            summary:
-                "Reality handshakes succeeded, but application data did not establish while QUIC remained reachable"
-                    .to_string(),
+            summary: "Reality handshakes succeeded but application data stalled; a QUIC Initial response was observed"
+                .to_string(),
             severity: "warning".to_string(),
             target: None,
             evidence: vec![
                 "two distinct Reality application flows stalled after handshake".to_string(),
-                "same-network QUIC control succeeded".to_string(),
+                "same-network QUIC Initial probe received a valid response".to_string(),
             ],
             recommendation: Some(
-                "Use a tested UDP/QUIC relay; changing TLS fingerprints is unlikely to address this behavior"
+                "Test a UDP/QUIC relay for this application; the QUIC Initial response does not establish the cause"
                     .to_string(),
             ),
-            control_validated: Some(true),
+            control_validated: None,
         }]
     });
     ScanReport {

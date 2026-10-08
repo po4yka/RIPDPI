@@ -11,12 +11,6 @@ private const val ControlFloorBps = 5_000_000L
 private const val DnsInjectionThresholdMs = 5
 private const val DnsLatencySlowThresholdMs = 3000
 private const val DnsEncryptedLatencyMultiplier = 10
-private val BlockedTransportFailures =
-    setOf(
-        TransportFailureKind.TIMEOUT,
-        TransportFailureKind.RESET,
-        TransportFailureKind.CLOSE,
-    )
 
 @Singleton
 class DiagnosticsFindingProjector
@@ -41,16 +35,10 @@ class DiagnosticsFindingProjector
             val throughput = observations.mapNotNull(ObservationFact::throughput)
             val strategyFacts = observations.filter { it.kind == ObservationKind.STRATEGY && it.strategy != null }
 
-            val controlDomains = domains.filter { it.isControl }
-            val controlsPassed =
-                controlDomains.isNotEmpty() &&
-                    controlDomains.all {
-                        it.tls13Status == TlsProbeStatus.OK || it.tls12Status == TlsProbeStatus.OK
-                    }
-            val hasControls = controlDomains.isNotEmpty()
+            val controls = diagnosisControls(domains, throughput)
 
             collectDnsDiagnoses(dns, domains, diagnoses, seen)
-            collectDomainDiagnoses(domains, quic, diagnoses, seen)
+            collectDomainDiagnoses(domains, diagnoses, seen)
             collectTcpDiagnoses(tcp, diagnoses, seen)
             collectQuicDiagnoses(quic, diagnoses, seen)
             collectServiceDiagnoses(services, diagnoses, seen)
@@ -58,24 +46,21 @@ class DiagnosticsFindingProjector
             collectThroughputDiagnoses(throughput, diagnoses, seen)
             collectStrategyDiagnoses(strategyFacts, diagnoses, seen)
 
-            if (hasControls && !controlsPassed) {
+            if (controls.tls == false || controls.http == false) {
                 pushDiagnosis(
                     diagnoses,
                     seen,
                     Diagnosis(
                         code = "network_connectivity_issue",
                         summary =
-                            "Control domains also failed, indicating a general network problem " +
-                                "rather than targeted blocking",
+                            "One or more executed control probes failed; the cause is not determined",
                     ),
                 )
             }
 
-            if (hasControls) {
-                return diagnoses.map { d -> d.copy(controlValidated = controlsPassed) }
+            return diagnoses.map { diagnosis ->
+                diagnosis.copy(controlValidated = controls.forDiagnosis(diagnosis.code))
             }
-
-            return diagnoses
         }
     }
 
@@ -107,19 +92,19 @@ private fun collectDnsTamperingDiagnoses(
                 observation.status == DnsObservationStatus.SINKHOLE_SUBSTITUTION ||
                     observation.status == DnsObservationStatus.NXDOMAIN_MISMATCH
             val injectionSuspected = isTampered && udpMs != null && udpMs <= DnsInjectionThresholdMs
-            val (mechanism, summary) =
+            val (observationKind, summary) =
                 when {
                     observation.status == DnsObservationStatus.NXDOMAIN_MISMATCH -> {
-                        "record_deletion" to
-                            "DNS records were deleted (NXDOMAIN)"
+                        "nxdomain_difference" to
+                            "UDP DNS returned NXDOMAIN while encrypted DNS returned addresses"
                     }
 
                     injectionSuspected -> {
-                        "injection" to "DNS response injected in under 5ms with substituted answers"
+                        "fast_answer_difference" to "UDP DNS answers differed from encrypted DNS within 5ms"
                     }
 
                     else -> {
-                        "substitution" to "DNS answers were substituted"
+                        "answer_difference" to "DNS answers differed from the expected or encrypted DNS answers"
                     }
                 }
             pushDiagnosis(
@@ -135,7 +120,7 @@ private fun collectDnsTamperingDiagnoses(
                             addAll(observation.encryptedAddresses)
                             if (udpMs != null) add("udpLatencyMs=$udpMs")
                             if (encMs != null) add("encryptedLatencyMs=$encMs")
-                            add("mechanism=$mechanism")
+                            add("observation=$observationKind")
                         },
                 ),
             )
@@ -189,8 +174,7 @@ private fun collectDnsLatencyDiagnoses(
                 Diagnosis(
                     code = "dns_injection_suspected",
                     summary =
-                        "DNS response arrived in under 5ms with substituted answers, " +
-                            "suggesting in-path injection",
+                        "UDP DNS answers differed from encrypted DNS within 5ms",
                     severity = "negative",
                     target = observation.domain,
                     evidence =
@@ -201,8 +185,7 @@ private fun collectDnsLatencyDiagnoses(
                             addAll(observation.encryptedAddresses)
                         },
                     recommendation =
-                        "DPI equipment is likely injecting forged DNS responses. " +
-                            "Enable encrypted DNS (DoH/DoT) to bypass this injection.",
+                        "Compare UDP and encrypted DNS results; response timing alone does not identify the cause.",
                 ),
             )
         }
@@ -212,7 +195,7 @@ private fun collectDnsLatencyDiagnoses(
                 seen,
                 Diagnosis(
                     code = "dns_latency_anomaly",
-                    summary = "UDP DNS resolution was abnormally slow, suggesting throttling",
+                    summary = "UDP DNS latency exceeded the comparison threshold",
                     severity = "degraded",
                     target = observation.domain,
                     evidence =
@@ -222,8 +205,7 @@ private fun collectDnsLatencyDiagnoses(
                             if (encMs > 0) add("slowdownRatio=${udpMs / encMs}x")
                         },
                     recommendation =
-                        "Encrypted DNS bypasses this throttling. " +
-                            "Enable DoH or DoT to avoid ISP-injected DNS delays for this domain.",
+                        "Repeat the comparison with UDP and encrypted DNS; latency alone does not identify the cause.",
                 ),
             )
         }
@@ -232,7 +214,6 @@ private fun collectDnsLatencyDiagnoses(
 
 private fun collectDomainDiagnoses(
     domains: List<DomainObservationFact>,
-    quic: List<QuicObservationFact>,
     diagnoses: MutableList<Diagnosis>,
     seen: MutableSet<String>,
 ) {
@@ -242,7 +223,7 @@ private fun collectDomainDiagnoses(
                 TransportFailureKind.TIMEOUT -> "tls_clienthello_timeout" to "TLS handshake timed out"
                 TransportFailureKind.RESET -> "tls_clienthello_rst" to "TLS handshake was reset"
                 TransportFailureKind.CLOSE -> "tls_clienthello_close" to "TLS handshake was closed"
-                TransportFailureKind.CERTIFICATE -> "tls_cert_mitm" to "TLS certificate anomaly suggests interception"
+                TransportFailureKind.CERTIFICATE -> "tls_cert_mitm" to "TLS certificate validation failed"
                 else -> null to null
             }
         if (code != null && summary != null) {
@@ -258,7 +239,7 @@ private fun collectDomainDiagnoses(
                 seen,
                 Diagnosis(
                     code = "tls_cert_mitm",
-                    summary = "TLS certificate anomaly suggests interception",
+                    summary = "TLS certificate validation failed",
                     target = obs.host,
                     evidence = listOf(obs.host),
                 ),
@@ -276,46 +257,22 @@ private fun collectDomainDiagnoses(
                 ),
             )
         }
-        if (obs.tlsEchStatus == TlsProbeStatus.OK && obs.tls13Status != TlsProbeStatus.OK &&
-            obs.tls12Status != TlsProbeStatus.OK
-        ) {
+        val plainTlsStatuses = listOf(obs.tls13Status, obs.tls12Status)
+        val plainTlsFailed =
+            plainTlsStatuses.none { it == TlsProbeStatus.OK } &&
+                plainTlsStatuses.any { it != TlsProbeStatus.NOT_RUN }
+        if (obs.tlsEchStatus == TlsProbeStatus.OK && plainTlsFailed) {
             pushDiagnosis(
                 diagnoses,
                 seen,
                 Diagnosis(
                     code = "tls_ech_only",
-                    summary = "Plain TLS is blocked, but ECH succeeds",
+                    summary = "Plain TLS attempts failed, but ECH succeeded",
                     target = obs.host,
                     evidence = listOfNotNull(obs.host, obs.tlsEchVersion, obs.tlsEchError),
                 ),
             )
         }
-        addSniInterferenceDiagnosis(obs, quic, diagnoses, seen)
-    }
-}
-
-private fun addSniInterferenceDiagnosis(
-    observation: DomainObservationFact,
-    quic: List<QuicObservationFact>,
-    diagnoses: MutableList<Diagnosis>,
-    seen: MutableSet<String>,
-) {
-    val matchingQuic = quic.firstOrNull { normalizeTarget(it.host) == normalizeTarget(observation.host) }
-    if (
-        matchingQuic != null &&
-        observation.transportFailure in BlockedTransportFailures &&
-        matchingQuic.status in setOf(QuicProbeStatus.ERROR, QuicProbeStatus.EMPTY)
-    ) {
-        pushDiagnosis(
-            diagnoses,
-            seen,
-            Diagnosis(
-                code = "sni_triggered_tls_interference",
-                summary = "TLS interference appears SNI-triggered while QUIC is also blocked",
-                target = observation.host,
-                evidence = listOf(observation.host),
-            ),
-        )
     }
 }
 
@@ -364,7 +321,7 @@ private fun collectQuicDiagnoses(
             seen,
             Diagnosis(
                 code = "quic_blocked",
-                summary = "QUIC traffic was blocked or suppressed",
+                summary = "QUIC Initial probe did not receive a valid response",
                 target = obs.host,
                 evidence = listOf(obs.host),
             ),
@@ -382,7 +339,7 @@ private fun collectServiceDiagnoses(
             observation.service,
             observation.bootstrapStatus,
             "service_bootstrap_blocked",
-            "${observation.service} bootstrap endpoint was blocked",
+            "${observation.service} bootstrap request failed",
             diagnoses,
             seen,
         )
@@ -390,7 +347,7 @@ private fun collectServiceDiagnoses(
             observation.service,
             observation.mediaStatus,
             "service_media_blocked",
-            "${observation.service} media endpoint was blocked",
+            "${observation.service} media request failed",
             diagnoses,
             seen,
         )
@@ -400,7 +357,7 @@ private fun collectServiceDiagnoses(
                 seen,
                 Diagnosis(
                     code = "quic_blocked",
-                    summary = "QUIC traffic was blocked or suppressed",
+                    summary = "QUIC Initial probe did not receive a valid response",
                     target = observation.service,
                     evidence = listOf(observation.service),
                 ),
@@ -419,7 +376,7 @@ private fun collectCircumventionDiagnoses(
             observation.tool,
             observation.bootstrapStatus,
             "circumvention_bootstrap_blocked",
-            "${observation.tool} bootstrap endpoint was blocked",
+            "${observation.tool} bootstrap request failed",
             diagnoses,
             seen,
         )
@@ -431,7 +388,7 @@ private fun collectCircumventionDiagnoses(
                 seen,
                 Diagnosis(
                     code = "circumvention_handshake_blocked",
-                    summary = "${observation.tool} handshake endpoint was blocked",
+                    summary = "${observation.tool} handshake failed",
                     target = observation.tool,
                     evidence = listOf(observation.tool),
                 ),
@@ -464,7 +421,7 @@ private fun collectThroughputDiagnoses(
 ) {
     val controlMedian =
         throughput
-            .filter(ThroughputObservationFact::isControl)
+            .filter { it.isControl && it.status == ThroughputProbeStatus.MEASURED && it.medianBps > 0 }
             .map(ThroughputObservationFact::medianBps)
             .maxOrNull()
     val youtube =
@@ -487,7 +444,7 @@ private fun collectThroughputDiagnoses(
                 seen,
                 Diagnosis(
                     code = "youtube_throttled",
-                    summary = "YouTube throughput was heavily throttled relative to control traffic",
+                    summary = "Measured YouTube throughput was much lower than the measured control",
                     target = youtube.label,
                     evidence = listOf(youtube.medianBps.toString(), controlMedian.toString()),
                 ),
@@ -507,8 +464,7 @@ private fun collectThroughputDiagnoses(
                     Diagnosis(
                         code = "throttling_suspected",
                         summary =
-                            "Target throughput is significantly lower than control, " +
-                                "suggesting throttling",
+                            "Measured target throughput was much lower than the measured control",
                         target = target.label,
                         evidence =
                             listOf(
@@ -563,7 +519,7 @@ private fun collectStrategyDiagnoses(
         seen,
         StrategyProbeProtocol.QUIC,
         code = "quic_total_failure",
-        summary = "QUIC is completely blocked on this network",
+        summary = "All QUIC probes failed for the tested targets",
     )
     addProtocolTotalFailureDiagnosis(
         strategyFacts,
@@ -571,7 +527,7 @@ private fun collectStrategyDiagnoses(
         seen,
         StrategyProbeProtocol.HTTP,
         code = "http_network_blocked",
-        summary = "HTTP port 80 is blocked network-wide",
+        summary = "All HTTP probes failed for the tested targets",
     )
     addH3SelectiveBlockingDiagnosis(strategyFacts, diagnoses, seen)
 }
@@ -591,12 +547,12 @@ private fun addStrategyExhaustionDiagnosis(
             seen,
             Diagnosis(
                 code = "strategy_exhaustion",
-                summary = "No desync strategy could recover any blocked target",
+                summary = "No tested strategy reached any tested target",
                 severity = "blocked",
                 evidence = listOf("candidatesTested=${candidateIds.size}"),
                 recommendation =
                     "No desync strategy worked for any tested target. " +
-                        "Consider using a proxy, tunnel, or VPN for blocked domains.",
+                        "Consider using a proxy, tunnel, or VPN for these targets.",
             ),
         )
     }
@@ -687,12 +643,12 @@ private fun addH3SelectiveBlockingDiagnosis(
                 seen,
                 Diagnosis(
                     code = "h3_selective_blocking",
-                    summary = "Server advertises HTTP/3 (h3) via Alt-Svc but QUIC is blocked",
+                    summary = "HTTP/3 was advertised, but QUIC probes failed for this target",
                     target = domain,
                     evidence = listOf("h3Advertised=true", "quicProbes=${quicForDomain.size}", "quicSuccess=0"),
                     recommendation =
-                        "The server supports HTTP/3 but QUIC traffic is being blocked. " +
-                            "This may indicate selective QUIC/UDP filtering by the network.",
+                        "Alt-Svc advertised HTTP/3. The probes test QUIC Initial responses; HTTP/3 was not tested. " +
+                            "Repeat the test to compare results; the cause is not determined.",
                 ),
             )
         }
@@ -700,3 +656,46 @@ private fun addH3SelectiveBlockingDiagnosis(
 }
 
 private fun normalizeTarget(value: String): String = value.trim().lowercase()
+
+private data class DiagnosisControls(
+    val tls: Boolean?,
+    val http: Boolean?,
+    val throughput: Boolean?,
+) {
+    fun forDiagnosis(code: String): Boolean? =
+        when (code) {
+            "tls_clienthello_timeout", "tls_clienthello_rst", "tls_clienthello_close",
+            "tls_cert_mitm", "tls_ech_only",
+            -> tls
+
+            "http_blockpage" -> http
+
+            "youtube_throttled", "throttling_suspected" -> throughput
+
+            "network_connectivity_issue" -> false
+
+            else -> null
+        }
+}
+
+private fun diagnosisControls(
+    domains: List<DomainObservationFact>,
+    throughput: List<ThroughputObservationFact>,
+): DiagnosisControls {
+    val domainsWithControlRole = domains.filter { it.isControl }
+    val tls =
+        domainsWithControlRole
+            .filter { it.tls13Status != TlsProbeStatus.NOT_RUN || it.tls12Status != TlsProbeStatus.NOT_RUN }
+            .map { it.tls13Status == TlsProbeStatus.OK || it.tls12Status == TlsProbeStatus.OK }
+    val http =
+        domainsWithControlRole
+            .filter { it.httpStatus != HttpProbeStatus.NOT_RUN }
+            .map { it.httpStatus == HttpProbeStatus.OK }
+    val throughputControls =
+        throughput
+            .filter { it.isControl }
+            .map { it.status == ThroughputProbeStatus.MEASURED && it.medianBps > 0 }
+    return DiagnosisControls(tls.controlResult(), http.controlResult(), throughputControls.controlResult())
+}
+
+private fun List<Boolean>.controlResult(): Boolean? = takeIf { it.isNotEmpty() }?.all { it }

@@ -4079,12 +4079,12 @@ fake_burst 3</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
-    <string name="diagnostics_confirm_good_dpi_summary">可能存在 confirm-good DPI：Reality 握手成功，但始终没有可用数据到达。</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Reality 握手成功，但未收到有效数据。原因尚未确定。</string>
     <string name="diagnostics_connection_concurrency_summary">TLS 指纹与同站点并发连接评估</string>
     <string name="diagnostics_connection_concurrency_recommendation">学习到的浏览器配置和安全并发上限将在服务下次启动时应用。代理模式下由浏览器发起的 TLS 可能绕过此控制。</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">两个不同的 Reality 流在握手后停滞。</string>
-    <string name="diagnostics_confirm_good_dpi_evidence_quic">同一网络上的 QUIC 对照测试成功。</string>
-    <string name="diagnostics_confirm_good_dpi_recommendation">请使用经过测试的 UDP/QUIC 中继。更改 TLS 指纹不太可能有帮助。</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">QUIC Initial 探测在同一网络上收到响应；这不能验证应用路径。</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">尝试已测试的 UDP/QUIC 中继，然后检查应用数据是否可用。</string>
     <string name="subscription_signal_notification_channel">订阅状态</string>
     <string name="subscription_signal_notification_title">订阅需要处理</string>
     <string name="subscription_signal_notification_expired">%1$s 已过期。缓存的中继节点可能已过时。</string>

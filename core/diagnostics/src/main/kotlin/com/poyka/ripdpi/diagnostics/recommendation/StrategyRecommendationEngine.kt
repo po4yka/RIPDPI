@@ -60,18 +60,19 @@ internal object StrategyRecommendationEngine {
             return StrategyRecommendation(
                 triggerOutcomes = listOf("confirm_good_dpi_suspected"),
                 recommendedFamily = "udp_quic",
-                blockingPattern = "post_handshake_behavioral_block",
+                blockingPattern = "unknown",
                 rationale =
                     "Reality handshakes completed on ${verdict.evidence.distinctTargetCount} distinct targets " +
-                        "without application data while QUIC succeeded.",
+                        "without application data; a QUIC Initial response was observed. " +
+                        "The failure cause is not determined.",
                 evidence =
                     listOf(
                         "stalledRealityFlows=${verdict.evidence.stalledFlowCount}",
                         "quicControlSucceeded=${verdict.evidence.quicControlSucceeded}",
                     ),
                 actionable = true,
-                confidence = StrategyRecommendationConfidence.HIGH,
-                evidenceScore = HighConfidenceEvidenceScore,
+                confidence = StrategyRecommendationConfidence.MEDIUM,
+                evidenceScore = RealReachabilitySignalWeight,
             )
         }
         val signals = collectBlockingSignals(report.results)

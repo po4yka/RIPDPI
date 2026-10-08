@@ -386,3 +386,39 @@ fn classify_connectivity_diagnoses_detects_youtube_throttling() {
     );
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "youtube_throttled"));
 }
+
+#[test]
+fn diagnoses_describe_ech_and_quic_observations_without_blocking_attribution() {
+    let diagnoses = classify_connectivity_diagnoses(
+        &connectivity_request(),
+        &[
+            connectivity_probe("domain_reachability", "target.example", "tls_ech_only", &[]),
+            connectivity_probe("quic_reachability", "target.example", "quic_error", &[]),
+        ],
+    );
+    assert_eq!(
+        diagnoses.iter().find(|diagnosis| diagnosis.code == "tls_ech_only").unwrap().summary,
+        "Plain TLS attempts failed for target.example, but ECH succeeded"
+    );
+    assert_eq!(
+        diagnoses.iter().find(|diagnosis| diagnosis.code == "quic_blocked").unwrap().summary,
+        "QUIC Initial probe did not receive a valid response from target.example"
+    );
+}
+
+#[test]
+fn failed_throughput_control_cannot_support_a_comparison() {
+    let diagnoses = classify_connectivity_diagnoses(
+        &connectivity_request(),
+        &[
+            connectivity_probe(
+                "throughput_window",
+                "control",
+                "http_unreachable",
+                &[("isControl", "true"), ("medianBps", "10000000")],
+            ),
+            connectivity_probe("throughput_window", "youtube", "throughput_measured", &[("medianBps", "100000")]),
+        ],
+    );
+    assert!(!diagnoses.iter().any(|diagnosis| diagnosis.code == "youtube_throttled"));
+}

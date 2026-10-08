@@ -30,7 +30,7 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "tls_ech_only" }
         assertNotNull(diagnosis)
         assertEquals("blocked.example", diagnosis?.target)
-        assertEquals("Plain TLS is blocked, but ECH succeeds", diagnosis?.summary)
+        assertEquals("Plain TLS attempts failed, but ECH succeeded", diagnosis?.summary)
     }
 
     @Test
@@ -53,7 +53,7 @@ class DiagnosticsFindingProjectorTest {
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         val diagnosis = diagnoses.firstOrNull { it.code == "strategy_exhaustion" }
         assertNotNull(diagnosis)
-        assertEquals("No desync strategy could recover any blocked target", diagnosis?.summary)
+        assertEquals("No tested strategy reached any tested target", diagnosis?.summary)
         assertEquals("blocked", diagnosis?.severity)
         assertNotNull(diagnosis?.recommendation)
         assert(diagnosis!!.recommendation!!.contains("proxy"))
@@ -222,7 +222,7 @@ class DiagnosticsFindingProjectorTest {
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         val diagnosis = diagnoses.firstOrNull { it.code == "http_network_blocked" }
         assertNotNull(diagnosis)
-        assertEquals("HTTP port 80 is blocked network-wide", diagnosis?.summary)
+        assertEquals("All HTTP probes failed for the tested targets", diagnosis?.summary)
         assert(diagnosis!!.evidence.contains("blocked.example"))
         assert(diagnosis.evidence.contains("signal.org"))
     }
@@ -413,7 +413,7 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "h3_selective_blocking" }
         assertNotNull(diagnosis)
         assertEquals("discord.com", diagnosis?.target)
-        assertEquals("Server advertises HTTP/3 (h3) via Alt-Svc but QUIC is blocked", diagnosis?.summary)
+        assertEquals("HTTP/3 was advertised, but QUIC probes failed for this target", diagnosis?.summary)
         assertTrue(diagnosis!!.evidence.contains("h3Advertised=true"))
         assertTrue(diagnosis.evidence.contains("quicSuccess=0"))
         assertNotNull(diagnosis.recommendation)

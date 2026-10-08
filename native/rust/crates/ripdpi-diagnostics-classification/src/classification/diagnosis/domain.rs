@@ -30,7 +30,7 @@ fn push_tls_ech_only(result: &ProbeResult, sink: &mut DiagnosisSink) {
 
     sink.push(Diagnosis {
         code: "tls_ech_only".to_string(),
-        summary: format!("Plain TLS is blocked for {}, but ECH succeeds", result.target),
+        summary: format!("Plain TLS attempts failed for {}, but ECH succeeded", result.target),
         severity: "warning".to_string(),
         target: Some(result.target.clone()),
         evidence: diagnosis_evidence(
@@ -55,7 +55,7 @@ fn push_ech_resolution_blocked(result: &ProbeResult, sink: &mut DiagnosisSink) {
 
     sink.push(Diagnosis {
         code: "ech_resolution_blocked".to_string(),
-        summary: format!("ECH config resolution failed for {} -- encrypted DNS may be blocked", result.target),
+        summary: format!("ECH configuration resolution failed for {}", result.target),
         severity: "warning".to_string(),
         target: Some(result.target.clone()),
         evidence: diagnosis_evidence(result, &["tlsEchResolutionDetail", "tlsEchError", "tls13Status", "tls12Status"]),

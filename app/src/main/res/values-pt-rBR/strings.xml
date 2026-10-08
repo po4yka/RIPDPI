@@ -4084,12 +4084,12 @@ Fonte: %2$s</string>
     <string name="support_settings_restart_ask">Pode ser necessário reiniciar após aplicar.</string>
     <string name="support_settings_restart_required">É necessário reiniciar após aplicar.</string>
     <string name="support_settings_restart_never">Nenhuma reinicialização é esperada.</string>
-    <string name="diagnostics_confirm_good_dpi_summary">Possível DPI de confirmação aparente: handshakes Reality tiveram sucesso, mas nenhum dado utilizável chegou.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Os handshakes Reality tiveram êxito, mas os dados úteis não chegaram. A causa não foi estabelecida.</string>
     <string name="diagnostics_connection_concurrency_summary">Avaliação de impressão digital TLS e concorrência de conexões do mesmo site</string>
     <string name="diagnostics_connection_concurrency_recommendation">O perfil de navegador aprendido e o limite seguro de concorrência entram em vigor na próxima inicialização do serviço. TLS originado do navegador no modo proxy pode ignorar este controle.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Dois fluxos Reality distintos travaram após o handshake.</string>
-    <string name="diagnostics_confirm_good_dpi_evidence_quic">Um controle QUIC na mesma rede teve sucesso.</string>
-    <string name="diagnostics_confirm_good_dpi_recommendation">Use uma retransmissão UDP/QUIC testada. Mudar impressões digitais TLS dificilmente ajudará.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">Um teste QUIC Initial recebeu resposta na mesma rede; isso não valida o caminho do aplicativo.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Tente um relay UDP/QUIC testado e verifique os dados do aplicativo.</string>
     <string name="subscription_signal_notification_channel">Status da assinatura</string>
     <string name="subscription_signal_notification_title">Assinatura precisa de atenção</string>
     <string name="subscription_signal_notification_expired">%1$s expirou. As entradas de retransmissão em cache podem estar desatualizadas.</string>
