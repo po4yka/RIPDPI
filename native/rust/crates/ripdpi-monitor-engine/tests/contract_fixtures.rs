@@ -60,11 +60,12 @@ fn engine_schema_version_matches_kotlin_contract_constant() {
 }
 
 #[test]
-fn outcome_fixture_covers_emitted_native_outcome_tokens() {
+fn outcome_fixture_covers_emitted_and_compatible_native_outcome_tokens() {
     let fixture_tokens = outcome_fixture_tokens("diagnostics-contract-fixtures/outcome_taxonomy_current.json");
-    let emitted_tokens = emitted_native_outcome_tokens();
+    let mut native_tokens = emitted_native_outcome_tokens();
+    native_tokens.extend(compatible_native_outcome_tokens());
 
-    assert_eq!(fixture_tokens, emitted_tokens);
+    assert_eq!(fixture_tokens, native_tokens);
 }
 
 #[test]
@@ -94,6 +95,32 @@ fn outcome_fixture_tokens(path: &str) -> BTreeSet<String> {
         .collect()
 }
 
+#[test]
+fn outcome_scanner_covers_delegated_domain_classification() {
+    let emitted_tokens = emitted_native_outcome_tokens();
+    for token in ["tls_cert_invalid", "tls_ech_only", "tls_version_split", "unreachable"] {
+        assert!(emitted_tokens.contains(token), "missing delegated domain outcome: {token}");
+    }
+}
+
+#[test]
+fn native_compatibility_contract_retains_retired_udp_timeout() {
+    let emitted_tokens = emitted_native_outcome_tokens();
+    let compatibility_only: BTreeSet<_> =
+        compatible_native_outcome_tokens().difference(&emitted_tokens).cloned().collect();
+
+    assert_eq!(compatibility_only, BTreeSet::from(["udp_timeout_transient".to_string()]));
+}
+
+fn compatible_native_outcome_tokens() -> BTreeSet<String> {
+    // The public probe adapter retains historical report tokens. Exhausted UDP
+    // timeouts now emit dns_unavailable, but the old token remains supported.
+    quoted_outcome_tokens(&function_body(
+        &repo_root().join("native/rust/crates/ripdpi-diagnostics-probes/src/dns_integrity.rs"),
+        "pub fn scheduled_outcome",
+    ))
+}
+
 fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     let repo = repo_root();
     let mut tokens = BTreeSet::new();
@@ -109,7 +136,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ),
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
-            "pub fn run_domain_probe_with_key_log",
+            "fn run_domain_probe_with_tls_probe",
         ),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "pub fn run_tcp_probe"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
