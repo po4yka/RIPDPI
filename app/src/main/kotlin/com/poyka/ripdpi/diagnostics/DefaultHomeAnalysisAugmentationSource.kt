@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -19,7 +20,6 @@ import java.net.Socket
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.system.measureTimeMillis
 
 private const val BufferbloatProbes = 4
 private const val BufferbloatProbeTimeoutMs = 1_500L
@@ -27,10 +27,6 @@ private const val BufferbloatLoadedTimeoutMs = 8_000L
 private const val BufferbloatHost = "1.1.1.1"
 private const val BufferbloatTcpPort = 443
 private const val BufferbloatLoadedUrl = "https://speed.cloudflare.com/__down?bytes=2000000"
-private const val BufferbloatGradeAMaxDelta = 5
-private const val BufferbloatGradeBMaxDelta = 30
-private const val BufferbloatGradeCMaxDelta = 100
-private const val BufferbloatGradeDMaxDelta = 250
 private const val DnsControlHost = "cloudflare.com"
 private const val DnsCanaryHost = "youtube.com"
 private const val DohEndpoint = "https://1.1.1.1/dns-query"
@@ -128,29 +124,9 @@ class DefaultHomeAnalysisAugmentationSource
             withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val idle = measureRttMs(BufferbloatProbes)
-                        val (loaded, _) =
-                            withLoad {
-                                measureRttMs(BufferbloatProbes)
-                            }
-                        val idleMs = idle?.toInt()
-                        val loadedMs = loaded?.toInt()
-                        val deltaMs = if (idleMs != null && loadedMs != null) loadedMs - idleMs else null
-                        val grade =
-                            when {
-                                deltaMs == null -> HomeBufferbloatGrade.UNKNOWN
-                                deltaMs <= BufferbloatGradeAMaxDelta -> HomeBufferbloatGrade.A
-                                deltaMs <= BufferbloatGradeBMaxDelta -> HomeBufferbloatGrade.B
-                                deltaMs <= BufferbloatGradeCMaxDelta -> HomeBufferbloatGrade.C
-                                deltaMs <= BufferbloatGradeDMaxDelta -> HomeBufferbloatGrade.D
-                                else -> HomeBufferbloatGrade.F
-                            }
-                        HomeBufferbloatResult(
-                            grade = grade,
-                            idleRttMs = idleMs,
-                            loadedRttMs = loadedMs,
-                            deltaMs = deltaMs,
-                        )
+                        val idle = measureRttSamples(BufferbloatProbes)
+                        val (loaded, load) = withLoad { measureRttSamples(BufferbloatProbes) }
+                        homeBufferbloatResult(idle, loaded, load)
                     }.getOrNull()
                 }
             }
@@ -217,45 +193,63 @@ class DefaultHomeAnalysisAugmentationSource
             }.getOrNull()
         }
 
-        private suspend fun measureRttMs(probes: Int): Long? {
-            val samples = mutableListOf<Long>()
-            repeat(probes) {
-                val ms = measureSingleRtt() ?: return@repeat
-                samples += ms
+        private fun measureRttSamples(probes: Int): List<HomeRttSample> =
+            buildList {
+                repeat(probes) {
+                    measureSingleRtt()?.let { add(it) }
+                }
             }
-            return samples.takeIf { it.isNotEmpty() }?.average()?.toLong()
-        }
 
-        private fun measureSingleRtt(): Long? =
+        private fun measureSingleRtt(): HomeRttSample? =
             runCatching {
                 Socket().use { socket ->
-                    val elapsed =
-                        measureTimeMillis {
-                            socket.connect(
-                                java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort),
-                                BufferbloatProbeTimeoutMs.toInt(),
-                            )
-                        }
-                    elapsed
+                    val startedNs = System.nanoTime()
+                    socket.connect(
+                        java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort),
+                        BufferbloatProbeTimeoutMs.toInt(),
+                    )
+                    val finishedNs = System.nanoTime()
+                    HomeRttSample(startedNs, finishedNs, TimeUnit.NANOSECONDS.toMillis(finishedNs - startedNs))
                 }
             }.getOrNull()
 
-        private suspend fun <T> withLoad(block: suspend () -> T): Pair<T, Boolean> =
+        private suspend fun withLoad(block: () -> List<HomeRttSample>): Pair<List<HomeRttSample>, HomeLoadEvidence> =
             coroutineScope {
-                val loadJob =
-                    async {
-                        runCatching {
-                            val request = Request.Builder().url(BufferbloatLoadedUrl).build()
-                            httpClient.newCall(request).execute().use { response ->
-                                response.body.bytes()
-                                response.isSuccessful
-                            }
-                        }.getOrDefault(false)
-                    }
-                val result = block()
-                val ok = loadJob.await()
-                result to ok
+                val started = CompletableDeferred<Boolean>()
+                val loadJob = async(Dispatchers.IO) { downloadLoad(started) }
+                val result = if (started.await()) block() else emptyList()
+                result to loadJob.await()
             }
+
+        private fun downloadLoad(started: CompletableDeferred<Boolean>): HomeLoadEvidence {
+            var bytesRead = 0L
+            var firstByteNs: Long? = null
+            var lastByteNs: Long? = null
+            val successful =
+                runCatching {
+                    val request = Request.Builder().url(BufferbloatLoadedUrl).build()
+                    httpClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) return@use false
+                        response.body.byteStream().use { stream ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                val count = stream.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+                                bytesRead += count
+                                lastByteNs = System.nanoTime()
+                                if (firstByteNs == null) {
+                                    firstByteNs = lastByteNs
+                                    started.complete(true)
+                                }
+                            }
+                        }
+                        true
+                    }
+                }.getOrDefault(false)
+            started.complete(false)
+            return HomeLoadEvidence(successful, bytesRead, firstByteNs, lastByteNs)
+        }
     }
 
 internal fun homeNetworkIdentitySignal(
