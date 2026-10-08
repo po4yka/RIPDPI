@@ -51,6 +51,8 @@ pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -> Probe
         target: target.host.clone(),
         outcome,
         details: vec![
+            ProbeDetail { key: "measurementScope".to_string(), value: "quic_initial_response".to_string() },
+            ProbeDetail { key: "http3Validated".to_string(), value: "false".to_string() },
             ProbeDetail { key: "status".to_string(), value: status },
             ProbeDetail { key: "error".to_string(), value: error },
             ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
@@ -98,6 +100,13 @@ mod tests {
         let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
         worker.join().unwrap();
         assert_eq!(result.outcome, "quic_response");
+        assert!(
+            result
+                .details
+                .iter()
+                .any(|detail| detail.key == "measurementScope" && detail.value == "quic_initial_response")
+        );
+        assert!(result.details.iter().any(|detail| detail.key == "http3Validated" && detail.value == "false"));
     }
 
     #[test]
@@ -114,5 +123,12 @@ mod tests {
         let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
         worker.join().unwrap();
         assert_eq!(result.outcome, "quic_error");
+        assert!(
+            result
+                .details
+                .iter()
+                .any(|detail| detail.key == "measurementScope" && detail.value == "quic_initial_response")
+        );
+        assert!(result.details.iter().any(|detail| detail.key == "http3Validated" && detail.value == "false"));
     }
 }
