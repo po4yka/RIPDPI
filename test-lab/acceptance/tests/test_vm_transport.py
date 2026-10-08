@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -38,8 +39,15 @@ class MappingTests(unittest.TestCase):
             patch("vm_transport.subprocess.run") as run,
         ):
             run.return_value.returncode = 0
+            run.return_value.stdout = b"cancelled"
+            run.return_value.stderr = b""
             self.assertTrue(
-                cancel_vm("ripdpi-acceptance-test", Path("/r"), Path("/o"), "run-1")
+                cancel_vm(
+                    "ripdpi-acceptance-test",
+                    Path("/r"),
+                    Path(tempfile.gettempdir()) / "ripdpi-cancel-unit-output",
+                    "run-1",
+                )
             )
         args, kwargs = run.call_args
         self.assertIn("/src/test-lab/acceptance/vm/cancel.py", args[0])

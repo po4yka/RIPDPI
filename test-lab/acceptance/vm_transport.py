@@ -92,6 +92,10 @@ def cancel_vm(name: str, repo: Path, output: Path, run_id: str) -> bool:
             timeout=45,
             check=False,
         )
+        output.with_suffix(".cancel.private.log").write_bytes(
+            result.stdout + result.stderr
+        )
         return result.returncode == 0
-    except (ContractError, OSError, subprocess.SubprocessError):
+    except (ContractError, OSError, subprocess.SubprocessError) as error:
+        output.with_suffix(".cancel.private.log").write_text(str(error))
         return False
