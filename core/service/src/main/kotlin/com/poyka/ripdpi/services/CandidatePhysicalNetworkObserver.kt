@@ -9,6 +9,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     private val requireBlockedObservation: Boolean,
 ) {
     private data class Entry(
+        val preferred: Boolean,
         var capabilities: String? = null,
         var links: String? = null,
         var usableCapabilities: Boolean = false,
@@ -47,7 +48,7 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
     ) {
         if (activeRegistration != expected) return
         advance()
-        entries[network] = Entry(blocked = if (requireBlockedObservation) null else false)
+        entries[network] = Entry(preferred, blocked = if (requireBlockedObservation) null else false)
         if (preferred || selected == null) selected = network
     }
 
@@ -58,8 +59,12 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         usable: Boolean,
     ) {
         if (activeRegistration != expected) return
+        val entry = entries[network]
+        // Best-matching callbacks can repeat unchanged evidence after our own component changes.
+        // Compare every stored field from this callback; legacy matching callbacks stay conservative.
+        if (entry?.preferred == true && entry.capabilities == fingerprint && entry.usableCapabilities == usable) return
         advance()
-        val entry = entries[network] ?: return
+        if (entry == null) return
         entry.capabilities = fingerprint
         entry.usableCapabilities = usable
     }
@@ -71,8 +76,10 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         usable: Boolean,
     ) {
         if (activeRegistration != expected) return
+        val entry = entries[network]
+        if (entry?.preferred == true && entry.links == fingerprint && entry.usableLinks == usable) return
         advance()
-        val entry = entries[network] ?: return
+        if (entry == null) return
         entry.links = fingerprint
         entry.usableLinks = usable
     }
@@ -83,8 +90,10 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         blocked: Boolean,
     ) {
         if (activeRegistration != expected) return
+        val entry = entries[network]
+        if (entry?.preferred == true && entry.blocked == blocked) return
         advance()
-        entries[network]?.blocked = blocked
+        entry?.blocked = blocked
     }
 
     @Synchronized fun lost(

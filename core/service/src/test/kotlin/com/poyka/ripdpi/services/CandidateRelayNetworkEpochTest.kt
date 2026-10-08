@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CandidateRelayNetworkEpochTest {
-    @Test fun `each callback changes epoch even when network returns to its previous fingerprint`() {
+    @Test fun `physical replacement changes epoch even when network returns to its previous fingerprint`() {
         val s = CandidatePhysicalNetworkObserver<String>(false)
         val diagnosticsEpoch = DiagnosticsNetworkEpochProvider(s::capture)
         val r = s.beginRegistration()
@@ -90,6 +90,100 @@ class CandidateRelayNetworkEpochTest {
         assertNull(observer.capture())
         observer.lost(registration, "new")
         assertNotEquals(null, observer.capture())
+    }
+
+    @Test fun `best matching duplicate capabilities preserve the measured token`() {
+        val s = CandidatePhysicalNetworkObserver<String>(true)
+        val r = s.beginRegistration()
+        ready(s, r, "A")
+        s.blocked(r, "A", false)
+        val before = checkNotNull(s.capture())
+        s.capabilities(r, "A", "physical-usable", true)
+        assertEquals(before, s.capture())
+    }
+
+    @Test fun `best matching duplicate links preserve the measured token`() {
+        val s = CandidatePhysicalNetworkObserver<String>(true)
+        val r = s.beginRegistration()
+        ready(s, r, "A")
+        s.blocked(r, "A", false)
+        val before = checkNotNull(s.capture())
+        s.links(r, "A", "route-A", true)
+        assertEquals(before, s.capture())
+    }
+
+    @Test fun `best matching duplicate blocked status preserves the measured token`() {
+        val s = CandidatePhysicalNetworkObserver<String>(true)
+        val r = s.beginRegistration()
+        ready(s, r, "A")
+        s.blocked(r, "A", false)
+        val before = checkNotNull(s.capture())
+        s.blocked(r, "A", false)
+        assertEquals(before, s.capture())
+    }
+
+    @Test fun `legacy matching callbacks retain conservative invalidation`() {
+        val s = CandidatePhysicalNetworkObserver<String>(true)
+        val r = s.beginRegistration()
+        s.available(r, "A", false)
+        s.capabilities(r, "A", "physical-usable", true)
+        s.links(r, "A", "route-A", true)
+        s.blocked(r, "A", false)
+        var before = checkNotNull(s.capture())
+        s.capabilities(r, "A", "physical-usable", true)
+        assertNotEquals(before, s.capture())
+        before = checkNotNull(s.capture())
+        s.links(r, "A", "route-A", true)
+        assertNotEquals(before, s.capture())
+        before = checkNotNull(s.capture())
+        s.blocked(r, "A", false)
+        assertNotEquals(before, s.capture())
+    }
+
+    @Test fun `best matching changes in each tracked field still invalidate after ABA`() {
+        val s = CandidatePhysicalNetworkObserver<String>(true)
+        val r = s.beginRegistration()
+        ready(s, r, "A")
+        s.blocked(r, "A", false)
+        val before = checkNotNull(s.capture())
+        val transitions =
+            listOf<Pair<() -> Unit, () -> Unit>>(
+                { s.capabilities(r, "A", "changed-capabilities", true) } to
+                    { s.capabilities(r, "A", "physical-usable", true) },
+                { s.capabilities(r, "A", "physical-usable", false) } to
+                    { s.capabilities(r, "A", "physical-usable", true) },
+                { s.links(r, "A", "changed-links", true) } to
+                    { s.links(r, "A", "route-A", true) },
+                { s.links(r, "A", "route-A", false) } to
+                    { s.links(r, "A", "route-A", true) },
+                { s.blocked(r, "A", true) } to { s.blocked(r, "A", false) },
+            )
+        transitions.forEach { (change, restore) ->
+            val current = checkNotNull(s.capture())
+            change()
+            assertNotEquals(current, s.capture())
+            restore()
+            assertNotEquals(current, checkNotNull(s.capture()))
+        }
+        assertNotEquals(before, s.capture())
+    }
+
+    @Test fun `duplicate available and loss never restore the measured token`() {
+        val s = CandidatePhysicalNetworkObserver<String>(true)
+        val r = s.beginRegistration()
+        ready(s, r, "A")
+        s.blocked(r, "A", false)
+        val before = checkNotNull(s.capture())
+        ready(s, r, "A")
+        assertNull(s.capture())
+        s.blocked(r, "A", false)
+        val repeated = checkNotNull(s.capture())
+        assertNotEquals(before, repeated)
+        s.lost(r, "A")
+        assertNull(s.capture())
+        ready(s, r, "A")
+        s.blocked(r, "A", false)
+        assertNotEquals(repeated, checkNotNull(s.capture()))
     }
 
     private fun ready(
