@@ -2,7 +2,6 @@
 
 package com.poyka.ripdpi.diagnostics
 
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
+import com.poyka.ripdpi.diagnostics.finalization.persistTerminalOrCheckpointFallback
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -416,6 +416,10 @@ internal class DiagnosticsScanExecutionCoordinator
                         val fallbackPersistence =
                             runCatching {
                                 persistTerminalOrCheckpointFallback(
+                                    scanRecordStore = scanRecordStore,
+                                    activeScanRegistry = activeScanRegistry,
+                                    scanFinalizationService = scanFinalizationService,
+                                    json = json,
                                     prepared = prepared,
                                     outcome = bridgePollingService.awaitTerminalReportOutcome(handle, pollingState),
                                 )
@@ -439,69 +443,6 @@ internal class DiagnosticsScanExecutionCoordinator
                 }
             }
         }
-
-        private suspend fun persistTerminalOrCheckpointFallback(
-            prepared: PreparedDiagnosticsScan,
-            outcome: TerminalReportAwaitOutcome,
-        ): Boolean =
-            when (outcome) {
-                is TerminalReportAwaitOutcome.Terminal -> {
-                    val runningSession =
-                        scanRecordStore.getScanSession(prepared.sessionId)?.takeIf { it.status == "running" }
-                            ?: return false
-                    val finalizeFailure =
-                        runCatching {
-                            scanFinalizationService.finalize(
-                                prepared = prepared,
-                                reportJson = outcome.reportJson,
-                                ownedInPathRouteAtCompletion = outcome.ownedInPathRouteAtCompletion,
-                            )
-                        }.exceptionOrNull()
-                    if (finalizeFailure is CancellationException) throw finalizeFailure
-                    if (finalizeFailure != null) {
-                        Logger.w(finalizeFailure) {
-                            "Scan finalization failed; retained terminal report"
-                        }
-                        if (
-                            prepared.pathMode == ScanPathMode.IN_PATH &&
-                            activeScanRegistry.cancellationSummaryFor(prepared.sessionId) == null
-                        ) {
-                            scanRecordStore.upsertScanSession(
-                                runningSession.copy(
-                                    status = "failed",
-                                    summary = finalizeFailure.message ?: "Diagnostics scan finalization failed",
-                                    reportJson =
-                                        runningSession.reportJson
-                                            ?: outcome.reportJson.withLocalNetworkDeferrals(prepared, json),
-                                    finishedAt = System.currentTimeMillis(),
-                                ),
-                            )
-                        } else {
-                            persistPartialScanSession(
-                                runningSession,
-                                outcome.reportJson,
-                                prepared,
-                                scanRecordStore,
-                                json,
-                            )
-                        }
-                    }
-                    true
-                }
-
-                is TerminalReportAwaitOutcome.TerminalUnavailable -> {
-                    outcome.latestCheckpointJson?.let { checkpointJson ->
-                        val runningSession =
-                            scanRecordStore.getScanSession(prepared.sessionId)?.takeIf { it.status == "running" }
-                        if (runningSession == null) {
-                            false
-                        } else {
-                            persistPartialScanSession(runningSession, checkpointJson, prepared, scanRecordStore, json)
-                            true
-                        }
-                    } ?: false
-                }
-            }
 
         private suspend fun persistPrimaryFailure(
             prepared: PreparedDiagnosticsScan,
@@ -529,11 +470,13 @@ internal class DiagnosticsScanExecutionCoordinator
             ownerId: String?,
             onReserved: suspend () -> Unit,
         ) {
+            if (original.networkScope?.isCurrent() != true) return
             val preparedReprobe =
                 scanRequestFactory.prepareReprobe(
                     original = original,
                     preferredDnsPathOverride = finalizationResult.correctedDnsPath,
                 )
+            if (!original.networkScope.isCurrent()) return
             var reprobe = preparedReprobe
             var reprobeHandle: BridgeSessionHandle? = null
             var reprobePollingState = BridgeReportPollingState()
@@ -569,6 +512,7 @@ internal class DiagnosticsScanExecutionCoordinator
                             scanRequestFactory = scanRequestFactory,
                         )
                     reprobePollingState = routePollingState(reprobe)
+                    check(original.networkScope.isCurrent()) { "Network changed before DNS-corrected re-probe" }
                     bridgeExecutionService.start(
                         handle = requireNotNull(reprobeHandle),
                         requestJson = reprobe.requestJson,
@@ -615,6 +559,10 @@ internal class DiagnosticsScanExecutionCoordinator
                     withContext(NonCancellable) {
                         reprobeHandle?.let { handle ->
                             persistTerminalOrCheckpointFallback(
+                                scanRecordStore = scanRecordStore,
+                                activeScanRegistry = activeScanRegistry,
+                                scanFinalizationService = scanFinalizationService,
+                                json = json,
                                 prepared = reprobe,
                                 outcome = bridgePollingService.awaitTerminalReportOutcome(handle, pollingState),
                             )
