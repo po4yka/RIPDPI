@@ -2,7 +2,7 @@
 id: TST-1791483113190963
 title: Refresh fleet fixtures against the current deployer contract
 kind: chore
-status: review
+status: done
 area: testing
 priority: medium
 owner: Fleet contract worker
@@ -14,6 +14,9 @@ created: 2026-10-08
 updated: 2026-10-08
 spec_reason: test-only
 status_detail: Approved fixture regeneration passed deployer provenance, 26 Python tests, 65 Kotlin parser tests, and independent diff review.
+closed_at: "2026-10-08T18:44:54Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Approved fleet fixtures at 8ae99b111b38b2fe52889d26cb144609a00b2699 passed pinned emitter checks, 26 Python tests, 65 Kotlin parser tests, and independent scope review.
 ---
 
 ## Goal
