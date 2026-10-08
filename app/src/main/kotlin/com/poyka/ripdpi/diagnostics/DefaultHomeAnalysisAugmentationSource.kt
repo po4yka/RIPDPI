@@ -14,7 +14,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
@@ -36,8 +35,6 @@ private const val DnsControlHost = "cloudflare.com"
 private const val DnsCanaryHost = "youtube.com"
 private const val DohEndpoint = "https://1.1.1.1/dns-query"
 private const val NetworkProbeOverallTimeoutMs = 15_000L
-private const val IPv6ProbeHost = "ipv6.google.com"
-private const val IPv6ProbeTimeoutMs = 1_500L
 private const val MaxRoutingFindings = 6
 
 @Singleton
@@ -76,11 +73,10 @@ class DefaultHomeAnalysisAugmentationSource
                         capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
                     val mtu = linkPropertiesMtuOrNull(linkProps)
                     val ipv6Reachable =
-                        withTimeoutOrNull(IPv6ProbeTimeoutMs) {
-                            runCatching {
-                                InetAddress.getAllByName(IPv6ProbeHost).any { it is Inet6Address }
-                            }.getOrDefault(false)
-                        }
+                        measureHomeIpv6Reachability(
+                            socketFactory = activeNetwork?.let { network -> { network.socketFactory.createSocket() } },
+                            isNetworkCurrent = { activeNetwork != null && cm?.activeNetwork == activeNetwork },
+                        )
                     val notes = mutableListOf<String>()
                     if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == false) {
                         notes += "Active network is a VPN"
@@ -163,11 +159,16 @@ class DefaultHomeAnalysisAugmentationSource
             withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
                 withContext(Dispatchers.IO) {
                     runCatching {
+                        val cm = context.getSystemService(ConnectivityManager::class.java)
+                        val network = cm?.activeNetwork
+                        val systemResolver = homeSystemResolver(network?.let { cm.getLinkProperties(it)?.dnsServers })
                         val systemIps = resolveSystem(DnsControlHost)
                         val canarySystemIps = resolveSystem(DnsCanaryHost)
                         val dohControlIps = resolveDoh(DnsControlHost)
                         val dohCanaryIps = resolveDoh(DnsCanaryHost)
-                        characterizeHomeDns(systemIps, canarySystemIps, dohControlIps, dohCanaryIps)
+                        characterizeHomeDns(systemIps, canarySystemIps, dohControlIps, dohCanaryIps).copy(
+                            systemResolver = systemResolver,
+                        )
                     }.getOrNull()
                 }
             }
