@@ -10,7 +10,10 @@ import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -270,6 +273,171 @@ class AwgProfileRepositoryRoomTest {
         runTest {
             repository.delete("awg-does-not-exist")
             assertNull(repository.load("awg-does-not-exist"))
+        }
+
+    private fun subscriptionProfile(
+        groupId: String = "subscription-one",
+        memberId: String = "tag:home",
+        request: AwgActivationRequest = sampleRequest(),
+    ) = AwgSubscriptionProfile(groupId, memberId, "home", request)
+
+    @Test
+    fun `subscription rotation survives editor save and repository restart`() =
+        runTest {
+            val id = repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).single()
+            val local =
+                repository.load(id)!!.request.copy(
+                    privateKey = "local-key",
+                    dnsServers = listOf("9.9.9.9"),
+                    allowedIps = listOf("10.0.0.0/8"),
+                    carrier = AwgActivationRequest.CARRIER_WS,
+                    carrierWsUrl = "wss://carrier.example/ws",
+                )
+            repository.save("local label", local, existingId = id)
+            val restarted =
+                AwgProfileRepository(
+                    dao,
+                    credentialStore,
+                    com.poyka.ripdpi.data.awg
+                        .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
+                )
+            val rotated =
+                sampleRequest().copy(
+                    privateKey = "",
+                    presharedKey = "new-psk",
+                    endpointHost = "rotated.example",
+                    endpointPort = 443,
+                    obfuscation = AwgActivationObfuscation(jc = 7),
+                )
+            repeat(2) {
+                assertEquals(
+                    id,
+                    restarted.saveSubscriptionProfiles(listOf(subscriptionProfile(request = rotated))).single(),
+                )
+            }
+            val saved = restarted.observeProfiles().first().single()
+            assertEquals(id, saved.id)
+            assertEquals("local-key", saved.request.privateKey)
+            assertEquals("new-psk", saved.request.presharedKey)
+            assertEquals("rotated.example", saved.request.endpointHost)
+            assertEquals(443, saved.request.endpointPort)
+            assertEquals(7, saved.request.obfuscation.jc)
+            assertEquals(local.dnsServers, saved.request.dnsServers)
+            assertEquals(local.allowedIps, saved.request.allowedIps)
+            assertEquals(local.carrier, saved.request.carrier)
+            assertEquals(local.carrierWsUrl, saved.request.carrierWsUrl)
+            val blob = dao.getProfile(id)!!.requestJson
+            assertFalse(blob.contains("local-key"))
+            assertFalse(blob.contains("new-psk"))
+        }
+
+    @Test
+    fun `subscription identities are structured and never adopt manual profiles`() =
+        runTest {
+            val manual = repository.save("home", sampleRequest())
+            val first = subscriptionProfile(groupId = "a:b", memberId = "c")
+            val second = subscriptionProfile(groupId = "a", memberId = "b:c")
+            val ids = repository.saveSubscriptionProfiles(listOf(first, second))
+            assertEquals(2, ids.distinct().size)
+            assertFalse(ids.contains(manual))
+            assertEquals(ids, repository.saveSubscriptionProfiles(listOf(first, second)))
+            assertEquals(3, dao.allProfiles().size)
+            assertEquals(sampleRequest(profileId = manual), repository.load(manual)!!.request)
+        }
+
+    @Test
+    fun `explicit imported key replaces old key and empty PSK removes old PSK`() =
+        runTest {
+            val profile = subscriptionProfile()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            repository.saveSubscriptionProfiles(
+                listOf(
+                    profile.copy(
+                        request =
+                            sampleRequest().copy(
+                                privateKey = "replacement-key",
+                                presharedKey = "",
+                            ),
+                    ),
+                ),
+            )
+            assertEquals("replacement-key", repository.load(id)!!.request.privateKey)
+            assertEquals("", repository.load(id)!!.request.presharedKey)
+        }
+
+    @Test
+    fun `duplicate subscription members fail before any row changes`() =
+        runTest {
+            val profile = subscriptionProfile()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val original = dao.getProfile(id)
+            val duplicate = profile.copy(request = sampleRequest().copy(endpointPort = 443))
+            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(profile, duplicate)) }.isFailure)
+            assertEquals(listOf(original), dao.allProfiles())
+        }
+
+    @Test
+    fun `failed subscription write restores credentials and association for retry`() =
+        runTest {
+            val profile = subscriptionProfile()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val original = dao.getProfile(id)
+            val rotated = profile.copy(request = sampleRequest().copy(privateKey = "", presharedKey = "rotated"))
+            failingDao.failNextUpsertAfterWrite = true
+            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(rotated)) }.isFailure)
+            assertEquals(original, dao.getProfile(id))
+            assertEquals("psk==", repository.load(id)!!.request.presharedKey)
+            assertEquals(id, repository.saveSubscriptionProfiles(listOf(rotated)).single())
+            assertEquals("privkey==", repository.load(id)!!.request.privateKey)
+            assertEquals("rotated", repository.load(id)!!.request.presharedKey)
+        }
+
+    @Test
+    fun `concurrent imports keep one opaque profile id`() =
+        runTest {
+            val ids =
+                List(
+                    10,
+                ) { async { repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).single() } }.awaitAll()
+            assertEquals(1, ids.distinct().size)
+            assertEquals(1, dao.allProfiles().size)
+            assertTrue(ids.first().matches(Regex("awg-[0-9a-f-]{36}")))
+        }
+
+    @Test
+    fun `new subscription placeholder remains empty and does not inherit unrelated key`() =
+        runTest {
+            repository.save("home", sampleRequest())
+            val id =
+                repository
+                    .saveSubscriptionProfiles(
+                        listOf(subscriptionProfile(request = sampleRequest().copy(privateKey = ""))),
+                    ).single()
+            assertEquals("", repository.load(id)!!.request.privateKey)
+            assertEquals(2, dao.allProfiles().size)
+        }
+
+    @Test
+    fun `empty subscription import does not decode unrelated malformed rows`() =
+        runTest {
+            dao.upsertProfile(
+                com.poyka.ripdpi.data.awg
+                    .AwgProfileEntity("legacy", "legacy", "invalid-json", 0),
+            )
+            assertTrue(repository.saveSubscriptionProfiles(emptyList()).isEmpty())
+            assertEquals(1, dao.allProfiles().size)
+        }
+
+    @Test
+    fun `ambiguous stored membership fails before updating either row`() =
+        runTest {
+            val profile = subscriptionProfile()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val original = dao.getProfile(id)!!
+            dao.upsertProfile(original.copy(id = "duplicate"))
+            val before = dao.allProfiles()
+            assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(profile)) }.isFailure)
+            assertEquals(before, dao.allProfiles())
         }
 
     @Test

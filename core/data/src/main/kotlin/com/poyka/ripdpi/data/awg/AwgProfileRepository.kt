@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.awg
 
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
+import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
@@ -9,6 +10,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -107,25 +112,90 @@ class AwgProfileRepository
             existingId: String? = null,
         ): String =
             mutationMutex.withLock {
-                request.obfuscation.requireArm64Safe()
+                profileMutations.recover()
                 val id = existingId ?: generateProfileId()
-                // Strip the id and the two secrets from the Room blob; secrets go to the keystore.
-                val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
-                val blob = encodeJson.encodeToString(sanitized)
-                val updatedProfile =
-                    AwgProfileEntity(
-                        id = id,
-                        name = name,
-                        requestJson = blob,
-                        updatedAt = System.currentTimeMillis(),
-                    )
-                profileMutations.upsertAwg(
-                    profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
-                    profile = updatedProfile,
-                    secrets = AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
-                )
-                id
+                val origin = dao.getProfile(id)?.subscriptionOrigin()
+                saveLocked(name, request, id, origin, ProfileMutationOrigin.SavedEdit)
             }
+
+        /**
+         * Updates subscription-owned rows without matching manual or legacy profiles by name.
+         * Empty imported private keys are templates; they cannot erase a locally supplied key.
+         * Each row uses the existing recoverable row/credential mutation. Batch retries are idempotent.
+         */
+        suspend fun saveSubscriptionProfiles(profiles: List<AwgSubscriptionProfile>): List<String> =
+            mutationMutex.withLock {
+                if (profiles.isEmpty()) return@withLock emptyList()
+                require(profiles.all { it.groupId.isNotBlank() && it.memberId.isNotBlank() }) {
+                    "AWG subscription identity is missing"
+                }
+                require(profiles.map { it.origin }.distinct().size == profiles.size) {
+                    "AWG subscription member identity is ambiguous"
+                }
+                profiles.forEach { it.request.obfuscation.requireArm64Safe() }
+                profileMutations.recover()
+                val origins = profiles.map { it.origin }.toSet()
+                val existingMembers =
+                    dao.allProfiles().mapNotNull { row ->
+                        row.subscriptionOrigin()?.takeIf { it in origins }?.let { it to row }
+                    }
+                require(existingMembers.map { it.first }.distinct().size == existingMembers.size) {
+                    "Stored AWG subscription member identity is ambiguous"
+                }
+                val existingByOrigin = existingMembers.toMap()
+                profiles.map { profile ->
+                    val existing = existingByOrigin[profile.origin]?.toSavedProfile()
+                    val id = existing?.id ?: generateProfileId()
+                    val request = mergeSubscriptionRequest(profile.request, existing?.request)
+                    saveLocked(profile.name, request, id, profile.origin, ProfileMutationOrigin.SubscriptionRefresh)
+                }
+            }
+
+        private fun mergeSubscriptionRequest(
+            incoming: AwgActivationRequest,
+            existing: AwgActivationRequest?,
+        ): AwgActivationRequest =
+            if (existing == null) {
+                incoming
+            } else {
+                incoming.copy(
+                    privateKey = incoming.privateKey.ifEmpty { existing.privateKey },
+                    // The subscription mapper does not import these editor-owned fields.
+                    dnsServers = existing.dnsServers,
+                    allowedIps = existing.allowedIps,
+                    carrier = existing.carrier,
+                    carrierWsUrl = existing.carrierWsUrl,
+                )
+            }
+
+        private fun AwgProfileEntity.subscriptionOrigin(): JsonElement? =
+            decodeJson.parseToJsonElement(requestJson).jsonObject[SubscriptionOriginKey]
+
+        private suspend fun saveLocked(
+            name: String,
+            request: AwgActivationRequest,
+            id: String,
+            origin: JsonElement?,
+            mutationOrigin: ProfileMutationOrigin,
+        ): String {
+            request.obfuscation.requireArm64Safe()
+            val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
+            val fields = encodeJson.encodeToJsonElement(sanitized).jsonObject.toMutableMap()
+            if (origin != null) fields[SubscriptionOriginKey] = origin
+            val updatedProfile =
+                AwgProfileEntity(
+                    id = id,
+                    name = name,
+                    requestJson = JsonObject(fields).toString(),
+                    updatedAt = System.currentTimeMillis(),
+                )
+            profileMutations.upsertAwg(
+                profileMutations.captureMutation(mutationOrigin),
+                profile = updatedProfile,
+                secrets = AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
+            )
+            return id
+        }
 
         /** Deletes the saved profile identified by [id]; a no-op when it does not exist. */
         suspend fun delete(id: String) {
@@ -163,6 +233,8 @@ class AwgProfileRepository
         }
 
         companion object {
+            private const val SubscriptionOriginKey = "subscriptionOrigin"
+
             /**
              * Mints an opaque, non-secret profile id. A random UUID, NOT derived from the
              * endpoint host/port: the id flows into native runtime telemetry, and an

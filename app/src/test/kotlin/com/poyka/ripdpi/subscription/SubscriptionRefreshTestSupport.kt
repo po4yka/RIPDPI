@@ -16,7 +16,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
@@ -58,24 +58,25 @@ abstract class SubscriptionRefreshTestSupport {
             ),
         )
         val publisher = SubscriptionRecordingPublisher()
+        val awgDao = FakeAwgDao()
+        val awgCredentials = FakeAwgCredentialStore()
+        val awgRepository =
+            AwgProfileRepository(
+                awgDao,
+                awgCredentials,
+                com.poyka.ripdpi.data.awg
+                    .TestDirectAwgProfileMutationCoordinator(awgDao, awgCredentials),
+            )
         val coordinator =
             SubscriptionRefreshCoordinator(
                 repository = repository,
-                awgProfileRepository =
-                    AwgProfileRepository(
-                        FakeAwgDao(),
-                        FakeAwgCredentialStore(),
-                        com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
-                            FakeAwgDao(),
-                            FakeAwgCredentialStore(),
-                        ),
-                    ),
+                awgProfileRepository = awgRepository,
                 signalPublisher = publisher,
                 httpClient = httpClient,
                 clockMillis = { now },
                 testOnly = Unit,
             )
-        return Fixture(repository, coordinator, publisher)
+        return Fixture(repository, coordinator, publisher, awgRepository)
     }
 
     protected fun subscriptionGroup(
@@ -114,6 +115,7 @@ abstract class SubscriptionRefreshTestSupport {
         val repository: ProxyGroupRepository,
         val coordinator: SubscriptionRefreshCoordinator,
         val publisher: SubscriptionRecordingPublisher,
+        val awgRepository: AwgProfileRepository,
     )
 
     protected val trojanPayload = "trojan://fixture-password@relay.example.com:443#fixture"
@@ -155,26 +157,40 @@ private class FakeBlobStore : ProxyGroupBlobStore {
 }
 
 private class FakeAwgDao : AwgProfileDao {
-    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = flowOf(emptyList())
+    private val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
 
-    override suspend fun allProfiles(): List<AwgProfileEntity> = emptyList()
+    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows
 
-    override suspend fun getProfile(id: String): AwgProfileEntity? = null
+    override suspend fun allProfiles(): List<AwgProfileEntity> = rows.value
 
-    override suspend fun upsertProfile(profile: AwgProfileEntity) = Unit
+    override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
 
-    override suspend fun deleteProfile(profile: AwgProfileEntity) = Unit
+    override suspend fun upsertProfile(profile: AwgProfileEntity) {
+        rows.value = rows.value.filterNot { it.id == profile.id } + profile
+    }
 
-    override suspend fun deleteAll() = Unit
+    override suspend fun deleteProfile(profile: AwgProfileEntity) {
+        rows.value = rows.value.filterNot { it.id == profile.id }
+    }
+
+    override suspend fun deleteAll() {
+        rows.value = emptyList()
+    }
 }
 
 private class FakeAwgCredentialStore : AwgCredentialStore {
-    override suspend fun load(profileId: String): AwgSecrets? = null
+    private val values = mutableMapOf<String, AwgSecrets>()
+
+    override suspend fun load(profileId: String): AwgSecrets? = values[profileId]
 
     override suspend fun save(
         profileId: String,
         secrets: AwgSecrets,
-    ) = Unit
+    ) {
+        values[profileId] = secrets
+    }
 
-    override suspend fun clear(profileId: String) = Unit
+    override suspend fun clear(profileId: String) {
+        values.remove(profileId)
+    }
 }

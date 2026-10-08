@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
@@ -25,7 +26,6 @@ import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import com.poyka.ripdpi.data.subscription.fitsSubscriptionLimits
 import com.poyka.ripdpi.data.subscription.isValidForRefresh
 import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
-import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
 import dagger.Module
@@ -299,6 +299,12 @@ class SubscriptionRefreshCoordinator private constructor(
                         )
                     }
                 }
+            } catch (_: IllegalArgumentException) {
+                RefreshOutcome.Failure(
+                    failure = SubscriptionRefreshFailure.PARSE_ERROR,
+                    lifecycleState = null,
+                    retry = false,
+                )
             } catch (_: IOException) {
                 RefreshOutcome.Failure(
                     failure = SubscriptionRefreshFailure.UNREACHABLE,
@@ -445,24 +451,15 @@ class SubscriptionRefreshCoordinator private constructor(
         singBox: SingBoxParseResult.Success?,
         wireGuardIni: com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionResult?,
     ): Int {
-        var saved = 0
-        if (singBox != null) {
-            singBox.amneziaWgProfiles.forEach { profile ->
-                awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
-                saved++
+        val profiles =
+            buildList {
+                singBox?.amneziaWgProfiles?.forEach { add(it.toAwgSubscriptionProfile()) }
+                wireGuardIni?.amneziaWgProfiles?.forEach {
+                    add(it.toAwgSubscriptionProfile(memberId = "peer:${it.peerPublicKey}"))
+                }
+                wireGuardIni?.profiles?.forEach { add(it.toAwgSubscriptionProfile()) }
             }
-        }
-        if (wireGuardIni != null) {
-            wireGuardIni.amneziaWgProfiles.forEach { profile ->
-                awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
-                saved++
-            }
-            wireGuardIni.profiles.forEach { profile ->
-                awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
-                saved++
-            }
-        }
-        return saved
+        return awgProfileRepository.saveSubscriptionProfiles(profiles).size
     }
 
     private fun payloadTooLargeFailure(): RefreshOutcome.Failure =

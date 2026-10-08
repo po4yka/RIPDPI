@@ -10,11 +10,11 @@ import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
-import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -67,18 +66,7 @@ class SubscriptionImportConfirmViewModel
             bootstrapConsumer = BootstrapConsumer(),
             groupIdFactory = { UUID.randomUUID().toString() },
             saveAwgProfiles = { profiles ->
-                val existingByName =
-                    awgProfileRepository
-                        .observeProfiles()
-                        .first()
-                        .associateBy { it.name }
-                profiles.forEach { profile ->
-                    awgProfileRepository.save(
-                        name = profile.displayName,
-                        request = profile.toActivationRequest(),
-                        existingId = existingByName[profile.displayName]?.id,
-                    )
-                }
+                awgProfileRepository.saveSubscriptionProfiles(profiles.map { it.toAwgSubscriptionProfile() })
             },
             constructorMarker = Unit,
         )
