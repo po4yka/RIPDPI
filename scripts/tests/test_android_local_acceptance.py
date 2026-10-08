@@ -81,6 +81,13 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.prepared(root, "arm64-v8a", "source")
 
+    def test_missing_real_xray_blocks_before_gradle(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaises(runner.Blocked):
+                runner.prepare(root, "arm64-v8a", "source", root / "absent")
+            self.assertFalse((root / "build.log").exists())
+
     def test_cleanup_stops_only_owned_process(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

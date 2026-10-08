@@ -271,6 +271,28 @@ def wait_json(path: Path, process: OwnedProcess, timeout: int = 60) -> dict:
 def prepare(
     out: Path, abi: str, source: str, xray_artifact_dir: Path | None = None
 ) -> dict:
+    xray_artifact_dir = xray_artifact_dir or ROOT / "native/xray/artifacts"
+    if not (xray_artifact_dir / "libxray.aar").is_file():
+        raise Blocked(
+            "real libXray AAR is absent; prepare it with scripts/native/build-libxray.sh"
+        )
+    verifier_env = os.environ.copy()
+    verifier_env["RIPDPI_XRAY_AAR_DIR"] = str(xray_artifact_dir.resolve())
+    try:
+        run(
+            [
+                "bash",
+                str(ROOT / "scripts/native/verify-libxray-artifacts.sh"),
+                "--abis",
+                abi,
+            ],
+            out / "xray-preflight.log",
+            env=verifier_env,
+        )
+    except RuntimeError as error:
+        raise Blocked(
+            "libXray prerequisite verification failed; see xray-preflight.log"
+        ) from error
     source_tree = source_fingerprint()
     run(
         [
@@ -439,7 +461,9 @@ def main() -> int:
             "instrumentation-components.log",
         )
         matches = re.findall(
-            r"^instrumentation:([A-Za-z0-9_.]+/[A-Za-z0-9_.]+) \(target=" + re.escape(PACKAGE) + r"\)\s*$",
+            r"^instrumentation:([A-Za-z0-9_.]+/[A-Za-z0-9_.]+) \(target="
+            + re.escape(PACKAGE)
+            + r"\)\s*$",
             components,
             re.M,
         )
