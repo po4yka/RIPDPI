@@ -6,8 +6,9 @@
   "dns": {
     "servers": [
       {
+        "type": "https",
         "tag": "remote",
-        "address": "https://1.1.1.1/dns-query",
+        "server": "1.1.1.1",
         "detour": "select"
       }
     ]
@@ -23,8 +24,7 @@
       ],
       "auto_route": true,
       "strict_route": true,
-      "stack": "system",
-      "sniff": true
+      "stack": "system"
     }
   ],
   "outbounds": [
@@ -99,18 +99,16 @@
     {
       "type": "block",
       "tag": "block"
-    },
-    {
-      "type": "dns",
-      "tag": "dns-out"
     }
   ],
   "route": {
     "rules": [
       {
+        "action": "sniff"
+      },
+      {
         "protocol": "dns",
-        "action": "route",
-        "outbound": "dns-out"
+        "action": "hijack-dns"
       }
     ],
     "final": "select",
