@@ -157,6 +157,19 @@ class CaptureTests(unittest.TestCase):
 
 
 class PacketEngineTests(unittest.TestCase):
+    def test_darwin_eperm_only_means_gone_when_process_inventory_agrees(self):
+        with patch.object(sys, 'platform', 'darwin'), patch.object(packet_engine.os, 'killpg', side_effect=PermissionError), \
+             patch.object(packet_engine.subprocess, 'check_output', return_value=' 20\n 30\n'):
+            self.assertFalse(packet_engine.group_exists(10))
+            self.assertTrue(packet_engine.group_exists(20))
+
+    def test_group_exit_between_check_and_signal_is_safe(self):
+        with patch.object(packet_engine, 'group_exists', side_effect=[True, False]), \
+             patch.object(packet_engine.os, 'killpg', side_effect=ProcessLookupError):
+            from unittest.mock import Mock
+            process = Mock(pid=123)
+            self.assertTrue(packet_engine.stop_group(process))
+
     def test_cleanup_terminates_an_owned_process_group(self):
         child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
         try:

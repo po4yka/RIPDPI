@@ -10,6 +10,7 @@ import signal
 import subprocess
 import tomllib
 import time
+import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -20,6 +21,13 @@ def group_exists(pgid: int) -> bool:
         return True
     except ProcessLookupError:
         return False
+    except PermissionError:
+        if sys.platform != 'darwin':
+            raise
+        # Darwin can report EPERM for a group whose leader was just reaped.
+        # Confirm absence from the kernel process inventory before success.
+        inventory = subprocess.check_output(['ps', '-axo', 'pgid='], text=True)
+        return pgid in {int(line.strip()) for line in inventory.splitlines() if line.strip()}
 
 
 def stop_group(process: subprocess.Popen) -> bool:
@@ -27,7 +35,13 @@ def stop_group(process: subprocess.Popen) -> bool:
         if not group_exists(process.pid):
             process.wait(timeout=1)
             return True
-        os.killpg(process.pid, sig)
+        try:
+            os.killpg(process.pid, sig)
+        except ProcessLookupError:
+            pass  # The group exited between the check and the signal.
+        except PermissionError:
+            if group_exists(process.pid):
+                raise
         deadline = time.monotonic()+5
         while time.monotonic() < deadline:
             process.poll()  # Reap the process leader while descendants exit.
