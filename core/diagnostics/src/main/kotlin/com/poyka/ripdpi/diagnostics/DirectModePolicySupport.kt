@@ -113,7 +113,6 @@ private data class DirectModeTransportSignals(
     val allAttemptsFailed: Boolean,
     val noDirectTlsFailure: Boolean,
     val noDirectQuicFailure: Boolean,
-    val noDirectIpFailure: Boolean,
     val transportClass: DirectTransportClass?,
 )
 
@@ -134,12 +133,10 @@ private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransp
     val allAttemptsFailed = results.isNotEmpty() && results.all(ProbeResult::isDirectModeFailure)
     val noDirectTlsFailure = allAttemptsFailed && (hasOwnedStackOnly || hasTlsHandshakeFailure)
     val noDirectQuicFailure = allAttemptsFailed && hasQuicBlocked && !noDirectTlsFailure
-    val noDirectIpFailure = allAttemptsFailed && !noDirectTlsFailure && !noDirectQuicFailure
     val transportClass =
         when {
             hasOwnedStackOnly || hasTlsHandshakeFailure -> DirectTransportClass.SNI_TLS_SUSPECT
             hasQuicBlocked -> DirectTransportClass.QUIC_BLOCK_SUSPECT
-            noDirectIpFailure -> DirectTransportClass.IP_BLOCK_SUSPECT
             else -> null
         }
     return DirectModeTransportSignals(
@@ -151,7 +148,6 @@ private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransp
         allAttemptsFailed = allAttemptsFailed,
         noDirectTlsFailure = noDirectTlsFailure,
         noDirectQuicFailure = noDirectQuicFailure,
-        noDirectIpFailure = noDirectIpFailure,
         transportClass = transportClass,
     )
 }
@@ -230,7 +226,6 @@ private fun deriveReasonCode(signals: DirectModeTransportSignals): DirectModeRea
         signals.hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
         signals.noDirectTlsFailure -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
         signals.noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
-        signals.noDirectIpFailure -> DirectModeReasonCode.IP_BLOCKED
         signals.hasTlsHandshakeFailure -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
         signals.hasQuicBlocked -> DirectModeReasonCode.QUIC_BLOCKED
         signals.hasTransparentSuccess -> null

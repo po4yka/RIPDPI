@@ -388,7 +388,7 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `unreachable authority remains the ip block suspect path`() {
+    fun `unreachable authority keeps its cause unknown`() {
         val report =
             reportWithResults(
                 ProbeResult(
@@ -403,12 +403,12 @@ class DirectModePolicySupportTest {
         val verdict = deriveDirectModeVerdict(report)
 
         assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, observation.transportPolicy?.outcome)
-        assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, observation.transportClass)
-        assertEquals(DirectModeReasonCode.IP_BLOCKED, observation.reasonCode)
+        assertNull(observation.transportClass)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
         assertNotNull(observation.cooldownUntil)
         assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
-        assertEquals(DirectModeReasonCode.IP_BLOCKED, verdict?.reasonCode)
-        assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, verdict?.transportClass)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, verdict?.reasonCode)
+        assertNull(verdict?.transportClass)
     }
 
     @Test
@@ -447,8 +447,8 @@ class DirectModePolicySupportTest {
         val verdict = deriveDirectModeVerdict(report)
 
         assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
-        assertEquals(DirectModeReasonCode.IP_BLOCKED, verdict?.reasonCode)
-        assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, verdict?.transportClass)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, verdict?.reasonCode)
+        assertNull(verdict?.transportClass)
     }
 
     private fun healthyDomainTlsProbe(target: String): ProbeResult =
