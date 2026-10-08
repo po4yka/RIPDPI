@@ -86,17 +86,23 @@ fn push_tls_clienthello_failure(
     hard_failure_codes: &mut BTreeSet<String>,
     sink: &mut DiagnosisSink,
 ) {
+    if result.outcome == "tls_ok"
+        || failure_detail_value(result, "tlsStatus") == Some("tls_ok")
+        || failure_detail_value(result, "tlsFailureStage") != Some("tls_handshake")
+    {
+        return;
+    }
     let tls_error = failure_detail_value(result, "tlsError").unwrap_or_default().to_ascii_lowercase();
     if tls_error.is_empty() || tls_error == "none" {
         return;
     }
 
     let (code, summary) = if is_timeout_error(&tls_error) {
-        ("tls_clienthello_timeout", format!("TLS handshake to {} timed out after ClientHello", result.target))
+        ("tls_clienthello_timeout", format!("TLS handshake to {} timed out", result.target))
     } else if is_reset_error(&tls_error) {
-        ("tls_clienthello_rst", format!("TLS handshake to {} was reset after ClientHello", result.target))
+        ("tls_clienthello_rst", format!("TLS handshake to {} was reset", result.target))
     } else if is_close_error(&tls_error) {
-        ("tls_clienthello_close", format!("TLS handshake to {} closed unexpectedly after ClientHello", result.target))
+        ("tls_clienthello_close", format!("TLS handshake to {} closed unexpectedly", result.target))
     } else {
         return;
     };
@@ -106,7 +112,10 @@ fn push_tls_clienthello_failure(
         summary,
         severity: "negative".to_string(),
         target: Some(result.target.clone()),
-        evidence: diagnosis_evidence(result, &["tlsStatus", "tlsError", "tls13Status", "tls12Status"]),
+        evidence: diagnosis_evidence(
+            result,
+            &["tlsStatus", "tlsError", "tlsFailureStage", "tls13Status", "tls12Status"],
+        ),
         recommendation: None,
         control_validated: None,
     });
@@ -128,4 +137,55 @@ fn push_http_blockpage(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<S
         control_validated: None,
     });
     hard_failure_codes.insert("http_blockpage".to_string());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::ProbeDetail;
+
+    #[test]
+    fn pre_handshake_timeout_does_not_claim_clienthello_failure() {
+        let result = ProbeResult {
+            probe_type: "domain_reachability".into(),
+            target: "example.com".into(),
+            outcome: "unreachable".into(),
+            details: vec![
+                ProbeDetail { key: "tlsStatus".into(), value: "tls_handshake_failed".into() },
+                ProbeDetail { key: "tlsError".into(), value: "connection timed out".into() },
+                ProbeDetail { key: "tlsFailureStage".into(), value: "tcp_connect".into() },
+            ],
+        };
+        let mut sink = DiagnosisSink::new();
+        let mut failures = BTreeSet::new();
+        classify_domain_diagnoses(&[result], &mut failures, &mut sink);
+        assert!(sink.into_vec().is_empty());
+    }
+    #[test]
+    fn only_measured_failed_handshakes_produce_tls_diagnoses() {
+        for (stage, status, expected) in [
+            ("dns_resolution", "tls_handshake_failed", false),
+            ("socks5_negotiation", "tls_handshake_failed", false),
+            ("stream_setup", "tls_handshake_failed", false),
+            ("none", "tls_handshake_failed", false),
+            ("tls_handshake", "tls_ok", false),
+            ("tls_handshake", "tls_handshake_failed", true),
+        ] {
+            let result = ProbeResult {
+                probe_type: "domain_reachability".into(),
+                target: "example.com".into(),
+                outcome: "unreachable".into(),
+                details: vec![
+                    ProbeDetail { key: "tlsStatus".into(), value: status.into() },
+                    ProbeDetail { key: "tlsError".into(), value: "connection reset by peer".into() },
+                    ProbeDetail { key: "tlsFailureStage".into(), value: stage.into() },
+                ],
+            };
+            let mut sink = DiagnosisSink::new();
+            classify_domain_diagnoses(&[result], &mut BTreeSet::new(), &mut sink);
+            let diagnoses = sink.into_vec();
+            assert_eq!(!diagnoses.is_empty(), expected, "stage={stage}, status={status}");
+            assert!(diagnoses.iter().all(|diagnosis| !diagnosis.summary.contains("after ClientHello")));
+        }
+    }
 }

@@ -164,19 +164,31 @@ fn classify_connectivity_diagnoses_detects_tls_timeout_rst_close_and_mitm() {
                 "domain_reachability",
                 "discord.com",
                 "unreachable",
-                &[("tlsError", "operation timed out"), ("tlsStatus", "tls_handshake_failed")],
+                &[
+                    ("tlsError", "operation timed out"),
+                    ("tlsStatus", "tls_handshake_failed"),
+                    ("tlsFailureStage", "tls_handshake"),
+                ],
             ),
             connectivity_probe(
                 "domain_reachability",
                 "signal.org",
                 "unreachable",
-                &[("tlsError", "connection reset by peer"), ("tlsStatus", "tls_handshake_failed")],
+                &[
+                    ("tlsError", "connection reset by peer"),
+                    ("tlsStatus", "tls_handshake_failed"),
+                    ("tlsFailureStage", "tls_handshake"),
+                ],
             ),
             connectivity_probe(
                 "domain_reachability",
                 "whatsapp.com",
                 "unreachable",
-                &[("tlsError", "unexpected eof"), ("tlsStatus", "tls_handshake_failed")],
+                &[
+                    ("tlsError", "unexpected eof"),
+                    ("tlsStatus", "tls_handshake_failed"),
+                    ("tlsFailureStage", "tls_handshake"),
+                ],
             ),
             connectivity_probe(
                 "domain_reachability",
@@ -213,7 +225,11 @@ fn classify_connectivity_diagnoses_detects_http_quic_whitelist_and_tcp_cutoff() 
                 "domain_reachability",
                 "youtube.com",
                 "unreachable",
-                &[("tlsError", "connection reset by peer"), ("tlsStatus", "tls_handshake_failed")],
+                &[
+                    ("tlsError", "connection reset by peer"),
+                    ("tlsStatus", "tls_handshake_failed"),
+                    ("tlsFailureStage", "tls_handshake"),
+                ],
             ),
             connectivity_probe(
                 "quic_reachability",

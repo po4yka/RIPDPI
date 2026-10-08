@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ripdpi_diagnostics_tls::tls::TlsObservation;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request_targets};
@@ -7,7 +8,9 @@ use crate::connectivity::adapters::tls::{
     TlsClientProfile, classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation,
     tls_key_log_callback_for_path, try_tls_handshake_targets_with_key_log,
 };
-use crate::connectivity::adapters::transport::{TransportConfig, domain_connect_targets, resolve_addresses};
+use crate::connectivity::adapters::transport::{
+    TargetAddress, TransportConfig, domain_connect_targets, resolve_addresses,
+};
 use crate::connectivity::adapters::util::format_socket_result;
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
@@ -29,6 +32,25 @@ pub fn run_domain_probe_with_key_log(
     keylog_path: Option<&str>,
 ) -> ProbeResult {
     let key_log = keylog_path.map(tls_key_log_callback_for_path);
+    run_domain_probe_with_tls_probe(target, transport, |connect_targets, port, profile| {
+        try_tls_handshake_targets_with_key_log(
+            connect_targets,
+            port,
+            transport,
+            &target.host,
+            true,
+            profile,
+            tls_verifier,
+            key_log.as_ref(),
+        )
+    })
+}
+
+fn run_domain_probe_with_tls_probe(
+    target: &DomainTarget,
+    transport: &TransportConfig,
+    mut probe_tls: impl FnMut(&[TargetAddress], u16, TlsClientProfile) -> TlsObservation,
+) -> ProbeResult {
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_targets = domain_connect_targets(target);
@@ -38,41 +60,12 @@ pub fn run_domain_probe_with_key_log(
         Some(target) => resolve_addresses(target, https_port).map_err(|error| error.to_string()),
         None => Err(ripdpi_diagnostics_transport::transport::TransportError::NoTargetCandidates.to_string()),
     };
-    let tls13 = try_tls_handshake_targets_with_key_log(
-        &connect_targets,
-        https_port,
-        transport,
-        &target.host,
-        true,
-        TlsClientProfile::Tls13Only,
-        tls_verifier,
-        key_log.as_ref(),
-    );
-    let tls12 = try_tls_handshake_targets_with_key_log(
-        &connect_targets,
-        https_port,
-        transport,
-        &target.host,
-        true,
-        TlsClientProfile::Tls12Only,
-        tls_verifier,
-        key_log.as_ref(),
-    );
-    let tls_ech = try_tls_handshake_targets_with_key_log(
-        &connect_targets,
-        https_port,
-        transport,
-        &target.host,
-        true,
-        TlsClientProfile::Tls13WithEch,
-        tls_verifier,
-        key_log.as_ref(),
-    );
+    let mut tls13 = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls13Only);
+    let tls12 = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls12Only);
+    let tls_ech = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls13WithEch);
     let http = try_http_request_targets(&connect_targets, http_port, transport, &target.host, &target.http_path, false);
     let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
     let h3_advertised = alt_svc_value.as_ref().is_some_and(|v| v.contains("h3"));
-    let tls_signal = classify_tls_signal(&tls13, &tls12);
-    let preferred_tls = preferred_tls_observation(&tls13, &tls12);
 
     let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
         "tls_cert_invalid".to_string()
@@ -96,20 +89,18 @@ pub fn run_domain_probe_with_key_log(
 
     // Single retry on total failure to distinguish transient from consistent blocking
     let (outcome, probe_retry_count) = if outcome == "unreachable" {
-        let retry = try_tls_handshake_targets_with_key_log(
-            &connect_targets,
-            https_port,
-            transport,
-            &target.host,
-            true,
-            TlsClientProfile::Tls13Only,
-            tls_verifier,
-            key_log.as_ref(),
-        );
-        if retry.status == "tls_ok" { ("tls_ok".to_string(), 1usize) } else { ("unreachable".to_string(), 1usize) }
+        let retry = probe_tls(&connect_targets, https_port, TlsClientProfile::Tls13Only);
+        if retry.status == "tls_ok" {
+            tls13 = retry;
+            ("tls_ok".to_string(), 1usize)
+        } else {
+            ("unreachable".to_string(), 1usize)
+        }
     } else {
         (outcome, 0usize)
     };
+    let tls_signal = classify_tls_signal(&tls13, &tls12);
+    let preferred_tls = preferred_tls_observation(&tls13, &tls12);
     let route_local_addr =
         if outcome == "tls_ech_only" { tls_ech.local_addr } else { preferred_tls.local_addr.or(tls_ech.local_addr) };
     let route_report = if outcome == "tls_ech_only" {
@@ -137,6 +128,10 @@ pub fn run_domain_probe_with_key_log(
             ProbeDetail {
                 key: "tlsError".to_string(),
                 value: preferred_tls.error.clone().unwrap_or_else(|| "none".to_string()),
+            },
+            ProbeDetail {
+                key: "tlsFailureStage".to_string(),
+                value: preferred_tls.failure_stage.map_or("none", |stage| stage.as_str()).to_string(),
             },
             ProbeDetail { key: "tlsSignal".to_string(), value: tls_signal.to_string() },
             ProbeDetail { key: "tls13Status".to_string(), value: tls13.status.clone() },
@@ -215,6 +210,84 @@ fn http_status_class(status: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{http_status_class, http_status_code};
+
+    #[test]
+    fn successful_retry_replaces_tls_failure_evidence() {
+        use crate::types::{DomainTarget, TransportFailureKind};
+        use ripdpi_diagnostics_classification::observations::observation_for_probe;
+        use ripdpi_diagnostics_tls::tls::{ProbeStreamFailureStage, TlsObservation};
+
+        let failure = TlsObservation {
+            status: "tls_handshake_failed".into(),
+            version: None,
+            error: Some("connection timed out".into()),
+            failure_stage: Some(ProbeStreamFailureStage::TcpConnect),
+            failure_duration_ms: Some(100),
+            certificate_anomaly: false,
+            ech_resolution_detail: None,
+            ech_bootstrap_policy: None,
+            ech_bootstrap_resolver_id: None,
+            ech_outer_extension_policy: None,
+            ech_first_flight_plan: None,
+            tcp_connect_ms: None,
+            tls_handshake_ms: None,
+            cert_chain_length: None,
+            cert_issuer: None,
+            local_socket_ttl: None,
+            ja3_fingerprint: None,
+            tls_alert_code: None,
+            tls_alert_description: None,
+            tls_server_hello_received: None,
+            tls_dpi_signature: None,
+            connected_addr: None,
+            local_addr: None,
+            cdn_provider: None,
+            route_report: None,
+        };
+        let success = TlsObservation {
+            status: "tls_ok".into(),
+            version: Some("TLS1.3".into()),
+            error: None,
+            failure_stage: None,
+            failure_duration_ms: None,
+            connected_addr: Some("127.0.0.2:443".parse().unwrap()),
+            ..failure.clone()
+        };
+        let http_server = crate::test_fixtures::HttpTextServer::start_text("HTTP/1.1 503 Service Unavailable", "busy");
+        let target = DomainTarget {
+            host: "localhost".into(),
+            connect_ip: Some("127.0.0.1".into()),
+            connect_ips: vec![],
+            https_port: Some(9),
+            http_port: Some(http_server.port()),
+            http_path: "/".into(),
+            is_control: false,
+            concurrency_probe: None,
+        };
+        let mut attempts = 0;
+        let result = super::run_domain_probe_with_tls_probe(
+            &target,
+            &super::TransportConfig::Direct { route_experiment: None },
+            |_, _, _| {
+                attempts += 1;
+                if attempts == 4 { success.clone() } else { failure.clone() }
+            },
+        );
+        assert_eq!(attempts, 4);
+        assert_eq!(result.outcome, "tls_ok");
+        let detail = |key: &str| result.details.iter().find(|detail| detail.key == key).unwrap().value.as_str();
+        assert_eq!(detail("tlsStatus"), "tls_ok");
+        assert_eq!(detail("tlsVersion"), "TLS1.3");
+        assert_eq!(detail("tlsError"), "none");
+        assert_eq!(detail("tlsFailureStage"), "none");
+        assert_eq!(detail("tls13Status"), "tls_ok");
+        assert_eq!(detail("tls13Error"), "none");
+        assert_eq!(detail("tls12Error"), "connection timed out");
+        assert_eq!(detail("connectedIp"), "127.0.0.2");
+        let domain = observation_for_probe(&result).unwrap().domain.unwrap();
+        assert_eq!(domain.transport_failure, TransportFailureKind::None);
+        assert_eq!(domain.tls_error, None);
+    }
 
     #[test]
     fn domain_probe_uses_later_pinned_address_and_preserves_host() {
