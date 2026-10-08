@@ -48,7 +48,7 @@ sealed interface SingBoxParseResult {
          * the enforcement point; this is the early-warning copy.
          */
         val tokenExpiresAtEpochMillis: Long? = null,
-        /** Nodes rejected before mapping because their declared wire mode is unsupported. */
+        /** Nodes rejected before mapping because their wire mode or fingerprint is invalid. */
         val skipped: List<SingBoxSkippedNode> = emptyList(),
         /** Absent preserves existing delivery endpoints; an explicit empty list removes them. */
         val subscriptionMirrors: SubscriptionMirrorSet? = null,
@@ -61,7 +61,7 @@ sealed interface SingBoxParseResult {
     ) : SingBoxParseResult
 }
 
-/** Stable reason why a sing-box outbound was not made selectable. */
+/** Stable reason why a subscription entry was not made selectable. */
 enum class SingBoxSkipReason {
     UNSUPPORTED_TRANSPORT,
     UNSUPPORTED_OBFUSCATION,
@@ -69,7 +69,7 @@ enum class SingBoxSkipReason {
     UNSUPPORTED_FINGERPRINT,
 }
 
-/** One rejected sing-box outbound. [detail] is a non-secret protocol identifier. */
+/** One rejected subscription entry. [detail] is a non-secret protocol or metadata identifier. */
 data class SingBoxSkippedNode(
     val index: Int,
     val label: String,
@@ -198,7 +198,7 @@ object SingBoxSubscriptionParser {
                     packageRoutingRules = packageRoutingRules,
                     topology = ripdpi.topology,
                     tokenExpiresAtEpochMillis = ripdpi.tokenExpiresAtEpochMillis,
-                    skipped = skipped,
+                    skipped = skipped + ripdpi.skipped,
                     subscriptionMirrors = ripdpi.subscriptionMirrors,
                     cloudflareMemberIds = ripdpi.cloudflareMemberIds,
                 )
@@ -597,6 +597,7 @@ private fun rawConfig(
 private data class RipdpiBlockResult(
     val profiles: List<ProxyProfile>,
     val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile>,
+    val skipped: List<SingBoxSkippedNode> = emptyList(),
     val topology: RipdpiTopology? = null,
     val tokenExpiresAtEpochMillis: Long? = null,
     val subscriptionMirrors: SubscriptionMirrorSet? = null,
@@ -620,15 +621,19 @@ private fun processRipdpiBlock(
         ripdpiBlock?.takeIf { it.int("schema_version") == SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION }
             ?: return RipdpiBlockResult(profiles, emptyList())
     val mirrors = parseSubscriptionMirrors(versioned)
+    val skipped = mutableListOf<SingBoxSkippedNode>()
     val awgProfiles =
         (versioned["amneziawg"] as? JsonArray)
-            ?.mapNotNull { element -> (element as? JsonObject)?.let { mapRipdpiAwg(it, groupId) } }
+            ?.mapIndexedNotNull { index, element ->
+                (element as? JsonObject)?.let { mapRipdpiAwg(it, groupId, index, skipped) }
+            }
             ?: emptyList()
     val hyExtras = versioned["hysteria_extras"] as? JsonObject
     val patchedProfiles = hyExtras?.let { applyHysteriaExtras(profiles, it) } ?: profiles
     return RipdpiBlockResult(
         profiles = patchedProfiles,
         amneziaWgProfiles = awgProfiles,
+        skipped = skipped,
         topology = parseRipdpiTopology(versioned["topology"] as? JsonObject),
         tokenExpiresAtEpochMillis = parseRipdpiExpiry(versioned.string("expires")),
         subscriptionMirrors = mirrors,
@@ -683,6 +688,8 @@ private fun parseRipdpiTopology(obj: JsonObject?): RipdpiTopology? {
 private fun mapRipdpiAwg(
     obj: JsonObject,
     groupId: String,
+    index: Int,
+    skipped: MutableList<SingBoxSkippedNode>,
 ): AmneziaWgSubscriptionProfile? {
     val tag = obj.string("tag") ?: return null
     val peerObj = obj["peer"] as? JsonObject ?: return null
@@ -737,6 +744,10 @@ private fun mapRipdpiAwg(
             i5 = obj.string("i5"),
         )
     runCatching { awg.requireArm64Safe() }.getOrElse { return null }
+    if ("cohort_fingerprint" in obj && !matchesCohortFingerprint(obj["cohort_fingerprint"], awg)) {
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, "cohort_fingerprint")
+        return null
+    }
 
     // `private_key_placeholder: true` means no usable private key is present.
     // Use an empty string as the placeholder so the AWG editor can detect it.
@@ -762,6 +773,15 @@ private fun mapRipdpiAwg(
         awg = awg,
         cohortFingerprint = obj.string("cohort_fingerprint"),
     )
+}
+
+/** Exact comparison also enforces the server's sha256 prefix and lowercase hexadecimal format. */
+private fun matchesCohortFingerprint(
+    value: JsonElement?,
+    awg: AmneziaWgParameters,
+): Boolean {
+    val fingerprint = value as? JsonPrimitive ?: return false
+    return fingerprint.isString && fingerprint.content == awg.cohortFingerprint()
 }
 
 /**
