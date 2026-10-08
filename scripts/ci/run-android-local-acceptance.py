@@ -303,6 +303,7 @@ def prepare(
             ":app:assembleGithubFullDebug",
             ":app:assembleGithubFullDebugAndroidTest",
             f"-Pripdpi.nativeAbisOverride={abi}",
+            "-Pripdpi.enableAbiSplits=false",
         ]
         + (
             [f"-Pripdpi.prebuiltXrayAarDir={xray_artifact_dir.resolve()}"]
@@ -392,6 +393,13 @@ def preparation_summary(out: Path, report: dict) -> dict:
         summary["diagnostic_codes"] = [
             code for code, pattern in signatures.items() if re.search(pattern, output)
         ]
+    post_build_errors = {
+        "source changed during APK preparation": "source-changed",
+        "build did not produce required app APK": "app-apk-missing",
+        "build did not produce required test APK": "test-apk-missing",
+    }
+    if code := post_build_errors.get(report.get("error")):
+        summary["diagnostic_codes"].append(code)
     return summary
 
 

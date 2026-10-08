@@ -53,6 +53,18 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual([], result["outputs_present"])
             self.assertEqual([], result["diagnostic_codes"])
 
+    def test_preparation_summary_distinguishes_post_build_failures(self):
+        for error, expected in (
+            ("source changed during APK preparation", "source-changed"),
+            ("build did not produce required app APK", "app-apk-missing"),
+            ("build did not produce required test APK", "test-apk-missing"),
+        ):
+            with tempfile.TemporaryDirectory() as temporary, self.subTest(error=error):
+                result = runner.preparation_summary(
+                    Path(temporary), {"status": "failed", "error": error}
+                )
+                self.assertEqual([expected], result["diagnostic_codes"])
+
     def test_exact_completed_test_is_accepted(self):
         runner.parse_instrumentation(transcript(), TEST)
 
