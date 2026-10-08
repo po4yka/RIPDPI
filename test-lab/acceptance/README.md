@@ -89,6 +89,8 @@ or changed implicitly.
 python3 test-lab/acceptance/vm/lab_vm.py create \
   --name ripdpi-acceptance-local \
   --workspace "$PWD" --out-dir /tmp/ripdpi-acceptance-output
+python3 test-lab/acceptance/vm/lab_vm.py start \
+  --name ripdpi-acceptance-local --out-dir /tmp/ripdpi-acceptance-output
 python3 test-lab/acceptance/vm/lab_vm.py doctor \
   --name ripdpi-acceptance-local --out-dir /tmp/ripdpi-acceptance-output
 python3 test-lab/acceptance/lab.py run --profile routed \

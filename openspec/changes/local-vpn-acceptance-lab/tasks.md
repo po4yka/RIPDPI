@@ -2,10 +2,10 @@
 
 ## Execution
 
-- [ ] TST-1791478009222457 Implement scenario catalog and strict evidence runner with regression tests #feature !high @item:TST-1791477382746187
-- [ ] TST-1791478014844231 Implement isolated VM routing faults and TCP UDP controls with tests #feature !high @item:TST-1791477382746187
+- [x] TST-1791478009222457 Implement scenario catalog and strict evidence runner with regression tests #feature !high @item:TST-1791477382746187
+- [x] TST-1791478014844231 Implement isolated VM routing faults and TCP UDP controls with tests #feature !high @item:TST-1791477382746187
 - [ ] TST-1791478024148220 Implement real Android local acceptance and configurable peer endpoints #feature !high @item:TST-1791477382746187
-- [ ] TST-1791478027241747 Implement independent peer adapters and Hysteria interoperability #feature !high @item:TST-1791477382746187
+- [x] TST-1791478027241747 Implement independent peer adapters and Hysteria interoperability #feature !high @item:TST-1791477382746187
 - [ ] TST-1791478029994870 Integrate CI documentation and observed combined validation #feature !high @item:TST-1791477382746187
 
 ## Ownership and gates

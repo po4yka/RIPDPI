@@ -2,7 +2,7 @@
 id: TST-1791477382746187
 title: Build reproducible local VPN acceptance lab
 kind: feature
-status: doing
+status: review
 area: testing
 priority: high
 owner: Acceptance lab coordinator
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: local-vpn-acceptance-lab
 created: 2026-10-08
 updated: 2026-10-08
+status_detail: Implementation is ready for review. Real Android TUN and packet-engine validation remain blocked by local disk capacity; required CI evidence is pending.
 ---
 
 ## Goal
