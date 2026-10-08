@@ -26,6 +26,13 @@ a missing checkout or downloads a missing binary. Each result directory must be
 empty. Result directories are private (mode 0700); logs can contain ephemeral
 test values and must not be published directly.
 
+For Go peers, preparation records the exact compiler version, resolved toolchain
+directory, and binary SHA-256. Runtime verifies that identity and puts that
+toolchain first in `PATH`. It keeps `GOPROXY=off` and `GOSUMDB=off`. This avoids
+Go's bootstrap toolchain switcher, which requires checksum database verification
+even for a previously downloaded toolchain. A missing or changed prepared
+compiler fails closed; run preparation again to rebuild its identity record.
+
 ## Evidence levels
 
 - `independent-peer`: the production native client exchanges data with upstream

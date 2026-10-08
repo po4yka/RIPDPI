@@ -16,6 +16,7 @@ import time
 
 from catalog import SCENARIOS, UPSTREAM, EXTERNAL_BOUNDARIES
 import hysteria
+import go_toolchain
 
 ROOT = Path(__file__).resolve().parents[3]
 RUST = ROOT / "native/rust"
@@ -191,8 +192,9 @@ def prepare(case, args):
         checked(
             ["go", "mod", "download"],
             source,
-            dict(os.environ, GOTOOLCHAIN="go1.27.0", GOWORK="off"),
+            dict(os.environ, GOTOOLCHAIN=go_toolchain.OUTBOUND_VERSION, GOWORK="off"),
         )
+        go_toolchain.prepare(args.cache_dir, go_toolchain.OUTBOUND_VERSION, source)
         native = dict(
             case, package=f"ripdpi-{case['protocol']}", target="upstream_interop"
         )
@@ -207,6 +209,9 @@ def prepare(case, args):
             ["go", "mod", "download"],
             oracle["PEER"],
             dict(os.environ, GOTOOLCHAIN=oracle["peer_go_toolchain"]()),
+        )
+        go_toolchain.prepare(
+            args.cache_dir, oracle["peer_go_toolchain"](), oracle["PEER"]
         )
         checked(
             [
@@ -238,20 +243,31 @@ def execute(case, args, result):
         if not source.is_dir():
             raise FileNotFoundError("upstream peer source absent; run --prepare")
         oracle = runpy.run_path(str(ROOT / "scripts/tests/run-outbound-interop.py"))
-        oracle["run"](
-            [
-                "--protocol",
-                case["protocol"],
-                "--source-dir",
-                str(source),
-                "--test",
-                case["test"],
-            ]
+        go_env, identity = go_toolchain.resolve(
+            args.cache_dir, go_toolchain.OUTBOUND_VERSION
         )
+        result["peer_identity"]["compiler"] = identity
+        with environment(go_env):
+            oracle["run"](
+                [
+                    "--protocol",
+                    case["protocol"],
+                    "--source-dir",
+                    str(source),
+                    "--test",
+                    case["test"],
+                ]
+            )
     elif driver == "awg":
-        runpy.run_path(str(ROOT / "scripts/tests/run-standalone-awg-interop.py"))[
-            "run"
-        ]()
+        oracle = runpy.run_path(
+            str(ROOT / "scripts/tests/run-standalone-awg-interop.py")
+        )
+        go_env, identity = go_toolchain.resolve(
+            args.cache_dir, oracle["peer_go_toolchain"]()
+        )
+        result["peer_identity"]["compiler"] = identity
+        with environment(go_env):
+            oracle["run"]()
     elif driver == "hysteria2":
         # Compilation happens before starting a peer with a finite lifetime.
         checked(cargo_command(endpoint_case(case), True), RUST)
