@@ -29,3 +29,5 @@ Subscription recovery writer owns app SubscriptionRefreshCoordinator.kt and Subs
 ## Final evidence ownership
 
 The subscription evidence worker owns verification records and task closure receipts on `docs/subscription-p2-final`. The integration owner provides the final gate results and serializes main integration. Source, tests, golden images, and generated artifacts remain with their assigned owners.
+
+The snapshot writer owns only `SubscriptionStatusScreenshotTest.expired_light.png` and `SubscriptionStatusScreenshotTest.expired_dark.png` on `fix/subscription-recovery-snapshots`, plus the local snapshot verification evidence. The user authorized these two baseline updates after review of their expected, actual, and comparison images. Task closure remains with the integration owner.
