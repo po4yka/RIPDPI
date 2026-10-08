@@ -2,7 +2,7 @@
 id: DAT-1791477854155125
 title: Preserve AWG subscription profile identity during refresh
 kind: bug
-status: review
+status: done
 area: data
 priority: high
 owner: awg-refresh
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-awg-subscription-refresh
 created: 2026-10-08
 updated: 2026-10-08
+closed_at: "2026-10-08T17:10:53Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Commit 5479d468752a4e17812deaae0f6e482e4880efd0: 36 app tests, 21 Room tests, and affected lint passed; combined tree has 122 passing JVM tests, unchanged architecture health, and valid Cargo metadata."
 ---
 
 ## Goal

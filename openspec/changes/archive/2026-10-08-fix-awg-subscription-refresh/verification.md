@@ -1,7 +1,7 @@
 ---
 task_id: DAT-1791477854155125
 change: fix-awg-subscription-refresh
-commit_sha: null
+commit_sha: 5479d468752a4e17812deaae0f6e482e4880efd0
 local: passed
 local_evidence: 36 app and 21 Room tests passed; affected ktlint and detekt passed; architecture health unchanged.
 remote_ci: not_applicable
@@ -37,3 +37,9 @@ deployment_evidence: No deployment is owned by this change.
 ## Upgrade boundary
 
 Legacy AWG rows have no source provenance. They stay unchanged. The first managed template needs the local private key set once; later refreshes reuse that row. No name-based ownership inference or automatic deletion occurs.
+
+## Combined tree verification
+
+On `5479d468752a4e17812deaae0f6e482e4880efd0`, the integration owner inspected the post-rebase XML results: 36 app tests and 86 core data tests (65 parser and contract tests, 21 Room tests), with zero failures, errors, or skips. Architecture health reported 21 unchanged indicators and no new or worsened entries. `cargo metadata --manifest-path native/rust/Cargo.toml --locked` passed. Hosted CI, Android device, and VPS acceptance are not claimed.
+
+The final combined Gradle invocation on `5479d468752a4e17812deaae0f6e482e4880efd0` completed successfully in 7 minutes 1 second (783 tasks): all 122 targeted JVM tests and `staticAnalysis` passed. The invocation used `-Pripdpi.skipNativeBuild=true`; standard CI-fixture exclusions remained in effect. This validates the Kotlin changes and static checks; no native build, hosted CI, device, or VPS result is inferred.

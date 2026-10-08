@@ -2,7 +2,7 @@
 id: DAT-1791477482125477
 title: Reject unsupported subscription multiplex modes
 kind: bug
-status: doing
+status: done
 area: data
 priority: high
 owner: Mux import writer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: reject-subscription-multiplex
 created: 2026-10-08
 updated: 2026-10-08
+closed_at: "2026-10-08T17:10:45Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Commit 5144ad2e7b6c67dc59145caf90b6959a7bdbe2a5: 65 parser and contract tests and affected lint passed; combined tree 5479d468752a4e17812deaae0f6e482e4880efd0 has 122 passing JVM tests, unchanged architecture health, and valid Cargo metadata."
 ---
 
 ## Goal

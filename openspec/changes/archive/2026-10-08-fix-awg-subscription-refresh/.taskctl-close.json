@@ -1,0 +1,11 @@
+{
+  "change": "fix-awg-subscription-refresh",
+  "evidence_summary": "Commit 5479d468752a4e17812deaae0f6e482e4880efd0: 36 app tests, 21 Room tests, and affected lint passed; combined tree has 122 passing JVM tests, unchanged architecture health, and valid Cargo metadata.",
+  "execution_sha256": "e385c232ebfc4dd328c8cf487f6931e1556222cb2dde0317d1090206fcc49b0d",
+  "issue_sha256": "1735d9cac1a2c2e66e8c358fc0aa0ba2ae77b007582de7dedc992d20584760b9",
+  "outcome": "done",
+  "prepared_at": "2026-10-08T17:10:53Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1791477854155125"
+}

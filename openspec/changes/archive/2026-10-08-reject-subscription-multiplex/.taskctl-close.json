@@ -1,0 +1,11 @@
+{
+  "change": "reject-subscription-multiplex",
+  "evidence_summary": "Commit 5144ad2e7b6c67dc59145caf90b6959a7bdbe2a5: 65 parser and contract tests and affected lint passed; combined tree 5479d468752a4e17812deaae0f6e482e4880efd0 has 122 passing JVM tests, unchanged architecture health, and valid Cargo metadata.",
+  "execution_sha256": "552c3d13f1a69a0bdfc77f1b5172d39b6a0ad6ffd0eb8f176dcb2aaa56ff0bea",
+  "issue_sha256": "c52e509ae58579b97e6a7183ebcb15e8c4182c4df8a48c9d5c706782636fcdb5",
+  "outcome": "done",
+  "prepared_at": "2026-10-08T17:10:45Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1791477482125477"
+}
