@@ -25,6 +25,7 @@ import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmViewModel
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -604,7 +605,7 @@ class SubscriptionImportConfirmViewModelTest {
     fun `confirming a subscription import persists a subscription group`() =
         runTest {
             val repository = FakeProxyGroupRepository()
-            val viewModel = SubscriptionImportConfirmViewModel(repository)
+            val viewModel = subscriptionViewModel(repository)
 
             viewModel.setRequest(url = "https://sub.example.com/c", name = "Fleet", bootstrap = false)
             viewModel.importedEvents.test {
@@ -626,7 +627,7 @@ class SubscriptionImportConfirmViewModelTest {
     fun `subscription import without a name falls back to the host as the group name`() =
         runTest {
             val repository = FakeProxyGroupRepository()
-            val viewModel = SubscriptionImportConfirmViewModel(repository)
+            val viewModel = subscriptionViewModel(repository)
 
             viewModel.setRequest(url = "https://sub.example.com/c", name = "", bootstrap = false)
             viewModel.confirm()
@@ -639,7 +640,7 @@ class SubscriptionImportConfirmViewModelTest {
     fun `bootstrap subscription import is surfaced in ui state`() =
         runTest {
             val repository = FakeProxyGroupRepository()
-            val viewModel = SubscriptionImportConfirmViewModel(repository)
+            val viewModel = subscriptionViewModel(repository)
 
             viewModel.setRequest(
                 url = "https://sub.example.com/bootstrap/tok",
@@ -890,7 +891,7 @@ class SubscriptionImportConfirmViewModelTest {
     fun `confirming a non-bootstrap import persists a long-lived subscription`() =
         runTest {
             val repository = FakeProxyGroupRepository()
-            val viewModel = SubscriptionImportConfirmViewModel(repository)
+            val viewModel = subscriptionViewModel(repository)
 
             viewModel.setRequest(url = "https://sub.example.com/sub/x", name = "Fleet", bootstrap = false)
             viewModel.confirm()
@@ -905,6 +906,23 @@ class SubscriptionImportConfirmViewModelTest {
                     ?.kind,
             )
         }
+
+    private fun subscriptionViewModel(repository: FakeProxyGroupRepository) =
+        SubscriptionImportConfirmViewModel(
+            repository = repository,
+            refreshSubscription = { groupId ->
+                val group = repository.list().single { it.id == groupId }
+                repository.update(
+                    group.copy(
+                        members =
+                            listOf(
+                                ProxyProfile.Trojan("member", groupId, "Node", "relay.example", 443, "fixture"),
+                            ),
+                    ),
+                )
+                SubscriptionRefreshResult.Updated(1)
+            },
+        )
 }
 
 private class FakeProxyGroupRepository : ProxyGroupRepository {

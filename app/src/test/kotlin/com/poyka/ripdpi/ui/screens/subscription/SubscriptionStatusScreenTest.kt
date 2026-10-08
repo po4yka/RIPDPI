@@ -10,6 +10,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
+import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.subscription.subscriptionDetailUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -71,13 +72,25 @@ class SubscriptionStatusScreenTest {
     }
 
     @Test
-    fun `expired subscription keeps profiles and offers replacement guidance instead of refresh`() {
-        render(uiState = state(expiry = Now))
+    fun `expired subscription offers manual refresh and replacement guidance`() {
+        var refreshedGroup = ""
+        render(uiState = state(expiry = Now), onRefresh = { refreshedGroup = it })
 
         composeRule
             .onNodeWithText(string(R.string.subscription_status_replacement_help))
             .performScrollTo()
             .assertIsDisplayed()
+        composeRule
+            .onNodeWithText(string(R.string.subscription_status_refresh_action))
+            .performScrollTo()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(GroupId, refreshedGroup) }
+    }
+
+    @Test
+    fun `expired bootstrap cannot be refreshed from the status screen`() {
+        render(uiState = state(expiry = Now, kind = SubscriptionKind.BOOTSTRAP))
+
         composeRule
             .onNodeWithText(string(R.string.subscription_status_refresh_action))
             .assertDoesNotExist()
@@ -126,12 +139,14 @@ class SubscriptionStatusScreenTest {
     private fun state(
         expiry: Long,
         revealSecrets: Boolean = false,
+        kind: SubscriptionKind = SubscriptionKind.LONG_LIVED,
     ): SubscriptionStatusUiState {
         val subscription =
             Subscription(
                 link = FixtureLink,
                 token = FixtureToken,
                 tokenExpiresAtEpochMillis = expiry,
+                kind = kind,
             )
         val group =
             ProxyGroup(

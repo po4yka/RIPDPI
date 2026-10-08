@@ -125,17 +125,20 @@ class SubscriptionRefreshCoordinator private constructor(
         return if (retry) SubscriptionRefreshRunResult.RETRY else SubscriptionRefreshRunResult.SUCCESS
     }
 
-    /** Refreshes one group through the same persistence path used by WorkManager. */
+    /** Explicit user recheck; cached terminal state cannot prove that the server still rejects renewal. */
     suspend fun refresh(groupId: String): SubscriptionRefreshResult {
         val group =
             repository.list().firstOrNull { it.id == groupId }
                 ?: return SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
-        val result = refreshGroup(group)
+        val result = refreshGroup(group, manual = true)
         signalPublisher.publish(repository.list(), clockMillis())
         return result
     }
 
-    private suspend fun refreshGroup(group: ProxyGroup): SubscriptionRefreshResult {
+    private suspend fun refreshGroup(
+        group: ProxyGroup,
+        manual: Boolean = false,
+    ): SubscriptionRefreshResult {
         val attemptedAt = clockMillis()
         val subscription =
             group.subscription
@@ -144,12 +147,12 @@ class SubscriptionRefreshCoordinator private constructor(
         return if (subscription.kind == SubscriptionKind.BOOTSTRAP) {
             // Only BootstrapConsumer may consume this URL; refresh never replays single-use delivery.
             SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.INVALIDATED, retryable = false)
-        } else if (priorFailure?.isTerminal == true) {
+        } else if (!manual && priorFailure?.isTerminal == true) {
             SubscriptionRefreshResult.Failed(priorFailure, retryable = false)
         } else {
             val outcome =
                 when {
-                    subscription.tokenExpiresAtEpochMillis?.let { attemptedAt >= it } == true -> {
+                    !manual && subscription.tokenExpiresAtEpochMillis?.let { attemptedAt >= it } == true -> {
                         RefreshOutcome.Failure(
                             failure = SubscriptionRefreshFailure.EXPIRED,
                             lifecycleState = SubscriptionLifecycleState.EXPIRED,
@@ -232,7 +235,9 @@ class SubscriptionRefreshCoordinator private constructor(
             subscription.copy(
                 lastRefreshAttemptAtEpochMillis = attemptedAt,
                 lifecycleState = outcome.lifecycleState ?: subscription.lifecycleState,
-                lastRefreshFailure = outcome.failure,
+                lastRefreshFailure =
+                    subscription.lastRefreshFailure?.takeIf { it.isTerminal && !outcome.failure.isTerminal }
+                        ?: outcome.failure,
             )
         }
         log.w { "subscription group $groupId refresh failed: ${outcome.failure.name}" }

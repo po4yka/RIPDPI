@@ -143,7 +143,8 @@ private fun SubscriptionStatusCard(
                 color = RipDpiThemeTokens.colors.destructive,
                 style = RipDpiThemeTokens.type.body,
             )
-        } else if (item.details.refreshable) {
+        }
+        if (item.details.refreshable) {
             RipDpiButton(
                 text = stringResource(R.string.subscription_status_refresh_action),
                 onClick = onRefresh,

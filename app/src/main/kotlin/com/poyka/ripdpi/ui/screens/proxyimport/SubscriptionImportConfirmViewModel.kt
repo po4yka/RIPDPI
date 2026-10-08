@@ -16,6 +16,8 @@ import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
+import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
+import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -55,12 +57,14 @@ class SubscriptionImportConfirmViewModel
         private val bootstrapConsumer: BootstrapConsumer,
         private val groupIdFactory: () -> String,
         private val saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit,
+        private val refreshSubscription: suspend (String) -> SubscriptionRefreshResult,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
         constructor(
             repository: ProxyGroupRepository,
             awgProfileRepository: AwgProfileRepository,
+            refreshCoordinator: SubscriptionRefreshCoordinator,
         ) : this(
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
@@ -68,23 +72,19 @@ class SubscriptionImportConfirmViewModel
             saveAwgProfiles = { profiles ->
                 awgProfileRepository.saveSubscriptionProfiles(profiles.map { it.toAwgSubscriptionProfile() })
             },
-            constructorMarker = Unit,
-        )
-
-        internal constructor(repository: ProxyGroupRepository) : this(
-            repository = repository,
-            bootstrapConsumer = BootstrapConsumer(),
-            groupIdFactory = { UUID.randomUUID().toString() },
-            saveAwgProfiles = {},
+            refreshSubscription = refreshCoordinator::refresh,
             constructorMarker = Unit,
         )
 
         internal constructor(
             repository: ProxyGroupRepository,
-            bootstrapConsumer: BootstrapConsumer,
+            bootstrapConsumer: BootstrapConsumer = BootstrapConsumer(),
             groupIdFactory: () -> String = { UUID.randomUUID().toString() },
             saveAwgProfiles: suspend (List<AmneziaWgSubscriptionProfile>) -> Unit = {},
-        ) : this(repository, bootstrapConsumer, groupIdFactory, saveAwgProfiles, Unit)
+            refreshSubscription: suspend (
+                String,
+            ) -> SubscriptionRefreshResult = { error("No test refresh") },
+        ) : this(repository, bootstrapConsumer, groupIdFactory, saveAwgProfiles, refreshSubscription, Unit)
 
         private val _uiState = MutableStateFlow(SubscriptionImportConfirmUiState())
         val uiState: StateFlow<SubscriptionImportConfirmUiState> = _uiState.asStateFlow()
@@ -130,8 +130,8 @@ class SubscriptionImportConfirmViewModel
 
         /**
          * Persists the pending subscription into a new [ProxyGroupType.SUBSCRIPTION]
-         * group. Bootstrap links are consumed before the success event is emitted, so
-         * their single-use payload and consumed timestamp reach durable storage together.
+         * group. Ordinary links are refreshed before success is emitted. Bootstrap
+         * links are consumed once, so their payload and consumed timestamp reach storage together.
          *
          * The persisted [Subscription.kind] reflects the bootstrap flag: a bootstrap
          * import is stored as [SubscriptionKind.BOOTSTRAP] so the auto-update worker
@@ -153,18 +153,22 @@ class SubscriptionImportConfirmViewModel
                     if (state.bootstrap && existing?.subscription?.consumedAt == null) {
                         consumeBootstrap(state, existing, groupId, groupName, order)
                     } else {
+                        val subscription =
+                            existing?.subscription ?: Subscription(link = state.url, kind = SubscriptionKind.LONG_LIVED)
                         repository.add(
                             subscriptionGroup(
                                 existing = existing,
                                 groupId = groupId,
                                 groupName = groupName,
                                 order = order,
-                                subscription =
-                                    existing?.subscription
-                                        ?: Subscription(link = state.url, kind = SubscriptionKind.LONG_LIVED),
+                                subscription = subscription,
                             ),
                         )
-                        completeImport()
+                        if (subscription.kind == SubscriptionKind.BOOTSTRAP && subscription.consumedAt != null) {
+                            completeImport()
+                        } else {
+                            refreshAndCompleteImport(groupId)
+                        }
                     }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
@@ -173,6 +177,13 @@ class SubscriptionImportConfirmViewModel
                 } finally {
                     _uiState.update { it.copy(importing = false) }
                 }
+            }
+        }
+
+        private suspend fun refreshAndCompleteImport(groupId: String) {
+            when (refreshSubscription(groupId)) {
+                is SubscriptionRefreshResult.Updated -> completeImport()
+                is SubscriptionRefreshResult.Failed -> _uiState.update { it.copy(importFailed = true) }
             }
         }
 
