@@ -355,6 +355,46 @@ def prepared(path: Path, abi: str, source: str) -> dict:
     return metadata
 
 
+def preparation_summary(out: Path, report: dict) -> dict:
+    """Export fixed diagnostic codes, never raw command output or exception text."""
+    summary = {
+        "schema_version": 1,
+        "status": report["status"],
+        "outputs_present": [],
+        "diagnostic_codes": [],
+    }
+    for filename, step in (
+        ("source.log", "source"),
+        ("devices.log", "device-list"),
+        ("device-kind.log", "device-kind"),
+        ("device-abi.log", "device-abi"),
+        ("xray-preflight.log", "xray-preflight"),
+        ("build.log", "apk-build"),
+        ("apk-metadata.json", "apk-metadata"),
+    ):
+        if (out / filename).is_file():
+            summary["outputs_present"].append(step)
+    build_log = out / "build.log"
+    if build_log.is_file():
+        with build_log.open("rb") as stream:
+            stream.seek(max(0, build_log.stat().st_size - 256 * 1024))
+            output = stream.read().decode(errors="replace")
+        signatures = {
+            "disk-full": r"No space left on device",
+            "jvm-out-of-memory": r"OutOfMemoryError|Java heap space|GC overhead limit",
+            "gradle-daemon-lost": r"daemon (?:has )?disappeared|daemon disappeared",
+            "kotlin-compile": r"> Task :\S*compile\S*Kotlin FAILED|Compilation error",
+            "rust-compile": r"could not compile |error\[E\d+\]",
+            "dependency-resolution": r"Could not resolve |Could not download ",
+            "native-link": r"linking with .* failed|ld: error:|ld.lld: error:",
+            "build-successful": r"BUILD SUCCESSFUL",
+        }
+        summary["diagnostic_codes"] = [
+            code for code, pattern in signatures.items() if re.search(pattern, output)
+        ]
+    return summary
+
+
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", choices=SCENARIOS)
@@ -728,6 +768,12 @@ def main() -> int:
             and path.name != "result.json"
         )
         (out / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+        if args.prepare:
+            summary = preparation_summary(out, report)
+            (out / "preparation-summary.json").write_text(
+                json.dumps(summary, indent=2) + "\n"
+            )
+            print(json.dumps(summary))
     return (
         0
         if report["status"] == "passed"

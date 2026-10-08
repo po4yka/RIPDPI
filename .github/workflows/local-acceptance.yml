@@ -144,6 +144,7 @@ jobs:
         with:
           name: android-acceptance-report
           path: |
+            ${{ runner.temp }}/android-preparation/android/preparation-summary.json
             ${{ runner.temp }}/android-acceptance/report.json
             ${{ runner.temp }}/android-acceptance/report.xml
           retention-days: 7

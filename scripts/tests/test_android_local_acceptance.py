@@ -26,6 +26,33 @@ def transcript(code=0, final=-1, name="roundTrip"):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_preparation_failure_summary_excludes_raw_output_and_secrets(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "build.log").write_text(
+                "private-token=do-not-export\nNo space left on device\n"
+                "> Task :app:compileGithubFullDebugKotlin FAILED\n"
+            )
+            result = runner.preparation_summary(
+                out, {"status": "failed", "error": "private exception"}
+            )
+            self.assertEqual("failed", result["status"])
+            self.assertEqual(["apk-build"], result["outputs_present"])
+            self.assertEqual(
+                ["disk-full", "kotlin-compile"], result["diagnostic_codes"]
+            )
+            self.assertNotIn("private", json.dumps(result))
+            self.assertNotIn(temporary, json.dumps(result))
+
+    def test_preparation_summary_retains_failure_when_build_did_not_start(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            result = runner.preparation_summary(Path(temporary), {"status": "blocked"})
+            self.assertEqual("blocked", result["status"])
+            self.assertEqual([], result["outputs_present"])
+            self.assertEqual([], result["diagnostic_codes"])
+
     def test_exact_completed_test_is_accepted(self):
         runner.parse_instrumentation(transcript(), TEST)
 
