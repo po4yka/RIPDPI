@@ -38,10 +38,22 @@ def source_identity(repo: Path) -> dict:
     }
 
 
+def signal_group(pid: int, signum: int) -> None:
+    try:
+        os.killpg(pid, signum)
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        # Darwin can return EPERM after the last group member has exited.
+        groups = subprocess.check_output(["ps", "-axo", "pgid="], text=True).split()
+        if str(pid) in groups:
+            raise
+
+
 def stop_process(process: subprocess.Popen, grace: float = 20) -> None:
     # Descendants can outlive a shell leader. Always stop the owned group.
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        signal_group(process.pid, signal.SIGTERM)
     except ProcessLookupError:
         process.wait()
         return
@@ -50,7 +62,7 @@ def stop_process(process: subprocess.Popen, grace: float = 20) -> None:
     except subprocess.TimeoutExpired:
         pass
     try:
-        os.killpg(process.pid, signal.SIGKILL)
+        signal_group(process.pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
     process.wait()

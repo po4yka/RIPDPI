@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from execution import run_suite, source_identity
+from execution import run_suite, source_identity, signal_group
 from verify_report import verify
 from contract import ContractError
 from test_contract import manifest
@@ -80,6 +80,15 @@ class ExecutionTests(unittest.TestCase):
             {},
             executor,
         )
+
+    def test_permission_error_is_ignored_only_for_absent_group(self):
+        with (
+            patch("execution.os.killpg", side_effect=PermissionError),
+            patch("execution.subprocess.check_output", return_value="123 456"),
+        ):
+            signal_group(789, 15)
+            with self.assertRaises(PermissionError):
+                signal_group(123, 15)
 
     def test_valid_run(self):
         report = self.run_suite(self.executor)

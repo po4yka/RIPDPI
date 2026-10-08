@@ -187,6 +187,9 @@ def stop_group(process: subprocess.Popen) -> None:
             os.killpg(process.pid, signum)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            if group_has_live_process(process.pid):
+                raise
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             process.poll()
