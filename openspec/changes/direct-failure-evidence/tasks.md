@@ -6,4 +6,4 @@ See design.md for the exclusive source paths. Root integrates all branches and o
 
 ## Execution
 
-- [ ] DGN-1791484597972931 Keep generic direct failures unknown in verdict and persisted capability tests #bug @item:DGN-1791484568964479
+- [x] DGN-1791484597972931 Keep generic direct failures unknown in verdict and persisted capability tests #bug @item:DGN-1791484568964479

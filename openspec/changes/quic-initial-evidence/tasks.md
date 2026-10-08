@@ -6,4 +6,4 @@ See design.md for the exclusive source paths. Root integrates all branches and o
 
 ## Execution
 
-- [ ] DGN-1791484635615204 Declare QUIC Initial scope with success and invalid response tests #bug @item:DGN-1791484611611171
+- [x] DGN-1791484635615204 Declare QUIC Initial scope with success and invalid response tests #bug @item:DGN-1791484611611171

@@ -6,4 +6,4 @@ See design.md for the exclusive source paths. Root integrates all branches and o
 
 ## Execution
 
-- [ ] DGN-1791484555591159 Scope protocol controls and factual diagnosis summaries with regression tests #bug @item:DGN-1791484491005718
+- [x] DGN-1791484555591159 Scope protocol controls and factual diagnosis summaries with regression tests #bug @item:DGN-1791484491005718
