@@ -26,10 +26,11 @@ internal fun homeBufferbloatResult(
     val firstByte = load.firstByteNs
     val lastByte = load.lastByteNs
     val overlapping =
-        if (load.successful && load.bytesRead > 0 && firstByte != null && lastByte != null && lastByte > firstByte) {
-            loaded.filter { it.startedNs >= firstByte && it.finishedNs <= lastByte }
-        } else {
-            emptyList()
+        when {
+            !load.successful || load.bytesRead <= 0 -> emptyList()
+            firstByte == null || lastByte == null -> emptyList()
+            lastByte <= firstByte -> emptyList()
+            else -> loaded.filter { it.startedNs >= firstByte && it.finishedNs <= lastByte }
         }
     val idleMs =
         idle

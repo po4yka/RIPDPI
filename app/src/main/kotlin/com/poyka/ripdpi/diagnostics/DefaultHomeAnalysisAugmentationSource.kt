@@ -235,12 +235,13 @@ class DefaultHomeAnalysisAugmentationSource
                             while (true) {
                                 val count = stream.read(buffer)
                                 if (count < 0) break
-                                if (count == 0) continue
-                                bytesRead += count
-                                lastByteNs = System.nanoTime()
-                                if (firstByteNs == null) {
-                                    firstByteNs = lastByteNs
-                                    started.complete(true)
+                                if (count > 0) {
+                                    bytesRead += count
+                                    lastByteNs = System.nanoTime()
+                                    if (firstByteNs == null) {
+                                        firstByteNs = lastByteNs
+                                        started.complete(true)
+                                    }
                                 }
                             }
                         }
