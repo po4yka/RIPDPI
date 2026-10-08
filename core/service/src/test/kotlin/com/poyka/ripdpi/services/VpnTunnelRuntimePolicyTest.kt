@@ -17,11 +17,33 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpnTunnelRuntimePolicyTest {
+    @Test
+    fun `IPv4 profile keeps source IPv6 routes without installing them`() {
+        val profile = VpnProfileInterface(listOf("1.1.1.1"), listOf("0.0.0.0/0", "::/0"), false, 1280)
+        val plan = profile.routePlan()
+        assertEquals(listOf("0.0.0.0/0", "::/0"), profile.allowedIps)
+        assertEquals(listOf(VpnTunnelRouteEntry("0.0.0.0", 0), VpnTunnelRouteEntry("1.1.1.1", 32)), plan.routes)
+        assertTrue(plan.addresses.none { ':' in it.address })
+    }
+
+    @Test
+    fun `IPv4 profile rejects IPv6 fallback DNS before route plan creation`() {
+        val profile = VpnProfileInterface(emptyList(), listOf("0.0.0.0/0", "::/0"), false, 1280)
+        assertThrows(IllegalArgumentException::class.java) { profile.routePlan("fd00::1") }
+    }
+
+    @Test
+    fun `IPv4 profile rejects IPv6 explicit DNS even with IPv4 fallback`() {
+        val profile = VpnProfileInterface(listOf("fd00::1"), listOf("0.0.0.0/0"), false, 1280)
+        assertThrows(IllegalArgumentException::class.java) { profile.routePlan("1.1.1.1") }
+    }
+
     @Test
     fun profileInterfacePreservesDnsRoutesMtuAndFamilyAcrossSettingsRefresh() =
         runTest {

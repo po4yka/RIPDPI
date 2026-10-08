@@ -11,7 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -504,7 +504,7 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
         }
 
     @Test
-    fun `background automatic probing keeps prepared fingerprint when provider changes`() =
+    fun `background automatic probing preserves report without recommendation when network changes`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
@@ -564,8 +564,12 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
 
             fixtures.coordinator.execute(prepared, handle, rawPathRunner = ::runSettledRawPathBlock)
 
-            val rememberedPolicy = stores.rememberedPoliciesState.value.single()
-            assertEquals(preparedFingerprint.scopeKey(), rememberedPolicy.fingerprintHash)
-            assertNotEquals(changedFingerprint.scopeKey(), rememberedPolicy.fingerprintHash)
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
+            val persistedReport =
+                json.decodeEngineScanReportWire(requireNotNull(session.reportJson)).toScanReport()
+            assertEquals("completed", session.status)
+            assertEquals("success", persistedReport.results.single().outcome)
+            assertNull(requireNotNull(persistedReport.strategyProbeReport).recommendation)
         }
 }

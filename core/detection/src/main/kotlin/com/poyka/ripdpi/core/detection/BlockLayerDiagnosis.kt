@@ -31,9 +31,9 @@ object BlockLayerDiagnosisMapper {
         when (error) {
             DpiProbeError.DnsFail -> {
                 diagnosis(
-                    layer = BlockLayer.DNS_POISONING,
+                    layer = BlockLayer.UNKNOWN,
                     bypassClass = BypassStrategyClass.ENCRYPTED_DNS,
-                    confidence = EvidenceConfidence.HIGH,
+                    confidence = EvidenceConfidence.LOW,
                     reasonCode = "dns_resolution_failed",
                 )
             }

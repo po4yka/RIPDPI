@@ -505,8 +505,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 throughputTargets = throughputTargets,
                 strategyProbeTargetCohorts = strategyProbeTargetCohorts,
             )
-        val contextProvider = FakeDiagnosticsContextProvider()
-        val contextSnapshot = contextProvider.captureContextForTest()
+        val contextSnapshot = FakeDiagnosticsContextProvider().captureContextForTest()
         val context =
             com.poyka.ripdpi.diagnostics.domain.ScanContext(
                 settings = settings,
@@ -521,6 +520,8 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
             )
         val factory =
             DiagnosticsScanRequestFactory(
+                networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+                networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                 context = TestContext(),
                 networkMetadataProvider = FakeNetworkMetadataProvider(),
                 intentResolver =
@@ -572,8 +573,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
             )
 
         return json.decodeFromString(
-            com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
-                .serializer(),
+            EngineScanRequestWire.serializer(),
             prepared.requestJson,
         )
     }

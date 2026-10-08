@@ -8,6 +8,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -19,14 +20,14 @@ class CandidateRelayNetworkEpoch
     @Inject
     constructor(
         @ApplicationContext context: Context,
-    ) {
+    ) : DiagnosticsNetworkEpochProvider {
         private val state =
             CandidatePhysicalNetworkObserver<Network>(Build.VERSION.SDK_INT >= BlockedCallbackMinimumApi)
         private val registration = state.beginRegistration()
         private val registered = register(context)
         val changes = state.changes
 
-        fun capture(): CandidatePhysicalNetworkToken? = if (registered) state.capture() else null
+        override fun capture(): CandidatePhysicalNetworkToken? = if (registered) state.capture() else null
 
         // Manifest ACCESS_NETWORK_STATE; failed registration is unavailable, never Ready.
         @SuppressLint("MissingPermission")

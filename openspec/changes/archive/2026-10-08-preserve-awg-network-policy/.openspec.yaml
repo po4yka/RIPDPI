@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-10-08
+goal: DAT-1791479988786516 Preserve imported AWG DNS and route policy

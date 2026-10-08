@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -130,7 +131,7 @@ class CandidatePhysicalNetworkToken internal constructor(
     private val eventEpoch: Long,
     private val network: Any,
     private val fingerprint: String,
-) {
+) : DiagnosticsNetworkEpoch {
     override fun equals(other: Any?): Boolean =
         other is CandidatePhysicalNetworkToken &&
             registration == other.registration && eventEpoch == other.eventEpoch && network == other.network &&

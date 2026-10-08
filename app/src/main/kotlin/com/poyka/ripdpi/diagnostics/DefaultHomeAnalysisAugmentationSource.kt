@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -14,14 +15,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.net.Inet4Address
-import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.system.measureTimeMillis
 
 private const val BufferbloatProbes = 4
 private const val BufferbloatProbeTimeoutMs = 1_500L
@@ -29,16 +27,10 @@ private const val BufferbloatLoadedTimeoutMs = 8_000L
 private const val BufferbloatHost = "1.1.1.1"
 private const val BufferbloatTcpPort = 443
 private const val BufferbloatLoadedUrl = "https://speed.cloudflare.com/__down?bytes=2000000"
-private const val BufferbloatGradeAMaxDelta = 5
-private const val BufferbloatGradeBMaxDelta = 30
-private const val BufferbloatGradeCMaxDelta = 100
-private const val BufferbloatGradeDMaxDelta = 250
 private const val DnsControlHost = "cloudflare.com"
 private const val DnsCanaryHost = "youtube.com"
 private const val DohEndpoint = "https://1.1.1.1/dns-query"
 private const val NetworkProbeOverallTimeoutMs = 15_000L
-private const val IPv6ProbeHost = "ipv6.google.com"
-private const val IPv6ProbeTimeoutMs = 1_500L
 private const val MaxRoutingFindings = 6
 
 @Singleton
@@ -77,11 +69,10 @@ class DefaultHomeAnalysisAugmentationSource
                         capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
                     val mtu = linkPropertiesMtuOrNull(linkProps)
                     val ipv6Reachable =
-                        withTimeoutOrNull(IPv6ProbeTimeoutMs) {
-                            runCatching {
-                                InetAddress.getAllByName(IPv6ProbeHost).any { it is Inet6Address }
-                            }.getOrDefault(false)
-                        }
+                        measureHomeIpv6Reachability(
+                            socketFactory = activeNetwork?.let { network -> { network.socketFactory.createSocket() } },
+                            isNetworkCurrent = { activeNetwork != null && cm?.activeNetwork == activeNetwork },
+                        )
                     val notes = mutableListOf<String>()
                     if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == false) {
                         notes += "Active network is a VPN"
@@ -133,29 +124,9 @@ class DefaultHomeAnalysisAugmentationSource
             withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
                 withContext(Dispatchers.IO) {
                     runCatching {
-                        val idle = measureRttMs(BufferbloatProbes)
-                        val (loaded, _) =
-                            withLoad {
-                                measureRttMs(BufferbloatProbes)
-                            }
-                        val idleMs = idle?.toInt()
-                        val loadedMs = loaded?.toInt()
-                        val deltaMs = if (idleMs != null && loadedMs != null) loadedMs - idleMs else null
-                        val grade =
-                            when {
-                                deltaMs == null -> HomeBufferbloatGrade.UNKNOWN
-                                deltaMs <= BufferbloatGradeAMaxDelta -> HomeBufferbloatGrade.A
-                                deltaMs <= BufferbloatGradeBMaxDelta -> HomeBufferbloatGrade.B
-                                deltaMs <= BufferbloatGradeCMaxDelta -> HomeBufferbloatGrade.C
-                                deltaMs <= BufferbloatGradeDMaxDelta -> HomeBufferbloatGrade.D
-                                else -> HomeBufferbloatGrade.F
-                            }
-                        HomeBufferbloatResult(
-                            grade = grade,
-                            idleRttMs = idleMs,
-                            loadedRttMs = loadedMs,
-                            deltaMs = deltaMs,
-                        )
+                        val idle = measureRttSamples(BufferbloatProbes)
+                        val (loaded, load) = withLoad { measureRttSamples(BufferbloatProbes) }
+                        homeBufferbloatResult(idle, loaded, load)
                     }.getOrNull()
                 }
             }
@@ -164,48 +135,15 @@ class DefaultHomeAnalysisAugmentationSource
             withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
                 withContext(Dispatchers.IO) {
                     runCatching {
+                        val cm = context.getSystemService(ConnectivityManager::class.java)
+                        val network = cm?.activeNetwork
+                        val systemResolver = homeSystemResolver(network?.let { cm.getLinkProperties(it)?.dnsServers })
                         val systemIps = resolveSystem(DnsControlHost)
                         val canarySystemIps = resolveSystem(DnsCanaryHost)
                         val dohControlIps = resolveDoh(DnsControlHost)
                         val dohCanaryIps = resolveDoh(DnsCanaryHost)
-                        val notes = mutableListOf<String>()
-                        val poisoned = mutableListOf<String>()
-                        val resolverClass =
-                            when {
-                                dohControlIps == null -> {
-                                    notes += "DoH endpoint $DohEndpoint unreachable"
-                                    HomeDnsResolverClass.DOH_UNREACHABLE
-                                }
-
-                                systemIps.isEmpty() -> {
-                                    HomeDnsResolverClass.UNKNOWN
-                                }
-
-                                differingIpSets(systemIps, dohControlIps) -> {
-                                    notes += "$DnsControlHost: system vs DoH disagree"
-                                    poisoned += DnsControlHost
-                                    if (dohCanaryIps != null && differingIpSets(canarySystemIps, dohCanaryIps)) {
-                                        poisoned += DnsCanaryHost
-                                    }
-                                    HomeDnsResolverClass.POSSIBLE_POISONING
-                                }
-
-                                dohCanaryIps != null && differingIpSets(canarySystemIps, dohCanaryIps) -> {
-                                    notes += "$DnsCanaryHost differs vs DoH ground truth"
-                                    poisoned += DnsCanaryHost
-                                    HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY
-                                }
-
-                                else -> {
-                                    HomeDnsResolverClass.SYSTEM_RESOLVER_OK
-                                }
-                            }
-                        HomeDnsCharacterization(
-                            resolverClass = resolverClass,
-                            systemResolver = systemIps.firstOrNull(),
-                            dohEndpoint = DohEndpoint,
-                            poisonedHosts = poisoned.distinct(),
-                            notes = notes,
+                        characterizeHomeDns(systemIps, canarySystemIps, dohControlIps, dohCanaryIps).copy(
+                            systemResolver = systemResolver,
                         )
                     }.getOrNull()
                 }
@@ -255,53 +193,63 @@ class DefaultHomeAnalysisAugmentationSource
             }.getOrNull()
         }
 
-        private suspend fun measureRttMs(probes: Int): Long? {
-            val samples = mutableListOf<Long>()
-            repeat(probes) {
-                val ms = measureSingleRtt() ?: return@repeat
-                samples += ms
+        private fun measureRttSamples(probes: Int): List<HomeRttSample> =
+            buildList {
+                repeat(probes) {
+                    measureSingleRtt()?.let { add(it) }
+                }
             }
-            return samples.takeIf { it.isNotEmpty() }?.average()?.toLong()
-        }
 
-        private fun measureSingleRtt(): Long? =
+        private fun measureSingleRtt(): HomeRttSample? =
             runCatching {
                 Socket().use { socket ->
-                    val elapsed =
-                        measureTimeMillis {
-                            socket.connect(
-                                java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort),
-                                BufferbloatProbeTimeoutMs.toInt(),
-                            )
-                        }
-                    elapsed
+                    val startedNs = System.nanoTime()
+                    socket.connect(
+                        java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort),
+                        BufferbloatProbeTimeoutMs.toInt(),
+                    )
+                    val finishedNs = System.nanoTime()
+                    HomeRttSample(startedNs, finishedNs, TimeUnit.NANOSECONDS.toMillis(finishedNs - startedNs))
                 }
             }.getOrNull()
 
-        private suspend fun <T> withLoad(block: suspend () -> T): Pair<T, Boolean> =
+        private suspend fun withLoad(block: () -> List<HomeRttSample>): Pair<List<HomeRttSample>, HomeLoadEvidence> =
             coroutineScope {
-                val loadJob =
-                    async {
-                        runCatching {
-                            val request = Request.Builder().url(BufferbloatLoadedUrl).build()
-                            httpClient.newCall(request).execute().use { response ->
-                                response.body.bytes()
-                                response.isSuccessful
-                            }
-                        }.getOrDefault(false)
-                    }
-                val result = block()
-                val ok = loadJob.await()
-                result to ok
+                val started = CompletableDeferred<Boolean>()
+                val loadJob = async(Dispatchers.IO) { downloadLoad(started) }
+                val result = if (started.await()) block() else emptyList()
+                result to loadJob.await()
             }
 
-        private fun differingIpSets(
-            a: List<String>,
-            b: List<String>,
-        ): Boolean {
-            val aV4 = a.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
-            val bV4 = b.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
-            return aV4.isNotEmpty() && bV4.isNotEmpty() && (aV4 intersect bV4).isEmpty()
+        private fun downloadLoad(started: CompletableDeferred<Boolean>): HomeLoadEvidence {
+            var bytesRead = 0L
+            var firstByteNs: Long? = null
+            var lastByteNs: Long? = null
+            val successful =
+                runCatching {
+                    val request = Request.Builder().url(BufferbloatLoadedUrl).build()
+                    httpClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) return@use false
+                        response.body.byteStream().use { stream ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                val count = stream.read(buffer)
+                                if (count < 0) break
+                                if (count > 0) {
+                                    bytesRead += count
+                                    lastByteNs = System.nanoTime()
+                                    if (firstByteNs == null) {
+                                        firstByteNs = lastByteNs
+                                        started.complete(true)
+                                    }
+                                }
+                            }
+                        }
+                        true
+                    }
+                }.getOrDefault(false)
+            started.complete(false)
+            return HomeLoadEvidence(successful, bytesRead, firstByteNs, lastByteNs)
         }
     }
 

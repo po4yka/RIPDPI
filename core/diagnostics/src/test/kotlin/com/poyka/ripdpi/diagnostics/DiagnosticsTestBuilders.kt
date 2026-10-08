@@ -232,6 +232,8 @@ internal fun createDiagnosticsServices(
         )
     val requestFactory =
         DiagnosticsScanRequestFactory(
+            networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+            networkFingerprintProvider = networkFingerprintProvider,
             context = context,
             networkMetadataProvider = networkMetadataProvider,
             intentResolver = DefaultDiagnosticsIntentResolver(stores, appSettingsRepository, json),

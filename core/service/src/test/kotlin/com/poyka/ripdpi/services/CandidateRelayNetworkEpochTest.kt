@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -8,13 +9,16 @@ import org.junit.Test
 class CandidateRelayNetworkEpochTest {
     @Test fun `each callback changes epoch even when network returns to its previous fingerprint`() {
         val s = CandidatePhysicalNetworkObserver<String>(false)
+        val diagnosticsEpoch = DiagnosticsNetworkEpochProvider(s::capture)
         val r = s.beginRegistration()
         ready(s, r, "A")
-        val before = s.capture()
+        val before = diagnosticsEpoch.capture()
+        assertNotEquals(null, before)
+        assertEquals(before, diagnosticsEpoch.capture())
         ready(s, r, "B")
         s.lost(r, "B")
         ready(s, r, "A")
-        assertNotEquals(before, s.capture())
+        assertNotEquals(before, diagnosticsEpoch.capture())
     }
 
     @Test fun `physical VPN underlay ABA changes scope even if default VPN network is unchanged`() {
@@ -29,12 +33,13 @@ class CandidateRelayNetworkEpochTest {
 
     @Test fun `failed registration or absent active network cannot supply a probe scope`() {
         val s = CandidatePhysicalNetworkObserver<String>(false)
+        val diagnosticsEpoch = DiagnosticsNetworkEpochProvider(s::capture)
         val r = s.beginRegistration()
-        assertNull(s.capture())
+        assertNull(diagnosticsEpoch.capture())
         s.available(r, "A", true)
-        assertNull(s.capture())
+        assertNull(diagnosticsEpoch.capture())
         s.endRegistration(r)
-        assertNull(s.capture())
+        assertNull(diagnosticsEpoch.capture())
     }
 
     @Test fun `blocked incomplete and old registration callbacks never become Ready`() {

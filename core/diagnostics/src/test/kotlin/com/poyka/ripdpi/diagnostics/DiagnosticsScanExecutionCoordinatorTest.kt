@@ -1435,14 +1435,15 @@ class DiagnosticsInPathRouteAuthorityTest {
         change: RouteChange,
         expected: StrategyActivePathAuthority,
     ) {
+        val (prepared, report) = ownedActiveObservationFixture("session-route-authority-$change")
         val stores = FakeDiagnosticsHistoryStores()
         val fixtures =
             executionCoordinatorFixtures(
                 stores = stores,
+                networkFingerprintProvider = MutableNetworkFingerprintProvider(prepared.networkFingerprint),
                 timelineSource = timelineSource(stores, backgroundScope),
                 serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
             )
-        val (prepared, report) = ownedActiveObservationFixture("session-route-authority-$change")
         val lease = requireNotNull(prepared.inPathRouteLease)
         fixtures.runtimeCoordinator.updateInPathRouteLease(lease)
         seedPreparedScan(stores, prepared)
@@ -1524,6 +1525,8 @@ internal fun executionCoordinatorFixtures(
     val appSettingsRepository = FakeAppSettingsRepository()
     val scanRequestFactory =
         DiagnosticsScanRequestFactory(
+            networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+            networkFingerprintProvider = networkFingerprintProvider,
             context = TestContext(),
             networkMetadataProvider = networkMetadataProvider,
             intentResolver = DefaultDiagnosticsIntentResolver(stores, appSettingsRepository, json),
@@ -1596,13 +1599,20 @@ internal suspend fun preparedDiagnosticsScan(
     scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
     exposeProgress: Boolean = true,
     registerActiveBridge: Boolean = true,
-    networkFingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = null,
+    networkFingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = FakeNetworkFingerprintProvider().capture(),
+    networkEpochProvider: com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
     profileId: String = "default",
     family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
     kind: ScanKind = ScanKind.CONNECTIVITY,
     strategyProbeRequest: StrategyProbeRequest? = null,
     probePersistencePolicy: ProbePersistencePolicy? = null,
 ) = PreparedDiagnosticsScan(
+    networkScope =
+        com.poyka.ripdpi.diagnostics.application
+            .DiagnosticsNetworkScope(
+                networkEpochProvider,
+                MutableNetworkFingerprintProvider(networkFingerprint),
+            ),
     sessionId = sessionId,
     settings = settings,
     pathMode = ScanPathMode.RAW_PATH,

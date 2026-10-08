@@ -245,6 +245,8 @@ class DiagnosticsScanRequestFactoryTest {
             val networkMetadataProvider = FakeNetworkMetadataProvider()
             val factory =
                 DiagnosticsScanRequestFactory(
+                    networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                     context = TestContext(),
                     networkMetadataProvider = networkMetadataProvider,
                     intentResolver =
@@ -328,6 +330,8 @@ class DiagnosticsScanRequestFactoryTest {
             val networkMetadataProvider = FakeNetworkMetadataProvider()
             val factory =
                 DiagnosticsScanRequestFactory(
+                    networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                     context = TestContext(),
                     networkMetadataProvider = networkMetadataProvider,
                     intentResolver =
@@ -459,6 +463,8 @@ class DiagnosticsScanRequestFactoryTest {
             val testContext = TestContext()
             val factory =
                 DiagnosticsScanRequestFactory(
+                    networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                     context = testContext,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     intentResolver =
@@ -553,6 +559,8 @@ class DiagnosticsScanRequestFactoryTest {
         val context = strategyProbeContext(settings = settings, preferredDnsPath = preferredDnsPath)
         val factory =
             DiagnosticsScanRequestFactory(
+                networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
+                networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                 context = testContext,
                 networkMetadataProvider = FakeNetworkMetadataProvider(),
                 intentResolver =

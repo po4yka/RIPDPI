@@ -85,8 +85,11 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(dnsServers.all { it.isIpv4Address() || (ipv6Enabled && it.isIpv6Address()) }) {
         "AmneziaWG DNS servers must be numeric addresses of a configured interface family"
     }
-    require(allowedIps.isNotEmpty() && allowedIps.all { it.isIpv4Cidr() || (ipv6Enabled && it.isIpv6Cidr()) }) {
-        "AmneziaWG allowed IPs must be CIDRs of a configured interface family"
+    require(allowedIps.all { it.isIpv4Cidr() || it.isIpv6Cidr() }) {
+        "AmneziaWG allowed IPs must be valid CIDRs"
+    }
+    require(allowedIps.any { it.isIpv4Cidr() || (ipv6Enabled && it.isIpv6Cidr()) }) {
+        "AmneziaWG allowed IPs must contain a route for a configured interface family"
     }
     require(carrier != AwgActivationRequest.CARRIER_WS || carrierWsUrl.isNotBlank()) {
         "AmneziaWG WS carrier requires a carrier URL"

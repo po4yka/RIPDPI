@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.awg.requireRuntimeReady
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.failover.EmbeddedSimpleFailoverRelayCatalog
 import com.poyka.ripdpi.failover.SimpleRelayBundleSource
@@ -41,6 +42,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.io.File
 
 /**
  * Synthetic RIPDPI sing-box bundle with fake values only.
@@ -307,6 +309,26 @@ class ConfigSeederTest {
             settingsRepository = relaySettings,
             bundleJson = bundleJson,
         )
+
+    @Test
+    fun `checked in CI bundle seeds IPv4 AWG with both source default routes`() =
+        runTest {
+            var root = File(requireNotNull(System.getProperty("user.dir"))).absoluteFile
+            while (!File(root, "settings.gradle.kts").isFile) {
+                root = requireNotNull(root.parentFile) { "repository root not found" }
+            }
+            val bundle = File(root, "scripts/fixtures/embedded-relay-bundle/ci-fixture.json").readText()
+            val seeder = makeSeeder(bundle)
+            seeder.seed()
+            assertTrue(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isNotEmpty())
+            val stored = awgProfileRepository.observeProfiles().first().single()
+            val request = requireNotNull(awgProfileRepository.load(stored.id)).request
+            request.requireRuntimeReady()
+            assertEquals("", request.interfaceAddressV6)
+            assertEquals(listOf("0.0.0.0/0", "::/0"), request.allowedIps)
+            assertEquals(listOf("1.1.1.1", "1.0.0.1"), request.dnsServers)
+        }
 
     @Test
     fun `first seed adds group, activates relay profile, saves AWG profile and sets flag`() =

@@ -71,7 +71,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 val stores = FakeDiagnosticsHistoryStores()
                 val failure =
                     runCatching {
-                        scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                        scanFinalizationService(
+                            stores,
+                            TestDiagnosticsHistoryClock(),
+                            requireNotNull(prepared.networkFingerprint),
+                        ).finalize(
                             prepared,
                             json.encodeToString(mismatched.toEngineScanReportWire()),
                         )
@@ -92,6 +96,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             scanFinalizationService(
                 stores,
                 TestDiagnosticsHistoryClock(),
+                requireNotNull(prepared.networkFingerprint),
             ).finalize(
                 prepared,
                 json.encodeToString(report.toEngineScanReportWire()),
@@ -114,7 +119,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val stores = FakeDiagnosticsHistoryStores()
             val (prepared, report) = ownedActiveObservationFixture("session-unverified-terminal")
 
-            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+            scanFinalizationService(
+                stores,
+                TestDiagnosticsHistoryClock(),
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(
                 prepared,
                 json.encodeToString(report.toEngineScanReportWire()),
             )
@@ -144,7 +153,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                         ),
                 )
 
-            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+            scanFinalizationService(
+                stores,
+                TestDiagnosticsHistoryClock(),
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(
                 prepared,
                 json.encodeToString(malformed.toEngineScanReportWire()),
             )
@@ -168,6 +181,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 scanFinalizationService(
                     stores,
                     TestDiagnosticsHistoryClock(),
+                    requireNotNull(prepared.networkFingerprint),
                 )
 
             service.finalize(
@@ -217,7 +231,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     auditAssessment = auditAssessment(),
                 ).copy(pathMode = ScanPathMode.IN_PATH)
 
-            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+            scanFinalizationService(
+                stores,
+                TestDiagnosticsHistoryClock(),
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(
                 prepared,
                 json.encodeToString(report.toEngineScanReportWire()),
             )
@@ -254,7 +272,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                             healthyCapsByProfile = mapOf("firefox_stable" to 4, "safari_stable" to 8),
                         ),
                 )
-            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+            scanFinalizationService(
+                stores,
+                TestDiagnosticsHistoryClock(),
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(
                 prepared,
                 json.encodeToString(report.toEngineScanReportWire()),
             )
@@ -288,7 +310,6 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
             val fingerprint = networkFingerprint(ssid = "validated-network")
-            val finalizationService = scanFinalizationService(stores, clock)
             val activeDns = settings.activeDnsSettings()
             val prepared =
                 preparedStrategyProbeScan(
@@ -307,7 +328,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     ).toEngineScanReportWire(),
                 )
 
-            finalizationService.finalize(prepared, reportJson)
+            scanFinalizationService(
+                stores,
+                clock,
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(prepared, reportJson)
 
             val remembered = stores.rememberedPoliciesState.value.single()
             assertEquals(fingerprint.scopeKey(), remembered.fingerprintHash)
@@ -334,7 +359,6 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     .toBuilder()
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
-            val finalizationService = scanFinalizationService(stores, clock)
             val prepared =
                 preparedStrategyProbeScan(
                     sessionId = "session-invalid",
@@ -352,7 +376,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     ).toEngineScanReportWire(),
                 )
 
-            finalizationService.finalize(prepared, reportJson)
+            scanFinalizationService(
+                stores,
+                clock,
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(prepared, reportJson)
 
             assertTrue(stores.rememberedPoliciesState.value.isEmpty())
             val persistedReport =
@@ -411,7 +439,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                         ),
                 )
 
-            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+            scanFinalizationService(
+                stores,
+                TestDiagnosticsHistoryClock(),
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(
                 prepared,
                 json.encodeToString(pivotReport.toEngineScanReportWire()),
             )
@@ -424,7 +456,6 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
-            val finalizationService = scanFinalizationService(stores, clock)
             val prepared =
                 preparedStrategyProbeScan(
                     sessionId = "session-diagnosis-authority",
@@ -463,7 +494,11 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                     ).toEngineScanReportWire(),
                 )
 
-            finalizationService.finalize(prepared, reportJson)
+            scanFinalizationService(
+                stores,
+                clock,
+                requireNotNull(prepared.networkFingerprint),
+            ).finalize(prepared, reportJson)
 
             val persistedWire =
                 json.decodeEngineScanReportWire(
@@ -478,13 +513,14 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
 private fun scanFinalizationService(
     stores: FakeDiagnosticsHistoryStores,
     clock: TestDiagnosticsHistoryClock,
+    fingerprint: NetworkFingerprint,
 ): ScanFinalizationService =
     ScanFinalizationService(
         context = TestContext(),
         scanRecordStore = stores,
         artifactWriteStore = stores,
         networkMetadataProvider = FakeNetworkMetadataProvider(),
-        networkFingerprintProvider = MutableNetworkFingerprintProvider(),
+        networkFingerprintProvider = MutableNetworkFingerprintProvider(fingerprint),
         diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
         serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
         resolverOverrideStore = FakeResolverOverrideStore(),
@@ -566,6 +602,11 @@ private fun preparedStrategyProbeScan(
             probeTasks = emptyList(),
         )
     return PreparedDiagnosticsScan(
+        networkScope =
+            com.poyka.ripdpi.diagnostics.application.DiagnosticsNetworkScope(
+                FakeDiagnosticsNetworkEpochProvider(),
+                MutableNetworkFingerprintProvider(fingerprint),
+            ),
         sessionId = sessionId,
         settings = settings,
         pathMode = ScanPathMode.RAW_PATH,

@@ -20,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanRequestFactory
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
 import com.poyka.ripdpi.diagnostics.application.toLaunchTrigger
 import com.poyka.ripdpi.diagnostics.finalization.DiagnosticsReportPersister
+import com.poyka.ripdpi.diagnostics.finalization.scopeReportJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -592,7 +593,8 @@ internal suspend fun persistPartialScanSession(
     scanRecordStore: DiagnosticsScanRecordStore,
     json: Json,
 ) {
-    val reportJson = prepared?.let { partialReportJson.withLocalNetworkDeferrals(it, json) } ?: partialReportJson
+    val scopedJson = prepared?.let { partialReportJson.withLocalNetworkDeferrals(it, json) } ?: partialReportJson
+    val reportJson = prepared.scopeReportJson(scopedJson, json)
     scanRecordStore.upsertScanSession(
         session.copy(
             status = "completed",

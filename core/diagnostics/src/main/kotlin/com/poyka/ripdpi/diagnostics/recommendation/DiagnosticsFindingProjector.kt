@@ -239,9 +239,9 @@ private fun collectDomainDiagnoses(
     domains.forEach { obs ->
         val (code, summary) =
             when (obs.transportFailure) {
-                TransportFailureKind.TIMEOUT -> "tls_clienthello_timeout" to "TLS handshake timed out after ClientHello"
-                TransportFailureKind.RESET -> "tls_clienthello_rst" to "TLS handshake was reset after ClientHello"
-                TransportFailureKind.CLOSE -> "tls_clienthello_close" to "TLS handshake was closed after ClientHello"
+                TransportFailureKind.TIMEOUT -> "tls_clienthello_timeout" to "TLS handshake timed out"
+                TransportFailureKind.RESET -> "tls_clienthello_rst" to "TLS handshake was reset"
+                TransportFailureKind.CLOSE -> "tls_clienthello_close" to "TLS handshake was closed"
                 TransportFailureKind.CERTIFICATE -> "tls_cert_mitm" to "TLS certificate anomaly suggests interception"
                 else -> null to null
             }

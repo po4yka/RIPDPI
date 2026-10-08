@@ -146,23 +146,23 @@ class AwgProfileRepository
                 profiles.map { profile ->
                     val existing = existingByOrigin[profile.origin]?.toSavedProfile()
                     val id = existing?.id ?: generateProfileId()
-                    val request = mergeSubscriptionRequest(profile.request, existing?.request)
+                    val request = mergeSubscriptionRequest(profile, existing?.request)
                     saveLocked(profile.name, request, id, profile.origin, ProfileMutationOrigin.SubscriptionRefresh)
                 }
             }
 
         private fun mergeSubscriptionRequest(
-            incoming: AwgActivationRequest,
+            incoming: AwgSubscriptionProfile,
             existing: AwgActivationRequest?,
         ): AwgActivationRequest =
             if (existing == null) {
-                incoming
+                incoming.request
             } else {
-                incoming.copy(
-                    privateKey = incoming.privateKey.ifEmpty { existing.privateKey },
-                    // The subscription mapper does not import these editor-owned fields.
-                    dnsServers = existing.dnsServers,
-                    allowedIps = existing.allowedIps,
+                incoming.request.copy(
+                    privateKey = incoming.request.privateKey.ifEmpty { existing.privateKey },
+                    dnsServers = if (incoming.dnsSpecified) incoming.request.dnsServers else existing.dnsServers,
+                    allowedIps = if (incoming.allowedIpsSpecified) incoming.request.allowedIps else existing.allowedIps,
+                    // Subscription formats do not import the editor-owned carrier settings.
                     carrier = existing.carrier,
                     carrierWsUrl = existing.carrierWsUrl,
                 )

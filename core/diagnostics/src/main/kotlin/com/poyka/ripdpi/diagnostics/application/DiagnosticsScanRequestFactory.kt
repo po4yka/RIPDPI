@@ -8,7 +8,9 @@ import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -77,6 +79,7 @@ internal data class PreparedDiagnosticsScan(
     val reprobeForSessionId: String? = null,
     val inPathRouteLease: DiagnosticsInPathRouteLease? = null,
     val localNetworkDeferrals: List<ProbeResult> = emptyList(),
+    val networkScope: DiagnosticsNetworkScope? = null,
 )
 
 @Singleton
@@ -86,6 +89,8 @@ internal class DiagnosticsScanRequestFactory
         @param:ApplicationContext
         private val context: Context,
         private val networkMetadataProvider: NetworkMetadataProvider,
+        private val networkEpochProvider: DiagnosticsNetworkEpochProvider,
+        private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val intentResolver: DiagnosticsIntentResolver,
         private val scanContextCollector: ScanContextCollector,
         private val diagnosticsPlanner: DiagnosticsPlanner,
@@ -139,6 +144,7 @@ internal class DiagnosticsScanRequestFactory
             original: PreparedDiagnosticsScan,
             preferredDnsPathOverride: EncryptedDnsPathCandidate? = null,
         ): PreparedDiagnosticsScan {
+            val networkScope = DiagnosticsNetworkScope(networkEpochProvider, networkFingerprintProvider)
             val sessionId = UUID.randomUUID().toString()
             val pathMode = ScanPathMode.IN_PATH
             val intent =
@@ -191,6 +197,7 @@ internal class DiagnosticsScanRequestFactory
                 exposeProgress = false,
                 registerActiveBridge = false,
                 networkFingerprint = scanContext.networkFingerprint,
+                networkScope = networkScope,
                 preferredDnsPath = effectivePreferredDnsPath,
                 initialSession = buildReprobeSessionEntity(sessionId, pathMode, scanContext, original, now),
                 preScanSnapshot = buildReprobeSnapshotEntity(sessionId, now),
@@ -271,6 +278,7 @@ internal class DiagnosticsScanRequestFactory
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
             sessionIdOverride: String? = null,
         ): PreparedDiagnosticsScan {
+            val networkScope = DiagnosticsNetworkScope(networkEpochProvider, networkFingerprintProvider)
             val sessionId = sessionIdOverride ?: UUID.randomUUID().toString()
             val intent =
                 selectStrategyProbeTargetsForSession(
@@ -328,6 +336,7 @@ internal class DiagnosticsScanRequestFactory
                 exposeProgress = exposeProgress,
                 registerActiveBridge = registerActiveBridge,
                 networkFingerprint = scanContext.networkFingerprint,
+                networkScope = networkScope,
                 preferredDnsPath = scanContext.preferredDnsPath,
                 initialSession =
                     buildInitialSession(sessionId, profile, scanContext, pathMode, scanOrigin, launchTrigger, now),

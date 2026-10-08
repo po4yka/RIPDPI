@@ -87,11 +87,11 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
         }
 
         HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY -> {
-            steps += "Transparent DNS proxy detected — switch to encrypted DNS"
+            steps += "Possible DNS proxy behavior — verify with additional controls"
         }
 
         HomeDnsResolverClass.DOH_UNREACHABLE -> {
-            steps += "Encrypted DNS endpoints unreachable — DNS may be hijacked"
+            steps += "Encrypted DNS endpoint unreachable — check connectivity and retry"
         }
 
         else -> {

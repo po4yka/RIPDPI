@@ -17,8 +17,8 @@ import com.poyka.ripdpi.data.wireguard.WireGuardPeer
  * modelled here as a standalone type, mirroring how
  * [com.poyka.ripdpi.data.wireguard.WireGuardConfig] is a standalone model.
  *
- * [allowedIps] is carried as a per-profile routing hint even though the current
- * runtime ignores it; it is kept for the future routing epic.
+ * [dns] and [allowedIps] configure the Android VPN interface. Presence flags
+ * distinguish an omitted policy from an explicit empty list during refresh.
  */
 data class WireGuardSubscriptionProfile(
     val displayName: String,
@@ -33,6 +33,8 @@ data class WireGuardSubscriptionProfile(
     val peerPresharedKey: String?,
     val allowedIps: List<String>,
     val persistentKeepalive: Int?,
+    val dnsSpecified: Boolean = dns.isNotEmpty(),
+    val allowedIpsSpecified: Boolean = allowedIps.isNotEmpty(),
 )
 
 /**
@@ -67,6 +69,8 @@ data class AmneziaWgSubscriptionProfile(
      * rotation. See [AmneziaWgParameters.cohortFingerprint].
      */
     val cohortFingerprint: String? = null,
+    val dnsSpecified: Boolean = dns.isNotEmpty(),
+    val allowedIpsSpecified: Boolean = allowedIps.isNotEmpty(),
 )
 
 /**
@@ -224,7 +228,15 @@ object WireGuardIniSubscriptionParser {
                 warn(peerIndex, peer.endpoint.orEmpty(), "$peerLabel has no usable Endpoint; skipped")
                 return
             }
-            addProfile(model, peer, hostPort.first, hostPort.second, groupId)
+            addProfile(
+                model,
+                peer,
+                hostPort.first,
+                hostPort.second,
+                groupId,
+                dnsSpecified = interfaceBlock.hasSetting("DNS"),
+                allowedIpsSpecified = peerBlock.hasSetting("AllowedIPs"),
+            )
         }
 
         private fun addProfile(
@@ -233,6 +245,8 @@ object WireGuardIniSubscriptionParser {
             host: String,
             port: Int,
             groupId: String,
+            dnsSpecified: Boolean,
+            allowedIpsSpecified: Boolean,
         ) {
             val interfaceSection = model.interfaceSection
             when (model) {
@@ -251,6 +265,8 @@ object WireGuardIniSubscriptionParser {
                             peerPresharedKey = peer.presharedKey,
                             allowedIps = peer.allowedIps,
                             persistentKeepalive = peer.persistentKeepalive,
+                            dnsSpecified = dnsSpecified,
+                            allowedIpsSpecified = allowedIpsSpecified,
                             awg = model.awg,
                         )
                 }
@@ -270,6 +286,8 @@ object WireGuardIniSubscriptionParser {
                             peerPresharedKey = peer.presharedKey,
                             allowedIps = peer.allowedIps,
                             persistentKeepalive = peer.persistentKeepalive,
+                            dnsSpecified = dnsSpecified,
+                            allowedIpsSpecified = allowedIpsSpecified,
                         )
                 }
             }
@@ -301,6 +319,12 @@ object WireGuardIniSubscriptionParser {
         val interfaceBlock: String?,
         val peerBlocks: List<String>,
     )
+
+    private fun String.hasSetting(name: String): Boolean =
+        lineSequence().any { rawLine ->
+            val line = rawLine.substringBefore('#')
+            '=' in line && line.substringBefore('=').trim().equals(name, ignoreCase = true)
+        }
 
     /**
      * Splits [payload] into its `[Interface]` block and one block per `[Peer]`,

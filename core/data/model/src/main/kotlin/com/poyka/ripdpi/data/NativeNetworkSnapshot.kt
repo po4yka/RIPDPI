@@ -34,9 +34,8 @@ data class NativeNetworkSnapshot(
     /** System.currentTimeMillis() at capture time */
     val capturedAtMs: Long = 0L,
     /**
-     * True when the VPN service was active (mode = VPN, status = Halted) at snapshot capture
-     * time, meaning transport == "none" because the VPN tunnel went down rather than because
-     * the physical network is absent.
+     * Explicit evidence that a previously active VPN tunnel went down. Configured VPN mode
+     * and a halted service alone are not evidence of a prior session or the cause of network loss.
      */
     val vpnServiceWasActive: Boolean = false,
 )

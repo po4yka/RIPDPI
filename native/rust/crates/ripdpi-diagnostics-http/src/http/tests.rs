@@ -17,10 +17,68 @@ fn classify_http_response_ok_for_200() {
 }
 
 #[test]
-fn classify_http_response_blockpage_for_403() {
+fn classify_http_response_preserves_403_without_blockpage_evidence() {
     let response =
         HttpResponse { status_code: 403, reason: "Forbidden".to_string(), headers: HashMap::new(), body: vec![] };
+    assert_eq!(classify_http_response(&response), "http_status_403");
+}
+
+#[test]
+fn classify_http_response_preserves_origin_refusal_without_blockpage_evidence() {
+    let response = HttpResponse {
+        status_code: 403,
+        reason: "Forbidden".to_string(),
+        headers: HashMap::new(),
+        body: b"Authentication is required to view this resource".to_vec(),
+    };
+    let fingerprints = crate::blockpage_fingerprints::load_fingerprints();
+    assert_eq!(
+        classify_http_response_with_fingerprints(&response, &fingerprints),
+        ("http_status_403".to_string(), None)
+    );
+}
+
+#[test]
+fn classify_http_response_preserves_generic_403_forbidden_and_access_denied_pages() {
+    let fingerprints = crate::blockpage_fingerprints::load_fingerprints();
+    for body in ["<html><h1>403 Forbidden</h1></html>", "<html><h1>Access Denied</h1></html>"] {
+        let response = HttpResponse {
+            status_code: 403,
+            reason: "Forbidden".to_string(),
+            headers: HashMap::new(),
+            body: body.as_bytes().to_vec(),
+        };
+        assert_eq!(
+            classify_http_response_with_fingerprints(&response, &fingerprints),
+            ("http_status_403".to_string(), None),
+        );
+    }
+}
+
+#[test]
+fn classify_http_response_preserves_403_blockpage_body_evidence() {
+    let response = HttpResponse {
+        status_code: 403,
+        reason: "Forbidden".to_string(),
+        headers: HashMap::new(),
+        body: b"This site has been blocked".to_vec(),
+    };
     assert_eq!(classify_http_response(&response), "http_blockpage");
+}
+
+#[test]
+fn classify_http_response_preserves_403_fingerprint_evidence() {
+    let response = HttpResponse {
+        status_code: 403,
+        reason: "Forbidden".to_string(),
+        headers: HashMap::new(),
+        body: b"<html>zapret-info.gov.ru</html>".to_vec(),
+    };
+    let fingerprints = crate::blockpage_fingerprints::load_fingerprints();
+    assert_eq!(
+        classify_http_response_with_fingerprints(&response, &fingerprints),
+        ("http_blockpage".to_string(), Some("rkn_standard".to_string())),
+    );
 }
 
 #[test]
