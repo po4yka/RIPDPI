@@ -53,14 +53,21 @@ jobs:
           sudo apt-get install -y --no-install-recommends iproute2 nftables tcpdump ethtool
       - name: Run real TCP and UDP fault controls
         run: sudo python3 test-lab/acceptance/lab.py run --profile routed --out-dir "$RUNNER_TEMP/routed-acceptance"
+      - name: Export readable metadata from the private root-owned run
+        if: always()
+        run: |
+          sudo install -d -m 0755 "$RUNNER_TEMP/routed-public"
+          for report in report.json report.xml; do
+            sudo install -m 0644 "$RUNNER_TEMP/routed-acceptance/$report" "$RUNNER_TEMP/routed-public/$report"
+          done
       - name: Publish metadata only
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: routed-acceptance-report
           path: |
-            ${{ runner.temp }}/routed-acceptance/report.json
-            ${{ runner.temp }}/routed-acceptance/report.xml
+            ${{ runner.temp }}/routed-public/report.json
+            ${{ runner.temp }}/routed-public/report.xml
           retention-days: 7
 
   peers:
