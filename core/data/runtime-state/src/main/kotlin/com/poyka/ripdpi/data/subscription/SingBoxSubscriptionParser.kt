@@ -67,6 +67,7 @@ enum class SingBoxSkipReason {
     UNSUPPORTED_OBFUSCATION,
     UNSUPPORTED_PORT_HOPPING,
     UNSUPPORTED_FINGERPRINT,
+    INVALID_NETWORK_POLICY,
 }
 
 /** One rejected subscription entry. [detail] is a non-secret protocol or metadata identifier. */
@@ -707,6 +708,12 @@ private fun mapRipdpiAwg(
             .takeIf { it.isNotBlank() } ?: return null
     val port = endpoint.substring(lastColon + 1).toIntOrNull()?.takeIf { it in 1..MaxPort } ?: return null
 
+    val invalidPolicyField = invalidAwgPolicyField(obj, peerObj)
+    if (invalidPolicyField != null) {
+        skipped += SingBoxSkippedNode(index, tag, SingBoxSkipReason.INVALID_NETWORK_POLICY, invalidPolicyField)
+        return null
+    }
+
     // Address list (interface-level CIDR strings).
     val addressList =
         (obj["address"] as? JsonArray)
@@ -772,6 +779,8 @@ private fun mapRipdpiAwg(
         persistentKeepalive = peerObj.int("persistent_keepalive"),
         awg = awg,
         cohortFingerprint = obj.string("cohort_fingerprint"),
+        dnsSpecified = obj.containsKey("dns"),
+        allowedIpsSpecified = peerObj.containsKey("allowed_ips"),
     )
 }
 

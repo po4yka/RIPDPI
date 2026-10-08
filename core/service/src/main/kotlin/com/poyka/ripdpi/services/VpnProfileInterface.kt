@@ -19,7 +19,8 @@ internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelR
     RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled).copy(
         routes =
             (
-                allowedIps.map { cidr ->
+                // Preserve the source list, but do not enable an unconfigured Android address family.
+                allowedIps.filter { ipv6Enabled || ':' !in it }.map { cidr ->
                     val (address, prefixText) = cidr.split('/')
                     val prefix = prefixText.toInt()
                     // Inputs are validated numeric literals; never resolve a hostname here.
@@ -38,11 +39,20 @@ internal fun VpnProfileInterface.routePlan(fallbackDns: String = ""): VpnTunnelR
                     }
                     VpnTunnelRouteEntry(checkNotNull(InetAddress.getByAddress(bytes).hostAddress), prefix)
                 } +
-                    (dnsServers.ifEmpty { listOf(fallbackDns) }).filter(String::isNotBlank).map { address ->
+                    effectiveDnsServers(fallbackDns).map { address ->
                         VpnTunnelRouteEntry(address, if (':' in address) Ipv6PrefixBits else Ipv4PrefixBits)
                     }
             ).distinct(),
     )
+
+/** One DNS policy for host routes and Builder DNS; neither may enable an unconfigured family. */
+internal fun VpnProfileInterface.effectiveDnsServers(fallbackDns: String): List<String> {
+    val effective = dnsServers.ifEmpty { listOf(fallbackDns) }.filter(String::isNotBlank)
+    require(ipv6Enabled || effective.none { ':' in it }) {
+        "AmneziaWG DNS servers require a configured interface family"
+    }
+    return effective
+}
 
 /** URI validates IPv6 grammar; expanding its numeric groups never invokes a resolver. */
 private fun numericAddressBytes(address: String): ByteArray {

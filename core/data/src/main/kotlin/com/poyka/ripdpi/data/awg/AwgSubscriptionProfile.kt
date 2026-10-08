@@ -12,6 +12,9 @@ data class AwgSubscriptionProfile(
     val memberId: String,
     val name: String,
     val request: AwgActivationRequest,
+    /** Only parsed source fields can authorize replacement of saved network policy. */
+    val dnsSpecified: Boolean = false,
+    val allowedIpsSpecified: Boolean = false,
 ) {
     // Structured fields avoid delimiter collisions. Neither field is a subscription URL or token.
     internal val origin: JsonObject
@@ -21,7 +24,15 @@ data class AwgSubscriptionProfile(
 /** Sing-box tags identify members; INI callers supply their peer identity instead. */
 fun AmneziaWgSubscriptionProfile.toAwgSubscriptionProfile(
     memberId: String = "tag:$displayName",
-): AwgSubscriptionProfile = AwgSubscriptionProfile(groupId, memberId, displayName, toActivationRequest())
+): AwgSubscriptionProfile =
+    AwgSubscriptionProfile(groupId, memberId, displayName, toActivationRequest(), dnsSpecified, allowedIpsSpecified)
 
 fun WireGuardSubscriptionProfile.toAwgSubscriptionProfile(): AwgSubscriptionProfile =
-    AwgSubscriptionProfile(groupId, "peer:$peerPublicKey", displayName, toActivationRequest())
+    AwgSubscriptionProfile(
+        groupId,
+        "peer:$peerPublicKey",
+        displayName,
+        toActivationRequest(),
+        dnsSpecified,
+        allowedIpsSpecified,
+    )

@@ -11,7 +11,10 @@ import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
+import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
+import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
@@ -439,6 +442,112 @@ class AwgProfileRepositoryRoomTest {
             assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(profile)) }.isFailure)
             assertEquals(before, dao.allProfiles())
         }
+
+    @Test
+    fun `subscription refresh applies supplied network policy and keeps local key`() =
+        runTest {
+            val profile = subscriptionProfile()
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val supplied =
+                networkPolicyProfile(
+                    "\"dns\":[\"9.9.9.9\"],",
+                    "\"allowed_ips\":[\"10.0.0.0/8\",\"fd00::/8\"],",
+                )
+            assertEquals(id, repository.saveSubscriptionProfiles(listOf(supplied)).single())
+            val saved = repository.load(id)!!.request
+            assertEquals(listOf("9.9.9.9"), saved.dnsServers)
+            assertEquals(listOf("10.0.0.0/8", "fd00::/8"), saved.allowedIps)
+            assertEquals(profile.request.privateKey, saved.privateKey)
+        }
+
+    @Test
+    fun `subscription empty policy clears overrides but omission preserves them`() =
+        runTest {
+            val profile =
+                subscriptionProfile(
+                    request =
+                        sampleRequest().copy(
+                            dnsServers = listOf("9.9.9.9"),
+                            allowedIps = listOf("10.0.0.0/8"),
+                        ),
+                )
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            repository.saveSubscriptionProfiles(listOf(networkPolicyProfile()))
+            assertEquals(profile.request.dnsServers, repository.load(id)!!.request.dnsServers)
+            assertEquals(profile.request.allowedIps, repository.load(id)!!.request.allowedIps)
+            repository.saveSubscriptionProfiles(listOf(networkPolicyProfile("\"dns\":[],", "\"allowed_ips\":[],")))
+            assertEquals(emptyList<String>(), repository.load(id)!!.request.dnsServers)
+            assertEquals(emptyList<String>(), repository.load(id)!!.request.allowedIps)
+        }
+
+    @Test
+    fun `malformed supplied policy is rejected without changing saved profile`() =
+        runTest {
+            val profile =
+                subscriptionProfile().let {
+                    it.copy(
+                        request =
+                            it.request.copy(
+                                dnsServers = listOf("9.9.9.9"),
+                                allowedIps = listOf("10.0.0.0/8"),
+                            ),
+                    )
+                }
+            val id = repository.saveSubscriptionProfiles(listOf(profile)).single()
+            val before = requireNotNull(repository.load(id))
+            val invalid =
+                listOf(
+                    "null",
+                    "{}",
+                    "\"secret-value\"",
+                    "[{}]",
+                    "[42]",
+                    "[true]",
+                    "[null]",
+                    "[\" \"]",
+                    "[\"1.1.1.1\",{}]",
+                    "[\"0.0.0.0/0\",null]",
+                )
+            for (field in listOf("dns", "allowed_ips")) {
+                for (value in invalid) {
+                    val jsonField = "\"$field\":$value,"
+                    val parsed =
+                        networkPolicyParse(
+                            interfacePolicy = if (field == "dns") jsonField else "",
+                            peerPolicy = if (field == "allowed_ips") jsonField else "",
+                        )
+                    repository.saveSubscriptionProfiles(parsed.amneziaWgProfiles.map { it.toAwgSubscriptionProfile() })
+                    assertEquals(before, repository.load(id))
+                    assertTrue(parsed.amneziaWgProfiles.isEmpty())
+                    val skipped = parsed.skipped.single()
+                    assertEquals("INVALID_NETWORK_POLICY", skipped.reason.name)
+                    assertEquals(field, skipped.detail)
+                }
+            }
+        }
+
+    private fun networkPolicyProfile(
+        interfacePolicy: String = "",
+        peerPolicy: String = "",
+    ): AwgSubscriptionProfile =
+        networkPolicyParse(interfacePolicy, peerPolicy)
+            .amneziaWgProfiles
+            .single()
+            .toAwgSubscriptionProfile()
+
+    private fun networkPolicyParse(
+        interfacePolicy: String = "",
+        peerPolicy: String = "",
+    ): SingBoxParseResult.Success =
+        SingBoxSubscriptionParser.parse(
+            """
+            {"outbounds":[],"ripdpi":{"schema_version":1,"amneziawg":[{
+              "tag":"home","private_key_placeholder":true,"address":["10.8.0.2/32","fd00::2/128"],$interfacePolicy
+              "peer":{$peerPolicy"public_key":"peerpub==","endpoint":"vpn.example.com:51820"}
+            }]}}
+            """.trimIndent(),
+            "subscription-one",
+        ) as SingBoxParseResult.Success
 
     @Test
     fun `save rejects non-zero S3 or S4 before persisting secrets or a row`() =

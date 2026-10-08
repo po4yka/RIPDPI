@@ -441,7 +441,7 @@ class RipDpiVpnService :
 
         builder.applyTunnelRoutePlan(profileInterface?.routePlan(dns) ?: vpnTunnelRoutePlan(ipv6))
 
-        val dnsServers = profileInterface?.dnsServers?.takeIf { it.isNotEmpty() } ?: listOf(dns)
+        val dnsServers = profileInterface?.effectiveDnsServers(dns) ?: listOf(dns)
         dnsServers.filter(String::isNotBlank).forEach(builder::addDnsServer)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(networkParameters.metered)

@@ -23,6 +23,13 @@ class AwgActivationRequestTest {
     }
 
     @Test
+    fun `runtime readiness retains both default routes with only an IPv4 interface`() {
+        val request = runtimeRequest().copy(allowedIps = listOf("0.0.0.0/0", "::/0"))
+        request.requireRuntimeReady()
+        assertEquals(listOf("0.0.0.0/0", "::/0"), request.allowedIps)
+    }
+
+    @Test
     fun `runtime readiness rejects malformed or mismatched interface policy`() {
         val request = runtimeRequest()
         val invalidRequests =
@@ -48,6 +55,7 @@ class AwgActivationRequestTest {
                 request.copy(allowedIps = listOf("10.0.0.0/33")),
                 request.copy(allowedIps = listOf("0.0.0.0/+0")),
                 request.copy(allowedIps = listOf("::/0")),
+                request.copy(allowedIps = listOf("0.0.0.0/0", "fd00:::0/64")),
                 request.copy(interfaceAddressV6 = "fd00::2/128", allowedIps = listOf("fd00:::0/64")),
                 request.copy(interfaceAddressV6 = "fd00::2/128", allowedIps = listOf("::/129")),
             )
