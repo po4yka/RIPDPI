@@ -1,7 +1,7 @@
 {
   "scenario": "p0-only",
   "description": "COHORTS=p0: REALITY + Vision primary and fallback endpoints on one host",
-  "deployer_git_sha": "ac1504e3465fece96ba2e544b3d94539b58b7fdc",
+  "deployer_git_sha": "ff0ae2198aa82648a03203a0ab52d5cdac485df3",
   "provenance": "emitted",
   "generated_at": "2026-05-14T00:00:00Z",
   "frozen_secret_set": "all UUIDs/shortIds/keys are fixed -fixture test values, never production tokens"

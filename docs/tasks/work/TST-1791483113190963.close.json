@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Approved fleet fixtures at 8ae99b111b38b2fe52889d26cb144609a00b2699 passed pinned emitter checks, 26 Python tests, 65 Kotlin parser tests, and independent scope review.",
+  "execution_sha256": "94cf270df4c65d3ec556cd681777a83c401e9f2ae9e935fa7530bb900ed2c86d",
+  "issue_sha256": "91a7c80a542658e45c9719056e8d211fb9bc6f7fdc860add4c1d637221633208",
+  "outcome": "done",
+  "prepared_at": "2026-10-08T18:44:54Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1791483113190963"
+}
