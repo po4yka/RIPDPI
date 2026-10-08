@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-10-08T18:07:13Z",
+  "change": "validate-awg-cohort-fingerprint",
+  "commit_sha": "7447a1c8a194a1af4fe1f28a7b45be6f3b86acfb",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DAT-1791479983861691"
+}

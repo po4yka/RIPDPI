@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-10-08T18:07:15Z",
+  "change": "fetch-subscription-on-confirm",
+  "commit_sha": "bbc7449b73c690a4bf40eedad1db82b9d84ad182",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DAT-1791480858535857"
+}

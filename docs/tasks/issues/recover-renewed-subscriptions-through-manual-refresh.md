@@ -25,3 +25,7 @@ Manual refresh retries cached expiry and terminal failures, but still rejects ex
 ## Ownership
 
 Subscription recovery writer owns app SubscriptionRefreshCoordinator.kt and SubscriptionRecoveryTest.kt, SubscriptionStatusScreen.kt, and SubscriptionStatusScreenTest.kt in this isolated worktree. No runtime parser, AWG repository, locale, schema, or lockfile edits. Other writers own separate core paths; the parent serializes generated board integration.
+
+## Final evidence ownership
+
+The subscription evidence worker owns verification records and task closure receipts on `docs/subscription-p2-final`. The integration owner provides the final gate results and serializes main integration. Source, tests, golden images, and generated artifacts remain with their assigned owners.

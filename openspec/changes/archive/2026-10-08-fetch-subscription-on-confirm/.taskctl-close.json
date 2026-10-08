@@ -1,0 +1,11 @@
+{
+  "change": "fetch-subscription-on-confirm",
+  "evidence_summary": "Independent review approved; 67 app tests and lint passed. Combined 7a4a87a9 passed 269 tests, staticAnalysis, architecture health, and locked Cargo metadata.",
+  "execution_sha256": "8a6776f040764103d2c256edc11489aaf45ab65687a59cb36505e212dacb1582",
+  "issue_sha256": "eef8d911dec5e47145732e87df46628452debceb5585feb26b2052bc46ec8473",
+  "outcome": "done",
+  "prepared_at": "2026-10-08T18:07:15Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1791480858535857"
+}

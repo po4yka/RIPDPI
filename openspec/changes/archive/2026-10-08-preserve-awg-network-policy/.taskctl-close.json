@@ -1,0 +1,11 @@
+{
+  "change": "preserve-awg-network-policy",
+  "evidence_summary": "Independent review approved; 113 policy tests and lint passed. Final 7a4a87a9 passed 269 tests, staticAnalysis, architecture health, and locked Cargo metadata.",
+  "execution_sha256": "9e39a032f0d3fb3826b9040e127ec64947e5ebde8be7ab764f3983c97930521a",
+  "issue_sha256": "2ec7d0b185b2241dd9f2d5d7e78cc204f9c196001ce49a192c80267596bb8162",
+  "outcome": "done",
+  "prepared_at": "2026-10-08T18:07:14Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1791479988786516"
+}
