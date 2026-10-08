@@ -109,8 +109,8 @@ class VlessRealityImportTest {
         assertEquals("ANOTHERKEY0987654321zyxwvutsrqpon", profile.realityPublicKey)
         assertEquals("ff001122", profile.realityShortId)
         assertEquals("sni.example.com", profile.serverName)
-        // flow defaults to xtls-rprx-vision when omitted
-        assertEquals("xtls-rprx-vision", profile.flow)
+        // Omitted sing-box flow means no flow, even with REALITY.
+        assertEquals("", profile.flow)
         assertNull(profile.fingerprint)
     }
 

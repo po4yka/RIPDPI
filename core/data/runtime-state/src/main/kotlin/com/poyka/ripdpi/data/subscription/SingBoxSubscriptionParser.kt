@@ -239,9 +239,25 @@ private fun unsupportedNode(
 ): SingBoxSkippedNode? {
     val normalizedType = type.lowercase()
     val label = obj.string("tag") ?: "$normalizedType outbound ${index + 1}"
-    return unsupportedTransport(obj, normalizedType, index, label)
+    return unsupportedMultiplex(obj, index, label)
+        ?: unsupportedTransport(obj, normalizedType, index, label)
         ?: unsupportedFingerprint(obj, normalizedType, index, label)
         ?: unsupportedHysteria2Option(obj, normalizedType, index, label)
+}
+
+private fun unsupportedMultiplex(
+    obj: JsonObject,
+    index: Int,
+    label: String,
+): SingBoxSkippedNode? {
+    val multiplex = obj["multiplex"] as? JsonObject
+    val enabled = (multiplex?.get("enabled") as? JsonPrimitive)?.booleanOrNull == true
+    // ProxyProfile cannot retain multiplex framing; never map it to a plain connection.
+    return if (enabled) {
+        SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "multiplex")
+    } else {
+        null
+    }
 }
 
 private fun unsupportedTransport(
@@ -304,9 +320,6 @@ private val singBoxJson =
 
 /** Upper bound for a TCP/UDP port number. */
 private const val MaxPort = 65_535
-
-/** Default VLESS REALITY flow when the outbound omits one. */
-private const val DefaultRealityFlow = "xtls-rprx-vision"
 
 /**
  * Routes a pre-parsed [JsonElement] to the outbound extraction result,
@@ -430,7 +443,7 @@ private fun mapVlessReality(
 ): ProxyProfile {
     val realityShortId = realityObj?.string("short_id").orEmpty()
     val serverName = tlsObj?.string("server_name") ?: server
-    val flow = obj.rawString("flow") ?: DefaultRealityFlow
+    val flow = obj.rawString("flow").orEmpty()
     val fingerprint = (tlsObj?.get("utls") as? JsonObject)?.string("fingerprint")
     val transportObj = obj["transport"] as? JsonObject
     val isXhttp = transportObj?.string("type")?.lowercase() == "xhttp"
