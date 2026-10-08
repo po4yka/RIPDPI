@@ -238,8 +238,14 @@ val forwardedInstrumentationArguments =
     )
 
 extensions.configure<ApplicationExtension> {
-    sourceSets.getByName("test").java.srcDir("src/testShared/kotlin")
-    sourceSets.getByName("androidTest").java.srcDir("src/testShared/kotlin")
+    sourceSets
+        .getByName("test")
+        .kotlin.directories
+        .add("src/testShared/kotlin")
+    sourceSets
+        .getByName("androidTest")
+        .kotlin.directories
+        .add("src/testShared/kotlin")
 
     namespace = "com.poyka.ripdpi"
     testBuildType = providers.gradleProperty("ripdpi.testBuildType").orElse("debug").get()
