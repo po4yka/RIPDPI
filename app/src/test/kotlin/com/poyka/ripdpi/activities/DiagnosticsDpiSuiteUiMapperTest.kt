@@ -101,7 +101,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                 ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertEquals(DpiProbeKind.QUIC_H3, row.kind)
-        assertEquals("QUIC/H3 fingerprint", row.label)
+        assertEquals("QUIC Initial fingerprint", row.label)
         assertEquals("flagged", row.status)
         assertEquals(1, row.detailRows.size)
         assertEquals("cloudflare.com", row.detailRows.single().label)

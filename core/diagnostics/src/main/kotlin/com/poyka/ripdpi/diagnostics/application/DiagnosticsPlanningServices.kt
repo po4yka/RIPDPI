@@ -103,6 +103,7 @@ internal class DefaultDiagnosticsIntentResolver
                 throughputTargets = spec.throughputTargets,
                 selectiveMatrix = spec.selectiveMatrix,
                 ipFamilyProbe = spec.ipFamilyProbe,
+                http3Probe = spec.http3Probe,
                 whitelistSni = spec.whitelistSni,
                 telegramTarget = spec.telegramTarget,
                 strategyProbe = spec.strategyProbe,
@@ -116,7 +117,7 @@ internal class DefaultDiagnosticsIntentResolver
                         )
                     },
                 routeProbe =
-                    if (spec.selectiveMatrix == null && spec.ipFamilyProbe == null) {
+                    if (spec.selectiveMatrix == null && spec.ipFamilyProbe == null && spec.http3Probe == null) {
                         spec.routeProbe ?: defaultRouteProbeFor(pathMode, spec.kind, spec.family)
                     } else {
                         null
@@ -218,6 +219,9 @@ internal class DefaultDiagnosticsPlanner
                 }
             val probeTasks =
                 buildList {
+                    intent.http3Probe?.let {
+                        add(ProbeTask(ProbeFamily.HTTP3, it.host, "HTTP/3"))
+                    }
                     intent.ipFamilyProbe?.let {
                         add(ProbeTask(ProbeFamily.IP_FAMILY, "ip_family", "IPv4, IPv6 and NAT64"))
                     }
@@ -248,6 +252,7 @@ internal class DefaultDiagnosticsPlanner
                 routeProbe = intent.routeProbe,
                 selectiveMatrix = intent.selectiveMatrix,
                 ipFamilyProbe = intent.ipFamilyProbe,
+                http3Probe = intent.http3Probe,
                 probeTasks = probeTasks,
                 confirmGoodDpiEvidence = context.confirmGoodDpiEvidence,
             )

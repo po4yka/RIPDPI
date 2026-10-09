@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
 import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.QuicTarget
@@ -39,6 +40,7 @@ internal enum class ProbeFamily {
     DOH_JSON_SURVEY,
     SELECTIVE_AVAILABILITY,
     IP_FAMILY,
+    HTTP3,
 }
 
 internal data class ProbeTask(
@@ -86,6 +88,7 @@ internal data class DiagnosticsIntent(
     val routeProbe: RouteProbeConfig? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
+    val http3Probe: Http3ProbeConfig? = null,
     val requestedPathMode: ScanPathMode,
 )
 
@@ -114,6 +117,7 @@ internal data class ScanPlan(
     val routeProbe: RouteProbeConfig? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
+    val http3Probe: Http3ProbeConfig? = null,
     val probeTasks: List<ProbeTask>,
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )

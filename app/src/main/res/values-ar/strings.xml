@@ -3908,7 +3908,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">عناوين IP بديلة</string>
     <string name="diagnostics_domain_reachability_running">جارٍ فحص الوصول باستخدام %1$d عنوان IP بديل لـ DNS…</string>
     <string name="diagnostics_dpi_probe_kind_ech">جاهزية ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">بصمة QUIC/H3</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">بصمة QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">ترويسة TCP16 الكبيرة</string>
     <string name="diagnostics_dpi_suite_cancel">إلغاء المجموعة</string>
     <string name="diagnostics_dpi_suite_concurrency">التزامن %1$d</string>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">Réponse HTTP/3 confirmée</string>
+    <string name="diagnostics_http3_tls">Certificat TLS et nom du serveur vérifiés</string>
+    <string name="diagnostics_http3_sent">Requête envoyée</string>
+    <string name="diagnostics_http3_complete">Corps entièrement reçu</string>
+    <string name="diagnostics_http3_status_code">Statut HTTP</string>
+    <string name="diagnostics_http3_bytes">Octets de réponse</string>
+    <string name="diagnostics_http3_dns">Résolution DNS</string>
+    <string name="diagnostics_http3_handshake">Négociation QUIC</string>
+    <string name="diagnostics_http3_request">Requête HTTP</string>
+    <string name="diagnostics_http3_headers">En-têtes HTTP</string>
+    <string name="diagnostics_http3_body">Corps HTTP</string>
+    <string name="diagnostics_http3_elapsed">Durée totale</string>
+    <string name="diagnostics_http3_handshake_time">Délai de négociation</string>
+    <string name="diagnostics_http3_headers_time">Délai des en-têtes</string>
+    <string name="diagnostics_http3_first_byte_time">Délai du premier octet</string>
+    <string name="diagnostics_http3_observed">Observé</string>
+    <string name="diagnostics_http3_not_observed">Non observé</string>
+    <string name="diagnostics_http3_success">Réponse complète</string>
+    <string name="diagnostics_http3_http_error">Réponse avec erreur HTTP</string>
+    <string name="diagnostics_http3_body_limit">Limite des octets de réponse atteinte</string>
+    <string name="diagnostics_http3_pinned">Adresse fixée</string>
+    <string name="diagnostics_http3_resolved">Adresse résolue</string>
+    <string name="diagnostics_http3_no_addresses">Aucune adresse reçue</string>
+    <string name="diagnostics_http3_connect_error">Échec de la connexion QUIC</string>
+    <string name="diagnostics_http3_tls_error">Échec de la vérification TLS</string>
+    <string name="diagnostics_http3_alpn_error">ALPN HTTP/3 non négocié</string>
+    <string name="diagnostics_http3_protocol_error">Erreur de protocole HTTP/3</string>
+    <string name="diagnostics_http3_protect_error">Échec de la protection du socket</string>
+    <string name="diagnostics_http3_caution">Un QUIC Initial ou une négociation seuls ne confirment pas HTTP/3. Les en-têtes de réponse confirment HTTP/3 même avec une erreur HTTP. Un corps incomplet reste incomplet. Ce résultat de contrôle ne prouve aucune interférence du fournisseur.</string>
+    <string name="diagnostics_http3_milliseconds">%1$d ms</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">Tentatives de connexion QUIC</string>
+</resources>

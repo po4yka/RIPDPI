@@ -3889,7 +3889,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPهای stub</string>
     <string name="diagnostics_domain_reachability_running">در حال کاوش دسترس‌پذیری با %1$d آی‌پی stub مربوط به DNS...</string>
     <string name="diagnostics_dpi_probe_kind_ech">آمادگی ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">اثرانگشت QUIC/H3</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">اثرانگشت QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">سرآیند چاق TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">لغو مجموعه</string>
     <string name="diagnostics_dpi_suite_concurrency">هم‌زمانی %1$d</string>

@@ -23,3 +23,6 @@ pub use types::{
     TransportConnectError, TransportConnectResult, TransportError, TransportFailureStage, UdpRelayResult,
 };
 pub use udp::{relay_udp_direct, relay_udp_payload_observed};
+
+pub use address::start_address_resolution;
+pub use protect::protected_udp_bind;

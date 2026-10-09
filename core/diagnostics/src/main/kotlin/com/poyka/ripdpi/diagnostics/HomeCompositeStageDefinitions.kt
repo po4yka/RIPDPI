@@ -94,6 +94,12 @@ internal val HomeCompositeStageSpecs =
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
+            key = "http3",
+            label = "HTTP/3",
+            profileId = Http3ProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
             key = "ru_throttling",
             label = "Throttling check",
             profileId = "ru-throttling",

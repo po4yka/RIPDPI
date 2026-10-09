@@ -3600,7 +3600,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub-IP</string>
     <string name="diagnostics_domain_reachability_running">Проверка достижимости с %1$d stub-IP DNS…</string>
     <string name="diagnostics_dpi_probe_kind_ech">Готовность ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Отпечаток QUIC/H3</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">Отпечаток QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Толстый заголовок TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Отменить набор</string>
     <string name="diagnostics_dpi_suite_concurrency">Параллелизм %1$d</string>

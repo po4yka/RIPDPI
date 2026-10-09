@@ -5609,10 +5609,20 @@ dependencies = [
 name = "ripdpi-diagnostics-http"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "h3",
+ "h3-quinn",
+ "http",
+ "quinn",
+ "rcgen",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-tls",
  "ripdpi-diagnostics-transport",
  "ripdpi-failure-classifier",
+ "ripdpi-native-protect",
+ "rustls",
+ "tokio",
+ "webpki-roots",
 ]
 
 [[package]]

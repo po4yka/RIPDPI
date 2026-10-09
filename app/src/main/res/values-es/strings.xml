@@ -3884,7 +3884,7 @@ Origen: %2$s</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPs stub</string>
     <string name="diagnostics_domain_reachability_running">Sondeando la accesibilidad con %1$d IPs stub de DNS...</string>
     <string name="diagnostics_dpi_probe_kind_ech">Preparación de ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Huella QUIC/H3</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">Huella QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Encabezado gordo TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Cancelar conjunto</string>
     <string name="diagnostics_dpi_suite_concurrency">Concurrencia %1$d</string>

@@ -3874,7 +3874,7 @@ fake_burst 3</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">存根 IP</string>
     <string name="diagnostics_domain_reachability_running">正在用 %1$d 个 DNS 存根 IP 探测可达性……</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH 就绪度</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC/H3 指纹</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial 指纹</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 肥头部</string>
     <string name="diagnostics_dpi_suite_cancel">取消套件</string>
     <string name="diagnostics_dpi_suite_concurrency">并发 %1$d</string>

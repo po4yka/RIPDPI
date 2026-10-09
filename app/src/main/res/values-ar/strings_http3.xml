@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">تم تأكيد استجابة HTTP/3</string>
+    <string name="diagnostics_http3_tls">تم التحقق من شهادة TLS واسم المضيف</string>
+    <string name="diagnostics_http3_sent">تم إرسال الطلب</string>
+    <string name="diagnostics_http3_complete">تم استلام المحتوى بالكامل</string>
+    <string name="diagnostics_http3_status_code">حالة HTTP</string>
+    <string name="diagnostics_http3_bytes">بايتات الاستجابة</string>
+    <string name="diagnostics_http3_dns">حل DNS</string>
+    <string name="diagnostics_http3_handshake">مصافحة QUIC</string>
+    <string name="diagnostics_http3_request">طلب HTTP</string>
+    <string name="diagnostics_http3_headers">ترويسات HTTP</string>
+    <string name="diagnostics_http3_body">محتوى HTTP</string>
+    <string name="diagnostics_http3_elapsed">الوقت الإجمالي</string>
+    <string name="diagnostics_http3_handshake_time">الوقت حتى المصافحة</string>
+    <string name="diagnostics_http3_headers_time">الوقت حتى الترويسات</string>
+    <string name="diagnostics_http3_first_byte_time">الوقت حتى أول بايت</string>
+    <string name="diagnostics_http3_observed">تم رصده</string>
+    <string name="diagnostics_http3_not_observed">لم يتم رصده</string>
+    <string name="diagnostics_http3_success">الاستجابة مكتملة</string>
+    <string name="diagnostics_http3_http_error">استجابة خطأ HTTP</string>
+    <string name="diagnostics_http3_body_limit">تم بلوغ حد بايتات الاستجابة</string>
+    <string name="diagnostics_http3_pinned">عنوان محدد</string>
+    <string name="diagnostics_http3_resolved">تم حل العنوان</string>
+    <string name="diagnostics_http3_no_addresses">لم يتم إرجاع عناوين</string>
+    <string name="diagnostics_http3_connect_error">فشل اتصال QUIC</string>
+    <string name="diagnostics_http3_tls_error">فشل التحقق من TLS</string>
+    <string name="diagnostics_http3_alpn_error">لم يتم التفاوض على ALPN لـ HTTP/3</string>
+    <string name="diagnostics_http3_protocol_error">خطأ بروتوكول HTTP/3</string>
+    <string name="diagnostics_http3_protect_error">فشلت حماية المقبس</string>
+    <string name="diagnostics_http3_caution">لا تؤكد حزمة QUIC Initial أو المصافحة وحدها HTTP/3. تؤكد ترويسات الاستجابة HTTP/3 حتى عند وجود خطأ HTTP. يظل المحتوى غير المكتمل غير مكتمل. لا تثبت نتيجة الاختبار هذه تدخل مزود الخدمة.</string>
+    <string name="diagnostics_http3_milliseconds">%1$d مللي ثانية</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">محاولات اتصال QUIC</string>
+</resources>

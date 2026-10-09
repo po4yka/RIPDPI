@@ -83,21 +83,29 @@ internal fun CompactProbeRow(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = probe.ipFamily?.title ?: probe.target,
+                text = probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = if (probe.ipFamily != null) stringResource(R.string.diagnostics_ip_title) else probe.probeType,
+                text =
+                    probe.http3?.title
+                        ?: if (probe.ipFamily !=
+                            null
+                        ) {
+                            stringResource(R.string.diagnostics_ip_title)
+                        } else {
+                            probe.probeType
+                        },
                 style = RipDpiThemeTokens.type.smallLabel,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
         StatusIndicator(
             label =
-                probe.ipFamily
+                (probe.http3 ?: probe.ipFamily)
                     ?.fields
                     ?.firstOrNull()
                     ?.value ?: probe.outcome,
@@ -293,7 +301,7 @@ internal fun ProbeResultRow(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = probe.ipFamily?.title ?: probe.target,
+                    text = probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                     maxLines = 1,
@@ -301,7 +309,9 @@ internal fun ProbeResultRow(
                 )
                 Text(
                     text =
-                        if (probe.ipFamily !=
+                        if (probe.http3 != null) {
+                            probe.http3.title
+                        } else if (probe.ipFamily !=
                             null
                         ) {
                             stringResource(R.string.diagnostics_ip_title)
@@ -314,7 +324,7 @@ internal fun ProbeResultRow(
             }
             StatusIndicator(
                 label =
-                    probe.ipFamily
+                    (probe.http3 ?: probe.ipFamily)
                         ?.fields
                         ?.firstOrNull()
                         ?.value ?: probe.outcome,
@@ -324,6 +334,7 @@ internal fun ProbeResultRow(
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
         probe.ipFamily?.let { ContextGroupCard(it) }
+        probe.http3?.let { ContextGroupCard(it) }
         DiagnosticsDnsResponseCards(probe.dnsResponses)
     }
 }

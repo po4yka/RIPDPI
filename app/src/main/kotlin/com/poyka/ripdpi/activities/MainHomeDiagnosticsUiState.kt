@@ -190,7 +190,9 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
     val activeStageIndex = progress?.activeStageIndex
     val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
     val stageLabel =
-        if (activeStage?.stageKey == "ip_family") {
+        if (activeStage?.stageKey == "http3") {
+            stringResolver.getString(R.string.diagnostics_http3_title)
+        } else if (activeStage?.stageKey == "ip_family") {
             stringResolver.getString(R.string.diagnostics_ip_title)
         } else {
             activeStage?.stageLabel
@@ -223,7 +225,9 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
     val activeStageIndex = progress?.activeStageIndex
     val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
     val stageLabel =
-        if (activeStage?.stageKey == "ip_family") {
+        if (activeStage?.stageKey == "http3") {
+            stringResolver.getString(R.string.diagnostics_http3_title)
+        } else if (activeStage?.stageKey == "ip_family") {
             stringResolver.getString(R.string.diagnostics_ip_title)
         } else {
             activeStage?.stageLabel
@@ -412,7 +416,12 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
 
 private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: StringResolver) =
     HomeDiagnosticsStageUiState(
-        label = if (stageKey == "ip_family") stringResolver.getString(R.string.diagnostics_ip_title) else stageLabel,
+        label =
+            when (stageKey) {
+                "http3" -> stringResolver.getString(R.string.diagnostics_http3_title)
+                "ip_family" -> stringResolver.getString(R.string.diagnostics_ip_title)
+                else -> stageLabel
+            },
         headline = headline,
         summary = summary,
         failed = status == DiagnosticsHomeCompositeStageStatus.FAILED,

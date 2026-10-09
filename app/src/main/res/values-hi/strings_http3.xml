@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">HTTP/3 प्रतिक्रिया की पुष्टि</string>
+    <string name="diagnostics_http3_tls">TLS प्रमाणपत्र और होस्ट नाम सत्यापित</string>
+    <string name="diagnostics_http3_sent">अनुरोध भेजा गया</string>
+    <string name="diagnostics_http3_complete">पूरा बॉडी प्राप्त हुआ</string>
+    <string name="diagnostics_http3_status_code">HTTP स्थिति</string>
+    <string name="diagnostics_http3_bytes">प्रतिक्रिया बाइट</string>
+    <string name="diagnostics_http3_dns">DNS समाधान</string>
+    <string name="diagnostics_http3_handshake">QUIC हैंडशेक</string>
+    <string name="diagnostics_http3_request">HTTP अनुरोध</string>
+    <string name="diagnostics_http3_headers">HTTP हेडर</string>
+    <string name="diagnostics_http3_body">HTTP बॉडी</string>
+    <string name="diagnostics_http3_elapsed">कुल समय</string>
+    <string name="diagnostics_http3_handshake_time">हैंडशेक तक का समय</string>
+    <string name="diagnostics_http3_headers_time">हेडर तक का समय</string>
+    <string name="diagnostics_http3_first_byte_time">पहले बाइट तक का समय</string>
+    <string name="diagnostics_http3_observed">देखा गया</string>
+    <string name="diagnostics_http3_not_observed">नहीं देखा गया</string>
+    <string name="diagnostics_http3_success">प्रतिक्रिया पूरी</string>
+    <string name="diagnostics_http3_http_error">HTTP त्रुटि प्रतिक्रिया</string>
+    <string name="diagnostics_http3_body_limit">प्रतिक्रिया बाइट सीमा पूरी हुई</string>
+    <string name="diagnostics_http3_pinned">निर्धारित पता</string>
+    <string name="diagnostics_http3_resolved">पता हल किया गया</string>
+    <string name="diagnostics_http3_no_addresses">कोई पता नहीं मिला</string>
+    <string name="diagnostics_http3_connect_error">QUIC कनेक्शन विफल</string>
+    <string name="diagnostics_http3_tls_error">TLS सत्यापन विफल</string>
+    <string name="diagnostics_http3_alpn_error">HTTP/3 ALPN तय नहीं हुआ</string>
+    <string name="diagnostics_http3_protocol_error">HTTP/3 प्रोटोकॉल त्रुटि</string>
+    <string name="diagnostics_http3_protect_error">सॉकेट सुरक्षा विफल</string>
+    <string name="diagnostics_http3_caution">केवल QUIC Initial या हैंडशेक HTTP/3 की पुष्टि नहीं करता। HTTP त्रुटि होने पर भी प्रतिक्रिया हेडर HTTP/3 की पुष्टि करते हैं। अधूरा बॉडी अधूरा ही रहता है। यह नियंत्रण परिणाम प्रदाता के हस्तक्षेप का प्रमाण नहीं है।</string>
+    <string name="diagnostics_http3_milliseconds">%1$d मिलीसेकंड</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">QUIC कनेक्शन प्रयास</string>
+</resources>

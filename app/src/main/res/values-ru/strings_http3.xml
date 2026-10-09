@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">Ответ HTTP/3 подтверждён</string>
+    <string name="diagnostics_http3_tls">Сертификат TLS и имя сервера проверены</string>
+    <string name="diagnostics_http3_sent">Запрос отправлен</string>
+    <string name="diagnostics_http3_complete">Тело получено полностью</string>
+    <string name="diagnostics_http3_status_code">Статус HTTP</string>
+    <string name="diagnostics_http3_bytes">Байты ответа</string>
+    <string name="diagnostics_http3_dns">Разрешение DNS</string>
+    <string name="diagnostics_http3_handshake">Рукопожатие QUIC</string>
+    <string name="diagnostics_http3_request">Запрос HTTP</string>
+    <string name="diagnostics_http3_headers">Заголовки HTTP</string>
+    <string name="diagnostics_http3_body">Тело HTTP</string>
+    <string name="diagnostics_http3_elapsed">Общее время</string>
+    <string name="diagnostics_http3_handshake_time">Время до рукопожатия</string>
+    <string name="diagnostics_http3_headers_time">Время до заголовков</string>
+    <string name="diagnostics_http3_first_byte_time">Время до первого байта</string>
+    <string name="diagnostics_http3_observed">Наблюдалось</string>
+    <string name="diagnostics_http3_not_observed">Не наблюдалось</string>
+    <string name="diagnostics_http3_success">Ответ получен полностью</string>
+    <string name="diagnostics_http3_http_error">Ответ с ошибкой HTTP</string>
+    <string name="diagnostics_http3_body_limit">Достигнут лимит байтов ответа</string>
+    <string name="diagnostics_http3_pinned">Заданный IP-адрес</string>
+    <string name="diagnostics_http3_resolved">Адрес разрешён</string>
+    <string name="diagnostics_http3_no_addresses">Адреса не получены</string>
+    <string name="diagnostics_http3_connect_error">Не удалось установить QUIC-соединение</string>
+    <string name="diagnostics_http3_tls_error">Проверка TLS не пройдена</string>
+    <string name="diagnostics_http3_alpn_error">ALPN HTTP/3 не согласован</string>
+    <string name="diagnostics_http3_protocol_error">Ошибка протокола HTTP/3</string>
+    <string name="diagnostics_http3_protect_error">Защита сокета не выполнена</string>
+    <string name="diagnostics_http3_caution">Пакет QUIC Initial или одно рукопожатие не подтверждают HTTP/3. Заголовки ответа подтверждают HTTP/3 даже при ошибке HTTP. Неполное тело остаётся неполным. Результат контрольной пробы не доказывает вмешательство провайдера.</string>
+    <string name="diagnostics_http3_milliseconds">%1$d мс</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">Попытки QUIC-соединения</string>
+</resources>

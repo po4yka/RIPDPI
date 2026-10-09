@@ -3884,7 +3884,7 @@ Source : %2$s</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IP stub</string>
     <string name="diagnostics_domain_reachability_running">Sondage de l\'accessibilité avec %1$d IP stub DNS…</string>
     <string name="diagnostics_dpi_probe_kind_ech">Disponibilité ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Empreinte QUIC/H3</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">Empreinte QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">En-tête volumineux TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Annuler la suite</string>
     <string name="diagnostics_dpi_suite_concurrency">Concurrence %1$d</string>

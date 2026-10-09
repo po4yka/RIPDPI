@@ -299,13 +299,20 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
             result.details
                 .filterNot {
                     it.key in
-                        setOf("transferEvidence", "udpDnsResponse", "encryptedDnsResponse", "ipFamilyEvidence")
+                        setOf(
+                            "transferEvidence",
+                            "udpDnsResponse",
+                            "encryptedDnsResponse",
+                            "ipFamilyEvidence",
+                            "http3Evidence",
+                        )
                 }.map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
         transferEvidence = result.toTransferUiModel(),
         connectionStages = result.toConnectionStageScale()?.toConnectionStageUiModel(networkScopeUnverified),
         dnsResponses = result.toDnsResponseGroups(strings).toImmutableList(),
         ipFamily = result.toIpFamilyGroup(strings, networkScopeUnverified),
+        http3 = result.toHttp3Group(strings, networkScopeUnverified),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

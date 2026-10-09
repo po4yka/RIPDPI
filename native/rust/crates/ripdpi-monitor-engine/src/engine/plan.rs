@@ -69,6 +69,9 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
 
     if !request.probe_tasks.is_empty() {
         for task in &request.probe_tasks {
+            if task.family == crate::types::ProbeTaskFamily::Http3 && request.http3_probe.is_none() {
+                continue;
+            }
             if task.family == crate::types::ProbeTaskFamily::IpFamily && request.ip_family_probe.is_none() {
                 continue;
             }
@@ -82,7 +85,10 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
     }
 
     for registration in PROBE_STAGE_REGISTRATIONS {
-        if matches!(registration.stage_id, ExecutionStageId::SelectiveAvailability | ExecutionStageId::IpFamily) {
+        if matches!(
+            registration.stage_id,
+            ExecutionStageId::SelectiveAvailability | ExecutionStageId::IpFamily | ExecutionStageId::Http3
+        ) {
             continue;
         }
         if registration.task_family_selector.is_some() && !ordered.contains(&registration.stage_id) {
@@ -113,5 +119,25 @@ mod ip_family_tests {
             timeout_ms: 1500,
         });
         assert_eq!(connectivity_stage_order(&request), [ExecutionStageId::Environment, ExecutionStageId::IpFamily]);
+    }
+}
+
+#[cfg(test)]
+mod http3_tests {
+    use super::*;
+    #[test]
+    fn http3_requires_explicit_task_and_configuration() {
+        let mut request: ScanRequest = serde_json::from_str(r#"{"profileId":"test","displayName":"test","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#).unwrap();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
+        request.probe_tasks = vec![crate::types::ProbeTask {
+            family: crate::types::ProbeTaskFamily::Http3,
+            target_id: "http3".into(),
+            label: "HTTP/3".into(),
+        }];
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
+        request.http3_probe = Some(crate::types::Http3ProbeConfig::default());
+        assert!(connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
+        request.probe_tasks.clear();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
     }
 }

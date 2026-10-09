@@ -533,6 +533,7 @@ data class DiagnosticsProbeResultUiModel(
     val connectionStages: DiagnosticsConnectionStageUiModel? = null,
     val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
     val ipFamily: DiagnosticsContextGroupUiModel? = null,
+    val http3: DiagnosticsContextGroupUiModel? = null,
 )
 
 @Stable

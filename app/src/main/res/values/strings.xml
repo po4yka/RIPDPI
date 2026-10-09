@@ -4014,7 +4014,7 @@ Source: %2$s</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub IPs</string>
     <string name="diagnostics_domain_reachability_running">Probing reachability with %1$d DNS stub IPs...</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH readiness</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC/H3 fingerprint</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial fingerprint</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 fat header</string>
     <string name="diagnostics_dpi_suite_cancel">Cancel suite</string>
     <string name="diagnostics_dpi_suite_concurrency">Concurrency %1$d</string>

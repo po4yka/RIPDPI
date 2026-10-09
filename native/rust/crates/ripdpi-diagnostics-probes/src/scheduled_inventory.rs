@@ -37,6 +37,7 @@ use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
 use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
+use crate::probes::http3::HTTP3_PROBE_ID;
 use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
@@ -143,6 +144,11 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
         backing: ProbeTraitBacking::Backed(IP_FAMILY_PROBE_ID),
     },
     ScheduledProbeStage {
+        probe_type: "http3",
+        runner: "Http3Runner",
+        backing: ProbeTraitBacking::Backed(HTTP3_PROBE_ID),
+    },
+    ScheduledProbeStage {
         probe_type: "doh_json_survey",
         runner: "DohJsonSurveyRunner",
         backing: ProbeTraitBacking::Backed(DOH_JSON_SURVEY_PROBE_ID),
@@ -201,8 +207,8 @@ mod tests {
     }
 
     #[test]
-    fn inventory_has_exactly_twelve_rows() {
-        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 12);
+    fn inventory_has_exactly_thirteen_rows() {
+        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 13);
     }
 
     #[test]

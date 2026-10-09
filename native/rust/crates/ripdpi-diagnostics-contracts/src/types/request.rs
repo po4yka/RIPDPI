@@ -1,3 +1,5 @@
+mod http3;
+pub use http3::{Http3Evidence, Http3ProbeConfig};
 mod ip_family;
 pub use ip_family::{IpFamilyEvidence, IpFamilyProbeConfig};
 mod config;

@@ -12,6 +12,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             resolverAuditProfile(),
             selectiveAvailabilityMatrixProfile(),
             ipFamilyConnectivityProfile(),
+            http3ConnectivityProfile(),
             automaticProbingProfile(index),
             automaticAuditProfile(index),
             dpiDetectorFullProfile(),

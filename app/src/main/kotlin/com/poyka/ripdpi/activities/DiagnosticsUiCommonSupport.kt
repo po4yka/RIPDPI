@@ -40,6 +40,7 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
         name =
             when (profile.id) {
                 SelectiveMatrixProfileId -> context.getString(R.string.diagnostics_matrix_title)
+                "http3-connectivity" -> context.getString(R.string.diagnostics_http3_title)
                 "ip-family-connectivity" -> context.getString(R.string.diagnostics_ip_title)
                 else -> profile.name
             },
@@ -201,6 +202,7 @@ private val strategyProbePhaseOrder = listOf("tcp", "quic")
 
 private fun String.toPhaseLabel(ctx: StringResolver): String =
     when (this) {
+        "http3" -> ctx.getString(R.string.diagnostics_http3_title)
         "ip_family" -> ctx.getString(R.string.diagnostics_ip_title)
         "dns" -> ctx.getString(R.string.diagnostics_phase_dns)
         "reachability" -> ctx.getString(R.string.diagnostics_phase_reach)
@@ -243,6 +245,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     val phaseOrder =
         when {
             scanKind == ScanKind.STRATEGY_PROBE -> strategyProbePhaseOrder
+            progress.phase == "http3" -> listOf("http3")
             progress.phase == "ip_family" -> listOf("ip_family")
             else -> connectivityPhaseOrder
         }

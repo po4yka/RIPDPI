@@ -68,6 +68,7 @@ pub enum ProbeTaskFamily {
     DohJsonSurvey,
     SelectiveAvailability,
     IpFamily,
+    Http3,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

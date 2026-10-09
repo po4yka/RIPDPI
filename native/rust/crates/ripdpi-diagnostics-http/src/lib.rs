@@ -2,6 +2,7 @@
 
 pub mod blockpage_fingerprints;
 pub mod http;
+pub mod http3;
 pub mod http_injection_probe;
 
 pub(crate) mod tls {

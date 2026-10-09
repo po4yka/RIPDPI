@@ -3884,7 +3884,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">Stub-IPs</string>
     <string name="diagnostics_domain_reachability_running">Erreichbarkeit wird mit %1$d DNS-Stub-IPs geprüft …</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH-Bereitschaft</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC/H3-Fingerprint</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC-Initial-Fingerprint</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16-Fat-Header</string>
     <string name="diagnostics_dpi_suite_cancel">Suite abbrechen</string>
     <string name="diagnostics_dpi_suite_concurrency">Parallelität %1$d</string>

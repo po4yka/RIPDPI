@@ -26,6 +26,7 @@ use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
 use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
+use crate::probes::http3::HTTP3_PROBE_ID;
 use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
@@ -171,6 +172,14 @@ pub const PROBE_DESCRIPTORS: &[ProbeDescriptor] = &[
         label: "Separate IPv4, IPv6 and NAT64 TCP paths",
     },
     ProbeDescriptor {
+        id: HTTP3_PROBE_ID,
+        family: ProbeTaskFamily::Http3,
+        scheduled_probe_type: "http3",
+        runner: "Http3Runner",
+        path_requirement: ProbePathRequirement::RawPath,
+        label: "Verified HTTP/3 GET",
+    },
+    ProbeDescriptor {
         id: DOH_JSON_SURVEY_PROBE_ID,
         family: ProbeTaskFamily::DohJsonSurvey,
         scheduled_probe_type: "doh_json_survey",
@@ -261,7 +270,7 @@ mod tests {
 
     #[test]
     fn strategy_runners_remain_out_of_scope() {
-        assert_eq!(PROBE_DESCRIPTORS.len(), 12, "descriptor table must cover only the 12 connectivity stages");
+        assert_eq!(PROBE_DESCRIPTORS.len(), 13, "descriptor table must cover only the 13 connectivity stages");
         for descriptor in PROBE_DESCRIPTORS {
             assert!(
                 !STRATEGY_RUNNERS.contains(&descriptor.runner),

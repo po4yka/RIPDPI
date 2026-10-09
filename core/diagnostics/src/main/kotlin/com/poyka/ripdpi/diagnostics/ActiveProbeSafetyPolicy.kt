@@ -59,6 +59,11 @@ data class ActiveProbeSafetyPolicy(
         scanOrigin: DiagnosticsScanOrigin,
         isManual: Boolean,
     ): DiagnosticsIntent {
+        intent.http3Probe?.let { config ->
+            require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
+            require(intent.requestedPathMode == ScanPathMode.RAW_PATH)
+            config.validate()
+        }
         intent.ipFamilyProbe?.let { config ->
             require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
             require(intent.requestedPathMode == ScanPathMode.RAW_PATH)

@@ -459,7 +459,7 @@ private fun DpiSuiteProbeResult.detailLabel(): String =
 
         is DpiSuiteProbeResult.QuicH3 -> {
             val ok = results.count { result -> result.verdict == QuicProbeVerdict.QUIC_OK }
-            "$ok/${results.size} targets passed QUIC/H3 fingerprint checks"
+            "$ok/${results.size} targets passed QUIC Initial fingerprint checks"
         }
 
         is DpiSuiteProbeResult.EchReadiness -> {
@@ -556,7 +556,7 @@ internal fun DpiProbeKind.displayLabel(): String =
         DpiProbeKind.TCP16 -> "TCP16 fat header"
         DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
         DpiProbeKind.TELEGRAM -> "Telegram"
-        DpiProbeKind.QUIC_H3 -> "QUIC/H3 fingerprint"
+        DpiProbeKind.QUIC_H3 -> "QUIC Initial fingerprint"
         DpiProbeKind.ECH_READINESS -> "ECH readiness"
     }
 

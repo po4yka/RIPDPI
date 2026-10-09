@@ -41,6 +41,9 @@ class DiagnosticsLocalNetworkPreflightTest {
                 )
             val cases =
                 listOf(
+                    EngineProbeTaskFamily.HTTP3 to base.copy(http3Probe = Http3ProbeConfig(host = localIp)),
+                    EngineProbeTaskFamily.HTTP3 to
+                        base.copy(http3Probe = Http3ProbeConfig(host = localIp, connectIp = "192.168.50.3")),
                     EngineProbeTaskFamily.QUIC to base.copy(quicTargets = listOf(QuicTarget(host = localIp))),
                     EngineProbeTaskFamily.DNS to
                         base.copy(

@@ -495,3 +495,14 @@ NAT64 discovery sends a query-bound AAAA request for `ipv4only.arpa` to captured
 Each `ip_family` result carries bounded typed JSON in `ipFamilyEvidence`. Current and historical views use the same parser. Legacy or invalid metadata remains unknown. Redacted archives remove destination addresses, prefixes and unknown text while preserving status, stage, prefix length, duration and counts. Network epoch invalidation changes these results to inconclusive and marks their evidence unverified. No failure alone proves provider interference.
 
 References: [RFC 7050](https://www.rfc-editor.org/rfc/rfc7050.html), [RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html), [control addresses](https://developers.cloudflare.com/1.1.1.1/ip-addresses/).
+
+
+### Real HTTP/3 measurements
+
+The manual `http3-connectivity` profile and the raw-path stage of full analysis run a real HTTP/3 GET. The probe uses a protected UDP socket, QUIC with certificate and hostname verification, ALPN `h3`, and decoded HTTP/3 response headers. A QUIC Initial response remains separate `quic_reachability` evidence and cannot prove HTTP/3 support.
+
+The probe uses one absolute deadline, at most four resolved peers, a bounded header section and a configurable body cap. It does not follow redirects or fall back to HTTP/2 or TCP. The current transport supports the raw path. An in-path request returns `UNSUPPORTED` and does not open a direct connection. Automatic and background scans cannot start this profile.
+
+Each `http3` result has bounded `http3Evidence`. It records DNS, QUIC/TLS, request, headers, first body byte and body completion separately. Valid HTTP error responses still prove HTTP/3, but are not healthy endpoint results. A body limit or timeout after headers preserves protocol evidence and reports an incomplete transfer. The UI and connection scale use the same validated evidence for current and historical results. TCP and proxy stages are not applicable.
+
+Response bodies, header values and raw errors are not stored. Redacted exports remove the peer address and unknown evidence fields. A network scope change preserves observed protocol facts, marks them unverified and revokes the healthy outcome. Legacy reports without this evidence remain readable and do not acquire an HTTP/3 success claim.

@@ -284,6 +284,42 @@
       }
     },
     {
+      "id": "http3-connectivity",
+      "name": "HTTP/3 connectivity",
+      "version": 1,
+      "request": {
+        "profileId": "http3-connectivity",
+        "displayName": "HTTP/3 connectivity",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "http3Probe": {
+          "version": 1,
+          "host": "www.cloudflare.com",
+          "port": 443,
+          "path": "/cdn-cgi/trace",
+          "timeoutMs": 5000,
+          "maxResponseBytes": 65536
+        }
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 4,

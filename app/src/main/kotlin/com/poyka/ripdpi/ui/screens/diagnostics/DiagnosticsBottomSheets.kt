@@ -214,18 +214,21 @@ internal fun DiagnosticsBottomSheetHost(
         val performHaptic = rememberRipDpiHapticPerformer()
         RipDpiBottomSheet(
             onDismissRequest = onDismissProbeDetail,
-            title = probe.ipFamily?.title ?: probe.target,
-            message = if (probe.ipFamily != null) stringResource(R.string.diagnostics_ip_title) else probe.probeType,
+            title = probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
+            message =
+                probe.http3?.title
+                    ?: if (probe.ipFamily != null) stringResource(R.string.diagnostics_ip_title) else probe.probeType,
             icon = RipDpiIcons.Search,
             testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
         ) {
             probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
             probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
             probe.ipFamily?.let { ContextGroupCard(it) }
+            probe.http3?.let { ContextGroupCard(it) }
             DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
             StatusIndicator(
                 label =
-                    probe.ipFamily
+                    (probe.http3 ?: probe.ipFamily)
                         ?.fields
                         ?.firstOrNull()
                         ?.value ?: probe.outcome,
@@ -253,7 +256,7 @@ internal fun DiagnosticsBottomSheetHost(
                         buildString {
                             appendLine("${probe.probeType} -> ${probe.target}")
                             appendLine("Outcome: ${probe.outcome}")
-                            (probe.dnsResponses + listOfNotNull(probe.ipFamily)).forEach { group ->
+                            (probe.dnsResponses + listOfNotNull(probe.ipFamily, probe.http3)).forEach { group ->
                                 appendLine(group.title)
                                 group.fields.forEach { appendLine("${it.label}: ${it.value}") }
                             }

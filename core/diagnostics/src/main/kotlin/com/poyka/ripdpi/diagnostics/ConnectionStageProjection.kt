@@ -5,6 +5,10 @@ fun ProbeResult.toConnectionStageScale(): ConnectionStageScale? {
     val evidence = ConnectionStageEvidence(details)
     val lanes =
         when (probeType) {
+            "http3" -> {
+                listOf(http3ConnectionLane(details))
+            }
+
             "ip_family" -> {
                 listOf(ipFamilyConnectionLane(details))
             }

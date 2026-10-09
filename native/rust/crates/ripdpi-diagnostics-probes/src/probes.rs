@@ -61,3 +61,6 @@ pub mod selective_availability;
 
 #[path = "ip_family.rs"]
 pub mod ip_family;
+
+#[path = "http3.rs"]
+pub mod http3;
