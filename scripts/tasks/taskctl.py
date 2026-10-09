@@ -1177,6 +1177,10 @@ def command_graph(args: argparse.Namespace) -> int:
 
 def command_new(args: argparse.Namespace) -> int:
     documents, steps = load_state(args.root)
+    if args.parent is not None:
+        parent = next((document for document in documents if document.task_id == args.parent), None)
+        if parent is None or parent.values["kind"] != "epic":
+            fail("--parent must identify an existing epic")
     used = {
         ID_RE.fullmatch(document.values["id"]).group(2)  # type: ignore[union-attr]
         for document in documents
@@ -1190,6 +1194,7 @@ def command_new(args: argparse.Namespace) -> int:
         fail("spec-not-required task requires --spec-reason")
     if args.spec_mode == "not-required" and args.kind in {"feature", "epic"}:
         fail(f"{args.kind} cannot waive OpenSpec")
+    openspec = tool_binary(args.root, "openspec") if args.spec_mode == "required" else None
     task_id = allocate_id(args.root, args.area, used)
     slug = args.slug or slugify(args.title)
     path = args.root / "docs/tasks/issues" / f"{slug}.md"
@@ -1230,7 +1235,6 @@ def command_new(args: argparse.Namespace) -> int:
             encoding="utf-8",
         )
     else:
-        openspec = tool_binary(args.root, "openspec")
         result = run_command(
             (
                 str(openspec),
@@ -1552,7 +1556,10 @@ def prepare_dropped_execution(
     reason: str,
 ) -> Path:
     execution = expected_execution_path(root, document)
-    dropped_step_ids = {step.task_id for step in steps if not step.done}
+    dropped_step_ids = {
+        step.task_id for step in steps
+        if not step.done and step.item_id == document.task_id and step.path == execution
+    }
     rewritten: list[str] = []
     for line in execution.read_text(encoding="utf-8").splitlines():
         match = STEP_RE.match(line)
@@ -1650,6 +1657,37 @@ def command_close_prepare(args: argparse.Namespace) -> int:
         },
     )
     print(f"Prepared terminal state for {document.task_id}; commit it before purge")
+    return 0
+
+
+def command_repair_drop_receipt(args: argparse.Namespace) -> int:
+    documents = [read_document(path) for path in issue_paths(args.root)]
+    document = find_document(documents, args.query)
+    validate_issue_shape(document)
+    if document.values["status"] != "dropped":
+        fail("drop receipt repair requires a dropped task")
+    execution = expected_execution_path(args.root, document)
+    read_lifecycle_receipt(args.root, document, execution, "close")
+    receipt = read_lifecycle_receipt(args.root, document, execution, "drop")
+    dropped_ids: list[str] = []
+    for line in execution.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^- ([A-Z][A-Z0-9]*-\d{16}) DROPPED: (.*)$", line)
+        if match:
+            if not re.search(rf"(?:^|\s)@item:{re.escape(document.task_id)}(?:\s|$)", match.group(2)):
+                fail("dropped execution line has a different task owner")
+            dropped_ids.append(match.group(1))
+    if len(dropped_ids) != len(set(dropped_ids)):
+        fail("duplicate dropped execution IDs")
+    receipt["dropped_step_ids"] = sorted(dropped_ids)
+    path = lifecycle_receipt_path(args.root, document, execution, "drop")
+    previous = path.read_bytes()
+    path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    try:
+        load_state(args.root)
+    except Exception:
+        path.write_bytes(previous)
+        raise
+    print(f"Repaired drop receipt for {document.task_id}; task and execution are unchanged")
     return 0
 
 
@@ -1789,6 +1827,9 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--reason")
     prepare.add_argument("--evidence", required=True)
     prepare.set_defaults(handler=command_close_prepare)
+    repair = close_sub.add_parser("repair-drop-receipt")
+    repair.add_argument("query")
+    repair.set_defaults(handler=command_repair_drop_receipt)
     purge = close_sub.add_parser("purge")
     purge.add_argument("query")
     purge.set_defaults(handler=command_close_purge)

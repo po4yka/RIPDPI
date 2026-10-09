@@ -97,6 +97,12 @@ OpenSpec completion uses:
 
 Commit the prepared terminal record. Only afterward run `./taskctl close purge <TASK-ID>` and commit the deletion separately. CI inspects Git history and rejects deletion without the preceding terminal commit. Direct upstream archive, `--no-validate`, manual change-directory moves, and mdtask archive/ID assignment are unsupported.
 
+Older drop receipts can contain unrelated execution IDs. Use
+`./taskctl close repair-drop-receipt <TASK-ID>` to regenerate these IDs from the
+unchanged dropped execution file. This command first checks the terminal content
+hashes and then validates the full portfolio. It does not change task state or
+execution records. Modified terminal files and invalid ownership are rejected.
+
 A cancelled item uses the explicit dropped path:
 
 ```bash
