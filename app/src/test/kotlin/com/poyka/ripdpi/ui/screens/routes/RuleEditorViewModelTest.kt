@@ -4,10 +4,6 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.core.testing.FaultOutcome
-import com.poyka.ripdpi.core.testing.FaultQueue
-import com.poyka.ripdpi.core.testing.FaultSpec
-import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -40,6 +36,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -90,7 +87,7 @@ class RuleEditorViewModelTest {
             viewModel.uiState.first { it.loaded }
             viewModel.setDomains("retained.example")
             var navigations = 0
-            dao.faults.enqueue(FaultSpec("insert", FaultOutcome.EXCEPTION))
+            dao.nextInsertFailure = IOException("Test insert failure")
             viewModel.save { navigations++ }
             runCurrent()
             assertFalse(viewModel.uiState.value.saving)
@@ -107,7 +104,7 @@ class RuleEditorViewModelTest {
     fun `failed load does not escape as an uncaught coroutine error`() =
         runTest {
             val dao = FakeRuleDao(emptyList())
-            dao.faults.enqueue(FaultSpec("load", FaultOutcome.EXCEPTION))
+            dao.nextLoadFailure = IOException("Test load failure")
             val viewModel = newViewModel(0L, dao, false)
             viewModel.uiState.first { it.failure != null }
             assertFalse(viewModel.uiState.value.loaded)
@@ -200,11 +197,15 @@ class RuleEditorViewModelTest {
         val rules = initial.toMutableList()
         var insertGate: CompletableDeferred<Unit>? = null
         var insertCalls = 0
-        val faults = FaultQueue<String>()
+        var nextLoadFailure: IOException? = null
+        var nextInsertFailure: IOException? = null
 
         override fun allRules(): Flow<List<RuleEntity>> =
             flow {
-                faults.next("load")?.let { throw faultThrowable(it.outcome) }
+                nextLoadFailure?.let { failure ->
+                    nextLoadFailure = null
+                    throw failure
+                }
                 emit(rules.toList())
             }
 
@@ -220,7 +221,10 @@ class RuleEditorViewModelTest {
 
         override suspend fun insert(rule: RuleEntity): Long {
             insertCalls++
-            faults.next("insert")?.let { throw faultThrowable(it.outcome) }
+            nextInsertFailure?.let { failure ->
+                nextInsertFailure = null
+                throw failure
+            }
             insertGate?.await()
             rules.add(rule)
             return rules.size.toLong()
