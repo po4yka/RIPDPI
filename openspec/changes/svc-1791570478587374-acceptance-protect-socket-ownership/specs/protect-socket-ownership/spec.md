@@ -54,6 +54,14 @@ The implementation MUST preserve the filesystem socket, SCM_RIGHTS descriptor tr
 - **THEN** TCP and UDP payloads match and the owned fixture records both receipts
 - **AND** the original no-bypass, negative-path, recovery, and cleanup assertions remain active
 
+#### Scenario: Permission preflight before service creation
+
+- **GIVEN** the app is halted and no active protect endpoint exists
+- **WHEN** local-network permission preflight assesses a VPN start
+- **THEN** it preserves VPN mode, selected profile, settings, DNS, and the existing typed local-network permission result
+- **AND** it does not launch native runtimes, root helpers, or NFQUEUE
+- **AND** an actual runtime capture with that empty owner still fails closed
+
 ### Requirement: REQ-PROTECT-EVIDENCE — Keep causal and repeat evidence separate
 
 The implementation MUST retain the original failed report and prove the ownership defect with a failing deterministic test before the fix. It MUST report source, device, artifact, and published CI evidence separately.
