@@ -507,7 +507,15 @@ class MainActivityNavigationInstrumentedTest {
         val runs = diagnosticsHomeCompositeRunService as StubInstrumentedDiagnosticsHomeCompositeRunService
         val host = mainActivityHost as RecordingMainActivityHost
         val fullRunAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
-        val reportLabel = stringResolver.getString(R.string.simple_run_report)
+        // This shared test source also compiles for Full, which has no Simple resources.
+        val reportLabelId =
+            composeRule.activity.resources.getIdentifier(
+                "simple_run_report",
+                "string",
+                composeRule.activity.packageName,
+            )
+        assertTrue("Simple report label resource must exist", reportLabelId != 0)
+        val reportLabel = stringResolver.getString(reportLabelId)
 
         composeRule.scrollToTag(fullRunAction)
         composeRule
