@@ -403,6 +403,145 @@ def preparation_summary(out: Path, report: dict) -> dict:
     return summary
 
 
+RUNTIME_PHASES = (
+    "source",
+    "device",
+    "apks",
+    "install-app",
+    "install-test",
+    "runner",
+    "peer-build",
+    "peer-ready",
+    "peer-manifest",
+    "instrumentation",
+    "junit-validation",
+    "receipts",
+    "complete",
+)
+
+
+def runtime_summary(out: Path, report: dict) -> dict:
+    """Export bounded diagnostic metadata without messages, stacks or paths."""
+    scenario = report.get("scenario_id")
+    methods = SCENARIOS.get(scenario, [])
+    method = report.get("active_method")
+    method = method if method in methods else None
+    phase = report.get("phase")
+    kind = report.get("error_kind")
+    summary = {
+        "schema_version": 1,
+        "scenario_id": scenario if scenario in SCENARIOS else None,
+        "status": report["status"]
+        if report.get("status") in ("passed", "failed", "blocked")
+        else "failed",
+        "phase": phase if phase in RUNTIME_PHASES else "unknown",
+        "method": method,
+        "exception_kind": kind
+        if kind
+        in (
+            "Blocked",
+            "FileNotFoundError",
+            "RuntimeError",
+            "ValueError",
+            "TimeoutExpired",
+            "TimeoutError",
+            "ConnectionError",
+            "URLError",
+            "HTTPError",
+            "KeyboardInterrupt",
+            "OSError",
+            "KeyError",
+        )
+        else ("other" if kind else None),
+        "completed_methods": [
+            expected
+            for expected in methods
+            if any(
+                check.get("id") == expected.split("#")[1]
+                and check.get("passed") is True
+                for check in report.get("checks", [])
+            )
+        ],
+        "cleanup_passed": report.get("cleanup", {}).get("passed") is True,
+        "diagnostic_codes": [],
+        "instrumentation_status_codes": [],
+        "instrumentation_final_codes": [],
+        "test_frames": [],
+    }
+    signatures = {
+        "disk-full": r"No space left on device",
+        "dependency-resolution": r"Could not resolve |Could not download |failed to download|proxy.golang.org.*(?:timeout|refused)",
+        "go-toolchain": r"toolchain.*(?:not available|verification failed)|requires go >=",
+        "rust-compile": r"could not compile |error\[E\d+\]",
+        "install-failed": r"INSTALL_FAILED_[A-Z_]+",
+        "instrumentation-failed": r"INSTRUMENTATION_FAILED:|INSTRUMENTATION_ABORTED:|INSTRUMENTATION_RESULT: shortMsg=",
+        "assertion-failed": r"(?:java.lang.AssertionError|junit.framework.AssertionFailedError)",
+        "process-crash": r"FATAL EXCEPTION|Process crashed",
+    }
+    paths = [
+        out / name
+        for name in (
+            "peer-build.log",
+            "fixture-build.log",
+            "peer.log",
+            "fixture.log",
+            "install-app.log",
+            "install-test.log",
+            "android-logcat.log",
+        )
+    ]
+    if method:
+        paths.append(out / f"test-{methods.index(method) + 1}" / "instrumentation.log")
+    for path in paths:
+        if not path.is_file():
+            continue
+        try:
+            with path.open("rb") as stream:
+                stream.seek(max(0, path.stat().st_size - 256 * 1024))
+                output = stream.read().decode(errors="replace")
+        except OSError:
+            if "diagnostic-read-failed" not in summary["diagnostic_codes"]:
+                summary["diagnostic_codes"].append("diagnostic-read-failed")
+            continue
+        for code, pattern in signatures.items():
+            if code not in summary["diagnostic_codes"] and re.search(pattern, output):
+                summary["diagnostic_codes"].append(code)
+        if path.name != "instrumentation.log":
+            continue
+        for prefix, key in (
+            ("INSTRUMENTATION_STATUS_CODE", "instrumentation_status_codes"),
+            ("INSTRUMENTATION_CODE", "instrumentation_final_codes"),
+        ):
+            summary[key] = [
+                int(code)
+                for code in re.findall(
+                    r"^" + prefix + r": (-?[0-9]{1,3})\s*$", output, re.M
+                )[:16]
+            ]
+        class_name = method.split("#")[0]
+        filename = class_name.rsplit(".", 1)[1] + ".kt"
+        pattern = (
+            r"^\s*at "
+            + re.escape(class_name)
+            + r"(?:\$[A-Za-z0-9_$]+)?\.[A-Za-z0-9_$<>]+\("
+            + re.escape(filename)
+            + r":([0-9]{1,6})\)\s*$"
+        )
+        lines = dict.fromkeys(int(line) for line in re.findall(pattern, output, re.M))
+        summary["test_frames"] = [
+            {"class": class_name, "line": line} for line in list(lines)[:16] if line > 0
+        ]
+    error_codes = {
+        "owned fixture exited before readiness": "fixture-exited",
+        "owned fixture readiness timed out": "fixture-readiness-timeout",
+        "expected exactly one installed RIPDPI test runner": "runner-mismatch",
+        "missing, duplicate, unexpected or incomplete instrumentation evidence": "instrumentation-incomplete",
+    }
+    if code := error_codes.get(report.get("error")):
+        summary["diagnostic_codes"].append(code)
+    return summary
+
+
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", choices=SCENARIOS)
@@ -454,6 +593,7 @@ def main() -> int:
         "source_sha": "",
         "tier": "android-tun",
         "status": "failed",
+        "phase": "source",
         "checks": [],
         "artifacts": [],
         "peer_identity": {},
@@ -475,6 +615,7 @@ def main() -> int:
         source = command(["git", "rev-parse", "HEAD"], "source.log").strip()
         report["source_sha"] = source
         report["source_tree_sha256"] = source_fingerprint()
+        report["phase"] = "device"
         devices = command([adb[0], "devices"], "devices.log")
         if not re.search(r"^" + re.escape(args.serial) + r"\s+device$", devices, re.M):
             raise Blocked("selected emulator is absent, offline, or not authorized")
@@ -489,6 +630,7 @@ def main() -> int:
         if abi not in ("arm64-v8a", "x86_64"):
             raise Blocked("the emulator ABI is not supported by this acceptance lane")
         report["device"] = {"serial": args.serial, "abi": abi}
+        report["phase"] = "apks"
         metadata = (
             prepared(args.prepared_dir, abi, source)
             if args.prepared_dir
@@ -502,11 +644,13 @@ def main() -> int:
             report["checks"].append({"id": "build", "passed": True})
             return 0
         for kind in ("app", "test"):
+            report["phase"] = "install-" + kind
             command(
                 adb + ["install", "-r", "-t", metadata["apks"][kind]["path"]],
                 f"install-{kind}.log",
             )
         installed = True
+        report["phase"] = "runner"
         components = command(
             adb + ["shell", "pm", "list", "instrumentation"],
             "instrumentation-components.log",
@@ -533,6 +677,7 @@ def main() -> int:
             if not receipt_port:
                 if args.xray_host != "10.0.2.2" or args.xray_control_host:
                     raise Blocked("external Xray endpoints require --xray-control-port")
+                report["phase"] = "peer-build"
                 peer_binary = out / "xray-peer"
                 command(
                     ["go", "build", "-mod=readonly", "-o", str(peer_binary), "."],
@@ -540,6 +685,7 @@ def main() -> int:
                     cwd=ROOT / "scripts/fixtures/xray-provider-peer",
                     timeout=1200,
                 )
+                report["phase"] = "peer-ready"
                 ready = out / "peer-ready.json"
                 child = OwnedProcess(
                     [
@@ -571,6 +717,7 @@ def main() -> int:
                     "ripdpi.xrayFixturePort": str(receipt_port),
                 }
             )
+            report["phase"] = "peer-manifest"
             peer_manifest = fetch(receipt_host, receipt_port, "manifest")
             if peer_manifest.get("runId") != args.run_id:
                 raise Blocked(
@@ -587,6 +734,7 @@ def main() -> int:
                     raise Blocked(
                         "external network fixture requires --fixture-control-port"
                     )
+                report["phase"] = "peer-build"
                 command(
                     [
                         "cargo",
@@ -624,6 +772,7 @@ def main() -> int:
                     RIPDPI_FIXTURE_ANDROID_HOST="10.0.2.2",
                     RIPDPI_FIXTURE_DNS_ANSWER_IPV4="10.0.2.2",
                 )
+                report["phase"] = "peer-ready"
                 child = OwnedProcess(
                     [str(out / "fixture-target/debug/local-network-fixture")],
                     out / "fixture.log",
@@ -632,6 +781,7 @@ def main() -> int:
                 owned.append(child)
                 manifest = wait_json(out / "fixture.log", child)
                 receipt_port = manifest["controlPort"]
+            report["phase"] = "peer-manifest"
             manifest = fetch(receipt_host, receipt_port, "manifest")
             (out / "fixture-manifest.json").write_text(json.dumps(manifest, indent=2))
             report["peer_identity"] = {
@@ -645,6 +795,8 @@ def main() -> int:
                 }
             )
         for index, method in enumerate(SCENARIOS[args.scenario]):
+            report["phase"] = "instrumentation"
+            report["active_method"] = method
             test_dir = out / f"test-{index + 1}"
             test_dir.mkdir()
             launch = adb + [
@@ -662,6 +814,7 @@ def main() -> int:
             launch.append(component)
             output = run(launch, test_dir / "instrumentation.log", timeout=600)
             parse_instrumentation(output, method)
+            report["phase"] = "junit-validation"
             write_junit(test_dir / "results.xml", method)
             run(
                 [
@@ -679,6 +832,7 @@ def main() -> int:
                 test_dir / "validation.log",
             )
             report["checks"].append({"id": method.split("#")[1], "passed": True})
+            report["phase"] = "receipts"
             if args.scenario == "android-xray":
                 for endpoint in (
                     "receipts",
@@ -703,12 +857,15 @@ def main() -> int:
                     ],
                     test_dir / "fixture-receipts.json",
                 )
+        report["phase"] = "complete"
         report["status"] = "passed"
     except (Blocked, FileNotFoundError) as error:
         report["status"] = "blocked"
         report["error"] = str(error)
+        report["error_kind"] = type(error).__name__
     except (Exception, KeyboardInterrupt) as error:
         report["error"] = str(error)
+        report["error_kind"] = type(error).__name__
     finally:
         cleanup_errors = []
         if installed:
@@ -781,6 +938,15 @@ def main() -> int:
             (out / "preparation-summary.json").write_text(
                 json.dumps(summary, indent=2) + "\n"
             )
+            print(json.dumps(summary))
+        else:
+            summary = runtime_summary(out, report)
+            try:
+                (out / "runtime-summary.json").write_text(
+                    json.dumps(summary, indent=2) + "\n"
+                )
+            except OSError:
+                summary["diagnostic_codes"].append("summary-write-failed")
             print(json.dumps(summary))
     return (
         0

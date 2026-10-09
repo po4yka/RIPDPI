@@ -65,6 +65,140 @@ class EvidenceTests(unittest.TestCase):
                 )
                 self.assertEqual([expected], result["diagnostic_codes"])
 
+    def test_runtime_summary_exports_only_known_test_frame_and_codes(self):
+        import json
+
+        method = runner.SCENARIOS["android-xray"][2]
+        class_name = method.split("#")[0]
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "test-3").mkdir()
+            (out / "test-3/instrumentation.log").write_text(
+                "INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: password=private-secret\n"
+                f"  at {class_name}.peerLossAndRecoveryPreservesTunAndRejectsDirectBypass(XrayProviderE2ETest.kt:507)\n"
+                f"  at {class_name}$helper.invoke(XrayProviderE2ETest.kt:512)\n"
+                "  at private.secret.Handler.execute(Private.kt:42)\n"
+                f"  at {class_name}.other(/private/secret.kt:60)\n"
+                "INSTRUMENTATION_STATUS_CODE: -2\nINSTRUMENTATION_CODE: -1\n"
+            )
+            report = {
+                "scenario_id": "android-xray",
+                "status": "failed",
+                "phase": "instrumentation",
+                "active_method": method,
+                "error_kind": "ValueError",
+                "error": "private-secret",
+                "cleanup": {"passed": True, "errors": ["private-secret"]},
+            }
+            summary = runner.runtime_summary(out, report)
+            self.assertEqual("failed", summary["status"])
+            self.assertEqual("instrumentation", summary["phase"])
+            self.assertEqual(method, summary["method"])
+            self.assertEqual("ValueError", summary["exception_kind"])
+            self.assertEqual([-2], summary["instrumentation_status_codes"])
+            self.assertEqual([-1], summary["instrumentation_final_codes"])
+            self.assertEqual(["assertion-failed"], summary["diagnostic_codes"])
+            self.assertEqual(
+                [
+                    {"class": class_name, "line": 507},
+                    {"class": class_name, "line": 512},
+                ],
+                summary["test_frames"],
+            )
+            serialized = json.dumps(summary)
+            for secret in ("private", "password", temporary, "stack=", "Stopped peer"):
+                self.assertNotIn(secret, serialized)
+            self.assertEqual("private-secret", report["error"])
+
+    def test_runtime_summary_read_error_does_not_change_verdict(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "peer.log").write_text("private-secret")
+            with patch.object(Path, "open", side_effect=OSError("private-secret")):
+                summary = runner.runtime_summary(out, {"status": "passed"})
+            self.assertEqual("passed", summary["status"])
+            self.assertEqual(["diagnostic-read-failed"], summary["diagnostic_codes"])
+
+    def test_runtime_summary_rejects_unknown_metadata(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as temporary:
+            summary = runner.runtime_summary(
+                Path(temporary),
+                {
+                    "scenario_id": "private-secret",
+                    "status": "private-secret",
+                    "phase": "private-secret",
+                    "active_method": "private-secret",
+                    "error_kind": "private-secret",
+                    "checks": [{"id": "private-secret", "passed": True}],
+                },
+            )
+            self.assertNotIn("private", json.dumps(summary))
+            self.assertEqual("failed", summary["status"])
+            self.assertEqual("unknown", summary["phase"])
+            self.assertEqual("other", summary["exception_kind"])
+            self.assertIsNone(summary["method"])
+            self.assertEqual([], summary["completed_methods"])
+
+    def test_runtime_summary_bounds_codes_and_source_frames(self):
+        method = runner.SCENARIOS["android-xray"][0]
+        class_name = method.split("#")[0]
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            (out / "test-1").mkdir()
+            (out / "test-1/instrumentation.log").write_text(
+                "INSTRUMENTATION_STATUS_CODE: -9999\n"
+                + "INSTRUMENTATION_STATUS_CODE: 1\n" * 100
+                + "".join(
+                    f" at {class_name}.test(XrayProviderE2ETest.kt:{line})\n"
+                    for line in range(1, 100)
+                )
+            )
+            summary = runner.runtime_summary(
+                out,
+                {
+                    "scenario_id": "android-xray",
+                    "status": "failed",
+                    "active_method": method,
+                },
+            )
+            self.assertEqual([1] * 16, summary["instrumentation_status_codes"])
+            self.assertEqual(16, len(summary["test_frames"]))
+
+    def test_runtime_summary_preserves_success_and_preinstrumentation_failure(self):
+        method = runner.SCENARIOS["android-network"][0]
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            passed = runner.runtime_summary(
+                out,
+                {
+                    "scenario_id": "android-network",
+                    "status": "passed",
+                    "phase": "complete",
+                    "checks": [{"id": method.split("#")[1], "passed": True}],
+                    "cleanup": {"passed": True},
+                },
+            )
+            self.assertEqual("passed", passed["status"])
+            self.assertEqual([method], passed["completed_methods"])
+            self.assertTrue(passed["cleanup_passed"])
+            failed = runner.runtime_summary(
+                out,
+                {
+                    "scenario_id": "android-network",
+                    "status": "failed",
+                    "phase": "peer-ready",
+                    "error_kind": "RuntimeError",
+                    "error": "owned fixture readiness timed out",
+                },
+            )
+            self.assertEqual(["fixture-readiness-timeout"], failed["diagnostic_codes"])
+            self.assertEqual("peer-ready", failed["phase"])
+            self.assertIsNone(failed["method"])
+
     def test_exact_completed_test_is_accepted(self):
         runner.parse_instrumentation(transcript(), TEST)
 
