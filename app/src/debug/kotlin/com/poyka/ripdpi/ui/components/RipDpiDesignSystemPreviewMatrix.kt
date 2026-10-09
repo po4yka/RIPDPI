@@ -1058,21 +1058,22 @@ internal fun homePreviewActuatorState(status: HomeConnectionActuatorStatus): Hom
         }
     return HomeConnectionActuatorUiState(
         status = status,
-        trailingLabel = "Secure",
+        trailingLabel = "Direct",
         routeLabel = "quick_v1 · Local VPN",
         statusDescription =
             when (status) {
-                HomeConnectionActuatorStatus.Open -> "Secure line open"
-                HomeConnectionActuatorStatus.Engaging -> "Secure line engaging"
-                HomeConnectionActuatorStatus.Locked -> "Secure line locked"
-                HomeConnectionActuatorStatus.Degraded -> "Secure line locked, warning at DNS"
-                HomeConnectionActuatorStatus.Fault -> "Secure line fault at Tunnel"
+                HomeConnectionActuatorStatus.Open -> "Disconnected"
+                HomeConnectionActuatorStatus.Engaging -> "Connecting…"
+                HomeConnectionActuatorStatus.Locked -> "Connected"
+                HomeConnectionActuatorStatus.Degraded -> "Connected · warning: DNS"
+                HomeConnectionActuatorStatus.Fault -> "Connection failed: Tunnel"
             },
         actionLabel =
-            if (status == HomeConnectionActuatorStatus.Locked || status == HomeConnectionActuatorStatus.Degraded) {
-                "Release secure line"
-            } else {
-                "Engage secure line"
+            when (status) {
+                HomeConnectionActuatorStatus.Open -> "Connect"
+                HomeConnectionActuatorStatus.Engaging -> "Cancel connection"
+                HomeConnectionActuatorStatus.Locked, HomeConnectionActuatorStatus.Degraded -> "Disconnect"
+                HomeConnectionActuatorStatus.Fault -> "Try again"
             },
         // The fault carries its own message now, as it does in the app: the
         // resolver fills this field and the screen no longer has a banner to
@@ -1080,18 +1081,6 @@ internal fun homePreviewActuatorState(status: HomeConnectionActuatorStatus): Hom
         // nothing about what failed.
         faultDetail =
             if (status == HomeConnectionActuatorStatus.Fault) "Failed to start VPN" else "",
-        carriageFraction =
-            when (status) {
-                HomeConnectionActuatorStatus.Open -> 0f
-
-                HomeConnectionActuatorStatus.Engaging -> 0.48f
-
-                HomeConnectionActuatorStatus.Locked,
-                HomeConnectionActuatorStatus.Degraded,
-                -> 1f
-
-                HomeConnectionActuatorStatus.Fault -> 0.71f
-            },
         stages = stages,
     )
 }

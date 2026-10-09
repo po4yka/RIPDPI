@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.os.SystemClock
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureClass
@@ -13,12 +12,6 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.telemetry.measurementSource
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-
-private const val ConnectionActuatorStageCount = 5
-private const val ConnectingStageDurationMs = 1_200L
-private const val ConnectingStageProgressOffset = 0.4f
-private const val FailedStageProgressOffset = 0.55f
-private const val UndockedFaultMaxCarriageFraction = 0.92f
 
 internal enum class MainPrimaryConnectionAction {
     NONE,
@@ -238,6 +231,7 @@ private fun buildMainConnectionActuator(
                 evidence = inputs.pathValidation,
             ),
         runtime = inputs.runtime,
+        appStatus = inputs.statusAndMode.first,
         telemetry = inputs.telemetry,
         approachSummary = approachSummary,
         hardKillSwitch = hardKillSwitch,
@@ -287,6 +281,7 @@ internal fun buildConnectionActuatorUiState(
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: HomeApproachSummaryUiState?,
+    appStatus: AppStatus? = null,
     hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     stringResolver: StringResolver,
 ): HomeConnectionActuatorUiState {
@@ -304,9 +299,6 @@ internal fun buildConnectionActuatorUiState(
         telemetryFailureStage(telemetry)
             .takeIf { connectionState == ConnectionState.Error }
             ?: HomeConnectionActuatorStage.Tunnel.takeIf { connectionState == ConnectionState.Error }
-    val activeStage =
-        connectingStage(runtime.connectingStartedAtMs)
-            .takeIf { connectionState == ConnectionState.Connecting }
     val status =
         when {
             connectionState == ConnectionState.Connected && warningStage != null -> {
@@ -330,6 +322,11 @@ internal fun buildConnectionActuatorUiState(
             }
         }
 
+    val isActivation =
+        appStatus?.let {
+            resolvePrimaryConnectionAction(connectionState, it) == MainPrimaryConnectionAction.START_CONFIGURED_MODE
+        } ?: (status == HomeConnectionActuatorStatus.Open || status == HomeConnectionActuatorStatus.Fault)
+
     return HomeConnectionActuatorUiState(
         status = status,
         trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
@@ -345,22 +342,16 @@ internal fun buildConnectionActuatorUiState(
             ),
         actionLabel =
             hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
-                ?: actuatorActionLabel(status, stringResolver),
+                ?: actuatorActionLabel(status, isActivation, stringResolver),
         faultDetail = actuatorFaultDetail(status, runtime),
-        carriageFraction =
-            actuatorCarriageFraction(
-                status = status,
-                activeStage = activeStage,
-                failedStage = failedStage,
-            ),
-        stages = buildActuatorStages(status, activeStage, warningStage, failedStage, stringResolver),
-        deactivationEnabled = false.takeIf { hardKillSwitch.blocksDisconnect },
+        stages = buildActuatorStages(status, warningStage, failedStage, stringResolver),
+        activationEnabled = isActivation,
+        deactivationEnabled = !isActivation && !hardKillSwitch.blocksDisconnect,
     )
 }
 
 private fun buildActuatorStages(
     status: HomeConnectionActuatorStatus,
-    activeStage: HomeConnectionActuatorStage?,
     warningStage: HomeConnectionActuatorStage?,
     failedStage: HomeConnectionActuatorStage?,
     stringResolver: StringResolver,
@@ -370,7 +361,7 @@ private fun buildActuatorStages(
             HomeConnectionActuatorStageUiState(
                 stage = stage,
                 label = stage.label(stringResolver),
-                state = stageState(stage, status, activeStage, warningStage, failedStage),
+                state = stageState(stage, status, warningStage, failedStage),
             )
         }.toImmutableList()
 
@@ -391,46 +382,9 @@ private fun routeLabelForMode(
         }
     }
 
-private fun connectingStage(connectingStartedAtMs: Long?): HomeConnectionActuatorStage {
-    val startedAt = connectingStartedAtMs ?: return HomeConnectionActuatorStage.Network
-    val elapsed = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
-    val stageIndex = (elapsed / ConnectingStageDurationMs).toInt().coerceIn(0, ConnectionActuatorStageCount - 1)
-    return HomeConnectionActuatorStage.entries[stageIndex]
-}
-
-private fun actuatorCarriageFraction(
-    status: HomeConnectionActuatorStatus,
-    activeStage: HomeConnectionActuatorStage?,
-    failedStage: HomeConnectionActuatorStage?,
-): Float =
-    when (status) {
-        HomeConnectionActuatorStatus.Open -> {
-            0f
-        }
-
-        HomeConnectionActuatorStatus.Locked,
-        HomeConnectionActuatorStatus.Degraded,
-        -> {
-            1f
-        }
-
-        HomeConnectionActuatorStatus.Engaging -> {
-            (((activeStage?.ordinal ?: 0) + ConnectingStageProgressOffset) / ConnectionActuatorStageCount)
-                .coerceIn(0f, 1f)
-        }
-
-        HomeConnectionActuatorStatus.Fault -> {
-            val failedProgress =
-                ((failedStage?.ordinal ?: HomeConnectionActuatorStage.Tunnel.ordinal) + FailedStageProgressOffset) /
-                    ConnectionActuatorStageCount
-            failedProgress.coerceIn(0f, UndockedFaultMaxCarriageFraction)
-        }
-    }
-
 private fun stageState(
     stage: HomeConnectionActuatorStage,
     status: HomeConnectionActuatorStatus,
-    activeStage: HomeConnectionActuatorStage?,
     warningStage: HomeConnectionActuatorStage?,
     failedStage: HomeConnectionActuatorStage?,
 ): HomeConnectionActuatorStageState =
@@ -439,22 +393,8 @@ private fun stageState(
             HomeConnectionActuatorStageState.Pending
         }
 
-        status == HomeConnectionActuatorStatus.Engaging && stage == activeStage -> {
-            HomeConnectionActuatorStageState.Active
-        }
-
-        status == HomeConnectionActuatorStatus.Engaging &&
-            activeStage != null &&
-            stage.ordinal < activeStage.ordinal -> {
-            HomeConnectionActuatorStageState.Complete
-        }
-
         status == HomeConnectionActuatorStatus.Fault && stage == failedStage -> {
             HomeConnectionActuatorStageState.Failed
-        }
-
-        status == HomeConnectionActuatorStatus.Fault && failedStage != null && stage.ordinal < failedStage.ordinal -> {
-            HomeConnectionActuatorStageState.Complete
         }
 
         status == HomeConnectionActuatorStatus.Degraded && stage == warningStage -> {
@@ -519,18 +459,28 @@ private fun actuatorStatusDescription(
 
 private fun actuatorActionLabel(
     status: HomeConnectionActuatorStatus,
+    isActivation: Boolean,
     stringResolver: StringResolver,
 ): String =
-    when (status) {
-        HomeConnectionActuatorStatus.Open,
-        HomeConnectionActuatorStatus.Fault,
-        -> stringResolver.getString(R.string.home_connection_actuator_action_activate)
+    stringResolver.getString(
+        when {
+            !isActivation && status != HomeConnectionActuatorStatus.Engaging -> {
+                R.string.home_connection_actuator_action_deactivate
+            }
 
-        HomeConnectionActuatorStatus.Locked,
-        HomeConnectionActuatorStatus.Degraded,
-        HomeConnectionActuatorStatus.Engaging,
-        -> stringResolver.getString(R.string.home_connection_actuator_action_deactivate)
-    }
+            status == HomeConnectionActuatorStatus.Engaging -> {
+                R.string.home_connection_actuator_action_cancel
+            }
+
+            status == HomeConnectionActuatorStatus.Fault -> {
+                R.string.home_connection_actuator_action_retry
+            }
+
+            else -> {
+                R.string.home_connection_actuator_action_activate
+            }
+        },
+    )
 
 private fun HomeConnectionActuatorStage.label(stringResolver: StringResolver): String =
     stringResolver.getString(labelRes())

@@ -2,16 +2,16 @@
 <resources>
     <string name="home_connection_actuator_direct">Direct</string>
     <string name="home_connection_actuator_relay">Relay</string>
-    <string name="home_connection_actuator_state_open">Secure line disengaged</string>
-    <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
-    <string name="home_connection_actuator_state_locked">Secure line locked</string>
-    <string name="home_connection_actuator_state_direct">Direct line locked</string>
-    <string name="home_connection_actuator_state_degraded">Secure line locked, warning at %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Direct line locked, warning at %1$s</string>
-    <string name="home_connection_actuator_state_fault">Secure line fault at %1$s</string>
-    <string name="home_connection_actuator_action_activate">Engage secure line</string>
-    <string name="home_connection_actuator_action_deactivate">Release secure line</string>
-    <string name="home_connection_actuator_action_confirm_release">Tap again to release</string>
+    <string name="home_connection_actuator_state_open">Disconnected</string>
+    <string name="home_connection_actuator_state_engaging">Connecting…</string>
+    <string name="home_connection_actuator_state_locked">Connected</string>
+    <string name="home_connection_actuator_state_direct">Connected</string>
+    <string name="home_connection_actuator_state_degraded">Connected · warning: %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Connected · warning: %1$s</string>
+    <string name="home_connection_actuator_state_fault">Connection failed: %1$s</string>
+    <string name="home_connection_actuator_action_activate">Connect</string>
+    <string name="home_connection_actuator_action_deactivate">Disconnect</string>
+    <string name="home_connection_actuator_action_confirm_release">Confirm disconnect</string>
     <string name="home_connection_actuator_fault_copy">Copy the error</string>
     <string name="home_connection_stage_network">Network</string>
     <string name="home_connection_stage_dns" translatable="false">DNS</string>
@@ -24,4 +24,6 @@
     <string name="home_connection_stage_state_complete">complete</string>
     <string name="home_connection_stage_state_warning">warning</string>
     <string name="home_connection_stage_state_failed">failed</string>
+    <string name="home_connection_actuator_action_cancel">Cancel connection</string>
+    <string name="home_connection_actuator_action_retry">Try again</string>
 </resources>

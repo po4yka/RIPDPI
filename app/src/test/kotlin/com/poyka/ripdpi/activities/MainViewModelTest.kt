@@ -203,31 +203,55 @@ class MainViewModelTest {
             )
 
         assertEquals(HomeConnectionActuatorStatus.Open, state.status)
-        assertEquals(0f, state.carriageFraction)
         assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Pending })
     }
 
     @Test
-    fun `connection actuator maps connecting state to synthetic active stage`() {
+    fun `elapsed connecting time does not complete connection stages`() {
+        val states =
+            listOf(0L, 2_500L, 60_000L).map { elapsed ->
+                buildConnectionActuatorUiState(
+                    settings = AppSettings.newBuilder().build(),
+                    activeMode = Mode.VPN,
+                    configuredMode = Mode.VPN,
+                    connectionState = ConnectionState.Connecting,
+                    runtime =
+                        ConnectionRuntimeState(
+                            connectionState = ConnectionState.Connecting,
+                            connectingStartedAtMs = SystemClock.elapsedRealtime() - elapsed,
+                        ),
+                    telemetry = ServiceTelemetrySnapshot(),
+                    approachSummary = null,
+                    stringResolver = FakeStringResolver(),
+                )
+            }
+        states.forEach { state ->
+            assertEquals(HomeConnectionActuatorStatus.Engaging, state.status)
+            assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Pending })
+        }
+        states.drop(1).forEach { state -> assertEquals(states.first().stages, state.stages) }
+    }
+
+    @Test
+    fun `fault action stops a running service instead of offering retry`() {
         val state =
             buildConnectionActuatorUiState(
                 settings = AppSettings.newBuilder().build(),
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
-                connectionState = ConnectionState.Connecting,
-                runtime =
-                    ConnectionRuntimeState(
-                        connectionState = ConnectionState.Connecting,
-                        connectingStartedAtMs = SystemClock.elapsedRealtime() - 2_500L,
-                    ),
+                connectionState = ConnectionState.Error,
+                appStatus = AppStatus.Running,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Error),
                 telemetry = ServiceTelemetrySnapshot(),
                 approachSummary = null,
                 stringResolver = FakeStringResolver(),
             )
-
-        assertEquals(HomeConnectionActuatorStatus.Engaging, state.status)
-        assertTrue(state.carriageFraction in 0.01f..0.99f)
-        assertTrue(state.stages.any { it.state == HomeConnectionActuatorStageState.Active })
+        assertFalse(state.isActivationAvailable)
+        assertTrue(state.isDeactivationAvailable)
+        assertEquals(
+            FakeStringResolver().getString(R.string.home_connection_actuator_action_deactivate),
+            state.actionLabel,
+        )
     }
 
     @Test
@@ -245,7 +269,6 @@ class MainViewModelTest {
             )
 
         assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
-        assertEquals(1f, state.carriageFraction)
         assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Complete })
     }
 
@@ -362,7 +385,7 @@ class MainViewModelTest {
             )
 
         assertEquals("Direct", state.trailingLabel)
-        assertEquals("Direct line locked", state.statusDescription)
+        assertEquals("Connected", state.statusDescription)
     }
 
     @Test
@@ -395,7 +418,7 @@ class MainViewModelTest {
         // The chip names the exit; the headline answers whether the line is up.
         // Both used to say "Secure", so a disengaged line contradicted itself.
         assertEquals("Relay", state.trailingLabel)
-        assertEquals("Secure line locked", state.statusDescription)
+        assertEquals("Connected", state.statusDescription)
     }
 
     @Test
@@ -421,7 +444,7 @@ class MainViewModelTest {
             )
 
         assertEquals("Direct", state.trailingLabel)
-        assertEquals("Direct line locked", state.statusDescription)
+        assertEquals("Connected", state.statusDescription)
     }
 
     @Test
@@ -599,7 +622,6 @@ class MainViewModelTest {
             HomeConnectionActuatorStageState.Failed,
             state.stages.single { it.stage == HomeConnectionActuatorStage.Tunnel }.state,
         )
-        assertTrue(state.carriageFraction < 1f)
     }
 
     @Test
@@ -623,7 +645,6 @@ class MainViewModelTest {
             )
 
         assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
-        assertEquals(1f, state.carriageFraction)
         assertEquals(
             HomeConnectionActuatorStageState.Warning,
             state.stages.single { it.stage == HomeConnectionActuatorStage.Dns }.state,
@@ -661,7 +682,7 @@ class MainViewModelTest {
         )
         assertTrue(
             "Expected an honest direct-degraded description, was: ${state.statusDescription}",
-            state.statusDescription.startsWith("Direct line locked"),
+            state.statusDescription.startsWith("Connected · warning:"),
         )
     }
 

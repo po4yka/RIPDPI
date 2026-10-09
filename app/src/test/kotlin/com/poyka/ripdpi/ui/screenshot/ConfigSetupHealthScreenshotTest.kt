@@ -274,7 +274,6 @@ class ConfigSetupHealthScreenshotTest {
             routeLabel = "VLESS Reality via local VPN",
             statusDescription = "Secure line engaging",
             actionLabel = "Secure line is engaging",
-            carriageFraction = 0.48f,
             stages =
                 HomeConnectionActuatorStage.entries
                     .map { stage ->

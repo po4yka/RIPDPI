@@ -6,7 +6,7 @@ Task ID: `UIX-1791532861060606`
 
 The home actuator makes route information look like an action. The action label can disappear in connection and error states. The displayed connection stages use elapsed time to mark prior stages complete. Users need clear actions and status that follows evidence.
 
-The user requested Mobbin MCP research before the redesign. That integration is not connected in the current session. This proposal records the local acceptance criteria; the final visual design remains dependent on that research.
+The user requested Mobbin MCP research before the redesign. The integration is now connected. The inspected NordVPN widgets and Opera VPN panel support separate action, status, and route areas. See design.md for source links and the selected layout.
 
 ## What Changes
 

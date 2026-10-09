@@ -15,8 +15,13 @@ The component MUST keep its available primary action visible and readable in eac
 
 #### Scenario: Connection has failed
 
-- **WHEN** the connection reports an error
+- **WHEN** the connection reports an error and the service is halted
 - **THEN** the retry action and the error detail are visible as separate items.
+
+#### Scenario: Error while the service remains running
+
+- **WHEN** the connection reports an error and the service is still running
+- **THEN** the guarded disconnect action and error detail remain available.
 
 ### Requirement: REQ-HCC-ROUTE — Separate route information
 

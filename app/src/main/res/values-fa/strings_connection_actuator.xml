@@ -2,16 +2,16 @@
 <resources>
     <string name="home_connection_actuator_direct">مستقیم</string>
     <string name="home_connection_actuator_relay">رله</string>
-    <string name="home_connection_actuator_state_open">خط امن غیرفعال است</string>
-    <string name="home_connection_actuator_state_engaging">خط امن در حال درگیر شدن است</string>
-    <string name="home_connection_actuator_state_locked">خط امن قفل است</string>
-    <string name="home_connection_actuator_state_direct">خط مستقیم قفل است</string>
-    <string name="home_connection_actuator_state_degraded">خط امن قفل است، هشدار در %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">خط مستقیم قفل است، هشدار در %1$s</string>
-    <string name="home_connection_actuator_state_fault">خرابی خط امن در %1$s</string>
-    <string name="home_connection_actuator_action_activate">درگیر کردن خط امن</string>
-    <string name="home_connection_actuator_action_deactivate">رها کردن خط امن</string>
-    <string name="home_connection_actuator_action_confirm_release">برای رها کردن دوباره ضربه بزنید</string>
+    <string name="home_connection_actuator_state_open">متصل نیست</string>
+    <string name="home_connection_actuator_state_engaging">در حال اتصال…</string>
+    <string name="home_connection_actuator_state_locked">متصل</string>
+    <string name="home_connection_actuator_state_direct">متصل</string>
+    <string name="home_connection_actuator_state_degraded">متصل · هشدار: %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">متصل · هشدار: %1$s</string>
+    <string name="home_connection_actuator_state_fault">اتصال ناموفق: %1$s</string>
+    <string name="home_connection_actuator_action_activate">اتصال</string>
+    <string name="home_connection_actuator_action_deactivate">قطع اتصال</string>
+    <string name="home_connection_actuator_action_confirm_release">تأیید قطع اتصال</string>
     <string name="home_connection_actuator_fault_copy">کپی کردن خطا</string>
     <string name="home_connection_stage_network">شبکه</string>
     <string name="home_connection_stage_handshake">دست‌دهی</string>
@@ -23,4 +23,6 @@
     <string name="home_connection_stage_state_complete">کامل</string>
     <string name="home_connection_stage_state_warning">هشدار</string>
     <string name="home_connection_stage_state_failed">ناموفق</string>
+    <string name="home_connection_actuator_action_cancel">لغو اتصال</string>
+    <string name="home_connection_actuator_action_retry">تلاش دوباره</string>
 </resources>
