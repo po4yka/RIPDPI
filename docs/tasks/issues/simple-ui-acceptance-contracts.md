@@ -33,3 +33,7 @@ The coordinator owns SimpleHomeScreenTest and MainActivityNavigationInstrumented
 ## Initial evidence
 
 CI run 37935444773 on f52964e42 reports failures at SimpleHomeScreenTest lines 281, 320, and 388. The API 35 log records a missing home-modes-diagnostics-header selector. These tests still use the prior control and Full diagnostics layout. The production Simple screen uses HomeDiagnosticsRunAnalysis for both report and cancellation.
+
+## Local validation
+
+The full Simple JVM suite ran 2808 tests. All 23 SimpleHomeScreenTest cases pass. The remaining 13 failures are screenshot baselines for the accepted connection action/status contract. The actual/expected comparisons were reviewed in light, dark, RTL, and large-font states. Golden blessing awaits explicit approval for the two affected families. Android report cancellation and archive sharing remain pending device validation. Retained logs: build/acceptance/session-20261009/simple-unit-golden-retry.log.

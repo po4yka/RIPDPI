@@ -3,7 +3,6 @@ package com.poyka.ripdpi.integration
 import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
@@ -18,7 +17,6 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsSection
-import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
@@ -509,35 +507,30 @@ class MainActivityNavigationInstrumentedTest {
         val runs = diagnosticsHomeCompositeRunService as StubInstrumentedDiagnosticsHomeCompositeRunService
         val host = mainActivityHost as RecordingMainActivityHost
         val fullRunAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
-        val quickOrStopAction = RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name)
-
-        composeRule.scrollToTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).performClick()
-        composeRule.scrollToTag(quickOrStopAction)
-        composeRule
-            .onNodeWithTag(quickOrStopAction)
-            .assertTextEquals(stringResolver.getString(R.string.home_diagnostics_quick_scan))
-            .assertIsEnabled()
-            .performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 1 }
-        val cancelledRunId = runs.startedRunIds.single()
-        assertTrue("Quick Scan must start the quick pipeline", cancelledRunId.startsWith("test-quick-run-"))
-        val cancelLabel = stringResolver.getString(R.string.diagnostics_action_cancel)
-        composeRule.waitForActionLabel(quickOrStopAction, cancelLabel)
-        composeRule.scrollToTag(fullRunAction)
-        composeRule.onNodeWithTag(fullRunAction).assertIsNotEnabled()
-        composeRule.scrollToTag(quickOrStopAction)
-        composeRule.onNodeWithTag(quickOrStopAction).assertIsEnabled().performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            runs.cancelledRunIds == listOf(cancelledRunId)
-        }
-        val quickLabel = stringResolver.getString(R.string.home_diagnostics_quick_scan)
-        composeRule.waitForActionLabel(quickOrStopAction, quickLabel)
+        val reportLabel = stringResolver.getString(R.string.simple_run_report)
 
         composeRule.scrollToTag(fullRunAction)
         composeRule
             .onNodeWithTag(fullRunAction)
-            .assertTextEquals(composeRule.activity.getString(R.string.home_diagnostics_run_analysis))
+            .assertTextEquals(reportLabel)
+            .assertIsEnabled()
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 1 }
+        val cancelledRunId = runs.startedRunIds.single()
+        assertTrue("Report must start the full pipeline", cancelledRunId.startsWith("test-run-"))
+        val cancelLabel = stringResolver.getString(R.string.diagnostics_action_cancel)
+        composeRule.waitForActionLabel(fullRunAction, cancelLabel)
+        composeRule.scrollToTag(fullRunAction)
+        composeRule.onNodeWithTag(fullRunAction).assertIsEnabled().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runs.cancelledRunIds == listOf(cancelledRunId)
+        }
+        composeRule.waitForActionLabel(fullRunAction, reportLabel)
+
+        composeRule.scrollToTag(fullRunAction)
+        composeRule
+            .onNodeWithTag(fullRunAction)
+            .assertTextEquals(reportLabel)
             .assertIsEnabled()
             .performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 2 }
