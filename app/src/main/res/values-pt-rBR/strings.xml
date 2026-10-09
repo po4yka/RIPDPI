@@ -95,7 +95,7 @@
     <string name="strategy_tuner_apply">Aplicar</string>
     <string name="strategy_tuner_applied">Aplicado</string>
     <string name="diagnostics_simple_funnel_title">Verificação de rede</string>
-    <string name="diagnostics_simple_funnel_body">Execute uma verificação, revise o veredito e aplique automaticamente apenas recomendações de alta confiança.</string>
+    <string name="diagnostics_simple_funnel_body">Execute uma verificação, confira os resultados e escolha o próximo passo.</string>
     <string name="diagnostics_simple_funnel_verdict_running">Verificando esta rede…</string>
     <string name="diagnostics_simple_funnel_memory_format">Nesta rede, %1$s funcionou da última vez.</string>
     <string name="diagnostics_simple_funnel_check_action">Verificar rede</string>

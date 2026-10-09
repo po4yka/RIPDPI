@@ -94,7 +94,7 @@
     <string name="strategy_tuner_apply">लागू करें</string>
     <string name="strategy_tuner_applied">लागू किया गया</string>
     <string name="diagnostics_simple_funnel_title">नेटवर्क जाँच</string>
-    <string name="diagnostics_simple_funnel_body">एक जाँच चलाएँ, निर्णय की समीक्षा करें, फिर केवल उच्च-विश्वास वाली अनुशंसाएँ स्वतः लागू करें।</string>
+    <string name="diagnostics_simple_funnel_body">जाँच चलाएँ, परिणाम देखें और अगला चरण चुनें।</string>
     <string name="diagnostics_simple_funnel_verdict_running">यह नेटवर्क जाँचा जा रहा है…</string>
     <string name="diagnostics_simple_funnel_memory_format">इस नेटवर्क पर, पिछली बार %1$s काम कर रहा था।</string>
     <string name="diagnostics_simple_funnel_check_action">नेटवर्क जाँचें</string>

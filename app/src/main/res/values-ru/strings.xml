@@ -94,7 +94,7 @@
     <string name="strategy_tuner_apply">Применить</string>
     <string name="strategy_tuner_applied">Применена</string>
     <string name="diagnostics_simple_funnel_title">Проверка сети</string>
-    <string name="diagnostics_simple_funnel_body">Запустите одну проверку, посмотрите вердикт, затем автоматически применяйте только рекомендации с высокой уверенностью.</string>
+    <string name="diagnostics_simple_funnel_body">Запустите проверку, изучите результаты и выберите следующий шаг.</string>
     <string name="diagnostics_simple_funnel_verdict_running">Проверяем эту сеть…</string>
     <string name="diagnostics_simple_funnel_memory_format">В этой сети в прошлый раз сработало: %1$s.</string>
     <string name="diagnostics_simple_funnel_check_action">Проверить сеть</string>

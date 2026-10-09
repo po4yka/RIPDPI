@@ -95,7 +95,7 @@
     <string name="strategy_tuner_apply">Apply</string>
     <string name="strategy_tuner_applied">Applied</string>
     <string name="diagnostics_simple_funnel_title">Network check</string>
-    <string name="diagnostics_simple_funnel_body">Run one check, review the verdict, then apply only high-confidence recommendations automatically.</string>
+    <string name="diagnostics_simple_funnel_body">Run a check, review the results, and choose the next step.</string>
     <string name="diagnostics_simple_funnel_verdict_running">Checking this network…</string>
     <string name="diagnostics_simple_funnel_memory_format">On this network, %1$s worked last time.</string>
     <string name="diagnostics_simple_funnel_check_action">Check network</string>

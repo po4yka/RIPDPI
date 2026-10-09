@@ -93,7 +93,7 @@
     <string name="strategy_tuner_apply">اعمال</string>
     <string name="strategy_tuner_applied">اعمال شد</string>
     <string name="diagnostics_simple_funnel_title">بررسی شبکه</string>
-    <string name="diagnostics_simple_funnel_body">یک بررسی اجرا کنید، نتیجه را ببینید و فقط پیشنهادهای با اطمینان بالا را خودکار اعمال کنید.</string>
+    <string name="diagnostics_simple_funnel_body">یک بررسی اجرا کنید، نتایج را مرور کنید و گام بعدی را انتخاب کنید.</string>
     <string name="diagnostics_simple_funnel_verdict_running">در حال بررسی این شبکه…</string>
     <string name="diagnostics_simple_funnel_memory_format">در این شبکه، %1$s دفعه قبل کار کرد.</string>
     <string name="diagnostics_simple_funnel_check_action">بررسی شبکه</string>
