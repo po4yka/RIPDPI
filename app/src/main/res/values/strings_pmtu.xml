@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">Active packet size / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">ACK-confirmed UDP payload lower bound</string>
+    <string name="diagnostics_pmtu_current">Current QUIC UDP payload size</string>
+    <string name="diagnostics_pmtu_ceiling">Configured UDP payload ceiling</string>
+    <string name="diagnostics_pmtu_initial">Initial QUIC UDP payload size</string>
+    <string name="diagnostics_pmtu_window">Observation window completed</string>
+    <string name="diagnostics_pmtu_reached">Configured ceiling reached</string>
+    <string name="diagnostics_pmtu_fragmentation">IP fragmentation prevented</string>
+    <string name="diagnostics_pmtu_sent">Size probes sent</string>
+    <string name="diagnostics_pmtu_lost">Size probes lost</string>
+    <string name="diagnostics_pmtu_resets">QUIC path-size resets</string>
+    <string name="diagnostics_pmtu_bytes">%1$d bytes</string>
+    <string name="diagnostics_pmtu_observed">Lower bound observed</string>
+    <string name="diagnostics_pmtu_inconclusive">Inconclusive</string>
+    <string name="diagnostics_pmtu_no_ack">No size probe was acknowledged</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">This platform cannot ensure unfragmented packets</string>
+    <string name="diagnostics_pmtu_partial">Connection ended before observation completed</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD measures outbound UDP payload bytes from this device to the selected server on this path. The ACK-confirmed value is a lower bound, not the exact path MTU. An ACK on the return path does not measure its PMTU. The configured ceiling and the interface MTU are separate values. A partial observation does not confirm a completed measurement.</string>
+    <string name="diagnostics_pmtu_loss_caution">Probe loss can occur during size search. It does not establish a path black hole or a provider restriction. The peer can also limit packet size.</string>
+</resources>

@@ -16,6 +16,9 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
 
     if !request.probe_tasks.is_empty() {
         for task in &request.probe_tasks {
+            if task.family == crate::types::ProbeTaskFamily::Pmtu && request.pmtu_probe.is_none() {
+                continue;
+            }
             if task.family == crate::types::ProbeTaskFamily::Http3 && request.http3_probe.is_none() {
                 continue;
             }
@@ -34,7 +37,10 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
     for registration in PROBE_STAGE_REGISTRATIONS {
         if matches!(
             registration.stage_id,
-            ExecutionStageId::SelectiveAvailability | ExecutionStageId::IpFamily | ExecutionStageId::Http3
+            ExecutionStageId::SelectiveAvailability
+                | ExecutionStageId::IpFamily
+                | ExecutionStageId::Http3
+                | ExecutionStageId::Pmtu
         ) {
             continue;
         }

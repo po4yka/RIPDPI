@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
 import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
+import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
@@ -43,6 +44,7 @@ data class DiagnosticsProfileProjection(
     val selectiveMatrix: SelectiveMatrixConfig? = null,
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
     val http3Probe: Http3ProbeConfig? = null,
+    val pmtuProbe: PmtuProbeConfig? = null,
 )
 
 @Serializable

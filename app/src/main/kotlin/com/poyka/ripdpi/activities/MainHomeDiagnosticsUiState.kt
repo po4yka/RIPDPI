@@ -190,7 +190,9 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
     val activeStageIndex = progress?.activeStageIndex
     val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
     val stageLabel =
-        if (activeStage?.stageKey == "http3") {
+        if (activeStage?.stageKey == "pmtu") {
+            stringResolver.getString(R.string.diagnostics_pmtu_title)
+        } else if (activeStage?.stageKey == "http3") {
             stringResolver.getString(R.string.diagnostics_http3_title)
         } else if (activeStage?.stageKey == "ip_family") {
             stringResolver.getString(R.string.diagnostics_ip_title)
@@ -225,7 +227,9 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
     val activeStageIndex = progress?.activeStageIndex
     val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
     val stageLabel =
-        if (activeStage?.stageKey == "http3") {
+        if (activeStage?.stageKey == "pmtu") {
+            stringResolver.getString(R.string.diagnostics_pmtu_title)
+        } else if (activeStage?.stageKey == "http3") {
             stringResolver.getString(R.string.diagnostics_http3_title)
         } else if (activeStage?.stageKey == "ip_family") {
             stringResolver.getString(R.string.diagnostics_ip_title)
@@ -418,6 +422,7 @@ private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: Strin
     HomeDiagnosticsStageUiState(
         label =
             when (stageKey) {
+                "pmtu" -> stringResolver.getString(R.string.diagnostics_pmtu_title)
                 "http3" -> stringResolver.getString(R.string.diagnostics_http3_title)
                 "ip_family" -> stringResolver.getString(R.string.diagnostics_ip_title)
                 else -> stageLabel

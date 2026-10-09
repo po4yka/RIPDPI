@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.toEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.toScanReport
 import com.poyka.ripdpi.diagnostics.withoutHttp3ScopeAuthority
 import com.poyka.ripdpi.diagnostics.withoutIpFamilyScopeAuthority
+import com.poyka.ripdpi.diagnostics.withoutPmtuScopeAuthority
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -105,6 +106,10 @@ internal suspend fun revokePersistedNetworkScope(
 
 private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeResultWire =
     when {
+        probeType == "pmtu" -> {
+            copy(outcome = "pmtu_not_observed", details = details.withoutPmtuScopeAuthority())
+        }
+
         probeType == "http3" -> {
             copy(outcome = "http3_inconclusive", details = details.withoutHttp3ScopeAuthority())
         }
@@ -134,7 +139,11 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
     }
 
 private fun ProbeResultEntity.withoutNetworkScopeAuthority(json: Json): ProbeResultEntity {
-    if (probeType !in setOf("selective_availability_summary", "throughput_window", "ip_family", "http3")) return this
+    if (probeType !in
+        setOf("selective_availability_summary", "throughput_window", "ip_family", "http3", "pmtu")
+    ) {
+        return this
+    }
     val details =
         runCatching {
             json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)

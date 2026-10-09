@@ -64,6 +64,11 @@ data class ActiveProbeSafetyPolicy(
             require(intent.requestedPathMode == ScanPathMode.RAW_PATH)
             config.validate()
         }
+        intent.pmtuProbe?.let { config ->
+            require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
+            require(intent.requestedPathMode == ScanPathMode.RAW_PATH)
+            config.validate()
+        }
         intent.ipFamilyProbe?.let { config ->
             require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED)
             require(intent.requestedPathMode == ScanPathMode.RAW_PATH)

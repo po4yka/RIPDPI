@@ -114,6 +114,10 @@ internal class DiagnosticsUiStateFactory
 
 private fun phaseToConnectivityProbeType(phase: String): String? =
     when (phase) {
+        "pmtu" -> {
+            "pmtu"
+        }
+
         "http3" -> {
             "http3"
         }

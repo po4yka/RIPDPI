@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">Tamaño activo de paquetes / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">Límite inferior de carga UDP confirmado por ACK</string>
+    <string name="diagnostics_pmtu_current">Tamaño actual de carga UDP de QUIC</string>
+    <string name="diagnostics_pmtu_ceiling">Límite configurado de carga UDP</string>
+    <string name="diagnostics_pmtu_initial">Tamaño inicial de carga UDP de QUIC</string>
+    <string name="diagnostics_pmtu_window">Ventana de observación completada</string>
+    <string name="diagnostics_pmtu_reached">Límite configurado alcanzado</string>
+    <string name="diagnostics_pmtu_fragmentation">Fragmentación IP evitada</string>
+    <string name="diagnostics_pmtu_sent">Sondas de tamaño enviadas</string>
+    <string name="diagnostics_pmtu_lost">Sondas de tamaño perdidas</string>
+    <string name="diagnostics_pmtu_resets">Reinicios del tamaño de ruta QUIC</string>
+    <string name="diagnostics_pmtu_bytes">%1$d bytes</string>
+    <string name="diagnostics_pmtu_observed">Límite inferior observado</string>
+    <string name="diagnostics_pmtu_inconclusive">Sin conclusión</string>
+    <string name="diagnostics_pmtu_no_ack">Ninguna sonda de tamaño recibió confirmación</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">La plataforma no garantiza paquetes sin fragmentar</string>
+    <string name="diagnostics_pmtu_partial">La conexión terminó antes de completar la observación</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD mide los bytes de carga UDP saliente de este dispositivo al servidor seleccionado por esta ruta. El valor confirmado por ACK es un límite inferior, no el MTU exacto de la ruta. El ACK de regreso no mide el PMTU de la ruta inversa. El límite configurado y el MTU de la interfaz son valores distintos. Una observación parcial no confirma una medición completa.</string>
+    <string name="diagnostics_pmtu_loss_caution">La búsqueda de tamaño puede perder sondas. Esto no demuestra un agujero negro en la ruta ni una restricción del proveedor. El destino también puede limitar el tamaño del paquete.</string>
+</resources>

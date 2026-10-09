@@ -106,6 +106,16 @@ private class LocalNetworkScanFilter(
                 ) {
                     requireDirectEndpoint(it.connectIp ?: it.host, it.port)
                 }.singleOrNull(),
+            pmtuProbe =
+                allowed(
+                    listOfNotNull(request.pmtuProbe),
+                    EngineProbeTaskFamily.PMTU,
+                    "pmtu",
+                    { it.host },
+                ) {
+                    requireDirectEndpoint(it.connectIpv4 ?: it.host, it.port)
+                    requireDirectEndpoint(it.connectIpv6 ?: it.host, it.port)
+                }.singleOrNull(),
             telegramTarget =
                 allowed(
                     listOfNotNull(request.telegramTarget),

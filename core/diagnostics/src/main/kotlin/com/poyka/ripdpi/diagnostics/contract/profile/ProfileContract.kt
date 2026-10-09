@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
 import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
+import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -73,6 +74,8 @@ data class ProfileSpecWire(
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val http3Probe: Http3ProbeConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val pmtuProbe: PmtuProbeConfig? = null,
 )
 
 @Serializable

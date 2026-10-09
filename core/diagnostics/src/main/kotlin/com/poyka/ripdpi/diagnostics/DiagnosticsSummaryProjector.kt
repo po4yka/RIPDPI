@@ -137,17 +137,7 @@ class DiagnosticsSummaryProjector
                         }
                     }
                 }
-                addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
-                addAll(report?.results.orEmpty().ipFamilySummaryLines())
-                addAll(report?.results.orEmpty().http3SummaryLines())
-                addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
-                addAll(dnsSemanticsSummaryLines(report?.results.orEmpty()))
-                addAll(
-                    connectionStageSummaryLines(
-                        report?.results.orEmpty(),
-                        report?.diagnoses.orEmpty().any { it.code == "network_scope_unverified" },
-                    ),
-                )
+                addAll(buildProbeEvidenceLines(report))
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }
                 report?.classifierVersion?.let { add("classifierVersion=$it") }
                 if (report?.packVersions?.isNotEmpty() == true) {
@@ -158,6 +148,22 @@ class DiagnosticsSummaryProjector
                 if (report?.diagnoses?.isNotEmpty() == true) {
                     add("diagnosisCount=${report.diagnoses.size}")
                 }
+            }
+
+        private fun buildProbeEvidenceLines(report: DiagnosticsSessionProjection?): List<String> =
+            buildList {
+                addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
+                addAll(report?.results.orEmpty().ipFamilySummaryLines())
+                addAll(report?.results.orEmpty().http3SummaryLines())
+                addAll(report?.results.orEmpty().pmtuSummaryLines())
+                addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
+                addAll(dnsSemanticsSummaryLines(report?.results.orEmpty()))
+                addAll(
+                    connectionStageSummaryLines(
+                        report?.results.orEmpty(),
+                        report?.diagnoses.orEmpty().any { it.code == "network_scope_unverified" },
+                    ),
+                )
             }
 
         private fun buildEnvironmentLines(

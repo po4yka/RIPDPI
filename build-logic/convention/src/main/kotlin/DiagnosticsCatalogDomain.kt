@@ -192,4 +192,5 @@ internal data class DiagnosticsProfileDefinition(
     val selectiveMatrix: SelectiveMatrixDefinition? = null,
     val ipFamilyProbe: IpFamilyProbeDefinition? = null,
     val http3Probe: Http3ProbeDefinition? = null,
+    val pmtuProbe: PmtuProbeDefinition? = null,
 )

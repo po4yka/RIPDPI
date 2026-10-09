@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.canonicalDnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.canonicalHttp3ProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalIpFamilyProbeEvidence
+import com.poyka.ripdpi.diagnostics.canonicalPmtuProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
@@ -368,6 +369,10 @@ private fun projectArchiveObject(element: JsonObject): JsonObject {
     return JsonObject(
         element.mapValues { (key, value) ->
             when {
+                key == "value" && declaredField == "pmtuEvidence" -> {
+                    JsonPrimitive(canonicalPmtuProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
                 key == "value" && declaredField == "http3Evidence" -> {
                     JsonPrimitive(canonicalHttp3ProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
                 }

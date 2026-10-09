@@ -506,3 +506,27 @@ The probe uses one absolute deadline, at most four resolved peers, a bounded hea
 Each `http3` result has bounded `http3Evidence`. It records DNS, QUIC/TLS, request, headers, first body byte and body completion separately. Valid HTTP error responses still prove HTTP/3, but are not healthy endpoint results. A body limit or timeout after headers preserves protocol evidence and reports an incomplete transfer. The UI and connection scale use the same validated evidence for current and historical results. TCP and proxy stages are not applicable.
 
 Response bodies, header values and raw errors are not stored. Redacted exports remove the peer address and unknown evidence fields. A network scope change preserves observed protocol facts, marks them unverified and revokes the healthy outcome. Legacy reports without this evidence remain readable and do not acquire an HTTP/3 success claim.
+
+
+### Active packet-size and PMTU measurements
+
+The manual `pmtu-connectivity` profile and the full-analysis `pmtu` stage run
+QUIC DPLPMTUD for IPv4 and IPv6 separately. Quick and background scans exclude
+this profile. The target is visible in the bundled catalog. The probe uses a
+protected direct UDP socket with fragmentation prevented, certificate and
+hostname validation, and `h3` ALPN. It does not need root.
+
+Each `pmtuEvidence` record reports outbound UDP payload bytes from the device
+to the selected peer. Returning ACKs do not measure reverse-path PMTU. The lower bound
+comes from Quinn's ACK-confirmed MTU growth above its initial 1200-byte setting.
+That setting alone is not a measurement. The configured ceiling and completed
+observation window do not prove an exact PMTU or completed search. The peer can
+also limit the search; its UDP limit is not exposed by the public Quinn API.
+A QUIC failure is inconclusive. Lost discovery probes are expected during a
+size search and do not prove provider filtering or a path black hole.
+
+Cancellation and deadlines preserve observed facts. Network-scope invalidation
+removes their authority for the current network, including persisted rows.
+Redacted export removes peer addresses and unknown nested evidence fields.
+Interface MTU remains a separate Android snapshot value. The active probe does
+not change VPN MTU or transport settings.

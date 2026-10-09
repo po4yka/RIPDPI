@@ -45,8 +45,8 @@ use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use crate::engine::runtime::{ExecutionStageId, ExecutionStageRunner};
 
 use super::connectivity::{
-    CircumventionRunner, DnsRunner, DohJsonSurveyRunner, EnvironmentRunner, Http3Runner, IpFamilyRunner, QuicRunner,
-    SelectiveMatrixRunner, ServiceRunner, TcpRunner, TelegramRunner, ThroughputRunner, WebRunner,
+    CircumventionRunner, DnsRunner, DohJsonSurveyRunner, EnvironmentRunner, Http3Runner, IpFamilyRunner, PmtuRunner,
+    QuicRunner, SelectiveMatrixRunner, ServiceRunner, TcpRunner, TelegramRunner, ThroughputRunner, WebRunner,
 };
 
 /// Factory function for a connectivity stage runner.
@@ -201,6 +201,15 @@ pub(in crate::engine) const PROBE_STAGE_REGISTRATIONS: &[ProbeStageRegistration]
         make_runner: || Box::new(Http3Runner),
     },
     ProbeStageRegistration {
+        probe_type: "pmtu",
+        probe_id: "pmtu_probe",
+        stage_id: ExecutionStageId::Pmtu,
+        task_family_selector: Some(ProbeTaskFamily::Pmtu),
+        runner_name: "PmtuRunner",
+        label: "Active UDP payload size",
+        make_runner: || Box::new(PmtuRunner),
+    },
+    ProbeStageRegistration {
         probe_type: "doh_json_survey",
         probe_id: "doh_json_survey",
         stage_id: ExecutionStageId::DohJsonSurvey,
@@ -294,16 +303,17 @@ mod tests {
         ("selective_availability", "SelectiveMatrixRunner", "selective_availability_probe"),
         ("ip_family", "IpFamilyRunner", "ip_family_probe"),
         ("http3", "Http3Runner", "http3_probe"),
+        ("pmtu", "PmtuRunner", "pmtu_probe"),
         ("doh_json_survey", "DohJsonSurveyRunner", "doh_json_survey"),
     ];
 
-    /// The registry has exactly 13 connectivity stages — the 4 strategy
+    /// The registry has exactly 14 connectivity stages — the 4 strategy
     /// runners are intentionally excluded.
     #[test]
     fn strategy_runners_remain_out_of_scope() {
         const STRATEGY_RUNNER_NAMES: &[&str] =
             &["StrategyDnsBaselineRunner", "StrategyTcpRunner", "StrategyQuicRunner", "StrategyRecommendationRunner"];
-        assert_eq!(PROBE_STAGE_REGISTRATIONS.len(), 13, "registry must cover only the 13 connectivity stages");
+        assert_eq!(PROBE_STAGE_REGISTRATIONS.len(), 14, "registry must cover only the 14 connectivity stages");
         for registration in PROBE_STAGE_REGISTRATIONS {
             assert!(
                 !STRATEGY_RUNNER_NAMES.contains(&registration.runner_name),

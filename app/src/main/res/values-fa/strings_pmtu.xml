@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">اندازهٔ فعال بسته / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">کران پایین بار UDP تأییدشده با ACK</string>
+    <string name="diagnostics_pmtu_current">اندازهٔ فعلی بار UDP در QUIC</string>
+    <string name="diagnostics_pmtu_ceiling">سقف تنظیم‌شدهٔ بار UDP</string>
+    <string name="diagnostics_pmtu_initial">اندازهٔ اولیهٔ بار UDP در QUIC</string>
+    <string name="diagnostics_pmtu_window">بازهٔ مشاهده کامل شد</string>
+    <string name="diagnostics_pmtu_reached">سقف تنظیم‌شده حاصل شد</string>
+    <string name="diagnostics_pmtu_fragmentation">از تکه‌تکه‌شدن IP جلوگیری شد</string>
+    <string name="diagnostics_pmtu_sent">کاوش‌های اندازهٔ ارسال‌شده</string>
+    <string name="diagnostics_pmtu_lost">کاوش‌های اندازهٔ ازدست‌رفته</string>
+    <string name="diagnostics_pmtu_resets">بازنشانی اندازهٔ مسیر QUIC</string>
+    <string name="diagnostics_pmtu_bytes">%1$d بایت</string>
+    <string name="diagnostics_pmtu_observed">کران پایین مشاهده شد</string>
+    <string name="diagnostics_pmtu_inconclusive">نامشخص</string>
+    <string name="diagnostics_pmtu_no_ack">هیچ کاوش اندازه‌ای تأیید نشد</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">این سکو بسته‌های بدون تکه‌تکه‌شدن را تضمین نمی‌کند</string>
+    <string name="diagnostics_pmtu_partial">اتصال پیش از پایان مشاهده بسته شد</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD بایت‌های بار UDP خروجی از این دستگاه به سرور انتخاب‌شده را در این مسیر اندازه می‌گیرد. مقدار تأییدشده با ACK کران پایین است، نه MTU دقیق مسیر. بازگشت ACK،‏ PMTU مسیر برگشت را اندازه نمی‌گیرد. سقف تنظیم‌شده و MTU رابط مقادیر جداگانه‌اند. مشاهدهٔ ناقص اندازه‌گیری کامل را تأیید نمی‌کند.</string>
+    <string name="diagnostics_pmtu_loss_caution">هنگام جست‌وجوی اندازه ممکن است کاوش‌ها گم شوند. این امر سیاه‌چالهٔ مسیر یا محدودیت ارائه‌دهنده را ثابت نمی‌کند. مقصد نیز می‌تواند اندازهٔ بسته را محدود کند.</string>
+</resources>

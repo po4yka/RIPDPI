@@ -69,6 +69,7 @@ pub enum ProbeTaskFamily {
     SelectiveAvailability,
     IpFamily,
     Http3,
+    Pmtu,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

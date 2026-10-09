@@ -1,3 +1,5 @@
+mod pmtu;
+pub use pmtu::{PmtuEvidence, PmtuProbeConfig};
 mod http3;
 pub use http3::{Http3Evidence, Http3ProbeConfig};
 mod ip_family;

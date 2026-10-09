@@ -5613,6 +5613,7 @@ dependencies = [
  "h3",
  "h3-quinn",
  "http",
+ "quic-mtu-test-util",
  "quinn",
  "rcgen",
  "ripdpi-diagnostics-contracts",

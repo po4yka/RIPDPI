@@ -214,9 +214,9 @@ internal fun DiagnosticsBottomSheetHost(
         val performHaptic = rememberRipDpiHapticPerformer()
         RipDpiBottomSheet(
             onDismissRequest = onDismissProbeDetail,
-            title = probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
+            title = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
             message =
-                probe.http3?.title
+                probe.pmtu?.title ?: probe.http3?.title
                     ?: if (probe.ipFamily != null) stringResource(R.string.diagnostics_ip_title) else probe.probeType,
             icon = RipDpiIcons.Search,
             testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
@@ -225,10 +225,11 @@ internal fun DiagnosticsBottomSheetHost(
             probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
             probe.ipFamily?.let { ContextGroupCard(it) }
             probe.http3?.let { ContextGroupCard(it) }
+            probe.pmtu?.let { ContextGroupCard(it) }
             DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
             StatusIndicator(
                 label =
-                    (probe.http3 ?: probe.ipFamily)
+                    (probe.pmtu ?: probe.http3 ?: probe.ipFamily)
                         ?.fields
                         ?.firstOrNull()
                         ?.value ?: probe.outcome,
@@ -256,7 +257,8 @@ internal fun DiagnosticsBottomSheetHost(
                         buildString {
                             appendLine("${probe.probeType} -> ${probe.target}")
                             appendLine("Outcome: ${probe.outcome}")
-                            (probe.dnsResponses + listOfNotNull(probe.ipFamily, probe.http3)).forEach { group ->
+                            val groups = probe.dnsResponses + listOfNotNull(probe.ipFamily, probe.http3, probe.pmtu)
+                            groups.forEach { group ->
                                 appendLine(group.title)
                                 group.fields.forEach { appendLine("${it.label}: ${it.value}") }
                             }

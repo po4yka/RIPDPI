@@ -42,7 +42,9 @@ internal class DiagnosticsSessionDetailUiFactory
                     .map { (title, items) ->
                         DiagnosticsProbeGroupUiModel(
                             title =
-                                if (title == "http3") {
+                                if (title == "pmtu") {
+                                    support.context.getString(R.string.diagnostics_pmtu_title)
+                                } else if (title == "http3") {
                                     support.context.getString(R.string.diagnostics_http3_title)
                                 } else if (title ==
                                     "ip_family"

@@ -320,6 +320,42 @@
       }
     },
     {
+      "id": "pmtu-connectivity",
+      "name": "Active packet sizes / PMTU",
+      "version": 1,
+      "request": {
+        "profileId": "pmtu-connectivity",
+        "displayName": "Active packet sizes / PMTU",
+        "kind": "CONNECTIVITY",
+        "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": true,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "pmtuProbe": {
+          "version": 1,
+          "host": "www.cloudflare.com",
+          "port": 443,
+          "timeoutMs": 10000,
+          "observationMs": 3000,
+          "upperBoundUdpPayloadBytes": 1472
+        }
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 4,

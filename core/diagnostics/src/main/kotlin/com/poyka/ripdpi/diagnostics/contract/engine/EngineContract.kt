@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
 import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
+import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
@@ -54,6 +55,7 @@ enum class EngineProbeTaskFamily {
     SELECTIVE_AVAILABILITY,
     IP_FAMILY,
     HTTP3,
+    PMTU,
 }
 
 @Serializable
@@ -113,6 +115,8 @@ data class EngineScanRequestWire(
     val ipFamilyProbe: IpFamilyProbeConfig? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val http3Probe: Http3ProbeConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val pmtuProbe: PmtuProbeConfig? = null,
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
     val scanDeadlineMs: Long? = null,

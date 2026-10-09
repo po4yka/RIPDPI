@@ -104,3 +104,23 @@ mod http3_tests {
         assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
     }
 }
+
+#[cfg(test)]
+mod pmtu_tests {
+    use super::*;
+    #[test]
+    fn pmtu_requires_explicit_task_and_configuration() {
+        let mut request: ScanRequest = serde_json::from_str(r#"{"profileId":"test","displayName":"test","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#).unwrap();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+        request.probe_tasks = vec![crate::types::ProbeTask {
+            family: crate::types::ProbeTaskFamily::Pmtu,
+            target_id: "pmtu".into(),
+            label: "HTTP/3".into(),
+        }];
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+        request.pmtu_probe = Some(crate::types::PmtuProbeConfig::default());
+        assert!(connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+        request.probe_tasks.clear();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+    }
+}

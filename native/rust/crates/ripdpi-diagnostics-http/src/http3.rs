@@ -1,5 +1,5 @@
 //! Verified HTTP/3 control request. QUIC Initial evidence remains a separate probe.
-mod socket;
+pub(crate) mod socket;
 use bytes::Buf;
 use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
 use ripdpi_diagnostics_contracts::{Http3Evidence, Http3ProbeConfig};

@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["rt", "time", "net", "macros", "sync"] }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]
+quic-mtu-test-util = { workspace = true }
 rcgen = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 

@@ -4,6 +4,7 @@ pub mod blockpage_fingerprints;
 pub mod http;
 pub mod http3;
 pub mod http_injection_probe;
+pub mod pmtu;
 
 pub(crate) mod tls {
     pub use ripdpi_diagnostics_tls::tls::*;

@@ -161,6 +161,7 @@ internal class DiagnosticsCatalogValidator(
             profile.validateSelectiveMatrix()
             profile.validateIpFamilyProbe()
             profile.validateHttp3Probe()
+            profile.validatePmtuProbe()
             profile.packRefs.forEach { reference ->
                 val (packId, version) = parsePackRef(reference)
                 val pack =
@@ -359,6 +360,7 @@ private fun DiagnosticsProfileDefinition.toRequestJson(): JsonObject =
         selectiveMatrix?.let { put("selectiveMatrix", it.toJson()) }
         ipFamilyProbe?.let { put("ipFamilyProbe", it.toJson()) }
         http3Probe?.let { put("http3Probe", it.toJson()) }
+        pmtuProbe?.let { put("pmtuProbe", it.toJson()) }
     }
 
 private fun ProfileExecutionPolicyDefinition.toJson(): JsonObject =

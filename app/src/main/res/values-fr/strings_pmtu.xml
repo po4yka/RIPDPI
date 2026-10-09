@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">Taille active des paquets / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">Borne basse de charge UDP confirmée par ACK</string>
+    <string name="diagnostics_pmtu_current">Taille actuelle de charge UDP QUIC</string>
+    <string name="diagnostics_pmtu_ceiling">Plafond configuré de charge UDP</string>
+    <string name="diagnostics_pmtu_initial">Taille initiale de charge UDP QUIC</string>
+    <string name="diagnostics_pmtu_window">Fenêtre d’observation terminée</string>
+    <string name="diagnostics_pmtu_reached">Plafond configuré atteint</string>
+    <string name="diagnostics_pmtu_fragmentation">Fragmentation IP empêchée</string>
+    <string name="diagnostics_pmtu_sent">Sondes de taille envoyées</string>
+    <string name="diagnostics_pmtu_lost">Sondes de taille perdues</string>
+    <string name="diagnostics_pmtu_resets">Réinitialisations de taille du chemin QUIC</string>
+    <string name="diagnostics_pmtu_bytes">%1$d octets</string>
+    <string name="diagnostics_pmtu_observed">Borne basse observée</string>
+    <string name="diagnostics_pmtu_inconclusive">Non concluant</string>
+    <string name="diagnostics_pmtu_no_ack">Aucune sonde de taille confirmée</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">La plateforme ne garantit pas des paquets sans fragmentation</string>
+    <string name="diagnostics_pmtu_partial">Connexion terminée avant la fin de l’observation</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD mesure les octets de charge UDP sortants de cet appareil vers le serveur choisi sur ce chemin. La valeur confirmée par ACK est une borne basse, pas le MTU exact du chemin. Le retour d’un ACK ne mesure pas le PMTU du chemin inverse. Le plafond configuré et le MTU de l’interface sont distincts. Une observation partielle ne confirme pas une mesure complète.</string>
+    <string name="diagnostics_pmtu_loss_caution">Des sondes peuvent être perdues pendant la recherche de taille. Cela ne prouve ni un trou noir sur le chemin ni une restriction du fournisseur. Le destinataire peut aussi limiter la taille des paquets.</string>
+</resources>

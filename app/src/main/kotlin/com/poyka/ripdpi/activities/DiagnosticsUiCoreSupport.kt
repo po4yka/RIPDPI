@@ -305,6 +305,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
                             "encryptedDnsResponse",
                             "ipFamilyEvidence",
                             "http3Evidence",
+                            "pmtuEvidence",
                         )
                 }.map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
@@ -313,6 +314,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         dnsResponses = result.toDnsResponseGroups(strings).toImmutableList(),
         ipFamily = result.toIpFamilyGroup(strings, networkScopeUnverified),
         http3 = result.toHttp3Group(strings, networkScopeUnverified),
+        pmtu = result.toPmtuGroup(strings, networkScopeUnverified),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =
