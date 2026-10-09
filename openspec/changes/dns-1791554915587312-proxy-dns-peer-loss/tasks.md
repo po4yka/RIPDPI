@@ -12,7 +12,7 @@ Android writer: core:service failover policy, consumed runtime evidence, unit te
 
 - [x] DNS-1791555372666613 Reproduce real DNS and peer recovery failures before policy changes #bug !high @item:DNS-1791554915587312
 - [x] DNS-1791555373614341 Guard proxy DNS failure attribution and verify direct failure compatibility #bug !high @item:DNS-1791554915587312
-- [ ] DNS-1791555374480525 Repeat full Android and routed Xray acceptance with independent review #bug !high @item:DNS-1791554915587312
+- [x] DNS-1791555374480525 Repeat full Android and routed Xray acceptance with independent review #bug !high @item:DNS-1791554915587312
 
 ## Verification
 

@@ -2,7 +2,7 @@
 id: DNS-1791554915587312
 title: Preserve routed DNS during proxy peer loss
 kind: bug
-status: doing
+status: review
 area: dns
 priority: high
 owner: Android acceptance agent
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: dns-1791554915587312-proxy-dns-peer-loss
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
+status_detail: Clean1e513 full42, Xray repeats/VM-routed, combined gates, independent review, cleanup and all5 published code workflows PASS; commit review before terminal closure
 ---
 
 ## Goal

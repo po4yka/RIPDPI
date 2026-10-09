@@ -12,7 +12,7 @@ Android writer owns core/service/src/main/kotlin/com/poyka/ripdpi/services/Netwo
 
 - [x] SVC-1791566703809797 Capture the original handover fields and reproduce transient lease feedback #bug !high @item:SVC-1791566464861507
 - [x] SVC-1791566704596382 Separate transient lease acquisition and loss from physical handovers with compatibility tests #bug !high @item:SVC-1791566464861507
-- [ ] SVC-1791566705394380 Verify clean combined service and real Android recovery with remote CI #bug !high @item:SVC-1791566464861507
+- [x] SVC-1791566705394380 Verify clean combined service and real Android recovery with remote CI #bug !high @item:SVC-1791566464861507
 
 ## Verification
 

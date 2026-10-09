@@ -2,7 +2,7 @@
 id: SVC-1791566464861507
 title: Keep physical handovers separate from transient lease state
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: Android acceptance agent
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: svc-1791566464861507-acceptance-physical-handover
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
+status_detail: Clean1e513 full42, Xray repeats/VM-routed, combined gates, independent review, cleanup and all5 published code workflows PASS; commit review before terminal closure
 ---
 
 ## Goal

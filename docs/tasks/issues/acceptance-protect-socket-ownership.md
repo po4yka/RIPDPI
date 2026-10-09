@@ -2,7 +2,7 @@
 id: SVC-1791570478587374
 title: Preserve protect socket ownership across VPN session overlap
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: Android
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: svc-1791570478587374-acceptance-protect-socket-ownership
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
+status_detail: Clean1e513 full42, Xray repeats/VM-routed, combined gates, independent review, cleanup and all5 published code workflows PASS; commit review before terminal closure
 ---
 
 ## Goal

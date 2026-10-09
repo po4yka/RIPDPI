@@ -2,7 +2,7 @@
 id: TST-1791553917096956
 title: Verify local Android and routed acceptance
 kind: chore
-status: doing
+status: review
 area: testing
 priority: high
 owner: Acceptance coordinator
@@ -11,8 +11,9 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 spec_reason: test-only
+status_detail: Clean1e513 full42, Xray repeats/VM-routed, combined gates, independent review, cleanup and all5 published code workflows PASS; commit review before terminal closure
 ---
 
 ## Goal
