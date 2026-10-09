@@ -255,7 +255,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
                                RUNNER_TEMP=str(directory), ANDROID_SDK_ROOT=str(directory / "sdk"),
                                GITHUB_PATH=str(directory / "github-path"),
                                GITHUB_ENV=str(directory / "github-env"),
-                               GOTOOLCHAIN="go1.27.0", GOSUMDB="sum.golang.org",
+                               GOTOOLCHAIN="go1.27.2", GOSUMDB="sum.golang.org",
                                GOPROXY="https://proxy.golang.org,direct")
             result = subprocess.run(["bash", "--noprofile", "--norc", "-c", textwrap.dedent(bootstrap[1])],
                                     cwd=ROOT, env=environment, capture_output=True, text=True, timeout=30)
@@ -303,7 +303,7 @@ class NativeDependencyGraphTest(unittest.TestCase):
 
     def test_xray_action_builds_pinned_sources_without_checksum_bypass(self) -> None:
         action = (ROOT / ".github/actions/build-xray/action.yml").read_text()
-        self.assertIn("GOTOOLCHAIN: go1.27.0", action)
+        self.assertIn("GOTOOLCHAIN: go1.27.2", action)
         self.assertIn("GOSUMDB: sum.golang.org", action)
         self.assertIn("gradle/libs.versions.toml", action)
         self.assertIn("ripdpi.nativeNdkVersion", action)
