@@ -165,8 +165,9 @@ report certifies only its selected rows. It cannot close an external-provider ga
 Treat the whole run directory as private. Raw PCAP, synthetic credential manifests,
 peer binaries, build output, and detailed device logs stay local. The CI workflow
 uploads only the metadata report and JUnit summary; it does not upload the whole
-run directory. Android preparation also exports a summary with fixed diagnostic
-codes and output-presence flags. It excludes raw logs, paths, and exception text.
+run directory. Android preparation and runtime also export summaries with fixed
+diagnostic codes. Runtime failures include only known test identifiers and source
+line numbers. Summaries exclude raw logs, paths, and exception text.
 Existing evidence retention/export policy still applies.
 
 ## CI and regression tests
