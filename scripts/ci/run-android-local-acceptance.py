@@ -813,31 +813,12 @@ def main() -> int:
                 launch.extend(["-e", key, value])
             launch.append(component)
             output = run(launch, test_dir / "instrumentation.log", timeout=600)
-            parse_instrumentation(output, method)
-            report["phase"] = "junit-validation"
-            write_junit(test_dir / "results.xml", method)
-            run(
-                [
-                    sys.executable,
-                    str(ROOT / "scripts/ci/validate_android_junit_results.py"),
-                    str(test_dir),
-                    "--require-test",
-                    method,
-                    "--expected-count",
-                    "1",
-                    "--expected-total-count",
-                    "1",
-                    "--forbid-skips",
-                ],
-                test_dir / "validation.log",
-            )
-            report["checks"].append({"id": method.split("#")[1], "passed": True})
-            report["phase"] = "receipts"
             if args.scenario == "android-xray":
                 for endpoint in (
                     "receipts",
                     "direct-receipts",
                     "dns-receipts",
+                    "dns-http-receipts",
                     "request-receipts",
                 ):
                     (test_dir / f"{endpoint}.json").write_text(
@@ -857,6 +838,25 @@ def main() -> int:
                     ],
                     test_dir / "fixture-receipts.json",
                 )
+            parse_instrumentation(output, method)
+            report["phase"] = "junit-validation"
+            write_junit(test_dir / "results.xml", method)
+            run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/ci/validate_android_junit_results.py"),
+                    str(test_dir),
+                    "--require-test",
+                    method,
+                    "--expected-count",
+                    "1",
+                    "--expected-total-count",
+                    "1",
+                    "--forbid-skips",
+                ],
+                test_dir / "validation.log",
+            )
+            report["checks"].append({"id": method.split("#")[1], "passed": True})
         report["phase"] = "complete"
         report["status"] = "passed"
     except (Blocked, FileNotFoundError) as error:
@@ -879,6 +879,9 @@ def main() -> int:
                         "ripdpi-native:V",
                         "ripdpi-tunnel-native:V",
                         "AndroidRuntime:E",
+                        "DnsFailover:V",
+                        "XrayPeerRecovery:I",
+                        "XrayBuilderInputs:I",
                         "*:S",
                     ],
                     "android-logcat.log",

@@ -17,6 +17,9 @@ internal class ObservedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
     private var callSequence = 0L
     private var previous: CallInputs? = null
 
+    val establishmentCount: Long
+        get() = synchronized(observationLock) { callSequence }
+
     override suspend fun establish(
         host: VpnTunnelBuilderHost,
         dns: String,

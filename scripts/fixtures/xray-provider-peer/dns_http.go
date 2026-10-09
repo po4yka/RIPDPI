@@ -27,7 +27,7 @@ func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
 		return nil, err
 	}
 	server := &http.Server{
-		Handler:           http.HandlerFunc(serveDNSHTTP),
+		Handler:           http.HandlerFunc(p.serveDNSHTTP),
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       5 * time.Second,
 		WriteTimeout:      5 * time.Second,
@@ -41,7 +41,7 @@ func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
 	return listener, nil
 }
 
-func serveDNSHTTP(w http.ResponseWriter, request *http.Request) {
+func (p *peer) serveDNSHTTP(w http.ResponseWriter, request *http.Request) {
 	if request.URL.Path != "/dns-query" {
 		http.NotFound(w, request)
 		return
@@ -90,6 +90,13 @@ func serveDNSHTTP(w http.ResponseWriter, request *http.Request) {
 	if !ok {
 		http.Error(w, "invalid DNS query", http.StatusBadRequest)
 		return
+	}
+	var query dnsmessage.Message
+	if err := query.Unpack(packet); err == nil && len(query.Questions) == 1 &&
+		strings.HasPrefix(query.Questions[0].Name.String(), "peer-owned-") &&
+		strings.HasSuffix(query.Questions[0].Name.String(), ".test.") {
+		// Only task-owned queries affect this receipt; no request data is retained.
+		p.dnsHTTPCount.Add(1)
 	}
 	w.Header().Set("Content-Type", "application/dns-message")
 	w.Header().Set("Cache-Control", "no-store")

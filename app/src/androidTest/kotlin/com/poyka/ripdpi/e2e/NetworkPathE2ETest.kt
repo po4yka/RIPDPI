@@ -325,8 +325,10 @@ class NetworkPathE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
         exchange("restart")
-        val snapshot = serviceStateStore.telemetry.value
-        assertTrue(snapshot.tunnelStats.txPackets > 0 && snapshot.tunnelStats.rxPackets > 0)
+        awaitUntil {
+            val snapshot = serviceStateStore.telemetry.value
+            snapshot.tunnelStats.txPackets > 0 && snapshot.tunnelStats.rxPackets > 0
+        }
     }
 
     @Test

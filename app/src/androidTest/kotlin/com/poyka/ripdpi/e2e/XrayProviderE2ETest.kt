@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -118,6 +119,8 @@ class XrayProviderE2ETest {
     @Inject lateinit var profiles: DurableXrayProfileStore
 
     @Inject lateinit var selection: XrayProviderSelectionStore
+
+    @Inject lateinit var resolverOverrides: ResolverOverrideStore
 
     @Inject lateinit var providerProbes: XrayProviderProbeCoordinator
 
@@ -499,7 +502,12 @@ class XrayProviderE2ETest {
             assertDirectSentinelReachable("before-$network")
             start(network, wrongIdentity = false)
             awaitOwnedPeerEcho(network)
+            assertOwnedEncryptedDnsThroughProvider("baseline-$network")
             val restartCount = state.telemetry.value.restartCount
+            val tunnelProvider = vpnTunnelSessionProvider as ObservedVpnTunnelSessionProvider
+            val establishmentCount = tunnelProvider.establishmentCount
+            val resolverBefore = resolverOverrides.override.value
+            val failuresBefore = state.telemetry.value.tunnelTelemetry.dnsFailuresTotal
             readControl("peer/stop", "POST")
             try {
                 val before = readControl("receipts").getInt("count")
@@ -509,11 +517,33 @@ class XrayProviderE2ETest {
                 assertTrue("Peer loss must not enable a direct bypass", direct.response.isNullOrEmpty())
                 assertEquals(before, readControl("receipts").getInt("count"))
                 assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+                val dnsFailure = testProcessDnsProbe(queryHost = "peer-loss.test", timeoutMs = 3_000L)
+                assertFalse("Stopped peer must reject encrypted DNS", dnsFailure.ok)
+                awaitUntil {
+                    assertEquals(
+                        "DNS failure must preserve real TUN",
+                        establishmentCount,
+                        tunnelProvider.establishmentCount,
+                    )
+                    assertEquals("Peer loss must preserve resolver", resolverBefore, resolverOverrides.override.value)
+                    state.telemetry.value.tunnelTelemetry.dnsFailuresTotal > failuresBefore
+                }
+                Log.i("XrayPeerRecovery", "phase=peer-stopped dnsFailureObserved=true")
+                assertEquals("Peer loss must preserve resolver", resolverBefore, resolverOverrides.override.value)
+                assertEquals(
+                    "DNS failure must preserve real TUN",
+                    establishmentCount,
+                    tunnelProvider.establishmentCount,
+                )
             } finally {
                 readControl("peer/start", "POST")
             }
             awaitOwnedPeerEcho(network)
+            repeat(3) { assertOwnedEncryptedDnsThroughProvider("recovered-$network-$it") }
             assertOwnedDnsThroughProvider()
+            assertEquals("Recovery must preserve resolver", resolverBefore, resolverOverrides.override.value)
+            assertEquals("Recovery must preserve real TUN", establishmentCount, tunnelProvider.establishmentCount)
+            Log.i("XrayPeerRecovery", "phase=peer-recovered dnsReceiptsVerified=true")
             assertEquals(restartCount, state.telemetry.value.restartCount)
             assertEquals(AppStatus.Running, state.status.value.first)
             runBlocking { controller.stop() }
@@ -545,6 +575,35 @@ class XrayProviderE2ETest {
         )
     }
 
+    private fun assertOwnedEncryptedDnsThroughProvider(label: String) {
+        val before = readControl("dns-http-receipts").getInt("count")
+        val response =
+            testProcessDnsProbe(
+                queryHost = "peer-owned-$label.test",
+                serverHost = "198.18.0.53",
+                timeoutMs = 3_000L,
+            )
+        assertTrue(
+            "Encrypted DNS must originate from a distinct test UID",
+            response.probeUid != null && response.probeUid != Process.myUid(),
+        )
+        assertTrue(
+            "Owned encrypted DNS must succeed through the active provider: ${response.failureKind}/${response.failureStage}",
+            response.ok,
+        )
+        assertEquals(0, response.rcode)
+        assertEquals("MapDNS must return one synthetic answer", 1, response.answers.size)
+        assertTrue(
+            "MapDNS answer must use the configured synthetic range",
+            response.answers.single().startsWith("198.18."),
+        )
+        assertEquals(
+            "Real DoH handler must receive the query",
+            before + 1,
+            readControl("dns-http-receipts").getInt("count"),
+        )
+    }
+
     private fun assertOwnedDnsThroughProvider() {
         val before = readControl("dns-receipts").getInt("count")
         val packetsBefore = state.telemetry.value.tunnelStats
@@ -553,7 +612,13 @@ class XrayProviderE2ETest {
             "DNS must originate from a distinct test UID",
             response.probeUid != null && response.probeUid != Process.myUid(),
         )
-        assertTrue("Owned UDP DNS query must succeed through the active provider", response.ok)
+        assertTrue(
+            "Owned UDP DNS query must succeed through the active provider: " +
+                "failure=${response.failureKind}/${response.failureStage} errno=${response.errno} " +
+                "rcode=${response.rcode} dnsFailures=${state.telemetry.value.tunnelTelemetry.dnsFailuresTotal} " +
+                "dnsQueries=${state.telemetry.value.tunnelTelemetry.dnsQueriesTotal}",
+            response.ok,
+        )
         assertEquals(0, response.rcode)
         assertEquals(listOf("192.0.2.77"), response.answers)
         val receipts = readControl("dns-receipts")

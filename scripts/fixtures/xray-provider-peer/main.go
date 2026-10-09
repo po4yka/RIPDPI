@@ -56,6 +56,7 @@ type peer struct {
 	count        atomic.Int64
 	directCount  atomic.Int64
 	dnsCount     atomic.Int64
+	dnsHTTPCount atomic.Int64
 	dnsLastQuery atomic.Value
 	requests     requestReceipts
 	closers      []io.Closer
@@ -437,6 +438,9 @@ func (p *peer) controlHandler() http.Handler {
 	mux.HandleFunc("GET /dns-receipts", func(w http.ResponseWriter, _ *http.Request) {
 		lastQuery, _ := p.dnsLastQuery.Load().(string)
 		_ = json.NewEncoder(w).Encode(map[string]any{"count": p.dnsCount.Load(), "lastQuery": lastQuery})
+	})
+	mux.HandleFunc("GET /dns-http-receipts", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"count": p.dnsHTTPCount.Load()})
 	})
 	mux.HandleFunc("GET /request-receipts", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(p.requests.snapshot())
