@@ -17,6 +17,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -66,12 +67,14 @@ type peer struct {
 	config       any
 	ingress      []*tcpIngress
 	backends     []string
+	epoch        int
 }
 
 type peerOptions struct {
 	BindHost      string
 	AdvertiseHost string
 	RunID         string
+	Debug         bool
 }
 
 func validateLocalHost(host string) error {
@@ -96,7 +99,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	p := &peer{requests: requestReceipts{startedAt: time.Now()}, options: options}
+	p := &peer{requests: requestReceipts{startedAt: time.Now()}, options: options, epoch: 1}
 	ready := false
 	defer func() {
 		if !ready {
@@ -223,8 +226,12 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			},
 		})
 	}
+	logLevel := "none"
+	if options.Debug {
+		logLevel = "debug"
+	}
 	config := map[string]any{
-		"log": map[string]any{"loglevel": "none"}, "inbounds": inbounds,
+		"log": map[string]any{"loglevel": logLevel}, "inbounds": inbounds,
 		"outbounds": []any{
 			map[string]any{"tag": "deny", "protocol": "blackhole"},
 			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": map[string]any{"redirect": echoListener.Addr().String()}},
@@ -246,10 +253,11 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	}
 	p.instance = instance
 	p.config = config
-	p.ingress = []*tcpIngress{startTCPIngress(tcp, p.backends[0]), startTCPIngress(xhttp, p.backends[1])}
+	p.ingress = []*tcpIngress{startTCPIngress(p.traceIngress(tcp, "tcp", p.epoch), p.backends[0]), startTCPIngress(p.traceIngress(xhttp, "xhttp", p.epoch), p.backends[1])}
 	if err := awaitRealityMetadata(ctx, decoyListener.Addr().String()); err != nil {
 		return nil, err
 	}
+	p.traceLifecycle("ready")
 	ready = true
 	return p, nil
 }
@@ -375,6 +383,7 @@ func (p *peer) setRunning(running bool) error {
 	p.instanceMu.Lock()
 	defer p.instanceMu.Unlock()
 	if !running {
+		p.traceLifecycle("stop-begin")
 		var failures []error
 		for _, ingress := range p.ingress {
 			failures = append(failures, ingress.Close())
@@ -384,11 +393,13 @@ func (p *peer) setRunning(running bool) error {
 			failures = append(failures, p.instance.Close())
 			p.instance = nil
 		}
+		p.traceLifecycle("stop-complete")
 		return errors.Join(failures...)
 	}
 	if p.instance != nil {
 		return nil
 	}
+	p.traceLifecycle("restart-begin")
 	instance, err := startInstance(p.config)
 	if err != nil {
 		return err
@@ -403,11 +414,43 @@ func (p *peer) setRunning(running bool) error {
 			_ = instance.Close()
 			return err
 		}
-		ingress = append(ingress, startTCPIngress(listener, p.backends[i]))
+		ingress = append(ingress, startTCPIngress(p.traceIngress(listener, []string{"tcp", "xhttp"}[i], p.epoch+1), p.backends[i]))
 	}
 	p.instance = instance
 	p.ingress = ingress
+	p.epoch++
+	p.traceLifecycle("restart-ready")
 	return nil
+}
+
+// Only the listener is decorated. Accept returns the original *net.TCPConn,
+// preserving ingress half-close and all real transport behavior.
+type tracedIngressListener struct {
+	net.Listener
+	transport string
+	epoch     int
+	accepted  atomic.Int64
+}
+
+func (listener *tracedIngressListener) Accept() (net.Conn, error) {
+	conn, err := listener.Listener.Accept()
+	if err == nil {
+		log.Printf("peer-trace ingress-accept transport=%s epoch=%d ordinal=%d", listener.transport, listener.epoch, listener.accepted.Add(1))
+	}
+	return conn, err
+}
+
+func (p *peer) traceIngress(listener net.Listener, transport string, epoch int) net.Listener {
+	if !p.options.Debug {
+		return listener
+	}
+	return &tracedIngressListener{Listener: listener, transport: transport, epoch: epoch}
+}
+
+func (p *peer) traceLifecycle(stage string) {
+	if p.options.Debug {
+		log.Printf("peer-trace lifecycle stage=%s epoch=%d", stage, p.epoch)
+	}
 }
 
 func (p *peer) close() {
@@ -475,6 +518,7 @@ func main() {
 	advertiseHost := flag.String("advertise-host", "10.0.2.2", "Private IPv4 address used by the Android client")
 	controlHost := flag.String("control-host", "127.0.0.1", "Private IPv4 address on the separate management path")
 	controlPort := flag.Int("control-port", 0, "Management port; zero allocates a port")
+	debug := flag.Bool("debug", false, "Enable local native and ingress diagnostic logs")
 	runID := flag.String("run-id", "", "Acceptance run identity")
 	flag.Parse()
 	if validateLocalHost(*controlHost) != nil || *controlPort < 0 || *controlPort > 65535 {
@@ -493,7 +537,7 @@ func main() {
 		}
 		defer output.Close()
 	}
-	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID})
+	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID, Debug: *debug})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "owned Xray peer startup failed")
 		os.Exit(1)

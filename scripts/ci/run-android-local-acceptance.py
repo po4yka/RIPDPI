@@ -557,6 +557,7 @@ def arguments() -> argparse.Namespace:
         type=Path,
         help="verified real libXray AAR producer directory",
     )
+    parser.add_argument("--xray-debug", action="store_true", help="opt-in local real Xray client and owned peer diagnostic logs")
     parser.add_argument("--xray-host", type=local_host, default="10.0.2.2")
     parser.add_argument("--xray-control-host", type=local_host)
     parser.add_argument("--xray-control-port", type=int)
@@ -694,7 +695,7 @@ def main() -> int:
                         str(ready),
                         "--run-id",
                         args.run_id,
-                    ],
+                    ] + (["--debug"] if args.xray_debug else []),
                     out / "peer.log",
                 )
                 owned.append(child)
@@ -717,6 +718,8 @@ def main() -> int:
                     "ripdpi.xrayFixturePort": str(receipt_port),
                 }
             )
+            if args.xray_debug:
+                instrumentation["ripdpi.xrayDebug"] = "true"
             report["phase"] = "peer-manifest"
             peer_manifest = fetch(receipt_host, receipt_port, "manifest")
             if peer_manifest.get("runId") != args.run_id:
@@ -883,6 +886,10 @@ def main() -> int:
                         "XrayPeerRecovery:I",
                         "XrayBuilderInputs:I",
                         "VpnDnsRecovery:I",
+                        "NetworkHandover:I",
+                        "XrayNativeTrace:I",
+                        "XrayProtect:V",
+                        "GoLog:V",
                         "*:S",
                     ],
                     "android-logcat.log",

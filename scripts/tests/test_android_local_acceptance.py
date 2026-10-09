@@ -294,6 +294,25 @@ class EvidenceTests(unittest.TestCase):
             finally:
                 child.close()
 
+    def test_xray_debug_is_opt_in_and_described_in_help(self):
+        from unittest.mock import patch
+        import contextlib
+        import io
+
+        base = [str(SOURCE), "--scenario", "android-xray", "--run-id", "debug-test",
+                "--out-dir", "/tmp/unused-debug-test", "--serial", "emulator-5584"]
+        with patch.object(sys, "argv", base):
+            self.assertFalse(runner.arguments().xray_debug)
+        with patch.object(sys, "argv", base + ["--xray-debug"]):
+            self.assertTrue(runner.arguments().xray_debug)
+        output = io.StringIO()
+        with patch.object(sys, "argv", [str(SOURCE), "--help"]), contextlib.redirect_stdout(output):
+            with self.assertRaises(SystemExit) as result:
+                runner.arguments()
+        self.assertEqual(0, result.exception.code)
+        self.assertIn("--xray-debug", output.getvalue())
+        self.assertIn("opt-in", output.getvalue())
+
     def test_every_scenario_requires_exact_methods(self):
         self.assertEqual(3, len(runner.SCENARIOS["android-xray"]))
         self.assertIn(

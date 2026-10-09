@@ -12,6 +12,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
+import com.poyka.ripdpi.core.XrayBridgeModule
+import com.poyka.ripdpi.core.XrayDatDir
+import com.poyka.ripdpi.core.XrayNativeBridge
+import com.poyka.ripdpi.core.XrayProtectController
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
@@ -75,6 +80,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -88,16 +97,33 @@ import org.junit.Test
 import org.junit.rules.TestRule
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 /** Real VpnService, Keystore, gomobile engine and TUN; independent host peer, never a public server. */
 @HiltAndroidTest
-@UninstallModules(VpnTunnelSessionProviderModule::class)
+@UninstallModules(VpnTunnelSessionProviderModule::class, XrayBridgeModule::class)
 class XrayProviderE2ETest {
     // JUnit creates a fresh test instance, so each case has its own eight-event budget.
     @BindValue
     @JvmField
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider = ObservedVpnTunnelSessionProvider()
+
+    // Use the production factories, including geo paths and the native dispatcher.
+    @BindValue
+    @JvmField
+    @XrayDatDir
+    val xrayDatDir: String =
+        XrayBridgeModule.provideXrayDatDir(InstrumentationRegistry.getInstrumentation().targetContext)
+
+    @BindValue
+    @JvmField
+    val xrayNativeBridge: XrayNativeBridge =
+        TracedXrayNativeBridge(XrayBridgeModule.provideXrayNativeBridge(xrayDatDir))
+
+    @BindValue
+    @JvmField
+    val xrayRuntimeOwner: XrayRuntimeOwner = XrayBridgeModule.provideXrayRuntimeOwner(xrayNativeBridge)
 
     @get:Rule(order = 0)
     val hilt = HiltAndroidRule(this)
@@ -848,6 +874,45 @@ class XrayProviderE2ETest {
             JSONObject(connection.inputStream.use { it.readBytes().decodeToString() })
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /** Diagnostic delegation keeps the real engine, protection result and lifecycle. */
+    private class TracedXrayNativeBridge(
+        private val delegate: XrayNativeBridge,
+    ) : XrayNativeBridge by delegate {
+        private val enabled = InstrumentationRegistry.getArguments().getString("ripdpi.xrayDebug") == "true"
+        private val starts = AtomicInteger()
+        private val sockets = AtomicInteger()
+
+        override fun registerProtect(controller: XrayProtectController) {
+            if (enabled) {
+                delegate.registerProtect { fd ->
+                    val result = controller.protect(fd)
+                    Log.i(
+                        "XrayNativeTrace",
+                        "protect start=${starts.get()} attempt=${sockets.incrementAndGet()} fd=$fd result=$result",
+                    )
+                    result
+                }
+            } else {
+                delegate.registerProtect(controller)
+            }
+        }
+
+        override fun start(jsonConfig: String): Int {
+            if (!enabled) return delegate.start(jsonConfig)
+            val original = Json.parseToJsonElement(jsonConfig).jsonObject
+            val originalLog = original["log"]?.jsonObject ?: JsonObject(emptyMap())
+            val tracedLog = JsonObject(originalLog + ("loglevel" to JsonPrimitive("debug")))
+            val traced = JsonObject(original + ("log" to tracedLog))
+            check(original.filterKeys { it != "log" } == traced.filterKeys { it != "log" })
+            check(originalLog.filterKeys { it != "loglevel" } == tracedLog.filterKeys { it != "loglevel" })
+            Log.i(
+                "XrayNativeTrace",
+                "start generation=${starts.incrementAndGet()} configChange=loglevel-only version=${delegate.version()}",
+            )
+            return delegate.start(traced.toString())
         }
     }
 

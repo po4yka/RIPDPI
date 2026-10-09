@@ -735,3 +735,32 @@ func TestPersistentDefaultXHTTPClientRecoversPayloadAndDNSAfterPeerRestart(t *te
 		t.Fatal("each recovered client must produce its own payload and DoH receipts")
 	}
 }
+
+func TestIngressTracePreservesRealTCPConnection(t *testing.T) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	ordinary := &peer{}
+	if ordinary.traceIngress(listener, "xhttp", 1) != listener {
+		t.Fatal("disabled trace changed listener")
+	}
+	traced := (&peer{options: peerOptions{Debug: true}}).traceIngress(listener, "xhttp", 2)
+	dialed, err := net.Dial("tcp4", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dialed.Close()
+	accepted, err := traced.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer accepted.Close()
+	if _, ok := accepted.(*net.TCPConn); !ok {
+		t.Fatal("trace must preserve concrete TCP connection and half-close support")
+	}
+	if traced.(*tracedIngressListener).accepted.Load() != 1 {
+		t.Fatal("real accept was not counted")
+	}
+}
