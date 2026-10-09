@@ -6,7 +6,7 @@ Keep resolver and tunnel identity during ambiguous proxy DNS failure, with real 
 
 ## Ownership
 
-Android writer: core:service failover policy and tests, XrayProviderE2ETest, and this specification. Coordinator: combined-source gates and publication. No shared schema, lockfile, locale, or baseline changes.
+Android writer: core:service failover policy, consumed runtime evidence, unit tests, XrayProviderE2ETest, and NetworkPathE2ETest. Coordinator: planning artifacts, combined-source gates, and publication. No shared schema, lockfile, locale, or baseline changes.
 
 ## Execution
 
@@ -17,3 +17,7 @@ Android writer: core:service failover policy and tests, XrayProviderE2ETest, and
 ## Verification
 
 Run :core:service:testDebugUnitTest, :core:service:lintDebug, staticAnalysis, full Android local acceptance, repeated peer-loss acceptance, and separate routed Android Xray acceptance. Verify each report. Observe remote CI on the published commit.
+
+## Execution follow-up
+
+- [ ] DNS-1791563728410933 Preserve local proxy endpoint failover from consumed upstream evidence #bug !high @item:DNS-1791554915587312

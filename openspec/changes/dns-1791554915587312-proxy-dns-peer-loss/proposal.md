@@ -8,8 +8,9 @@ A shared proxy route failure can reset encrypted DNS requests. Current failover 
 
 ## What Changes
 
-- Preserve the selected resolver and native tunnel for ambiguous failures on an effective proxy DNS route.
-- Keep failover for direct DNS failures and resolver-specific evidence.
+- Preserve the selected resolver and native tunnel for ambiguous failures on an effective proxy DNS route with a consumed shared upstream.
+- Keep failover for direct DNS failures, local native proxy endpoint failures, and resolver-specific evidence.
+- Read shared upstream ownership from successful runtime start evidence. Preserve this evidence during DNS-only tunnel refresh.
 - Check real peer loss and recovery with separate-UID payloads, DNS receipts, resolver identity, and tunnel establishment observations.
 - No breaking schema or wire changes.
 
