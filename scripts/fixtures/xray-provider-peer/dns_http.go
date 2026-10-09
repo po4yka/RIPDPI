@@ -18,7 +18,11 @@ import (
 const maxDNSHTTPMessage = 65535
 
 func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	host := p.options.BindHost
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	listener, err := net.Listen("tcp4", net.JoinHostPort(host, "0"))
 	if err != nil {
 		return nil, err
 	}

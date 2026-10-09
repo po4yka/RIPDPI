@@ -230,11 +230,23 @@ val forwardedInstrumentationArguments =
         "ripdpi.fixtureControlHost",
         "ripdpi.fixtureControlPort",
         "ripdpi.xrayFixturePort",
+        "ripdpi.xrayFixtureHost",
+        "ripdpi.xrayControlHost",
+        "ripdpi.acceptanceRunId",
         "ripdpi.packetSmokeDeviceProfile",
         "ripdpi.runNetworkTests",
     )
 
 extensions.configure<ApplicationExtension> {
+    sourceSets
+        .getByName("test")
+        .kotlin.directories
+        .add("src/testShared/kotlin")
+    sourceSets
+        .getByName("androidTest")
+        .kotlin.directories
+        .add("src/testShared/kotlin")
+
     namespace = "com.poyka.ripdpi"
     testBuildType = providers.gradleProperty("ripdpi.testBuildType").orElse("debug").get()
 

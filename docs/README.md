@@ -72,6 +72,7 @@ New developers should read these in order:
 - [Short CI triage route](contributor/ci-triage.md)
 - [Feature test checklist](feature-test-checklist.md)
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
+- [Strict local VPN acceptance](../test-lab/acceptance/README.md)
 - [Local network test lab](../test-lab/README.md)
 - [Local network lab coverage](../test-lab/SPEC.md)
 - [Android logcat filtering](android-logcat-filtering.md)

@@ -303,6 +303,10 @@ func assertDNSHTTPReceiptsUnchanged(t *testing.T, p *peer) {
 }
 
 func dnsHTTPRealityClient(t *testing.T, p *peer, network string) *http.Client {
+	return realityHTTPClient(t, p, network, nil)
+}
+
+func realityHTTPClient(t *testing.T, p *peer, network string, xmux map[string]any) *http.Client {
 	t.Helper()
 	// Match the existing exchange/exchangeDNS helpers, using the same real Xray
 	// instance loader and SOCKS reply parser while allowing DNS-message HTTP bodies.
@@ -325,7 +329,7 @@ func dnsHTTPRealityClient(t *testing.T, p *peer, network string) *http.Client {
 			"streamSettings": map[string]any{
 				"network": network, "security": "reality",
 				"realitySettings": map[string]any{"publicKey": p.manifest.PublicKey, "serverName": serverName, "shortId": "ab12", "fingerprint": "chrome"},
-				"xhttpSettings":   map[string]any{"path": "/owned-xhttp", "mode": "auto"},
+				"xhttpSettings":   map[string]any{"path": "/owned-xhttp", "mode": "auto", "xmux": xmux},
 			},
 		}},
 	}

@@ -80,8 +80,8 @@ probes:
       #!/usr/bin/env bash
       set -eux
       command -v nft && command -v tc && command -v docker
-      python3 -c "import scapy.all, netfilterqueue"
-    hint: "limactl shell ripdpi-netem -- sudo apt-get install -y nftables python3-netfilterqueue docker.io"
+      /opt/ripdpi-venv/bin/python3 -c "import scapy.all, netfilterqueue"
+    hint: "Inspect provisioning of /opt/ripdpi-venv; the readiness probe uses that interpreter."
 
 message: |
   RIPDPI netem VM provisioned.
@@ -89,7 +89,7 @@ message: |
   Inside-VM checks:
     nft --version
     sudo tc qdisc show
-    sudo python3 -c "import netfilterqueue; print(netfilterqueue.__file__)"
+    sudo /opt/ripdpi-venv/bin/python3 -c "import netfilterqueue; print(netfilterqueue.__file__)"
 
   Host bind-mount: /srv/ripdpi -> ~/GitHub/RIPDPI
 

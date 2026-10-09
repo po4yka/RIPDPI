@@ -296,3 +296,15 @@ ci: task-check lint lint-rust test test-rust
 [group('ci')]
 ci-local:
     bash scripts/ci/act-local.sh
+
+# Validate the executable local acceptance catalog and strict evidence contracts.
+[group('test')]
+acceptance-check:
+    python3 test-lab/acceptance/generate_manifest.py --check
+    python3 test-lab/acceptance/lab.py validate
+    python3 -m unittest discover -s test-lab/acceptance/tests -v
+
+# List the mandatory rows before selecting runtime acceptance.
+[group('test')]
+acceptance-list profile="core":
+    python3 test-lab/acceptance/lab.py list --profile {{quote(profile)}}

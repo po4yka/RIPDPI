@@ -156,6 +156,7 @@ class NetworkPathE2ETest {
                 }
             }
             if (this::fixtureClient.isInitialized) {
+                writeLocalAcceptanceReceipts(appContext, fixtureClient.events())
                 fixtureClient.resetEvents()
                 fixtureClient.resetFaults()
             }
@@ -271,6 +272,61 @@ class NetworkPathE2ETest {
         awaitUntil {
             serviceStateStore.telemetry.value.status == AppStatus.Halted
         }
+    }
+
+    @Test
+    fun localAcceptanceTunTcpUdpFaultAndRecovery() {
+        assumeEmulatorLocalVpnFixture()
+        ensureVpnConsentGranted(appContext)
+        runBlocking {
+            appSettingsRepository.applyFixtureEncryptedDns(fixture, reserveLoopbackPort())
+        }
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        val nonce = UUID.randomUUID().toString()
+
+        fun exchange(phase: String) {
+            val tcpPayload = httpEchoPayloadText("acceptance-$nonce-$phase")
+            val tcp = testProcessTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, tcpPayload)
+            val udpPayload = "acceptance-$nonce-$phase"
+            val udp = testProcessUdpRoundTrip(fixture.androidHost, fixture.udpEchoPort, udpPayload)
+            assertTrue("TCP exchange failed: ${tcp.failureKind}", tcp.ok)
+            assertEquals(tcpPayload, tcp.response)
+            assertTrue("UDP exchange failed: ${udp.failureKind}", udp.ok)
+            assertEquals(udpPayload, udp.response)
+            assertTrue("TCP must use a separate UID", tcp.probeUid != null && tcp.probeUid != Process.myUid())
+            assertEquals(tcp.probeUid, udp.probeUid)
+            awaitUntil {
+                val events = fixtureClient.events()
+                events.any { it.matchesEcho("tcp_echo", "tcp", fixture.tcpEchoPort, tcpPayload.toByteArray().size) } &&
+                    events.any { it.matchesEcho("udp_echo", "udp", fixture.udpEchoPort, udpPayload.toByteArray().size) }
+            }
+        }
+        exchange("baseline")
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                FixtureFaultTargetDto.UDP_ECHO,
+                FixtureFaultOutcomeDto.UDP_DROP,
+                FixtureFaultScopeDto.PERSISTENT,
+            ),
+        )
+        try {
+            val dropped = testProcessUdpRoundTrip(fixture.androidHost, fixture.udpEchoPort, "drop-$nonce")
+            assertFalse("UDP drop must prevent the echo", dropped.ok)
+            assertTrue(fixtureClient.events().any { it.service == "udp_echo" && it.detail.contains("UdpDrop") })
+            val tcpPayload = httpEchoPayloadText("tcp-during-udp-drop-$nonce")
+            assertEquals(tcpPayload, vpnTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, tcpPayload))
+        } finally {
+            fixtureClient.resetFaults()
+        }
+        exchange("recovery")
+        stopService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.VPN, fixtureClient)
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient)
+        exchange("restart")
+        val snapshot = serviceStateStore.telemetry.value
+        assertTrue(snapshot.tunnelStats.txPackets > 0 && snapshot.tunnelStats.rxPackets > 0)
     }
 
     @Test
