@@ -153,6 +153,18 @@ fn exchange_encrypted_dns_query_with_hooks(
     transport: &TransportConfig,
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<Vec<u8>, String> {
+    exchange_encrypted_dns_query_with_request(domain, record_type, endpoint, transport, connect_hooks)
+        .map(|(_, response)| response)
+}
+
+/// Return the exact transmitted query so diagnostic parsing can bind negative replies.
+pub fn exchange_encrypted_dns_query_with_request(
+    domain: &str,
+    record_type: u16,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+    connect_hooks: EncryptedDnsConnectHooks,
+) -> Result<(Vec<u8>, Vec<u8>), String> {
     let transport = match transport {
         TransportConfig::Direct { .. } => EncryptedDnsTransport::Direct,
         TransportConfig::Socks5 { host, port, credentials } => {
@@ -173,7 +185,8 @@ fn exchange_encrypted_dns_query_with_hooks(
     .map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query_with_type(domain, query_id, record_type)?;
-    resolver.exchange_blocking(&packet).map_err(|err| err.to_string())
+    let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
+    Ok((packet, response))
 }
 
 /// Add the DoT TLS profile without replacing caller-owned socket hooks.

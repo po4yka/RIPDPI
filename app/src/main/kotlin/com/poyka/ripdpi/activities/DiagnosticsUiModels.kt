@@ -116,6 +116,7 @@ data class DiagnosticsDnsIntegrityDomainUiModel(
     val udpAnswer: String,
     val dohAnswer: String,
     val tone: DiagnosticsTone,
+    val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
 )
 
 @Immutable
@@ -156,6 +157,7 @@ data class DiagnosticsDnsAvailabilityServerUiModel(
     val availability: String,
     val latency: String,
     val tone: DiagnosticsTone,
+    val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
 )
 
 @Stable
@@ -529,6 +531,7 @@ data class DiagnosticsProbeResultUiModel(
     val details: ImmutableList<DiagnosticsFieldUiModel>,
     val transferEvidence: DiagnosticsTransferUiModel? = null,
     val connectionStages: DiagnosticsConnectionStageUiModel? = null,
+    val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
 )
 
 @Stable

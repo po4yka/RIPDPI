@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
+import com.poyka.ripdpi.diagnostics.canonicalDnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
@@ -313,6 +314,10 @@ private fun projectStructuredArchiveJson(
             element
         }
 
+        fieldName in DnsSemanticsObservationFields -> {
+            canonicalDnsResponseSemantics(element.toString())?.let(Json::parseToJsonElement) ?: JsonNull
+        }
+
         fieldName?.isArchiveRawWireField == true -> {
             JsonPrimitive("redacted")
         }
@@ -361,6 +366,10 @@ private fun projectArchiveObject(element: JsonObject): JsonObject {
     return JsonObject(
         element.mapValues { (key, value) ->
             when {
+                key == "value" && declaredField in DnsSemanticsDetailFields -> {
+                    JsonPrimitive(canonicalDnsResponseSemantics((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
                 key == "value" && declaredField == "transferEvidence" -> {
                     JsonPrimitive(canonicalTransferEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
                 }
@@ -725,3 +734,6 @@ private const val JsonEndpointFieldKeyPattern =
         "upstreamAddress)\"\\s*:\\s*\")"
 private const val JsonEndpointFieldValuePattern =
     "(?!redacted|<redacted>|unavailable|unknown|none|null)(?:[^\"\\\\]|\\\\.)*\""
+
+private val DnsSemanticsObservationFields = setOf("udpResponse", "encryptedResponse")
+private val DnsSemanticsDetailFields = setOf("udpDnsResponse", "encryptedDnsResponse")

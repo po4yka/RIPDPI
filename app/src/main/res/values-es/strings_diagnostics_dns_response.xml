@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_source_udp">DNS · UDP</string>
+    <string name="diagnostics_dns_source_encrypted">DNS · Resolutor cifrado</string>
+    <string name="diagnostics_dns_source_doh_json">DNS · DoH JSON</string>
+    <string name="diagnostics_dns_source_doh_wire">DNS · DoH wire</string>
+    <string name="diagnostics_dns_response">Respuesta</string>
+    <string name="diagnostics_dns_query">Tipo de consulta</string>
+    <string name="diagnostics_dns_rcode">Código de respuesta (RCODE)</string>
+    <string name="diagnostics_dns_cname">Destinos CNAME</string>
+    <string name="diagnostics_dns_ttl_min">TTL mínimo (segundos)</string>
+    <string name="diagnostics_dns_ttl_max">TTL máximo (segundos)</string>
+    <string name="diagnostics_dns_negative_ttl">TTL negativo (segundos)</string>
+    <string name="diagnostics_dns_tc">Truncado (TC)</string>
+    <string name="diagnostics_dns_aa">Autoritativo (AA)</string>
+    <string name="diagnostics_dns_ra">Recursión disponible (RA)</string>
+    <string name="diagnostics_dns_ad">Indicador de datos autenticados (AD)</string>
+    <string name="diagnostics_dns_soa">SOA presente</string>
+    <string name="diagnostics_dns_ede">Códigos de error DNS extendidos (EDE)</string>
+    <string name="diagnostics_dns_limits">Límites de la evidencia</string>
+    <string name="diagnostics_dns_unknown">Desconocido</string>
+    <string name="diagnostics_dns_yes">Sí</string>
+    <string name="diagnostics_dns_no">No</string>
+    <string name="diagnostics_dns_missing">Metadatos de respuesta no recopilados o no disponibles</string>
+    <string name="diagnostics_dns_answer">Respuesta con direcciones</string>
+    <string name="diagnostics_dns_nodata">Sin registros del tipo solicitado (NODATA)</string>
+    <string name="diagnostics_dns_nxdomain">El nombre no existe (NXDOMAIN)</string>
+    <string name="diagnostics_dns_servfail">Fallo del resolutor (SERVFAIL)</string>
+    <string name="diagnostics_dns_refused">Consulta rechazada (REFUSED)</string>
+    <string name="diagnostics_dns_other_rcode">Otro código de respuesta</string>
+    <string name="diagnostics_dns_truncated">Respuesta truncada</string>
+    <string name="diagnostics_dns_timeout">Sin respuesta dentro del plazo</string>
+    <string name="diagnostics_dns_transport_error">Error de transporte</string>
+    <string name="diagnostics_dns_malformed">Respuesta incorrecta o no coincidente</string>
+    <string name="diagnostics_dns_disagreement">Las respuestas DNS difieren</string>
+    <string name="diagnostics_dns_udp_unavailable">Comparación UDP no disponible</string>
+    <string name="diagnostics_dns_encrypted_unavailable">Comparación cifrada no disponible</string>
+    <string name="diagnostics_dns_negative">Respuestas negativas coincidentes</string>
+    <string name="diagnostics_dns_ok">Las respuestas DNS coinciden</string>
+    <string name="diagnostics_dns_caution">Son datos de la respuesta del resolutor. AD no es una validación DNSSEC local; EDE es una afirmación del resolutor. Las diferencias, los TTL o las respuestas negativas no demuestran un bloqueo del proveedor.</string>
+    <string name="diagnostics_dns_none">Ninguno indicado</string>
+    <string name="diagnostics_dns_show">Mostrar datos de respuestas DNS</string>
+    <string name="diagnostics_dns_hide">Ocultar datos de respuestas DNS</string>
+    <string name="diagnostics_dns_complete_agree">Las respuestas DNS con direcciones coinciden en %1$d dominios incluidos.</string>
+</resources>

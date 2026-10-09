@@ -139,6 +139,7 @@ class DiagnosticsSummaryProjector
                 }
                 addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
                 addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
+                addAll(dnsSemanticsSummaryLines(report?.results.orEmpty()))
                 addAll(
                     connectionStageSummaryLines(
                         report?.results.orEmpty(),

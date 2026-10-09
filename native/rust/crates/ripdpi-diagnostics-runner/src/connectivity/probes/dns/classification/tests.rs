@@ -134,7 +134,7 @@ fn dns_probe_keeps_non_timeout_udp_failures_on_hard_block_path() {
 }
 
 #[test]
-fn dns_answer_class_marks_nxdomain_plus_encrypted_success_as_poisoned() {
+fn dns_answer_class_marks_nxdomain_plus_encrypted_success_as_divergent() {
     let assessment = evaluate_dns_oracles(
         endpoint("primary"),
         &[],
@@ -151,7 +151,7 @@ fn dns_answer_class_marks_nxdomain_plus_encrypted_success_as_poisoned() {
         &assessment,
     );
 
-    assert_eq!(answer_class, Some(DnsAnswerClass::Poisoned));
+    assert_eq!(answer_class, Some(DnsAnswerClass::Divergent));
 }
 
 #[test]
@@ -199,4 +199,53 @@ fn dns_classifier_keeps_poisoned_when_https_records_are_missing() {
     let classification = resolve_dns_classification(Some(DnsAnswerClass::Poisoned), DnsHttpsClass::NoHttpsRr);
 
     assert_eq!(classification, Some("POISONED"));
+}
+
+#[test]
+fn negative_and_incomplete_responses_do_not_claim_udp_blocking() {
+    for error in [
+        "dns_nodata",
+        "dns_servfail",
+        "dns_refused",
+        "dns_truncated",
+        "dns_response_unusable",
+        "dns_response_mismatch",
+        "dns_malformed_response",
+        "dns_answer_owner_mismatch",
+        "dns_address_at_cname_owner",
+        "dns_invalid_cname_chain",
+        "dns_cname_chain_too_long",
+        "dns_unsupported_query_type",
+        "dns_malformed_query",
+    ] {
+        for path in [ScanPathMode::RawPath, ScanPathMode::InPath] {
+            assert_eq!(
+                classify_dns_probe_outcome(
+                    &Err(error.to_string()),
+                    &Ok(vec!["192.0.2.1".to_string()]),
+                    &path,
+                    "10",
+                    &BTreeSet::new(),
+                    Some("other"),
+                    1,
+                    false
+                ),
+                "dns_unavailable",
+                "{error}"
+            );
+        }
+    }
+    assert_eq!(
+        classify_dns_probe_outcome(
+            &Ok(Vec::new()),
+            &Ok(vec!["192.0.2.1".to_string()]),
+            &ScanPathMode::RawPath,
+            "10",
+            &BTreeSet::new(),
+            None,
+            1,
+            false
+        ),
+        "dns_unavailable"
+    );
 }

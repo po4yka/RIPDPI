@@ -394,6 +394,39 @@ duration. The same projection supplies current results, history, live transfer
 presentation and bounded text exports. Existing JSON/CSV evidence and native
 wire contracts remain unchanged.
 
+## Extended DNS response semantics
+
+DNS address comparisons and DNS response facts have separate contracts. Optional
+`udpResponse` and `encryptedResponse` fields on `DnsObservationFact` contain
+`DnsResponseSemantics`. The same data is stored in probe details under
+`udpDnsResponse` and `encryptedDnsResponse` for current and historical UI.
+`encryptedResponse` describes the selected usable oracle attempt, or the primary
+attempt when all address comparisons are unusable. It is not an aggregate of
+every fallback attempt. Existing resolver details identify that scope.
+Old reports omit these fields and show that metadata was not collected.
+
+The response facts distinguish address answers, NODATA, NXDOMAIN, SERVFAIL,
+REFUSED, other RCODEs, truncation, malformed data, timeout and transport failure.
+The query type is explicit; current scan targets still use A queries. Response
+identity and question validation must succeed before response metadata is trusted.
+The metadata preserves a bounded CNAME target chain, address TTL range, SOA
+negative TTL, header flags and numeric Extended DNS Error codes. It stores no
+raw DNS packets or EDE free text. AD reports a resolver flag; the app does not
+claim local DNSSEC validation. EDE describes the resolver's claim.
+
+A negative response is not a transport failure. Resolver differences, TTL values,
+AD, EDE and timing do not independently establish a provider restriction.
+List-only DNS tools retain explicit missing response metadata and use conservative
+comparison verdicts. Strict runtime DNS resolution remains separate from
+semantic diagnostic parsing.
+
+The evidence survives existing JSON storage without a Room migration. The archive
+canonicalizes nested detail JSON and observation metadata, redacts CNAME targets
+and retains bounded numeric EDE codes. Text summaries emit only codes, counts,
+flags and numeric timing data. Protocol meanings follow
+[RFC 2308](https://www.rfc-editor.org/rfc/rfc2308.html) and
+[RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html).
+
 ## Local device and default-data SIM context
 
 `DiagnosticContextModel.localNetwork` contains optional, identifier-free local

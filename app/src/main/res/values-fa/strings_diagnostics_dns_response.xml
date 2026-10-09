@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_source_udp">DNS · UDP</string>
+    <string name="diagnostics_dns_source_encrypted">DNS · حل‌کنندهٔ رمزگذاری‌شده</string>
+    <string name="diagnostics_dns_source_doh_json">DNS · DoH JSON</string>
+    <string name="diagnostics_dns_source_doh_wire">DNS · DoH wire</string>
+    <string name="diagnostics_dns_response">پاسخ</string>
+    <string name="diagnostics_dns_query">نوع پرس‌وجو</string>
+    <string name="diagnostics_dns_rcode">کد پاسخ (RCODE)</string>
+    <string name="diagnostics_dns_cname">مقصدهای CNAME</string>
+    <string name="diagnostics_dns_ttl_min">کمترین TTL (ثانیه)</string>
+    <string name="diagnostics_dns_ttl_max">بیشترین TTL (ثانیه)</string>
+    <string name="diagnostics_dns_negative_ttl">TTL پاسخ منفی (ثانیه)</string>
+    <string name="diagnostics_dns_tc">کوتاه‌شده (TC)</string>
+    <string name="diagnostics_dns_aa">معتبر (AA)</string>
+    <string name="diagnostics_dns_ra">بازگشت در دسترس (RA)</string>
+    <string name="diagnostics_dns_ad">پرچم دادهٔ تأییدشده (AD)</string>
+    <string name="diagnostics_dns_soa">وجود SOA</string>
+    <string name="diagnostics_dns_ede">کدهای خطای گسترش‌یافتهٔ DNS (EDE)</string>
+    <string name="diagnostics_dns_limits">محدودیت شواهد</string>
+    <string name="diagnostics_dns_unknown">نامشخص</string>
+    <string name="diagnostics_dns_yes">بله</string>
+    <string name="diagnostics_dns_no">خیر</string>
+    <string name="diagnostics_dns_missing">فرادادهٔ پاسخ جمع‌آوری نشده یا در دسترس نیست</string>
+    <string name="diagnostics_dns_answer">پاسخ دارای نشانی</string>
+    <string name="diagnostics_dns_nodata">رکوردی از نوع درخواستی وجود ندارد (NODATA)</string>
+    <string name="diagnostics_dns_nxdomain">نام وجود ندارد (NXDOMAIN)</string>
+    <string name="diagnostics_dns_servfail">خرابی حل‌کننده (SERVFAIL)</string>
+    <string name="diagnostics_dns_refused">پرس‌وجو رد شد (REFUSED)</string>
+    <string name="diagnostics_dns_other_rcode">کد پاسخ دیگر</string>
+    <string name="diagnostics_dns_truncated">پاسخ کوتاه‌شده</string>
+    <string name="diagnostics_dns_timeout">پیش از پایان مهلت پاسخی دریافت نشد</string>
+    <string name="diagnostics_dns_transport_error">خطای انتقال</string>
+    <string name="diagnostics_dns_malformed">پاسخ نامعتبر یا نامطابق</string>
+    <string name="diagnostics_dns_disagreement">پاسخ‌های DNS متفاوت‌اند</string>
+    <string name="diagnostics_dns_udp_unavailable">مقایسهٔ UDP در دسترس نیست</string>
+    <string name="diagnostics_dns_encrypted_unavailable">مقایسهٔ رمزگذاری‌شده در دسترس نیست</string>
+    <string name="diagnostics_dns_negative">پاسخ‌های منفی یکسان‌اند</string>
+    <string name="diagnostics_dns_ok">پاسخ‌های DNS یکسان‌اند</string>
+    <string name="diagnostics_dns_caution">این داده‌ها از پاسخ حل‌کننده هستند. AD اعتبارسنجی محلی DNSSEC نیست؛ EDE ادعای حل‌کننده است. تفاوت پاسخ‌ها، مقادیر TTL یا پاسخ‌های منفی مسدودسازی توسط ارائه‌دهنده را اثبات نمی‌کنند.</string>
+    <string name="diagnostics_dns_none">چیزی گزارش نشده</string>
+    <string name="diagnostics_dns_show">نمایش داده‌های پاسخ DNS</string>
+    <string name="diagnostics_dns_hide">پنهان کردن داده‌های پاسخ DNS</string>
+    <string name="diagnostics_dns_complete_agree">پاسخ‌های نشانی DNS در %1$d دامنهٔ داخلی یکسان‌اند.</string>
+</resources>

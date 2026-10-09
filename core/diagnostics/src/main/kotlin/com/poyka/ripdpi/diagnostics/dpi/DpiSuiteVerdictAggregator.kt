@@ -21,7 +21,7 @@ object DpiSuiteVerdictAggregator {
             when {
                 categories.size > 1 -> SuiteVerdict.MIXED
                 categories.size == 1 -> categories.single()
-                failures > 0 -> SuiteVerdict.INCONCLUSIVE
+                failures > 0 || results.any(::hasUncertainDns) -> SuiteVerdict.INCONCLUSIVE
                 else -> SuiteVerdict.CLEAN
             }
         return DpiSuiteAggregate(
@@ -34,8 +34,23 @@ object DpiSuiteVerdictAggregator {
     private fun hasDnsInterference(result: DpiSuiteProbeResult): Boolean =
         result is DpiSuiteProbeResult.DnsIntegrity &&
             result.result.domains.any { domain ->
-                domain.verdict != DnsIntegrityVerdict.DNS_OK && domain.verdict != DnsIntegrityVerdict.UNKNOWN
+                domain.verdict in LegacyDnsInterferenceVerdicts
             }
+
+    private fun hasUncertainDns(result: DpiSuiteProbeResult): Boolean =
+        result is DpiSuiteProbeResult.DnsIntegrity &&
+            result.result.domains.any { domain ->
+                domain.verdict != DnsIntegrityVerdict.DNS_OK && domain.verdict !in LegacyDnsInterferenceVerdicts
+            }
+
+    private val LegacyDnsInterferenceVerdicts =
+        setOf(
+            DnsIntegrityVerdict.FAKE_IP,
+            DnsIntegrityVerdict.DNS_SUBSTITUTION,
+            DnsIntegrityVerdict.DNS_INTERCEPTION,
+            DnsIntegrityVerdict.FAKE_NXDOMAIN,
+            DnsIntegrityVerdict.DOH_BLOCKED,
+        )
 
     private fun hasDpiDetection(result: DpiSuiteProbeResult): Boolean =
         when (result) {
@@ -76,7 +91,7 @@ object DpiSuiteVerdictAggregator {
         when (result) {
             is DpiSuiteProbeResult.DnsIntegrity -> {
                 val flagged = result.result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK }
-                "DNS substitution: $flagged/${result.result.domains.size} flagged"
+                "DNS comparison: $flagged/${result.result.domains.size} flagged"
             }
 
             is DpiSuiteProbeResult.DnsAvailability -> {

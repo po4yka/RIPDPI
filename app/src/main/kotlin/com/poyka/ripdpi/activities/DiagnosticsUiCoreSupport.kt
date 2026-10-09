@@ -297,11 +297,12 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         tone = toneForProbeResult(pathMode, result, reportResults),
         details =
             result.details
-                .filterNot { it.key == "transferEvidence" }
+                .filterNot { it.key in setOf("transferEvidence", "udpDnsResponse", "encryptedDnsResponse") }
                 .map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
         transferEvidence = result.toTransferUiModel(),
         connectionStages = result.toConnectionStageScale()?.toConnectionStageUiModel(networkScopeUnverified),
+        dnsResponses = result.toDnsResponseGroups(strings).toImmutableList(),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

@@ -1,4 +1,8 @@
+mod encrypted_observation;
+mod semantics;
 mod udp;
+pub use encrypted_observation::resolve_via_encrypted_dns_with_observations;
+pub use semantics::parse_dns_response_semantics;
 
 #[cfg(feature = "hickory")]
 mod hickory_probe;

@@ -13,6 +13,10 @@ pub(crate) fn build_dns_observation(result: &ProbeResult) -> ProbeObservation {
     observation.dns = Some(DnsObservationFact {
         domain: result.target.clone(),
         status: dns_status(&result.outcome),
+        udp_response: detail_value(result, "udpDnsResponse")
+            .and_then(ripdpi_diagnostics_contracts::types::DnsResponseSemantics::from_detail_json),
+        encrypted_response: detail_value(result, "encryptedDnsResponse")
+            .and_then(ripdpi_diagnostics_contracts::types::DnsResponseSemantics::from_detail_json),
         udp_addresses: detail_list(result, "udpAddresses"),
         encrypted_addresses: encrypted_addresses(result),
         udp_latency_ms: detail_value(result, "udpLatencyMs").and_then(|v| v.parse().ok()),

@@ -19,7 +19,7 @@ import java.net.SocketTimeoutException
 
 class DnsIntegrityCheckerTest {
     @Test
-    fun substitutionDetectedWhenUdpAndDohIpsDiffer() =
+    fun disagreementObservedWhenUdpAndDohIpsDiffer() =
         runTest {
             val result =
                 checker(
@@ -28,11 +28,11 @@ class DnsIntegrityCheckerTest {
                     dohWire = { setOf("5.6.7.8") },
                 ).check(listOf("blocked.example"))
 
-            assertEquals(DnsIntegrityVerdict.DNS_SUBSTITUTION, result.domains.single().verdict)
+            assertEquals(DnsIntegrityVerdict.DNS_DISAGREEMENT, result.domains.single().verdict)
         }
 
     @Test
-    fun interceptionDetectedWhenUdpTimesOutAndDohSucceeds() =
+    fun udpUnavailableWhenUdpTimesOutAndDohSucceeds() =
         runTest {
             val result =
                 checker(
@@ -41,7 +41,7 @@ class DnsIntegrityCheckerTest {
                     dohWire = { setOf("5.6.7.8") },
                 ).check(listOf("blocked.example"))
 
-            assertEquals(DnsIntegrityVerdict.DNS_INTERCEPTION, result.domains.single().verdict)
+            assertEquals(DnsIntegrityVerdict.UDP_UNAVAILABLE, result.domains.single().verdict)
         }
 
     @Test
@@ -58,7 +58,7 @@ class DnsIntegrityCheckerTest {
         }
 
     @Test
-    fun fakeNxdomainDetectedWhenUdpReturnsNxdomainAndDohSucceeds() =
+    fun disagreementWhenUdpReturnsNxdomainAndDohSucceeds() =
         runTest {
             val result =
                 checker(
@@ -67,7 +67,7 @@ class DnsIntegrityCheckerTest {
                     dohWire = { setOf("5.6.7.8") },
                 ).check(listOf("blocked.example"))
 
-            assertEquals(DnsIntegrityVerdict.FAKE_NXDOMAIN, result.domains.single().verdict)
+            assertEquals(DnsIntegrityVerdict.DNS_DISAGREEMENT, result.domains.single().verdict)
         }
 
     @Test
@@ -84,7 +84,7 @@ class DnsIntegrityCheckerTest {
         }
 
     @Test
-    fun dohBlockedCounterIncrementsWhenBothDohMethodsFail() =
+    fun emptyDohDoesNotProveBlocking() =
         runTest {
             val result =
                 checker(
@@ -93,8 +93,8 @@ class DnsIntegrityCheckerTest {
                     dohWire = { emptySet() },
                 ).check(listOf("blocked.example"))
 
-            assertEquals(1, result.dohBlocked)
-            assertEquals(DnsIntegrityVerdict.DOH_BLOCKED, result.domains.single().verdict)
+            assertEquals(0, result.dohBlocked)
+            assertEquals(DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE, result.domains.single().verdict)
         }
 
     @Test

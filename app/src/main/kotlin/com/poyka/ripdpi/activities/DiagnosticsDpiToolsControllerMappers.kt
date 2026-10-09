@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
+import com.poyka.ripdpi.diagnostics.dpi.DnsServerType
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16AsnSummary
@@ -69,8 +70,9 @@ internal fun List<DnsServerResult>.toDnsAvailabilityUiModel(
                     availability = "${result.availableDomains}/${result.totalDomains}",
                     latency =
                         result.avgLatencyMs?.let { "$it ms" }
-                            ?: stringResolver.getString(R.string.diagnostics_value_timeout),
+                            ?: stringResolver.getString(R.string.diagnostics_dns_unknown),
                     tone = if (result.availableDomains > 0) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
+                    dnsResponses = result.responseGroups(stringResolver).toPersistentList(),
                 )
             }.toPersistentList(),
     )
@@ -423,3 +425,18 @@ private fun CompressionProbeVerdict.tone(): DiagnosticsTone =
         CompressionProbeVerdict.INTERNAL_ERR,
         -> DiagnosticsTone.Warning
     }
+
+private fun DnsServerResult.responseGroups(strings: StringResolver): List<DiagnosticsContextGroupUiModel> {
+    val source =
+        if (type ==
+            DnsServerType.UDP
+        ) {
+            R.string.diagnostics_dns_source_udp
+        } else {
+            R.string.diagnostics_dns_source_doh_wire
+        }
+    if (responses.isEmpty()) return listOf(dnsResponseGroup(strings, source, null))
+    return responses.map { (domain, response) ->
+        dnsResponseGroup(strings, source, response).let { it.copy(title = "${it.title} · $domain") }
+    }
+}

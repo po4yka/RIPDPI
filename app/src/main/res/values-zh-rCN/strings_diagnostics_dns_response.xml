@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_source_udp">DNS · UDP</string>
+    <string name="diagnostics_dns_source_encrypted">DNS · 加密解析器</string>
+    <string name="diagnostics_dns_source_doh_json">DNS · DoH JSON</string>
+    <string name="diagnostics_dns_source_doh_wire">DNS · DoH wire</string>
+    <string name="diagnostics_dns_response">响应</string>
+    <string name="diagnostics_dns_query">查询类型</string>
+    <string name="diagnostics_dns_rcode">响应代码 (RCODE)</string>
+    <string name="diagnostics_dns_cname">CNAME 目标</string>
+    <string name="diagnostics_dns_ttl_min">最小 TTL（秒）</string>
+    <string name="diagnostics_dns_ttl_max">最大 TTL（秒）</string>
+    <string name="diagnostics_dns_negative_ttl">否定响应 TTL（秒）</string>
+    <string name="diagnostics_dns_tc">已截断 (TC)</string>
+    <string name="diagnostics_dns_aa">权威响应 (AA)</string>
+    <string name="diagnostics_dns_ra">递归可用 (RA)</string>
+    <string name="diagnostics_dns_ad">已认证数据标志 (AD)</string>
+    <string name="diagnostics_dns_soa">存在 SOA</string>
+    <string name="diagnostics_dns_ede">扩展 DNS 错误代码 (EDE)</string>
+    <string name="diagnostics_dns_limits">证据限制</string>
+    <string name="diagnostics_dns_unknown">未知</string>
+    <string name="diagnostics_dns_yes">是</string>
+    <string name="diagnostics_dns_no">否</string>
+    <string name="diagnostics_dns_missing">未收集响应元数据或元数据不可用</string>
+    <string name="diagnostics_dns_answer">包含地址的响应</string>
+    <string name="diagnostics_dns_nodata">没有所请求类型的记录 (NODATA)</string>
+    <string name="diagnostics_dns_nxdomain">名称不存在 (NXDOMAIN)</string>
+    <string name="diagnostics_dns_servfail">解析器失败 (SERVFAIL)</string>
+    <string name="diagnostics_dns_refused">查询被拒绝 (REFUSED)</string>
+    <string name="diagnostics_dns_other_rcode">其他响应代码</string>
+    <string name="diagnostics_dns_truncated">截断的响应</string>
+    <string name="diagnostics_dns_timeout">超时前未收到响应</string>
+    <string name="diagnostics_dns_transport_error">传输错误</string>
+    <string name="diagnostics_dns_malformed">响应格式错误或不匹配</string>
+    <string name="diagnostics_dns_disagreement">DNS 响应不同</string>
+    <string name="diagnostics_dns_udp_unavailable">UDP 比较不可用</string>
+    <string name="diagnostics_dns_encrypted_unavailable">加密比较不可用</string>
+    <string name="diagnostics_dns_negative">否定响应一致</string>
+    <string name="diagnostics_dns_ok">DNS 响应一致</string>
+    <string name="diagnostics_dns_caution">这些信息来自解析器响应。AD 不代表本地 DNSSEC 验证；EDE 是解析器的声明。不同的答案、TTL 值或否定响应不能证明运营商进行了封锁。</string>
+    <string name="diagnostics_dns_none">未报告</string>
+    <string name="diagnostics_dns_show">显示 DNS 响应信息</string>
+    <string name="diagnostics_dns_hide">隐藏 DNS 响应信息</string>
+    <string name="diagnostics_dns_complete_agree">%1$d 个内置域名的 DNS 地址响应一致。</string>
+</resources>

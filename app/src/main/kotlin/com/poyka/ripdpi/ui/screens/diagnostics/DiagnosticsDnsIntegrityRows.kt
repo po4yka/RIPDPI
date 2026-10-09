@@ -24,6 +24,7 @@ internal fun DnsIntegrityDomainRows(rows: List<DiagnosticsDnsIntegrityDomainUiMo
         ) {
             rows.forEach { row ->
                 StatusIndicator(label = "${row.domain}: ${row.verdict}", tone = statusTone(row.tone))
+                DiagnosticsDnsResponseCards(row.dnsResponses)
                 androidx.compose.material3.Text(
                     text = "UDP ${row.udpAnswer} · DoH ${row.dohAnswer}",
                     style = RipDpiThemeTokens.type.monoSmall,

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -21,6 +22,10 @@ data class DnsObservationFact(
     val injectionLatencyRatio: Long? = null,
     val forgedAddresses: List<String>? = null,
     val forgedAddressPool: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val udpResponse: DnsResponseSemantics? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val encryptedResponse: DnsResponseSemantics? = null,
 )
 
 @Serializable

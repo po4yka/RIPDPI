@@ -230,6 +230,7 @@ internal fun DnsAvailabilitySurveyCard(
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )
+                    DiagnosticsDnsResponseCards(row.dnsResponses)
                 }
             }
         }

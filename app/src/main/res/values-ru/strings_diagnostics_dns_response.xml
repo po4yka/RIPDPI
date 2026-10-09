@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_source_udp">DNS · UDP</string>
+    <string name="diagnostics_dns_source_encrypted">DNS · Зашифрованный резолвер</string>
+    <string name="diagnostics_dns_source_doh_json">DNS · DoH JSON</string>
+    <string name="diagnostics_dns_source_doh_wire">DNS · DoH wire</string>
+    <string name="diagnostics_dns_response">Ответ</string>
+    <string name="diagnostics_dns_query">Тип запроса</string>
+    <string name="diagnostics_dns_rcode">Код ответа (RCODE)</string>
+    <string name="diagnostics_dns_cname">Цели CNAME</string>
+    <string name="diagnostics_dns_ttl_min">Минимальный TTL (секунды)</string>
+    <string name="diagnostics_dns_ttl_max">Максимальный TTL (секунды)</string>
+    <string name="diagnostics_dns_negative_ttl">TTL отрицательного ответа (секунды)</string>
+    <string name="diagnostics_dns_tc">Усечённый ответ (TC)</string>
+    <string name="diagnostics_dns_aa">Авторитетный ответ (AA)</string>
+    <string name="diagnostics_dns_ra">Рекурсия доступна (RA)</string>
+    <string name="diagnostics_dns_ad">Флаг аутентификации данных (AD)</string>
+    <string name="diagnostics_dns_soa">Есть SOA</string>
+    <string name="diagnostics_dns_ede">Коды расширенных ошибок DNS (EDE)</string>
+    <string name="diagnostics_dns_limits">Границы выводов</string>
+    <string name="diagnostics_dns_unknown">Неизвестно</string>
+    <string name="diagnostics_dns_yes">Да</string>
+    <string name="diagnostics_dns_no">Нет</string>
+    <string name="diagnostics_dns_missing">Метаданные ответа не собраны или недоступны</string>
+    <string name="diagnostics_dns_answer">Ответ с адресами</string>
+    <string name="diagnostics_dns_nodata">Нет записей запрошенного типа (NODATA)</string>
+    <string name="diagnostics_dns_nxdomain">Имя не существует (NXDOMAIN)</string>
+    <string name="diagnostics_dns_servfail">Ошибка резолвера (SERVFAIL)</string>
+    <string name="diagnostics_dns_refused">Запрос отклонён (REFUSED)</string>
+    <string name="diagnostics_dns_other_rcode">Другой код ответа</string>
+    <string name="diagnostics_dns_truncated">Усечённый ответ</string>
+    <string name="diagnostics_dns_timeout">Ответ не получен за отведённое время</string>
+    <string name="diagnostics_dns_transport_error">Ошибка транспорта</string>
+    <string name="diagnostics_dns_malformed">Некорректный или несоответствующий ответ</string>
+    <string name="diagnostics_dns_disagreement">Ответы DNS различаются</string>
+    <string name="diagnostics_dns_udp_unavailable">Сравнение UDP недоступно</string>
+    <string name="diagnostics_dns_encrypted_unavailable">Зашифрованное сравнение недоступно</string>
+    <string name="diagnostics_dns_negative">Отрицательные ответы совпадают</string>
+    <string name="diagnostics_dns_ok">Ответы DNS совпадают</string>
+    <string name="diagnostics_dns_caution">Это факты из ответа резолвера. AD не означает локальную проверку DNSSEC; EDE — утверждение резолвера. Различия ответов, TTL или отрицательные ответы не доказывают блокировку провайдером.</string>
+    <string name="diagnostics_dns_none">Не указано</string>
+    <string name="diagnostics_dns_show">Показать факты ответов DNS</string>
+    <string name="diagnostics_dns_hide">Скрыть факты ответов DNS</string>
+    <string name="diagnostics_dns_complete_agree">Ответы DNS с адресами совпадают для %1$d встроенных доменов.</string>
+</resources>

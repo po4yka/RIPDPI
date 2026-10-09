@@ -308,6 +308,7 @@ internal fun ProbeResultRow(
         }
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        DiagnosticsDnsResponseCards(probe.dnsResponses)
     }
 }
 

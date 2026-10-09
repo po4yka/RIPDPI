@@ -221,6 +221,7 @@ internal fun DiagnosticsBottomSheetHost(
         ) {
             probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
             probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+            DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
             StatusIndicator(label = probe.outcome, tone = statusTone(probe.tone))
             probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
                 SettingsRow(
@@ -244,6 +245,10 @@ internal fun DiagnosticsBottomSheetHost(
                         buildString {
                             appendLine("${probe.probeType} -> ${probe.target}")
                             appendLine("Outcome: ${probe.outcome}")
+                            probe.dnsResponses.forEach { group ->
+                                appendLine(group.title)
+                                group.fields.forEach { appendLine("${it.label}: ${it.value}") }
+                            }
                             probe.probeRetryCount?.takeIf { it > 0 }?.let { count ->
                                 appendLine("Retries: $count")
                             }
