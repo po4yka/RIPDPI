@@ -21,6 +21,16 @@ VM = Path(__file__).resolve().parents[1]
 
 
 class InputTests(unittest.TestCase):
+    def test_package_downloads_retry_without_changing_snapshot(self):
+        template = (VM.parents[1]/'lima/ripdpi-acceptance.yaml').read_text()
+        engine = (VM/'prepare-engine.sh').read_text()
+        self.assertIn('APT::Snapshot "20260926T000000Z"', template)
+        for source in (template, engine):
+            commands = [line.strip() for line in source.splitlines() if line.strip().startswith('apt-get ')]
+            self.assertEqual(len(commands), 2)
+            self.assertTrue(all(' -o Acquire::Retries=2 ' in command for command in commands))
+            self.assertNotIn('--fix-missing', source)
+
     def test_vm_template_disables_auto_forward_on_all_guest_addresses(self):
         template = (VM.parents[1]/'lima/ripdpi-acceptance.yaml').read_text()
         rule = template.split('portForwards:', 1)[1].split('provision:', 1)[0]

@@ -7,8 +7,8 @@ if [[ "$(uname -s)" != Linux || "${EUID}" -ne 0 ]]; then
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get install -y --no-install-recommends rustup jq tshark cmake libclang-dev build-essential pkg-config libssl-dev
+apt-get -o Acquire::Retries=2 update
+apt-get -o Acquire::Retries=2 install -y --no-install-recommends rustup jq tshark cmake libclang-dev build-essential pkg-config libssl-dev
 export CARGO_HOME=/var/cache/ripdpi-acceptance/cargo
 export RUSTUP_HOME=/var/cache/ripdpi-acceptance/rustup
 export CARGO_TARGET_DIR=/var/cache/ripdpi-acceptance/target
