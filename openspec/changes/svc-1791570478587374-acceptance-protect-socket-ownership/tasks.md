@@ -6,7 +6,7 @@ Keep newer VPN protection available when old session teardown overlaps.
 
 ## Ownership
 
-Android: core/service protect server, VPN session module and lifecycle, active path provider, native registration owner, runtime context assembler, and their tests; existing Android E2E diagnostics if required. Coordinator: task and OpenSpec artifacts. Reviewer and Linux: read-only inspection. Heavy builds are serialized.
+Android: core/service protect server, VPN session module and lifecycle, active path provider, native registration owner, runtime context assembler, and their tests; core/service testFixtures/ProtectSocketOwnershipProbe.kt, app Android E2E ProtectSocketOwnershipInstrumentedTest.kt, and the single existing-module test fixture dependency line in app/build.gradle.kts. Coordinator: task and OpenSpec artifacts. Reviewer and Linux: read-only inspection. Heavy builds are serialized.
 
 ## Execution
 

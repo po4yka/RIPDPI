@@ -28,7 +28,7 @@ Keep the active VPN protect socket reachable when an old service session finishe
 
 ## Ownership
 
-Android owns VpnProtectSocketServer, VpnServiceSessionLifecycle, ActiveProtectSocketPathProvider, VpnNativeProtectRegistration and their tests, plus the existing Android E2E tests if diagnostic evidence is required. The coordinator owns this task and OpenSpec artifacts. Linux owns read-only failure analysis. No other writer changes these files.
+Android owns VpnProtectSocketServer, VpnServiceSessionLifecycle, ActiveProtectSocketPathProvider, VpnNativeProtectRegistration and their tests, the named core/service test fixture and app Android endpoint probe, plus the single app/build.gradle.kts test fixture dependency. The coordinator owns this task and OpenSpec artifacts. Linux owns read-only failure analysis. No other writer changes these files.
 
 ## Observed failure
 
