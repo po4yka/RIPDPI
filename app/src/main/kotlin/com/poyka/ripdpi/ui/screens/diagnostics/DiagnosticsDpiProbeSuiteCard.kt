@@ -25,7 +25,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.util.Locale
 
 private const val ConcurrencyStep = 10
 
@@ -43,7 +42,7 @@ internal fun DpiProbeSuiteCard(
 
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )

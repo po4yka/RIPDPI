@@ -38,7 +38,7 @@ internal class DiagnosticsUiInputResolver
                 input.sessions.latestFinishedSessionForLaunchOrigin(DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND)
             val latestUserInitiatedSession =
                 input.sessions.latestFinishedSessionForLaunchOrigin(DiagnosticsScanLaunchOrigin.USER_INITIATED)
-            val latestProfileSession = input.sessions.latestSessionForProfile(activeProfile?.id, latestCompletedSession)
+            val latestProfileSession = input.sessions.latestSessionForProfile(activeProfile?.id)
             val latestProfileReport = latestProfileSession?.report
             val latestStrategyProbeReport = latestProfileSession.toStrategyProbeReport(latestProfileReport)
             val sessionDetailWithVisibility =
@@ -155,13 +155,11 @@ internal class DiagnosticsUiInputResolver
         private fun List<DiagnosticScanSession>.firstCompletedOrLatest(): DiagnosticScanSession? =
             firstOrNull { it.report != null } ?: firstOrNull()
 
-        private fun List<DiagnosticScanSession>.latestSessionForProfile(
-            profileId: String?,
-            fallbackSession: DiagnosticScanSession?,
-        ): DiagnosticScanSession? =
-            firstOrNull { it.profileId == profileId && it.report != null }
-                ?: firstOrNull { it.profileId == profileId }
-                ?: fallbackSession
+        private fun List<DiagnosticScanSession>.latestSessionForProfile(profileId: String?): DiagnosticScanSession? =
+            profileId?.let { selectedId ->
+                firstOrNull { it.profileId == selectedId && it.report != null }
+                    ?: firstOrNull { it.profileId == selectedId }
+            }
 
         private fun List<DiagnosticScanSession>.latestFinishedSessionForLaunchOrigin(
             launchOrigin: DiagnosticsScanLaunchOrigin,

@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,10 +72,10 @@ internal fun ScanProgressCard(
     val motion = RipDpiThemeTokens.motion
     val timing = progress.scanStartedAtMs.takeIf { it > 0L }?.let { rememberScanTimingLabels(progress) }
     RipDpiCard(modifier = modifier) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
             StatusIndicator(
                 label =
@@ -90,6 +91,7 @@ internal fun ScanProgressCard(
             timing?.let {
                 Text(
                     text = it.elapsed,
+                    softWrap = false,
                     style = RipDpiThemeTokens.type.monoInline,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )

@@ -135,7 +135,7 @@ internal fun ScanSection(
             profiles = scan.profiles,
             selectedProfileId = scan.selectedProfileId,
             search = profileSearch,
-            onSelectProfile = onSelectProfile,
+            onSelectProfile = { profileId -> if (!effectiveBusy) onSelectProfile(profileId) },
             onDismiss = { showProfilePicker = false },
         )
     }

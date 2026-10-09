@@ -566,17 +566,7 @@ private fun SensitiveProfileConsentDialog(
                 message = stringResource(R.string.diagnostics_sensitive_profile_consent_body_format, profileName),
                 tone = RipDpiDialogTone.Info,
             ),
-    ) {
-        RipDpiButton(
-            text = stringResource(R.string.diagnostics_sensitive_profile_consent_dismiss),
-            onClick = actions.onDismissSensitiveProfileConsentDialog,
-            variant = RipDpiButtonVariant.Ghost,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsSensitiveProfileConsentDismiss),
-        )
-    }
+    )
 }
 
 @Preview(showBackground = true, name = "Dashboard — idle")

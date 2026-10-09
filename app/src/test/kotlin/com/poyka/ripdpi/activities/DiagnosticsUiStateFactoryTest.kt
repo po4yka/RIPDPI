@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
@@ -57,6 +58,54 @@ class DiagnosticsUiStateFactoryTest {
             )
         assertEquals("simple", guided.toScreenUiState().uiPersona)
         assertEquals("advanced", advanced.toScreenUiState().uiPersona)
+    }
+
+    @Test
+    fun `scan has no results from another profile while overview retains the latest session`() {
+        val latest = historyScanSession().copy(profileId = "profile-a")
+        val input =
+            diagnosticsUiStateInput(listOf(latest)).copy(
+                profiles =
+                    listOf(
+                        DiagnosticProfile("profile-a", "Profile A", "bundled", 1, updatedAt = 0L),
+                        DiagnosticProfile("profile-b", "Profile B", "bundled", 1, updatedAt = 0L),
+                    ),
+                selectedProfileId = "profile-b",
+            )
+
+        val state = factory.buildUiState(input)
+
+        assertEquals(latest.id, state.overview.latestSession?.id)
+        assertNull(state.scan.latestSession)
+        assertEquals(emptyList<DiagnosticsProbeResultUiModel>(), state.scan.latestResults)
+        assertNull(state.scan.resolverRecommendation)
+        assertNull(state.scan.strategyProbeReport)
+    }
+
+    @Test
+    fun `scan without an available profile does not borrow history results`() {
+        val state = factory.buildUiState(diagnosticsUiStateInput(listOf(historyScanSession())))
+
+        assertNotNull(state.overview.latestSession)
+        assertNull(state.scan.latestSession)
+        assertEquals(emptyList<DiagnosticsProbeResultUiModel>(), state.scan.latestResults)
+    }
+
+    @Test
+    fun `scan selects matching history even when a different profile is newer`() {
+        val matching = historyScanSession(id = "matching").copy(profileId = "profile-b")
+        val latest = historyScanSession(id = "newer").copy(profileId = "profile-a")
+        val state =
+            factory.buildUiState(
+                diagnosticsUiStateInput(listOf(latest, matching)).copy(
+                    profiles = listOf(DiagnosticProfile("profile-b", "Profile B", "bundled", 1, updatedAt = 0L)),
+                    selectedProfileId = "profile-b",
+                ),
+            )
+
+        assertEquals(matching.id, state.scan.latestSession?.id)
+        assertEquals(1, state.scan.latestResults.size)
+        assertEquals(latest.id, state.overview.latestSession?.id)
     }
 
     @Test
