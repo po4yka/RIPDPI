@@ -112,3 +112,6 @@ The conversation prototype is separate from these actual Compose renders.
 On 2026-10-09 the two scoped commits were rebased without conflicts onto origin/main c2baf9931. The implementation SHA became 3a9e950ee. The same 122 targeted tests, app/service locale lint, and staticAnalysis passed on the rebased tree in 5 minutes 20 seconds (766 tasks). Architecture health reported no new or worsened indicators; locked Cargo metadata passed. The UI profile still omits real native artifacts.
 
 The combined Full/Simple Roborazzi command stopped at verifyEmbeddedRelayBundle: Simple requires a non-empty src/simple/assets/embedded-relay-bundle.json. No placeholder bundle was created and the gate was not removed. A Full-only golden check is pending.
+
+
+The Full-only Roborazzi check ran on SDK 35 and produced expected/actual/compare images. Home scenes differ because the rail and timer stage display were removed. The transition scene still had old hard-coded secure-line labels; its source now uses Connecting, Relay, and Cancel connection, with no retired stage fixture. The updated actual image was inspected at fontScale 2.0. Golden PNGs remain unchanged; explicit authorization for affected fixtures is still required. Setup-health text differences also include changes already present on main and must be classified before any fixture update.

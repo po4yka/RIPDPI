@@ -25,7 +25,7 @@ Each repair has a regression check. Changed layouts are inspected at compact wid
 
 ## Ownership
 
-- Shared UI writer: `app/.../ui/components/` and shared component tests.
+- Shared UI writer: `app/.../ui/components/`, `HomeModeCard`, Full and Simple home consumer tests/previews, `RipDpiButtonStateTokens`, and their tests.
 - Setup UI writer: settings, routes, config, profiles, subscriptions, Xray, onboarding, credential screens and their presentation tests.
 - Diagnostics UI writer: diagnostics, detection history, strategy tuner, tools, and their presentation tests.
 - Integration writer: all locale resources, task records, OpenSpec, connection redesign integration, combined gates, main integration, and push.
