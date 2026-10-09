@@ -8,5 +8,8 @@ internal class RuntimeTunnelReadyEvidence(
     val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
     val interfacePolicySignature: String,
 ) {
+    val encryptedDnsUsesProxy: Boolean
+        get() = splitStrictDnsPolicy != null || forceTunnelDns || resolverDns.routeThroughProxy
+
     override fun toString(): String = "RuntimeTunnelReadyEvidence([REDACTED])"
 }
