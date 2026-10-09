@@ -9,6 +9,9 @@ import co.touchlab.kermit.Logger
 import java.io.File
 import java.io.FileDescriptor
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Listens on a Unix domain socket (filesystem namespace) and calls [VpnService.protect] on any
@@ -51,6 +54,7 @@ internal class VpnProtectSocketServer(
 
     private companion object {
         private val log = Logger.withTag("ProtectSocket")
+        private val endpointOwners = ConcurrentHashMap<String, VpnProtectSocketServer>()
         private const val LISTEN_BACKLOG = 5
         private const val ACCEPT_THREAD_JOIN_TIMEOUT_MS = 500L
         private const val DEFAULT_HANDLER_CONCURRENCY = 2
@@ -81,12 +85,40 @@ internal class VpnProtectSocketServer(
 
     @Volatile private var thread: Thread? = null
 
-    fun start() {
-        File(socketPath).delete()
+    private val endpointKey = File(socketPath).canonicalPath
+    private var claimedEndpoint = false
+    private var ownsEndpoint = false
+    private var stopped = false
 
+    @Synchronized
+    fun start() {
+        if (running) return
+        check(!stopped) { "A stopped protect server cannot restart" }
+        val failure = runCatching { startListening() }.exceptionOrNull()
+        if (failure != null) {
+            stop()
+            throw failure
+        }
+    }
+
+    private fun claimEndpoint() {
+        if (endpointOwners.putIfAbsent(endpointKey, this) != null) {
+            throw IOException("Protect endpoint is already owned")
+        }
+        claimedEndpoint = true
+        // Android LocalSocket filesystem bind can unlink an existing entry.
+        // All in-process servers retain this claim through shutdown, including bind's unlink/bind window.
+        if (Files.exists(File(socketPath).toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            throw IOException("Protect endpoint already exists")
+        }
+    }
+
+    private fun startListening() {
+        claimEndpoint()
         val bound = LocalSocket(LocalSocket.SOCKET_STREAM)
-        bound.bind(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
         bindSocket = bound
+        bound.bind(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
+        ownsEndpoint = true
 
         val fd: FileDescriptor = bound.fileDescriptor
         Os.listen(fd, LISTEN_BACKLOG)
@@ -94,7 +126,7 @@ internal class VpnProtectSocketServer(
         val server = LocalServerSocket(fd)
         serverSocket = server
         running = true
-        log.i { "listening at $socketPath" }
+        log.i { "listening" }
 
         thread =
             Thread(
@@ -138,7 +170,10 @@ internal class VpnProtectSocketServer(
         }
     }
 
+    @Synchronized
     fun stop() {
+        if (stopped) return
+        stopped = true
         running = false
 
         val acceptThread = thread
@@ -153,7 +188,14 @@ internal class VpnProtectSocketServer(
         joinAcceptThread(acceptThread)
         sessionDispatcher.shutdown()
 
-        File(socketPath).delete()
+        if (ownsEndpoint) {
+            File(socketPath).delete()
+            ownsEndpoint = false
+        }
+        if (claimedEndpoint) {
+            endpointOwners.remove(endpointKey, this)
+            claimedEndpoint = false
+        }
         log.i { "stopped" }
     }
 

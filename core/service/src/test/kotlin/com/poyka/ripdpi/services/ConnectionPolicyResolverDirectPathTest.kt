@@ -111,15 +111,20 @@ class ConnectionPolicyResolverDirectPathTest {
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = capabilityStore,
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -187,15 +192,20 @@ class ConnectionPolicyResolverDirectPathTest {
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = capabilityStore,
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -254,15 +264,20 @@ class ConnectionPolicyResolverDirectPathTest {
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = edgeStore,
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = edgeStore,
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -316,15 +331,20 @@ class ConnectionPolicyResolverDirectPathTest {
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = edgeStore,
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = edgeStore,
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -375,15 +395,20 @@ class ConnectionPolicyResolverDirectPathTest {
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = edgeStore,
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = edgeStore,
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -468,15 +493,20 @@ class ConnectionPolicyResolverDirectPathTest {
             appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
             networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
             networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
             rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-            rootHelperManager = RootHelperManager(),
-            environmentDetector = EnvironmentDetector(),
-            serverCapabilityStore = capabilityStore,
             awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
             destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+            runtimeContextAssembler =
+                ConnectionPolicyRuntimeContextAssembler(
+                    context = RuntimeEnvironment.getApplication(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    serverCapabilityStore = capabilityStore,
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                ),
         )
 
     private fun antiCorrelationRoutingPolicy(): AntiCorrelationRoutingPolicy =

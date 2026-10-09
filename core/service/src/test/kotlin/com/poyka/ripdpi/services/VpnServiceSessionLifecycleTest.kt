@@ -185,6 +185,7 @@ class VpnServiceSessionLifecycleTest {
     @Test
     fun `advertise starts protect socket server before advertising the env path`() {
         val provider = ActiveProtectSocketPathProvider()
+        var lease: ActiveProtectSocketPathProvider.Lease? = null
         val socketPath = "/data/user/0/com.poyka.ripdpi/files/protect_path"
         var started = false
 
@@ -201,7 +202,7 @@ class VpnServiceSessionLifecycleTest {
                     true,
                     started,
                 )
-                provider.set(socketPath) { true }
+                lease = provider.set(socketPath) { true }
                 events += Event.PathSet
             },
         )
@@ -217,6 +218,7 @@ class VpnServiceSessionLifecycleTest {
     @Test
     fun `registration failure withdraws path and stops socket server`() {
         val provider = ActiveProtectSocketPathProvider()
+        var lease: ActiveProtectSocketPathProvider.Lease? = null
         val registrationFailure = IllegalStateException("registration failed")
 
         val thrown =
@@ -224,7 +226,7 @@ class VpnServiceSessionLifecycleTest {
                 establishProtectPath(
                     startProtectSocketServer = { events += Event.ServerStart },
                     advertiseProtectPath = {
-                        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path") { true }
+                        lease = provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path") { true }
                         events += Event.PathSet
                     },
                     registerNativeProtect = {
@@ -232,7 +234,7 @@ class VpnServiceSessionLifecycleTest {
                         throw registrationFailure
                     },
                     rollbackProtection = {
-                        provider.clear()
+                        provider.clear(checkNotNull(lease))
                         events += Event.PathClear
                         events += Event.Unregister
                         events += Event.ServerStop
@@ -284,12 +286,13 @@ class VpnServiceSessionLifecycleTest {
     @Test
     fun `withdraw clears the env path before stopping the protect socket server`() {
         val provider = ActiveProtectSocketPathProvider()
-        provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path") { true }
+        var lease: ActiveProtectSocketPathProvider.Lease? = null
+        lease = provider.set("/data/user/0/com.poyka.ripdpi/files/protect_path") { true }
         val cleanup = VpnServiceSessionCleanup()
 
         withdrawProtectPath(
             withdrawProtectPath = {
-                provider.clear()
+                provider.clear(checkNotNull(lease))
                 events += Event.PathClear
             },
             cleanupNativeProtect = {
@@ -323,13 +326,14 @@ class VpnServiceSessionLifecycleTest {
     @Test
     fun `session round trip advertises on start and withdraws on teardown in order`() {
         val provider = ActiveProtectSocketPathProvider()
+        var lease: ActiveProtectSocketPathProvider.Lease? = null
         val socketPath = "/data/user/0/com.poyka.ripdpi/files/protect_path"
         val cleanup = VpnServiceSessionCleanup()
 
         advertiseProtectPath(
             startProtectSocketServer = { events += Event.ServerStart },
             advertiseProtectPath = {
-                provider.set(socketPath) { true }
+                lease = provider.set(socketPath) { true }
                 events += Event.PathSet
             },
         )
@@ -337,7 +341,7 @@ class VpnServiceSessionLifecycleTest {
 
         withdrawProtectPath(
             withdrawProtectPath = {
-                provider.clear()
+                provider.clear(checkNotNull(lease))
                 events += Event.PathClear
             },
             cleanupNativeProtect = {

@@ -59,15 +59,20 @@ class ConnectionPolicyAutolearnTest {
                         ),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = rememberedStore,
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val hostAutolearn =

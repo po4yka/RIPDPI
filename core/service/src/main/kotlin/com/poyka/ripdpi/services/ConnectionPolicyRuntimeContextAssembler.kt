@@ -24,12 +24,12 @@ import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
+import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.lua.LuaAssetManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,12 +44,30 @@ internal class ConnectionPolicyRuntimeContextAssembler
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
         private val proxySessionSecretResolver: ProxySessionSecretResolver,
+        private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
     ) {
+        suspend fun captureProtectPath(
+            mode: Mode,
+            settings: AppSettings,
+            forPreflight: Boolean,
+        ): String? {
+            val path = protectPath(mode, forPreflight)
+            if (!forPreflight) {
+                rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
+                rootHelperManager.syncNfqws(context, settings)
+            }
+            return path
+        }
+
         fun hostAutolearnStorePath(): String = resolveHostAutolearnStorePath(context)
 
-        fun protectPath(mode: Mode): String? {
+        private fun protectPath(
+            mode: Mode,
+            forPreflight: Boolean = false,
+        ): String? {
             if (mode != Mode.VPN) return null
-            return File(context.filesDir, "protect_path").absolutePath
+            val path = activeProtectSocketPathProvider.current()
+            return if (forPreflight) path else checkNotNull(path) { "VPN protect endpoint is not active" }
         }
 
         suspend fun directPathCapabilities(networkScopeKey: String?): List<RipDpiDirectPathCapability> =

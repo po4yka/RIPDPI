@@ -11,7 +11,7 @@ import com.poyka.ripdpi.core.Tun2SocksNativeBindings
  * Drives the JNI `VpnService.protect` callback registration for native libraries
  * that open upstream sockets: proxy, relay, WARP, AmneziaWG, and tunnel direct DNS.
  *
- * Each `jniRegisterVpnProtect` returns a generation token. This object keeps
+ * Each `jniRegisterVpnProtect` returns a generation token. Each session lease keeps
  * the proxy, relay, WARP, AWG, and direct-DNS tokens between [register] and [unregister] and passes
  * them back, so a stale unregister from a superseded VPN session cannot clear
  * a newer session's callback. See `docs/architecture/JNI_CONTRACT.md` §8.
@@ -23,11 +23,13 @@ import com.poyka.ripdpi.core.Tun2SocksNativeBindings
 internal object VpnNativeProtectRegistration {
     // All access serialized by @Synchronized; tokens must be registered/unregistered as a group.
 
-    private var proxyToken: Long = 0L
-    private var relayToken: Long = 0L
-    private var warpToken: Long = 0L
-    private var awgToken: Long = 0L
-    private var directDnsToken: Long = 0L
+    internal class Lease {
+        internal var proxyToken: Long = 0L
+        internal var relayToken: Long = 0L
+        internal var warpToken: Long = 0L
+        internal var awgToken: Long = 0L
+        internal var directDnsToken: Long = 0L
+    }
 
     /**
      * Replaceable in tests (same package) to stub out JNI.
@@ -46,11 +48,12 @@ internal object VpnNativeProtectRegistration {
 
     @Synchronized
     fun register(
+        lease: Lease,
         service: VpnService,
         directDnsBridge: Any,
-    ) {
+    ) = with(lease) {
         if ((proxyToken or relayToken or warpToken or awgToken or directDnsToken) != 0L) {
-            unregister()
+            unregister(lease)
         }
         val registrationFailure =
             runCatching {
@@ -61,7 +64,7 @@ internal object VpnNativeProtectRegistration {
                 directDnsToken = registerToken("tunnel direct DNS") { directDnsRegister(directDnsBridge) }
             }.exceptionOrNull()
         if (registrationFailure != null) {
-            runCatching { unregister() }
+            runCatching { unregister(lease) }
                 .exceptionOrNull()
                 ?.let(registrationFailure::addSuppressed)
             throw registrationFailure
@@ -69,29 +72,30 @@ internal object VpnNativeProtectRegistration {
     }
 
     @Synchronized
-    fun unregister() {
-        var failure: Throwable? = null
+    fun unregister(lease: Lease) =
+        with(lease) {
+            var failure: Throwable? = null
 
-        fun release(
-            token: Long,
-            unregister: (Long) -> Unit,
-            clear: () -> Unit,
-        ) {
-            if (token == 0L) return
-            runCatching { unregister(token) }
-                .onSuccess { clear() }
-                .onFailure { current ->
-                    failure?.addSuppressed(current) ?: run { failure = current }
-                }
+            fun release(
+                token: Long,
+                unregister: (Long) -> Unit,
+                clear: () -> Unit,
+            ) {
+                if (token == 0L) return
+                runCatching { unregister(token) }
+                    .onSuccess { clear() }
+                    .onFailure { current ->
+                        failure?.addSuppressed(current) ?: run { failure = current }
+                    }
+            }
+
+            release(proxyToken, proxyUnregister) { proxyToken = 0L }
+            release(relayToken, relayUnregister) { relayToken = 0L }
+            release(warpToken, warpUnregister) { warpToken = 0L }
+            release(awgToken, awgUnregister) { awgToken = 0L }
+            release(directDnsToken, directDnsUnregister) { directDnsToken = 0L }
+            failure?.let { throw it }
         }
-
-        release(proxyToken, proxyUnregister) { proxyToken = 0L }
-        release(relayToken, relayUnregister) { relayToken = 0L }
-        release(warpToken, warpUnregister) { warpToken = 0L }
-        release(awgToken, awgUnregister) { awgToken = 0L }
-        release(directDnsToken, directDnsUnregister) { directDnsToken = 0L }
-        failure?.let { throw it }
-    }
 
     private inline fun registerToken(
         owner: String,

@@ -31,7 +31,7 @@ internal class DefaultServiceStartLocalNetworkPreflight internal constructor(
         relayConfigResolver: PermissionCheckedRelayConfigResolver,
         initialRelayRacePolicy: Optional<InitialRelayRacePolicy>,
     ) : this(
-        resolvePolicy = connectionPolicyResolver::resolve,
+        resolvePolicy = connectionPolicyResolver::resolveForPreflight,
         resolveRelay = { relay, inputs, selection ->
             relayConfigResolver.resolveWithLocalNetworkDependency(relay, inputs, selection)
         },

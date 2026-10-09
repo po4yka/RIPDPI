@@ -18,16 +18,13 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
-import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
-import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
-import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySource
@@ -68,6 +65,9 @@ internal data class ConnectionPolicyResolution(
  * "Policy memory".
  */
 internal interface ConnectionPolicyResolver {
+    /** Permission policy only. This snapshot must not start a native runtime. */
+    suspend fun resolveForPreflight(mode: Mode): ConnectionPolicyResolution = resolve(mode)
+
     suspend fun resolve(
         mode: Mode,
         resolverOverride: TemporaryResolverOverride? = null,
@@ -84,32 +84,17 @@ internal class DefaultConnectionPolicyResolver
         private val appSettingsRepository: AppSettingsRepository,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
-        private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
-        private val serverCapabilityStore: ServerCapabilityStore,
-        private val antiCorrelationRoutingPolicy: AntiCorrelationRoutingPolicy,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        private val rootHelperManager: RootHelperManager,
-        private val environmentDetector: EnvironmentDetector,
         private val awgEgressSelectionProvider: AwgEgressSelectionProvider,
         private val destinationRoutingPolicySource: DestinationRoutingPolicySource,
-        private val proxySessionSecretResolver: ProxySessionSecretResolver,
         private val runtimeConfigurationCapture: RequestedRuntimeConfigurationCapture,
+        private val runtimeContextAssembler: ConnectionPolicyRuntimeContextAssembler,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
                 networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
                 resolverMappingPolicy = ResolverMappingPolicy(),
                 resolverMappingCache = ResolverMappingCache(),
-            )
-        private val runtimeContextAssembler =
-            ConnectionPolicyRuntimeContextAssembler(
-                context = context,
-                networkEdgePreferenceStore = networkEdgePreferenceStore,
-                serverCapabilityStore = serverCapabilityStore,
-                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy,
-                rootHelperManager = rootHelperManager,
-                environmentDetector = environmentDetector,
-                proxySessionSecretResolver = proxySessionSecretResolver,
             )
         private val rememberedPolicyMatcher = RememberedConnectionPolicyMatcher(rememberedNetworkPolicyStore)
         private val signatureBuilder = ConnectionPolicySignatureBuilder()
@@ -119,9 +104,21 @@ internal class DefaultConnectionPolicyResolver
             resolverOverride: TemporaryResolverOverride?,
             fingerprint: NetworkFingerprint?,
             handoverClassification: String?,
+        ): ConnectionPolicyResolution =
+            resolvePolicy(mode, resolverOverride, fingerprint, handoverClassification, false)
+
+        override suspend fun resolveForPreflight(mode: Mode): ConnectionPolicyResolution =
+            resolvePolicy(mode, null, null, null, true)
+
+        private suspend fun resolvePolicy(
+            mode: Mode,
+            resolverOverride: TemporaryResolverOverride?,
+            fingerprint: NetworkFingerprint?,
+            handoverClassification: String?,
+            forPreflight: Boolean,
         ): ConnectionPolicyResolution {
             val catalogGeneration = runtimeConfigurationCapture.catalogGeneration()
-            val baseline = buildBaselineCandidate(mode, resolverOverride, fingerprint, catalogGeneration)
+            val baseline = buildBaselineCandidate(mode, resolverOverride, fingerprint, catalogGeneration, forPreflight)
             val rememberedResolution =
                 if (baseline.settings.enableCmdSettings ||
                     !baseline.settings.networkStrategyMemoryEnabled ||
@@ -145,10 +142,12 @@ internal class DefaultConnectionPolicyResolver
             resolverOverride: TemporaryResolverOverride?,
             fingerprint: NetworkFingerprint?,
             catalogGeneration: Long,
+            forPreflight: Boolean,
         ): BaselineConnectionPolicy {
             val selectedAwgEgress = if (mode == Mode.VPN) selectedAwgEgress() else null
             val captured = captureRequestedStartSettings(mode, selectedAwgEgress)
             val settings = captured.settings
+            val protectPath = runtimeContextAssembler.captureProtectPath(mode, settings, forPreflight)
             val requestedConfiguration = captured.requested
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
@@ -162,7 +161,6 @@ internal class DefaultConnectionPolicyResolver
                     networkScopeKey = networkScopeKey,
                     directPathCapabilities = directPathCapabilities,
                 ).forAwg(selectedAwgEgress)
-            val protectPath = runtimeContextAssembler.protectPath(mode)
             val preferredEdges = runtimeContextAssembler.preferredEdges(settings, networkScopeKey)
             val hostAutolearnStorePath = runtimeContextAssembler.hostAutolearnStorePath()
             val baselinePreferences =
@@ -232,7 +230,6 @@ internal class DefaultConnectionPolicyResolver
             val savedSettings = appSettingsRepository.snapshot()
             val requestedConfiguration = runtimeConfigurationCapture.capture(mode, savedSettings, selectedAwgEgress)
             val settings = savedSettings.forAwg(selectedAwgEgress)
-            rootHelperManager.prepareConnectionRuntime(context, settings)
             return CapturedRuntimeStartSettings(settings, requestedConfiguration)
         }
 
@@ -523,17 +520,23 @@ internal class RecoveringConnectionPolicyResolver
         private val resolvePolicy:
             suspend (Mode, TemporaryResolverOverride?, NetworkFingerprint?, String?) -> ConnectionPolicyResolution,
         private val profileMutations: ProfileMutationCoordinator,
+        private val resolvePreflight: suspend (Mode) -> ConnectionPolicyResolution,
     ) : ConnectionPolicyResolver {
         @Inject
         constructor(
             delegate: DefaultConnectionPolicyResolver,
             profileMutations: ProfileMutationCoordinator,
-        ) : this(delegate::resolve, profileMutations)
+        ) : this(delegate::resolve, profileMutations, delegate::resolveForPreflight)
 
         internal constructor(
             delegate: ConnectionPolicyResolver,
             profileMutations: ProfileMutationCoordinator,
-        ) : this(delegate::resolve, profileMutations)
+        ) : this(delegate::resolve, profileMutations, delegate::resolveForPreflight)
+
+        override suspend fun resolveForPreflight(mode: Mode): ConnectionPolicyResolution {
+            profileMutations.recover()
+            return resolvePreflight(mode)
+        }
 
         override suspend fun resolve(
             mode: Mode,
@@ -556,14 +559,6 @@ internal abstract class ConnectionPolicyResolverModule {
 
 private fun AppSettings.forAwg(request: AwgActivationRequest?): AppSettings =
     if (request != null && enableCmdSettings) toBuilder().setEnableCmdSettings(false).build() else this
-
-private suspend fun RootHelperManager.prepareConnectionRuntime(
-    context: Context,
-    settings: AppSettings,
-) {
-    syncRootMode(context, settings.toSettingsSections().root)
-    syncNfqws(context, settings)
-}
 
 private class CapturedRuntimeStartSettings(
     val settings: AppSettings,
