@@ -2,7 +2,12 @@ package com.poyka.ripdpi.ui.screens.routes
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultQueue
+import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -15,15 +20,21 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.InstalledPackagesProvider
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,6 +82,88 @@ class RuleEditorViewModelTest {
             assertEquals(1, dao.rules.size)
         }
 
+    @Test
+    fun `failed save keeps draft and allows another save without navigation`() =
+        runTest {
+            val dao = FakeRuleDao(emptyList())
+            val viewModel = newViewModel(0L, dao, false)
+            viewModel.uiState.first { it.loaded }
+            viewModel.setDomains("retained.example")
+            var navigations = 0
+            dao.faults.enqueue(FaultSpec("insert", FaultOutcome.EXCEPTION))
+            viewModel.save { navigations++ }
+            runCurrent()
+            assertFalse(viewModel.uiState.value.saving)
+            assertEquals("retained.example", viewModel.uiState.value.domains)
+            assertEquals(0, navigations)
+            assertEquals(RuleEditorFailure.Save, viewModel.uiState.value.failure)
+            viewModel.save { navigations++ }
+            runCurrent()
+            assertEquals("retained.example", dao.rules.single().domains)
+            assertEquals(1, navigations)
+        }
+
+    @Test
+    fun `failed load does not escape as an uncaught coroutine error`() =
+        runTest {
+            val dao = FakeRuleDao(emptyList())
+            dao.faults.enqueue(FaultSpec("load", FaultOutcome.EXCEPTION))
+            val viewModel = newViewModel(0L, dao, false)
+            viewModel.uiState.first { it.failure != null }
+            assertFalse(viewModel.uiState.value.loaded)
+            assertEquals(RuleEditorFailure.Load, viewModel.uiState.value.failure)
+            viewModel.retryLoad()
+            viewModel.uiState.first { it.loaded }
+            assertTrue(viewModel.uiState.value.loaded)
+            assertNull(viewModel.uiState.value.failure)
+        }
+
+    @Test
+    fun `cancelled save keeps draft and clears saving without navigation`() =
+        runTest {
+            val dao = FakeRuleDao(emptyList())
+            val viewModel = newViewModel(0L, dao, false)
+            viewModel.uiState.first { it.loaded }
+            dao.insertGate = CompletableDeferred()
+            viewModel.setDomains("cancelled.example")
+            val existingJobs =
+                viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!
+                    .children
+                    .toSet()
+            var navigations = 0
+            viewModel.save { navigations++ }
+            val saveJob =
+                viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!.children.first {
+                    it !in
+                        existingJobs
+                }
+            saveJob.cancel()
+            runCurrent()
+            assertFalse(viewModel.uiState.value.saving)
+            assertNull(viewModel.uiState.value.failure)
+            assertEquals("cancelled.example", viewModel.uiState.value.domains)
+            assertEquals(0, navigations)
+            assertTrue(dao.rules.isEmpty())
+        }
+
+    @Test
+    fun `cancellation before save launch clears busy without writing`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val dao = FakeRuleDao(emptyList())
+            val viewModel = newViewModel(0L, dao, false)
+            viewModel.uiState.first { it.loaded }
+            viewModel.setDomains("retained.example")
+            val scopeJob = viewModel.viewModelScope.coroutineContext[kotlinx.coroutines.Job]!!
+            val existing = scopeJob.children.toSet()
+            viewModel.save {}
+            scopeJob.children.first { it !in existing }.cancel()
+            runCurrent()
+            assertFalse(viewModel.uiState.value.saving)
+            assertNull(viewModel.uiState.value.failure)
+            assertEquals(0, dao.insertCalls)
+        }
+
     private fun newViewModel(
         ruleId: Long,
         dao: FakeRuleDao,
@@ -107,8 +200,13 @@ class RuleEditorViewModelTest {
         val rules = initial.toMutableList()
         var insertGate: CompletableDeferred<Unit>? = null
         var insertCalls = 0
+        val faults = FaultQueue<String>()
 
-        override fun allRules(): Flow<List<RuleEntity>> = flowOf(rules.toList())
+        override fun allRules(): Flow<List<RuleEntity>> =
+            flow {
+                faults.next("load")?.let { throw faultThrowable(it.outcome) }
+                emit(rules.toList())
+            }
 
         override fun enabledRules(): Flow<List<RuleEntity>> = flowOf(rules.toList())
 
@@ -122,6 +220,7 @@ class RuleEditorViewModelTest {
 
         override suspend fun insert(rule: RuleEntity): Long {
             insertCalls++
+            faults.next("insert")?.let { throw faultThrowable(it.outcome) }
             insertGate?.await()
             rules.add(rule)
             return rules.size.toLong()

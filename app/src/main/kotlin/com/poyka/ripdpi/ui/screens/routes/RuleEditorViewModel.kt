@@ -16,6 +16,8 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +31,8 @@ data class InstalledAppItem(
     val packageName: String,
     val label: String,
 )
+
+enum class RuleEditorFailure { Load, Save }
 
 /** Editable, in-memory form state for a single routing rule. */
 data class RuleEditorUiState(
@@ -48,6 +52,7 @@ data class RuleEditorUiState(
     val installedApps: ImmutableList<InstalledAppItem> = persistentListOf(),
     val loaded: Boolean = false,
     val saving: Boolean = false,
+    val failure: RuleEditorFailure? = null,
 ) {
     /**
      * True when every matcher field is empty. An empty rule cannot be saved even when it has a name
@@ -86,45 +91,60 @@ class RuleEditorViewModel
         private val state = MutableStateFlow(RuleEditorUiState(ruleId = ruleId))
         val uiState: StateFlow<RuleEditorUiState> = state.asStateFlow()
 
+        private var loadJob: Job? = null
+
         init {
-            viewModelScope.launch {
-                val targets = outboundTargetCatalog.targets()
-                val apps = installedAppCatalog.installedApps()
-                // RuleRepository exposes reads only as Flows; take the first emission for the
-                // edit-existing case. A new rule (ruleId == 0L) starts from the blank default state.
-                val allRules = ruleRepository.allRules().first()
-                val loadedRule = if (ruleId != 0L) allRules.firstOrNull { it.id == ruleId } else null
-                // New rules append to the end of the order so first-match-wins stays predictable.
-                val nextOrder = (allRules.maxOfOrNull { it.userOrder } ?: -1) + 1
-                state.update { current ->
-                    if (loadedRule != null) {
-                        current.copy(
-                            ruleId = loadedRule.id,
-                            userOrder = loadedRule.userOrder,
-                            name = loadedRule.name,
-                            enabled = loadedRule.enabled,
-                            domains = loadedRule.domains,
-                            ipCidrs = loadedRule.ipCidrs,
-                            ports = loadedRule.ports,
-                            sourcePorts = loadedRule.sourcePorts,
-                            network = loadedRule.network,
-                            processName = loadedRule.processName,
-                            packages = loadedRule.packages.toImmutableSet(),
-                            outboundTag = loadedRule.outboundTag,
-                            outboundTargets = targets.toImmutableList(),
-                            installedApps = apps.toImmutableList(),
-                            loaded = true,
-                        )
-                    } else {
-                        current.copy(
-                            userOrder = nextOrder,
-                            outboundTargets = targets.toImmutableList(),
-                            installedApps = apps.toImmutableList(),
-                            loaded = true,
-                        )
+            retryLoad()
+        }
+
+        fun retryLoad() {
+            if (state.value.loaded || loadJob?.isActive == true) return
+            state.update { it.copy(failure = null) }
+            loadJob =
+                viewModelScope.launch {
+                    try {
+                        val targets = outboundTargetCatalog.targets()
+                        val apps = installedAppCatalog.installedApps()
+                        // RuleRepository exposes reads only as Flows; take the first emission for the
+                        // edit-existing case. A new rule (ruleId == 0L) starts from the blank default state.
+                        val allRules = ruleRepository.allRules().first()
+                        val loadedRule = if (ruleId != 0L) allRules.firstOrNull { it.id == ruleId } else null
+                        // New rules append to the end of the order so first-match-wins stays predictable.
+                        val nextOrder = (allRules.maxOfOrNull { it.userOrder } ?: -1) + 1
+                        state.update { current ->
+                            if (loadedRule != null) {
+                                current.copy(
+                                    ruleId = loadedRule.id,
+                                    userOrder = loadedRule.userOrder,
+                                    name = loadedRule.name,
+                                    enabled = loadedRule.enabled,
+                                    domains = loadedRule.domains,
+                                    ipCidrs = loadedRule.ipCidrs,
+                                    ports = loadedRule.ports,
+                                    sourcePorts = loadedRule.sourcePorts,
+                                    network = loadedRule.network,
+                                    processName = loadedRule.processName,
+                                    packages = loadedRule.packages.toImmutableSet(),
+                                    outboundTag = loadedRule.outboundTag,
+                                    outboundTargets = targets.toImmutableList(),
+                                    installedApps = apps.toImmutableList(),
+                                    loaded = true,
+                                )
+                            } else {
+                                current.copy(
+                                    userOrder = nextOrder,
+                                    outboundTargets = targets.toImmutableList(),
+                                    installedApps = apps.toImmutableList(),
+                                    loaded = true,
+                                )
+                            }
+                        }
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (_: Exception) {
+                        state.update { it.copy(failure = RuleEditorFailure.Load) }
                     }
                 }
-            }
         }
 
         fun setName(value: String) = state.update { it.copy(name = value) }
@@ -156,37 +176,47 @@ class RuleEditorViewModel
             var snapshot = state.value
             while (true) {
                 if (!snapshot.loaded || snapshot.saving || snapshot.isEmpty) return
-                if (state.compareAndSet(snapshot, snapshot.copy(saving = true))) break
+                if (state.compareAndSet(snapshot, snapshot.copy(saving = true, failure = null))) break
                 snapshot = state.value
             }
-            viewModelScope.launch {
-                var persisted = false
-                try {
-                    val rule =
-                        RuleEntity(
-                            id = snapshot.ruleId,
-                            name = snapshot.name,
-                            userOrder = snapshot.userOrder,
-                            enabled = snapshot.enabled,
-                            domains = snapshot.domains,
-                            ipCidrs = snapshot.ipCidrs,
-                            ports = snapshot.ports,
-                            sourcePorts = snapshot.sourcePorts,
-                            network = snapshot.network,
-                            processName = snapshot.processName,
-                            packages = snapshot.packages,
-                            outboundTag = snapshot.outboundTag,
-                        )
-                    if (snapshot.ruleId == 0L) {
-                        ruleRepository.insert(rule)
-                    } else {
-                        ruleRepository.update(rule)
+            var started = false
+            val saveJob =
+                viewModelScope.launch {
+                    started = true
+                    var persisted = false
+                    try {
+                        val rule =
+                            RuleEntity(
+                                id = snapshot.ruleId,
+                                name = snapshot.name,
+                                userOrder = snapshot.userOrder,
+                                enabled = snapshot.enabled,
+                                domains = snapshot.domains,
+                                ipCidrs = snapshot.ipCidrs,
+                                ports = snapshot.ports,
+                                sourcePorts = snapshot.sourcePorts,
+                                network = snapshot.network,
+                                processName = snapshot.processName,
+                                packages = snapshot.packages,
+                                outboundTag = snapshot.outboundTag,
+                            )
+                        if (snapshot.ruleId == 0L) {
+                            ruleRepository.insert(rule)
+                        } else {
+                            ruleRepository.update(rule)
+                        }
+                        persisted = true
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (_: Exception) {
+                        state.update { it.copy(failure = RuleEditorFailure.Save) }
+                    } finally {
+                        if (!persisted) state.update { it.copy(saving = false) }
                     }
-                    persisted = true
-                    onSaved()
-                } finally {
-                    if (!persisted) state.update { it.copy(saving = false) }
+                    if (persisted) onSaved()
                 }
+            saveJob.invokeOnCompletion {
+                if (!started) state.update { it.copy(saving = false) }
             }
         }
     }
