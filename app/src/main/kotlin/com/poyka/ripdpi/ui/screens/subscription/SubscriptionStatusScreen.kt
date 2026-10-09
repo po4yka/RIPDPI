@@ -78,6 +78,8 @@ internal fun SubscriptionStatusScreen(
                 SubscriptionStatusCard(
                     item = item,
                     refreshing = uiState.refreshingGroupId == item.groupId,
+                    refreshEnabled = uiState.refreshingGroupId == null,
+                    refreshFailed = uiState.refreshFailedGroupId == item.groupId,
                     onRefresh = { onRefresh(item.groupId) },
                 )
             }
@@ -89,6 +91,8 @@ internal fun SubscriptionStatusScreen(
 private fun SubscriptionStatusCard(
     item: SubscriptionExpiryItemUiState,
     refreshing: Boolean,
+    refreshEnabled: Boolean,
+    refreshFailed: Boolean,
     onRefresh: () -> Unit,
 ) {
     RipDpiCard {
@@ -144,12 +148,19 @@ private fun SubscriptionStatusCard(
                 style = RipDpiThemeTokens.type.body,
             )
         }
+        if (refreshFailed && item.lastRefreshFailure == null) {
+            Text(
+                text = stringResource(R.string.subscription_status_refresh_failed),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.destructive,
+            )
+        }
         if (item.details.refreshable) {
             RipDpiButton(
                 text = stringResource(R.string.subscription_status_refresh_action),
                 onClick = onRefresh,
                 loading = refreshing,
-                enabled = !refreshing,
+                enabled = refreshEnabled,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
