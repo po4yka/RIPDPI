@@ -1,0 +1,52 @@
+# Render mounts with acceptance/vm/lab_vm.py. Never mount the main checkout.
+minimumLimaVersion: "2.0.0"
+vmType: vz
+arch: aarch64
+cpus: 4
+memory: 8GiB
+disk: 40GiB
+mountType: virtiofs
+images:
+  - location: https://cloud-images.ubuntu.com/releases/noble/release-20260926/ubuntu-24.04-server-cloudimg-arm64.img
+    arch: aarch64
+    digest: sha256:1d6bffe64b848468ac97f821d369a4846d983de1800ccf6b5ec8853e85cefc55
+networks:
+  - vzNAT: true
+    interface: acceptance0
+mounts: [] # ACCEPTANCE_MOUNTS
+containerd:
+  system: false
+  user: false
+portForwards:
+  - guestPortRange: [1, 65535]
+    guestIP: 0.0.0.0
+    guestIPMustBeZero: false
+    proto: any
+    ignore: true
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      printf 'APT::Snapshot "20260926T000000Z";\n' > /etc/apt/apt.conf.d/50acceptance-snapshot
+      apt-get update
+      apt-get install -y --no-install-recommends python3 iproute2 nftables tcpdump ethtool docker.io docker-compose-v2 ca-certificates curl
+      systemctl enable --now docker
+      install -d -m 0755 /var/lib/ripdpi-acceptance
+      dpkg-query -W -f='${Package}\t${Version}\n' > /var/lib/ripdpi-acceptance/packages.tsv
+probes:
+  - description: Acceptance router tools and Docker are ready
+    script: |
+      #!/bin/bash
+      set -euo pipefail
+      command -v python3
+      command -v ip
+      command -v nft
+      command -v tc
+      command -v tcpdump
+      sudo docker info >/dev/null
+      ip -4 addr show dev acceptance0 | grep -q 'inet '
+message: |
+  Acceptance VM is ready. Use acceptance0 IPv4 from lab_vm.py doctor.
+  Android remains on macOS. Emulator NAT is not packet-fidelity evidence.

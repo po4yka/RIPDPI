@@ -322,14 +322,15 @@ class SelectorRuntimeInstrumentedTest {
                                     state.status.first { it == AppStatus.Running to Mode.Proxy }
                                     pause.pause(300_000L)
                                     authority.states.first { it?.pause?.phase == PausePhase.Paused }
-                                    withTimeout(5_000L) { while (networkEpoch.capture() == null) delay(20) }
                                     val vm = createUtilityViewModel()
                                     withContext(Dispatchers.Main) { models.put("selector-utility", vm) }
                                     collector = observeUtility(vm, phase, referenceB)
                                     vm.uiState.first { it.profiles.any { row -> row.reference == referenceB } }
                                     vm.updateUrl(http.probeUrl)
+                                    awaitNetworkCallbacks()
                                     phase.value = "selector/manual-dispatch"
                                     vm.checkAndSelect(referenceB)
+                                    awaitMeasuredProfile(vm, referenceB)
                                     phase.value = "selector/manual-applied"
                                     try {
                                         applied.applications.first { values ->
@@ -356,6 +357,7 @@ class SelectorRuntimeInstrumentedTest {
                                         checkNotNull(
                                             persistence.read(),
                                         ).profileUtility.lastSequence
+                                    awaitNetworkCallbacks()
                                     phase.value = "selector/fastest-dispatch"
                                     vm.checkAndSelectFastest()
                                     phase.value = "selector/fastest-http-payload"
@@ -368,6 +370,9 @@ class SelectorRuntimeInstrumentedTest {
                                                     ui.profiles.filter { row ->
                                                         row.reference is ProfileUtilityReference.SelectorMember
                                                     }
+                                                entries.forEach { row ->
+                                                    assertMeasurementHasNotFailed(row.measurement)
+                                                }
                                                 entries.size == 2 &&
                                                     entries.all { row ->
                                                         row.measurement is ProfileMeasurementUiState.Measured
@@ -474,7 +479,6 @@ class SelectorRuntimeInstrumentedTest {
                         pause.pause(300_000L)
                         val paused =
                             checkNotNull(authority.states.first { it?.pause?.phase == PausePhase.Paused }?.pause)
-                        withTimeout(5_000L) { while (networkEpoch.capture() == null) delay(20) }
                         val beforeHistory = checkNotNull(persistence.read()).profileUtility.recents
                         val beforeSelection = settings.snapshot()
                         val vm = createUtilityViewModel()
@@ -487,15 +491,12 @@ class SelectorRuntimeInstrumentedTest {
                         phase.value = "native/favorite-observed"
                         vm.uiState.first { it.profiles.any { row -> row.reference == reference && row.favorite } }
                         vm.updateUrl(fixture.probeUrl)
+                        awaitNetworkCallbacks()
                         phase.value = "native/dispatch"
                         if (select) vm.checkAndSelect(reference) else vm.check(reference)
                         phase.value = "native/measured"
                         try {
-                            vm.uiState.first { ui ->
-                                ui.profiles.any { row ->
-                                    row.reference == reference && row.measurement is ProfileMeasurementUiState.Measured
-                                }
-                            }
+                            awaitMeasuredProfile(vm, reference)
                         } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
                             throw utilityPhaseTimeout("utility-measured", vm, failure)
                         }
@@ -561,6 +562,26 @@ class SelectorRuntimeInstrumentedTest {
                 }
             }
         }
+
+    private suspend fun awaitNetworkCallbacks() =
+        withTimeout(5_000L) {
+            awaitStableNetworkEpoch(networkEpoch.changes, networkEpoch::capture)
+        }
+
+    private suspend fun awaitMeasuredProfile(
+        vm: ProfileUtilityViewModel,
+        reference: ProfileUtilityReference,
+    ) = vm.uiState.first { ui ->
+        val measurement = ui.profiles.firstOrNull { it.reference == reference }?.measurement
+        if (measurement != null) assertMeasurementHasNotFailed(measurement)
+        measurement is ProfileMeasurementUiState.Measured
+    }
+
+    private fun assertMeasurementHasNotFailed(measurement: ProfileMeasurementUiState) {
+        if (measurement is ProfileMeasurementUiState.Failed) {
+            throw AssertionError("Profile measurement failed: ${measurement.reason}")
+        }
+    }
 
     private fun createUtilityViewModel() =
         ProfileUtilityViewModel(

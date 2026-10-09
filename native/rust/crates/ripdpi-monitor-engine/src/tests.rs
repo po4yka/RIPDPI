@@ -501,7 +501,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
 #[test]
 fn domain_probe_reports_http_blockpage() {
     let _serial = lock_network_probes();
-    let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
+    let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "This site has been blocked");
     let target = DomainTarget {
         host: "127.0.0.1".to_string(),
         connect_ip: None,
@@ -1257,7 +1257,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
 #[test]
 fn monitor_session_drains_passive_events_with_probe_details() {
     let _serial = lock_network_probes();
-    let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
+    let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "This site has been blocked");
     let request = ScanRequest {
         profile_id: "default".to_string(),
         display_name: "Passive events".to_string(),
@@ -1450,8 +1450,7 @@ fn monitor_json_contracts_match_goldens() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start(move |_request| {
         thread::sleep(Duration::from_millis(60));
-        b"HTTP/1.1 403 Forbidden\r\nContent-Length: 35\r\nConnection: close\r\n\r\nAccess denied by upstream filtering"
-            .to_vec()
+        b"HTTP/1.1 403 Forbidden\r\nContent-Length: 26\r\nConnection: close\r\n\r\nThis site has been blocked".to_vec()
     });
     let request = ScanRequest {
         profile_id: "default".to_string(),
