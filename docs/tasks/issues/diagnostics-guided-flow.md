@@ -2,7 +2,7 @@
 id: UIX-1791534456996035
 title: Make diagnostics flow actionable and readable
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: root
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: diagnostics-guided-flow
 created: 2026-10-09
 updated: 2026-10-09
+status_detail: All source units are pushed on main. Local combined gates passed. Final Full emulator and remote CI evidence are pending.
 ---
 
 ## Goal
