@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -81,6 +82,33 @@ class HomeModeCardTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
             .assertIsNotEnabled()
+    }
+
+    @Test
+    fun `running diagnostic action stays clickable to stop the run`() {
+        var stopped = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeModeCard(
+                    uiState =
+                        HomeModeCardUiState(
+                            mode = HomeMode.Diagnostic,
+                            title = "Diagnostics",
+                            primaryActionLabel = "Cancel",
+                            isLoading = true,
+                            primaryActionEnabled = true,
+                        ),
+                    onPrimaryAction = { stopped++ },
+                    onConfigure = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
+            .assertIsEnabled()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, stopped) }
     }
 
     @Test

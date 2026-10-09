@@ -267,6 +267,7 @@ class DiagnosticsScanControllerInPathPreflightTest {
                     json = json,
                 )
 
+            services.homeRunLease.acquire("home-run")
             val failure =
                 assertSuspendFailsWith<DiagnosticsScanStartRejectedException> {
                     services.scanController.startScanOwnedBy(

@@ -42,6 +42,7 @@ class ScanAdmissionService
         private val activeScanRegistry: ActiveScanRegistry,
         @param:Named("diagnosticsJson")
         private val json: Json,
+        private val homeRunLease: DiagnosticsHomeRunLease,
     ) {
         private companion object {
             const val AutomaticProbeProfileId = "automatic-probing"
@@ -51,7 +52,9 @@ class ScanAdmissionService
             selectedProfileId: String? = null,
             skipActiveScanCheck: Boolean = false,
             allowSensitiveProfileStart: Boolean = false,
+            ownerId: String? = null,
         ): ManualStartAdmission {
+            assertHomeOwnership(ownerId)
             if (!skipActiveScanCheck && activeScanRegistry.hasVisibleActiveScan()) {
                 throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
             }
@@ -103,7 +106,7 @@ class ScanAdmissionService
         suspend fun admitAutomaticProbe(
             settings: com.poyka.ripdpi.proto.AppSettings,
         ): com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity? {
-            if (activeScanRegistry.hasActiveScan()) {
+            if (homeRunLease.isActive() || activeScanRegistry.hasActiveScan()) {
                 return null
             }
             val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return null
@@ -115,7 +118,45 @@ class ScanAdmissionService
             }
         }
 
-        suspend fun assertProfileExists(profileId: String) {
+        fun hasActiveHomeRun(): Boolean = homeRunLease.isActive()
+
+        internal suspend fun <T> withManualAdmission(
+            ownerId: String?,
+            block: suspend () -> T,
+        ): T =
+            homeRunLease.withAdmission {
+                assertHomeOwnership(ownerId)
+                block()
+            }
+
+        internal suspend fun withAutomaticAdmission(
+            block: suspend () -> AutomaticProbeLaunchOutcome,
+        ): AutomaticProbeLaunchOutcome =
+            homeRunLease.withAdmission {
+                if (homeRunLease.isActive()) AutomaticProbeLaunchOutcome.RETRY else block()
+            }
+
+        internal suspend fun updateProfile(
+            profileId: String,
+            block: suspend () -> Unit,
+        ) {
+            homeRunLease.withAdmission {
+                assertHomeOwnership(null)
+                if (activeScanRegistry.hasVisibleActiveScan()) {
+                    throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
+                }
+                assertProfileExists(profileId)
+                block()
+            }
+        }
+
+        private fun assertHomeOwnership(ownerId: String?) {
+            if (!homeRunLease.permits(ownerId)) {
+                throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
+            }
+        }
+
+        private suspend fun assertProfileExists(profileId: String) {
             requireNotNull(profileCatalog.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
         }
     }

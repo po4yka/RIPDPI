@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.app.Application
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
@@ -294,6 +295,31 @@ class HomeModeCardUiStateTest {
         val diagnostic = buildCards().single { it.mode == HomeMode.Diagnostic }
 
         assertEquals("Open Diagnostics", diagnostic.configureLabel)
+    }
+
+    @Test
+    fun `diagnostic idle action is a quick check`() {
+        val diagnostic = buildCards().single { it.mode == HomeMode.Diagnostic }
+
+        assertEquals("Quick Scan", diagnostic.primaryActionLabel)
+    }
+
+    @Test
+    fun `diagnostic startup and running actions remain cancellable`() {
+        listOf(HomeDiagnosticsRunUiStatus.STARTING, HomeDiagnosticsRunUiStatus.RUNNING).forEach { status ->
+            val diagnostic =
+                buildCards(
+                    homeDiagnostics =
+                        HomeDiagnosticsUiState(
+                            analysisRunStatus = status,
+                            analysisAction = HomeDiagnosticsActionUiState(busy = true, enabled = false),
+                        ),
+                ).single { it.mode == HomeMode.Diagnostic }
+
+            assertEquals(stringResolver.getString(R.string.diagnostics_action_cancel), diagnostic.primaryActionLabel)
+            assertTrue(diagnostic.primaryActionEnabled)
+            assertTrue(diagnostic.isLoading)
+        }
     }
 
     private fun buildCards(

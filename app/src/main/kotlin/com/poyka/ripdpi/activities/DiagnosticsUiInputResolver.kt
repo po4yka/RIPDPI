@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -22,9 +23,7 @@ internal class DiagnosticsUiInputResolver
             eventModels: List<DiagnosticsEventUiModel>,
         ): ResolvedDiagnosticsUiInput {
             val visibleProfiles = input.visibleProfiles()
-            val activeProfile =
-                visibleProfiles.firstOrNull { it.id == input.selectedProfileId }
-                    ?: visibleProfiles.firstOrNull()
+            val activeProfile = input.resolveActiveProfile(visibleProfiles)
             val latestSnapshot =
                 input.snapshots
                     .firstOrNull()
@@ -96,6 +95,18 @@ internal class DiagnosticsUiInputResolver
                         latestStrategyProbeReport = latestStrategyProbeReport,
                     ),
             )
+        }
+
+        private fun DiagnosticsUiStateInput.resolveActiveProfile(
+            visibleProfiles: List<DiagnosticProfile>,
+        ): DiagnosticProfile? {
+            val runningProfileId =
+                progress?.sessionId?.let { sessionId ->
+                    sessions.firstOrNull { it.id == sessionId }?.profileId
+                }
+            return visibleProfiles.firstOrNull { it.id == runningProfileId }
+                ?: visibleProfiles.firstOrNull { it.id == selectedProfileId }
+                ?: visibleProfiles.firstOrNull()
         }
 
         private fun DiagnosticsUiStateInput.visibleProfiles() =

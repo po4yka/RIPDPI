@@ -572,7 +572,13 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
             networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = vpnRouteEvidenceProvider,
-            stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+            stageExecutor =
+                HomeCompositeStageExecutor(
+                    scanController,
+                    timelineSource,
+                    serviceStateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
+                ),
             json = diagnosticsTestJson(),
             scope = scope,
         )

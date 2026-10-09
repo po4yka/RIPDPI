@@ -49,7 +49,7 @@ fun HomeModeCard(
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     configureActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Outline,
 ) {
-    val primaryEnabled = uiState.primaryActionEnabled && !uiState.isLoading
+    val primaryEnabled = uiState.primaryActionEnabled && (!uiState.isLoading || uiState.mode == HomeMode.Diagnostic)
     val statusLabel = homeModeStatusLabel(uiState)
     val primaryActionLabel = uiState.primaryActionLabel.ifBlank { defaultPrimaryActionLabel(uiState) }
     val configureLabel = uiState.configureLabel.ifBlank { stringResource(R.string.home_mode_card_configure) }
@@ -331,7 +331,7 @@ private fun HomeModeCardActions(
                             .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
                     variant = primaryActionVariant,
                     enabled = primaryEnabled,
-                    loading = uiState.isLoading,
+                    loading = uiState.isLoading && uiState.mode != HomeMode.Diagnostic,
                 )
                 RipDpiButton(
                     text = configureLabel,
@@ -356,7 +356,7 @@ private fun HomeModeCardActions(
                                 .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
                         variant = primaryActionVariant,
                         enabled = primaryEnabled,
-                        loading = uiState.isLoading,
+                        loading = uiState.isLoading && uiState.mode != HomeMode.Diagnostic,
                     )
                     RipDpiButton(
                         text = configureLabel,

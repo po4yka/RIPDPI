@@ -38,22 +38,27 @@ internal class HomeCompositeStageExecutor
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val serviceStateStore: ServiceStateStore,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
+        val homeRunLease: DiagnosticsHomeRunLease,
     ) {
         internal constructor(
             diagnosticsScanController: DiagnosticsScanController,
             diagnosticsTimelineSource: DiagnosticsTimelineSource,
             serviceStateStore: ServiceStateStore,
+            homeRunLease: DiagnosticsHomeRunLease,
         ) : this(
             diagnosticsScanController,
             diagnosticsTimelineSource,
             serviceStateStore,
             UnavailableInPathRuntimeCoordinator,
+            homeRunLease,
         )
 
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
             private const val TimedOutStageRecoveryTimeoutMs = 5_000L
         }
+
+        fun hasActiveScan(): Boolean = diagnosticsScanController.hasActiveScan()
 
         suspend fun requireInPathRuntime(
             progressState: MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>,

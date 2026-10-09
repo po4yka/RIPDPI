@@ -624,6 +624,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
                     stores,
                     fixtures.activeScanRegistry,
                     json,
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
             val admission =
                 admissionService.admitManualStart(selectedProfileId = "automatic-probing")
@@ -1572,7 +1573,14 @@ internal fun executionCoordinatorFixtures(
             runtimeCoordinator = runtimeCoordinator,
             serviceStateStore = serviceStateStore,
             scanRequestFactory = scanRequestFactory,
-            scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json),
+            scanAdmissionService =
+                ScanAdmissionService(
+                    appSettingsRepository,
+                    stores,
+                    activeScanRegistry,
+                    json,
+                    homeRunLease = DiagnosticsHomeRunLease(),
+                ),
             activeScanRegistry = activeScanRegistry,
             bridgeExecutionService = bridgeExecutionService,
             executionCoordinator = coordinator,

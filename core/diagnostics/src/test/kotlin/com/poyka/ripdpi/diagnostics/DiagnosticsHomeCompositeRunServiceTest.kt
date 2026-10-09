@@ -121,6 +121,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -227,6 +228,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -313,6 +315,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                     diagnosticsScanController = controller,
                     diagnosticsTimelineSource = MutableDiagnosticsTimelineSource(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             val failure = runCatching { executor.cancelRunStages("parallel-run", progressState) }.exceptionOrNull()
@@ -419,6 +422,7 @@ private fun serializedLifecycleFixture(scope: CoroutineScope): SerializedLifecyc
                         },
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 ),
             json = diagnosticsTestJson(),
             scope = scope,
@@ -516,7 +520,13 @@ class DiagnosticsHomeCompositeRunSettlementTest {
                     networkScopeFactory = stableHomeNetworkScopeFactory(),
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
-                    stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            scanController,
+                            timelineSource,
+                            serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -634,6 +644,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -878,6 +889,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -969,6 +981,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -1092,6 +1105,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                             diagnosticsScanController = scanController,
                             diagnosticsTimelineSource = timelineSource,
                             serviceStateStore = serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
                         ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
@@ -1281,7 +1295,13 @@ class DiagnosticsHomeCompositeRunServiceTest {
             networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
-            stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+            stageExecutor =
+                HomeCompositeStageExecutor(
+                    scanController,
+                    timelineSource,
+                    serviceStateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
+                ),
             json = json,
             scope = scope,
         )
@@ -1418,6 +1438,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             val result =
@@ -1454,6 +1475,7 @@ class HomeCompositeStageExecutorVpnHaltTest {
                     diagnosticsScanController = unusedScanController(),
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             val result =

@@ -6,25 +6,47 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 internal class HomeCompositeRunJobs(
     private val scope: CoroutineScope,
+    private val lease: DiagnosticsHomeRunLease = DiagnosticsHomeRunLease(),
+    private val canAcquire: () -> Boolean = { true },
 ) {
     private val jobs = ConcurrentHashMap<String, Job>()
     private val childJobs = ConcurrentHashMap<String, Job>()
     private val teardownRunIds = ConcurrentHashMap.newKeySet<String>()
     private val lifecycleLock = Any()
-    private var activeRunId: String? = null
+    private val startupJobs = ConcurrentHashMap<String, Job>()
+
+    suspend fun reserve(runId: String): Boolean {
+        if (!lease.acquire(runId, canAcquire)) return false
+        currentCoroutineContext()[Job]?.let { startupJobs[runId] = it }
+        return true
+    }
+
+    suspend fun releaseReservation(runId: String) =
+        withContext(NonCancellable) {
+            val shouldRelease =
+                synchronized(lifecycleLock) {
+                    startupJobs.remove(runId)
+                    runId !in teardownRunIds && !jobs.containsKey(runId)
+                }
+            if (shouldRelease) lease.release(runId)
+        }
 
     @Suppress("detekt.TooGenericExceptionCaught")
-    fun launch(
+    suspend fun launch(
         runId: String,
         onFailure: suspend (Throwable) -> Unit,
         block: suspend () -> Unit,
     ): Boolean {
+        if (!lease.isOwnedBy(runId) && !reserve(runId)) return false
         val job =
             scope.launch(start = CoroutineStart.LAZY) {
                 try {
@@ -34,29 +56,32 @@ internal class HomeCompositeRunJobs(
                 } catch (error: Throwable) {
                     onFailure(error)
                 } finally {
-                    synchronized(lifecycleLock) {
-                        childJobs.remove(runId)?.cancel()
-                        jobs.remove(runId)
-                        if (runId !in teardownRunIds && activeRunId == runId) activeRunId = null
-                    }
+                    val shouldRelease =
+                        synchronized(lifecycleLock) {
+                            childJobs.remove(runId)?.cancel()
+                            jobs.remove(runId)
+                            runId !in teardownRunIds
+                        }
+                    if (shouldRelease) withContext(NonCancellable) { lease.release(runId) }
                 }
             }
         val admitted =
             synchronized(lifecycleLock) {
-                if (activeRunId != null) {
+                if (!lease.isOwnedBy(runId) || jobs.containsKey(runId) || runId in teardownRunIds) {
                     false
                 } else {
-                    activeRunId = runId
+                    startupJobs.remove(runId)
                     jobs[runId] = job
                     true
                 }
             }
-        if (!admitted) {
+        return if (admitted && job.start()) {
+            true
+        } else {
             job.cancel()
-            return false
+            if (admitted) synchronized(lifecycleLock) { jobs.remove(runId, job) }
+            false
         }
-        job.start()
-        return true
     }
 
     fun trackChild(
@@ -64,7 +89,7 @@ internal class HomeCompositeRunJobs(
         job: Job,
     ) {
         synchronized(lifecycleLock) {
-            if (activeRunId == runId && jobs.containsKey(runId)) {
+            if (lease.isOwnedBy(runId) && jobs.containsKey(runId)) {
                 childJobs.put(runId, job)?.cancel()
             } else {
                 job.cancel()
@@ -78,7 +103,7 @@ internal class HomeCompositeRunJobs(
     ): Boolean {
         val job =
             synchronized(lifecycleLock) {
-                jobs[runId]?.takeIf { teardownRunIds.add(runId) }
+                (jobs[runId] ?: startupJobs[runId])?.takeIf { teardownRunIds.add(runId) }
             } ?: return false
         try {
             job.cancelAndJoin()
@@ -86,8 +111,9 @@ internal class HomeCompositeRunJobs(
         } finally {
             synchronized(lifecycleLock) {
                 teardownRunIds.remove(runId)
-                if (activeRunId == runId) activeRunId = null
+                startupJobs.remove(runId)
             }
+            withContext(NonCancellable) { lease.release(runId) }
         }
         return true
     }

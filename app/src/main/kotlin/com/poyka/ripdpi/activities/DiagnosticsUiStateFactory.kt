@@ -75,6 +75,9 @@ internal class DiagnosticsUiStateFactory
             )
         }
 
+        fun toSessionRow(session: com.poyka.ripdpi.diagnostics.DiagnosticScanSession): DiagnosticsSessionRowUiModel =
+            support.toSessionRowUiModel(session)
+
         fun toSessionDetailUiModel(
             detail: com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail,
             showSensitiveDetails: Boolean,

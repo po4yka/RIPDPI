@@ -48,6 +48,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                     diagnosticsScanController = controller,
                     diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             listOf(false, true).forEach { quickScan ->
@@ -95,6 +96,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                                 credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
                             ),
                         ),
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             assertEquals(true, executor.requireInPathRuntime(progress, "run", 0, spec))
@@ -193,6 +195,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                     diagnosticsScanController = controller,
                     diagnosticsTimelineSource = timelineSource,
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             specs.forEachIndexed { index, spec ->
@@ -232,6 +235,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                             json = json,
                         ),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             val sessionId =
@@ -280,6 +284,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                     diagnosticsScanController = controller,
                     diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             val failure =
@@ -310,6 +315,7 @@ class HomeCompositeStageExecutorResumePolicyTest {
                     diagnosticsScanController = controller,
                     diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
                     serviceStateStore = stateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
             val awaiting =
                 async {

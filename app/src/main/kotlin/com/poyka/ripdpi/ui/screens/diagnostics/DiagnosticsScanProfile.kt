@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun CompactProfileRow(
     profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel?,
     onChangeProfile: () -> Unit,
+    enabled: Boolean = true,
 ) {
     RipDpiCard {
         Row(
@@ -57,6 +58,7 @@ internal fun CompactProfileRow(
             RipDpiButton(
                 text = stringResource(R.string.diagnostics_profile_change_action),
                 onClick = onChangeProfile,
+                enabled = enabled,
                 modifier =
                     Modifier.ripDpiTestTag(
                         com.poyka.ripdpi.ui.testing.RipDpiTestTags.DiagnosticProfileSearchOpen,

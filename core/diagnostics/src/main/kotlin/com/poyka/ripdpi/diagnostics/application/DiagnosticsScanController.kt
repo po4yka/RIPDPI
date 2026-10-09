@@ -127,53 +127,56 @@ internal class DefaultDiagnosticsScanController
             resumeRuntimeAfterRawPath: Boolean = false,
         ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
-                when (
-                    val admission =
-                        scanAdmissionService.admitManualStart(
-                            selectedProfileId = selectedProfileId,
-                            skipActiveScanCheck = skipActiveScanCheck,
-                            allowSensitiveProfileStart = allowSensitiveProfileStart,
-                        )
-                ) {
-                    is ManualStartAdmission.Admitted -> {
-                        pendingHiddenConflictRequest = null
-                        DiagnosticsManualScanStartResult.Started(
-                            startPreparedScan(
-                                prepared =
-                                    scanRequestFactory.prepareScan(
-                                        profile = admission.profile,
-                                        settings = admission.settings,
-                                        pathMode = pathMode,
-                                        scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
-                                        launchTrigger = null,
-                                        exposeProgress = true,
-                                        registerActiveBridge = true,
-                                        scanDeadlineMs = scanDeadlineMs,
-                                        targetOverrides = targetOverrides,
-                                        maxCandidates = maxCandidates,
-                                    ),
-                                rawPathRunner = { block ->
-                                    runtimeCoordinator.runManualRawPath(block, resumeRuntimeAfterRawPath)
-                                },
+                scanAdmissionService.withManualAdmission(ownerId) {
+                    when (
+                        val admission =
+                            scanAdmissionService.admitManualStart(
+                                selectedProfileId = selectedProfileId,
                                 ownerId = ownerId,
-                            ),
-                        )
-                    }
+                                skipActiveScanCheck = skipActiveScanCheck,
+                                allowSensitiveProfileStart = allowSensitiveProfileStart,
+                            )
+                    ) {
+                        is ManualStartAdmission.Admitted -> {
+                            pendingHiddenConflictRequest = null
+                            DiagnosticsManualScanStartResult.Started(
+                                startPreparedScan(
+                                    prepared =
+                                        scanRequestFactory.prepareScan(
+                                            profile = admission.profile,
+                                            settings = admission.settings,
+                                            pathMode = pathMode,
+                                            scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                                            launchTrigger = null,
+                                            exposeProgress = true,
+                                            registerActiveBridge = true,
+                                            scanDeadlineMs = scanDeadlineMs,
+                                            targetOverrides = targetOverrides,
+                                            maxCandidates = maxCandidates,
+                                        ),
+                                    rawPathRunner = { block ->
+                                        runtimeCoordinator.runManualRawPath(block, resumeRuntimeAfterRawPath)
+                                    },
+                                    ownerId = ownerId,
+                                ),
+                            )
+                        }
 
-                    is ManualStartAdmission.HiddenAutomaticProbeConflict -> {
-                        hiddenProbeConflictRequestFactory
-                            .create(
-                                profile = admission.profile,
-                                settings = admission.settings,
-                                pathMode = pathMode,
-                                scanDeadlineMs = scanDeadlineMs,
-                                maxCandidates = maxCandidates,
-                                targetOverrides = targetOverrides,
-                                ownerId = ownerId,
-                                resumeRuntimeAfterRawPath = resumeRuntimeAfterRawPath,
-                            ).also { pendingRequest ->
-                                pendingHiddenConflictRequest = pendingRequest
-                            }.toConflictResult()
+                        is ManualStartAdmission.HiddenAutomaticProbeConflict -> {
+                            hiddenProbeConflictRequestFactory
+                                .create(
+                                    profile = admission.profile,
+                                    settings = admission.settings,
+                                    pathMode = pathMode,
+                                    scanDeadlineMs = scanDeadlineMs,
+                                    maxCandidates = maxCandidates,
+                                    targetOverrides = targetOverrides,
+                                    ownerId = ownerId,
+                                    resumeRuntimeAfterRawPath = resumeRuntimeAfterRawPath,
+                                ).also { pendingRequest ->
+                                    pendingHiddenConflictRequest = pendingRequest
+                                }.toConflictResult()
+                        }
                     }
                 }
             }
@@ -190,82 +193,63 @@ internal class DefaultDiagnosticsScanController
                             DiagnosticsManualScanResolutionFailureReason.REQUEST_NOT_FOUND,
                         )
 
-                when (action) {
-                    HiddenProbeConflictAction.WAIT -> {
-                        if (activeScanRegistry.hasHiddenActiveScan) {
-                            return@withLock DiagnosticsManualScanResolution.Failed(
-                                DiagnosticsManualScanResolutionFailureReason.HIDDEN_PROBE_STILL_ACTIVE,
-                            )
-                        }
-                    }
-
-                    HiddenProbeConflictAction.CANCEL_AND_RUN -> {
-                        if (activeScanRegistry.hasHiddenActiveScan) {
-                            val cancellation =
-                                activeScanRegistry.cancelHiddenAutomaticProbe(
-                                    cancellationSummary =
-                                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
-                                    timeoutMs = HiddenProbeCancellationTimeoutMs,
-                                    beforeCancel = { sessionId ->
-                                        DiagnosticsReportPersister.persistScanCancellationCause(
-                                            sessionId,
-                                            BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
-                                            scanRecordStore,
-                                        )
-                                    },
-                                )
-                            if (cancellation is HiddenProbeCancellationResult.Failed) {
-                                return@withLock DiagnosticsManualScanResolution.Failed(
-                                    DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
+                scanAdmissionService.withManualAdmission(pendingRequest.ownerId) {
+                    when (action) {
+                        HiddenProbeConflictAction.WAIT -> {
+                            if (activeScanRegistry.hasHiddenActiveScan) {
+                                return@withManualAdmission DiagnosticsManualScanResolution.Failed(
+                                    DiagnosticsManualScanResolutionFailureReason.HIDDEN_PROBE_STILL_ACTIVE,
                                 )
                             }
-                            if (cancellation is HiddenProbeCancellationResult.Cancelled) {
-                                if (scanRecordStore.getScanSession(cancellation.sessionId) == null) {
-                                    return@withLock DiagnosticsManualScanResolution.Failed(
+                        }
+
+                        HiddenProbeConflictAction.CANCEL_AND_RUN -> {
+                            if (activeScanRegistry.hasHiddenActiveScan) {
+                                if (!activeScanRegistry.cancelHiddenProbeForManualDiagnostics(
+                                        scanRecordStore,
+                                        HiddenProbeCancellationTimeoutMs,
+                                    )
+                                ) {
+                                    return@withManualAdmission DiagnosticsManualScanResolution.Failed(
                                         DiagnosticsManualScanResolutionFailureReason.CANCELLATION_FAILED,
                                     )
                                 }
-                                DiagnosticsReportPersister.persistScanFailure(
-                                    cancellation.sessionId,
-                                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
-                                    scanRecordStore,
-                                )
                             }
                         }
                     }
-                }
 
-                pendingHiddenConflictRequest = null
-                runCatching {
-                    startPreparedScan(
-                        prepared =
-                            scanRequestFactory.prepareScan(
-                                profile = pendingRequest.profile,
-                                settings = pendingRequest.settings,
-                                pathMode = pendingRequest.pathMode,
-                                scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
-                                launchTrigger = null,
-                                exposeProgress = true,
-                                registerActiveBridge = true,
-                                scanDeadlineMs = pendingRequest.scanDeadlineMs,
-                                maxCandidates = pendingRequest.maxCandidates,
-                                targetOverrides = pendingRequest.targetOverrides,
-                            ),
-                        rawPathRunner = pendingRequest.rawPathRunner(runtimeCoordinator),
-                        ownerId = pendingRequest.ownerId,
-                    )
-                }.fold(
-                    onSuccess = { sessionId -> DiagnosticsManualScanResolution.Started(sessionId) },
-                    onFailure = { failure ->
-                        // Cancellation must propagate so structured concurrency sees the
-                        // caller's scope was torn down; converting it into Failed would
-                        // resume a cancelled coroutine with an unrelated error result.
-                        if (failure is CancellationException) throw failure
-                        DiagnosticsManualScanResolution.Failed(
-                            DiagnosticsManualScanResolutionFailureReason.START_FAILED,
+                    pendingHiddenConflictRequest = null
+                    runCatching {
+                        startPreparedScan(
+                            prepared =
+                                scanRequestFactory.prepareScan(
+                                    profile = pendingRequest.profile,
+                                    settings = pendingRequest.settings,
+                                    pathMode = pendingRequest.pathMode,
+                                    scanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
+                                    launchTrigger = null,
+                                    exposeProgress = true,
+                                    registerActiveBridge = true,
+                                    scanDeadlineMs = pendingRequest.scanDeadlineMs,
+                                    maxCandidates = pendingRequest.maxCandidates,
+                                    targetOverrides = pendingRequest.targetOverrides,
+                                ),
+                            rawPathRunner = pendingRequest.rawPathRunner(runtimeCoordinator),
+                            ownerId = pendingRequest.ownerId,
                         )
-                    },
-                )
+                    }.fold(
+                        onSuccess = { sessionId -> DiagnosticsManualScanResolution.Started(sessionId) },
+                        onFailure = { failure ->
+                            // Cancellation must propagate so structured concurrency sees the
+                            // caller's scope was torn down; converting it into Failed would
+                            // resume a cancelled coroutine with an unrelated error result.
+                            if (failure is CancellationException) throw failure
+                            DiagnosticsManualScanResolution.Failed(
+                                DiagnosticsManualScanResolutionFailureReason.START_FAILED,
+                            )
+                        },
+                    )
+                }
             }
 
         override suspend fun cancelActiveScan() {
@@ -300,7 +284,7 @@ internal class DefaultDiagnosticsScanController
         private suspend fun persistCancellationResult(cancellation: ActiveScanCancellation) {
             var failure = cancellation.failure
             withContext(NonCancellable) {
-                runCatching { persistCancelledScan(cancellation) }
+                runCatching { scanRecordStore.persistCancelledScan(cancellation, activeScanRegistry, json) }
                     .exceptionOrNull()
                     ?.let { persistenceFailure ->
                         if (failure == null) {
@@ -313,39 +297,15 @@ internal class DefaultDiagnosticsScanController
             failure?.let { throw it }
         }
 
-        private suspend fun persistCancelledScan(cancellation: ActiveScanCancellation) {
-            val session =
-                scanRecordStore
-                    .getScanSession(cancellation.sessionId)
-                    ?.takeIf { it.status == "running" }
-                    ?: return
-
-            val partialReportJson =
-                cancellation.partialReportJson
-                    ?: activeScanRegistry.consumeCancelledSessionReport(cancellation.sessionId)
-            if (partialReportJson != null) {
-                persistPartialScanSession(
-                    session = session,
-                    partialReportJson = partialReportJson,
-                    prepared = cancellation.prepared,
-                    scanRecordStore = scanRecordStore,
-                    json = json,
-                )
-            } else {
-                DiagnosticsReportPersister.persistScanFailure(
-                    cancellation.sessionId,
-                    "Diagnostics scan canceled",
-                    scanRecordStore,
-                )
-            }
-        }
-
         override fun hasActiveScan(): Boolean = activeScanRegistry.hasActiveScan()
 
+        override fun hasActiveHomeRun(): Boolean = scanAdmissionService.hasActiveHomeRun()
+
         override suspend fun setActiveProfile(profileId: String) {
-            scanAdmissionService.assertProfileExists(profileId)
-            appSettingsRepository.update {
-                diagnosticsActiveProfileId = profileId
+            scanAdmissionService.updateProfile(profileId) {
+                appSettingsRepository.update {
+                    diagnosticsActiveProfileId = profileId
+                }
             }
         }
 
@@ -354,39 +314,42 @@ internal class DefaultDiagnosticsScanController
             event: PolicyHandoverEvent,
         ): AutomaticProbeLaunchOutcome =
             startMutex.withLock {
-                val sessionId = policyHandoverScanSessionId(event.deliveryId)
-                val existingSession = scanRecordStore.getScanSession(sessionId)
-                if (existingSession != null && existingSession.status != "running") {
-                    return@withLock AutomaticProbeLaunchOutcome.SETTLED
-                }
-                if (existingSession?.status == "running" && activeScanRegistry.hasRegisteredExecution(sessionId)) {
-                    return@withLock AutomaticProbeLaunchOutcome.RETRY
-                }
-                val profile =
-                    scanAdmissionService.admitAutomaticProbe(settings)
-                        ?: return@withLock AutomaticProbeLaunchOutcome.RETRY
-                val prepared =
-                    scanRequestFactory.prepareScan(
-                        profile = profile,
-                        settings = settings,
-                        pathMode = ScanPathMode.RAW_PATH,
-                        scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
-                        launchTrigger = event.toLaunchTrigger(),
-                        exposeProgress = false,
-                        registerActiveBridge = false,
-                        sessionIdOverride = sessionId,
+                scanAdmissionService.withAutomaticAdmission {
+                    val sessionId = policyHandoverScanSessionId(event.deliveryId)
+                    val existingSession = scanRecordStore.getScanSession(sessionId)
+                    if (existingSession != null && existingSession.status != "running") {
+                        return@withAutomaticAdmission AutomaticProbeLaunchOutcome.SETTLED
+                    }
+                    if (existingSession?.status == "running" && activeScanRegistry.hasRegisteredExecution(sessionId)) {
+                        return@withAutomaticAdmission AutomaticProbeLaunchOutcome.RETRY
+                    }
+                    val profile =
+                        scanAdmissionService.admitAutomaticProbe(settings)
+                            ?: return@withAutomaticAdmission AutomaticProbeLaunchOutcome.RETRY
+                    val prepared =
+                        scanRequestFactory.prepareScan(
+                            profile = profile,
+                            settings = settings,
+                            pathMode = ScanPathMode.RAW_PATH,
+                            scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                            launchTrigger = event.toLaunchTrigger(),
+                            exposeProgress = false,
+                            registerActiveBridge = false,
+                            sessionIdOverride = sessionId,
+                        )
+                    val preparedFingerprintHash =
+                        prepared.networkFingerprint?.scopeKey()
+                            ?: return@withAutomaticAdmission AutomaticProbeLaunchOutcome.RETRY
+                    val modeMatches = prepared.context.serviceMode.equals(event.mode.name, ignoreCase = true)
+                    if (preparedFingerprintHash != event.currentFingerprintHash || !modeMatches) {
+                        return@withAutomaticAdmission AutomaticProbeLaunchOutcome.SETTLED
+                    }
+                    startPreparedScan(
+                        prepared = prepared,
+                        rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
                     )
-                val preparedFingerprintHash =
-                    prepared.networkFingerprint?.scopeKey() ?: return@withLock AutomaticProbeLaunchOutcome.RETRY
-                val modeMatches = prepared.context.serviceMode.equals(event.mode.name, ignoreCase = true)
-                if (preparedFingerprintHash != event.currentFingerprintHash || !modeMatches) {
-                    return@withLock AutomaticProbeLaunchOutcome.SETTLED
+                    AutomaticProbeLaunchOutcome.LAUNCHED
                 }
-                startPreparedScan(
-                    prepared = prepared,
-                    rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
-                )
-                AutomaticProbeLaunchOutcome.LAUNCHED
             }
 
         private suspend fun startPreparedScan(
@@ -688,3 +651,73 @@ private fun PreparedDiagnosticsScan.expectedProxyEndpoint(): String =
     plan.proxyHost?.let { host ->
         plan.proxyPort?.let { port -> "$host:$port" } ?: host
     } ?: "unknown"
+
+private suspend fun DiagnosticsScanRecordStore.persistCancelledScan(
+    cancellation: ActiveScanCancellation,
+    activeScanRegistry: ActiveScanRegistry,
+    json: Json,
+) {
+    val session =
+        getScanSession(cancellation.sessionId)
+            ?.takeIf { it.status == "running" }
+            ?: return
+
+    val partialReportJson =
+        cancellation.partialReportJson
+            ?: activeScanRegistry.consumeCancelledSessionReport(cancellation.sessionId)
+    if (partialReportJson != null) {
+        persistPartialScanSession(
+            session = session,
+            partialReportJson = partialReportJson,
+            prepared = cancellation.prepared,
+            scanRecordStore = this,
+            json = json,
+        )
+    } else {
+        DiagnosticsReportPersister.persistScanFailure(
+            cancellation.sessionId,
+            "Diagnostics scan canceled",
+            this,
+        )
+    }
+}
+
+private suspend fun ActiveScanRegistry.cancelHiddenProbeForManualDiagnostics(
+    scanRecordStore: DiagnosticsScanRecordStore,
+    timeoutMs: Long,
+): Boolean {
+    val cancellation =
+        cancelHiddenAutomaticProbe(
+            cancellationSummary = BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+            timeoutMs = timeoutMs,
+            beforeCancel = { sessionId ->
+                DiagnosticsReportPersister.persistScanCancellationCause(
+                    sessionId,
+                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                    scanRecordStore,
+                )
+            },
+        )
+    return when (cancellation) {
+        is HiddenProbeCancellationResult.Failed -> {
+            false
+        }
+
+        is HiddenProbeCancellationResult.Cancelled -> {
+            if (scanRecordStore.getScanSession(cancellation.sessionId) == null) {
+                false
+            } else {
+                DiagnosticsReportPersister.persistScanFailure(
+                    cancellation.sessionId,
+                    BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary,
+                    scanRecordStore,
+                )
+                true
+            }
+        }
+
+        else -> {
+            true
+        }
+    }
+}

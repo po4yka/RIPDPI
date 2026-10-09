@@ -69,7 +69,7 @@ internal fun ScanProgressCard(
     TrackRecomposition("ScanProgressCard")
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
-    val timing = rememberScanTimingLabels(progress)
+    val timing = progress.scanStartedAtMs.takeIf { it > 0L }?.let { rememberScanTimingLabels(progress) }
     RipDpiCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -87,11 +87,13 @@ internal fun ScanProgressCard(
                 pulsing = true,
                 tone = StatusIndicatorTone.Warning,
             )
-            Text(
-                text = timing.elapsed,
-                style = RipDpiThemeTokens.type.monoInline,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
+            timing?.let {
+                Text(
+                    text = it.elapsed,
+                    style = RipDpiThemeTokens.type.monoInline,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
         }
         progress.strategyProbeProgress?.let { liveProgress ->
             StrategyProbeLaneRow(liveProgress)
@@ -130,23 +132,16 @@ internal fun ScanProgressCard(
                 }
             }
         }
-        RipDpiProgressBar(progress = progress.fraction, contentDescription = progress.activePhaseLabel())
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
+        RipDpiProgressBar(
+            progress = progress.fraction.takeIf { progress.totalSteps > 0 },
+            contentDescription = progress.activePhaseLabel(),
+        )
+        if (progress.totalSteps > 0) {
             Text(
                 text = "${progress.completedSteps}/${progress.totalSteps}",
                 style = RipDpiThemeTokens.type.monoInline,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
-            timing.eta?.let { eta ->
-                Text(
-                    text = eta,
-                    style = RipDpiThemeTokens.type.monoSmall,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-            }
         }
         progress.networkContext?.let { ctx ->
             NetworkContextRow(context = ctx)
