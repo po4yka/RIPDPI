@@ -638,6 +638,20 @@ class MainHomeDiagnosticsConcurrencyTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `quick analysis admission describes network checks before stage progress arrives`() =
+        runTest {
+            val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
+            val actions = createActions(scope = backgroundScope, homeDiagnosticsState = homeDiagnosticsState)
+
+            actions.runQuickAnalysis()
+            runCurrent()
+
+            assertTrue(homeDiagnosticsState.value.quickScanActive)
+            assertEquals("home-run", homeDiagnosticsState.value.activeRunId)
+            assertEquals("Checking this network…", homeDiagnosticsState.value.activeRunStageProgress)
+        }
+
+    @Test
     fun `cancel failure preserves the active run and reports a cancellation error`() =
         runTest {
             val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)

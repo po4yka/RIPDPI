@@ -119,6 +119,19 @@ class DiagnosticsProbePresentationTest {
         assertTrue(copy.contains("Protocol: h3"))
     }
 
+    @Test
+    fun copyRetainsPmtuEvidenceAfterPresentationRebase() {
+        val pmtu =
+            DiagnosticsContextGroupUiModel(
+                title = "Path MTU",
+                fields = persistentListOf(DiagnosticsFieldUiModel("Validated payload", "1232 bytes")),
+            )
+        val copy =
+            formatDiagnosticsProbeEvidence(probe("pmtu", "pmtu_validated", DiagnosticsTone.Positive).copy(pmtu = pmtu))
+        assertTrue(copy.contains("Path MTU"))
+        assertTrue(copy.contains("Validated payload: 1232 bytes"))
+    }
+
     private fun probe(
         type: String,
         outcome: String,

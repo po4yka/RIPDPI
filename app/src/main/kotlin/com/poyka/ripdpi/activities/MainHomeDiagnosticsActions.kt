@@ -283,8 +283,7 @@ internal class MainHomeDiagnosticsActions(
                     homeDiagnosticsState.update {
                         it.copy(
                             activeRunId = started.runId,
-                            activeRunStageProgress =
-                                stringResolver.getString(R.string.home_diagnostics_analysis_running),
+                            activeRunStageProgress = stringResolver.homeAnalysisRunningLabel(quickScan),
                             analysisStarting = false,
                         )
                     }

@@ -184,6 +184,15 @@ private fun resolveAnalysisSupportingText(
         }
     }
 
+internal fun StringResolver.homeAnalysisRunningLabel(quickScan: Boolean): String =
+    getString(
+        if (quickScan) {
+            R.string.diagnostics_simple_funnel_verdict_running
+        } else {
+            R.string.home_diagnostics_analysis_running
+        },
+    )
+
 private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: StringResolver): String {
     if (analysisStarting) {
         return stringResolver.getString(R.string.home_diagnostics_analysis_starting)
@@ -211,7 +220,7 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
         }
     return listOfNotNull(stagePrefix, activeRunStageProgress ?: stageLabel)
         .joinToString(" · ")
-        .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
+        .ifBlank { stringResolver.homeAnalysisRunningLabel(quickScanActive) }
 }
 
 /**
@@ -248,7 +257,7 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
         }
     return listOfNotNull(stagePrefix, stageLabel)
         .joinToString(" · ")
-        .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
+        .ifBlank { stringResolver.homeAnalysisRunningLabel(quickScanActive) }
 }
 
 private fun resolveVerificationSupportingText(

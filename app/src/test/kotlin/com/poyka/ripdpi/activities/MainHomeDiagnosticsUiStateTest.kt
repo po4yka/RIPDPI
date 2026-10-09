@@ -14,6 +14,41 @@ import org.junit.Test
 
 class MainHomeDiagnosticsUiStateTest {
     @Test
+    fun `quick and full analysis fallbacks describe their actual scope for visible and spoken status`() {
+        listOf(
+            true to R.string.diagnostics_simple_funnel_verdict_running,
+            false to R.string.home_diagnostics_analysis_running,
+        ).forEach { (quickScan, message) ->
+            val uiState =
+                buildHomeDiagnosticsUiState(
+                    settings = AppSettingsSerializer.defaultValue,
+                    appStatus = AppStatus.Halted,
+                    connectionState = ConnectionState.Disconnected,
+                    runtime = HomeDiagnosticsRuntimeState(activeRunId = "run", quickScanActive = quickScan),
+                    stringResolver = FakeStringResolver(),
+                )
+
+            assertEquals(message.toString(), uiState.analysisAction.supportingText)
+            assertEquals(message.toString(), uiState.analysisAction.stageAnnouncement)
+        }
+    }
+
+    @Test
+    fun `quick analysis startup keeps generic diagnostics admission copy`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime = HomeDiagnosticsRuntimeState(analysisStarting = true, quickScanActive = true),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(R.string.home_diagnostics_analysis_starting.toString(), uiState.analysisAction.supportingText)
+        assertEquals(R.string.home_diagnostics_analysis_starting.toString(), uiState.analysisAction.stageAnnouncement)
+    }
+
+    @Test
     fun `unknown audit or current network gives explicit rerun reason`() {
         listOf(null to "fp-1", "fp-1" to null).forEach { (auditFingerprint, currentFingerprint) ->
             val uiState =
