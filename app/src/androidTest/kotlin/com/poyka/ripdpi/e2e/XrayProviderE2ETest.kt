@@ -517,8 +517,26 @@ class XrayProviderE2ETest {
                 assertTrue("Peer loss must not enable a direct bypass", direct.response.isNullOrEmpty())
                 assertEquals(before, readControl("receipts").getInt("count"))
                 assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
-                val dnsFailure = testProcessDnsProbe(queryHost = "peer-loss.test", timeoutMs = 3_000L)
-                assertFalse("Stopped peer must reject encrypted DNS", dnsFailure.ok)
+                val dnsReceiptsBefore = readControl("dns-http-receipts").getInt("count")
+                val dnsFailure = testProcessDnsProbe(queryHost = "peer-owned-loss-$network.test", timeoutMs = 3_000L)
+                Log.i(
+                    "XrayPeerRecovery",
+                    "phase=peer-stopped ok=${dnsFailure.ok} rcode=${dnsFailure.rcode} " +
+                        "answers=${dnsFailure.answers.size} failure=${dnsFailure.failureKind}/${dnsFailure.failureStage}",
+                )
+                assertTrue(
+                    "Outage DNS must originate from a distinct test UID",
+                    dnsFailure.probeUid != null && dnsFailure.probeUid != Process.myUid(),
+                )
+                assertTrue("Stopped peer must return no DNS answers", dnsFailure.answers.isEmpty())
+                if (dnsFailure.ok) {
+                    assertEquals("Stopped peer must return SERVFAIL", 2, dnsFailure.rcode)
+                }
+                assertEquals(
+                    "Stopped peer must not reach the real DoH handler",
+                    dnsReceiptsBefore,
+                    readControl("dns-http-receipts").getInt("count"),
+                )
                 awaitUntil {
                     assertEquals(
                         "DNS failure must preserve real TUN",
