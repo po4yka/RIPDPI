@@ -1,0 +1,11 @@
+{
+  "change": "svc-1791566464861507-acceptance-physical-handover",
+  "evidence_summary": "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record.",
+  "execution_sha256": "2e5cbd121750ca7581dd857e390972a3aa861f28b33ecc7f871a75259540ff7b",
+  "issue_sha256": "7b0a72a06a5e43a1d574a52ff7ad4da7494c98d4eeb66d21db93cf93b06ad945",
+  "outcome": "done",
+  "prepared_at": "2026-10-09T21:01:39Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1791566464861507"
+}

@@ -2,7 +2,7 @@
 id: TST-1791562210531707
 title: Keep acceptance VM rustup owned by its package manager
 kind: bug
-status: review
+status: done
 area: testing
 priority: high
 owner: linux-acceptance
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 spec_reason: tooling-only
 status_detail: Real VM rustup failure reproduced;23 VM tests green after red regression; pinned install succeeds with --no-self-update; full clean packet preparation pending serialized gate
+closed_at: "2026-10-09T21:01:40Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record."
 ---
 
 ## Goal

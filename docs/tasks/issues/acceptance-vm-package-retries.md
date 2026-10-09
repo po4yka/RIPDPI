@@ -2,7 +2,7 @@
 id: TST-1791554104885065
 title: Retry transient acceptance VM package downloads
 kind: bug
-status: review
+status: done
 area: testing
 priority: medium
 owner: Linux acceptance
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 spec_reason: tooling-only
+closed_at: "2026-10-09T21:01:39Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record."
 ---
 
 ## Goal

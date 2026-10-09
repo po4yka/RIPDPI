@@ -2,7 +2,7 @@
 id: TST-1791554642630646
 title: Update Simple UI acceptance contracts
 kind: bug
-status: review
+status: done
 area: testing
 priority: high
 owner: Acceptance coordinator
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 spec_reason: test-only
 status_detail: Simple JVM suites and approved13 goldens pass; actual emulator cancel/share1of1passes after scroll/resource expectations fix; exact published CI remains coordinator gate
+closed_at: "2026-10-09T21:01:40Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record."
 ---
 
 ## Goal

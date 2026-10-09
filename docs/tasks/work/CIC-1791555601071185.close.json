@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record.",
+  "execution_sha256": "b3881ba7494e8484f4b7d89304fe3a34de586248f2b95470646fabbcacb8c04b",
+  "issue_sha256": "328ec190596d4bac1b013eb74102ef426a1ffe04b8898f975ebc2db160fb39ac",
+  "outcome": "done",
+  "prepared_at": "2026-10-09T21:01:40Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1791555601071185"
+}

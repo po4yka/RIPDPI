@@ -1,0 +1,11 @@
+{
+  "change": "dns-1791554915587312-proxy-dns-peer-loss",
+  "evidence_summary": "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record.",
+  "execution_sha256": "119acee600dbb21ada47abd7d00e18a4115bb80e44d7b88bb47ccd64a49b4ee2",
+  "issue_sha256": "035cf02ae666ebad456ccda69632a8aa8ace3511e779d30dc61687c7d37466f8",
+  "outcome": "done",
+  "prepared_at": "2026-10-09T21:01:40Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DNS-1791554915587312"
+}
