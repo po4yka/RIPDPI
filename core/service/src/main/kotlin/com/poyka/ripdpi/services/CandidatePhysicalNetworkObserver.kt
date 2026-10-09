@@ -64,9 +64,10 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         // Compare every stored field from this callback; legacy matching callbacks stay conservative.
         if (entry?.preferred == true && entry.capabilities == fingerprint && entry.usableCapabilities == usable) return
         advance()
-        if (entry == null) return
-        entry.capabilities = fingerprint
-        entry.usableCapabilities = usable
+        if (entry != null) {
+            entry.capabilities = fingerprint
+            entry.usableCapabilities = usable
+        }
     }
 
     @Synchronized fun links(
@@ -79,9 +80,10 @@ internal class CandidatePhysicalNetworkObserver<T : Any>(
         val entry = entries[network]
         if (entry?.preferred == true && entry.links == fingerprint && entry.usableLinks == usable) return
         advance()
-        if (entry == null) return
-        entry.links = fingerprint
-        entry.usableLinks = usable
+        if (entry != null) {
+            entry.links = fingerprint
+            entry.usableLinks = usable
+        }
     }
 
     @Synchronized fun blocked(
