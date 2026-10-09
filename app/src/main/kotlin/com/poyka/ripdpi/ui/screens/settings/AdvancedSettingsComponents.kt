@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownLabels
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -107,6 +108,7 @@ internal fun AdvancedDropdownSetting(
             )
         }
         RipDpiDropdown(
+            labels = RipDpiDropdownLabels(accessibilityLabel = title),
             options = options,
             selectedValue = value,
             onValueSelected = { selectedValue -> onSelected(setting, selectedValue) },
