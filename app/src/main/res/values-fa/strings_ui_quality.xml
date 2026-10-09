@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">بارگذاری قانون ممکن نشد</string>
+    <string name="ui_rule_load_failed_body">بارگذاری قانون را دوباره امتحان کنید. داده‌های فرم حفظ شده‌اند.</string>
+    <string name="ui_rule_save_failed_title">ذخیره قانون ممکن نشد</string>
+    <string name="ui_rule_save_failed_body">تغییرات شما حفظ شده‌اند. ذخیره را دوباره امتحان کنید.</string>
+    <string name="ui_app_picker_no_matches">برنامه مطابقی پیدا نشد</string>
+    <string name="ui_app_picker_clear_search">پاک کردن جستجو</string>
+    <string name="ui_profile_catalog_retry">بارگذاری دوباره نمایه‌ها</string>
+</resources>

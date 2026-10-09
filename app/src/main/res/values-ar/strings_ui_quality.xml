@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">تعذر تحميل القاعدة</string>
+    <string name="ui_rule_load_failed_body">أعد محاولة تحميل القاعدة. تم الاحتفاظ ببيانات النموذج.</string>
+    <string name="ui_rule_save_failed_title">تعذر حفظ القاعدة</string>
+    <string name="ui_rule_save_failed_body">تم الاحتفاظ بتغييراتك. حاول الحفظ مرة أخرى.</string>
+    <string name="ui_app_picker_no_matches">لا توجد تطبيقات مطابقة</string>
+    <string name="ui_app_picker_clear_search">مسح البحث</string>
+    <string name="ui_profile_catalog_retry">إعادة تحميل الملفات الشخصية</string>
+</resources>

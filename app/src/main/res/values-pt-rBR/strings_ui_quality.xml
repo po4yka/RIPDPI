@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">Não foi possível carregar a regra</string>
+    <string name="ui_rule_load_failed_body">Tente carregar a regra novamente. Os dados do formulário foram mantidos.</string>
+    <string name="ui_rule_save_failed_title">Não foi possível salvar a regra</string>
+    <string name="ui_rule_save_failed_body">Suas alterações foram mantidas. Tente salvar novamente.</string>
+    <string name="ui_app_picker_no_matches">Nenhum aplicativo correspondente</string>
+    <string name="ui_app_picker_clear_search">Limpar pesquisa</string>
+    <string name="ui_profile_catalog_retry">Recarregar perfis</string>
+</resources>

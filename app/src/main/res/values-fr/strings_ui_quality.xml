@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">Impossible de charger la règle</string>
+    <string name="ui_rule_load_failed_body">Réessayez de charger la règle. Les données du formulaire sont conservées.</string>
+    <string name="ui_rule_save_failed_title">Impossible d’enregistrer la règle</string>
+    <string name="ui_rule_save_failed_body">Vos modifications sont conservées. Réessayez de les enregistrer.</string>
+    <string name="ui_app_picker_no_matches">Aucune application correspondante</string>
+    <string name="ui_app_picker_clear_search">Effacer la recherche</string>
+    <string name="ui_profile_catalog_retry">Recharger les profils</string>
+</resources>

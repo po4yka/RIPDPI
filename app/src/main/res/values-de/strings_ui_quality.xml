@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">Regel konnte nicht geladen werden</string>
+    <string name="ui_rule_load_failed_body">Lade die Regel erneut. Die Formulardaten bleiben erhalten.</string>
+    <string name="ui_rule_save_failed_title">Regel konnte nicht gespeichert werden</string>
+    <string name="ui_rule_save_failed_body">Deine Änderungen bleiben erhalten. Versuche erneut zu speichern.</string>
+    <string name="ui_app_picker_no_matches">Keine passenden Apps</string>
+    <string name="ui_app_picker_clear_search">Suche löschen</string>
+    <string name="ui_profile_catalog_retry">Profile erneut laden</string>
+</resources>
