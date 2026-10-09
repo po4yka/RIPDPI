@@ -83,6 +83,20 @@ class ProfileUtilityScreenTest {
         composeRule.onNodeWithText(text(R.string.profile_search_no_results)).assertExists()
     }
 
+    @Test fun `catalog failure offers an explicit reload`() {
+        var retries = 0
+        render(
+            state().copy(
+                profiles = persistentListOf(),
+                catalogState = ProfileCatalogState.Failed,
+                failure = ProfileUtilityFailure.Persistence,
+            ),
+            actions(reload = { retries++ }),
+        )
+        composeRule.onNodeWithText(text(R.string.ui_profile_catalog_retry)).performScrollTo().performClick()
+        assertEquals(1, retries)
+    }
+
     @Test fun `catalog read failure does not claim there are no saved profiles`() {
         render(
             state().copy(
@@ -145,6 +159,7 @@ class ProfileUtilityScreenTest {
         favorite: (ProfileUtilityReference, Long, Boolean) -> Unit = { _, _, _ -> error("Unexpected favorite") },
         retry: () -> Unit = { error("Unexpected cleanup") },
         fastest: () -> Unit = { error("Unexpected fastest selection") },
+        reload: () -> Unit = { error("Unexpected catalog reload") },
     ) = ProfileUtilityActions(
         favorite,
         check,
@@ -153,6 +168,7 @@ class ProfileUtilityScreenTest {
         retry,
         { error("Unexpected probe URL edit") },
         fastest,
+        retryCatalog = reload,
     )
 
     private fun render(

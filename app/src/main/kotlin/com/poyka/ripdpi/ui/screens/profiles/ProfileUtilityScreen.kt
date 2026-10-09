@@ -43,6 +43,7 @@ internal class ProfileUtilityActions(
     val retryCleanup: () -> Unit,
     val probeUrl: (String) -> Unit,
     val checkFastest: () -> Unit,
+    val retryCatalog: () -> Unit = {},
 )
 
 @Composable
@@ -92,7 +93,14 @@ internal fun ProfileUtilityScreen(
             }
 
             state.catalogState == ProfileCatalogState.Failed -> {
-                Unit
+                item(key = "catalog-retry") {
+                    RipDpiButton(
+                        text = stringResource(R.string.ui_profile_catalog_retry),
+                        onClick = actions.retryCatalog,
+                        modifier = Modifier.fillMaxWidth(),
+                        wrapLabel = true,
+                    )
+                }
             }
 
             visible.isEmpty() -> {

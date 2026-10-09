@@ -20,6 +20,7 @@ internal fun ProfileUtilityRoute(
             viewModel::retryCleanup,
             viewModel::updateUrl,
             viewModel::checkAndSelectFastest,
+            retryCatalog = viewModel::retryCatalog,
         ),
     )
 }
