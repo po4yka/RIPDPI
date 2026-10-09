@@ -9,7 +9,7 @@ remote_ci_evidence: Main integration and push are authorized and pending.
 device: required
 device_evidence: Native APK and device acceptance have not been observed.
 artifact: required
-artifact_evidence: Supported SDK 36 previews were inspected. Final Full golden comparison is pending.
+artifact_evidence: Supported SDK 36 previews and all 50 Full golden differences were inspected. Expected updates await explicit approval; verify is pending.
 deployment: not_applicable
 deployment_evidence: This change does not own a deployment.
 ---
@@ -91,8 +91,20 @@ The first broad Full golden gate ran 286 tests: 239 passed, 46 failed,
 and one existing RTL gallery test was ignored. All 46 comparisons were
 inspected. The tuner regression was repaired; the other differences
 match the approved UI changes. Expected PNGs were not changed.
-Final compare mode will also capture paired dark states before any
-request to update the exact reviewed fixture paths.
+Final read-only compare passed 285 tests with no failures or errors and
+one existing ignored RTL test. All 396 expected PNG hashes stayed
+unchanged. It captured 50 differences: 45 match the previously reviewed
+images, plus four paired dark states and the repaired tuner. All 50
+were inspected. The exact paths, filters, rationale, and images are in
+`ripdpi-ui-quality-final-golden-evidence-dfey14ib/review-manifest.md`.
+The user approval request is limited to these 50 PNGs. Record and final
+verify have not run.
+
+Main advanced to `6ce2271e7`, with the identical JSON repair and task
+documentation. The integration branch was rebased to `384d260e8`; its
+app, core, build-logic, config, native, and Gradle files match the tested
+and reviewed `5fb4d7d` source. Only task documents changed. Task contracts
+passed after regeneration of the board.
 
 Simple runtime stops at `verifyEmbeddedRelayBundle`: it needs a real,
 non-empty `src/simple/assets/embedded-relay-bundle.json`. No placeholder
