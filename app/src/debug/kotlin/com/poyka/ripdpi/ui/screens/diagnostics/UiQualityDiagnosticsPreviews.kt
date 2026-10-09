@@ -45,7 +45,7 @@ private fun UiQualityDiagnosticsRtlPreview() {
 
 @Composable
 private fun DiagnosticsQualityScene() {
-    CompositionLocalProvider(LocalScanClockMs provides 3_600_000L) {
+    CompositionLocalProvider(LocalScanClockMs provides 3_601_000L) {
         RipDpiTheme {
             Column(
                 modifier =
@@ -85,7 +85,7 @@ private fun DiagnosticsQualityScene() {
                             0.25f,
                             ScanKind.STRATEGY_PROBE,
                             false,
-                            0L,
+                            1_000L,
                             persistentListOf(),
                             "Проверка соединения с выбранным сайтом",
                         ),

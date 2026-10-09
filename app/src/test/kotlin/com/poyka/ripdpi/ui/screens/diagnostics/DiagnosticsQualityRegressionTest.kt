@@ -240,7 +240,7 @@ class DiagnosticsQualityRegressionTest {
                             0.25f,
                             ScanKind.STRATEGY_PROBE,
                             false,
-                            0L,
+                            1_000L,
                             persistentListOf(),
                             "Проверка соединения с выбранным сайтом",
                         ),
@@ -321,7 +321,7 @@ class DiagnosticsQualityRegressionTest {
             LocalDensity provides Density(1f, fontScale),
             LocalLayoutDirection provides direction,
             LocalInspectionMode provides true,
-            LocalScanClockMs provides 3_600_000L,
+            LocalScanClockMs provides 3_601_000L,
         ) {
             RipDpiTheme(themePreference = theme) {
                 Box(Modifier.requiredSize(320.dp, 1000.dp).background(RipDpiThemeTokens.colors.background)) {
