@@ -7,4 +7,6 @@
     <string name="ui_app_picker_no_matches">لا توجد تطبيقات مطابقة</string>
     <string name="ui_app_picker_clear_search">مسح البحث</string>
     <string name="ui_profile_catalog_retry">إعادة تحميل الملفات الشخصية</string>
+    <string name="diagnostics_tool_state_cancelled">ملغى</string>
+    <string name="diagnostics_tool_state_disabled">معطل</string>
 </resources>

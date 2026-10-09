@@ -7,4 +7,6 @@
     <string name="ui_app_picker_no_matches">برنامه مطابقی پیدا نشد</string>
     <string name="ui_app_picker_clear_search">پاک کردن جستجو</string>
     <string name="ui_profile_catalog_retry">بارگذاری دوباره نمایه‌ها</string>
+    <string name="diagnostics_tool_state_cancelled">لغو شد</string>
+    <string name="diagnostics_tool_state_disabled">غیرفعال</string>
 </resources>

@@ -7,4 +7,6 @@
     <string name="ui_app_picker_no_matches">कोई मेल खाता ऐप नहीं मिला</string>
     <string name="ui_app_picker_clear_search">खोज साफ़ करें</string>
     <string name="ui_profile_catalog_retry">प्रोफ़ाइल फिर लोड करें</string>
+    <string name="diagnostics_tool_state_cancelled">रद्द किया गया</string>
+    <string name="diagnostics_tool_state_disabled">बंद</string>
 </resources>

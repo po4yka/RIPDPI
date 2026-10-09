@@ -7,4 +7,6 @@
     <string name="ui_app_picker_no_matches">No matching apps</string>
     <string name="ui_app_picker_clear_search">Clear search</string>
     <string name="ui_profile_catalog_retry">Reload profiles</string>
+    <string name="diagnostics_tool_state_cancelled">Cancelled</string>
+    <string name="diagnostics_tool_state_disabled">Disabled</string>
 </resources>

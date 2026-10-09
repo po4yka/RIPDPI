@@ -7,4 +7,6 @@
     <string name="ui_app_picker_no_matches">Nenhum aplicativo correspondente</string>
     <string name="ui_app_picker_clear_search">Limpar pesquisa</string>
     <string name="ui_profile_catalog_retry">Recarregar perfis</string>
+    <string name="diagnostics_tool_state_cancelled">Cancelado</string>
+    <string name="diagnostics_tool_state_disabled">Desativado</string>
 </resources>
