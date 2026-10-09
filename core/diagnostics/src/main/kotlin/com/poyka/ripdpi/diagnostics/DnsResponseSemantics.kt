@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 @Serializable
 enum class DnsResponseOutcome {
@@ -82,4 +82,4 @@ private const val DnsMaxEdeCode = 65535
 private const val DnsMaxTtl = 4_294_967_295L
 private val DnsQueryTypes = setOf("A", "AAAA")
 private val DnsResponseDetailKeys = setOf("udpDnsResponse", "encryptedDnsResponse")
-private val DnsResponseJson = Json { ignoreUnknownKeys = true }
+private val DnsResponseJson = RipDpiJson

@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
-import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.serialization.RipDpiTolerantEncodeDefaultsJson
 
 fun parsePmtuProbeEvidence(details: List<ProbeDetail>): PmtuProbeEvidence? =
     parsePmtuProbeEvidence(details.singleOrNull { it.key == "pmtuEvidence" }?.value)
@@ -120,11 +120,7 @@ internal fun List<ProbeResult>.pmtuSummaryLines(): List<String> =
 internal fun bucketPmtu(outcome: String): DiagnosticsOutcomeBucket =
     if (outcome == "pmtu_observed") DiagnosticsOutcomeBucket.Healthy else DiagnosticsOutcomeBucket.Inconclusive
 
-private val PmtuEvidenceJson =
-    Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
+private val PmtuEvidenceJson = RipDpiTolerantEncodeDefaultsJson
 private const val PmtuMaxEvidenceCharacters = 4_096
 private const val PmtuMaxProbeCount = 10_000L
 private const val PmtuMaxElapsedMs = 60_000L

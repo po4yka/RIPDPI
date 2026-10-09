@@ -1,11 +1,36 @@
 package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class TransferEvidenceValidationTest {
+    @Test
+    fun `canonical evidence keeps defaults and nulls and rejects unknown keys`() {
+        val input = encode(validMeasurement())
+        val canonical = requireNotNull(canonicalTransferEvidence(input))
+        val run =
+            Json
+                .parseToJsonElement(canonical)
+                .jsonObject
+                .getValue("runs")
+                .jsonArray
+                .single()
+                .jsonObject
+
+        assertEquals(JsonNull, run["expectedBodyByteCount"])
+        assertEquals(JsonPrimitive(false), run["responseComplete"])
+        assertEquals(JsonPrimitive(false), run["windowComplete"])
+        assertEquals(parseTransferEvidence(input), parseTransferEvidence(canonical))
+        assertNull(canonicalTransferEvidence(input.dropLast(1) + ",\"futureField\":true}"))
+    }
+
     @Test
     fun `negative body counters are rejected before presentation`() {
         val evidence =

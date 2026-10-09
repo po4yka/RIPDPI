@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
-import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.serialization.RipDpiJson
 
 fun parseIpFamilyProbeEvidence(details: List<ProbeDetail>): IpFamilyProbeEvidence? =
     parseIpFamilyProbeEvidence(details.singleOrNull { it.key == "ipFamilyEvidence" }?.value)
@@ -76,7 +76,7 @@ private const val IpEvidenceMaxCharacters = 2_048
 private const val IpEvidenceMaxAttempts = 16
 private const val IpEvidenceMaxDurationMs = 120_000L
 private const val IpEvidenceMaxRows = 32
-private val IpEvidenceJson = Json { ignoreUnknownKeys = true }
+private val IpEvidenceJson = RipDpiJson
 private val IpEvidencePrefixLengths = setOf(32, 40, 48, 56, 64, 96)
 private val IpEvidenceReasons =
     setOf(

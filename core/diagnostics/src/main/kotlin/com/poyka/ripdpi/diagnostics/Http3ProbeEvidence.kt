@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
-import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.serialization.RipDpiJson
 
 fun parseHttp3ProbeEvidence(details: List<ProbeDetail>): Http3ProbeEvidence? =
     parseHttp3ProbeEvidence(details.singleOrNull { it.key == "http3Evidence" }?.value)
@@ -111,7 +111,7 @@ internal fun bucketHttp3(outcome: String): DiagnosticsOutcomeBucket =
         else -> DiagnosticsOutcomeBucket.Inconclusive
     }
 
-private val Http3EvidenceJson = Json { ignoreUnknownKeys = true }
+private val Http3EvidenceJson = RipDpiJson
 private const val Http3MaxEvidenceCharacters = 4_096
 private const val Http3MaxAttempts = 4
 private const val Http3MaxElapsedMs = 60_000L

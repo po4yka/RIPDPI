@@ -6,6 +6,9 @@ import com.poyka.ripdpi.diagnostics.finalization.revokePersistedNetworkScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -31,6 +34,20 @@ internal fun pmtuEvidenceForTest() =
 
 class PmtuProbeEvidenceTest {
     private val evidence = pmtuEvidenceForTest()
+
+    @Test
+    fun `canonical evidence keeps defaults and explicit nulls while discarding unknown keys`() {
+        val minimal = """{"addressFamily":"IPV4","status":"INCONCLUSIVE","futureField":true}"""
+        val canonical = requireNotNull(canonicalPmtuProbeEvidence(minimal))
+        val fields = Json.parseToJsonElement(canonical).jsonObject
+
+        assertEquals(JsonPrimitive(1), fields["version"])
+        assertEquals(JsonPrimitive(0), fields["sentProbeCount"])
+        assertEquals(JsonNull, fields["peerAddress"])
+        assertEquals(JsonNull, fields["acknowledgedUdpPayloadLowerBoundBytes"])
+        assertFalse(fields.containsKey("futureField"))
+        assertEquals(parsePmtuProbeEvidence(minimal), parsePmtuProbeEvidence(canonical))
+    }
 
     @Test
     fun `initial size and ceiling cannot become a measured lower bound`() {
