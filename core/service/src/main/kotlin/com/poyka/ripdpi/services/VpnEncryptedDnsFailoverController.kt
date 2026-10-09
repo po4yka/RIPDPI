@@ -73,7 +73,7 @@ internal class VpnEncryptedDnsFailoverController(
         currentDnsSignature: String?,
         networkScopeKey: String?,
         telemetry: NativeRuntimeSnapshot,
-        dnsUsesProxy: Boolean = false,
+        dnsUsesSharedProxy: Boolean = false,
     ): Boolean {
         val encryptedDns = activeDns?.takeIf { it.isEncrypted }
         val currentPath = encryptedDns?.toEncryptedDnsPathCandidate()
@@ -85,7 +85,7 @@ internal class VpnEncryptedDnsFailoverController(
         synchronizeNetworkScope(state, networkScopeKey)
         observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
         resetRolledBackCounters(state, telemetry)
-        return if (dnsUsesProxy && isAmbiguousProxyFailure(telemetry.lastDnsError.orEmpty())) {
+        return if (dnsUsesSharedProxy && isAmbiguousProxyFailure(telemetry.lastDnsError.orEmpty())) {
             // A shared proxy failure cannot identify a blocked DNS endpoint.
             // Consume its counters so it cannot trigger a later endpoint failover.
             state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal

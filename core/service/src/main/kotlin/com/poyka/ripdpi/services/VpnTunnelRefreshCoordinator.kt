@@ -59,6 +59,7 @@ internal class VpnTunnelRefreshCoordinator(
                     splitStrictDnsPolicy = latestConnectionPolicy.splitStrictDnsPolicy,
                     profileInterface = dependencies.vpnTunnelRuntime.consumedProfileInterface,
                     forceTunnelDns = dependencies.vpnTunnelRuntime.consumedForceTunnelDns,
+                    sharedProxyPath = dependencies.vpnTunnelRuntime.requireReadyEvidence().sharedProxyPath,
                 )
                 dependencies.vpnTunnelRuntime.publishInPathLease(refreshSession, endpoint)
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
@@ -114,7 +115,7 @@ internal class VpnTunnelRefreshCoordinator(
                 currentDnsSignature =
                     dependencies.vpnTunnelRuntime.currentDnsSignature ?: recoverySession.currentDnsSignature,
                 telemetry = telemetry.tunnelTelemetry,
-                dnsUsesProxy = dependencies.vpnTunnelRuntime.requireReadyEvidence().encryptedDnsUsesProxy,
+                dnsUsesSharedProxy = dependencies.vpnTunnelRuntime.requireReadyEvidence().encryptedDnsUsesSharedProxy,
             )
         }
 }

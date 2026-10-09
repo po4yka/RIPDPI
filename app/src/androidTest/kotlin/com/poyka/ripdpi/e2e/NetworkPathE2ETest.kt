@@ -436,12 +436,19 @@ class NetworkPathE2ETest {
         val dnsFailureScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val correlatedDnsRecovery =
             dnsFailureScope.async(start = CoroutineStart.UNDISPATCHED) {
+                android.util.Log.i("VpnDnsRecovery", "awaiting native DNS timeout failure")
                 val failureSnapshot =
                     serviceStateStore.telemetry.first { snapshot ->
                         snapshot.tunnelTelemetry.dnsQueriesTotal > baselineDnsQueriesTotal &&
                             snapshot.tunnelTelemetry.dnsFailuresTotal > baselineDnsFailuresTotal &&
                             snapshot.tunnelTelemetry.lastDnsError.describesDnsTimeout()
                     }
+                android.util.Log.i(
+                    "VpnDnsRecovery",
+                    "native timeout observed queries=${failureSnapshot.tunnelTelemetry.dnsQueriesTotal} " +
+                        "failures=${failureSnapshot.tunnelTelemetry.dnsFailuresTotal} " +
+                        "error=${failureSnapshot.tunnelTelemetry.lastDnsError}; awaiting resolver fallback",
+                )
                 val expectedFallbackReason =
                     VpnEncryptedDnsAutoFailoverReasonPrefix +
                         requireNotNull(failureSnapshot.tunnelTelemetry.lastDnsError).trim()
@@ -455,6 +462,11 @@ class NetworkPathE2ETest {
                             snapshot.tunnelTelemetry.resolverFallbackActive &&
                             snapshot.tunnelTelemetry.resolverFallbackReason == expectedFallbackReason
                     }
+                android.util.Log.i(
+                    "VpnDnsRecovery",
+                    "fallback observed retries=${recoverySnapshot.runtimeFieldTelemetry.tunnelRecoveryRetryCount} " +
+                        "reason=${recoverySnapshot.tunnelTelemetry.resolverFallbackReason}",
+                )
                 failureSnapshot to recoverySnapshot
             }
         try {

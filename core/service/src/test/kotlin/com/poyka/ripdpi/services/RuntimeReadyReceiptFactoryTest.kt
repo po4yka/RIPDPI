@@ -60,17 +60,24 @@ class RuntimeReadyReceiptFactoryTest {
             force: Boolean,
             proxy: Boolean,
             policy: ValidatedSplitStrictDnsPolicy?,
+            shared: Boolean = false,
         ) = RuntimeTunnelReadyEvidence(
             resolution.requestedConfiguration.tunnelInput,
             force,
             dns.copy(routeThroughProxy = proxy),
             policy,
             "interface",
+            shared,
         )
         assertFalse(evidence(false, false, null).encryptedDnsUsesProxy)
         assertTrue(evidence(true, false, null).encryptedDnsUsesProxy)
         assertTrue(evidence(false, true, null).encryptedDnsUsesProxy)
         assertTrue(evidence(false, false, strict).encryptedDnsUsesProxy)
+        assertFalse(evidence(false, false, strict).encryptedDnsUsesSharedProxy)
+        assertFalse(evidence(false, false, null, shared = true).encryptedDnsUsesSharedProxy)
+        assertTrue(evidence(false, false, strict, shared = true).encryptedDnsUsesSharedProxy)
+        assertTrue(evidence(true, false, null, shared = true).encryptedDnsUsesSharedProxy)
+        assertTrue(evidence(false, true, null, shared = true).encryptedDnsUsesSharedProxy)
     }
 
     @Test fun `saved custom command does not label normalized consumed UI preferences custom`() {

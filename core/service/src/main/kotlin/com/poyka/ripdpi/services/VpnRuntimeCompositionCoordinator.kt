@@ -164,6 +164,7 @@ internal class VpnRuntimeCompositionCoordinator(
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
             localProxyEndpoint = proxyStartResult.endpoint,
+            sharedProxyPath = proxyStartResult.consumedUpstreams.isNotEmpty(),
             forceTunnelDns =
                 resolution.proxyPreferences
                     .awgConfigOrNull()
@@ -226,6 +227,7 @@ internal class VpnRuntimeCompositionCoordinator(
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
             localProxyEndpoint = proxyStartResult.endpoint,
+            sharedProxyPath = proxyStartResult.consumedUpstreams.isNotEmpty(),
             forceTunnelDns =
                 resolution.proxyPreferences
                     .awgConfigOrNull()

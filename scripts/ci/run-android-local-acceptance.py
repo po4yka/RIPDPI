@@ -882,6 +882,7 @@ def main() -> int:
                         "DnsFailover:V",
                         "XrayPeerRecovery:I",
                         "XrayBuilderInputs:I",
+                        "VpnDnsRecovery:I",
                         "*:S",
                     ],
                     "android-logcat.log",
