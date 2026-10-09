@@ -21,7 +21,8 @@ mkdir -p "$CARGO_HOME/bin"
 if [[ ! -e "$CARGO_HOME/bin/rustup" ]]; then
     ln -s /usr/bin/rustup "$CARGO_HOME/bin/rustup"
 fi
-rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+# rustup is installed by apt; only apt must update that binary.
+rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --no-self-update
 toolchain_bin="$(rustup run "$RUSTUP_TOOLCHAIN" rustc --print sysroot)/bin"
 export PATH="$toolchain_bin:$PATH"
 cargo fetch --locked --manifest-path "$repo_root/native/rust/Cargo.toml"
