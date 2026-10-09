@@ -49,6 +49,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
                 is_finished: false,
                 latest_probe_target: None,
                 latest_probe_outcome: Some("ready".to_string()),
+                transfer_progress: None,
                 strategy_probe_progress: None,
             },
         );

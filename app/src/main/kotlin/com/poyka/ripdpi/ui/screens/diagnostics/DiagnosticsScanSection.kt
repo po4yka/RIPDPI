@@ -186,6 +186,9 @@ internal fun ScanSection(
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanProgressCard),
                 )
             }
+            progress.transferProgress?.let { transfer ->
+                item { DiagnosticsTransferCard(transfer = transfer) }
+            }
             if (progress.completedProbes.isNotEmpty()) {
                 item {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
@@ -245,6 +248,9 @@ internal fun ScanSection(
         }
         if (scan.latestResults.any { it.probeType.startsWith("selective_availability") }) {
             item { SelectiveMatrixResultsCard(scan.latestResults) }
+        }
+        scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->
+            item { DiagnosticsTransferCard(transfer = transfer) }
         }
         if (scan.latestResults.isNotEmpty()) {
             item {

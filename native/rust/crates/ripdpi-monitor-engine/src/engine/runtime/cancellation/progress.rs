@@ -21,6 +21,7 @@ pub(super) fn publish_cancelled_progress(
             is_finished: true,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         },
     );

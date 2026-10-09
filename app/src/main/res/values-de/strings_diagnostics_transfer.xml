@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">Übertragungsverlauf und Stopppunkt</string>
+    <string name="diagnostics_transfer_observation">Dies sind Beobachtungen der Übertragung. Sie belegen keine Anbietersperre.</string>
+    <string name="diagnostics_transfer_scope_unverified">Die Netzwerkzuordnung ist unbestätigt. Das Ergebnis lässt sich keiner einzelnen Verbindung zuordnen.</string>
+    <string name="diagnostics_transfer_run">Versuch %1$d von %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">%1$d von %2$d Bytes empfangen</string>
+    <string name="diagnostics_transfer_bytes_unknown">%1$d Bytes empfangen · erwartete Größe unbekannt</string>
+    <string name="diagnostics_transfer_elapsed">Dauer: %1$d ms</string>
+    <string name="diagnostics_transfer_first">Erstes Byte des Inhalts: %1$s</string>
+    <string name="diagnostics_transfer_last">Letzter Datenempfang: %1$s</string>
+    <string name="diagnostics_transfer_complete">Antwort vollständig</string>
+    <string name="diagnostics_transfer_partial">Antwort unvollständig</string>
+    <string name="diagnostics_transfer_show_timeline">Zeitverlauf anzeigen</string>
+    <string name="diagnostics_transfer_hide_timeline">Zeitverlauf ausblenden</string>
+    <string name="diagnostics_transfer_timeline_explanation">Kumulierte Inhaltsbytes zum Messzeitpunkt. Die Zeit beginnt mit dem Versuch.</string>
+    <string name="diagnostics_transfer_sample">%1$d ms · %2$d Bytes</string>
+    <string name="diagnostics_transfer_ms">%1$d ms</string>
+    <string name="diagnostics_transfer_unobserved">Nicht beobachtet</string>
+    <string name="diagnostics_transfer_running">Übertragung läuft</string>
+    <string name="diagnostics_transfer_stop_length">Angegebene Antwortlänge empfangen</string>
+    <string name="diagnostics_transfer_stop_chunked">Letzter Antwortblock empfangen</string>
+    <string name="diagnostics_transfer_stop_eof">Antwort regulär beendet</string>
+    <string name="diagnostics_transfer_stop_early_eof">Verbindung vor Ende des angegebenen Inhalts geschlossen</string>
+    <string name="diagnostics_transfer_stop_window">Am Messlimit gestoppt</string>
+    <string name="diagnostics_transfer_stop_idle">Wegen Zeitüberschreitung ohne Daten gestoppt</string>
+    <string name="diagnostics_transfer_stop_reset">Verbindung zurückgesetzt</string>
+    <string name="diagnostics_transfer_stop_read">Lesen der Antwort fehlgeschlagen</string>
+    <string name="diagnostics_transfer_stop_framing">Ungültige HTTP-Antwortstruktur</string>
+    <string name="diagnostics_transfer_stop_cancelled">Übertragung abgebrochen</string>
+    <string name="diagnostics_transfer_stop_deadline">Zeitlimit des Versuchs erreicht</string>
+    <string name="diagnostics_transfer_stop_setup">Verbindungsaufbau fehlgeschlagen</string>
+    <string name="diagnostics_transfer_stop_http">HTTP-Fehlerantwort</string>
+    <string name="diagnostics_transfer_window_complete">Messfenster abgeschlossen</string>
+</resources>

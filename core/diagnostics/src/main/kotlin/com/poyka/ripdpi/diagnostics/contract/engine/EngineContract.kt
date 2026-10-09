@@ -29,6 +29,7 @@ import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
+import com.poyka.ripdpi.diagnostics.TransferProgress
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -185,4 +186,6 @@ data class EngineProgressWire(
     val latestProbeTarget: String? = null,
     val latestProbeOutcome: String? = null,
     val strategyProbeProgress: StrategyProbeLiveProgress? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val transferProgress: TransferProgress? = null,
 )

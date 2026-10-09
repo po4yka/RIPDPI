@@ -1,23 +1,27 @@
-use std::io::{ErrorKind, Read, Write};
+use std::io::{self, Read, Write};
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::time::{Duration, Instant};
 
+use ripdpi_diagnostics_contracts::util::{IO_TIMEOUT, active_scan_io_deadline, with_scan_io_deadline};
+use ripdpi_diagnostics_transport::transport::ConnectionStream;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{
-    HttpObservation, classify_http_response, parse_http_response, read_http_headers,
-    try_http_request_targets_with_key_log,
+    HttpObservation, classify_http_response, parse_http_response, try_http_request_targets_with_key_log,
 };
 use crate::connectivity::adapters::tls::{
     ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
-    open_probe_stream_targets_with_options,
 };
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::connectivity::adapters::util::{MAX_HTTP_BYTES, find_headers_end};
-use crate::types::ThroughputTarget;
+use crate::types::{ThroughputTarget, TransferMeasurement};
+use ripdpi_diagnostics_tls::tls::open_probe_stream_targets_with_options_and_abort;
 
 use super::target_parse::parse_http_target;
+use super::transfer::{TransferReader, TransferTracker, interruption};
 use super::types::ThroughputSample;
 
+#[cfg(test)]
 pub(super) fn measure_throughput_window(
     target: &ThroughputTarget,
     transport: &TransportConfig,
@@ -26,20 +30,57 @@ pub(super) fn measure_throughput_window(
     measure_throughput_window_with_verifier(target, transport, key_log, None)
 }
 
+#[cfg(test)]
 fn measure_throughput_window_with_verifier(
     target: &ThroughputTarget,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ThroughputSample {
-    let started = std::time::Instant::now();
+    measure_throughput_run(target, transport, key_log, tls_verifier, &AtomicBool::new(false), 1, &mut |_| {})
+}
+
+pub(in crate::connectivity) fn measure_throughput_run(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    cancel: &AtomicBool,
+    run_index: usize,
+    progress: &mut dyn FnMut(&TransferMeasurement),
+) -> ThroughputSample {
+    let mut tracker = TransferTracker::new(run_index, target.runs.clamp(1, 10), progress);
+    let deadline = (tracker.started + Duration::from_secs(30))
+        .min(active_scan_io_deadline().unwrap_or(tracker.started + Duration::from_secs(30)));
+    let (mut sample, reason) = with_scan_io_deadline(Some(deadline), || {
+        measure_run(target, transport, key_log, tls_verifier, cancel, deadline, &mut tracker)
+    });
+    tracker.finish(reason, target.window_bytes);
+    sample.duration_ms = tracker.measurement.elapsed_ms.max(1);
+    sample.bytes_read = tracker.measurement.received_body_byte_count as usize;
+    sample.bps =
+        tracker.measurement.received_body_byte_count.saturating_mul(8).saturating_mul(1000) / sample.duration_ms;
+    sample.measurement = Some(tracker.measurement);
+    sample
+}
+
+fn measure_run(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    cancel: &AtomicBool,
+    deadline: Instant,
+    tracker: &mut TransferTracker<'_>,
+) -> (ThroughputSample, &'static str) {
+    let started = tracker.started;
+    if let Some(reason) = interruption(cancel, deadline) {
+        return (failed_sample(started, "stream_setup", reason.to_string()), reason);
+    }
     let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
         Ok(parsed) => parsed,
-        Err(err) => {
-            return failed_sample(started, "target_parse", err);
-        }
+        Err(err) => return (failed_sample(started, "target_parse", err), "setup_error"),
     };
-    let tls_name = if parsed.secure { Some(parsed.host.as_str()) } else { None };
     let options = ProbeStreamOptions {
         verify_certificates: parsed.secure,
         profile: TlsClientProfile::Auto,
@@ -47,141 +88,181 @@ fn measure_throughput_window_with_verifier(
         tls_verifier,
         key_log,
     };
-    let stream_result =
-        open_probe_stream_targets_with_options(&parsed.connect_targets, parsed.port, transport, tls_name, &options);
-    let stream_result = match stream_result {
+    let result = open_probe_stream_targets_with_options_and_abort(
+        &parsed.connect_targets,
+        parsed.port,
+        transport,
+        parsed.secure.then_some(parsed.host.as_str()),
+        &options,
+        &|| interruption(cancel, deadline),
+    );
+    let result = match result {
         Ok(result) => result,
-        Err(err) => {
-            return failed_stream_sample(err, transport);
+        Err(error) => {
+            return (failed_stream_sample(error, transport), interruption(cancel, deadline).unwrap_or("setup_error"));
         }
     };
-    let negotiated_alpn = stream_result.negotiated_alpn.clone();
-    let address_family = stream_result
+    let address_family = result
         .connected_addr
         .map(|address| if address.is_ipv4() { "ipv4" } else { "ipv6" }.to_string())
-        .or_else(|| match transport {
-            TransportConfig::Socks5 { .. } => Some("proxy_resolved_unknown".to_string()),
-            TransportConfig::Direct { .. } => None,
-        });
-    let tcp_connect_ms = Some(stream_result.tcp_connect_ms);
-    let tls_handshake_ms = parsed.secure.then_some(stream_result.tls_handshake_ms);
-    let mut stream = stream_result.stream;
+        .or_else(|| matches!(transport, TransportConfig::Socks5 { .. }).then(|| "proxy_resolved_unknown".to_string()));
+    let mut sample = failed_sample_with_connection(
+        started,
+        "request_write",
+        "none".to_string(),
+        result.negotiated_alpn,
+        address_family,
+        Some(result.tcp_connect_ms),
+        parsed.secure.then_some(result.tls_handshake_ms),
+    );
+    let mut stream = result.stream;
+    let socket = match &stream {
+        ConnectionStream::Plain(socket) => socket,
+        ConnectionStream::Tls(stream) => &stream.sock,
+    };
+    let remaining = deadline
+        .saturating_duration_since(Instant::now())
+        .min(Duration::from_millis(100))
+        .max(Duration::from_millis(1));
+    if let Err(error) =
+        socket.set_read_timeout(Some(remaining)).and_then(|()| socket.set_write_timeout(Some(remaining)))
+    {
+        stream.shutdown();
+        sample.error = error.to_string();
+        return (sample, "setup_error");
+    }
     let mut authority = if parsed.host.contains(':') { format!("[{}]", parsed.host) } else { parsed.host.clone() };
     if parsed.port != if parsed.secure { 443 } else { 80 } {
         authority.push_str(&format!(":{}", parsed.port));
     }
-    let request =
-        format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n", parsed.path, authority);
-    if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
+    let request = format!(
+        "GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n",
+        parsed.path, authority
+    );
+    if let Some(reason) = interruption(cancel, deadline) {
         stream.shutdown();
-        return failed_sample_with_connection(
-            started,
-            "request_write",
-            err.to_string(),
-            negotiated_alpn,
-            address_family,
-            tcp_connect_ms,
-            tls_handshake_ms,
-        );
+        return (sample, reason);
     }
-    let headers = match read_http_headers(&mut stream, MAX_HTTP_BYTES) {
-        Ok(headers) => headers,
-        Err(err) => {
-            stream.shutdown();
-            return failed_sample_with_connection(
-                started,
-                "response_headers",
-                err,
-                negotiated_alpn,
-                address_family,
-                tcp_connect_ms,
-                tls_handshake_ms,
-            );
-        }
-    };
-    let Some(header_end) = find_headers_end(&headers) else {
+    if let Err(error) = stream.write_all(request.as_bytes()).and_then(|()| stream.flush()) {
         stream.shutdown();
-        return failed_sample_with_connection(
-            started,
-            "response_parse",
-            "response_missing_headers".to_string(),
-            negotiated_alpn,
-            address_family,
-            tcp_connect_ms,
-            tls_handshake_ms,
-        );
-    };
-    let response = match parse_http_response(&headers[..header_end], headers[header_end + 4..].to_vec()) {
-        Ok(response) => response,
-        Err(err) => {
-            stream.shutdown();
-            return failed_sample_with_connection(
-                started,
-                "response_parse",
-                err,
-                negotiated_alpn,
-                address_family,
-                tcp_connect_ms,
-                tls_handshake_ms,
-            );
-        }
-    };
-    let status = classify_http_response(&response);
-    let http_status_code = Some(response.status_code);
-    let mut bytes_read = response.body.len().min(target.window_bytes);
-    let mut last_error = "none".to_string();
-    let mut read_completion = if bytes_read >= target.window_bytes { "window_complete" } else { "not_started" };
-    let mut failure_stage = "none";
-    while bytes_read < target.window_bytes {
-        let remaining = target.window_bytes - bytes_read;
-        let mut chunk = vec![0u8; remaining.min(16 * 1024)];
-        match stream.read(&mut chunk) {
-            Ok(0) => {
-                read_completion = "clean_eof_before_window";
-                failure_stage = "body_read";
-                break;
-            }
-            Ok(read) => {
-                bytes_read += read;
-                if bytes_read >= target.window_bytes {
-                    read_completion = "window_complete";
-                }
-            }
-            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
-                last_error = err.to_string();
-                read_completion = "read_timeout";
-                failure_stage = "body_read";
-                break;
-            }
-            Err(err) => {
-                last_error = err.to_string();
-                read_completion = "read_error";
-                failure_stage = "body_read";
-                break;
-            }
-        }
+        sample.error = error.to_string();
+        return (sample, interruption(cancel, deadline).unwrap_or("setup_error"));
     }
+    let reason = read_response(&mut stream, target.window_bytes, cancel, deadline, tracker, &mut sample);
     stream.shutdown();
-    let duration_ms = started.elapsed().as_millis().max(1) as u64;
-    let bps = (bytes_read as u64).saturating_mul(8).saturating_mul(1000) / duration_ms;
-    ThroughputSample {
-        status,
-        bytes_read,
-        bps,
-        error: last_error,
-        failure_stage: failure_stage.to_string(),
-        failure_class: classify_failure(failure_stage, read_completion).to_string(),
-        duration_ms,
-        http_status_code,
-        negotiated_alpn,
-        address_family,
-        tcp_connect_ms,
-        tls_handshake_ms,
-        read_completion: read_completion.to_string(),
-        retry_attempt: 0,
+    (sample, reason)
+}
+
+fn read_response(
+    stream: &mut ConnectionStream,
+    window: usize,
+    cancel: &AtomicBool,
+    deadline: Instant,
+    tracker: &mut TransferTracker<'_>,
+    sample: &mut ThroughputSample,
+) -> &'static str {
+    let mut bounded_stream = BoundedTransferStream { stream, deadline };
+    let mut reader = TransferReader::new(&mut bounded_stream, cancel, deadline, IO_TIMEOUT);
+    sample.failure_stage = "response_headers".to_string();
+    let (headers, mut response) = match response_headers(&mut reader, tracker) {
+        Ok(response) => response,
+        Err(reason) => {
+            sample.error = reason.to_string();
+            sample.failure_class = "http_response".to_string();
+            return reason;
+        }
+    };
+    sample.status = classify_http_response(&response);
+    sample.http_status_code = Some(response.status_code);
+    if !(200..300).contains(&response.status_code) {
+        sample.failure_stage = "response_status".to_string();
+        sample.failure_class = "http_status".to_string();
+        sample.error = format!("http_status_{}", response.status_code);
+        return "http_error";
+    }
+    let reason = if matches!(response.status_code, 204 | 205) {
+        tracker.measurement.expected_body_byte_count = Some(0);
+        "content_length_complete"
+    } else {
+        reader.body(tracker, &headers, window).unwrap_or_else(|reason| reason)
+    };
+    response.body = std::mem::take(&mut tracker.body_prefix);
+    sample.status = classify_http_response(&response);
+    let reached_window = tracker.measurement.received_body_byte_count >= window as u64
+        && matches!(reason, "content_length_complete" | "chunked_complete" | "eof_complete" | "window_limit");
+    sample.read_completion = if reached_window {
+        "window_complete"
+    } else {
+        match reason {
+            "idle_timeout" => "read_timeout",
+            "content_length_complete" | "chunked_complete" | "eof_complete" | "early_eof" => "clean_eof_before_window",
+            _ => "read_error",
+        }
+    }
+    .to_string();
+    sample.failure_stage = if reached_window { "none" } else { "body_read" }.to_string();
+    sample.failure_class = classify_failure(&sample.failure_stage, &sample.read_completion).to_string();
+    sample.error =
+        if matches!(reason, "content_length_complete" | "chunked_complete" | "eof_complete" | "window_limit") {
+            "none"
+        } else {
+            reason
+        }
+        .to_string();
+    reason
+}
+
+/// Recheck the deadline between TLS records, including records with no application data.
+struct BoundedTransferStream<'a> {
+    stream: &'a mut ConnectionStream,
+    deadline: Instant,
+}
+
+impl Read for BoundedTransferStream<'_> {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        let timeout = self
+            .deadline
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))?
+            .min(Duration::from_millis(100));
+        match self.stream {
+            ConnectionStream::Plain(socket) => {
+                socket.set_read_timeout(Some(timeout))?;
+                socket.read(buffer)
+            }
+            ConnectionStream::Tls(stream) => {
+                stream.sock.set_read_timeout(Some(timeout))?;
+                stream.sock.set_write_timeout(Some(timeout))?;
+                match stream.conn.reader().read(buffer) {
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                    result => return result,
+                }
+                // StreamOwned::read loops until plaintext arrives. Use one I/O round so
+                // cancellation and absolute limits are checked even for TLS control traffic.
+                stream.conn.complete_io(&mut stream.sock)?;
+                stream.conn.reader().read(buffer)
+            }
+        }
     }
 }
 
+fn response_headers<R: std::io::Read>(
+    reader: &mut TransferReader<'_, R>,
+    tracker: &mut TransferTracker<'_>,
+) -> Result<(Vec<u8>, ripdpi_diagnostics_http::http::HttpResponse), &'static str> {
+    for _ in 0..5 {
+        let headers = reader.headers(tracker)?;
+        let response = parse_http_response(&headers, Vec::new()).map_err(|_| "invalid_framing")?;
+        if !(100..200).contains(&response.status_code) {
+            return Ok((headers, response));
+        }
+        if response.status_code == 101 {
+            return Err("invalid_framing");
+        }
+    }
+    Err("invalid_framing")
+}
 fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) -> ThroughputSample {
     let address_family = error
         .connected_addr
@@ -205,6 +286,7 @@ fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) ->
         tls_handshake_ms: None,
         read_completion: "not_started".to_string(),
         retry_attempt: 0,
+        measurement: None,
     }
 }
 
@@ -225,6 +307,7 @@ fn failed_sample(started: std::time::Instant, failure_stage: &str, error: String
         tls_handshake_ms: None,
         read_completion: "not_started".to_string(),
         retry_attempt: 0,
+        measurement: None,
     }
 }
 
@@ -282,234 +365,4 @@ pub(super) fn probe_http_url(
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::{Read, Write};
-    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
-    use std::sync::Arc;
-    use std::thread::JoinHandle;
-
-    use ripdpi_diagnostics_transport::transport::TransportConfig;
-    use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-    use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
-    use rustls::{
-        DigitallySignedStruct, Error as TlsError, ServerConfig, ServerConnection, SignatureScheme, StreamOwned,
-    };
-
-    use crate::types::ThroughputTarget;
-
-    use super::{measure_throughput_window, measure_throughput_window_with_verifier};
-
-    #[test]
-    fn throughput_window_keeps_plain_http_targets_plain() {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
-        let addr = listener.local_addr().expect("fixture addr");
-        let handle = std::thread::spawn(move || {
-            let (mut socket, _) = listener.accept().expect("accept fixture connection");
-            let mut request = [0u8; 1024];
-            let read = socket.read(&mut request).expect("read HTTP request");
-            assert!(request[..read].starts_with(b"GET /payload HTTP/1.1\r\n"));
-            assert!(
-                String::from_utf8_lossy(&request[..read]).contains(&format!("Host: localhost:{}\r\n", addr.port()))
-            );
-            socket
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
-                .expect("write HTTP response");
-        });
-        let target = ThroughputTarget {
-            id: "plain-http-fixture".to_string(),
-            label: "Plain HTTP fixture".to_string(),
-            url: format!("http://localhost:{}/payload", addr.port()),
-            connect_ip: Some(Ipv4Addr::LOCALHOST.to_string()),
-            connect_ips: Vec::new(),
-            port: None,
-            is_control: true,
-            window_bytes: 2,
-            runs: 1,
-        };
-        let transport = TransportConfig::Direct { route_experiment: None };
-
-        let sample = measure_throughput_window(&target, &transport, None);
-
-        assert_eq!(sample.status, "http_ok", "error={}", sample.error);
-        assert_eq!(sample.bytes_read, 2);
-        handle.join().expect("fixture thread");
-    }
-
-    #[test]
-    fn throughput_window_uses_http11_alpn_with_h2_capable_peer() {
-        let server = H2PreferringHttp1Server::spawn();
-        let target = ThroughputTarget {
-            id: "h2-capable-fixture".to_string(),
-            label: "H2-capable fixture".to_string(),
-            url: format!("https://localhost:{}/payload", server.addr.port()),
-            connect_ip: Some(Ipv4Addr::LOCALHOST.to_string()),
-            connect_ips: Vec::new(),
-            port: None,
-            is_control: false,
-            window_bytes: 2,
-            runs: 1,
-        };
-        let transport = TransportConfig::Direct { route_experiment: None };
-
-        let verifier: Arc<dyn ServerCertVerifier> = Arc::new(TestCertificateVerifier);
-        let sample = measure_throughput_window_with_verifier(&target, &transport, None, Some(&verifier));
-
-        assert_eq!(sample.status, "http_ok", "error={}", sample.error);
-        assert_eq!(sample.bytes_read, 2);
-        assert_eq!(sample.negotiated_alpn.as_deref(), Some("http/1.1"));
-        assert_eq!(server.join(), Some("http/1.1".to_string()));
-    }
-
-    #[test]
-    fn throughput_window_attributes_tls_handshake_failure() {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
-        let addr = listener.local_addr().expect("fixture addr");
-        let handle = std::thread::spawn(move || {
-            let (mut socket, _) = listener.accept().expect("accept fixture connection");
-            let mut client_hello = [0u8; 1024];
-            let _ = socket.read(&mut client_hello).expect("read client hello");
-        });
-        let target = ThroughputTarget {
-            id: "tls-failure-fixture".to_string(),
-            label: "TLS failure fixture".to_string(),
-            url: format!("https://localhost:{}/payload", addr.port()),
-            connect_ip: Some(Ipv4Addr::LOCALHOST.to_string()),
-            connect_ips: Vec::new(),
-            port: None,
-            is_control: false,
-            window_bytes: 2,
-            runs: 1,
-        };
-
-        let sample = measure_throughput_window(&target, &TransportConfig::Direct { route_experiment: None }, None);
-
-        assert_eq!(sample.status, "http_unreachable");
-        assert_eq!(sample.failure_stage, "tls_handshake");
-        assert_eq!(sample.failure_class, "tls_handshake");
-        assert_eq!(sample.address_family.as_deref(), Some("ipv4"));
-        assert!(sample.tcp_connect_ms.is_some());
-        handle.join().expect("fixture thread");
-    }
-
-    #[test]
-    fn throughput_window_attributes_early_eof_before_window() {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
-        let addr = listener.local_addr().expect("fixture addr");
-        let handle = std::thread::spawn(move || {
-            let (mut socket, _) = listener.accept().expect("accept fixture connection");
-            let mut request = [0u8; 1024];
-            let _ = socket.read(&mut request).expect("read HTTP request");
-            socket
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
-                .expect("write short HTTP response");
-        });
-        let target = ThroughputTarget {
-            id: "early-eof-fixture".to_string(),
-            label: "Early EOF fixture".to_string(),
-            url: format!("http://localhost:{}/payload", addr.port()),
-            connect_ip: Some(Ipv4Addr::LOCALHOST.to_string()),
-            connect_ips: Vec::new(),
-            port: None,
-            is_control: true,
-            window_bytes: 1024,
-            runs: 1,
-        };
-
-        let sample = measure_throughput_window(&target, &TransportConfig::Direct { route_experiment: None }, None);
-
-        assert_eq!(sample.failure_stage, "body_read");
-        assert_eq!(sample.failure_class, "early_eof");
-        assert_eq!(sample.read_completion, "clean_eof_before_window");
-        handle.join().expect("fixture thread");
-    }
-
-    struct H2PreferringHttp1Server {
-        addr: SocketAddr,
-        handle: JoinHandle<Option<String>>,
-    }
-
-    impl H2PreferringHttp1Server {
-        fn spawn() -> Self {
-            let certificate =
-                rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).expect("self-signed certificate");
-            let cert_der = certificate.cert.der().clone();
-            let key_der = PrivateKeyDer::Pkcs8(certificate.signing_key.serialize_der().into());
-            let mut config = ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                .with_safe_default_protocol_versions()
-                .expect("ring provider supports default TLS versions")
-                .with_no_client_auth()
-                .with_single_cert(vec![cert_der], key_der)
-                .expect("server config");
-            config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-
-            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
-            let addr = listener.local_addr().expect("fixture addr");
-            let handle = std::thread::spawn(move || {
-                let (mut socket, _) = listener.accept().expect("accept fixture connection");
-                let mut connection = ServerConnection::new(Arc::new(config)).expect("server connection");
-                while connection.is_handshaking() {
-                    connection.complete_io(&mut socket).expect("server handshake");
-                }
-                let selected_alpn =
-                    connection.alpn_protocol().map(|protocol| String::from_utf8_lossy(protocol).into_owned());
-                if selected_alpn.as_deref() != Some("http/1.1") {
-                    return selected_alpn;
-                }
-
-                let mut stream = StreamOwned::new(connection, socket);
-                let mut request = [0u8; 1024];
-                let read = stream.read(&mut request).expect("read HTTP/1.1 request");
-                assert!(request[..read].starts_with(b"GET /payload HTTP/1.1\r\n"));
-                stream
-                    .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
-                    .expect("write HTTP/1.1 response");
-                stream.flush().expect("flush HTTP/1.1 response");
-                selected_alpn
-            });
-
-            Self { addr, handle }
-        }
-
-        fn join(self) -> Option<String> {
-            self.handle.join().expect("fixture thread")
-        }
-    }
-
-    #[derive(Debug)]
-    struct TestCertificateVerifier;
-
-    impl ServerCertVerifier for TestCertificateVerifier {
-        fn verify_server_cert(
-            &self,
-            _end_entity: &CertificateDer<'_>,
-            _intermediates: &[CertificateDer<'_>],
-            _server_name: &ServerName<'_>,
-            _ocsp_response: &[u8],
-            _now: UnixTime,
-        ) -> Result<ServerCertVerified, TlsError> {
-            Ok(ServerCertVerified::assertion())
-        }
-
-        fn verify_tls12_signature(
-            &self,
-            _message: &[u8],
-            _cert: &CertificateDer<'_>,
-            _dss: &DigitallySignedStruct,
-        ) -> Result<HandshakeSignatureValid, TlsError> {
-            Ok(HandshakeSignatureValid::assertion())
-        }
-
-        fn verify_tls13_signature(
-            &self,
-            _message: &[u8],
-            _cert: &CertificateDer<'_>,
-            _dss: &DigitallySignedStruct,
-        ) -> Result<HandshakeSignatureValid, TlsError> {
-            Ok(HandshakeSignatureValid::assertion())
-        }
-
-        fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-            vec![SignatureScheme::ECDSA_NISTP256_SHA256]
-        }
-    }
-}
+mod tests;

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">Прогресс передачи и точка остановки</string>
+    <string name="diagnostics_transfer_observation">Это наблюдения за передачей. Они не доказывают ограничение провайдером.</string>
+    <string name="diagnostics_transfer_scope_unverified">Привязка к сети не подтверждена. Нельзя отнести результат к одному подключению.</string>
+    <string name="diagnostics_transfer_run">Попытка %1$d из %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">Получено %1$d из %2$d байт</string>
+    <string name="diagnostics_transfer_bytes_unknown">Получено %1$d байт · ожидаемый размер неизвестен</string>
+    <string name="diagnostics_transfer_elapsed">Прошло: %1$d мс</string>
+    <string name="diagnostics_transfer_first">Первый байт тела: %1$s</string>
+    <string name="diagnostics_transfer_last">Последнее поступление данных: %1$s</string>
+    <string name="diagnostics_transfer_complete">Ответ получен полностью</string>
+    <string name="diagnostics_transfer_partial">Ответ получен не полностью</string>
+    <string name="diagnostics_transfer_show_timeline">Показать ход передачи</string>
+    <string name="diagnostics_transfer_hide_timeline">Скрыть ход передачи</string>
+    <string name="diagnostics_transfer_timeline_explanation">Накопленные байты тела в моменты измерения. Время отсчитывается от начала попытки.</string>
+    <string name="diagnostics_transfer_sample">%1$d мс · %2$d байт</string>
+    <string name="diagnostics_transfer_ms">%1$d мс</string>
+    <string name="diagnostics_transfer_unobserved">Не наблюдалось</string>
+    <string name="diagnostics_transfer_running">Передача продолжается</string>
+    <string name="diagnostics_transfer_stop_length">Получена объявленная длина ответа</string>
+    <string name="diagnostics_transfer_stop_chunked">Получен последний блок ответа</string>
+    <string name="diagnostics_transfer_stop_eof">Ответ завершился штатно</string>
+    <string name="diagnostics_transfer_stop_early_eof">Соединение закрыто до получения объявленного тела</string>
+    <string name="diagnostics_transfer_stop_window">Остановка по лимиту измерения</string>
+    <string name="diagnostics_transfer_stop_idle">Остановка по тайм-ауту ожидания данных</string>
+    <string name="diagnostics_transfer_stop_reset">Соединение сброшено</string>
+    <string name="diagnostics_transfer_stop_read">Ошибка чтения ответа</string>
+    <string name="diagnostics_transfer_stop_framing">Неверная структура HTTP-ответа</string>
+    <string name="diagnostics_transfer_stop_cancelled">Передача отменена</string>
+    <string name="diagnostics_transfer_stop_deadline">Истёк срок попытки</string>
+    <string name="diagnostics_transfer_stop_setup">Не удалось установить соединение</string>
+    <string name="diagnostics_transfer_stop_http">Ответ с ошибкой HTTP</string>
+    <string name="diagnostics_transfer_window_complete">Окно измерения завершено</string>
+</resources>

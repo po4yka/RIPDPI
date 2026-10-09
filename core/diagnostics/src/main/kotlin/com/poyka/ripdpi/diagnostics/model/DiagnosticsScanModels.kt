@@ -487,6 +487,7 @@ data class ScanProgress(
     val latestProbeTarget: String? = null,
     val latestProbeOutcome: String? = null,
     val strategyProbeProgress: StrategyProbeLiveProgress? = null,
+    val transferProgress: TransferProgress? = null,
 )
 
 @Serializable

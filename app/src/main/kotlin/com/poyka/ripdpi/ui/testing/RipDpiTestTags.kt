@@ -330,6 +330,8 @@ internal object RipDpiTestTags {
     const val DiagnosticsStrategyCandidateNotesSection = "diagnostics-strategy-candidate-notes-section"
     const val DiagnosticsStrategyCandidateSignatureSection = "diagnostics-strategy-candidate-signature-section"
     const val DiagnosticsStrategyCandidateResultsSection = "diagnostics-strategy-candidate-results-section"
+    const val DiagnosticsTransferCard = "diagnostics-transfer-card"
+    const val DiagnosticsTransferTimeline = "diagnostics-transfer-timeline"
     const val DiagnosticsScanStateIdle = "diagnostics-scan-state-idle"
     const val DiagnosticsScanStateProgress = "diagnostics-scan-state-progress"
     const val DiagnosticsScanStateContent = "diagnostics-scan-state-content"

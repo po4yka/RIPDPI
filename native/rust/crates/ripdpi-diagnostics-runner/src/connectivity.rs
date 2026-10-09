@@ -15,7 +15,7 @@ use crate::types::*;
 pub use probes::{
     classify_dns_latency_quality, is_dns_injection_suspected, run_circumvention_probe, run_dns_probe,
     run_dns_probe_with_context, run_domain_probe, run_domain_probe_with_key_log, run_quic_probe, run_service_probe,
-    run_tcp_probe, run_throughput_probe,
+    run_tcp_probe, run_throughput_probe, run_throughput_probe_with_progress,
 };
 pub use report::{build_network_environment_probe, summarize_probe_event};
 
@@ -181,6 +181,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         };
         set_progress(&shared, progress);
@@ -202,6 +203,7 @@ mod tests {
             is_finished: true,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         };
         set_progress(&shared, finished);
@@ -216,6 +218,7 @@ mod tests {
                 is_finished: false,
                 latest_probe_target: None,
                 latest_probe_outcome: None,
+                transfer_progress: None,
                 strategy_probe_progress: None,
             },
         );
@@ -238,6 +241,7 @@ mod tests {
                 is_finished: true,
                 latest_probe_target: None,
                 latest_probe_outcome: None,
+                transfer_progress: None,
                 strategy_probe_progress: None,
             },
         );
@@ -263,6 +267,7 @@ mod tests {
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: None,
+                    transfer_progress: None,
                     strategy_probe_progress: None,
                 },
             ),

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">Transfer progress and stopping point</string>
+    <string name="diagnostics_transfer_observation">These are transfer observations. They do not establish a provider restriction.</string>
+    <string name="diagnostics_transfer_scope_unverified">Network scope is unverified. Do not attribute this result to one connection.</string>
+    <string name="diagnostics_transfer_run">Run %1$d of %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">Received %1$d of %2$d bytes</string>
+    <string name="diagnostics_transfer_bytes_unknown">Received %1$d bytes · expected size unknown</string>
+    <string name="diagnostics_transfer_elapsed">Elapsed: %1$d ms</string>
+    <string name="diagnostics_transfer_first">First body byte: %1$s</string>
+    <string name="diagnostics_transfer_last">Last body progress: %1$s</string>
+    <string name="diagnostics_transfer_complete">Response complete</string>
+    <string name="diagnostics_transfer_partial">Response incomplete</string>
+    <string name="diagnostics_transfer_show_timeline">Show transfer timeline</string>
+    <string name="diagnostics_transfer_hide_timeline">Hide transfer timeline</string>
+    <string name="diagnostics_transfer_timeline_explanation">Cumulative body bytes at measured times. Time starts when the attempt starts.</string>
+    <string name="diagnostics_transfer_sample">%1$d ms · %2$d bytes</string>
+    <string name="diagnostics_transfer_ms">%1$d ms</string>
+    <string name="diagnostics_transfer_unobserved">Not observed</string>
+    <string name="diagnostics_transfer_running">Transfer in progress</string>
+    <string name="diagnostics_transfer_stop_length">Declared response length received</string>
+    <string name="diagnostics_transfer_stop_chunked">Final response chunk received</string>
+    <string name="diagnostics_transfer_stop_eof">Response ended normally</string>
+    <string name="diagnostics_transfer_stop_early_eof">Connection closed before the declared body ended</string>
+    <string name="diagnostics_transfer_stop_window">Stopped at the measurement limit</string>
+    <string name="diagnostics_transfer_stop_idle">Stopped after no data arrived within the idle timeout</string>
+    <string name="diagnostics_transfer_stop_reset">Connection reset</string>
+    <string name="diagnostics_transfer_stop_read">Response read failed</string>
+    <string name="diagnostics_transfer_stop_framing">Invalid HTTP response framing</string>
+    <string name="diagnostics_transfer_stop_cancelled">Transfer cancelled</string>
+    <string name="diagnostics_transfer_stop_deadline">Attempt deadline reached</string>
+    <string name="diagnostics_transfer_stop_setup">Connection setup failed</string>
+    <string name="diagnostics_transfer_stop_http">HTTP error response</string>
+    <string name="diagnostics_transfer_window_complete">Measurement window complete</string>
+</resources>

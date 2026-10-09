@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">پیشرفت انتقال و نقطه توقف</string>
+    <string name="diagnostics_transfer_observation">این‌ها مشاهدات انتقال هستند و محدودیت ارائه‌دهنده را ثابت نمی‌کنند.</string>
+    <string name="diagnostics_transfer_scope_unverified">شبکه تأیید نشده است. این نتیجه را به یک اتصال مشخص نسبت ندهید.</string>
+    <string name="diagnostics_transfer_run">تلاش %1$d از %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">%1$d از %2$d بایت دریافت شد</string>
+    <string name="diagnostics_transfer_bytes_unknown">%1$d بایت دریافت شد · اندازه مورد انتظار نامشخص</string>
+    <string name="diagnostics_transfer_elapsed">زمان سپری‌شده: %1$d میلی‌ثانیه</string>
+    <string name="diagnostics_transfer_first">اولین بایت بدنه: %1$s</string>
+    <string name="diagnostics_transfer_last">آخرین دریافت داده: %1$s</string>
+    <string name="diagnostics_transfer_complete">پاسخ کامل است</string>
+    <string name="diagnostics_transfer_partial">پاسخ ناقص است</string>
+    <string name="diagnostics_transfer_show_timeline">نمایش خط زمانی انتقال</string>
+    <string name="diagnostics_transfer_hide_timeline">پنهان کردن خط زمانی انتقال</string>
+    <string name="diagnostics_transfer_timeline_explanation">بایت‌های تجمعی بدنه در زمان‌های اندازه‌گیری. زمان از شروع تلاش محاسبه می‌شود.</string>
+    <string name="diagnostics_transfer_sample">%1$d میلی‌ثانیه · %2$d بایت</string>
+    <string name="diagnostics_transfer_ms">%1$d میلی‌ثانیه</string>
+    <string name="diagnostics_transfer_unobserved">مشاهده نشد</string>
+    <string name="diagnostics_transfer_running">انتقال در حال انجام است</string>
+    <string name="diagnostics_transfer_stop_length">طول اعلام‌شده پاسخ دریافت شد</string>
+    <string name="diagnostics_transfer_stop_chunked">آخرین بخش پاسخ دریافت شد</string>
+    <string name="diagnostics_transfer_stop_eof">پاسخ به‌طور عادی پایان یافت</string>
+    <string name="diagnostics_transfer_stop_early_eof">اتصال پیش از تکمیل بدنه اعلام‌شده بسته شد</string>
+    <string name="diagnostics_transfer_stop_window">در حد اندازه‌گیری متوقف شد</string>
+    <string name="diagnostics_transfer_stop_idle">پس از پایان مهلت انتظار داده متوقف شد</string>
+    <string name="diagnostics_transfer_stop_reset">اتصال بازنشانی شد</string>
+    <string name="diagnostics_transfer_stop_read">خواندن پاسخ ناموفق بود</string>
+    <string name="diagnostics_transfer_stop_framing">ساختار پاسخ HTTP نامعتبر است</string>
+    <string name="diagnostics_transfer_stop_cancelled">انتقال لغو شد</string>
+    <string name="diagnostics_transfer_stop_deadline">مهلت تلاش به پایان رسید</string>
+    <string name="diagnostics_transfer_stop_setup">برقراری اتصال ناموفق بود</string>
+    <string name="diagnostics_transfer_stop_http">پاسخ خطای HTTP</string>
+    <string name="diagnostics_transfer_window_complete">بازه اندازه‌گیری کامل شد</string>
+</resources>

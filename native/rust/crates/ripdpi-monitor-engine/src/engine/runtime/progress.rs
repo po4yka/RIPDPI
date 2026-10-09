@@ -28,6 +28,7 @@ impl ExecutionRuntime {
                 is_finished: false,
                 latest_probe_target,
                 latest_probe_outcome,
+                transfer_progress: None,
                 strategy_probe_progress,
             },
         );

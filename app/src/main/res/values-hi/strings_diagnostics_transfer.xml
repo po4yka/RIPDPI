@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">स्थानांतरण की प्रगति और रुकने का बिंदु</string>
+    <string name="diagnostics_transfer_observation">ये स्थानांतरण के अवलोकन हैं। ये प्रदाता द्वारा प्रतिबंध को सिद्ध नहीं करते।</string>
+    <string name="diagnostics_transfer_scope_unverified">नेटवर्क की पहचान सत्यापित नहीं है। इस परिणाम को किसी एक कनेक्शन से न जोड़ें।</string>
+    <string name="diagnostics_transfer_run">प्रयास %1$d / %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">%2$d में से %1$d बाइट प्राप्त</string>
+    <string name="diagnostics_transfer_bytes_unknown">%1$d बाइट प्राप्त · अपेक्षित आकार अज्ञात</string>
+    <string name="diagnostics_transfer_elapsed">बीता समय: %1$d मिलीसेकंड</string>
+    <string name="diagnostics_transfer_first">बॉडी की पहली बाइट: %1$s</string>
+    <string name="diagnostics_transfer_last">अंतिम डेटा प्राप्ति: %1$s</string>
+    <string name="diagnostics_transfer_complete">प्रतिक्रिया पूरी</string>
+    <string name="diagnostics_transfer_partial">प्रतिक्रिया अधूरी</string>
+    <string name="diagnostics_transfer_show_timeline">स्थानांतरण समयरेखा दिखाएँ</string>
+    <string name="diagnostics_transfer_hide_timeline">स्थानांतरण समयरेखा छिपाएँ</string>
+    <string name="diagnostics_transfer_timeline_explanation">मापन के समय प्राप्त बॉडी बाइट का कुल योग। समय प्रयास की शुरुआत से है।</string>
+    <string name="diagnostics_transfer_sample">%1$d मिलीसेकंड · %2$d बाइट</string>
+    <string name="diagnostics_transfer_ms">%1$d मिलीसेकंड</string>
+    <string name="diagnostics_transfer_unobserved">देखा नहीं गया</string>
+    <string name="diagnostics_transfer_running">स्थानांतरण जारी</string>
+    <string name="diagnostics_transfer_stop_length">घोषित लंबाई की प्रतिक्रिया प्राप्त</string>
+    <string name="diagnostics_transfer_stop_chunked">प्रतिक्रिया का अंतिम खंड प्राप्त</string>
+    <string name="diagnostics_transfer_stop_eof">प्रतिक्रिया सामान्य रूप से समाप्त</string>
+    <string name="diagnostics_transfer_stop_early_eof">घोषित बॉडी पूरी होने से पहले कनेक्शन बंद</string>
+    <string name="diagnostics_transfer_stop_window">मापन सीमा पर रुका</string>
+    <string name="diagnostics_transfer_stop_idle">डेटा की प्रतीक्षा का समय समाप्त होने पर रुका</string>
+    <string name="diagnostics_transfer_stop_reset">कनेक्शन रीसेट हुआ</string>
+    <string name="diagnostics_transfer_stop_read">प्रतिक्रिया पढ़ने में विफल</string>
+    <string name="diagnostics_transfer_stop_framing">HTTP प्रतिक्रिया की संरचना अमान्य</string>
+    <string name="diagnostics_transfer_stop_cancelled">स्थानांतरण रद्द किया गया</string>
+    <string name="diagnostics_transfer_stop_deadline">प्रयास की समय सीमा समाप्त</string>
+    <string name="diagnostics_transfer_stop_setup">कनेक्शन स्थापित नहीं हुआ</string>
+    <string name="diagnostics_transfer_stop_http">HTTP त्रुटि प्रतिक्रिया</string>
+    <string name="diagnostics_transfer_window_complete">मापन विंडो पूरी</string>
+</resources>

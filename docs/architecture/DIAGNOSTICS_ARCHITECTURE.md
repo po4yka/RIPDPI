@@ -362,6 +362,22 @@ requires a schema bump and a supervised re-bless. See
 [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §9 and
 [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md).
 
+## Transfer progress and stopping points
+
+The existing throughput stage counts decoded HTTP body bytes. It records the
+expected body size when the response declares it, first and last body progress,
+elapsed time, and the observed stop reason. Response completion and completion
+of the measurement window are separate facts. A stop reason is not proof of a
+provider restriction.
+
+The optional `transferProgress` field carries live measurements. Final probe
+details contain version 1 `transferEvidence`, with at most 10 runs and 64 samples
+per run. Both fields are absent from old reports. Kotlin validates counters,
+timing, completion flags, and stop reasons before display. JSON, CSV, and text
+exports preserve validated numeric evidence without response bodies. If network
+continuity is lost, `transferNetworkScope=unverified` accompanies the original
+measurements in history and exports.
+
 ## Adding a probe
 
 See [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) §3 — add the

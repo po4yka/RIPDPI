@@ -129,6 +129,7 @@ impl From<ScanProgress> for EngineProgressWire {
             is_finished: value.is_finished,
             latest_probe_target: value.latest_probe_target,
             latest_probe_outcome: value.latest_probe_outcome,
+            transfer_progress: value.transfer_progress,
             strategy_probe_progress: value.strategy_probe_progress,
         }
     }

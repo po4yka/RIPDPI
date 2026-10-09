@@ -2,15 +2,40 @@ use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, ThroughputTarget};
 
-use super::super::endpoint::measure_throughput_window;
+use super::super::endpoint::measure_throughput_run;
+use crate::types::{TransferEvidence, TransferMeasurement};
+use rustls::client::danger::ServerCertVerifier;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 pub fn run_throughput_probe(
     target: &ThroughputTarget,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeResult {
-    let samples =
-        (0..target.runs.max(1)).map(|_| measure_throughput_window(target, transport, key_log)).collect::<Vec<_>>();
+    run_throughput_probe_with_progress(target, transport, key_log, None, &AtomicBool::new(false), &mut |_| {})
+}
+
+pub fn run_throughput_probe_with_progress(
+    target: &ThroughputTarget,
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    cancel: &AtomicBool,
+    progress: &mut dyn FnMut(&TransferMeasurement),
+) -> ProbeResult {
+    let mut samples = Vec::new();
+    for run_index in 1..=target.runs.clamp(1, 10) {
+        if cancel.load(Ordering::Acquire)
+            || ripdpi_diagnostics_contracts::util::active_scan_io_deadline()
+                .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            break;
+        }
+        samples.push(measure_throughput_run(target, transport, key_log, tls_verifier, cancel, run_index, progress));
+    }
     let mut bps_values = samples
         .iter()
         .filter(|sample| sample.completed_window())
@@ -25,7 +50,7 @@ pub fn run_throughput_probe(
         } else {
             "throughput_failed"
         };
-    ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "throughput_window".to_string(),
         target: target.label.clone(),
         outcome: outcome.to_string(),
@@ -113,7 +138,13 @@ pub fn run_throughput_probe(
             },
             ProbeDetail { key: "medianBps".to_string(), value: median_bps.to_string() },
         ],
+    };
+    let evidence =
+        TransferEvidence { version: 1, runs: samples.iter().filter_map(|sample| sample.measurement.clone()).collect() };
+    if let Ok(value) = evidence.to_json() {
+        result.details.push(ProbeDetail { key: "transferEvidence".to_string(), value });
     }
+    result
 }
 
 #[cfg(test)]

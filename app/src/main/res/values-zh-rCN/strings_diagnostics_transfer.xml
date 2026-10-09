@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">传输进度与停止位置</string>
+    <string name="diagnostics_transfer_observation">这些是传输观测结果，并不能证明运营商实施了限制。</string>
+    <string name="diagnostics_transfer_scope_unverified">网络归属未经验证，请勿将此结果归因于单一连接。</string>
+    <string name="diagnostics_transfer_run">第 %1$d 次，共 %2$d 次</string>
+    <string name="diagnostics_transfer_bytes_known">已接收 %1$d 字节，共 %2$d 字节</string>
+    <string name="diagnostics_transfer_bytes_unknown">已接收 %1$d 字节 · 预期大小未知</string>
+    <string name="diagnostics_transfer_elapsed">已用时：%1$d 毫秒</string>
+    <string name="diagnostics_transfer_first">首个正文数据字节：%1$s</string>
+    <string name="diagnostics_transfer_last">最后一次收到数据：%1$s</string>
+    <string name="diagnostics_transfer_complete">响应完整</string>
+    <string name="diagnostics_transfer_partial">响应不完整</string>
+    <string name="diagnostics_transfer_show_timeline">显示传输时间线</string>
+    <string name="diagnostics_transfer_hide_timeline">隐藏传输时间线</string>
+    <string name="diagnostics_transfer_timeline_explanation">各测量时刻累计收到的正文字节数。时间从本次尝试开始时算起。</string>
+    <string name="diagnostics_transfer_sample">%1$d 毫秒 · %2$d 字节</string>
+    <string name="diagnostics_transfer_ms">%1$d 毫秒</string>
+    <string name="diagnostics_transfer_unobserved">未观测到</string>
+    <string name="diagnostics_transfer_running">正在传输</string>
+    <string name="diagnostics_transfer_stop_length">已收到声明长度的响应</string>
+    <string name="diagnostics_transfer_stop_chunked">已收到最后一个响应块</string>
+    <string name="diagnostics_transfer_stop_eof">响应正常结束</string>
+    <string name="diagnostics_transfer_stop_early_eof">连接在声明的正文接收完成前关闭</string>
+    <string name="diagnostics_transfer_stop_window">达到测量上限后停止</string>
+    <string name="diagnostics_transfer_stop_idle">因等待数据超时而停止</string>
+    <string name="diagnostics_transfer_stop_reset">连接被重置</string>
+    <string name="diagnostics_transfer_stop_read">读取响应失败</string>
+    <string name="diagnostics_transfer_stop_framing">HTTP 响应格式无效</string>
+    <string name="diagnostics_transfer_stop_cancelled">传输已取消</string>
+    <string name="diagnostics_transfer_stop_deadline">达到本次尝试的时间上限</string>
+    <string name="diagnostics_transfer_stop_setup">建立连接失败</string>
+    <string name="diagnostics_transfer_stop_http">HTTP 错误响应</string>
+    <string name="diagnostics_transfer_window_complete">测量窗口已完成</string>
+</resources>

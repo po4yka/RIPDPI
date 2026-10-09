@@ -287,6 +287,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
         phaseSteps = phaseSteps.toImmutableList(),
         currentProbeLabel = strategyProbeProgress?.candidateLabel ?: progress.message,
         strategyProbeProgress = strategyProbeProgress,
+        transferProgress = progress.transferProgress?.toTransferUiModel(),
         dnsBaselineStatus = dnsBaselineStatus,
         dpiFailureClass = dpiFailureClass,
         networkContext = networkContext,

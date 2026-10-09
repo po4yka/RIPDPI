@@ -293,7 +293,12 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         outcome = result.outcome,
         probeRetryCount = result.probeRetryCount ?: deriveProbeRetryCount(result.details),
         tone = toneForProbeResult(pathMode, result, reportResults),
-        details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) }.toImmutableList(),
+        details =
+            result.details
+                .filterNot { it.key == "transferEvidence" }
+                .map { DiagnosticsFieldUiModel(it.key, it.value) }
+                .toImmutableList(),
+        transferEvidence = result.toTransferUiModel(),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

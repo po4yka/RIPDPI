@@ -124,6 +124,7 @@ mod tests {
                 is_finished: false,
                 latest_probe_target: None,
                 latest_probe_outcome: None,
+                transfer_progress: None,
                 strategy_probe_progress: None,
             }),
             report: Some(build_report(

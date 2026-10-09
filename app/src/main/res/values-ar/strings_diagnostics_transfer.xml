@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">تقدم النقل ونقطة التوقف</string>
+    <string name="diagnostics_transfer_observation">هذه ملاحظات عن النقل. لا تثبت وجود تقييد من مزود الخدمة.</string>
+    <string name="diagnostics_transfer_scope_unverified">لم يتم التحقق من الشبكة. لا تنسب هذه النتيجة إلى اتصال واحد.</string>
+    <string name="diagnostics_transfer_run">المحاولة %1$d من %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">تم استلام %1$d من %2$d بايت</string>
+    <string name="diagnostics_transfer_bytes_unknown">تم استلام %1$d بايت · الحجم المتوقع غير معروف</string>
+    <string name="diagnostics_transfer_elapsed">الوقت المنقضي: %1$d مللي ثانية</string>
+    <string name="diagnostics_transfer_first">أول بايت من المحتوى: %1$s</string>
+    <string name="diagnostics_transfer_last">آخر تقدم في الاستلام: %1$s</string>
+    <string name="diagnostics_transfer_complete">الاستجابة مكتملة</string>
+    <string name="diagnostics_transfer_partial">الاستجابة غير مكتملة</string>
+    <string name="diagnostics_transfer_show_timeline">عرض الخط الزمني للنقل</string>
+    <string name="diagnostics_transfer_hide_timeline">إخفاء الخط الزمني للنقل</string>
+    <string name="diagnostics_transfer_timeline_explanation">بايتات المحتوى التراكمية في أوقات القياس. يبدأ الوقت عند بدء المحاولة.</string>
+    <string name="diagnostics_transfer_sample">%1$d مللي ثانية · %2$d بايت</string>
+    <string name="diagnostics_transfer_ms">%1$d مللي ثانية</string>
+    <string name="diagnostics_transfer_unobserved">لم تتم ملاحظته</string>
+    <string name="diagnostics_transfer_running">النقل جارٍ</string>
+    <string name="diagnostics_transfer_stop_length">تم استلام طول الاستجابة المعلن</string>
+    <string name="diagnostics_transfer_stop_chunked">تم استلام آخر جزء من الاستجابة</string>
+    <string name="diagnostics_transfer_stop_eof">انتهت الاستجابة بشكل طبيعي</string>
+    <string name="diagnostics_transfer_stop_early_eof">أُغلق الاتصال قبل اكتمال المحتوى المعلن</string>
+    <string name="diagnostics_transfer_stop_window">توقف عند حد القياس</string>
+    <string name="diagnostics_transfer_stop_idle">توقف بعد انتهاء مهلة انتظار البيانات</string>
+    <string name="diagnostics_transfer_stop_reset">أُعيد تعيين الاتصال</string>
+    <string name="diagnostics_transfer_stop_read">فشلت قراءة الاستجابة</string>
+    <string name="diagnostics_transfer_stop_framing">بنية استجابة HTTP غير صالحة</string>
+    <string name="diagnostics_transfer_stop_cancelled">أُلغي النقل</string>
+    <string name="diagnostics_transfer_stop_deadline">انتهت مهلة المحاولة</string>
+    <string name="diagnostics_transfer_stop_setup">فشل إنشاء الاتصال</string>
+    <string name="diagnostics_transfer_stop_http">استجابة خطأ HTTP</string>
+    <string name="diagnostics_transfer_window_complete">اكتملت نافذة القياس</string>
+</resources>

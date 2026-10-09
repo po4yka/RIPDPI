@@ -59,6 +59,7 @@ pub(super) fn record_panic_terminal_state(
         is_finished: true,
         latest_probe_target: None,
         latest_probe_outcome: Some("worker_panicked".to_string()),
+        transfer_progress: None,
         strategy_probe_progress: None,
     });
 }

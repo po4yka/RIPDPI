@@ -514,6 +514,7 @@ data class DiagnosticsProgressUiModel(
     val networkContext: ScanNetworkContextUiModel? = null,
     val candidateTimeline: ImmutableList<StrategyCandidateTimelineEntryUiModel> = persistentListOf(),
     val completedProbes: ImmutableList<CompletedProbeUiModel> = persistentListOf(),
+    val transferProgress: DiagnosticsTransferUiModel? = null,
 )
 
 @Stable
@@ -525,6 +526,7 @@ data class DiagnosticsProbeResultUiModel(
     val probeRetryCount: Int? = null,
     val tone: DiagnosticsTone,
     val details: ImmutableList<DiagnosticsFieldUiModel>,
+    val transferEvidence: DiagnosticsTransferUiModel? = null,
 )
 
 @Stable

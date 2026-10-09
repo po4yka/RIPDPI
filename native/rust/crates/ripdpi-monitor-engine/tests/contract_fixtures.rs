@@ -147,7 +147,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ),
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/throughput.rs",
-            "pub fn run_throughput_probe",
+            "pub fn run_throughput_probe_with_progress",
         ),
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/report.rs",

@@ -6,7 +6,10 @@ mod report;
 mod result;
 
 pub use config::{InPathProxyCredentials, InPathRoute, RouteProbeConfig, ScanRequest};
-pub use progress::{ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane};
+pub use progress::{
+    ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane, TransferEvidence, TransferMeasurement,
+    TransferProgress, TransferSample,
+};
 pub use report::{
     CandidateRuntimeCleanupDetail, CandidateRuntimeCleanupOutcome, CandidateRuntimeCleanupReceipt, ScanReport,
     ScanReportDisposition,
@@ -182,6 +185,8 @@ mod tests {
         assert!(progress.latest_probe_target.is_none());
         assert!(progress.latest_probe_outcome.is_none());
         assert!(progress.strategy_probe_progress.is_none());
+        assert!(progress.transfer_progress.is_none());
+        assert!(serde_json::to_value(&progress).expect("serialize").get("transferProgress").is_none());
     }
 
     #[test]
@@ -195,6 +200,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: Some("youtube.com".to_string()),
             latest_probe_outcome: Some("ok".to_string()),
+            transfer_progress: None,
             strategy_probe_progress: Some(StrategyProbeLiveProgress {
                 lane: StrategyProbeProgressLane::Tcp,
                 candidate_index: 3,

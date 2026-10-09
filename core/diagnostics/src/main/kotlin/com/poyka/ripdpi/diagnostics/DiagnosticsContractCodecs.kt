@@ -305,6 +305,10 @@ internal fun ScanProgress.toEngineProgressWire(): EngineProgressWire =
         latestProbeTarget = latestProbeTarget,
         latestProbeOutcome = latestProbeOutcome,
         strategyProbeProgress = strategyProbeProgress,
+        transferProgress =
+            transferProgress?.validatedTransferProgress()?.takeIf {
+                phase == "throughput" && !isFinished
+            },
     )
 
 internal fun EngineProgressWire.toScanProgress(): ScanProgress =
@@ -318,4 +322,8 @@ internal fun EngineProgressWire.toScanProgress(): ScanProgress =
         latestProbeTarget = latestProbeTarget,
         latestProbeOutcome = latestProbeOutcome,
         strategyProbeProgress = strategyProbeProgress,
+        transferProgress =
+            transferProgress?.validatedTransferProgress()?.takeIf {
+                phase == "throughput" && !isFinished
+            },
     )

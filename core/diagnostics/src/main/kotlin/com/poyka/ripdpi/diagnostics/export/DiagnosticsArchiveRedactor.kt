@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
+import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
 import kotlinx.serialization.json.Json
@@ -337,16 +338,7 @@ private fun projectStructuredArchiveJson(
         }
 
         element is JsonObject -> {
-            val declaredField = (element["key"] as? JsonPrimitive)?.content
-            JsonObject(
-                element.mapValues { (key, value) ->
-                    if (key == "value" && declaredField.isArchiveSensitiveField()) {
-                        JsonPrimitive("redacted")
-                    } else {
-                        projectStructuredArchiveJson(value, key)
-                    }
-                },
-            )
+            projectArchiveObject(element)
         }
 
         element is JsonArray -> {
@@ -361,6 +353,27 @@ private fun projectStructuredArchiveJson(
             element
         }
     }
+
+private fun projectArchiveObject(element: JsonObject): JsonObject {
+    val declaredField = (element["key"] as? JsonPrimitive)?.content
+    return JsonObject(
+        element.mapValues { (key, value) ->
+            when {
+                key == "value" && declaredField == "transferEvidence" -> {
+                    JsonPrimitive(canonicalTransferEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
+                key == "value" && declaredField.isArchiveSensitiveField() -> {
+                    JsonPrimitive("redacted")
+                }
+
+                else -> {
+                    projectStructuredArchiveJson(value, key)
+                }
+            }
+        },
+    )
+}
 
 private fun String?.isArchiveSensitiveField(): Boolean =
     isArchiveSensitiveScalarField() || isArchiveSensitiveListField() || this in ArchiveStableCorrelatorFields

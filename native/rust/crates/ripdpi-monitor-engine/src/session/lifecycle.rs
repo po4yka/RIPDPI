@@ -227,6 +227,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         });
         shared.checkpoint_report = Some(partial_report());
@@ -277,6 +278,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         });
         shared.checkpoint_report = Some(partial_report());
@@ -304,6 +306,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         });
         shared.checkpoint_report = Some(partial_report());
@@ -333,6 +336,7 @@ mod tests {
             is_finished: true,
             latest_probe_target: None,
             latest_probe_outcome: Some("cancelled".to_string()),
+            transfer_progress: None,
             strategy_probe_progress: None,
         });
         shared.report = Some(terminal);
@@ -363,6 +367,7 @@ mod tests {
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         });
         shared.checkpoint_report = Some(partial_report());

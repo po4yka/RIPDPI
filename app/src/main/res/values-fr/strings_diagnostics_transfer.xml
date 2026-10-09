@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_transfer_title">Progression et point d’arrêt</string>
+    <string name="diagnostics_transfer_observation">Ces observations décrivent le transfert. Elles ne prouvent pas une restriction du fournisseur.</string>
+    <string name="diagnostics_transfer_scope_unverified">Le réseau n’est pas vérifié. Ne rattachez pas ce résultat à une seule connexion.</string>
+    <string name="diagnostics_transfer_run">Essai %1$d sur %2$d</string>
+    <string name="diagnostics_transfer_bytes_known">%1$d octets reçus sur %2$d</string>
+    <string name="diagnostics_transfer_bytes_unknown">%1$d octets reçus · taille attendue inconnue</string>
+    <string name="diagnostics_transfer_elapsed">Durée : %1$d ms</string>
+    <string name="diagnostics_transfer_first">Premier octet du corps : %1$s</string>
+    <string name="diagnostics_transfer_last">Dernières données reçues : %1$s</string>
+    <string name="diagnostics_transfer_complete">Réponse complète</string>
+    <string name="diagnostics_transfer_partial">Réponse incomplète</string>
+    <string name="diagnostics_transfer_show_timeline">Afficher la chronologie</string>
+    <string name="diagnostics_transfer_hide_timeline">Masquer la chronologie</string>
+    <string name="diagnostics_transfer_timeline_explanation">Octets cumulés du corps aux instants mesurés. Le temps part du début de l’essai.</string>
+    <string name="diagnostics_transfer_sample">%1$d ms · %2$d octets</string>
+    <string name="diagnostics_transfer_ms">%1$d ms</string>
+    <string name="diagnostics_transfer_unobserved">Non observé</string>
+    <string name="diagnostics_transfer_running">Transfert en cours</string>
+    <string name="diagnostics_transfer_stop_length">Longueur de réponse déclarée reçue</string>
+    <string name="diagnostics_transfer_stop_chunked">Dernier bloc de réponse reçu</string>
+    <string name="diagnostics_transfer_stop_eof">Réponse terminée normalement</string>
+    <string name="diagnostics_transfer_stop_early_eof">Connexion fermée avant la fin du corps déclaré</string>
+    <string name="diagnostics_transfer_stop_window">Arrêt à la limite de mesure</string>
+    <string name="diagnostics_transfer_stop_idle">Arrêt après le délai sans données</string>
+    <string name="diagnostics_transfer_stop_reset">Connexion réinitialisée</string>
+    <string name="diagnostics_transfer_stop_read">Échec de lecture de la réponse</string>
+    <string name="diagnostics_transfer_stop_framing">Structure HTTP invalide</string>
+    <string name="diagnostics_transfer_stop_cancelled">Transfert annulé</string>
+    <string name="diagnostics_transfer_stop_deadline">Délai de l’essai atteint</string>
+    <string name="diagnostics_transfer_stop_setup">Échec de connexion</string>
+    <string name="diagnostics_transfer_stop_http">Réponse d’erreur HTTP</string>
+    <string name="diagnostics_transfer_window_complete">Fenêtre de mesure terminée</string>
+</resources>

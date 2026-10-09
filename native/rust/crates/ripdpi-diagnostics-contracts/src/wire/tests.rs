@@ -99,6 +99,7 @@ fn diagnostics_progress_field_manifest_matches_contract_fixture() {
         is_finished: false,
         latest_probe_target: Some("example.org".to_string()),
         latest_probe_outcome: Some("reachable".to_string()),
+        transfer_progress: None,
         strategy_probe_progress: None,
     };
 

@@ -5,6 +5,7 @@ mod quic_endpoint;
 mod target_parse;
 mod tcp_tls_endpoint;
 mod throughput;
+mod transfer;
 mod types;
 
 use std::sync::Arc;
@@ -14,17 +15,10 @@ use rustls::client::danger::ServerCertVerifier;
 use crate::connectivity::adapters::http::HttpObservation;
 use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::types::ThroughputTarget;
 
-pub(super) use types::{EndpointProbeObservation, ThroughputSample};
+pub(super) use types::EndpointProbeObservation;
 
-pub(super) fn measure_throughput_window(
-    target: &ThroughputTarget,
-    transport: &TransportConfig,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> ThroughputSample {
-    throughput::measure_throughput_window(target, transport, key_log)
-}
+pub(super) use throughput::measure_throughput_run;
 
 pub(super) fn probe_http_url(
     url: &str,

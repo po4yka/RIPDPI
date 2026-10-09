@@ -282,6 +282,7 @@ internal fun ProbeResultRow(
                 tone = statusTone(probe.tone),
             )
         }
+        probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
     }
 }
 

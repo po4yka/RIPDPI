@@ -51,6 +51,7 @@ pub fn run_engine_scan(
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: None,
+                    transfer_progress: None,
                     strategy_probe_progress: None,
                 },
             );
@@ -71,6 +72,7 @@ pub fn run_engine_scan(
             is_finished: false,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         },
     );
@@ -133,6 +135,7 @@ pub fn run_engine_scan(
                 is_finished: true,
                 latest_probe_target: None,
                 latest_probe_outcome: Some("candidate_cleanup_unjoined".to_string()),
+                transfer_progress: None,
                 strategy_probe_progress: None,
             },
         );
@@ -208,6 +211,7 @@ pub fn run_engine_scan(
                 is_finished: true,
                 latest_probe_target: None,
                 latest_probe_outcome: Some(latest_probe_outcome.to_string()),
+                transfer_progress: None,
                 strategy_probe_progress: None,
             },
         );
@@ -282,6 +286,7 @@ pub fn run_engine_scan(
                     is_finished: true,
                     latest_probe_target: None,
                     latest_probe_outcome: Some("runner_panicked".to_string()),
+                    transfer_progress: None,
                     strategy_probe_progress: None,
                 },
             );
@@ -350,6 +355,7 @@ fn publish_finished_progress(
             is_finished: true,
             latest_probe_target: None,
             latest_probe_outcome: None,
+            transfer_progress: None,
             strategy_probe_progress: None,
         },
     ) {

@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.diagnostics.finalization
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.decodeEngineScanReportWire
@@ -31,19 +33,7 @@ internal fun EngineScanReportWire.withoutNetworkScopeAuthority(): EngineScanRepo
             } else {
                 completionKind
             },
-        results =
-            results.map { result ->
-                if (result.probeType == "selective_availability_summary") {
-                    result.copy(
-                        outcome = "matrix_inconclusive",
-                        details =
-                            result.details.filterNot { it.key == "reason" } +
-                                ProbeDetail("reason", "network_scope_unverified"),
-                    )
-                } else {
-                    result
-                }
-            },
+        results = results.map { it.withoutNetworkScopeAuthority() },
         resolverRecommendation = null,
         strategyRecommendation = null,
         directModeVerdict = null,
@@ -103,30 +93,50 @@ internal suspend fun revokePersistedNetworkScope(
             reportCompletionKind = report?.completionKind?.name ?: session.reportCompletionKind,
         )
     val results = scanRecordStore.getProbeResults(sessionId)
-    if (results.any { it.probeType == "selective_availability_summary" }) {
-        scanRecordStore.persistCompletedScan(
-            scopedSession,
-            results.map { result ->
-                if (result.probeType == "selective_availability_summary") {
-                    val details =
-                        runCatching {
-                            json.decodeFromString(ListSerializer(ProbeDetail.serializer()), result.detailJson)
-                        }.getOrDefault(emptyList())
-                    result.copy(
-                        outcome = "matrix_inconclusive",
-                        detailJson =
-                            json.encodeToString(
-                                ListSerializer(ProbeDetail.serializer()),
-                                details.filterNot { it.key == "reason" } +
-                                    ProbeDetail("reason", "network_scope_unverified"),
-                            ),
-                    )
-                } else {
-                    result
-                }
-            },
-        )
+    val scopedResults = results.map { it.withoutNetworkScopeAuthority(json) }
+    if (scopedResults != results) {
+        scanRecordStore.persistCompletedScan(scopedSession, scopedResults)
     } else {
         scanRecordStore.upsertScanSession(scopedSession)
+    }
+}
+
+private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeResultWire =
+    when {
+        probeType == "selective_availability_summary" -> {
+            copy(
+                outcome = "matrix_inconclusive",
+                details = details.filterNot { it.key == "reason" } + ProbeDetail("reason", "network_scope_unverified"),
+            )
+        }
+
+        probeType == "throughput_window" && details.any { it.key == "transferEvidence" } -> {
+            copy(
+                details =
+                    details.filterNot { it.key == "transferNetworkScope" } +
+                        ProbeDetail("transferNetworkScope", "unverified"),
+            )
+        }
+
+        else -> {
+            this
+        }
+    }
+
+private fun ProbeResultEntity.withoutNetworkScopeAuthority(json: Json): ProbeResultEntity {
+    if (probeType != "selective_availability_summary" && probeType != "throughput_window") return this
+    val details =
+        runCatching {
+            json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
+        }.getOrDefault(emptyList())
+    val observed = EngineProbeResultWire(probeType, target, outcome, details)
+    val scoped = observed.withoutNetworkScopeAuthority()
+    return if (scoped == observed) {
+        this
+    } else {
+        copy(
+            outcome = scoped.outcome,
+            detailJson = json.encodeToString(ListSerializer(ProbeDetail.serializer()), scoped.details),
+        )
     }
 }
