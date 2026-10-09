@@ -123,10 +123,14 @@ class StrategyTunerViewModel
 
         fun updateDomainsText(value: String) {
             mutableUiState.update { state ->
-                state.copy(
-                    domainsText = value,
-                    activeDomains = value.normalizedDomains(state.budget.maxDomains).toImmutableList(),
-                )
+                if (state.isRunning) {
+                    state
+                } else {
+                    state.copy(
+                        domainsText = value,
+                        activeDomains = value.normalizedDomains(state.budget.maxDomains).toImmutableList(),
+                    )
+                }
             }
         }
 
@@ -134,7 +138,10 @@ class StrategyTunerViewModel
             val domains = uiState.value.domainsText.normalizedDomains(runner.budget.maxDomains)
             if (domains.isEmpty()) {
                 mutableUiState.update {
-                    it.copy(message = stringResolver.getString(R.string.strategy_tuner_message_add_domain))
+                    it.copy(
+                        message = stringResolver.getString(R.string.strategy_tuner_message_add_domain),
+                        messageRes = null,
+                    )
                 }
                 return
             }
@@ -150,7 +157,11 @@ class StrategyTunerViewModel
                                 throw error
                             }
                             mutableUiState.update {
-                                it.copy(runState = StrategyTunerRunState.Error, message = error.userMessage())
+                                it.copy(
+                                    runState = StrategyTunerRunState.Error,
+                                    message = error.userMessage(),
+                                    messageRes = null,
+                                )
                             }
                         }.collect { event ->
                             when (event) {
@@ -158,6 +169,7 @@ class StrategyTunerViewModel
                                     mutableUiState.update {
                                         it.copy(
                                             runState = StrategyTunerRunState.Complete,
+                                            messageRes = null,
                                             message =
                                                 stringResolver.getString(
                                                     R.string.strategy_tuner_message_sweep_complete,
@@ -186,6 +198,7 @@ class StrategyTunerViewModel
                                             rankedStrategies = persistentListOf(),
                                             totalExpectedResults = event.totalExpectedResults,
                                             message = null,
+                                            messageRes = null,
                                             appliedStrategyId = null,
                                         )
                                     }
@@ -206,6 +219,7 @@ class StrategyTunerViewModel
                             StrategyTunerRunState.Complete
                         },
                     message = stringResolver.getString(R.string.strategy_tuner_message_sweep_cancelled),
+                    messageRes = null,
                 )
             }
         }

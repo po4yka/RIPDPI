@@ -6,14 +6,18 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StrategyTunerViewModelTest {
@@ -68,11 +72,106 @@ class StrategyTunerViewModelTest {
             assertEquals("tls", viewModel.uiState.value.appliedStrategyId)
             assertEquals(R.string.strategy_tuner_message_strategy_applied, viewModel.uiState.value.messageRes)
         }
+
+    @Test
+    fun `new sweep replaces the applied strategy feedback`() =
+        runTest {
+            val runner = FakeStrategyTunerRunner(listOf(StrategyTunerEvent.Complete))
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.start()
+            advanceUntilIdle()
+            viewModel.apply("tls")
+            advanceUntilIdle()
+
+            viewModel.start()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.messageRes)
+            assertEquals(
+                FakeStringResolver().getString(R.string.strategy_tuner_message_sweep_complete),
+                viewModel.uiState.value.message,
+            )
+        }
+
+    @Test
+    fun `running sweep keeps its domain scope when editing is requested`() =
+        runTest {
+            val runner = FakeStrategyTunerRunner(emptyList(), holdAfterStarted = true)
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.updateDomainsText("one.example")
+            viewModel.start()
+            runCurrent()
+
+            viewModel.updateDomainsText("other.example")
+
+            assertEquals("one.example", viewModel.uiState.value.domainsText)
+            assertEquals(listOf("one.example"), viewModel.uiState.value.activeDomains)
+            viewModel.cancel()
+        }
+
+    @Test
+    fun `new running sweep and cancellation clear applied feedback`() =
+        runTest {
+            val runner = FakeStrategyTunerRunner(listOf(StrategyTunerEvent.Complete))
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.start()
+            advanceUntilIdle()
+            viewModel.apply("tls")
+            advanceUntilIdle()
+            runner.holdAfterStarted = true
+
+            viewModel.start()
+            runCurrent()
+            assertNull(viewModel.uiState.value.messageRes)
+            viewModel.cancel()
+            assertNull(viewModel.uiState.value.messageRes)
+            assertEquals(
+                FakeStringResolver().getString(R.string.strategy_tuner_message_sweep_cancelled),
+                viewModel.uiState.value.message,
+            )
+        }
+
+    @Test
+    fun `empty domains replace applied feedback with input guidance`() =
+        runTest {
+            val runner = FakeStrategyTunerRunner(listOf(StrategyTunerEvent.Complete))
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.apply("tls")
+            advanceUntilIdle()
+            viewModel.updateDomainsText("")
+
+            viewModel.start()
+
+            assertNull(viewModel.uiState.value.messageRes)
+            assertEquals(
+                FakeStringResolver().getString(R.string.strategy_tuner_message_add_domain),
+                viewModel.uiState.value.message,
+            )
+        }
+
+    @Test
+    fun `failed sweep replaces applied feedback with the failure`() =
+        runTest {
+            val runner = FakeStrategyTunerRunner(emptyList())
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
+            viewModel.apply("tls")
+            advanceUntilIdle()
+            runner.failure = IOException("Probe unavailable")
+
+            viewModel.start()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.messageRes)
+            assertEquals("Probe unavailable", viewModel.uiState.value.message)
+            assertEquals(StrategyTunerRunState.Error, viewModel.uiState.value.runState)
+        }
 }
 
 private class FakeStrategyTunerRunner(
     private val events: List<StrategyTunerEvent>,
+    var holdAfterStarted: Boolean = false,
 ) : StrategyTunerRunner {
+    var failure: IOException? = null
     override val budget: StrategyTunerBudget =
         StrategyTunerBudget(
             maxStrategies = 2,
@@ -87,6 +186,10 @@ private class FakeStrategyTunerRunner(
     override fun run(domains: List<String>): Flow<StrategyTunerEvent> =
         flow {
             lastDomains = domains
+            failure?.let {
+                failure = null
+                throw it
+            }
             emit(
                 StrategyTunerEvent.Started(
                     domains = domains,
@@ -98,6 +201,7 @@ private class FakeStrategyTunerRunner(
                     totalExpectedResults = budget.maxTotalProbes,
                 ),
             )
+            if (holdAfterStarted) awaitCancellation()
             events.forEach { emit(it) }
         }
 

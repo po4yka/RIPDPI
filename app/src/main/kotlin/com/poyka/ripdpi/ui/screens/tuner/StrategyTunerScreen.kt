@@ -165,13 +165,14 @@ private fun StrategyTunerControls(
                         },
                     onClick = if (state.isRunning) onCancel else onRun,
                     variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
+                    wrapLabel = true,
                 )
             }
             RipDpiTextField(
                 value = state.domainsText,
                 onValueChange = onDomainsChanged,
                 decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.strategy_tuner_domains_label)),
-                behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp),
+                behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp, enabled = !state.isRunning),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
