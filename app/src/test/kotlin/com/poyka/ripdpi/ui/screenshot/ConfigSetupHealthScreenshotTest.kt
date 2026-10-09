@@ -3,9 +3,6 @@ package com.poyka.ripdpi.ui.screenshot
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.HardKillSwitchUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeMode
@@ -270,31 +267,10 @@ class ConfigSetupHealthScreenshotTest {
     private fun engagingActuatorState() =
         HomeConnectionActuatorUiState(
             status = HomeConnectionActuatorStatus.Engaging,
-            trailingLabel = "Secure",
+            trailingLabel = "Relay",
             routeLabel = "VLESS Reality via local VPN",
-            statusDescription = "Secure line engaging",
-            actionLabel = "Secure line is engaging",
-            stages =
-                HomeConnectionActuatorStage.entries
-                    .map { stage ->
-                        HomeConnectionActuatorStageUiState(
-                            stage = stage,
-                            label =
-                                when (stage) {
-                                    HomeConnectionActuatorStage.Network -> "Network handover"
-                                    HomeConnectionActuatorStage.Dns -> "Encrypted DNS resolver"
-                                    HomeConnectionActuatorStage.Handshake -> "Secure handshake"
-                                    HomeConnectionActuatorStage.Tunnel -> "Protected tunnel"
-                                    HomeConnectionActuatorStage.Route -> "Outbound route"
-                                },
-                            state =
-                                if (stage == HomeConnectionActuatorStage.Handshake) {
-                                    HomeConnectionActuatorStageState.Active
-                                } else {
-                                    HomeConnectionActuatorStageState.Pending
-                                },
-                        )
-                    }.toImmutableList(),
+            statusDescription = "Connecting…",
+            actionLabel = "Cancel connection",
         )
 
     companion object {
