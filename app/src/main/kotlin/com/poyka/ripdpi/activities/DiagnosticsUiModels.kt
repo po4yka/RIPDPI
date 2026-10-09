@@ -527,6 +527,7 @@ data class DiagnosticsProbeResultUiModel(
     val tone: DiagnosticsTone,
     val details: ImmutableList<DiagnosticsFieldUiModel>,
     val transferEvidence: DiagnosticsTransferUiModel? = null,
+    val connectionStages: DiagnosticsConnectionStageUiModel? = null,
 )
 
 @Stable

@@ -35,6 +35,8 @@ internal class DiagnosticsSessionDetailUiFactory
                             pathMode = support.parsePathMode(detail.session.pathMode),
                             result = result,
                             reportResults = finalizedResults,
+                            networkScopeUnverified =
+                                report?.diagnoses?.any { it.code == "network_scope_unverified" } == true,
                         )
                     }.groupBy { it.probeType }
                     .map { (title, items) ->

@@ -219,6 +219,7 @@ internal fun DiagnosticsBottomSheetHost(
             icon = RipDpiIcons.Search,
             testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
         ) {
+            probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
             probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
             StatusIndicator(label = probe.outcome, tone = statusTone(probe.tone))
             probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->

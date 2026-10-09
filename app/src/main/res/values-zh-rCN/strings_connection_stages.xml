@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_stages_show">显示连接阶段（%1$d 条路径）</string>
+    <string name="diagnostics_stages_hide">隐藏连接阶段（%1$d 条路径）</string>
+    <string name="diagnostics_stages_legend">未知：无证据。未到达：尝试在此前停止。不适用：此路径不使用该阶段。已观测和部分完成不代表成功。</string>
+    <string name="diagnostics_stages_attempt">%1$s · 第 %2$d 次尝试</string>
+    <string name="diagnostics_stages_state">%1$s — %2$s</string>
+    <string name="diagnostics_stages_duration">阶段耗时：%1$d 毫秒</string>
+    <string name="diagnostics_stages_elapsed">距尝试开始：%1$d 毫秒</string>
+    <string name="diagnostics_stages_bytes">已接收正文：%1$d 字节</string>
+    <string name="diagnostics_stages_http_status">HTTP 状态：%1$d</string>
+    <string name="diagnostics_stages_dns">DNS 查询</string>
+    <string name="diagnostics_stages_tcp">TCP 连接</string>
+    <string name="diagnostics_stages_proxy">代理连接</string>
+    <string name="diagnostics_stages_tls">TLS 握手</string>
+    <string name="diagnostics_stages_headers">HTTP 标头</string>
+    <string name="diagnostics_stages_first_byte">正文首字节</string>
+    <string name="diagnostics_stages_body">响应正文</string>
+    <string name="diagnostics_stages_quic_response">QUIC 响应</string>
+    <string name="diagnostics_stages_succeeded">成功</string>
+    <string name="diagnostics_stages_observed">已观测</string>
+    <string name="diagnostics_stages_failed">失败</string>
+    <string name="diagnostics_stages_partial">部分完成</string>
+    <string name="diagnostics_stages_running">进行中</string>
+    <string name="diagnostics_stages_not_reached">未到达</string>
+    <string name="diagnostics_stages_not_applicable">不适用</string>
+    <string name="diagnostics_stages_unknown">未知</string>
+    <string name="diagnostics_stages_cancelled">已取消</string>
+    <string name="diagnostics_stages_timed_out">超时</string>
+    <string name="diagnostics_stages_lane_matrix">可用性检查</string>
+    <string name="diagnostics_stages_lane_transfer">传输</string>
+    <string name="diagnostics_stages_lane_tls13">TLS 1.3</string>
+    <string name="diagnostics_stages_lane_tls12">TLS 1.2</string>
+    <string name="diagnostics_stages_lane_ech">使用 ECH 的 TLS</string>
+    <string name="diagnostics_stages_lane_http">明文 HTTP</string>
+    <string name="diagnostics_stages_lane_quic">QUIC 响应检查</string>
+    <string name="diagnostics_stages_lane_dns_system">系统 DNS</string>
+    <string name="diagnostics_stages_lane_dns_encrypted">加密 DNS</string>
+    <string name="diagnostics_stages_lane_bootstrap">初始连接</string>
+    <string name="diagnostics_stages_lane_media">媒体</string>
+    <string name="diagnostics_stages_lane_gateway">网关</string>
+    <string name="diagnostics_stages_lane_handshake">握手</string>
+    <string name="diagnostics_stages_lane_tcp">TCP 检查</string>
+</resources>

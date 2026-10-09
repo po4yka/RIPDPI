@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_stages_show">Show connection stages (%1$d paths)</string>
+    <string name="diagnostics_stages_hide">Hide connection stages (%1$d paths)</string>
+    <string name="diagnostics_stages_legend">Unknown: no evidence. Not reached: the attempt stopped earlier. Not applicable: this path does not use the stage. Observed and partial do not mean success.</string>
+    <string name="diagnostics_stages_attempt">%1$s · Attempt %2$d</string>
+    <string name="diagnostics_stages_state">%1$s — %2$s</string>
+    <string name="diagnostics_stages_duration">Stage duration: %1$d ms</string>
+    <string name="diagnostics_stages_elapsed">Time from attempt start: %1$d ms</string>
+    <string name="diagnostics_stages_bytes">Body received: %1$d bytes</string>
+    <string name="diagnostics_stages_http_status">HTTP status: %1$d</string>
+    <string name="diagnostics_stages_dns">DNS lookup</string>
+    <string name="diagnostics_stages_tcp">TCP connection</string>
+    <string name="diagnostics_stages_proxy">Proxy connection</string>
+    <string name="diagnostics_stages_tls">TLS handshake</string>
+    <string name="diagnostics_stages_headers">HTTP headers</string>
+    <string name="diagnostics_stages_first_byte">First body byte</string>
+    <string name="diagnostics_stages_body">Response body</string>
+    <string name="diagnostics_stages_quic_response">QUIC response</string>
+    <string name="diagnostics_stages_succeeded">Succeeded</string>
+    <string name="diagnostics_stages_observed">Observed</string>
+    <string name="diagnostics_stages_failed">Failed</string>
+    <string name="diagnostics_stages_partial">Partial</string>
+    <string name="diagnostics_stages_running">Running</string>
+    <string name="diagnostics_stages_not_reached">Not reached</string>
+    <string name="diagnostics_stages_not_applicable">Not applicable</string>
+    <string name="diagnostics_stages_unknown">Unknown</string>
+    <string name="diagnostics_stages_cancelled">Cancelled</string>
+    <string name="diagnostics_stages_timed_out">Timed out</string>
+    <string name="diagnostics_stages_lane_matrix">Availability check</string>
+    <string name="diagnostics_stages_lane_transfer">Transfer</string>
+    <string name="diagnostics_stages_lane_tls13">TLS 1.3</string>
+    <string name="diagnostics_stages_lane_tls12">TLS 1.2</string>
+    <string name="diagnostics_stages_lane_ech">TLS with ECH</string>
+    <string name="diagnostics_stages_lane_http">Plain HTTP</string>
+    <string name="diagnostics_stages_lane_quic">QUIC response check</string>
+    <string name="diagnostics_stages_lane_dns_system">System DNS</string>
+    <string name="diagnostics_stages_lane_dns_encrypted">Encrypted DNS</string>
+    <string name="diagnostics_stages_lane_bootstrap">Bootstrap</string>
+    <string name="diagnostics_stages_lane_media">Media</string>
+    <string name="diagnostics_stages_lane_gateway">Gateway</string>
+    <string name="diagnostics_stages_lane_handshake">Handshake</string>
+    <string name="diagnostics_stages_lane_tcp">TCP check</string>
+</resources>

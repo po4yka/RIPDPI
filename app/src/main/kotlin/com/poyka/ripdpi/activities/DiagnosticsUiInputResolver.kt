@@ -113,6 +113,7 @@ internal class DiagnosticsUiInputResolver
                     pathMode = latestProfileSession?.pathMode?.let(support::parsePathMode) ?: ScanPathMode.RAW_PATH,
                     result = result,
                     reportResults = projectionResults,
+                    networkScopeUnverified = this?.diagnoses?.any { it.code == "network_scope_unverified" } == true,
                 )
             }
         }

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_stages_show">نمایش مراحل اتصال (%1$d مسیر)</string>
+    <string name="diagnostics_stages_hide">پنهان کردن مراحل (%1$d مسیر)</string>
+    <string name="diagnostics_stages_legend">نامعلوم: شواهدی نیست. نرسیده: تلاش زودتر متوقف شد. نامرتبط: این مسیر از مرحله استفاده نمی‌کند. مشاهده‌شده و جزئی به معنی موفقیت نیستند.</string>
+    <string name="diagnostics_stages_attempt">%1$s · تلاش %2$d</string>
+    <string name="diagnostics_stages_state">%1$s — %2$s</string>
+    <string name="diagnostics_stages_duration">مدت مرحله: %1$d میلی‌ثانیه</string>
+    <string name="diagnostics_stages_elapsed">از شروع تلاش: %1$d میلی‌ثانیه</string>
+    <string name="diagnostics_stages_bytes">بدنه دریافت‌شده: %1$d بایت</string>
+    <string name="diagnostics_stages_http_status">وضعیت HTTP: %1$d</string>
+    <string name="diagnostics_stages_dns">جستجوی DNS</string>
+    <string name="diagnostics_stages_tcp">اتصال TCP</string>
+    <string name="diagnostics_stages_proxy">اتصال پراکسی</string>
+    <string name="diagnostics_stages_tls">دست‌دهی TLS</string>
+    <string name="diagnostics_stages_headers">سرآیندهای HTTP</string>
+    <string name="diagnostics_stages_first_byte">اولین بایت بدنه</string>
+    <string name="diagnostics_stages_body">بدنه پاسخ</string>
+    <string name="diagnostics_stages_quic_response">پاسخ QUIC</string>
+    <string name="diagnostics_stages_succeeded">موفق</string>
+    <string name="diagnostics_stages_observed">مشاهده‌شده</string>
+    <string name="diagnostics_stages_failed">ناموفق</string>
+    <string name="diagnostics_stages_partial">جزئی</string>
+    <string name="diagnostics_stages_running">در حال اجرا</string>
+    <string name="diagnostics_stages_not_reached">نرسیده</string>
+    <string name="diagnostics_stages_not_applicable">نامرتبط</string>
+    <string name="diagnostics_stages_unknown">نامعلوم</string>
+    <string name="diagnostics_stages_cancelled">لغوشده</string>
+    <string name="diagnostics_stages_timed_out">پایان مهلت</string>
+    <string name="diagnostics_stages_lane_matrix">آزمون دسترسی</string>
+    <string name="diagnostics_stages_lane_transfer">انتقال</string>
+    <string name="diagnostics_stages_lane_tls13">TLS 1.3</string>
+    <string name="diagnostics_stages_lane_tls12">TLS 1.2</string>
+    <string name="diagnostics_stages_lane_ech">TLS با ECH</string>
+    <string name="diagnostics_stages_lane_http">HTTP بدون رمزنگاری</string>
+    <string name="diagnostics_stages_lane_quic">آزمون پاسخ QUIC</string>
+    <string name="diagnostics_stages_lane_dns_system">DNS سیستم</string>
+    <string name="diagnostics_stages_lane_dns_encrypted">DNS رمزگذاری‌شده</string>
+    <string name="diagnostics_stages_lane_bootstrap">اتصال اولیه</string>
+    <string name="diagnostics_stages_lane_media">رسانه</string>
+    <string name="diagnostics_stages_lane_gateway">دروازه</string>
+    <string name="diagnostics_stages_lane_handshake">دست‌دهی</string>
+    <string name="diagnostics_stages_lane_tcp">آزمون TCP</string>
+</resources>

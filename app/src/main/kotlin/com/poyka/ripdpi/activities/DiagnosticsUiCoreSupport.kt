@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
+import com.poyka.ripdpi.diagnostics.toConnectionStageScale
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
 import kotlinx.collections.immutable.toImmutableList
@@ -285,6 +286,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
     pathMode: ScanPathMode,
     result: ProbeResult,
     reportResults: List<ProbeResult> = emptyList(),
+    networkScopeUnverified: Boolean = false,
 ): DiagnosticsProbeResultUiModel =
     DiagnosticsProbeResultUiModel(
         id = "report-$index-${result.probeType}-${result.target}",
@@ -299,6 +301,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
                 .map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
         transferEvidence = result.toTransferUiModel(),
+        connectionStages = result.toConnectionStageScale()?.toConnectionStageUiModel(networkScopeUnverified),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

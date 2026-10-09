@@ -139,6 +139,12 @@ class DiagnosticsSummaryProjector
                 }
                 addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
                 addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
+                addAll(
+                    connectionStageSummaryLines(
+                        report?.results.orEmpty(),
+                        report?.diagnoses.orEmpty().any { it.code == "network_scope_unverified" },
+                    ),
+                )
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }
                 report?.classifierVersion?.let { add("classifierVersion=$it") }
                 if (report?.packVersions?.isNotEmpty() == true) {

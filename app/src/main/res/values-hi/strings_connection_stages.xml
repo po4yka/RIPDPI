@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_stages_show">कनेक्शन चरण दिखाएँ (%1$d पथ)</string>
+    <string name="diagnostics_stages_hide">चरण छिपाएँ (%1$d पथ)</string>
+    <string name="diagnostics_stages_legend">अज्ञात: कोई प्रमाण नहीं। नहीं पहुँचा: प्रयास पहले ही रुक गया। लागू नहीं: यह पथ इस चरण का उपयोग नहीं करता। देखा गया और आंशिक का अर्थ सफल नहीं है।</string>
+    <string name="diagnostics_stages_attempt">%1$s · प्रयास %2$d</string>
+    <string name="diagnostics_stages_state">%1$s — %2$s</string>
+    <string name="diagnostics_stages_duration">चरण की अवधि: %1$d मिलीसेकंड</string>
+    <string name="diagnostics_stages_elapsed">प्रयास शुरू होने से: %1$d मिलीसेकंड</string>
+    <string name="diagnostics_stages_bytes">प्राप्त बॉडी: %1$d बाइट</string>
+    <string name="diagnostics_stages_http_status">HTTP स्थिति: %1$d</string>
+    <string name="diagnostics_stages_dns">DNS खोज</string>
+    <string name="diagnostics_stages_tcp">TCP कनेक्शन</string>
+    <string name="diagnostics_stages_proxy">प्रॉक्सी कनेक्शन</string>
+    <string name="diagnostics_stages_tls">TLS हैंडशेक</string>
+    <string name="diagnostics_stages_headers">HTTP हेडर</string>
+    <string name="diagnostics_stages_first_byte">बॉडी का पहला बाइट</string>
+    <string name="diagnostics_stages_body">प्रतिक्रिया की बॉडी</string>
+    <string name="diagnostics_stages_quic_response">QUIC प्रतिक्रिया</string>
+    <string name="diagnostics_stages_succeeded">सफल</string>
+    <string name="diagnostics_stages_observed">देखा गया</string>
+    <string name="diagnostics_stages_failed">विफल</string>
+    <string name="diagnostics_stages_partial">आंशिक</string>
+    <string name="diagnostics_stages_running">जारी</string>
+    <string name="diagnostics_stages_not_reached">नहीं पहुँचा</string>
+    <string name="diagnostics_stages_not_applicable">लागू नहीं</string>
+    <string name="diagnostics_stages_unknown">अज्ञात</string>
+    <string name="diagnostics_stages_cancelled">रद्द</string>
+    <string name="diagnostics_stages_timed_out">समय समाप्त</string>
+    <string name="diagnostics_stages_lane_matrix">उपलब्धता जाँच</string>
+    <string name="diagnostics_stages_lane_transfer">स्थानांतरण</string>
+    <string name="diagnostics_stages_lane_tls13">TLS 1.3</string>
+    <string name="diagnostics_stages_lane_tls12">TLS 1.2</string>
+    <string name="diagnostics_stages_lane_ech">ECH वाला TLS</string>
+    <string name="diagnostics_stages_lane_http">सादा HTTP</string>
+    <string name="diagnostics_stages_lane_quic">QUIC प्रतिक्रिया जाँच</string>
+    <string name="diagnostics_stages_lane_dns_system">सिस्टम DNS</string>
+    <string name="diagnostics_stages_lane_dns_encrypted">एन्क्रिप्टेड DNS</string>
+    <string name="diagnostics_stages_lane_bootstrap">प्रारंभिक कनेक्शन</string>
+    <string name="diagnostics_stages_lane_media">मीडिया</string>
+    <string name="diagnostics_stages_lane_gateway">गेटवे</string>
+    <string name="diagnostics_stages_lane_handshake">हैंडशेक</string>
+    <string name="diagnostics_stages_lane_tcp">TCP जाँच</string>
+</resources>

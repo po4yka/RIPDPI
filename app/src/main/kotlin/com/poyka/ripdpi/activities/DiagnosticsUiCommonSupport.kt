@@ -83,7 +83,9 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
     result: com.poyka.ripdpi.diagnostics.ProbeResult,
     reportResults: List<com.poyka.ripdpi.diagnostics.ProbeResult> = emptyList(),
-): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, pathMode, result, reportResults)
+    networkScopeUnverified: Boolean = false,
+): DiagnosticsProbeResultUiModel =
+    core.toProbeResultUiModel(index, pathMode, result, reportResults, networkScopeUnverified)
 
 internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel {
     val isConfirmGood = diagnosis.code == "confirm_good_dpi_suspected"

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import com.poyka.ripdpi.diagnostics.toRedactedSummary
 import com.poyka.ripdpi.diagnostics.toSessionProjection
+import com.poyka.ripdpi.diagnostics.withConnectionStageEvidence
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -590,25 +591,27 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
         )
 
     private fun buildSummaryDocument(selection: DiagnosticsArchiveSelection): DiagnosticsSummaryDocument =
-        projector.project(
-            session = redactor.redactSession(selection.primarySession),
-            report = redactor.redact(selection.primaryReport)?.toSessionProjection(),
-            latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
-            latestContextModel =
-                selectArchiveRuntimeContext(selection)
-                    .context
-                    ?.let(redactor::redact),
-            latestTelemetry =
-                selection.payload.telemetry
-                    .firstOrNull()
-                    ?.redactForArchive(),
-            selectedResults = selection.primaryResults.map(redactor::redact),
-            warnings =
-                (selection.primaryEvents + selection.globalEvents)
-                    .filter { event ->
-                        event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
-                    }.map(redactor::redact),
-        )
+        projector
+            .project(
+                session = redactor.redactSession(selection.primarySession),
+                report = redactor.redact(selection.primaryReport)?.toSessionProjection(),
+                latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
+                latestContextModel =
+                    selectArchiveRuntimeContext(selection)
+                        .context
+                        ?.let(redactor::redact),
+                latestTelemetry =
+                    selection.payload.telemetry
+                        .firstOrNull()
+                        ?.redactForArchive(),
+                selectedResults = selection.primaryResults.map(redactor::redact),
+                warnings =
+                    (selection.primaryEvents + selection.globalEvents)
+                        .filter { event ->
+                            event.level.equals("warn", ignoreCase = true) ||
+                                event.level.equals("error", ignoreCase = true)
+                        }.map(redactor::redact),
+            ).withConnectionStageEvidence(selection.primaryReport)
 
     private fun <T> jsonEntry(
         name: String,

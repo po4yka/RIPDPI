@@ -378,6 +378,22 @@ exports preserve validated numeric evidence without response bodies. If network
 continuity is lost, `transferNetworkScope=unverified` accompanies the original
 measurements in history and exports.
 
+## Unified connection stage scale
+
+The Kotlin diagnostics layer projects existing probe evidence into DNS, TCP,
+proxy negotiation, TLS, HTTP headers, first body byte, body transfer and QUIC
+response stages. A lane represents one attempt or protocol branch. TLS profiles,
+plaintext HTTP, service branches and repeated transfers remain separate.
+
+The scale distinguishes completed stages, observed responses, partial data,
+failures, interruption and missing evidence. HTTP error status codes still prove
+that response headers arrived. QUIC Initial evidence does not prove a complete
+handshake or HTTP/3. A configured IP does not prove DNS resolution. Unknown
+measurements have no invented duration, and elapsed time is distinct from stage
+duration. The same projection supplies current results, history, live transfer
+presentation and bounded text exports. Existing JSON/CSV evidence and native
+wire contracts remain unchanged.
+
 ## Adding a probe
 
 See [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) §3 — add the

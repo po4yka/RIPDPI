@@ -39,6 +39,7 @@ internal fun DiagnosticsTransferCard(
         if (transfer.networkScopeUnverified) {
             TransferText(stringResource(R.string.diagnostics_transfer_scope_unverified))
         }
+        transfer.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         transfer.runs.forEach { run -> TransferRun(run) }
     }
 }
