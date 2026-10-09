@@ -202,7 +202,6 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         .bucket,
         ripdpi_diagnostics_contracts::util::ProbeOutcomeBucket::Inconclusive,
     );
-    tokens.insert("udp_timeout_transient".into());
     tokens
 }
 
