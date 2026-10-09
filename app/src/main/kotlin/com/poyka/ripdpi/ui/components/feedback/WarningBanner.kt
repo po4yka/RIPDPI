@@ -91,7 +91,6 @@ fun WarningBanner(
             title = title,
             message = message,
             icon = resolvedIcon,
-            iconContentDescription = tone.name,
             state = state,
             onDismiss = onDismiss,
         )
@@ -103,7 +102,6 @@ private fun WarningBannerContent(
     title: String,
     message: String,
     icon: ImageVector,
-    iconContentDescription: String,
     state: RipDpiBannerStateStyle,
     onDismiss: (() -> Unit)? = null,
 ) {
@@ -129,7 +127,7 @@ private fun WarningBannerContent(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = iconContentDescription,
+                contentDescription = null,
                 tint = state.icon,
                 modifier = Modifier.size(RipDpiIconSizes.Small),
             )
@@ -154,7 +152,7 @@ private fun WarningBannerContent(
                 onClick = onDismiss,
                 modifier =
                     Modifier
-                        .size(components.feedback.decorativeBadgeSize)
+                        .size(components.buttons.iconButtonSize)
                         .ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
             ) {
                 Icon(

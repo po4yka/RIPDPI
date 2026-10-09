@@ -87,7 +87,11 @@ fun RipDpiAccordion(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(text = title, style = RipDpiThemeTokens.type.bodyEmphasis.copy(color = colors.foreground))
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f),
+                style = RipDpiThemeTokens.type.bodyEmphasis.copy(color = colors.foreground),
+            )
             Icon(
                 imageVector = RipDpiIcons.KeyboardArrowDown,
                 contentDescription =
@@ -102,7 +106,11 @@ fun RipDpiAccordion(
                 modifier = Modifier.size(spacing.xl).rotate(chevronAngle),
             )
         }
-        AnimatedVisibility(visible = expanded) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
+        ) {
             Column(
                 modifier =
                     Modifier

@@ -19,9 +19,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -97,13 +99,13 @@ fun RipDpiExportConsentDialog(
             }
         }
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().ripDpiToggleable(value = redact, role = Role.Checkbox) { redact = it },
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(
                 checked = redact,
-                onCheckedChange = { redact = it },
+                onCheckedChange = null,
                 colors =
                     CheckboxDefaults.colors(
                         checkedColor = colors.foreground,
@@ -112,6 +114,7 @@ fun RipDpiExportConsentDialog(
                     ),
             )
             Text(
+                modifier = Modifier.weight(1f),
                 text = stringResource(R.string.vpn_export_consent_redact_label),
                 style = type.body,
                 color = colors.foreground,

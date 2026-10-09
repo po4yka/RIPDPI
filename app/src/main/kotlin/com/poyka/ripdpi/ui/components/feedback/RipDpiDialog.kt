@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -31,6 +35,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val DialogStackedActionsFontScale = 1.3f
 
 enum class RipDpiDialogTone {
     Default,
@@ -115,50 +121,60 @@ fun RipDpiDialogCard(
         shadowElevation = surfaceStyle.shadowElevation,
         border = BorderStroke(RipDpiStroke.Thin, surfaceStyle.border),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = spacing.xxl, vertical = spacing.xxl),
-            verticalArrangement = Arrangement.spacedBy(spacing.lg),
-        ) {
-            visuals.icon?.let {
-                RipDpiModalIconBadge(
-                    icon = it,
-                    tone = visuals.tone,
-                )
-            }
-
+        BoxWithConstraints {
             Column(
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (constraints.hasBoundedHeight) {
+                                Modifier.verticalScroll(
+                                    rememberScrollState(),
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ).padding(horizontal = spacing.xxl, vertical = spacing.xxl),
+                verticalArrangement = Arrangement.spacedBy(spacing.lg),
             ) {
-                Text(
-                    text = title,
-                    style = type.sheetTitle,
-                    color = colors.foreground,
-                )
-                visuals.message?.let {
-                    Text(
-                        text = it,
-                        style = type.body,
-                        color = colors.mutedForeground,
+                visuals.icon?.let {
+                    RipDpiModalIconBadge(
+                        icon = it,
+                        tone = visuals.tone,
                     )
                 }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                ) {
+                    Text(
+                        text = title,
+                        style = type.sheetTitle,
+                        color = colors.foreground,
+                    )
+                    visuals.message?.let {
+                        Text(
+                            text = it,
+                            style = type.body,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+
+                content()
+
+                DialogActionRow(
+                    dismissLabel = dismissAction.label,
+                    onDismiss = dismissAction.onClick,
+                    confirmLabel = confirmAction?.label,
+                    onConfirm = confirmAction?.onClick,
+                    confirmTestTag = confirmAction?.testTag,
+                    dismissTestTag = dismissAction.testTag,
+                    tone = visuals.tone,
+                    actionLayout = visuals.actionLayout,
+                    hasConfirmAction = hasConfirmAction,
+                )
             }
-
-            content()
-
-            DialogActionRow(
-                dismissLabel = dismissAction.label,
-                onDismiss = dismissAction.onClick,
-                confirmLabel = confirmAction?.label,
-                onConfirm = confirmAction?.onClick,
-                confirmTestTag = confirmAction?.testTag,
-                dismissTestTag = dismissAction.testTag,
-                tone = visuals.tone,
-                actionLayout = visuals.actionLayout,
-                hasConfirmAction = hasConfirmAction,
-            )
         }
     }
 }
@@ -205,7 +221,14 @@ private fun DialogActionRow(
     hasConfirmAction: Boolean,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val resolvedActionLayout = actionLayout.resolvedActionLayout()
+    val resolvedActionLayout =
+        if (actionLayout == RipDpiActionLayout.Adaptive &&
+            LocalDensity.current.fontScale >= DialogStackedActionsFontScale
+        ) {
+            RipDpiActionLayout.Stacked
+        } else {
+            actionLayout.resolvedActionLayout()
+        }
     val primaryVariant =
         when (tone) {
             RipDpiDialogTone.Destructive -> RipDpiButtonVariant.Destructive
@@ -222,6 +245,7 @@ private fun DialogActionRow(
         ) {
             if (hasConfirmAction) {
                 RipDpiButton(
+                    wrapLabel = true,
                     text = confirmLabel.orEmpty(),
                     onClick = { onConfirm?.invoke() },
                     modifier =
@@ -232,6 +256,7 @@ private fun DialogActionRow(
                     hapticFeedback = confirmActionHapticFeedback(tone),
                 )
                 RipDpiButton(
+                    wrapLabel = true,
                     text = dismissLabel,
                     onClick = onDismiss,
                     modifier =
@@ -243,6 +268,7 @@ private fun DialogActionRow(
                 )
             } else {
                 RipDpiButton(
+                    wrapLabel = true,
                     text = dismissLabel,
                     onClick = onDismiss,
                     modifier =
@@ -262,23 +288,26 @@ private fun DialogActionRow(
         ) {
             if (hasConfirmAction) {
                 RipDpiButton(
+                    wrapLabel = true,
                     text = dismissLabel,
                     onClick = onDismiss,
-                    modifier = Modifier.ripDpiTestTag(dismissTestTag),
+                    modifier = Modifier.weight(1f).ripDpiTestTag(dismissTestTag),
                     variant = RipDpiButtonVariant.Outline,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
                 RipDpiButton(
+                    wrapLabel = true,
                     text = confirmLabel.orEmpty(),
                     onClick = { onConfirm?.invoke() },
-                    modifier = Modifier.ripDpiTestTag(confirmTestTag),
+                    modifier = Modifier.weight(1f).ripDpiTestTag(confirmTestTag),
                     variant = primaryVariant,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
                     hapticFeedback = confirmActionHapticFeedback(tone),
                 )
             } else {
                 RipDpiButton(
+                    wrapLabel = true,
                     text = dismissLabel,
                     onClick = onDismiss,
                     modifier = Modifier.ripDpiTestTag(dismissTestTag),
