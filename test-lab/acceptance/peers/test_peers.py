@@ -2,12 +2,15 @@
 
 import importlib.util
 import json
+import os
 import re
 from pathlib import Path
 import socket
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -76,6 +79,53 @@ class ExactExecutionTest(unittest.TestCase):
 
 
 class PeerLifecycleTest(unittest.TestCase):
+    def test_preparation_sigterm_reaps_compiler_session(self):
+        self.preparation_signal_reaps_compiler_session(signal.SIGTERM)
+
+    def test_preparation_sigint_reaps_compiler_session(self):
+        self.preparation_signal_reaps_compiler_session(signal.SIGINT)
+
+    def preparation_signal_reaps_compiler_session(self, signum):
+        with tempfile.TemporaryDirectory() as directory:
+            ready = Path(directory)/'child.pid'
+            script = '''import importlib.util, pathlib, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+spec = importlib.util.spec_from_file_location('runner', pathlib.Path(sys.argv[1])/'run.py')
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
+def preparation(case, args):
+    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+    ready = pathlib.Path(sys.argv[2])
+    temporary = ready.with_suffix('.tmp')
+    temporary.write_text(str(child.pid))
+    temporary.replace(ready)
+    child.wait()
+runner.prepare = preparation
+runner.main(['--prepare', '--scenario', 'native-tuic-tcp'])
+'''
+            adapter = subprocess.Popen([sys.executable, '-c', script, str(DIRECTORY), str(ready)],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            child_pid = None
+            try:
+                deadline = time.monotonic()+5
+                while not ready.exists():
+                    if adapter.poll() is not None or time.monotonic() >= deadline:
+                        self.fail('preparation compiler did not start')
+                    time.sleep(.02)
+                child_pid = int(ready.read_text())
+                adapter.send_signal(signum)
+                self.assertNotEqual(adapter.wait(timeout=10), 0)
+                self.assertFalse(runner.ProcessLedger.group_exists(child_pid))
+            finally:
+                if adapter.poll() is None:
+                    adapter.kill()
+                    adapter.wait(timeout=5)
+                if child_pid is not None:
+                    try:
+                        os.killpg(child_pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+
     def test_interruption_reaps_owned_session(self):
         ledger = runner.ProcessLedger()
         with self.assertRaises(InterruptedError):

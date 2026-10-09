@@ -332,8 +332,11 @@ def main(argv=None):
         parser.error("--scenario is required")
     case = SCENARIOS[args.scenario]
     args.cache_dir = args.cache_dir.resolve()
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     if args.prepare:
-        prepare(case, args)
+        with ProcessLedger():
+            prepare(case, args)
         return 0
     if (
         not args.run_id
@@ -361,8 +364,6 @@ def main(argv=None):
         "cleanup": {"passed": False},
         "offline_scope": "Dependency resolvers disabled; network egress isolation requires the VM lane.",
     }
-    signal.signal(signal.SIGTERM, interrupted)
-    signal.signal(signal.SIGINT, interrupted)
     error = None
     ledger = ProcessLedger()
     try:
