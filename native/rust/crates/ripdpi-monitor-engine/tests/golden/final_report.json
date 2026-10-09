@@ -116,6 +116,10 @@
           "value": "Connection refused (os error _)"
         },
         {
+          "key": "tlsFailureStage",
+          "value": "tcp_connect"
+        },
+        {
           "key": "tlsSignal",
           "value": "tls_unavailable"
         },
