@@ -2,7 +2,7 @@
 id: CIC-1791550373013576
 title: Raise approved native size growth budgets
 kind: chore
-status: doing
+status: done
 area: ci
 priority: high
 owner: root
@@ -13,6 +13,10 @@ openspec_change: null
 created: 2026-10-09
 updated: 2026-10-09
 spec_reason: tooling-only
+status_detail: Approved byte-growth limits implemented. Eight real CI libraries and six verifier tests pass; measurements and the 2 percent cap are unchanged.
+closed_at: "2026-10-09T13:05:07Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: User-approved 384 KiB per-library and 1.5 MiB total absolute limits; unchanged measurements and 2 percent cap; real four-ABI size gate passes eight libraries; six unit tests and two clean reviews; policy commit 20df27917.
 ---
 
 ## Goal
