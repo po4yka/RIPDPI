@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -58,7 +60,7 @@ fun ProfileShareDialog(
     Dialog(onDismissRequest = {
         viewModel.onShareDismissed()
         onDismiss()
-    }) {
+    }, properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn)) {
         RipDpiCard(modifier = modifier) {
             val shareUri = uiState.shareUri
             when {

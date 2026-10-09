@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -97,6 +98,7 @@ internal fun SshProfileScreen(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    SecureWindowEffect()
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.ssh_editor_title),
         navigationIcon = RipDpiIcons.Back,
@@ -244,6 +246,14 @@ private fun PlainField(
         behavior =
             RipDpiTextFieldBehavior(
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                visualTransformation =
+                    if (keyboardType ==
+                        KeyboardType.Password
+                    ) {
+                        PasswordVisualTransformation()
+                    } else {
+                        VisualTransformation.None
+                    },
                 readOnly = readOnly,
             ),
     )

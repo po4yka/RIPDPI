@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -49,6 +50,7 @@ fun ProfileShareScreen(
     onShareSheet: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    SecureWindowEffect()
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.profile_share_title),
         navigationIcon = RipDpiIcons.Back,
