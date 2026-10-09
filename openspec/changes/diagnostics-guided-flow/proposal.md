@@ -9,6 +9,7 @@ The diagnostics flow hides run controls behind detailed catalogs. Full Home anal
 ## What Changes
 
 - Provide quick checks, whole-run stop, and stable progress and profile identity.
+- Keep full-run ownership through gaps between native sessions and reject unrelated scan admission until teardown completes.
 - Use the selected user persona for progressive disclosure and concrete next actions.
 - Show concise results before technical evidence. Preserve partial and unknown states.
 - Include transfer and connection-stage evidence in copied results.
@@ -26,5 +27,5 @@ The diagnostics flow hides run controls behind detailed catalogs. Full Home anal
 
 ## Impact
 
-- Android app UI, diagnostics actions, Blockcheck classification, tests, and ten locales.
+- Android app UI, diagnostics actions and runtime ownership, Blockcheck classification, tests, and ten locales.
 - No breaking wire, storage, dependency, or backend change.

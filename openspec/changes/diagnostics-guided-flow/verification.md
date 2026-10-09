@@ -21,6 +21,7 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-UX-CONTROLS | UIX-1791534636961461 | Focused Home and scan action tests; Compose render | Pending |
+| REQ-UX-OWNERSHIP | UIX-1791534636961461 | Composite lease and scan admission intersession/cancel tests | Pending |
 | REQ-UX-ACTIONS | UIX-1791534640395114 | Recommendation and persona tests; Compose render | Pending |
 | REQ-UX-EVIDENCE | UIX-1791534644221588 | Matrix and copy tests; locale lint; Compose render | Pending |
 | REQ-UX-CAUSE | UIX-1791534646233026 | Detection classifier tests; combined gates and review | Pending |

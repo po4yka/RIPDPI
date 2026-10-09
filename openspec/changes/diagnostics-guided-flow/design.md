@@ -13,11 +13,13 @@ The current app has reusable run, recommendation, and evidence models. The UI mu
 - Put controls before catalogs. Collapse infrastructure metadata and repeated attempts.
 - Use existing recommendation admission and network epoch checks. An editor action must be labelled as an editor action; configuration changes need concrete review.
 - Use measured byte and connection-stage evidence. Do not invent progress percentages or completion estimates.
+- Share the existing Home run ownership as one in-process lease with scan admission. The lease covers startup, intersession gaps, finalization, and teardown. Composite stages present their existing owner ID; unrelated manual or automatic scans cannot acquire it. No wire or storage field is added.
 - Mobbin references: [Quo](https://mobbin.com/screens/0a290bb8-a09e-4569-a5e6-d82ba3f1421d) for verdict and expandable metrics; [FotMob](https://mobbin.com/flows/7fb3b7bd-2ea6-4da2-9c74-de43c42f4e49) for step states; [Starlink](https://mobbin.com/screens/177843a6-2027-4a20-96e1-9fe9225053dc) for measured path comparison; [Jomo](https://mobbin.com/flows/c1bee2f1-34c1-40d2-a5f2-4fd073fcb38c) for concrete retry actions.
 
 ## Contracts and ownership
 
 - Control writer: Home route/screen/mode card and state, scan actions/selection/section builder, and focused tests.
+- Control writer also owns the diagnostics in-process lease, HomeCompositeRunJobs, scan admission/controller profile guards, required DI plumbing, and focused ownership tests. The native writer owns no Kotlin core path.
 - Guided writer: Diagnostics route/screen/overview, MainViewModel and Home actions, persona/state models, navigation, and focused tests.
 - Presentation writer: Scan section, matrix/transfer/stage/probe cards, sheets, evidence copy helpers, and focused tests.
 - Root: all locale resources, translation manifest, planning/task state, Blockcheck classification, combined validation, review, and main integration.

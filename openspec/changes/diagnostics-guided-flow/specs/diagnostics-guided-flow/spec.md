@@ -18,6 +18,20 @@ The app MUST expose quick analysis and a stop action for the complete Home analy
 - **WHEN** a scan is active
 - **THEN** a profile change cannot alter the running scan or its progress labels.
 
+### Requirement: REQ-UX-OWNERSHIP — Full-run admission ownership
+
+The diagnostics runtime MUST hold one Home run lease through teardown and MUST reject unrelated manual or automatic scan admission and profile mutation while the lease is held.
+
+#### Scenario: Admit a scan between composite stages
+
+- **WHEN** the Home lease is active and no native session is running
+- **THEN** only a stage with the same owner ID can start; unrelated scans and profile mutation are rejected.
+
+#### Scenario: Release a stopped Home run
+
+- **WHEN** cancellation teardown completes
+- **THEN** the lease is released and new manual scans can start.
+
 ### Requirement: REQ-UX-ACTIONS — Honest next actions
 
 The app MUST use the saved persona for disclosure and MUST describe each recommendation action according to its actual effect.
