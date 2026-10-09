@@ -323,6 +323,7 @@ private fun HomeModeCardActions(
         ) {
             if (stackActions) {
                 RipDpiButton(
+                    wrapLabel = true,
                     text = primaryActionLabel,
                     onClick = onPrimaryAction,
                     modifier =
@@ -334,6 +335,7 @@ private fun HomeModeCardActions(
                     loading = uiState.isLoading && uiState.mode != HomeMode.Diagnostic,
                 )
                 RipDpiButton(
+                    wrapLabel = true,
                     text = configureLabel,
                     onClick = onConfigure,
                     modifier =
@@ -348,6 +350,7 @@ private fun HomeModeCardActions(
                     horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
                 ) {
                     RipDpiButton(
+                        wrapLabel = true,
                         text = primaryActionLabel,
                         onClick = onPrimaryAction,
                         modifier =
@@ -359,6 +362,7 @@ private fun HomeModeCardActions(
                         loading = uiState.isLoading && uiState.mode != HomeMode.Diagnostic,
                     )
                     RipDpiButton(
+                        wrapLabel = true,
                         text = configureLabel,
                         onClick = onConfigure,
                         modifier =
