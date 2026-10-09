@@ -42,6 +42,10 @@ The explicit-serial Android wire probe v2 used real LocalSocket, SCM_RIGHTS, and
 
 Provenance: source_tree_sha256 before/after is 475bfde89d53aae6ef122fa18f9b6a44438a4bdb779cca5605e0b51be4788949; tracked_diff_sha256 is 65bb6689d2ecd951b539e742344da24a7f9ba814d233db83e7ff702d5cb7a054. Paired JSON snapshots and diffs remain in Android build/acceptance/environment-android-initial/protect-wire-red-v2-source-before.json and protect-wire-red-v2-source-after.json. These are diagnostic dirty-source artifacts, separate from the final clean catalog.
 
-## Preflight compatibility
+## Additional platform bind failure
+
+The first corrected wire candidate on unchanged diagnostic source-tree SHA256 272c3b49daf4b43270642034bd2f8fc884c7bd33332f417db20880ff2f48a591 preserved the replacement after old cleanup and received ACK0. A duplicate LocalSocket.bind then replaced the existing path; duplicate cleanup removed the owner endpoint. The preserved assertion failed at line98. The run remains in Android build/acceptance/protect-wire-green-first-2ae as a failed candidate. Add an atomic same-process path claim and reject existing foreign paths before platform bind, then repeat actual ACK and cleanup checks. This does not prove cross-process coordination or final catalog acceptance.
+
+## Preflight compatibility evidence
 
 Independent review found that runtime-only owned-path capture cannot be used by the existing permission preflight before VPN service creation. Add an explicit internal preflight resolution method, preserve VPN/profile/settings and recovery semantics, and keep the app typed permission result. Runtime activation must still require a live owner. Preflight must not launch root helpers or NFQUEUE; the old resolver activation preparation did so for opt-in root settings. An actual default resolver/default preflight regression with an empty provider, counting activation hooks, and runtime negative capture is required before accepting this fix. The earlier 2221-test green remains separate from the final compatibility gate.

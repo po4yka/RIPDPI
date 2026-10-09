@@ -32,6 +32,13 @@ The implementation MUST close and remove only resources owned by that server ope
 - **THEN** its owned resources close without deleting a different live endpoint
 - **AND** no active endpoint is advertised for the failed operation
 
+#### Scenario: A duplicate path is requested
+
+- **GIVEN** a live server owns a filesystem endpoint
+- **WHEN** another server attempts to bind the same path
+- **THEN** the duplicate operation is rejected before platform bind can replace the endpoint
+- **AND** duplicate cleanup leaves the owner endpoint reachable with the expected ACK
+
 #### Scenario: Old lifecycle releases a superseded registration
 
 - **GIVEN** a new session owns the active advertised path and native protection registrations
