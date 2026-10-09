@@ -1,3 +1,5 @@
+mod nat64;
+pub use nat64::{Nat64Discovery, Nat64Prefix, discover_nat64_prefixes, discover_network_nat64};
 mod encrypted_observation;
 mod semantics;
 mod udp;

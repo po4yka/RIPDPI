@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.ExecutionPlanSnapshot
+import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbeDetail
@@ -50,6 +51,7 @@ enum class EngineProbeTaskFamily {
     THROUGHPUT,
     DOH_JSON_SURVEY,
     SELECTIVE_AVAILABILITY,
+    IP_FAMILY,
 }
 
 @Serializable
@@ -105,6 +107,8 @@ data class EngineScanRequestWire(
     val networkSnapshot: NativeNetworkSnapshot? = null,
     val routeProbe: RouteProbeConfig? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val ipFamilyProbe: IpFamilyProbeConfig? = null,
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
     val scanDeadlineMs: Long? = null,

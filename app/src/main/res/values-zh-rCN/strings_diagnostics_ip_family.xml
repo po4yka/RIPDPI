@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">结果</string>
+    <string name="diagnostics_ip_stage">测量阶段</string>
+    <string name="diagnostics_ip_reason">原因</string>
+    <string name="diagnostics_ip_duration">耗时（毫秒）</string>
+    <string name="diagnostics_ip_attempts">DNS/TCP 尝试次数</string>
+    <string name="diagnostics_ip_scope">路径范围</string>
+    <string name="diagnostics_ip_discovery">DNS64 发现</string>
+    <string name="diagnostics_ip_prefix_length">前缀长度（位）</string>
+    <string name="diagnostics_ip_resolver">DNS 来源</string>
+    <string name="diagnostics_ip_limits">说明</string>
+    <string name="diagnostics_ip_measurement">测量范围</string>
+    <string name="diagnostics_ip_unknown">未知</string>
+    <string name="diagnostics_ip_missing">未观测到</string>
+    <string name="diagnostics_ip_tcp">TCP 连接</string>
+    <string name="diagnostics_ip_dns64">DNS64 前缀发现</string>
+    <string name="diagnostics_ip_raw">原始网络路径</string>
+    <string name="diagnostics_ip_proxy">不支持代理路径</string>
+    <string name="diagnostics_ip_network_dns">网络快照中的 DNS 服务器</string>
+    <string name="diagnostics_ip_reachable">TCP 连接已建立</string>
+    <string name="diagnostics_ip_failed">失败</string>
+    <string name="diagnostics_ip_timeout">超时</string>
+    <string name="diagnostics_ip_unsupported">不支持</string>
+    <string name="diagnostics_ip_cancelled">已取消</string>
+    <string name="diagnostics_ip_invalid">无效数据</string>
+    <string name="diagnostics_ip_discovered">已发现前缀</string>
+    <string name="diagnostics_ip_no_prefix">未观测到前缀</string>
+    <string name="diagnostics_ip_refused">连接被拒绝</string>
+    <string name="diagnostics_ip_unreachable">目标或网络不可达</string>
+    <string name="diagnostics_ip_permission">权限被拒绝</string>
+    <string name="diagnostics_ip_io">传输错误</string>
+    <string name="diagnostics_ip_no_dns">网络 DNS 服务器不可用</string>
+    <string name="diagnostics_ip_dns_error">DNS 查询失败</string>
+    <string name="diagnostics_ip_invalid_prefix">DNS64 前缀无效或不明确</string>
+    <string name="diagnostics_ip_invalid_config">探测配置无效</string>
+    <string name="diagnostics_ip_caution">通过 TCP 测试一个对照服务。这不能确认 HTTP 或整个互联网可用，也不能证明运营商干预。</string>
+    <string name="diagnostics_ip_clat_caution">IPv4 成功可能使用 CLAT，并不能证明存在原生 IPv4 网络。</string>
+    <string name="diagnostics_ip_nat64_caution">发现 DNS64 前缀并不证明 NAT64 路径可用。只有成功建立 TCP 连接才能测试地址转换。</string>
+    <string name="diagnostics_ip_network_changed">网络已更改；此结果不再描述当前连接。</string>
+</resources>

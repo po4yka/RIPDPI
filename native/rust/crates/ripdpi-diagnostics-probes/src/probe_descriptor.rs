@@ -26,6 +26,7 @@ use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
 use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
+use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
@@ -38,9 +39,8 @@ use crate::probes::throughput::THROUGHPUT_PROBE_ID;
 ///
 /// Path mode (`RAW_PATH` vs `IN_PATH`) is a scan-level choice — see
 /// `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`, "Raw-path vs in-path
-/// requirements". Every scheduled connectivity stage today runs in whichever
-/// mode the scan selects, so all rows are [`ProbePathRequirement::Either`];
-/// the other variants exist for descriptors that may later pin a mode.
+/// requirements". The IP family stage requires a raw path. Other stages
+/// declare whether the selected scan path can be used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbePathRequirement {
     /// The stage requires a raw-path scan (VPN stopped, direct connection).
@@ -163,6 +163,14 @@ pub const PROBE_DESCRIPTORS: &[ProbeDescriptor] = &[
         label: "Selective availability matrix",
     },
     ProbeDescriptor {
+        id: IP_FAMILY_PROBE_ID,
+        family: ProbeTaskFamily::IpFamily,
+        scheduled_probe_type: "ip_family",
+        runner: "IpFamilyRunner",
+        path_requirement: ProbePathRequirement::RawPath,
+        label: "Separate IPv4, IPv6 and NAT64 TCP paths",
+    },
+    ProbeDescriptor {
         id: DOH_JSON_SURVEY_PROBE_ID,
         family: ProbeTaskFamily::DohJsonSurvey,
         scheduled_probe_type: "doh_json_survey",
@@ -253,7 +261,7 @@ mod tests {
 
     #[test]
     fn strategy_runners_remain_out_of_scope() {
-        assert_eq!(PROBE_DESCRIPTORS.len(), 11, "descriptor table must cover only the 10 connectivity stages");
+        assert_eq!(PROBE_DESCRIPTORS.len(), 12, "descriptor table must cover only the 12 connectivity stages");
         for descriptor in PROBE_DESCRIPTORS {
             assert!(
                 !STRATEGY_RUNNERS.contains(&descriptor.runner),

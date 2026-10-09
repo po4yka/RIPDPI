@@ -83,20 +83,24 @@ internal fun CompactProbeRow(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = probe.target,
+                text = probe.ipFamily?.title ?: probe.target,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = probe.probeType,
+                text = if (probe.ipFamily != null) stringResource(R.string.diagnostics_ip_title) else probe.probeType,
                 style = RipDpiThemeTokens.type.smallLabel,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
         StatusIndicator(
-            label = probe.outcome,
+            label =
+                probe.ipFamily
+                    ?.fields
+                    ?.firstOrNull()
+                    ?.value ?: probe.outcome,
             tone = statusTone(probe.tone),
         )
     }
@@ -289,25 +293,37 @@ internal fun ProbeResultRow(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = probe.target,
+                    text = probe.ipFamily?.title ?: probe.target,
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = probe.probeType,
+                    text =
+                        if (probe.ipFamily !=
+                            null
+                        ) {
+                            stringResource(R.string.diagnostics_ip_title)
+                        } else {
+                            probe.probeType
+                        },
                     style = RipDpiThemeTokens.type.secondaryBody,
                     color = colors.mutedForeground,
                 )
             }
             StatusIndicator(
-                label = probe.outcome,
+                label =
+                    probe.ipFamily
+                        ?.fields
+                        ?.firstOrNull()
+                        ?.value ?: probe.outcome,
                 tone = statusTone(probe.tone),
             )
         }
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        probe.ipFamily?.let { ContextGroupCard(it) }
         DiagnosticsDnsResponseCards(probe.dnsResponses)
     }
 }

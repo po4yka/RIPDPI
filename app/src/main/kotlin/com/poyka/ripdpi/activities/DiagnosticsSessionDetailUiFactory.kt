@@ -41,7 +41,14 @@ internal class DiagnosticsSessionDetailUiFactory
                     }.groupBy { it.probeType }
                     .map { (title, items) ->
                         DiagnosticsProbeGroupUiModel(
-                            title = title,
+                            title =
+                                if (title ==
+                                    "ip_family"
+                                ) {
+                                    support.context.getString(R.string.diagnostics_ip_title)
+                                } else {
+                                    title
+                                },
                             items = items.toImmutableList(),
                         )
                     }

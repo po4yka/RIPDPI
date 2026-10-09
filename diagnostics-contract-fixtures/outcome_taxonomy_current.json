@@ -1,6 +1,14 @@
 {
   "schemaVersion": 1,
   "outcomes": [
+    {"probeType": "ip_family", "pathMode": "RAW_PATH", "outcome": "ip_family_reachable", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true},
+    {"probeType": "ip_family", "pathMode": "IN_PATH", "outcome": "ip_family_reachable", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true},
+    {"probeType": "ip_family", "pathMode": "RAW_PATH", "outcome": "ip_family_unavailable", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false},
+    {"probeType": "ip_family", "pathMode": "IN_PATH", "outcome": "ip_family_unavailable", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false},
+    {"probeType": "ip_family", "pathMode": "RAW_PATH", "outcome": "ip_family_inconclusive", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false},
+    {"probeType": "ip_family", "pathMode": "IN_PATH", "outcome": "ip_family_inconclusive", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false},
+    {"probeType": "ip_family", "pathMode": "RAW_PATH", "outcome": "ip_family_cancelled", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false},
+    {"probeType": "ip_family", "pathMode": "IN_PATH", "outcome": "ip_family_cancelled", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false},
     {"probeType": "selective_availability", "pathMode": "RAW_PATH", "outcome": "matrix_target_available", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true},
     {"probeType": "selective_availability", "pathMode": "IN_PATH", "outcome": "matrix_target_available", "bucket": "Healthy", "uiTone": "Positive", "eventLevel": "info", "healthyEnoughForSummary": true},
     {"probeType": "selective_availability", "pathMode": "RAW_PATH", "outcome": "matrix_target_transport_failed", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false},

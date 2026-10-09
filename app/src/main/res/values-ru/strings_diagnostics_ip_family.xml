@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">Результат</string>
+    <string name="diagnostics_ip_stage">Измеренная стадия</string>
+    <string name="diagnostics_ip_reason">Причина</string>
+    <string name="diagnostics_ip_duration">Длительность (мс)</string>
+    <string name="diagnostics_ip_attempts">Попытки DNS/TCP</string>
+    <string name="diagnostics_ip_scope">Область пути</string>
+    <string name="diagnostics_ip_discovery">Обнаружение DNS64</string>
+    <string name="diagnostics_ip_prefix_length">Длина префикса (бит)</string>
+    <string name="diagnostics_ip_resolver">Источник DNS</string>
+    <string name="diagnostics_ip_limits">Интерпретация</string>
+    <string name="diagnostics_ip_measurement">Границы измерения</string>
+    <string name="diagnostics_ip_unknown">Неизвестно</string>
+    <string name="diagnostics_ip_missing">Не наблюдалось</string>
+    <string name="diagnostics_ip_tcp">Соединение TCP</string>
+    <string name="diagnostics_ip_dns64">Поиск префикса DNS64</string>
+    <string name="diagnostics_ip_raw">Исходный сетевой путь</string>
+    <string name="diagnostics_ip_proxy">Путь через прокси не поддерживается</string>
+    <string name="diagnostics_ip_network_dns">DNS-серверы из снимка сети</string>
+    <string name="diagnostics_ip_reachable">Соединение TCP установлено</string>
+    <string name="diagnostics_ip_failed">Ошибка</string>
+    <string name="diagnostics_ip_timeout">Время ожидания истекло</string>
+    <string name="diagnostics_ip_unsupported">Не поддерживается</string>
+    <string name="diagnostics_ip_cancelled">Отменено</string>
+    <string name="diagnostics_ip_invalid">Некорректные данные</string>
+    <string name="diagnostics_ip_discovered">Префикс обнаружен</string>
+    <string name="diagnostics_ip_no_prefix">Префикс не обнаружен</string>
+    <string name="diagnostics_ip_refused">Соединение отклонено</string>
+    <string name="diagnostics_ip_unreachable">Узел или сеть недоступны</string>
+    <string name="diagnostics_ip_permission">Доступ запрещён</string>
+    <string name="diagnostics_ip_io">Ошибка транспорта</string>
+    <string name="diagnostics_ip_no_dns">DNS-серверы сети недоступны</string>
+    <string name="diagnostics_ip_dns_error">Ошибка DNS-запроса</string>
+    <string name="diagnostics_ip_invalid_prefix">Некорректный или неоднозначный префикс DNS64</string>
+    <string name="diagnostics_ip_invalid_config">Некорректная конфигурация пробы</string>
+    <string name="diagnostics_ip_caution">Проверяется один контрольный сервис по TCP. Это не подтверждает доступность HTTP или всего Интернета и не доказывает вмешательство провайдера.</string>
+    <string name="diagnostics_ip_clat_caution">Успешная IPv4-проба может использовать CLAT и не доказывает наличие нативной IPv4-сети.</string>
+    <string name="diagnostics_ip_nat64_caution">Обнаруженный префикс DNS64 не подтверждает работоспособность NAT64. Трансляция проверяется только успешным TCP-соединением.</string>
+    <string name="diagnostics_ip_network_changed">Сеть изменилась; результат больше не описывает текущее подключение.</string>
+</resources>

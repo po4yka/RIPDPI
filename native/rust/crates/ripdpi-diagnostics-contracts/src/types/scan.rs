@@ -67,6 +67,7 @@ pub enum ProbeTaskFamily {
     /// independently of the wire DoH path. Serializes as `DOH_JSON_SURVEY`.
     DohJsonSurvey,
     SelectiveAvailability,
+    IpFamily,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -190,4 +190,5 @@ internal data class DiagnosticsProfileDefinition(
     val telegramTarget: TelegramTargetDefinition? = null,
     val strategyProbe: StrategyProbeDefinition? = null,
     val selectiveMatrix: SelectiveMatrixDefinition? = null,
+    val ipFamilyProbe: IpFamilyProbeDefinition? = null,
 )

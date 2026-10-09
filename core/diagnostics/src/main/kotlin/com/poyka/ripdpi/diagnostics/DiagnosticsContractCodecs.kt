@@ -99,6 +99,7 @@ internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
     EngineProbeTaskWire(
         family =
             when (family) {
+                ProbeFamily.IP_FAMILY -> EngineProbeTaskFamily.IP_FAMILY
                 ProbeFamily.SELECTIVE_AVAILABILITY -> EngineProbeTaskFamily.SELECTIVE_AVAILABILITY
                 ProbeFamily.DNS -> EngineProbeTaskFamily.DNS
                 ProbeFamily.DOH_JSON_SURVEY -> EngineProbeTaskFamily.DOH_JSON_SURVEY
@@ -132,6 +133,7 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
         packRefs = packRefs,
         strategyProbeSuiteId = strategyProbe?.suiteId,
         selectiveMatrix = selectiveMatrix,
+        ipFamilyProbe = ipFamilyProbe,
     )
 
 internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection =
@@ -154,6 +156,7 @@ internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection
             packRefs = packRefs,
             strategyProbeSuiteId = strategyProbe?.suiteId,
             selectiveMatrix = selectiveMatrix,
+            ipFamilyProbe = ipFamilyProbe,
         )
     }
 
@@ -183,6 +186,7 @@ internal fun ScanPlan.toEngineScanRequestWire(): EngineScanRequestWire =
         networkSnapshot = context.networkSnapshot,
         routeProbe = routeProbe,
         selectiveMatrix = selectiveMatrix,
+        ipFamilyProbe = ipFamilyProbe,
         nativeLogLevel = diagnosticsNativeLogLevel(context.pathMode),
     )
 

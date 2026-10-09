@@ -127,6 +127,7 @@ private fun bucketForProbeOutcome(
 ): DiagnosticsOutcomeBucket =
     when (probeType) {
         "selective_availability", "selective_availability_summary" -> bucketSelectiveMatrix(outcome)
+        "ip_family" -> bucketIpFamily(outcome)
         "network_environment" -> bucketNetworkEnvironment(outcome)
         "dns_integrity" -> bucketDnsIntegrity(pathMode, outcome)
         "domain_reachability" -> bucketDomainReachability(outcome)

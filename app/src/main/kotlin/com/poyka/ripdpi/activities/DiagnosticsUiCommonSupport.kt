@@ -38,12 +38,10 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
         name =
-            if (profile.id ==
-                SelectiveMatrixProfileId
-            ) {
-                context.getString(R.string.diagnostics_matrix_title)
-            } else {
-                profile.name
+            when (profile.id) {
+                SelectiveMatrixProfileId -> context.getString(R.string.diagnostics_matrix_title)
+                "ip-family-connectivity" -> context.getString(R.string.diagnostics_ip_title)
+                else -> profile.name
             },
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,
@@ -203,6 +201,7 @@ private val strategyProbePhaseOrder = listOf("tcp", "quic")
 
 private fun String.toPhaseLabel(ctx: StringResolver): String =
     when (this) {
+        "ip_family" -> ctx.getString(R.string.diagnostics_ip_title)
         "dns" -> ctx.getString(R.string.diagnostics_phase_dns)
         "reachability" -> ctx.getString(R.string.diagnostics_phase_reach)
         "quic" -> ctx.getString(R.string.diagnostics_phase_quic)
@@ -242,7 +241,11 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
             (progress.completedSteps.toFloat() / progress.totalSteps.toFloat()).coerceIn(0f, 1f)
         }
     val phaseOrder =
-        if (scanKind == ScanKind.STRATEGY_PROBE) strategyProbePhaseOrder else connectivityPhaseOrder
+        when {
+            scanKind == ScanKind.STRATEGY_PROBE -> strategyProbePhaseOrder
+            progress.phase == "ip_family" -> listOf("ip_family")
+            else -> connectivityPhaseOrder
+        }
     val isFinished = progress.phase == "finished"
     val currentIndex = phaseOrder.indexOf(progress.phase)
     val phaseSteps =

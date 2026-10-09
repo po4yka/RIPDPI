@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">परिणाम</string>
+    <string name="diagnostics_ip_stage">मापा गया चरण</string>
+    <string name="diagnostics_ip_reason">कारण</string>
+    <string name="diagnostics_ip_duration">अवधि (मिलीसेकंड)</string>
+    <string name="diagnostics_ip_attempts">DNS/TCP प्रयास</string>
+    <string name="diagnostics_ip_scope">पथ का दायरा</string>
+    <string name="diagnostics_ip_discovery">DNS64 की खोज</string>
+    <string name="diagnostics_ip_prefix_length">प्रीफ़िक्स की लंबाई (बिट)</string>
+    <string name="diagnostics_ip_resolver">DNS स्रोत</string>
+    <string name="diagnostics_ip_limits">व्याख्या</string>
+    <string name="diagnostics_ip_measurement">मापन की सीमाएँ</string>
+    <string name="diagnostics_ip_unknown">अज्ञात</string>
+    <string name="diagnostics_ip_missing">नहीं देखा गया</string>
+    <string name="diagnostics_ip_tcp">TCP कनेक्शन</string>
+    <string name="diagnostics_ip_dns64">DNS64 प्रीफ़िक्स की खोज</string>
+    <string name="diagnostics_ip_raw">सीधा नेटवर्क पथ</string>
+    <string name="diagnostics_ip_proxy">प्रॉक्सी पथ समर्थित नहीं है</string>
+    <string name="diagnostics_ip_network_dns">नेटवर्क स्नैपशॉट के DNS सर्वर</string>
+    <string name="diagnostics_ip_reachable">TCP कनेक्शन स्थापित हुआ</string>
+    <string name="diagnostics_ip_failed">विफल</string>
+    <string name="diagnostics_ip_timeout">समय सीमा समाप्त</string>
+    <string name="diagnostics_ip_unsupported">समर्थित नहीं</string>
+    <string name="diagnostics_ip_cancelled">रद्द</string>
+    <string name="diagnostics_ip_invalid">अमान्य डेटा</string>
+    <string name="diagnostics_ip_discovered">प्रीफ़िक्स मिला</string>
+    <string name="diagnostics_ip_no_prefix">कोई प्रीफ़िक्स नहीं मिला</string>
+    <string name="diagnostics_ip_refused">कनेक्शन अस्वीकार</string>
+    <string name="diagnostics_ip_unreachable">गंतव्य या नेटवर्क पहुँच से बाहर</string>
+    <string name="diagnostics_ip_permission">अनुमति अस्वीकृत</string>
+    <string name="diagnostics_ip_io">ट्रांसपोर्ट त्रुटि</string>
+    <string name="diagnostics_ip_no_dns">नेटवर्क DNS सर्वर उपलब्ध नहीं</string>
+    <string name="diagnostics_ip_dns_error">DNS अनुरोध विफल</string>
+    <string name="diagnostics_ip_invalid_prefix">अमान्य या अस्पष्ट DNS64 प्रीफ़िक्स</string>
+    <string name="diagnostics_ip_invalid_config">अमान्य जाँच कॉन्फ़िगरेशन</string>
+    <string name="diagnostics_ip_caution">TCP से एक नियंत्रण सेवा की जाँच होती है। यह HTTP या पूरे इंटरनेट की पहुँच की पुष्टि नहीं करता और प्रदाता का हस्तक्षेप सिद्ध नहीं करता।</string>
+    <string name="diagnostics_ip_clat_caution">IPv4 की सफलता CLAT का उपयोग कर सकती है और मूल IPv4 नेटवर्क सिद्ध नहीं करती।</string>
+    <string name="diagnostics_ip_nat64_caution">DNS64 प्रीफ़िक्स मिलने से NAT64 पथ का काम करना सिद्ध नहीं होता। केवल सफल TCP कनेक्शन अनुवाद की जाँच करता है।</string>
+    <string name="diagnostics_ip_network_changed">नेटवर्क बदल गया; परिणाम अब मौजूदा कनेक्शन का वर्णन नहीं करता।</string>
+</resources>

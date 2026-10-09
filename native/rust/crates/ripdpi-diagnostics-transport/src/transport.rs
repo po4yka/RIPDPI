@@ -17,7 +17,7 @@ pub use socks5::{
     decode_socks5_udp_frame, encode_socks5_udp_frame, negotiate_socks5, normalize_udp_relay_addr, relay_udp_via_socks5,
     socks5_noauth_handshake, socks5_udp_associate,
 };
-pub use tcp::{connect_direct, connect_transport_observed, wait_for_listener};
+pub use tcp::{connect_direct, connect_direct_address, connect_transport_observed, wait_for_listener};
 pub use types::{
     ConnectionStream, RouteExperimentConfig, RouteExperimentReport, Socks5Credentials, TargetAddress, TransportConfig,
     TransportConnectError, TransportConnectResult, TransportError, TransportFailureStage, UdpRelayResult,

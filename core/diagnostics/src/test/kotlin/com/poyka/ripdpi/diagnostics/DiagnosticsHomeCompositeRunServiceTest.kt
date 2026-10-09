@@ -553,6 +553,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 listOf(
                     "automatic-audit",
                     "default",
+                    "ip-family-connectivity",
                     "ru-throttling",
                     "ru-circumvention",
                     "ru-dpi-full",
@@ -646,6 +647,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 listOf(
                     ScanPathMode.RAW_PATH to "automatic-audit",
                     ScanPathMode.RAW_PATH to "default",
+                    ScanPathMode.RAW_PATH to "ip-family-connectivity",
                     ScanPathMode.RAW_PATH to "ru-throttling",
                     ScanPathMode.RAW_PATH to "ru-circumvention",
                     ScanPathMode.RAW_PATH to "ru-dpi-full",
@@ -656,7 +658,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
             // Detection and active path comparison are unavailable without paired evidence.
-            assertEquals(6, outcome.completedStageCount)
+            assertEquals(7, outcome.completedStageCount)
             assertEquals(2, outcome.failedStageCount)
         }
 
@@ -721,10 +723,10 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            assertEquals(6, scanController.startedRequests.size)
+            assertEquals(7, scanController.startedRequests.size)
             assertFalse(outcome.actionable)
             // Path comparison is unavailable because there is no paired raw-path evidence to compare.
-            assertEquals(5, outcome.completedStageCount)
+            assertEquals(6, outcome.completedStageCount)
             assertEquals(3, outcome.failedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.FAILED,
@@ -882,13 +884,13 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val outcome = service.finalizeHomeRun(started.runId)
 
             assertEquals(1, scanController.startedRequests.count { it.second == "ru-dpi-strategy" })
-            assertEquals(listOf("scan-6"), scanController.cancelledSessionIds)
+            assertEquals(listOf("scan-7"), scanController.cancelledSessionIds)
             assertEquals(setOf("sibling-session"), scanController.liveSessionIds)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.COMPLETED,
                 outcome.stageSummaries.first { it.stageKey == "dpi_strategy" }.status,
             )
-            assertTrue(outcome.bundleSessionIds.contains("scan-6"))
+            assertTrue(outcome.bundleSessionIds.contains("scan-7"))
         }
 
     @Test
@@ -1096,7 +1098,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val outcome = service.finalizeHomeRun(started.runId)
 
             // Path comparison is unavailable without paired raw-path evidence; default still retries once.
-            assertEquals(6, outcome.completedStageCount)
+            assertEquals(7, outcome.completedStageCount)
             assertEquals(2, outcome.failedStageCount)
             // "default" was attempted twice
             assertEquals(2, attemptCounts["default"])

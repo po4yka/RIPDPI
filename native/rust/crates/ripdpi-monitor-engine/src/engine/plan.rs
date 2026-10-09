@@ -69,6 +69,9 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
 
     if !request.probe_tasks.is_empty() {
         for task in &request.probe_tasks {
+            if task.family == crate::types::ProbeTaskFamily::IpFamily && request.ip_family_probe.is_none() {
+                continue;
+            }
             if let Some(registration) = registration_for_family(&task.family)
                 && !ordered.contains(&registration.stage_id)
             {
@@ -79,7 +82,7 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
     }
 
     for registration in PROBE_STAGE_REGISTRATIONS {
-        if registration.stage_id == ExecutionStageId::SelectiveAvailability {
+        if matches!(registration.stage_id, ExecutionStageId::SelectiveAvailability | ExecutionStageId::IpFamily) {
             continue;
         }
         if registration.task_family_selector.is_some() && !ordered.contains(&registration.stage_id) {
@@ -87,4 +90,28 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
         }
     }
     ordered
+}
+
+#[cfg(test)]
+mod ip_family_tests {
+    use super::*;
+    #[test]
+    fn absent_configuration_never_schedules_ip_family_even_with_task() {
+        let mut request:ScanRequest=serde_json::from_str(r#"{"profileId":"test","displayName":"test","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#).unwrap();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::IpFamily));
+        request.probe_tasks.push(crate::types::ProbeTask {
+            family: crate::types::ProbeTaskFamily::IpFamily,
+            target_id: "ip-family".into(),
+            label: "IP family".into(),
+        });
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::IpFamily));
+        request.ip_family_probe = Some(crate::types::IpFamilyProbeConfig {
+            version: 1,
+            ipv4_address: "1.1.1.1".into(),
+            ipv6_address: "2606:4700:4700::1111".into(),
+            port: 443,
+            timeout_ms: 1500,
+        });
+        assert_eq!(connectivity_stage_order(&request), [ExecutionStageId::Environment, ExecutionStageId::IpFamily]);
+    }
 }

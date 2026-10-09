@@ -482,3 +482,16 @@ human supervision. The `diagnostics-system` skill owns the deeper
 | Network fingerprint privacy bounds | [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md) |
 | VPN service lifecycle invariants | [`.claude/rules/android-vpn-lifecycle.md`](../../.claude/rules/android-vpn-lifecycle.md) |
 | Diagnostics surface, candidates, home audit | [`AGENTS.md`](../../AGENTS.md) |
+
+
+## Separate IP destination probes
+
+The opt-in `ip-family-connectivity` profile runs three independent TCP control probes: IPv4, IPv6 and NAT64. Full analysis includes this raw-path stage; quick analysis does not. Other profiles do not acquire the new stage without `ipFamilyProbe` configuration.
+
+The IPv4 and IPv6 controls use the paired numeric addresses of the same resolver service. No hostname or other-family fallback can hide a failed family. These results describe TCP availability to that control, not general Internet, TLS or HTTP availability. An IPv4 socket can be supplied by CLAT on IPv6 access.
+
+NAT64 discovery sends a query-bound AAAA request for `ipv4only.arpa` to captured network DNS servers. It does not use a public fallback. The parser supports RFC 6052 prefix lengths /32, /40, /48, /56, /64 and /96; it rejects malformed, ambiguous and IPv4-mapped discovery. Distinct valid prefixes retain response order within a bounded attempt budget. The probe synthesizes the reference IPv4 endpoint and tests TCP through each permitted prefix. Discovery sentinel addresses are never connection targets. Discovery alone is not translation reachability.
+
+Each `ip_family` result carries bounded typed JSON in `ipFamilyEvidence`. Current and historical views use the same parser. Legacy or invalid metadata remains unknown. Redacted archives remove destination addresses, prefixes and unknown text while preserving status, stage, prefix length, duration and counts. Network epoch invalidation changes these results to inconclusive and marks their evidence unverified. No failure alone proves provider interference.
+
+References: [RFC 7050](https://www.rfc-editor.org/rfc/rfc7050.html), [RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html), [control addresses](https://developers.cloudflare.com/1.1.1.1/ip-addresses/).

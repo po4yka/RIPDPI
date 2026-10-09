@@ -138,6 +138,7 @@ class DiagnosticsSummaryProjector
                     }
                 }
                 addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
+                addAll(report?.results.orEmpty().ipFamilySummaryLines())
                 addAll(transferEvidenceSummaryLines(report?.results.orEmpty()))
                 addAll(dnsSemanticsSummaryLines(report?.results.orEmpty()))
                 addAll(

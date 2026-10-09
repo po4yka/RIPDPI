@@ -11,6 +11,10 @@ import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 @ReadOnlyComposable
 internal fun diagnosticProfileTextResources(profile: DiagnosticsProfileOptionUiModel): Pair<String, String> =
     when {
+        profile.id == "ip-family-connectivity" -> {
+            stringResource(R.string.diagnostics_ip_title) to stringResource(R.string.diagnostics_ip_caution)
+        }
+
         profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
             stringResource(R.string.diagnostics_profile_badge_ru_web) to
                 stringResource(R.string.diagnostics_profile_desc_web_connectivity)

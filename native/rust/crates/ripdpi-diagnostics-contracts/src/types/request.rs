@@ -1,3 +1,5 @@
+mod ip_family;
+pub use ip_family::{IpFamilyEvidence, IpFamilyProbeConfig};
 mod config;
 mod selective_matrix;
 pub use selective_matrix::{SelectiveMatrixConfig, SelectiveMatrixTarget};
@@ -51,6 +53,8 @@ mod tests {
         assert!(request.telegram_target.is_none());
         assert!(request.strategy_probe.is_none());
         assert!(request.route_probe.is_none());
+        assert!(request.ip_family_probe.is_none());
+        assert!(serde_json::to_value(&request).unwrap().get("ipFamilyProbe").is_none());
         assert!(request.in_path_route.is_none());
         assert!(request.diagnostic_tls_keylog_path.is_none());
     }

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.decodeEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.hasAuthoritativeManualConflictCancellation
 import com.poyka.ripdpi.diagnostics.toEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.toScanReport
+import com.poyka.ripdpi.diagnostics.withoutIpFamilyScopeAuthority
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -103,6 +104,10 @@ internal suspend fun revokePersistedNetworkScope(
 
 private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeResultWire =
     when {
+        probeType == "ip_family" -> {
+            copy(outcome = "ip_family_inconclusive", details = details.withoutIpFamilyScopeAuthority())
+        }
+
         probeType == "selective_availability_summary" -> {
             copy(
                 outcome = "matrix_inconclusive",
@@ -124,7 +129,7 @@ private fun EngineProbeResultWire.withoutNetworkScopeAuthority(): EngineProbeRes
     }
 
 private fun ProbeResultEntity.withoutNetworkScopeAuthority(json: Json): ProbeResultEntity {
-    if (probeType != "selective_availability_summary" && probeType != "throughput_window") return this
+    if (probeType !in setOf("selective_availability_summary", "throughput_window", "ip_family")) return this
     val details =
         runCatching {
             json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)

@@ -358,7 +358,7 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
 
             assertEquals(1, scanController.startedRequests.size)
             assertEquals(0, outcome.completedStageCount)
-            assertEquals(8, outcome.skippedStageCount)
+            assertEquals(9, outcome.skippedStageCount)
             assertSkipped(outcome, "default")
             assertSkipped(outcome, "ru-dpi-full")
             assertSkipped(outcome, "vpn-route-evidence")

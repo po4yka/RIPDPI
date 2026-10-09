@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">Ergebnis</string>
+    <string name="diagnostics_ip_stage">Gemessene Phase</string>
+    <string name="diagnostics_ip_reason">Grund</string>
+    <string name="diagnostics_ip_duration">Dauer (ms)</string>
+    <string name="diagnostics_ip_attempts">DNS/TCP-Versuche</string>
+    <string name="diagnostics_ip_scope">Geltungsbereich des Pfads</string>
+    <string name="diagnostics_ip_discovery">DNS64-Erkennung</string>
+    <string name="diagnostics_ip_prefix_length">Präfixlänge (Bits)</string>
+    <string name="diagnostics_ip_resolver">DNS-Quelle</string>
+    <string name="diagnostics_ip_limits">Einordnung</string>
+    <string name="diagnostics_ip_measurement">Messgrenzen</string>
+    <string name="diagnostics_ip_unknown">Unbekannt</string>
+    <string name="diagnostics_ip_missing">Nicht beobachtet</string>
+    <string name="diagnostics_ip_tcp">TCP-Verbindung</string>
+    <string name="diagnostics_ip_dns64">DNS64-Präfixsuche</string>
+    <string name="diagnostics_ip_raw">Direkter Netzwerkpfad</string>
+    <string name="diagnostics_ip_proxy">Proxy-Pfad wird nicht unterstützt</string>
+    <string name="diagnostics_ip_network_dns">DNS-Server aus der Netzwerkaufnahme</string>
+    <string name="diagnostics_ip_reachable">TCP-Verbindung hergestellt</string>
+    <string name="diagnostics_ip_failed">Fehlgeschlagen</string>
+    <string name="diagnostics_ip_timeout">Zeitüberschreitung</string>
+    <string name="diagnostics_ip_unsupported">Nicht unterstützt</string>
+    <string name="diagnostics_ip_cancelled">Abgebrochen</string>
+    <string name="diagnostics_ip_invalid">Ungültige Daten</string>
+    <string name="diagnostics_ip_discovered">Präfix erkannt</string>
+    <string name="diagnostics_ip_no_prefix">Kein Präfix beobachtet</string>
+    <string name="diagnostics_ip_refused">Verbindung abgelehnt</string>
+    <string name="diagnostics_ip_unreachable">Ziel oder Netzwerk nicht erreichbar</string>
+    <string name="diagnostics_ip_permission">Berechtigung verweigert</string>
+    <string name="diagnostics_ip_io">Transportfehler</string>
+    <string name="diagnostics_ip_no_dns">DNS-Server des Netzwerks nicht verfügbar</string>
+    <string name="diagnostics_ip_dns_error">DNS-Abfrage fehlgeschlagen</string>
+    <string name="diagnostics_ip_invalid_prefix">Ungültiges oder mehrdeutiges DNS64-Präfix</string>
+    <string name="diagnostics_ip_invalid_config">Ungültige Prüfkonfiguration</string>
+    <string name="diagnostics_ip_caution">Prüft einen Kontrolldienst mit TCP. Dies bestätigt weder HTTP noch allgemeinen Internetzugang und weist keinen Eingriff des Anbieters nach.</string>
+    <string name="diagnostics_ip_clat_caution">IPv4-Erfolg kann CLAT nutzen und belegt kein natives IPv4-Netzwerk.</string>
+    <string name="diagnostics_ip_nat64_caution">Ein erkanntes DNS64-Präfix belegt keinen funktionierenden NAT64-Pfad. Nur eine erfolgreiche TCP-Verbindung prüft die Übersetzung.</string>
+    <string name="diagnostics_ip_network_changed">Das Netzwerk hat sich geändert; das Ergebnis beschreibt nicht mehr die aktuelle Verbindung.</string>
+</resources>

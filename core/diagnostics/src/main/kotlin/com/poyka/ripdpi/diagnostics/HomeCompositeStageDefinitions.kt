@@ -88,6 +88,12 @@ internal val HomeCompositeStageSpecs =
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
+            key = "ip_family",
+            label = "IPv4, IPv6 and NAT64",
+            profileId = IpFamilyProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
             key = "ru_throttling",
             label = "Throttling check",
             profileId = "ru-throttling",

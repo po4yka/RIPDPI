@@ -1,4 +1,6 @@
+mod ip_family;
 pub use endpoint::run_selective_matrix_attempt;
+pub use ip_family::run_ip_family_probes;
 pub(crate) mod adapters;
 mod endpoint;
 mod probes;

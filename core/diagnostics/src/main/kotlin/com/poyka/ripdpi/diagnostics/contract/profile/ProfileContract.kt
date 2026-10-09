@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -67,6 +68,8 @@ data class ProfileSpecWire(
     val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortWire> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val ipFamilyProbe: IpFamilyProbeConfig? = null,
 )
 
 @Serializable

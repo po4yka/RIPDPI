@@ -188,7 +188,13 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
     }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
-    val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+    val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
+    val stageLabel =
+        if (activeStage?.stageKey == "ip_family") {
+            stringResolver.getString(R.string.diagnostics_ip_title)
+        } else {
+            activeStage?.stageLabel
+        }
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
@@ -215,7 +221,13 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
     }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
-    val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+    val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
+    val stageLabel =
+        if (activeStage?.stageKey == "ip_family") {
+            stringResolver.getString(R.string.diagnostics_ip_title)
+        } else {
+            activeStage?.stageLabel
+        }
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
@@ -332,7 +344,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         recommendationSummary = recommendationSummary,
         appliedSettings = appliedSettings.toImmutableList(),
         capabilityEvidence = capabilityEvidence.map(::toCapabilityEvidenceUiModel).toImmutableList(),
-        stageSummaries = stageSummaries.map(DiagnosticsHomeCompositeStageSummary::toUiState).toImmutableList(),
+        stageSummaries = stageSummaries.map { it.toUiState(stringResolver) }.toImmutableList(),
         completedStageCount = completedStageCount,
         failedStageCount = failedStageCount,
         shareBusy = runtime.shareBusy,
@@ -398,9 +410,9 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
                 .toImmutableList(),
     )
 
-private fun DiagnosticsHomeCompositeStageSummary.toUiState() =
+private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: StringResolver) =
     HomeDiagnosticsStageUiState(
-        label = stageLabel,
+        label = if (stageKey == "ip_family") stringResolver.getString(R.string.diagnostics_ip_title) else stageLabel,
         headline = headline,
         summary = summary,
         failed = status == DiagnosticsHomeCompositeStageStatus.FAILED,
