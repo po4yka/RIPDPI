@@ -817,7 +817,11 @@ def only_dropped_task_warnings(output: str, documents: Sequence[Document]) -> bo
             or not isinstance(item.get("id"), str) or not item["id"]
             or item.get("type") not in {"change", "spec"}
             or not isinstance(item.get("issues"), list)
-            or (item["valid"] and bool(item["issues"])) for item in items
+            or (item["valid"] and any(
+                not isinstance(issue, dict) or issue.get("level") != "INFO"
+                or not isinstance(issue.get("path"), str)
+                or not isinstance(issue.get("message"), str) for issue in item["issues"]
+            )) for item in items
         ):
             return False
         if len({(item["type"], item["id"]) for item in items}) != len(items):

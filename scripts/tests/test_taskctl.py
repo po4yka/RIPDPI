@@ -538,6 +538,10 @@ class TaskctlContractTest(TaskctlFixture):
             reason="Duplicate capability.", evidence="Canonical task owns the work."))
         documents, _ = taskctl.load_state(self.root)
         self.assertTrue(taskctl.only_dropped_task_warnings(json.dumps(warning), documents))
+        with_info = self.dropped_warning()
+        with_info["items"].append({"valid": True, "type": "spec", "id": "existing-spec", "issues": [
+            {"level": "INFO", "path": "spec.md", "message": "Existing informational notice"}]})
+        self.assertTrue(taskctl.only_dropped_task_warnings(json.dumps(with_info), documents))
         variants = ["not-json", "{}", '{"items": []}']
         for field, value in (("id", "other-change"), ("type", "spec"), ("valid", "false")):
             payload = self.dropped_warning()
@@ -553,8 +557,9 @@ class TaskctlContractTest(TaskctlFixture):
         payload = self.dropped_warning()
         payload["items"].append({"valid": False, "type": "change", "id": "other", "issues": []})
         variants.append(json.dumps(payload))
-        for extra in ({"valid": True}, {"valid": True, "type": "change", "id": "active-change",
-                      "issues": [{"level": "ERROR", "path": "spec.md", "message": "Invalid spec"}]}):
+        for extra in ({"valid": True}, *({"valid": True, "type": "change", "id": "active-change",
+                      "issues": [{"level": level, "path": "spec.md", "message": "Invalid spec"}]}
+                      for level in ("ERROR", "WARNING", "UNKNOWN"))):
             payload = self.dropped_warning()
             payload["items"].append(extra)
             variants.append(json.dumps(payload))
