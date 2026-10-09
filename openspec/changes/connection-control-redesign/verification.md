@@ -5,7 +5,7 @@ commit_sha: null
 local: passed
 local_evidence: 122 UI, resolver, and theme tests passed with no failures or skips. App and service lint and staticAnalysis passed in the native-less profile. Independent review found no remaining actionable defect.
 remote_ci: required
-remote_ci_evidence: No push or hosted CI run is authorized or observed.
+remote_ci_evidence: The user authorized main integration and push. Hosted CI remains pending.
 device: required
 device_evidence: No device or emulator acceptance was performed.
 artifact: blocked
@@ -105,3 +105,10 @@ The conversation prototype is separate from these actual Compose renders.
 - Roborazzi golden fixtures were not changed or blessed. Golden verification and device acceptance remain separate follow-up gates.
 - `build-gate` was installed locally and checked for serialization, occupied status, exit-code propagation, and nested invocation. It is available at `/opt/homebrew/bin/build-gate`.
 - No push, merge, PR, release, or deployment was performed.
+
+
+## Rebased integration checks
+
+On 2026-10-09 the two scoped commits were rebased without conflicts onto origin/main c2baf9931. The implementation SHA became 3a9e950ee. The same 122 targeted tests, app/service locale lint, and staticAnalysis passed on the rebased tree in 5 minutes 20 seconds (766 tasks). Architecture health reported no new or worsened indicators; locked Cargo metadata passed. The UI profile still omits real native artifacts.
+
+The combined Full/Simple Roborazzi command stopped at verifyEmbeddedRelayBundle: Simple requires a non-empty src/simple/assets/embedded-relay-bundle.json. No placeholder bundle was created and the gate was not removed. A Full-only golden check is pending.
