@@ -2259,7 +2259,9 @@ app:diagnostics_tool_probing
 app:diagnostics_tool_scanning
 app:diagnostics_tool_sni_compatibility_run
 app:diagnostics_tool_sni_compatibility_title
+app:diagnostics_tool_state_cancelled
 app:diagnostics_tool_state_complete
+app:diagnostics_tool_state_disabled
 app:diagnostics_tool_state_failed
 app:diagnostics_tool_state_idle
 app:diagnostics_tool_state_running
@@ -2544,8 +2546,10 @@ app:home_approach_cta
 app:home_approach_title
 app:home_connection_actuator_action_activate
 app:home_connection_actuator_action_android_managed
+app:home_connection_actuator_action_cancel
 app:home_connection_actuator_action_confirm_release
 app:home_connection_actuator_action_deactivate
+app:home_connection_actuator_action_retry
 app:home_connection_actuator_direct
 app:home_connection_actuator_fault_copy
 app:home_connection_actuator_relay
@@ -4343,6 +4347,13 @@ app:udp_fake_profile_scope_live
 app:udp_fake_profile_scope_off
 app:udp_fake_profile_scope_ready
 app:udp_fake_profile_title
+app:ui_app_picker_clear_search
+app:ui_app_picker_no_matches
+app:ui_profile_catalog_retry
+app:ui_rule_load_failed_body
+app:ui_rule_load_failed_title
+app:ui_rule_save_failed_body
+app:ui_rule_save_failed_title
 app:unsaved_changes_body
 app:unsaved_changes_discard
 app:unsaved_changes_keep_editing
