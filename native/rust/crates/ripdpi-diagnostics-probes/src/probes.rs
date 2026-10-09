@@ -55,3 +55,6 @@ pub use service_reachability::ServiceReachabilityProbe;
 pub use tcp_fat_header::TcpFatHeaderProbe;
 pub use throughput::ThroughputProbe;
 pub use tls_alert::TlsAlertOfflineProbe;
+
+#[path = "selective_availability.rs"]
+pub mod selective_availability;

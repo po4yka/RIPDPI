@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">مصفوفة الإتاحة الانتقائية</string>
+    <string name="diagnostics_matrix_manual">اختبار يدوي بفحوص متكررة. حتى 2 ميبيبايت من الردود ودقيقتين.</string>
+    <string name="diagnostics_matrix_hosts">مضيفو HTTPS عامون اختياريون</string>
+    <string name="diagnostics_matrix_hosts_hint">حتى أربعة مضيفين تفصل بينها مسافات أو أسطر جديدة. لجلسة الشاشة الحالية فقط.</string>
+    <string name="diagnostics_matrix_hosts_error">أدخل حتى أربعة أسماء مضيفين عامة. العناوين المحلية وبيانات الدخول والاستعلامات والأجزاء غير مسموحة.</string>
+    <string name="diagnostics_matrix_infrastructure">مجموعة البنية التحتية: %1$s</string>
+    <string name="diagnostics_matrix_source">مصدر الدليل: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">لم يتم التحقق بشكل مستقل من سلامة الهدف.</string>
+    <string name="diagnostics_matrix_verified">آخر تحقق: %1$s</string>
+    <string name="diagnostics_matrix_available">كل المجموعات المختبرة كانت متاحة</string>
+    <string name="diagnostics_matrix_selective">لوحظت إتاحة انتقائية متكررة</string>
+    <string name="diagnostics_matrix_unavailable">الأهداف المختبرة لم تكن متاحة</string>
+    <string name="diagnostics_matrix_mixed">تختلف النتائج بين المحاولات أو المجموعات</string>
+    <string name="diagnostics_matrix_inconclusive">أدلة غير كافية</string>
+    <string name="diagnostics_matrix_caution">لا تثبت هذه الملاحظات سياسة مزود الخدمة. تحد أخطاء الخوادم والردود الناقصة وغياب أهداف المقارنة وتغير الشبكة من الاستنتاج.</string>
+    <string name="diagnostics_matrix_attempt_count">المحاولات المكتملة: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">المحاولة %1$s · %2$s مللي ثانية</string>
+    <string name="diagnostics_matrix_http_code">حالة HTTP: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">محتوى مكتمل: %1$s بايت</string>
+    <string name="diagnostics_matrix_body_partial">محتوى ناقص أو غير مقاس: %1$s بايت</string>
+    <string name="diagnostics_matrix_failure_stage">مرحلة الفشل: %1$s</string>
+    <string name="diagnostics_matrix_declared">خدمات معلنة الإتاحة</string>
+    <string name="diagnostics_matrix_domestic">مقارنة محلية</string>
+    <string name="diagnostics_matrix_global">مقارنة عالمية</string>
+    <string name="diagnostics_matrix_user">أهداف المستخدم</string>
+    <string name="diagnostics_matrix_unknown">مجموعة مجهولة</string>
+    <string name="diagnostics_matrix_body">المحتوى</string>
+    <string name="diagnostics_matrix_stage_ok">نجاح</string>
+    <string name="diagnostics_matrix_stage_failed">فشل</string>
+    <string name="diagnostics_matrix_stage_admitted">عناوين عامة مقبولة</string>
+    <string name="diagnostics_matrix_stage_proxy">حله الوكيل؛ لم يقس DNS</string>
+    <string name="diagnostics_matrix_stage_not_run">غير مقاس</string>
+    <string name="diagnostics_matrix_catalog">إصدار الدليل: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">لم يتم التحقق من نطاق الشبكة. قد تشمل النتائج مسارات شبكة مختلفة.</string>
+</resources>

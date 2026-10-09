@@ -39,6 +39,7 @@ internal data class DiagnosticsUiStateInput(
     val serviceMode: com.poyka.ripdpi.data.Mode = com.poyka.ripdpi.data.Mode.VPN,
     val selectedSectionRequest: DiagnosticsSection,
     val selectedProfileId: String?,
+    val selectiveMatrixHostsInput: String = "",
     val selectedApproachMode: DiagnosticsApproachMode,
     val selectedProbe: DiagnosticsProbeResultUiModel?,
     val selectedEventId: String?,

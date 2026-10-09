@@ -79,6 +79,9 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
     }
 
     for registration in PROBE_STAGE_REGISTRATIONS {
+        if registration.stage_id == ExecutionStageId::SelectiveAvailability {
+            continue;
+        }
         if registration.task_family_selector.is_some() && !ordered.contains(&registration.stage_id) {
             ordered.push(registration.stage_id.clone());
         }

@@ -263,6 +263,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         service_targets: vec![],
         circumvention_targets: vec![],
         throughput_targets: vec![],
+        selective_matrix: None,
         whitelist_sni: vec![manifest.fixture_domain.clone()],
         telegram_target: None,
         strategy_probe: None,

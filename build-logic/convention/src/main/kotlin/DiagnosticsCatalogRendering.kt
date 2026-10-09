@@ -60,6 +60,18 @@ internal class DiagnosticsCatalogLegalSafetyRegistry(
             serviceTargets = profile.serviceTargets.map(::annotateServiceTarget),
             circumventionTargets = profile.circumventionTargets.map(::annotateCircumventionTarget),
             throughputTargets = profile.throughputTargets.map(::annotateThroughputTarget),
+            selectiveMatrix =
+                profile.selectiveMatrix?.let { matrix ->
+                    matrix.copy(
+                        targets =
+                            matrix.targets.map { target ->
+                                target.copy(
+                                    legalSafetyMetadata =
+                                        mergeMetadata(target.legalSafetyMetadata, metadataForUrl(target.url)),
+                                )
+                            },
+                    )
+                },
         )
 
     private fun annotateDomainTarget(target: DomainTargetDefinition): DomainTargetDefinition {
@@ -146,6 +158,7 @@ internal class DiagnosticsCatalogValidator(
 
         val packsById = catalog.packs.associateBy(TargetPackDefinition::id)
         catalog.profiles.forEach { profile ->
+            profile.validateSelectiveMatrix()
             profile.packRefs.forEach { reference ->
                 val (packId, version) = parsePackRef(reference)
                 val pack =
@@ -242,6 +255,11 @@ internal class DiagnosticsCatalogValidator(
                     )
                 },
             )
+            profile.selectiveMatrix?.targets?.forEach { target ->
+                target.legalSafetyMetadata?.let { metadata ->
+                    add(TargetSafetyFinding("matrix target", target.id, metadata.classification, metadata))
+                }
+            }
             referencedPacks.forEach { pack ->
                 addAll(
                     pack.domainTargets.mapNotNull {
@@ -336,6 +354,7 @@ private fun DiagnosticsProfileDefinition.toRequestJson(): JsonObject =
         put("whitelistSni", JsonArray(whitelistSni.map(::JsonPrimitive)))
         telegramTarget?.let { put("telegramTarget", it.toJson()) }
         strategyProbe?.let { put("strategyProbe", it.toJson()) }
+        selectiveMatrix?.let { put("selectiveMatrix", it.toJson()) }
     }
 
 private fun ProfileExecutionPolicyDefinition.toJson(): JsonObject =

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">Матрица избирательной доступности</string>
+    <string name="diagnostics_matrix_manual">Ручная проверка. Каждая цель проверяется повторно. До 2 МиБ данных ответа и до двух минут.</string>
+    <string name="diagnostics_matrix_hosts">Свои публичные HTTPS-хосты</string>
+    <string name="diagnostics_matrix_hosts_hint">До четырёх хостов через пробел или новую строку. Адреса действуют только в текущем сеансе экрана.</string>
+    <string name="diagnostics_matrix_hosts_error">Укажите до четырёх публичных имён хостов. Локальные адреса, учётные данные, параметры и фрагменты запрещены.</string>
+    <string name="diagnostics_matrix_infrastructure">Группа инфраструктуры: %1$s</string>
+    <string name="diagnostics_matrix_source">Источник каталога: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">Работоспособность цели независимо не подтверждена.</string>
+    <string name="diagnostics_matrix_verified">Последняя проверка: %1$s</string>
+    <string name="diagnostics_matrix_available">Все проверенные группы доступны</string>
+    <string name="diagnostics_matrix_selective">Наблюдается устойчивая избирательная доступность</string>
+    <string name="diagnostics_matrix_unavailable">Проверенные цели недоступны</string>
+    <string name="diagnostics_matrix_mixed">Результаты попыток или групп различаются</string>
+    <string name="diagnostics_matrix_inconclusive">Недостаточно данных</string>
+    <string name="diagnostics_matrix_caution">Наблюдения не доказывают политику провайдера. Ошибки серверов, неполные ответы, недоступные контрольные цели и смена сети ограничивают вывод.</string>
+    <string name="diagnostics_matrix_attempt_count">Завершено попыток: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">Попытка %1$s · %2$s мс</string>
+    <string name="diagnostics_matrix_http_code">Статус HTTP: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">Полное тело: %1$s байт</string>
+    <string name="diagnostics_matrix_body_partial">Неполное или неизмеренное тело: %1$s байт</string>
+    <string name="diagnostics_matrix_failure_stage">Этап отказа: %1$s</string>
+    <string name="diagnostics_matrix_declared">Заявленные доступными сервисы</string>
+    <string name="diagnostics_matrix_domestic">Российские цели сравнения</string>
+    <string name="diagnostics_matrix_global">Внешние цели сравнения</string>
+    <string name="diagnostics_matrix_user">Свои цели</string>
+    <string name="diagnostics_matrix_unknown">Неизвестная группа</string>
+    <string name="diagnostics_matrix_body">Тело ответа</string>
+    <string name="diagnostics_matrix_stage_ok">Успешно</string>
+    <string name="diagnostics_matrix_stage_failed">Сбой</string>
+    <string name="diagnostics_matrix_stage_admitted">Допущенные публичные адреса</string>
+    <string name="diagnostics_matrix_stage_proxy">Разрешено прокси; DNS не измерен</string>
+    <string name="diagnostics_matrix_stage_not_run">Не измерено</string>
+    <string name="diagnostics_matrix_catalog">Версия каталога: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">Контекст сети не подтверждён. Результаты могут относиться к разным сетевым путям.</string>
+</resources>

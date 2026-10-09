@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">Matriz de disponibilidad selectiva</string>
+    <string name="diagnostics_matrix_manual">Prueba manual con comprobaciones repetidas. Hasta 2 MiB de respuestas y dos minutos.</string>
+    <string name="diagnostics_matrix_hosts">Hosts HTTPS públicos opcionales</string>
+    <string name="diagnostics_matrix_hosts_hint">Hasta cuatro hosts separados por espacios o saltos de línea. Solo para esta sesión de pantalla.</string>
+    <string name="diagnostics_matrix_hosts_error">Introduzca hasta cuatro nombres públicos. No se admiten direcciones locales, credenciales, consultas ni fragmentos.</string>
+    <string name="diagnostics_matrix_infrastructure">Grupo de infraestructura: %1$s</string>
+    <string name="diagnostics_matrix_source">Fuente del catálogo: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">El estado del destino no se ha verificado de forma independiente.</string>
+    <string name="diagnostics_matrix_verified">Última verificación: %1$s</string>
+    <string name="diagnostics_matrix_available">Todos los grupos probados estaban disponibles</string>
+    <string name="diagnostics_matrix_selective">Disponibilidad selectiva repetida observada</string>
+    <string name="diagnostics_matrix_unavailable">Los destinos probados no estaban disponibles</string>
+    <string name="diagnostics_matrix_mixed">Los resultados varían entre intentos o grupos</string>
+    <string name="diagnostics_matrix_inconclusive">Datos insuficientes</string>
+    <string name="diagnostics_matrix_caution">Estas observaciones no demuestran una política del proveedor. Los errores del servidor, las respuestas incompletas, los controles ausentes y los cambios de red limitan la conclusión.</string>
+    <string name="diagnostics_matrix_attempt_count">Intentos completados: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">Intento %1$s · %2$s ms</string>
+    <string name="diagnostics_matrix_http_code">Estado HTTP: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">Cuerpo completo: %1$s bytes</string>
+    <string name="diagnostics_matrix_body_partial">Cuerpo incompleto o no medido: %1$s bytes</string>
+    <string name="diagnostics_matrix_failure_stage">Etapa del fallo: %1$s</string>
+    <string name="diagnostics_matrix_declared">Servicios declarados disponibles</string>
+    <string name="diagnostics_matrix_domestic">Comparación nacional</string>
+    <string name="diagnostics_matrix_global">Comparación global</string>
+    <string name="diagnostics_matrix_user">Destinos del usuario</string>
+    <string name="diagnostics_matrix_unknown">Grupo desconocido</string>
+    <string name="diagnostics_matrix_body">Cuerpo</string>
+    <string name="diagnostics_matrix_stage_ok">Correcto</string>
+    <string name="diagnostics_matrix_stage_failed">Fallo</string>
+    <string name="diagnostics_matrix_stage_admitted">Direcciones públicas admitidas</string>
+    <string name="diagnostics_matrix_stage_proxy">Resuelto por el proxy; DNS no medido</string>
+    <string name="diagnostics_matrix_stage_not_run">No medido</string>
+    <string name="diagnostics_matrix_catalog">Versión del catálogo: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">No se verificó el ámbito de red. Los resultados pueden corresponder a rutas distintas.</string>
+</resources>

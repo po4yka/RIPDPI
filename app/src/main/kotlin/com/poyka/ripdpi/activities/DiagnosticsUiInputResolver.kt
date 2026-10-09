@@ -106,7 +106,7 @@ internal class DiagnosticsUiInputResolver
         private fun DiagnosticsSessionProjection?.probeResultRows(
             latestProfileSession: DiagnosticScanSession?,
         ): List<DiagnosticsProbeResultUiModel> {
-            val projectionResults = this?.results.orEmpty()
+            val projectionResults = finalizedMatrixResults(this?.results.orEmpty(), this)
             return projectionResults.mapIndexed { index, result ->
                 support.toProbeResultUiModel(
                     index = index,

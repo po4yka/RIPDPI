@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -359,6 +360,12 @@ internal class DiagnosticsScanActions(
         selectedProfile: DiagnosticsProfileOptionUiModel?,
         allowSensitiveProfileStart: Boolean = false,
     ) {
+        val matrixHosts =
+            if (selectedProfile?.id == SelectiveMatrixProfileId) {
+                parseSelectiveMatrixHosts(mutations.currentUiState().scan.selectiveMatrixHostsInput) ?: return
+            } else {
+                emptyList()
+            }
         val request =
             ManualScanUiRequest(
                 profileName = selectedProfile?.name ?: "Scan",
@@ -367,20 +374,7 @@ internal class DiagnosticsScanActions(
                 isFullAudit = selectedProfile?.isFullAudit == true,
             )
         if (selectedProfile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {
-            scanLifecycle.update {
-                it.copy(
-                    hiddenProbeConflictDialog = null,
-                    queuedManualScanRequest = null,
-                    sensitiveProfileConsentDialog =
-                        SensitiveProfileConsentDialogState(
-                            profileId = selectedProfile.id,
-                            profileName = request.profileName,
-                            pathMode = pathMode,
-                            scanKind = request.scanKind,
-                            isFullAudit = request.isFullAudit,
-                        ),
-                )
-            }
+            requestSensitiveProfileConsent(scanLifecycle, selectedProfile.id, request)
             return
         }
         mutations.launch {
@@ -392,6 +386,12 @@ internal class DiagnosticsScanActions(
                             pathMode = pathMode,
                             selectedProfileId = selectedProfile?.id,
                             allowSensitiveProfileStart = allowSensitiveProfileStart,
+                            targetOverrides =
+                                if (selectedProfile?.id == SelectiveMatrixProfileId) {
+                                    DiagnosticsScanTargetOverrides(selectiveMatrixHosts = matrixHosts)
+                                } else {
+                                    null
+                                },
                         )
                 ) {
                     is DiagnosticsManualScanStartResult.Started -> {
@@ -654,3 +654,24 @@ private fun parseDpiFailureClass(outcome: String?): DpiFailureClass =
         "redirect" -> DpiFailureClass.REDIRECT
         else -> DpiFailureClass.OTHER
     }
+
+private fun requestSensitiveProfileConsent(
+    scanLifecycle: MutableStateFlow<ScanLifecycleState>,
+    profileId: String,
+    request: ManualScanUiRequest,
+) {
+    scanLifecycle.update {
+        it.copy(
+            hiddenProbeConflictDialog = null,
+            queuedManualScanRequest = null,
+            sensitiveProfileConsentDialog =
+                SensitiveProfileConsentDialogState(
+                    profileId = profileId,
+                    profileName = request.profileName,
+                    pathMode = request.pathMode,
+                    scanKind = request.scanKind,
+                    isFullAudit = request.isFullAudit,
+                ),
+        )
+    }
+}

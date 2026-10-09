@@ -101,6 +101,7 @@ internal class DefaultDiagnosticsIntentResolver
                 serviceTargets = spec.serviceTargets,
                 circumventionTargets = spec.circumventionTargets,
                 throughputTargets = spec.throughputTargets,
+                selectiveMatrix = spec.selectiveMatrix,
                 whitelistSni = spec.whitelistSni,
                 telegramTarget = spec.telegramTarget,
                 strategyProbe = spec.strategyProbe,
@@ -113,7 +114,12 @@ internal class DefaultDiagnosticsIntentResolver
                             quicTargets = cohort.quicTargets,
                         )
                     },
-                routeProbe = spec.routeProbe ?: defaultRouteProbeFor(pathMode, spec.kind, spec.family),
+                routeProbe =
+                    if (spec.selectiveMatrix == null) {
+                        spec.routeProbe ?: defaultRouteProbeFor(pathMode, spec.kind, spec.family)
+                    } else {
+                        null
+                    },
                 requestedPathMode = pathMode,
             )
         }
@@ -211,6 +217,9 @@ internal class DefaultDiagnosticsPlanner
                 }
             val probeTasks =
                 buildList {
+                    intent.selectiveMatrix?.targets?.forEach {
+                        add(ProbeTask(ProbeFamily.SELECTIVE_AVAILABILITY, it.id, it.label))
+                    }
                     dnsTargets.forEach { add(ProbeTask(ProbeFamily.DNS, it.domain, it.domain)) }
                     dnsTargets
                         .distinctBy { it.domain.lowercase() }
@@ -233,6 +242,7 @@ internal class DefaultDiagnosticsPlanner
                 quicTargets = quicTargets,
                 throughputTargets = throughputTargets,
                 routeProbe = intent.routeProbe,
+                selectiveMatrix = intent.selectiveMatrix,
                 probeTasks = probeTasks,
                 confirmGoodDpiEvidence = context.confirmGoodDpiEvidence,
             )

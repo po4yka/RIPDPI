@@ -65,6 +65,7 @@ mod tests {
             service_targets: vec![],
             circumvention_targets: vec![],
             throughput_targets: vec![],
+            selective_matrix: None,
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,

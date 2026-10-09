@@ -33,6 +33,41 @@ Scans run in two path modes (see [`RUNTIME_MODES.md`](RUNTIME_MODES.md) §3):
 active RIPDPI VPN or local proxy on Android). Scan kinds include `quick_v1` (fast recommendation) and
 `full_matrix_v1` (audit with rotating target cohorts).
 
+## Selective availability matrix
+
+The manual `selective-availability-matrix` profile compares declared-available,
+domestic, global and optional user targets. `selectiveMatrix` is an optional
+version-1 request configuration in engine schema 9. Old profiles do not schedule
+its `SELECTIVE_AVAILABILITY` task family. It does not run in background audits.
+
+Each round visits the cohorts in order. An attempt records DNS, TCP, verified
+TLS, HTTP status and bounded body completion. The runner resolves once, rejects
+non-public addresses and pins the admitted IP for direct or SOCKS connections.
+TLS and the HTTP Host retain the target hostname. Redirects are not followed.
+HTTP server errors, invalid certificates and incomplete bodies cannot establish
+selectivity. No response body, cookie or arbitrary header is stored.
+
+Limits are 10 targets, 3 repeats, 64 KiB body and 16 KiB headers per attempt,
+2 MiB combined response budget and 120 seconds per matrix. The default catalog
+uses 6 targets with 2 repeats. Users can add up to 4 public hostnames for a
+single manual scan. User targets do not establish control independence.
+
+Generic `selective_availability` results preserve each attempt. A
+`selective_availability_summary` result distinguishes available, selective,
+unavailable, mixed and inconclusive observations. Selectivity requires repeated
+complete successes in at least two independent declared groups and repeated
+transport failures in at least two independent comparison groups. It describes
+the measured path; it does not identify the provider's intent or establish
+remote endpoint health. Catalog source and verification dates are maintenance
+evidence, not a current health guarantee.
+
+History and exports reuse the existing result storage. Network-scope revocation
+changes both the report and stored matrix aggregate to `matrix_inconclusive`,
+while it preserves individual measurements. The UI also rejects conclusions
+from partial or missing reports. Export redaction removes user hostnames and
+source URLs while it keeps stage states, dates, catalog identifiers and byte
+counts. The UI displays the provenance locally.
+
 ## Scan pipeline
 
 ```

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.ui.diagnostics.toScopeLabel
 import kotlinx.collections.immutable.toImmutableList
 
 internal data class BuildScanUiModelParams(
+    val selectiveMatrixHostsInput: String = "",
     val profiles: List<DiagnosticProfile>,
     val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
@@ -43,19 +44,14 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     val selectedProfile = params.activeProfile?.let(::toProfileOptionUiModel)
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
     val serviceRunning = params.serviceStatus == AppStatus.Running
-    val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled)
-    val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning
+    val matrixInputValid = parseSelectiveMatrixHosts(params.selectiveMatrixHostsInput) != null
+    val inputAllowed = selectedProfile?.id != SelectiveMatrixProfileId || matrixInputValid
+    val runRawEnabled = params.progress == null && !(strategyProbeSelected && params.rawArgsEnabled) && inputAllowed
+    val runInPathEnabled = params.progress == null && !strategyProbeSelected && serviceRunning && inputAllowed
     val workflowRestriction = buildWorkflowRestriction(params, selectedProfile, strategyProbeSelected)
     val workflowLabel = buildWorkflowLabel(selectedProfile)
     val runRawHint = buildRawScanHint(strategyProbeSelected, workflowLabel, params.autoResumeAfterRawScan)
-    val runInPathHint =
-        when {
-            strategyProbeSelected -> context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
-            params.serviceStatus == AppStatus.Reconnecting -> context.getString(R.string.diagnostics_scope_reconnecting)
-            !serviceRunning -> context.getString(R.string.diagnostics_scan_in_path_service_halted)
-            params.serviceMode == Mode.VPN -> context.getString(R.string.diagnostics_scope_active_vpn_description)
-            else -> context.getString(R.string.diagnostics_scope_active_proxy_description)
-        }
+    val runInPathHint = buildInPathHint(params, strategyProbeSelected, workflowLabel)
     val remediationLadder =
         buildScanRemediationLadder(
             selectedProfile = selectedProfile,
@@ -67,6 +63,9 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
     val activeProgress = buildActiveScanProgress(params, selectedProfile)
 
     return DiagnosticsScanUiModel(
+        selectiveMatrixHostsInput = params.selectiveMatrixHostsInput,
+        selectiveMatrixInputValid = matrixInputValid,
+        selectiveMatrixTargets = params.activeProfileRequest.matrixTargetRows(),
         profiles = params.profiles.map(::toProfileOptionUiModel).toImmutableList(),
         selectedProfileId = params.activeProfile?.id,
         selectedProfile = selectedProfile,
@@ -154,4 +153,34 @@ private fun DiagnosticsUiFactorySupport.buildActiveScanProgress(
             dpiFailureClass = params.dpiFailureClass,
             networkContext = params.networkContext,
         )
+    }
+
+private fun DiagnosticsProfileProjection?.matrixTargetRows() =
+    this
+        ?.selectiveMatrix
+        ?.targets
+        .orEmpty()
+        .map { target ->
+            SelectiveMatrixTargetUiModel(
+                label = target.label,
+                url = target.url,
+                cohort = target.cohort,
+                infrastructure = target.infrastructureGroup,
+                source = target.sourceUrl,
+                sourceDate = target.sourceDate,
+                verifiedAt = target.lastVerifiedAt.verifiedMatrixTimestamp(),
+            )
+        }.toImmutableList()
+
+private fun DiagnosticsUiFactorySupport.buildInPathHint(
+    params: BuildScanUiModelParams,
+    strategyProbeSelected: Boolean,
+    workflowLabel: String,
+): String =
+    when {
+        strategyProbeSelected -> context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
+        params.serviceStatus == AppStatus.Reconnecting -> context.getString(R.string.diagnostics_scope_reconnecting)
+        params.serviceStatus != AppStatus.Running -> context.getString(R.string.diagnostics_scan_in_path_service_halted)
+        params.serviceMode == Mode.VPN -> context.getString(R.string.diagnostics_scope_active_vpn_description)
+        else -> context.getString(R.string.diagnostics_scope_active_proxy_description)
     }

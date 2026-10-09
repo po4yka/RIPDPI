@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixConfig
 import com.poyka.ripdpi.diagnostics.ServiceTarget
 import com.poyka.ripdpi.diagnostics.StoredApproachSnapshot
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
@@ -35,6 +36,7 @@ internal enum class ProbeFamily {
     TELEGRAM,
     THROUGHPUT,
     DOH_JSON_SURVEY,
+    SELECTIVE_AVAILABILITY,
 }
 
 internal data class ProbeTask(
@@ -80,6 +82,7 @@ internal data class DiagnosticsIntent(
     val strategyProbe: StrategyProbeRequest?,
     val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
+    val selectiveMatrix: SelectiveMatrixConfig? = null,
     val requestedPathMode: ScanPathMode,
 )
 
@@ -106,6 +109,7 @@ internal data class ScanPlan(
     val quicTargets: List<QuicTarget> = emptyList(),
     val throughputTargets: List<ThroughputTarget> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
+    val selectiveMatrix: SelectiveMatrixConfig? = null,
     val probeTasks: List<ProbeTask>,
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )

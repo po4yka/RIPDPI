@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">ماتریس دسترسی انتخابی</string>
+    <string name="diagnostics_matrix_manual">آزمون دستی با بررسی‌های تکراری. حداکثر ۲ میبی‌بایت پاسخ و دو دقیقه.</string>
+    <string name="diagnostics_matrix_hosts">میزبان‌های عمومی HTTPS اختیاری</string>
+    <string name="diagnostics_matrix_hosts_hint">تا چهار میزبان با فاصله یا خط جدید. فقط برای نشست فعلی صفحه.</string>
+    <string name="diagnostics_matrix_hosts_error">تا چهار نام میزبان عمومی وارد کنید. نشانی محلی، اطلاعات ورود، پرس‌وجو و قطعه مجاز نیست.</string>
+    <string name="diagnostics_matrix_infrastructure">گروه زیرساخت: %1$s</string>
+    <string name="diagnostics_matrix_source">منبع فهرست: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">سلامت هدف به‌طور مستقل تأیید نشده است.</string>
+    <string name="diagnostics_matrix_verified">آخرین تأیید: %1$s</string>
+    <string name="diagnostics_matrix_available">همه گروه‌های آزموده‌شده در دسترس بودند</string>
+    <string name="diagnostics_matrix_selective">دسترسی انتخابی تکرارشونده مشاهده شد</string>
+    <string name="diagnostics_matrix_unavailable">هدف‌های آزموده‌شده در دسترس نبودند</string>
+    <string name="diagnostics_matrix_mixed">نتایج تلاش‌ها یا گروه‌ها متفاوت است</string>
+    <string name="diagnostics_matrix_inconclusive">شواهد ناکافی</string>
+    <string name="diagnostics_matrix_caution">این مشاهدات سیاست ارائه‌دهنده را ثابت نمی‌کنند. خطاهای سرور، پاسخ‌های ناقص، نبود اهداف کنترل و تغییر شبکه نتیجه‌گیری را محدود می‌کنند.</string>
+    <string name="diagnostics_matrix_attempt_count">تلاش‌های کامل‌شده: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">تلاش %1$s · %2$s میلی‌ثانیه</string>
+    <string name="diagnostics_matrix_http_code">وضعیت HTTP: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">بدنه کامل: %1$s بایت</string>
+    <string name="diagnostics_matrix_body_partial">بدنه ناقص یا اندازه‌گیری‌نشده: %1$s بایت</string>
+    <string name="diagnostics_matrix_failure_stage">مرحله شکست: %1$s</string>
+    <string name="diagnostics_matrix_declared">خدمات اعلام‌شده به‌عنوان در دسترس</string>
+    <string name="diagnostics_matrix_domestic">مقایسه داخلی</string>
+    <string name="diagnostics_matrix_global">مقایسه جهانی</string>
+    <string name="diagnostics_matrix_user">هدف‌های کاربر</string>
+    <string name="diagnostics_matrix_unknown">گروه نامشخص</string>
+    <string name="diagnostics_matrix_body">بدنه</string>
+    <string name="diagnostics_matrix_stage_ok">موفق</string>
+    <string name="diagnostics_matrix_stage_failed">ناموفق</string>
+    <string name="diagnostics_matrix_stage_admitted">نشانی‌های عمومی پذیرفته‌شده</string>
+    <string name="diagnostics_matrix_stage_proxy">حل توسط پراکسی؛ DNS اندازه‌گیری نشده</string>
+    <string name="diagnostics_matrix_stage_not_run">اندازه‌گیری نشده</string>
+    <string name="diagnostics_matrix_catalog">نسخه فهرست: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">محدوده شبکه تأیید نشده است. نتایج ممکن است مربوط به مسیرهای مختلف شبکه باشند.</string>
+</resources>

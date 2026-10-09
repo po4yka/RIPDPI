@@ -88,6 +88,8 @@ pub struct ScanRequest {
     pub circumvention_targets: Vec<CircumventionTarget>,
     #[serde(default)]
     pub throughput_targets: Vec<ThroughputTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selective_matrix: Option<super::SelectiveMatrixConfig>,
     pub whitelist_sni: Vec<String>,
     #[serde(default)]
     pub telegram_target: Option<TelegramTarget>,

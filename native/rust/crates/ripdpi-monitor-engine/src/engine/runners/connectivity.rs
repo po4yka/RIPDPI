@@ -38,12 +38,14 @@ mod dns;
 mod doh_json;
 mod environment;
 mod quic;
+mod selective_matrix;
 mod service;
 mod support;
 mod tcp;
 mod telegram;
 mod telegram_record;
 mod throughput;
+pub(super) use selective_matrix::SelectiveMatrixRunner;
 mod web;
 
 pub(super) use circumvention::CircumventionRunner;

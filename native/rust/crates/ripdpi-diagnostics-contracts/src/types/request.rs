@@ -1,4 +1,6 @@
 mod config;
+mod selective_matrix;
+pub use selective_matrix::{SelectiveMatrixConfig, SelectiveMatrixTarget};
 mod progress;
 mod report;
 mod result;

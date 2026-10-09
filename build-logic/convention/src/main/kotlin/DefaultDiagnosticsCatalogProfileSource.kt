@@ -10,6 +10,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         listOf(
             defaultProfile(),
             resolverAuditProfile(),
+            selectiveAvailabilityMatrixProfile(),
             automaticProbingProfile(index),
             automaticAuditProfile(index),
             dpiDetectorFullProfile(),

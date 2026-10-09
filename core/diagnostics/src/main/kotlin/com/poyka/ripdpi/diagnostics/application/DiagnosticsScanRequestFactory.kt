@@ -40,6 +40,7 @@ import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogPathValidator
 import com.poyka.ripdpi.diagnostics.prepareScanEndpoints
+import com.poyka.ripdpi.diagnostics.withUserHosts
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -419,7 +420,9 @@ private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOve
     pathMode: ScanPathMode,
 ): com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent {
     val overrides = targetOverrides ?: return this
+    require(overrides.selectiveMatrixHosts.isEmpty() || selectiveMatrix != null)
     return copy(
+        selectiveMatrix = selectiveMatrix?.withUserHosts(overrides.selectiveMatrixHosts),
         domainTargets = overrides.domainTargets ?: domainTargets,
         serviceTargets = overrides.serviceTargets ?: serviceTargets,
         circumventionTargets = overrides.circumventionTargets ?: circumventionTargets,

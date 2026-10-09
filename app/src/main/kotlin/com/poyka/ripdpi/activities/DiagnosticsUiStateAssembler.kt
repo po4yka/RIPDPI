@@ -307,6 +307,7 @@ internal class DiagnosticsUiStateAssembler
                 selectedProfileId =
                     controls.selection.selectedProfileId
                         ?: config.settings.diagnosticsActiveProfileId.takeIf { it.isNotBlank() },
+                selectiveMatrixHostsInput = controls.selection.selectiveMatrixHostsInput,
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,

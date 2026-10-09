@@ -1,3 +1,6 @@
+mod matrix_body;
+mod selective_matrix;
+pub use selective_matrix::run_selective_matrix_attempt;
 mod quic_endpoint;
 mod target_parse;
 mod tcp_tls_endpoint;

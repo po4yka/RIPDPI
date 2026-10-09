@@ -61,6 +61,12 @@ fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str>
 
 fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &str) -> ProbeOutcomeBucket {
     match probe_type {
+        "selective_availability" | "selective_availability_summary" => match outcome {
+            "matrix_target_available" | "matrix_available" => ProbeOutcomeBucket::Healthy,
+            "matrix_unavailable" => ProbeOutcomeBucket::Failed,
+            "matrix_target_transport_failed" | "matrix_selective" | "matrix_mixed" => ProbeOutcomeBucket::Attention,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
         "network_environment" => match outcome {
             "network_available" => ProbeOutcomeBucket::Healthy,
             "network_unavailable" => ProbeOutcomeBucket::Failed,

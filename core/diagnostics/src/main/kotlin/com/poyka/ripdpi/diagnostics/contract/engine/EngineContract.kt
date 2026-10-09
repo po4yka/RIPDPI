@@ -20,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixConfig
 import com.poyka.ripdpi.diagnostics.ServiceTarget
 import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
@@ -47,6 +48,7 @@ enum class EngineProbeTaskFamily {
     TELEGRAM,
     THROUGHPUT,
     DOH_JSON_SURVEY,
+    SELECTIVE_AVAILABILITY,
 }
 
 @Serializable
@@ -101,6 +103,7 @@ data class EngineScanRequestWire(
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
     val networkSnapshot: NativeNetworkSnapshot? = null,
     val routeProbe: RouteProbeConfig? = null,
+    val selectiveMatrix: SelectiveMatrixConfig? = null,
     val nativeLogLevel: String? = null,
     val logContext: RipDpiLogContext? = null,
     val scanDeadlineMs: Long? = null,

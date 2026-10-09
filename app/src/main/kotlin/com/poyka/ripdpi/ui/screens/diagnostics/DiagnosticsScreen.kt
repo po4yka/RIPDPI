@@ -61,6 +61,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 data class DiagnosticsScreenActions(
     val onSelectSection: (DiagnosticsSection) -> Unit = {},
     val onSelectProfile: (String) -> Unit = {},
+    val onSelectiveMatrixHostsChanged: (String) -> Unit = {},
     val onRunScan: () -> Unit = {},
     val onRunRawScan: () -> Unit = {},
     val onRunInPathScan: () -> Unit = {},
@@ -340,6 +341,7 @@ private fun DiagnosticsScreenPager(
                 ScanSection(
                     scan = uiState.scan,
                     onSelectProfile = actions.onSelectProfile,
+                    onSelectiveMatrixHostsChanged = actions.onSelectiveMatrixHostsChanged,
                     onRunRawScan = actions.onRunRawScan,
                     onRunInPathScan = actions.onRunInPathScan,
                     onCancelScan = actions.onCancelScan,

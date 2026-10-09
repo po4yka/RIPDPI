@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixConfig
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import kotlinx.serialization.Serializable
@@ -37,6 +38,7 @@ data class DiagnosticsProfileProjection(
     val manualOnly: Boolean = false,
     val packRefs: List<String> = emptyList(),
     val strategyProbeSuiteId: String? = null,
+    val selectiveMatrix: SelectiveMatrixConfig? = null,
 )
 
 @Serializable

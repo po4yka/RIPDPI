@@ -765,6 +765,9 @@ data class DiagnosticsRememberedNetworkUiModel(
 
 @Stable
 data class DiagnosticsScanUiModel(
+    val selectiveMatrixHostsInput: String = "",
+    val selectiveMatrixInputValid: Boolean = true,
+    val selectiveMatrixTargets: ImmutableList<SelectiveMatrixTargetUiModel> = persistentListOf(),
     val profiles: ImmutableList<DiagnosticsProfileOptionUiModel> = persistentListOf(),
     val selectedProfileId: String? = null,
     val selectedProfile: DiagnosticsProfileOptionUiModel? = null,
@@ -977,6 +980,7 @@ internal data class ArchiveActionState(
 internal data class SelectionState(
     val selectedSectionRequest: DiagnosticsSection = DiagnosticsSection.Dashboard,
     val selectedProfileId: String? = null,
+    val selectiveMatrixHostsInput: String = "",
     val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
     val selectedApproachDetail: DiagnosticsApproachDetailUiModel? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,

@@ -46,6 +46,7 @@ internal class DiagnosticsScanUiStateFactory
         ): DiagnosticsScanUiModel =
             support.buildScanUiModel(
                 BuildScanUiModelParams(
+                    selectiveMatrixHostsInput = input.selectiveMatrixHostsInput,
                     profiles = resolvedInput.visibleProfiles,
                     omittedProfileCount = resolvedInput.omittedProfileCount,
                     activeProfile = resolvedInput.activeProfile,

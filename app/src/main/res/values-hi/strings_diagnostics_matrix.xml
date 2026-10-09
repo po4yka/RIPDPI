@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">चुनिंदा उपलब्धता मैट्रिक्स</string>
+    <string name="diagnostics_matrix_manual">मैनुअल जाँच। हर लक्ष्य की बार-बार जाँच होती है। अधिकतम 2 MiB उत्तर डेटा और दो मिनट।</string>
+    <string name="diagnostics_matrix_hosts">वैकल्पिक सार्वजनिक HTTPS होस्ट</string>
+    <string name="diagnostics_matrix_hosts_hint">अधिकतम चार होस्ट, स्पेस या नई पंक्ति से अलग करें। केवल इस स्क्रीन सत्र के लिए।</string>
+    <string name="diagnostics_matrix_hosts_error">अधिकतम चार सार्वजनिक होस्टनाम दें। स्थानीय पते, क्रेडेंशियल, क्वेरी और फ़्रैगमेंट मान्य नहीं हैं।</string>
+    <string name="diagnostics_matrix_infrastructure">अवसंरचना समूह: %1$s</string>
+    <string name="diagnostics_matrix_source">कैटलॉग स्रोत: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">लक्ष्य की स्थिति स्वतंत्र रूप से सत्यापित नहीं है।</string>
+    <string name="diagnostics_matrix_verified">अंतिम सत्यापन: %1$s</string>
+    <string name="diagnostics_matrix_available">सभी जाँचे गए समूह उपलब्ध थे</string>
+    <string name="diagnostics_matrix_selective">बार-बार चुनिंदा उपलब्धता देखी गई</string>
+    <string name="diagnostics_matrix_unavailable">जाँचे गए लक्ष्य अनुपलब्ध थे</string>
+    <string name="diagnostics_matrix_mixed">प्रयासों या समूहों के परिणाम अलग हैं</string>
+    <string name="diagnostics_matrix_inconclusive">अपर्याप्त साक्ष्य</string>
+    <string name="diagnostics_matrix_caution">ये अवलोकन प्रदाता की नीति साबित नहीं करते। सर्वर त्रुटियाँ, अधूरे उत्तर, अनुपस्थित नियंत्रण लक्ष्य और नेटवर्क बदलना निष्कर्ष को सीमित करते हैं।</string>
+    <string name="diagnostics_matrix_attempt_count">पूर्ण प्रयास: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">प्रयास %1$s · %2$s मिलीसेकंड</string>
+    <string name="diagnostics_matrix_http_code">HTTP स्थिति: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">पूर्ण बॉडी: %1$s बाइट</string>
+    <string name="diagnostics_matrix_body_partial">अधूरी या अमापित बॉडी: %1$s बाइट</string>
+    <string name="diagnostics_matrix_failure_stage">विफलता चरण: %1$s</string>
+    <string name="diagnostics_matrix_declared">उपलब्ध घोषित सेवाएँ</string>
+    <string name="diagnostics_matrix_domestic">घरेलू तुलना</string>
+    <string name="diagnostics_matrix_global">वैश्विक तुलना</string>
+    <string name="diagnostics_matrix_user">उपयोगकर्ता के लक्ष्य</string>
+    <string name="diagnostics_matrix_unknown">अज्ञात समूह</string>
+    <string name="diagnostics_matrix_body">बॉडी</string>
+    <string name="diagnostics_matrix_stage_ok">सफल</string>
+    <string name="diagnostics_matrix_stage_failed">विफल</string>
+    <string name="diagnostics_matrix_stage_admitted">स्वीकृत सार्वजनिक पते</string>
+    <string name="diagnostics_matrix_stage_proxy">प्रॉक्सी द्वारा समाधान; DNS अमापित</string>
+    <string name="diagnostics_matrix_stage_not_run">मापा नहीं गया</string>
+    <string name="diagnostics_matrix_catalog">कैटलॉग संस्करण: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">नेटवर्क संदर्भ सत्यापित नहीं है। परिणाम अलग-अलग नेटवर्क पथों के हो सकते हैं।</string>
+</resources>

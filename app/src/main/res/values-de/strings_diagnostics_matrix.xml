@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">Matrix der selektiven Erreichbarkeit</string>
+    <string name="diagnostics_matrix_manual">Manueller Test mit wiederholten Prüfungen. Bis zu 2 MiB Antwortdaten und zwei Minuten.</string>
+    <string name="diagnostics_matrix_hosts">Optionale öffentliche HTTPS-Hosts</string>
+    <string name="diagnostics_matrix_hosts_hint">Bis zu vier Hosts, getrennt durch Leerzeichen oder Zeilenumbrüche. Nur für diese Bildschirmsitzung.</string>
+    <string name="diagnostics_matrix_hosts_error">Bis zu vier öffentliche Hostnamen eingeben. Lokale Adressen, Zugangsdaten, Abfragen und Fragmente sind unzulässig.</string>
+    <string name="diagnostics_matrix_infrastructure">Infrastrukturgruppe: %1$s</string>
+    <string name="diagnostics_matrix_source">Katalogquelle: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">Der Zustand des Ziels wurde nicht unabhängig geprüft.</string>
+    <string name="diagnostics_matrix_verified">Zuletzt geprüft: %1$s</string>
+    <string name="diagnostics_matrix_available">Alle getesteten Gruppen waren erreichbar</string>
+    <string name="diagnostics_matrix_selective">Wiederholte selektive Erreichbarkeit beobachtet</string>
+    <string name="diagnostics_matrix_unavailable">Die getesteten Ziele waren nicht erreichbar</string>
+    <string name="diagnostics_matrix_mixed">Ergebnisse unterscheiden sich zwischen Versuchen oder Gruppen</string>
+    <string name="diagnostics_matrix_inconclusive">Unzureichende Daten</string>
+    <string name="diagnostics_matrix_caution">Diese Beobachtungen belegen keine Anbieterrichtlinie. Serverfehler, unvollständige Antworten, fehlende Kontrollziele und Netzwerkwechsel begrenzen die Aussage.</string>
+    <string name="diagnostics_matrix_attempt_count">Abgeschlossene Versuche: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">Versuch %1$s · %2$s ms</string>
+    <string name="diagnostics_matrix_http_code">HTTP-Status: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">Vollständiger Inhalt: %1$s Bytes</string>
+    <string name="diagnostics_matrix_body_partial">Unvollständiger oder nicht gemessener Inhalt: %1$s Bytes</string>
+    <string name="diagnostics_matrix_failure_stage">Fehlerphase: %1$s</string>
+    <string name="diagnostics_matrix_declared">Als erreichbar angegebene Dienste</string>
+    <string name="diagnostics_matrix_domestic">Inländischer Vergleich</string>
+    <string name="diagnostics_matrix_global">Globaler Vergleich</string>
+    <string name="diagnostics_matrix_user">Eigene Ziele</string>
+    <string name="diagnostics_matrix_unknown">Unbekannte Gruppe</string>
+    <string name="diagnostics_matrix_body">Inhalt</string>
+    <string name="diagnostics_matrix_stage_ok">Erfolgreich</string>
+    <string name="diagnostics_matrix_stage_failed">Fehlgeschlagen</string>
+    <string name="diagnostics_matrix_stage_admitted">Zugelassene öffentliche Adressen</string>
+    <string name="diagnostics_matrix_stage_proxy">Vom Proxy aufgelöst; DNS nicht gemessen</string>
+    <string name="diagnostics_matrix_stage_not_run">Nicht gemessen</string>
+    <string name="diagnostics_matrix_catalog">Katalogversion: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">Der Netzwerkbereich wurde nicht bestätigt. Ergebnisse können verschiedene Netzwerkpfade betreffen.</string>
+</resources>

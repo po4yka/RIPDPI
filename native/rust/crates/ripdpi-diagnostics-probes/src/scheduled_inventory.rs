@@ -40,6 +40,7 @@ use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
+use crate::probes::selective_availability::SELECTIVE_AVAILABILITY_PROBE_ID;
 use crate::probes::service_reachability::SERVICE_REACHABILITY_PROBE_ID;
 use crate::probes::tcp_fat_header::TCP_FAT_HEADER_PROBE_ID;
 use crate::probes::throughput::THROUGHPUT_PROBE_ID;
@@ -131,6 +132,11 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
         backing: ProbeTraitBacking::Backed(THROUGHPUT_PROBE_ID),
     },
     ScheduledProbeStage {
+        probe_type: "selective_availability",
+        runner: "SelectiveMatrixRunner",
+        backing: ProbeTraitBacking::Backed(SELECTIVE_AVAILABILITY_PROBE_ID),
+    },
+    ScheduledProbeStage {
         probe_type: "doh_json_survey",
         runner: "DohJsonSurveyRunner",
         backing: ProbeTraitBacking::Backed(DOH_JSON_SURVEY_PROBE_ID),
@@ -189,8 +195,8 @@ mod tests {
     }
 
     #[test]
-    fn inventory_has_exactly_nine_rows() {
-        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 10);
+    fn inventory_has_exactly_eleven_rows() {
+        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 11);
     }
 
     #[test]

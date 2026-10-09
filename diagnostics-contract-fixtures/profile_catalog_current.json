@@ -151,6 +151,104 @@
       }
     },
     {
+      "id": "selective-availability-matrix",
+      "name": "Selective availability matrix",
+      "version": 1,
+      "request": {
+        "profileId": "selective-availability-matrix",
+        "displayName": "Selective availability matrix",
+        "kind": "CONNECTIVITY",
+        "family": "WEB_CONNECTIVITY",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
+        "regionTag": "ru",
+        "executionPolicy": {
+          "manualOnly": true,
+          "allowBackground": false,
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
+        },
+        "packRefs": [],
+        "domainTargets": [],
+        "dnsTargets": [],
+        "tcpTargets": [],
+        "quicTargets": [],
+        "serviceTargets": [],
+        "circumventionTargets": [],
+        "throughputTargets": [],
+        "whitelistSni": [],
+        "selectiveMatrix": {
+          "version": 1,
+          "catalogVersion": "ru-selective-2026-10-09",
+          "targets": [
+            {
+              "id": "yandex",
+              "label": "Yandex",
+              "url": "https://yandex.ru/robots.txt",
+              "cohort": "declared_available",
+              "infrastructureGroup": "yandex",
+              "sourceUrl": "https://t.me/mintsifry/2603",
+              "sourceDate": "2025-09-05",
+              "lastVerifiedAt": "2026-10-09T04:20:29Z"
+            },
+            {
+              "id": "vk",
+              "label": "VK",
+              "url": "https://vk.com/robots.txt",
+              "cohort": "declared_available",
+              "infrastructureGroup": "vk",
+              "sourceUrl": "https://t.me/mintsifry/2603",
+              "sourceDate": "2025-09-05",
+              "lastVerifiedAt": "2026-10-09T04:20:29Z"
+            },
+            {
+              "id": "selectel",
+              "label": "Selectel",
+              "url": "https://selectel.ru/robots.txt",
+              "cohort": "domestic",
+              "infrastructureGroup": "selectel",
+              "sourceUrl": "https://selectel.ru/robots.txt",
+              "sourceDate": "2026-10-09",
+              "lastVerifiedAt": "2026-10-09T04:20:29Z"
+            },
+            {
+              "id": "timeweb",
+              "label": "Timeweb",
+              "url": "https://timeweb.com/robots.txt",
+              "cohort": "domestic",
+              "infrastructureGroup": "timeweb",
+              "sourceUrl": "https://timeweb.com/robots.txt",
+              "sourceDate": "2026-10-09",
+              "lastVerifiedAt": "2026-10-09T04:20:29Z"
+            },
+            {
+              "id": "cloudflare",
+              "label": "Cloudflare",
+              "url": "https://speed.cloudflare.com/robots.txt",
+              "cohort": "global",
+              "infrastructureGroup": "cloudflare",
+              "sourceUrl": "https://speed.cloudflare.com/robots.txt",
+              "sourceDate": "2026-10-09",
+              "lastVerifiedAt": "2026-10-09T04:20:29Z"
+            },
+            {
+              "id": "ovh",
+              "label": "OVHcloud",
+              "url": "https://proof.ovh.net/robots.txt",
+              "cohort": "global",
+              "infrastructureGroup": "ovhcloud",
+              "sourceUrl": "https://proof.ovh.net/robots.txt",
+              "sourceDate": "2026-10-09",
+              "lastVerifiedAt": "2026-10-09T04:20:29Z"
+            }
+          ],
+          "repetitions": 2,
+          "timeoutMs": 5000,
+          "maxResponseBytes": 65536
+        }
+      }
+    },
+    {
       "id": "automatic-probing",
       "name": "Automatic probing",
       "version": 4,

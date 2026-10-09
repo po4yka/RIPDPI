@@ -59,6 +59,12 @@ data class ActiveProbeSafetyPolicy(
         scanOrigin: DiagnosticsScanOrigin,
         isManual: Boolean,
     ): DiagnosticsIntent {
+        intent.selectiveMatrix?.let { matrix ->
+            require(isManual && scanOrigin == DiagnosticsScanOrigin.USER_INITIATED) {
+                "Selective availability measurements require a manual scan"
+            }
+            matrix.validate()
+        }
         if (intent.strategyProbe == null) return intent
         val limits = targetLimits(scanOrigin, isManual)
         val domainTargets = intent.domainTargets.distinctBy(DomainTarget::host).take(limits.domainTargets)

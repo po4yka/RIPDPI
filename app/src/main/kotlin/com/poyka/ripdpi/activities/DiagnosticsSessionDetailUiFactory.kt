@@ -26,14 +26,15 @@ internal class DiagnosticsSessionDetailUiFactory
             showSensitiveDetails: Boolean,
         ): DiagnosticsSessionDetailUiModel {
             val report = detail.session.report
+            val finalizedResults = finalizedMatrixResults(detail.results, report)
             val probeGroups =
-                detail.results
+                finalizedResults
                     .mapIndexed { index, result ->
                         support.toProbeResultUiModel(
                             index = index,
                             pathMode = support.parsePathMode(detail.session.pathMode),
                             result = result,
-                            reportResults = detail.results,
+                            reportResults = finalizedResults,
                         )
                     }.groupBy { it.probeType }
                     .map { (title, items) ->

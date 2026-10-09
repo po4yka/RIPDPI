@@ -109,7 +109,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ),
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
-            "pub fn run_domain_probe_with_key_log",
+            "fn run_domain_probe_with_tls_probe",
         ),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "pub fn run_tcp_probe"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
@@ -156,6 +156,26 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         "impl FailureClass",
         "impl FailureStage",
     )));
+    for path in [
+        "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/endpoint/selective_matrix.rs",
+        "native/rust/crates/ripdpi-monitor-engine/src/engine/runners/connectivity/selective_matrix.rs",
+    ] {
+        let source = fs::read_to_string(repo.join(path)).expect("matrix source");
+        let production = source.split("#[cfg(test)]").next().expect("production source");
+        tokens.extend(quoted_outcome_tokens(production).into_iter().filter(|token| token.starts_with("matrix_")));
+    }
+    // The current engine no longer emits this token. Retain its taxonomy for
+    // persisted reports from older engines and verify its conservative meaning.
+    assert_eq!(
+        ripdpi_diagnostics_contracts::util::classify_probe_outcome(
+            "dns_integrity",
+            &ripdpi_diagnostics_contracts::ScanPathMode::RawPath,
+            "udp_timeout_transient"
+        )
+        .bucket,
+        ripdpi_diagnostics_contracts::util::ProbeOutcomeBucket::Inconclusive,
+    );
+    tokens.insert("udp_timeout_transient".into());
     tokens
 }
 

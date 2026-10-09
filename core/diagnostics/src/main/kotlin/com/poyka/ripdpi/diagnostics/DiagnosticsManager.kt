@@ -143,6 +143,7 @@ data class DiagnosticsScanTargetOverrides(
     val domainTargets: List<DomainTarget>? = null,
     val serviceTargets: List<ServiceTarget>? = null,
     val circumventionTargets: List<CircumventionTarget>? = null,
+    val selectiveMatrixHosts: List<String> = emptyList(),
 )
 
 interface DiagnosticsDetailLoader {

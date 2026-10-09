@@ -137,6 +137,7 @@ class DiagnosticsSummaryProjector
                         }
                     }
                 }
+                addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }
                 report?.classifierVersion?.let { add("classifierVersion=$it") }
                 if (report?.packVersions?.isNotEmpty() == true) {

@@ -14,6 +14,10 @@ internal class DiagnosticsSelectionActions(
         selection.update { it.copy(selectedSectionRequest = section) }
     }
 
+    fun updateSelectiveMatrixHosts(input: String) {
+        selection.update { it.copy(selectiveMatrixHostsInput = input) }
+    }
+
     fun selectProfile(profileId: String) {
         selection.update { it.copy(selectedProfileId = profileId) }
         mutations.launch {

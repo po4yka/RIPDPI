@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">选择性可用性矩阵</string>
+    <string name="diagnostics_matrix_manual">手动测试。重复检查各目标，最多接收 2 MiB 响应数据，最长两分钟。</string>
+    <string name="diagnostics_matrix_hosts">可选的公共 HTTPS 主机</string>
+    <string name="diagnostics_matrix_hosts_hint">最多四个主机，用空格或换行分隔。仅用于本次屏幕会话。</string>
+    <string name="diagnostics_matrix_hosts_error">请输入最多四个公共主机名。不允许本地地址、凭据、查询参数或片段。</string>
+    <string name="diagnostics_matrix_infrastructure">基础设施组：%1$s</string>
+    <string name="diagnostics_matrix_source">目录来源：%1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">尚未独立验证目标健康状态。</string>
+    <string name="diagnostics_matrix_verified">最近验证：%1$s</string>
+    <string name="diagnostics_matrix_available">所有测试组均可用</string>
+    <string name="diagnostics_matrix_selective">观察到重复的选择性可用性</string>
+    <string name="diagnostics_matrix_unavailable">测试目标不可用</string>
+    <string name="diagnostics_matrix_mixed">各次尝试或各组的结果不同</string>
+    <string name="diagnostics_matrix_inconclusive">证据不足</string>
+    <string name="diagnostics_matrix_caution">这些观察不能证明运营商策略。服务器错误、不完整响应、缺失的对照目标及网络变化会限制结论。</string>
+    <string name="diagnostics_matrix_attempt_count">已完成尝试：%1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">尝试 %1$s · %2$s 毫秒</string>
+    <string name="diagnostics_matrix_http_code">HTTP 状态：%1$s</string>
+    <string name="diagnostics_matrix_body_complete">完整响应体：%1$s 字节</string>
+    <string name="diagnostics_matrix_body_partial">不完整或未测量的响应体：%1$s 字节</string>
+    <string name="diagnostics_matrix_failure_stage">失败阶段：%1$s</string>
+    <string name="diagnostics_matrix_declared">声明可用的服务</string>
+    <string name="diagnostics_matrix_domestic">国内对照</string>
+    <string name="diagnostics_matrix_global">全球对照</string>
+    <string name="diagnostics_matrix_user">用户目标</string>
+    <string name="diagnostics_matrix_unknown">未知组</string>
+    <string name="diagnostics_matrix_body">响应体</string>
+    <string name="diagnostics_matrix_stage_ok">通过</string>
+    <string name="diagnostics_matrix_stage_failed">失败</string>
+    <string name="diagnostics_matrix_stage_admitted">已准入的公共地址</string>
+    <string name="diagnostics_matrix_stage_proxy">由代理解析；未测量 DNS</string>
+    <string name="diagnostics_matrix_stage_not_run">未测量</string>
+    <string name="diagnostics_matrix_catalog">目录版本：%1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">网络范围未经验证。结果可能涉及不同的网络路径。</string>
+</resources>

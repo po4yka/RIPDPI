@@ -37,7 +37,14 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     val policyDecision = request?.resolveLegalSafetyPolicy()
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
-        name = profile.name,
+        name =
+            if (profile.id ==
+                SelectiveMatrixProfileId
+            ) {
+                context.getString(R.string.diagnostics_matrix_title)
+            } else {
+                profile.name
+            },
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,
         strategyProbeSuiteId = request?.strategyProbeSuiteId,

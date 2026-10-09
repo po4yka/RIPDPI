@@ -189,4 +189,5 @@ internal data class DiagnosticsProfileDefinition(
     val whitelistSni: List<String> = emptyList(),
     val telegramTarget: TelegramTargetDefinition? = null,
     val strategyProbe: StrategyProbeDefinition? = null,
+    val selectiveMatrix: SelectiveMatrixDefinition? = null,
 )

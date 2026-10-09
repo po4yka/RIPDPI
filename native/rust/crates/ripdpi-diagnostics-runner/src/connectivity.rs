@@ -1,3 +1,4 @@
+pub use endpoint::run_selective_matrix_attempt;
 pub(crate) mod adapters;
 mod endpoint;
 mod probes;

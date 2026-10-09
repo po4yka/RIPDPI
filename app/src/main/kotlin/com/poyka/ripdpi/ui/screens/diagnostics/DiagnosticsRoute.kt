@@ -316,6 +316,7 @@ private fun rememberDiagnosticsScreenActions(
     DiagnosticsScreenActions(
         onSelectSection = remember(viewModel) { viewModel::selectSection },
         onSelectProfile = remember(viewModel) { viewModel::selectProfile },
+        onSelectiveMatrixHostsChanged = remember(viewModel) { viewModel::updateSelectiveMatrixHosts },
         onRunScan = remember(viewModel) { viewModel::runScan },
         onRunRawScan = remember(viewModel) { viewModel::startRawScan },
         onRunInPathScan = remember(viewModel) { viewModel::startInPathScan },

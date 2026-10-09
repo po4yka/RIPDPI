@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_title">Selective availability matrix</string>
+    <string name="diagnostics_matrix_manual">Manual test. Each target is checked repeatedly. The test uses up to 2 MiB of response data and takes up to two minutes.</string>
+    <string name="diagnostics_matrix_hosts">Optional public HTTPS hosts</string>
+    <string name="diagnostics_matrix_hosts_hint">Up to four hosts, separated by spaces or new lines. Addresses apply to this screen session only.</string>
+    <string name="diagnostics_matrix_hosts_error">Enter up to four public hostnames. Local addresses, credentials, query strings and fragments are not allowed.</string>
+    <string name="diagnostics_matrix_infrastructure">Infrastructure group: %1$s</string>
+    <string name="diagnostics_matrix_source">Catalog source: %1$s · %2$s</string>
+    <string name="diagnostics_matrix_not_verified">Endpoint health has not been independently verified.</string>
+    <string name="diagnostics_matrix_verified">Last verified: %1$s</string>
+    <string name="diagnostics_matrix_available">All tested groups were available</string>
+    <string name="diagnostics_matrix_selective">Repeated selective availability observed</string>
+    <string name="diagnostics_matrix_unavailable">Tested targets were unavailable</string>
+    <string name="diagnostics_matrix_mixed">Results differ between attempts or groups</string>
+    <string name="diagnostics_matrix_inconclusive">Insufficient evidence</string>
+    <string name="diagnostics_matrix_caution">These observations do not establish an ISP policy. Server errors, incomplete responses, missing controls and a changed network limit the conclusion.</string>
+    <string name="diagnostics_matrix_attempt_count">Completed attempts: %1$s / %2$s</string>
+    <string name="diagnostics_matrix_attempt">Attempt %1$s · %2$s ms</string>
+    <string name="diagnostics_matrix_http_code">HTTP status: %1$s</string>
+    <string name="diagnostics_matrix_body_complete">Complete body: %1$s bytes</string>
+    <string name="diagnostics_matrix_body_partial">Incomplete or unmeasured body: %1$s bytes</string>
+    <string name="diagnostics_matrix_failure_stage">Failure stage: %1$s</string>
+    <string name="diagnostics_matrix_declared">Declared available services</string>
+    <string name="diagnostics_matrix_domestic">Domestic comparison</string>
+    <string name="diagnostics_matrix_global">Global comparison</string>
+    <string name="diagnostics_matrix_user">User targets</string>
+    <string name="diagnostics_matrix_unknown">Unknown group</string>
+    <string name="diagnostics_matrix_body">Body</string>
+    <string name="diagnostics_matrix_stage_ok">Passed</string>
+    <string name="diagnostics_matrix_stage_failed">Failed</string>
+    <string name="diagnostics_matrix_stage_admitted">Admitted public addresses</string>
+    <string name="diagnostics_matrix_stage_proxy">Resolved by proxy; DNS not measured</string>
+    <string name="diagnostics_matrix_stage_not_run">Not measured</string>
+    <string name="diagnostics_matrix_catalog">Catalog version: %1$s</string>
+    <string name="diagnostics_matrix_scope_unverified">Network scope was not verified. Results may cover different network paths.</string>
+</resources>

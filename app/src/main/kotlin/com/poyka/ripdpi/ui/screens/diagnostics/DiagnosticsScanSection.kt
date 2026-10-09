@@ -46,6 +46,7 @@ private const val LiveProbePreviewCount = 8
 internal fun ScanSection(
     scan: DiagnosticsScanUiModel,
     onSelectProfile: (String) -> Unit,
+    onSelectiveMatrixHostsChanged: (String) -> Unit = {},
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
@@ -146,6 +147,17 @@ internal fun ScanSection(
                 )
             }
         }
+        if (selectedProfile?.id == com.poyka.ripdpi.activities.SelectiveMatrixProfileId) {
+            item {
+                SelectiveMatrixInputCard(
+                    input = scan.selectiveMatrixHostsInput,
+                    targets = scan.selectiveMatrixTargets,
+                    valid = scan.selectiveMatrixInputValid,
+                    enabled = !scan.isBusy,
+                    onInputChanged = onSelectiveMatrixHostsChanged,
+                )
+            }
+        }
         selectedProfile?.let { profile ->
             item {
                 DiagnosticsScanWorkflowCard(
@@ -230,6 +242,9 @@ internal fun ScanSection(
                     onSelectCandidate = onSelectStrategyProbeCandidate,
                 )
             }
+        }
+        if (scan.latestResults.any { it.probeType.startsWith("selective_availability") }) {
+            item { SelectiveMatrixResultsCard(scan.latestResults) }
         }
         if (scan.latestResults.isNotEmpty()) {
             item {

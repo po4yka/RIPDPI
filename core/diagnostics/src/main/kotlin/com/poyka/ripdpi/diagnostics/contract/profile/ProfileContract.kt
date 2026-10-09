@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.SelectiveMatrixConfig
 import com.poyka.ripdpi.diagnostics.ServiceTarget
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
@@ -65,6 +66,7 @@ data class ProfileSpecWire(
     val strategyProbe: StrategyProbeRequest? = null,
     val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortWire> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
+    val selectiveMatrix: SelectiveMatrixConfig? = null,
 )
 
 @Serializable

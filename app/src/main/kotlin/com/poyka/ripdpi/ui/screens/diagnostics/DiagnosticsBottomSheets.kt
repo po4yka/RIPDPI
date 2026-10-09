@@ -95,6 +95,10 @@ internal fun DiagnosticsBottomSheetHost(
                 if (detail.capabilityEvidence.isNotEmpty()) {
                     CapabilityEvidenceCard(evidence = detail.capabilityEvidence)
                 }
+                val matrixResults = detail.probeGroups.flatMap { it.items }
+                if (matrixResults.any { it.probeType.startsWith("selective_availability") }) {
+                    SelectiveMatrixResultsCard(matrixResults)
+                }
                 detail.strategyProbeReport?.let { report ->
                     StrategyProbeReportCard(
                         report = report,

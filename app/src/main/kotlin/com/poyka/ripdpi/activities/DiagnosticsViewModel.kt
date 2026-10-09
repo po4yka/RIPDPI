@@ -226,6 +226,8 @@ class DiagnosticsViewModel
                 uiState.value.scan.latestSession
                     ?.toLastScanSummary()
 
+        fun updateSelectiveMatrixHosts(input: String) = selectionActions.updateSelectiveMatrixHosts(input)
+
         fun selectProfile(profileId: String) = selectionActions.selectProfile(profileId)
 
         fun selectSession(sessionId: String) = selectionActions.selectSession(sessionId)

@@ -59,6 +59,7 @@ fn test_plan() -> ExecutionPlan {
             service_targets: Vec::new(),
             circumvention_targets: Vec::new(),
             throughput_targets: Vec::new(),
+            selective_matrix: None,
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: None,
@@ -101,6 +102,7 @@ fn strategy_test_plan() -> ExecutionPlan {
             service_targets: Vec::new(),
             circumvention_targets: Vec::new(),
             throughput_targets: Vec::new(),
+            selective_matrix: None,
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: Some(StrategyProbeRequest {

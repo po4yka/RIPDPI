@@ -49,6 +49,17 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
         ));
     }
     validate_resource_limits(request)?;
+    let matrix_selected =
+        request.probe_tasks.iter().any(|task| task.family == crate::types::ProbeTaskFamily::SelectiveAvailability);
+    if matrix_selected != request.selective_matrix.is_some() {
+        return Err("selectiveMatrix requires its explicit probe task".into());
+    }
+    if let Some(config) = &request.selective_matrix {
+        if request.kind != ScanKind::Connectivity {
+            return Err("selectiveMatrix requires a connectivity scan".into());
+        }
+        config.validate().map_err(str::to_string)?;
+    }
     if request.kind == ScanKind::StrategyProbe {
         let strategy_probe = request
             .strategy_probe

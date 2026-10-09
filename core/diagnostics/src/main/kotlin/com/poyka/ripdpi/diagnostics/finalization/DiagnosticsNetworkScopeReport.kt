@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.finalization
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.Diagnosis
+import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.application.PreparedDiagnosticsScan
@@ -11,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.decodeEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.hasAuthoritativeManualConflictCancellation
 import com.poyka.ripdpi.diagnostics.toEngineScanReportWire
 import com.poyka.ripdpi.diagnostics.toScanReport
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 internal const val NetworkScopeUnverifiedDiagnosis = "network_scope_unverified"
@@ -28,6 +30,19 @@ internal fun EngineScanReportWire.withoutNetworkScopeAuthority(): EngineScanRepo
                 ScanCompletionKind.PARTIAL_RESULTS
             } else {
                 completionKind
+            },
+        results =
+            results.map { result ->
+                if (result.probeType == "selective_availability_summary") {
+                    result.copy(
+                        outcome = "matrix_inconclusive",
+                        details =
+                            result.details.filterNot { it.key == "reason" } +
+                                ProbeDetail("reason", "network_scope_unverified"),
+                    )
+                } else {
+                    result
+                }
             },
         resolverRecommendation = null,
         strategyRecommendation = null,
@@ -76,7 +91,7 @@ internal suspend fun revokePersistedNetworkScope(
 ) {
     val session = scanRecordStore.getScanSession(sessionId) ?: return
     val report = session.reportJson?.let { json.decodeEngineScanReportWire(it).withoutNetworkScopeAuthority() }
-    scanRecordStore.upsertScanSession(
+    val scopedSession =
         session.copy(
             summary =
                 if (session.hasAuthoritativeManualConflictCancellation()) {
@@ -86,6 +101,32 @@ internal suspend fun revokePersistedNetworkScope(
                 },
             reportJson = report?.let { json.encodeToString(EngineScanReportWire.serializer(), it) },
             reportCompletionKind = report?.completionKind?.name ?: session.reportCompletionKind,
-        ),
-    )
+        )
+    val results = scanRecordStore.getProbeResults(sessionId)
+    if (results.any { it.probeType == "selective_availability_summary" }) {
+        scanRecordStore.persistCompletedScan(
+            scopedSession,
+            results.map { result ->
+                if (result.probeType == "selective_availability_summary") {
+                    val details =
+                        runCatching {
+                            json.decodeFromString(ListSerializer(ProbeDetail.serializer()), result.detailJson)
+                        }.getOrDefault(emptyList())
+                    result.copy(
+                        outcome = "matrix_inconclusive",
+                        detailJson =
+                            json.encodeToString(
+                                ListSerializer(ProbeDetail.serializer()),
+                                details.filterNot { it.key == "reason" } +
+                                    ProbeDetail("reason", "network_scope_unverified"),
+                            ),
+                    )
+                } else {
+                    result
+                }
+            },
+        )
+    } else {
+        scanRecordStore.upsertScanSession(scopedSession)
+    }
 }
