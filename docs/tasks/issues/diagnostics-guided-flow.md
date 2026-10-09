@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: diagnostics-guided-flow
 created: 2026-10-09
 updated: 2026-10-09
-status_detail: All source units are pushed on main. Local combined gates passed. Final Full emulator and remote CI evidence are pending.
+status_detail: UI source units are pushed on main. Final Full APK and emulator checks passed. Exact-source app tests, coverage, Roborazzi and static analysis passed in CI. Release acceptance is blocked by the pre-existing native size gate; Simple remains unverified without its real relay asset.
 ---
 
 ## Goal
