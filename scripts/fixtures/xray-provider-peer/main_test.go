@@ -657,3 +657,81 @@ func TestControlPortIsDistinctFromPublishedDataPorts(t *testing.T) {
 		t.Fatal("control listener overlaps the data plane")
 	}
 }
+
+// Android retains its core during peer loss. A fresh client after each request
+// cannot verify recovery of the original HTTP/2 and XMUX state.
+func TestPersistentDefaultXHTTPClientRecoversPayloadAndDNSAfterPeerRestart(t *testing.T) {
+	p, endpoint := startDNSHTTPTestPeer(t)
+	client := dnsHTTPRealityClient(t, p, "xhttp")
+	echo := func(client *http.Client, label string) error {
+		response, err := client.Get("http://" + destination + "/" + label)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil || response.StatusCode != http.StatusOK || !strings.Contains(string(body), "xray-owned-echo") {
+			return fmt.Errorf("owned echo status=%d bodyPresent=%t error=%v", response.StatusCode, len(body) != 0, err)
+		}
+		return nil
+	}
+	doh := func(client *http.Client, label string) error {
+		query := dnsHTTPQuery(t, "peer-owned-"+label+".test.", dnsmessage.TypeA)
+		response, err := client.Do(dnsHTTPRequest(t, http.MethodPost, endpoint, query))
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		payload, err := io.ReadAll(io.LimitReader(response.Body, 65537))
+		if err != nil || response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/dns-message" {
+			return fmt.Errorf("owned DoH status=%d error=%v", response.StatusCode, err)
+		}
+		var sent, answer dnsmessage.Message
+		if err := sent.Unpack(query); err != nil {
+			return err
+		}
+		if err := answer.Unpack(payload); err != nil {
+			return err
+		}
+		if !answer.Header.Response || answer.Header.ID != sent.Header.ID || answer.Header.RCode != dnsmessage.RCodeSuccess ||
+			len(answer.Questions) != 1 || answer.Questions[0] != sent.Questions[0] || len(answer.Answers) != 1 {
+			return fmt.Errorf("owned DoH did not return the matching successful answer")
+		}
+		return nil
+	}
+	if err := echo(client, "persistent-baseline"); err != nil {
+		t.Fatal(err)
+	}
+	if err := doh(client, "persistent-baseline"); err != nil {
+		t.Fatal(err)
+	}
+	if p.dnsHTTPCount.Load() != 1 {
+		t.Fatal("baseline must reach the real DoH handler")
+	}
+	if err := p.setRunning(false); err != nil {
+		t.Fatal(err)
+	}
+	payloadBefore, dnsBefore := p.count.Load(), p.dnsHTTPCount.Load()
+	if err := echo(client, "persistent-stopped"); err == nil {
+		t.Error("stopped peer accepted payload")
+	}
+	if err := doh(client, "persistent-stopped"); err == nil {
+		t.Error("stopped peer accepted DoH")
+	}
+	if p.count.Load() != payloadBefore || p.dnsHTTPCount.Load() != dnsBefore {
+		t.Fatal("stopped peer changed payload or DoH receipts")
+	}
+	if err := p.setRunning(true); err != nil {
+		t.Fatal(err)
+	}
+	persistentEcho, persistentDNS := echo(client, "persistent-recovered"), doh(client, "persistent-recovered")
+	fresh := dnsHTTPRealityClient(t, p, "xhttp")
+	freshEcho, freshDNS := echo(fresh, "fresh-recovered"), doh(fresh, "fresh-recovered")
+	t.Logf("persistent echo=%v DNS=%v; fresh echo=%v DNS=%v", persistentEcho, persistentDNS, freshEcho, freshDNS)
+	if persistentEcho != nil || persistentDNS != nil || freshEcho != nil || freshDNS != nil {
+		t.Fatal("both persistent and fresh authenticated clients must recover payload and DoH")
+	}
+	if p.count.Load() != payloadBefore+2 || p.dnsHTTPCount.Load() != dnsBefore+2 {
+		t.Fatal("each recovered client must produce its own payload and DoH receipts")
+	}
+}
