@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -62,6 +63,8 @@ type peer struct {
 	instanceMu   sync.Mutex
 	instance     *core.Instance
 	config       any
+	ingress      []*tcpIngress
+	backends     []string
 }
 
 type peerOptions struct {
@@ -163,12 +166,32 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	if err != nil {
 		return nil, err
 	}
-	defer tcp.Close()
+	defer func() {
+		if !ready {
+			_ = tcp.Close()
+		}
+	}()
 	xhttp, err := net.Listen("tcp4", net.JoinHostPort(options.BindHost, "0"))
 	if err != nil {
 		return nil, err
 	}
-	defer xhttp.Close()
+	defer func() {
+		if !ready {
+			_ = xhttp.Close()
+		}
+	}()
+	// Private core listeners are distinct from the published ingress ports.
+	privateTCP, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	defer privateTCP.Close()
+	privateXHTTP, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	defer privateXHTTP.Close()
+	p.backends = []string{privateTCP.Addr().String(), privateXHTTP.Addr().String()}
 	p.manifest = peerManifest{
 		Version:     core.Version(),
 		RunID:       options.RunID,
@@ -182,12 +205,12 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	}
 	inbounds := []any{}
 	for _, network := range []string{"tcp", "xhttp"} {
-		port, flow := p.manifest.TCPPort, "xtls-rprx-vision"
+		port, flow := privateTCP.Addr().(*net.TCPAddr).Port, "xtls-rprx-vision"
 		if network == "xhttp" {
-			port, flow = p.manifest.XHTTPPort, ""
+			port, flow = privateXHTTP.Addr().(*net.TCPAddr).Port, ""
 		}
 		inbounds = append(inbounds, map[string]any{
-			"tag": network, "listen": options.BindHost, "port": port, "protocol": "vless",
+			"tag": network, "listen": "127.0.0.1", "port": port, "protocol": "vless",
 			"settings": map[string]any{"decryption": "none", "clients": []any{map[string]any{"id": peerID, "flow": flow}}},
 			"streamSettings": map[string]any{
 				"network": network, "security": "reality",
@@ -214,14 +237,15 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
 		}},
 	}
-	_ = tcp.Close()
-	_ = xhttp.Close()
+	_ = privateTCP.Close()
+	_ = privateXHTTP.Close()
 	instance, err := startInstance(config)
 	if err != nil {
 		return nil, err
 	}
 	p.instance = instance
 	p.config = config
+	p.ingress = []*tcpIngress{startTCPIngress(tcp, p.backends[0]), startTCPIngress(xhttp, p.backends[1])}
 	if err := awaitRealityMetadata(ctx, decoyListener.Addr().String()); err != nil {
 		return nil, err
 	}
@@ -350,12 +374,16 @@ func (p *peer) setRunning(running bool) error {
 	p.instanceMu.Lock()
 	defer p.instanceMu.Unlock()
 	if !running {
-		if p.instance != nil {
-			err := p.instance.Close()
-			p.instance = nil
-			return err
+		var failures []error
+		for _, ingress := range p.ingress {
+			failures = append(failures, ingress.Close())
 		}
-		return nil
+		p.ingress = nil
+		if p.instance != nil {
+			failures = append(failures, p.instance.Close())
+			p.instance = nil
+		}
+		return errors.Join(failures...)
 	}
 	if p.instance != nil {
 		return nil
@@ -364,7 +392,20 @@ func (p *peer) setRunning(running bool) error {
 	if err != nil {
 		return err
 	}
+	var ingress []*tcpIngress
+	for i, port := range []int{p.manifest.TCPPort, p.manifest.XHTTPPort} {
+		listener, err := net.Listen("tcp4", net.JoinHostPort(p.options.BindHost, fmt.Sprint(port)))
+		if err != nil {
+			for _, opened := range ingress {
+				_ = opened.Close()
+			}
+			_ = instance.Close()
+			return err
+		}
+		ingress = append(ingress, startTCPIngress(listener, p.backends[i]))
+	}
 	p.instance = instance
+	p.ingress = ingress
 	return nil
 }
 
