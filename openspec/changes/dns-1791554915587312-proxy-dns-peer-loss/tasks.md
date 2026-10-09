@@ -20,4 +20,4 @@ Run :core:service:testDebugUnitTest, :core:service:lintDebug, staticAnalysis, fu
 
 ## Execution follow-up
 
-- [ ] DNS-1791563728410933 Preserve local proxy endpoint failover from consumed upstream evidence #bug !high @item:DNS-1791554915587312
+- [x] DNS-1791563728410933 Preserve local proxy endpoint failover from consumed upstream evidence #bug !high @item:DNS-1791554915587312
