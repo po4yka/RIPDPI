@@ -23,6 +23,7 @@ import androidx.compose.ui.test.swipeRight
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.ui.components.EnableKeyboardInput
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -125,6 +126,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `keyboard confirms before disconnection`() {
         var deactivations = 0
         composeRule.setActuator(
+            keyboardInput = true,
             state = actuatorState(HomeConnectionActuatorStatus.Locked),
             onDeactivate = { deactivations++ },
         )
@@ -143,6 +145,7 @@ class RipDpiConnectionActuatorInteractionTest {
         lateinit var view: View
         var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Locked))
         composeRule.setContent {
+            EnableKeyboardInput()
             view = LocalView.current
             RipDpiTheme {
                 RipDpiConnectionActuator(
@@ -169,10 +172,42 @@ class RipDpiConnectionActuatorInteractionTest {
     }
 
     @Test
+    fun `held enter repeat commits the connection callback once`() {
+        var activations = 0
+        lateinit var view: View
+        composeRule.setContent {
+            EnableKeyboardInput()
+            view = LocalView.current
+            RipDpiTheme {
+                RipDpiConnectionActuator(
+                    state = actuatorState(HomeConnectionActuatorStatus.Open),
+                    onActivate = { activations++ },
+                    onDeactivate = {},
+                    testTag = RipDpiTestTags.ConnectionActuatorButton,
+                )
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).requestFocus()
+        composeRule.runOnIdle {
+            view.dispatchKeyEvent(AndroidKeyEvent(AndroidKeyEvent.ACTION_DOWN, AndroidKeyEvent.KEYCODE_ENTER))
+            view.dispatchKeyEvent(
+                AndroidKeyEvent(0L, 100L, AndroidKeyEvent.ACTION_DOWN, AndroidKeyEvent.KEYCODE_ENTER, 1),
+            )
+            view.dispatchKeyEvent(
+                AndroidKeyEvent(0L, 200L, AndroidKeyEvent.ACTION_DOWN, AndroidKeyEvent.KEYCODE_ENTER, 2),
+            )
+            assertEquals(0, activations)
+            view.dispatchKeyEvent(AndroidKeyEvent(AndroidKeyEvent.ACTION_UP, AndroidKeyEvent.KEYCODE_ENTER))
+            assertEquals(1, activations)
+        }
+    }
+
+    @Test
     fun `canceled key release cannot connect`() {
         var activations = 0
         lateinit var view: View
         composeRule.setContent {
+            EnableKeyboardInput()
             view = LocalView.current
             RipDpiTheme {
                 RipDpiConnectionActuator(

@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -146,7 +145,6 @@ fun RipDpiButton(
                 .clip(shape)
                 .background(animatedContainerColor, shape)
                 .border(width = state.borderWidth, color = animatedBorderColor, shape = shape)
-                .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
                     enabled = isInteractive,
                     role = Role.Button,

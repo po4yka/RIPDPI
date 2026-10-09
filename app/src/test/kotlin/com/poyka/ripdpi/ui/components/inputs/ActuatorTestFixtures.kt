@@ -11,6 +11,7 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
+import com.poyka.ripdpi.ui.components.EnableKeyboardInput
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -22,8 +23,10 @@ internal fun ComposeContentTestRule.setActuator(
     state: HomeConnectionActuatorUiState,
     onActivate: () -> Unit = {},
     onDeactivate: () -> Unit = {},
+    keyboardInput: Boolean = false,
 ) {
     setContent {
+        if (keyboardInput) EnableKeyboardInput()
         RipDpiTheme {
             RipDpiConnectionActuator(
                 state = state,
