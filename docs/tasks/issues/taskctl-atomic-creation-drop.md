@@ -24,8 +24,9 @@ Keep task planning and duplicate-plan closure valid during local acceptance. Inv
 - Reject invalid parents and missing pinned tools before allocation or file creation.
 - Record only the dropped task's owned execution IDs.
 - Regenerate an affected drop receipt through taskctl while preserving terminal content hashes and validating the full portfolio.
+- Accept only the pinned OpenSpec zero-checkbox warning for dropped execution with valid terminal receipts; keep strict validation for all other results.
 - Run the complete taskctl test suite and repository task contracts.
 
 ## Ownership and evidence
 
-Coordinator owns scripts/tasks/taskctl.py, scripts/tests/test_taskctl.py, this task, and the generated board in its isolated worktree. Initial regressions failed before the fix. All 36 taskctl tests pass after the fix. Local logs are retained in build/acceptance/session-20261009/taskctl-regression-*.log. Independent review is required before commit.
+Coordinator owns scripts/tasks/taskctl.py, scripts/tests/test_taskctl.py, this task, and the generated board in its isolated worktree. Initial regressions failed before the fix. All 36 initial taskctl tests pass after the first fix. A dropped OpenSpec plan then exposed the pinned tool's zero-checkbox warning. The full suite now has 38 passing tests, including rejection paths for active changes, other issues, and malformed output. Local logs are retained in build/acceptance/session-20261009/taskctl-regression-*.log. Independent review is required before commit.

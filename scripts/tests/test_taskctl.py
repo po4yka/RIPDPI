@@ -506,6 +506,62 @@ class TaskctlContractTest(TaskctlFixture):
         self.assertIn("DROPPED:", tasks_text)
         self.assertNotIn("- [x]", tasks_text)
 
+    def dropped_warning(self) -> dict:
+        return {"items": [{"id": "dgn-1786234567890101-change", "type": "change",
+                           "valid": False, "issues": [{"level": "WARNING", "path": "tasks.md",
+                           "message": "This change counts as 0 tasks: no line in its tracked task files is a checkbox, fixture"}]}]}
+
+    def test_dropped_spec_warning_allows_strict_validation_and_verification(self) -> None:
+        self.add_simple_task()
+        self.add_active_spec_task(status="review", done=False)
+        taskctl.command_close_prepare(argparse.Namespace(
+            root=self.root, query="DGN-1786234567890101", outcome="dropped",
+            reason="Duplicate capability.", evidence="Canonical task owns the work."))
+        self.write_board()
+        documents, steps = taskctl.load_state(self.root)
+        def run(command, **kwargs):
+            output = json.dumps(self.dropped_warning()) if "--strict" in command else ""
+            return subprocess.CompletedProcess(command, 1 if output else 0, output)
+        with mock.patch.object(taskctl, "tool_binary", return_value=Path("tool")), mock.patch.object(
+            taskctl, "run_command", side_effect=run
+        ):
+            taskctl.validate_repository(self.root, base=None, upstreams=True)
+            taskctl.verify_task(self.root, next(item for item in documents if item.values["status"] == "dropped"), steps, archive_ready=False)
+
+    def test_dropped_warning_rejects_active_changes_other_issues_and_malformed_results(self) -> None:
+        self.add_active_spec_task(status="review", done=False)
+        documents, _ = taskctl.load_state(self.root)
+        warning = self.dropped_warning()
+        self.assertFalse(taskctl.only_dropped_task_warnings(json.dumps(warning), documents))
+        taskctl.command_close_prepare(argparse.Namespace(
+            root=self.root, query=documents[0].task_id, outcome="dropped",
+            reason="Duplicate capability.", evidence="Canonical task owns the work."))
+        documents, _ = taskctl.load_state(self.root)
+        self.assertTrue(taskctl.only_dropped_task_warnings(json.dumps(warning), documents))
+        variants = ["not-json", "{}", '{"items": []}']
+        for field, value in (("id", "other-change"), ("type", "spec"), ("valid", "false")):
+            payload = self.dropped_warning()
+            payload["items"][0][field] = value
+            variants.append(json.dumps(payload))
+        for field, value in (("level", "ERROR"), ("path", "spec.md"), ("message", "Other warning")):
+            payload = self.dropped_warning()
+            payload["items"][0]["issues"][0][field] = value
+            variants.append(json.dumps(payload))
+        payload = self.dropped_warning()
+        payload["items"][0]["issues"].append({"level": "ERROR", "message": "Invalid spec"})
+        variants.append(json.dumps(payload))
+        payload = self.dropped_warning()
+        payload["items"].append({"valid": False, "type": "change", "id": "other", "issues": []})
+        variants.append(json.dumps(payload))
+        for extra in ({"valid": True}, {"valid": True, "type": "change", "id": "active-change",
+                      "issues": [{"level": "ERROR", "path": "spec.md", "message": "Invalid spec"}]}):
+            payload = self.dropped_warning()
+            payload["items"].append(extra)
+            variants.append(json.dumps(payload))
+        for output in variants:
+            with self.subTest(output=output):
+                self.assertFalse(taskctl.only_dropped_task_warnings(output, documents))
+
     def test_new_rejects_non_epic_parent_before_allocating_or_writing(self) -> None:
         self.add_simple_task()
         args = taskctl.build_parser().parse_args([

@@ -793,12 +793,48 @@ def validate_upstreams(root: Path, documents: list[Document]) -> None:
         openspec = tool_binary(root, "openspec")
         commands = (
             ("schema", "validate", "ripdpi-change", "--json"),
-            ("validate", "--all", "--strict", "--no-interactive"),
+            ("validate", "--all", "--strict", "--no-interactive", "--json"),
         )
         for args in commands:
             result = run_command((str(openspec), *args), root=root)
-            if result.returncode != 0:
+            if result.returncode != 0 and not (
+                args[0] == "validate" and only_dropped_task_warnings(result.stdout or "", documents)
+            ):
                 fail(f"openspec {' '.join(args)} failed:\n{(result.stdout or '').rstrip()}")
+
+
+def only_dropped_task_warnings(output: str, documents: Sequence[Document]) -> bool:
+    # load_state has already checked terminal ownership and close/drop receipts.
+    dropped = {
+        document.values["openspec_change"] for document in documents
+        if document.values["status"] == "dropped" and document.values["spec_mode"] == "required"
+    }
+    try:
+        payload = json.loads(output)
+        items = payload["items"]
+        if not isinstance(items, list) or not items or any(
+            not isinstance(item, dict) or not isinstance(item.get("valid"), bool)
+            or not isinstance(item.get("id"), str) or not item["id"]
+            or item.get("type") not in {"change", "spec"}
+            or not isinstance(item.get("issues"), list)
+            or (item["valid"] and bool(item["issues"])) for item in items
+        ):
+            return False
+        if len({(item["type"], item["id"]) for item in items}) != len(items):
+            return False
+        invalid = [item for item in items if item["valid"] is False]
+        return bool(invalid) and all(
+            item["type"] == "change" and item["id"] in dropped
+            and len(item["issues"]) == 1
+            and item["issues"][0]["level"] == "WARNING"
+            and item["issues"][0]["path"] == "tasks.md"
+            and item["issues"][0]["message"].startswith(
+                "This change counts as 0 tasks: no line in its tracked task files is a checkbox,"
+            )
+            for item in invalid
+        )
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def validate_generated_assets(root: Path) -> None:
@@ -1447,7 +1483,7 @@ def verify_task(root: Path, document: Document, steps: list[Step], *, archive_re
         if execution.parent.parent.name != "archive":
             openspec = tool_binary(root, "openspec")
             result = run_command((str(openspec), "validate", change, "--strict", "--json"), root=root)
-            if result.returncode != 0:
+            if result.returncode != 0 and not only_dropped_task_warnings(result.stdout or "", [document]):
                 fail(f"OpenSpec change {change} is invalid:\n{(result.stdout or '').rstrip()}")
         evidence = evidence_values(execution.parent / "verification.md")
         if archive_ready:
