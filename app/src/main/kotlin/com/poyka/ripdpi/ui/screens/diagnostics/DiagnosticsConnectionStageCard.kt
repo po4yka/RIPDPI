@@ -25,6 +25,13 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private val ProblemStageStates =
+    setOf(
+        ConnectionStageState.FAILED,
+        ConnectionStageState.TIMED_OUT,
+        ConnectionStageState.PARTIAL,
+    )
+
 @Composable
 internal fun DiagnosticsConnectionStageCard(
     scale: DiagnosticsConnectionStageUiModel,
@@ -47,6 +54,26 @@ internal fun DiagnosticsConnectionStageCard(
             wrapLabel = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (!expanded) {
+            if (scale.lanes.any { it.networkScopeUnverified }) {
+                StageText(stringResource(R.string.diagnostics_transfer_scope_unverified))
+            }
+            scale.lanes.forEach { lane ->
+                lane.stages
+                    .firstOrNull {
+                        it.state in ProblemStageStates
+                    }?.let { stopped ->
+                        StageText(
+                            stringResource(lane.kind.labelResource()) + " · " +
+                                stringResource(
+                                    R.string.diagnostics_stages_state,
+                                    stringResource(stopped.stage.labelResource()),
+                                    stringResource(stopped.state.labelResource()),
+                                ),
+                        )
+                    }
+            }
+        }
         if (expanded) {
             Column(
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsConnectionStageLanes),

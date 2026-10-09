@@ -15,6 +15,7 @@ def test_approach_chips_visible(driver):
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
     diag.swipe_to_tools_section()
+    diag.expand_advanced()
     assert diag.is_section_visible("tools"), "Tools section should be visible"
 
     assert diag.is_visible(DiagnosticsPage.APPROACH_MODE_PROFILES), (
@@ -35,6 +36,7 @@ def test_approach_switch_to_strategies(driver):
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
     diag.swipe_to_tools_section()
+    diag.expand_advanced()
     assert diag.is_section_visible("tools"), "Tools section should be visible"
 
     # Switch to strategies mode.

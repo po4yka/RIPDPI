@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">显示测试目标（%1$d）</string>
+    <string name="diagnostics_matrix_catalog_hide">隐藏测试目标</string>
+    <string name="diagnostics_matrix_cohort_coverage">完整响应：%1$d / %2$d 次尝试 · %3$d 个目标</string>
+    <string name="diagnostics_matrix_attempts_show">显示尝试（%1$d）</string>
+    <string name="diagnostics_matrix_attempts_hide">隐藏尝试</string>
+    <string name="diagnostics_probe_check_title">网络检查</string>
+    <string name="diagnostics_probe_result_recorded">已记录观察结果</string>
+    <string name="diagnostics_probe_result_review">查看结果</string>
+    <string name="diagnostics_probe_raw_show">显示技术详情</string>
+    <string name="diagnostics_probe_raw_hide">隐藏技术详情</string>
+</resources>

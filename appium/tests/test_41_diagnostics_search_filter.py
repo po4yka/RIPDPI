@@ -14,6 +14,7 @@ def test_tools_section_actions(driver):
     assert page.is_loaded(), "DiagnosticsPage did not load"
 
     page.swipe_to_tools_section()
+    page.expand_advanced()
 
     page.scroll_incrementally_to(DiagnosticsPage.SAVE_LOGS)
     assert page.is_visible(
@@ -35,6 +36,7 @@ def test_approach_chips_in_tools(driver):
     assert page.is_loaded(), "DiagnosticsPage did not load"
 
     page.swipe_to_tools_section()
+    page.expand_advanced()
 
     assert page.is_visible(
         DiagnosticsPage.APPROACH_MODE_PROFILES

@@ -5,7 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -17,6 +21,8 @@ import com.poyka.ripdpi.activities.SelectiveMatrixAttemptUiModel
 import com.poyka.ripdpi.activities.SelectiveMatrixTargetUiModel
 import com.poyka.ripdpi.activities.toSelectiveMatrixAttempt
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -51,12 +57,30 @@ internal fun SelectiveMatrixInputCard(
                 ),
             behavior = RipDpiTextFieldBehavior(enabled = enabled, singleLine = false),
         )
-        targets.forEach { target ->
-            Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
-                MatrixHeading("${cohortLabel(target.cohort)} · ${target.label}")
-                MatrixText(target.url)
-                MatrixText(stringResource(R.string.diagnostics_matrix_infrastructure, target.infrastructure))
-                MatrixProvenance(target.source, target.sourceDate, target.verifiedAt)
+        var catalogExpanded by rememberSaveable { mutableStateOf(false) }
+        RipDpiButton(
+            text =
+                stringResource(
+                    if (catalogExpanded) {
+                        R.string.diagnostics_matrix_catalog_hide
+                    } else {
+                        R.string.diagnostics_matrix_catalog_show
+                    },
+                    targets.size,
+                ),
+            onClick = { catalogExpanded = !catalogExpanded },
+            variant = RipDpiButtonVariant.Secondary,
+            wrapLabel = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (catalogExpanded) {
+            targets.forEach { target ->
+                Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+                    MatrixHeading("${cohortLabel(target.cohort)} · ${target.label}")
+                    MatrixText(target.url)
+                    MatrixText(stringResource(R.string.diagnostics_matrix_infrastructure, target.infrastructure))
+                    MatrixProvenance(target.source, target.sourceDate, target.verifiedAt)
+                }
             }
         }
     }
@@ -87,8 +111,55 @@ internal fun SelectiveMatrixResultsCard(results: List<DiagnosticsProbeResultUiMo
         }
         groups.forEach { (cohort, rows) ->
             MatrixHeading(cohortLabel(cohort))
-            rows.forEach { attempt -> MatrixAttemptCard(attempt) }
+            MatrixText(
+                stringResource(
+                    R.string.diagnostics_matrix_cohort_coverage,
+                    rows.count {
+                        it.bodyComplete
+                    },
+                    rows.size,
+                    rows.map { it.target }.distinct().size,
+                ),
+            )
+            rows.groupBy { it.target }.forEach { (target, attempts) -> MatrixTargetResults(target, attempts) }
         }
+    }
+}
+
+@Composable
+private fun MatrixTargetResults(
+    target: String,
+    attempts: List<SelectiveMatrixAttemptUiModel>,
+) {
+    var expanded by rememberSaveable(target) { mutableStateOf(false) }
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        MatrixHeading(target)
+        MatrixText(
+            stringResource(
+                R.string.diagnostics_matrix_cohort_coverage,
+                attempts.count {
+                    it.bodyComplete
+                },
+                attempts.size,
+                1,
+            ),
+        )
+        RipDpiButton(
+            text =
+                stringResource(
+                    if (expanded) {
+                        R.string.diagnostics_matrix_attempts_hide
+                    } else {
+                        R.string.diagnostics_matrix_attempts_show
+                    },
+                    attempts.size,
+                ),
+            onClick = { expanded = !expanded },
+            variant = RipDpiButtonVariant.Secondary,
+            wrapLabel = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (expanded) attempts.forEach { MatrixAttemptCard(it) }
     }
 }
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_review_recommendation">Проверить рекомендацию</string>
+    <string name="diagnostics_guided_recheck">Повторить проверку сети</string>
+    <string name="diagnostics_guided_verify_title">Запустить VPN и проверить доступ?</string>
+    <string name="diagnostics_guided_verify_body">VPN запустится с текущими настройками. Затем короткая проверка измерит доступ через VPN. При запуске доступ к сети может временно прерваться.</string>
+    <string name="diagnostics_guided_verify_confirm">Запустить и проверить</string>
+</resources>

@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
@@ -51,6 +52,7 @@ fun DiagnosticsRoute(
     viewModel: DiagnosticsViewModel = hiltViewModel(),
     pcapCaptureViewModel: PcapCaptureViewModel? = null,
     topBarExtraActions: @Composable () -> Unit = {},
+    homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
 ) {
     LaunchedEffect(viewModel) {
         viewModel.initialize()
@@ -70,10 +72,10 @@ fun DiagnosticsRoute(
     DiagnosticsRouteEffects(viewModel, snackbarHostState, callbacks, initialSection)
 
     DiagnosticsScreen(
-        uiState = uiState,
+        uiState = uiState.copy(homeDiagnostics = homeDiagnostics),
         pagerState = pagerState,
         snackbarHostState = snackbarHostState,
-        actions = rememberDiagnosticsScreenActions(viewModel, callbacks, pcapCaptureViewModel),
+        actions = rememberDiagnosticsScreenActions(viewModel, callbacks, pcapCaptureViewModel, homeDiagnostics),
         dpiTools = toolsState.dpiTools,
         cidrWhitelistTool = toolsState.cidrWhitelist,
         ipv4WhitelistTool = toolsState.ipv4Whitelist,
@@ -312,6 +314,7 @@ private fun rememberDiagnosticsScreenActions(
     viewModel: DiagnosticsViewModel,
     callbacks: DiagnosticsRouteCallbacks,
     pcapCaptureViewModel: PcapCaptureViewModel?,
+    homeDiagnostics: HomeDiagnosticsUiState,
 ): DiagnosticsScreenActions =
     DiagnosticsScreenActions(
         onSelectSection = remember(viewModel) { viewModel::selectSection },
@@ -326,7 +329,6 @@ private fun rememberDiagnosticsScreenActions(
         onConfirmSensitiveProfileRun = remember(viewModel) { viewModel::confirmSensitiveProfileRun },
         onDismissSensitiveProfileConsentDialog =
             remember(viewModel) { viewModel::dismissSensitiveProfileConsentDialog },
-        onCancelScan = remember(viewModel) { viewModel::cancelScan },
         onKeepResolverRecommendation = remember(viewModel) { viewModel::keepResolverRecommendationForSession },
         onSaveResolverRecommendation = remember(viewModel) { viewModel::saveResolverRecommendation },
         onSelectSession = remember(viewModel) { viewModel::selectSession },
@@ -350,19 +352,6 @@ private fun rememberDiagnosticsScreenActions(
         onShareSummary = remember(viewModel) { viewModel::shareSummary },
         onShareArchive = remember(viewModel) { viewModel::shareArchive },
         onSaveArchive = remember(viewModel) { viewModel::saveArchive },
-        onSaveLogs = callbacks.onSaveLogs,
-        onOpenLogs = callbacks.onOpenLogs,
-        onOpenConnectionHealth = callbacks.onOpenConnectionHealth,
-        onOpenAdvancedSettings = callbacks.onOpenAdvancedSettings,
-        onOpenDnsSettings = callbacks.onOpenDnsSettings,
-        onOpenDetectionCheck = callbacks.onOpenDetectionCheck,
-        onRequestVpnPermission = callbacks.onRequestVpnPermission,
-        onOpenHistory = callbacks.onOpenHistory,
-        onOpenModeEditor = callbacks.onOpenModeEditor,
-        onApplyRecommendedPath = callbacks.onOpenModeEditor,
-        onOpenOwnedStackBrowser = callbacks.onOpenOwnedStackBrowser,
-        onOpenPcapCaptureList = callbacks.onOpenPcapCaptureList,
-        onOpenPastReplays = callbacks.onOpenPastReplays,
         onTogglePcapRecording = rememberPcapToggleAction(viewModel, pcapCaptureViewModel),
         onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
         onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
@@ -390,7 +379,7 @@ private fun rememberDiagnosticsScreenActions(
         onRunXrayProviderProbe = remember(viewModel) { viewModel::runXrayProviderProbe },
         onRunRemoteDeviceAcceptance = remember(viewModel) { viewModel::runRemoteDeviceAcceptance },
         onShareRemoteDeviceAcceptance = remember(viewModel) { viewModel::shareRemoteDeviceAcceptance },
-    )
+    ).withNavigationCallbacks(viewModel, callbacks, homeDiagnostics)
 
 @Composable
 private fun rememberPcapToggleAction(
@@ -444,4 +433,8 @@ data class DiagnosticsRouteCallbacks(
     val onOpenPcapCaptureList: () -> Unit = {},
     val onOpenPastReplays: () -> Unit = {},
     val onInitialSectionHandled: () -> Unit = {},
+    val onCancelHomeAnalysis: () -> Unit = {},
+    val onCheckNetwork: () -> Unit = {},
+    val onStartVerifiedVpn: () -> Unit = {},
+    val onDismissVerification: () -> Unit = {},
 )

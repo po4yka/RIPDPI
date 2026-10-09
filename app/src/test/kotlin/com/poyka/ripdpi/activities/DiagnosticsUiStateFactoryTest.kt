@@ -33,6 +33,33 @@ class DiagnosticsUiStateFactoryTest {
         )
 
     @Test
+    fun `saved persona controls diagnostics disclosure after projection`() {
+        val input = diagnosticsUiStateInput(emptyList())
+        val guided =
+            factory.buildUiState(
+                input.copy(
+                    settings =
+                        input.settings
+                            .toBuilder()
+                            .setUiPersona("simple")
+                            .build(),
+                ),
+            )
+        val advanced =
+            factory.buildUiState(
+                input.copy(
+                    settings =
+                        input.settings
+                            .toBuilder()
+                            .setUiPersona("advanced")
+                            .build(),
+                ),
+            )
+        assertEquals("simple", guided.toScreenUiState().uiPersona)
+        assertEquals("advanced", advanced.toScreenUiState().uiPersona)
+    }
+
+    @Test
     fun `overview exposes recent background automatic probe when newer than manual sessions`() {
         val uiState =
             factory.buildUiState(

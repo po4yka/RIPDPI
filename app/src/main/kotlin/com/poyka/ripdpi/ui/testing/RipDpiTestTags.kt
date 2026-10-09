@@ -338,6 +338,7 @@ internal object RipDpiTestTags {
     const val DiagnosticsScanStateProgress = "diagnostics-scan-state-progress"
     const val DiagnosticsScanStateContent = "diagnostics-scan-state-content"
     const val DiagnosticsScanProgressCard = "diagnostics-scan-progress-card"
+    const val DiagnosticsExpertToggle = "diagnostics-expert-toggle"
     const val DiagnosticsScanRunRawAction = "diagnostics-scan-run-raw"
     const val DiagnosticsScanRunInPathAction = "diagnostics-scan-run-in-path"
     const val DiagnosticsScanCancelAction = "diagnostics-scan-cancel"

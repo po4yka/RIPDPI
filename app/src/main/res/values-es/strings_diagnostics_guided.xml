@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_review_recommendation">Revisar recomendación</string>
+    <string name="diagnostics_guided_recheck">Volver a comprobar esta red</string>
+    <string name="diagnostics_guided_verify_title">¿Iniciar VPN y comprobar el acceso?</string>
+    <string name="diagnostics_guided_verify_body">La VPN se inicia con tu configuración actual. Después, una comprobación breve mide el acceso a través de la VPN. El acceso a la red puede interrumpirse durante el inicio.</string>
+    <string name="diagnostics_guided_verify_confirm">Iniciar y comprobar</string>
+</resources>

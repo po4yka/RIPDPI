@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">Показать цели проверки (%1$d)</string>
+    <string name="diagnostics_matrix_catalog_hide">Скрыть цели проверки</string>
+    <string name="diagnostics_matrix_cohort_coverage">Полные ответы: %1$d / %2$d попыток · целей: %3$d</string>
+    <string name="diagnostics_matrix_attempts_show">Показать попытки (%1$d)</string>
+    <string name="diagnostics_matrix_attempts_hide">Скрыть попытки</string>
+    <string name="diagnostics_probe_check_title">Проверка сети</string>
+    <string name="diagnostics_probe_result_recorded">Наблюдение сохранено</string>
+    <string name="diagnostics_probe_result_review">Проверьте результат</string>
+    <string name="diagnostics_probe_raw_show">Показать технические детали</string>
+    <string name="diagnostics_probe_raw_hide">Скрыть технические детали</string>
+</resources>

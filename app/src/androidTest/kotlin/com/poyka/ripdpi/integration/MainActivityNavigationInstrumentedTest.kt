@@ -2,6 +2,9 @@ package com.poyka.ripdpi.integration
 
 import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -15,6 +18,7 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsSection
+import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
@@ -127,6 +131,7 @@ private fun navigationSettings(
     AppSettings
         .newBuilder()
         .setOnboardingComplete(onboardingComplete)
+        .setUiPersona("simple")
         .setBiometricEnabled(biometricEnabled)
         .setRipdpiMode("vpn")
         .setDiagnosticsActiveProfileId(NavigationProfileId)
@@ -161,6 +166,19 @@ private fun AndroidComposeTestRule<*, MainActivity>.waitForTag(
         runCatching {
             onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
         }.getOrDefault(false)
+    }
+}
+
+private fun AndroidComposeTestRule<*, MainActivity>.scrollToTag(tag: String) {
+    onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(tag))
+}
+
+private fun AndroidComposeTestRule<*, MainActivity>.waitForActionLabel(
+    tag: String,
+    label: String,
+) {
+    waitUntil(timeoutMillis = 5_000) {
+        onAllNodes(hasTestTag(tag).and(hasText(label))).fetchSemanticsNodes().isNotEmpty()
     }
 }
 
@@ -475,6 +493,8 @@ class MainActivityNavigationInstrumentedTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Tools))
             .performClick()
+        composeRule.waitForTag(RipDpiTestTags.DiagnosticsExpertToggle)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsExpertToggle).performClick()
         composeRule.waitForTag(
             RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles),
         )
@@ -488,42 +508,41 @@ class MainActivityNavigationInstrumentedTest {
         assumeTrue("githubSimple only", BuildConfig.APP_EXPERIENCE == "simple")
         val runs = diagnosticsHomeCompositeRunService as StubInstrumentedDiagnosticsHomeCompositeRunService
         val host = mainActivityHost as RecordingMainActivityHost
-        val runAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
+        val fullRunAction = RipDpiTestTags.HomeDiagnosticsRunAnalysis
+        val quickOrStopAction = RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name)
 
-        composeRule.waitForTag(runAction)
-        composeRule.onNodeWithTag(runAction).performClick()
+        composeRule.scrollToTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).performClick()
+        composeRule.scrollToTag(quickOrStopAction)
+        composeRule
+            .onNodeWithTag(quickOrStopAction)
+            .assertTextEquals(stringResolver.getString(R.string.home_diagnostics_quick_scan))
+            .assertIsEnabled()
+            .performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 1 }
-        val cancelLabel = composeRule.activity.getString(R.string.diagnostics_action_cancel)
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule
-                .onAllNodes(hasTestTag(runAction).and(hasText(cancelLabel)))
-                .fetchSemanticsNodes()
-                .isNotEmpty()
-        }
-
         val cancelledRunId = runs.startedRunIds.single()
-        composeRule.onNodeWithTag(runAction).performClick()
+        assertTrue("Quick Scan must start the quick pipeline", cancelledRunId.startsWith("test-quick-run-"))
+        val cancelLabel = stringResolver.getString(R.string.diagnostics_action_cancel)
+        composeRule.waitForActionLabel(quickOrStopAction, cancelLabel)
+        composeRule.scrollToTag(fullRunAction)
+        composeRule.onNodeWithTag(fullRunAction).assertIsNotEnabled()
+        composeRule.scrollToTag(quickOrStopAction)
+        composeRule.onNodeWithTag(quickOrStopAction).assertIsEnabled().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runs.cancelledRunIds == listOf(cancelledRunId)
         }
-        val runLabelId =
-            composeRule.activity.resources.getIdentifier(
-                "simple_run_report",
-                "string",
-                composeRule.activity.packageName,
-            )
-        assertTrue("simple_run_report resource is missing", runLabelId != 0)
-        val runLabel = composeRule.activity.getString(runLabelId)
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule
-                .onAllNodes(hasTestTag(runAction).and(hasText(runLabel)))
-                .fetchSemanticsNodes()
-                .isNotEmpty()
-        }
+        val quickLabel = stringResolver.getString(R.string.home_diagnostics_quick_scan)
+        composeRule.waitForActionLabel(quickOrStopAction, quickLabel)
 
-        composeRule.onNodeWithTag(runAction).performClick()
+        composeRule.scrollToTag(fullRunAction)
+        composeRule
+            .onNodeWithTag(fullRunAction)
+            .assertTextEquals(composeRule.activity.getString(R.string.home_diagnostics_run_analysis))
+            .assertIsEnabled()
+            .performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 2 }
         val completedRunId = runs.startedRunIds.last()
+        assertTrue("Full Analysis must start the full pipeline", completedRunId.startsWith("test-run-"))
         runs.completeRun(
             DiagnosticsHomeCompositeOutcome(
                 runId = completedRunId,

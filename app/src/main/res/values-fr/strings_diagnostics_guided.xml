@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_review_recommendation">Examiner la recommandation</string>
+    <string name="diagnostics_guided_recheck">Vérifier à nouveau ce réseau</string>
+    <string name="diagnostics_guided_verify_title">Démarrer le VPN et vérifier l’accès ?</string>
+    <string name="diagnostics_guided_verify_body">Le VPN démarre avec vos paramètres actuels. Une vérification rapide mesure ensuite l’accès via le VPN. L’accès au réseau peut être interrompu au démarrage.</string>
+    <string name="diagnostics_guided_verify_confirm">Démarrer et vérifier</string>
+</resources>

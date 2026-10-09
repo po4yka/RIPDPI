@@ -67,48 +67,34 @@ internal fun CompactProbeRow(
     probe: DiagnosticsProbeResultUiModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    expertMode: Boolean = true,
 ) {
-    Row(
+    Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .heightIn(min = ProbeRowMinHeightDp.dp)
                 .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = RipDpiThemeTokens.spacing.sm),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text =
-                    probe.pmtu?.title ?: probe.http3?.title
-                        ?: if (probe.ipFamily !=
-                            null
-                        ) {
-                            stringResource(R.string.diagnostics_ip_title)
-                        } else {
-                            probe.probeType
-                        },
+                text = diagnosticProbeTitle(probe, expertMode),
                 style = RipDpiThemeTokens.type.smallLabel,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
         StatusIndicator(
-            label =
-                (probe.pmtu ?: probe.http3 ?: probe.ipFamily)
-                    ?.fields
-                    ?.firstOrNull()
-                    ?.value ?: probe.outcome,
+            label = diagnosticProbeOutcome(probe, expertMode),
             tone = statusTone(probe.tone),
         )
     }

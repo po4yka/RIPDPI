@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +29,8 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -58,11 +62,31 @@ internal fun ScanSection(
     onOpenHistory: () -> Unit,
     onOpenModeEditor: () -> Unit,
     onOpenOwnedStackBrowser: (String) -> Unit,
+    onSelectSession: (String) -> Unit = {},
+    expertMode: Boolean = true,
+    compositeRunBusy: Boolean = false,
+    admissionBusy: Boolean = false,
 ) {
     TrackRecomposition("ScanSection")
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
+    val cancellationAvailable = scan.activeProgress != null || compositeRunBusy
+    val effectiveBusy = scan.isBusy || cancellationAvailable || admissionBusy
+    val workflowScan =
+        scan.copy(
+            isBusy = cancellationAvailable,
+            runRawEnabled = scan.runRawEnabled && !effectiveBusy,
+            runInPathEnabled = scan.runInPathEnabled && !effectiveBusy,
+            workflowPresentation =
+                if (effectiveBusy &&
+                    scan.activeProgress == null
+                ) {
+                    null
+                } else {
+                    scan.workflowPresentation
+                },
+        )
     val selectedProfile = scan.selectedProfile
     val strategyProbeSelected = selectedProfile?.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE
     // Memoize the reversed + truncated live-probe preview: during an active scan the
@@ -80,6 +104,13 @@ internal fun ScanSection(
                 ?.take(LiveProbePreviewCount)
                 .orEmpty()
         }
+    val visibleResults =
+        remember(scan.latestResults, expertMode) {
+            scan.latestResults.filter {
+                expertMode ||
+                    !it.probeType.startsWith("selective_availability")
+            }
+        }
     val scanStateTag =
         when {
             scan.activeProgress != null -> RipDpiTestTags.DiagnosticsScanStateProgress
@@ -96,7 +127,10 @@ internal fun ScanSection(
         com.poyka.ripdpi.ui.components.profiles
             .rememberProfileSearchState()
     var showProfilePicker by rememberSaveable { mutableStateOf(false) }
-    if (showProfilePicker) {
+    LaunchedEffect(effectiveBusy) {
+        if (effectiveBusy) showProfilePicker = false
+    }
+    if (showProfilePicker && !effectiveBusy) {
         ProfileSelectionBottomSheet(
             profiles = scan.profiles,
             selectedProfileId = scan.selectedProfileId,
@@ -125,7 +159,8 @@ internal fun ScanSection(
         item {
             CompactProfileRow(
                 profile = scan.selectedProfile,
-                onChangeProfile = { showProfilePicker = true },
+                onChangeProfile = { if (!effectiveBusy) showProfilePicker = true },
+                enabled = !effectiveBusy,
             )
         }
         selectedProfile?.takeIf { it.regionTag?.equals("ru", ignoreCase = true) == true }?.let {
@@ -147,22 +182,11 @@ internal fun ScanSection(
                 )
             }
         }
-        if (selectedProfile?.id == com.poyka.ripdpi.activities.SelectiveMatrixProfileId) {
-            item {
-                SelectiveMatrixInputCard(
-                    input = scan.selectiveMatrixHostsInput,
-                    targets = scan.selectiveMatrixTargets,
-                    valid = scan.selectiveMatrixInputValid,
-                    enabled = !scan.isBusy,
-                    onInputChanged = onSelectiveMatrixHostsChanged,
-                )
-            }
-        }
         selectedProfile?.let { profile ->
             item {
                 DiagnosticsScanWorkflowCard(
                     profile = profile,
-                    scan = scan,
+                    scan = workflowScan,
                     strategyProbeSelected = strategyProbeSelected,
                     isFullAudit = profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
                     onRunRawScan = onRunRawScan,
@@ -175,6 +199,27 @@ internal fun ScanSection(
                     onOpenModeEditor = onOpenModeEditor,
                     onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                     modifier = Modifier.ripDpiTestTag(scanStateTag),
+                )
+            }
+        }
+        if (selectedProfile == null && cancellationAvailable) {
+            item {
+                RipDpiButton(
+                    text = stringResource(R.string.diagnostics_action_cancel),
+                    onClick = onCancelScan,
+                    variant = RipDpiButtonVariant.Destructive,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
+                )
+            }
+        }
+        if (selectedProfile?.id == com.poyka.ripdpi.activities.SelectiveMatrixProfileId) {
+            item {
+                SelectiveMatrixInputCard(
+                    input = scan.selectiveMatrixHostsInput,
+                    targets = scan.selectiveMatrixTargets,
+                    valid = scan.selectiveMatrixInputValid,
+                    enabled = !effectiveBusy,
+                    onInputChanged = onSelectiveMatrixHostsChanged,
                 )
             }
         }
@@ -233,7 +278,7 @@ internal fun ScanSection(
                 )
                 SessionRow(
                     session = session,
-                    onClick = null,
+                    onClick = { onSelectSession(session.id) },
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
                 )
             }
@@ -252,7 +297,7 @@ internal fun ScanSection(
         scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->
             item { DiagnosticsTransferCard(transfer = transfer) }
         }
-        if (scan.latestResults.isNotEmpty()) {
+        if (visibleResults.isNotEmpty()) {
             item {
                 val sectionTitle =
                     if (strategyProbeSelected) {
@@ -266,10 +311,10 @@ internal fun ScanSection(
                             stringResource(
                                 R.string.diagnostics_results_section_count,
                                 sectionTitle,
-                                scan.latestResults.size,
+                                visibleResults.size,
                             ),
                     )
-                    scan.latestResults.forEach { probe ->
+                    visibleResults.forEach { probe ->
                         if (probe.probeType == "telegram_availability") {
                             TelegramResultCard(
                                 probe = probe,
@@ -279,6 +324,7 @@ internal fun ScanSection(
                         } else {
                             CompactProbeRow(
                                 probe = probe,
+                                expertMode = expertMode,
                                 onClick = { onSelectProbe(probe) },
                                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
                             )

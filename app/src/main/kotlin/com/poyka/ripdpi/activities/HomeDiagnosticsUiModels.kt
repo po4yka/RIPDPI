@@ -41,6 +41,7 @@ data class HomeDiagnosticsLatestAuditUiState(
     val directModeReasonCode: DirectModeReasonCode? = null,
     val directTransportClass: DirectTransportClass? = null,
     val transportRemediationEvidence: TransportRemediationEvidence = TransportRemediationEvidence(),
+    val comparisonSummary: String? = null,
 )
 
 enum class AnalysisStageStatus {

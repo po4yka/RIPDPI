@@ -251,36 +251,6 @@ class MainHomeDiagnosticsActionsTest {
         }
 
     @Test
-    fun `start verified vpn blocks stale composite results`() =
-        runTest {
-            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
-            val homeWorkflowService = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = "fp-2" }
-            val homeDiagnosticsState =
-                MutableStateFlow(
-                    HomeDiagnosticsRuntimeState(
-                        latestCompositeOutcome = compositeOutcome(fingerprintHash = "fp-1"),
-                        currentFingerprintHash = "fp-1",
-                    ),
-                )
-            var vpnStartRequests = 0
-            val actions =
-                createActions(
-                    scope = this,
-                    effects = effects,
-                    diagnosticsHomeWorkflowService = homeWorkflowService,
-                    homeDiagnosticsState = homeDiagnosticsState,
-                    requestVpnStart = { vpnStartRequests += 1 },
-                )
-
-            actions.startVerifiedVpn()
-            advanceUntilIdle()
-
-            assertEquals(0, vpnStartRequests)
-            assertFalse(homeDiagnosticsState.value.waitingForVerifiedVpnStart)
-            assertNull(homeDiagnosticsState.value.verificationSheet)
-        }
-
-    @Test
     fun `verified vpn flow surfaces hidden probe conflicts`() =
         runTest {
             val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
@@ -911,6 +881,89 @@ class MainHomeDiagnosticsConcurrencyTest {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
+class MainHomeVerifiedVpnAdmissionTest {
+    @get:Rule val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `start verified vpn blocks stale composite results`() =
+        runTest {
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
+            val homeWorkflowService = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = "fp-2" }
+            val homeDiagnosticsState =
+                MutableStateFlow(
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome = compositeOutcome(fingerprintHash = "fp-1"),
+                        currentFingerprintHash = "fp-1",
+                    ),
+                )
+            var vpnStartRequests = 0
+            val actions =
+                createActions(
+                    scope = this,
+                    effects = effects,
+                    diagnosticsHomeWorkflowService = homeWorkflowService,
+                    homeDiagnosticsState = homeDiagnosticsState,
+                    requestVpnStart = { vpnStartRequests += 1 },
+                )
+
+            actions.startVerifiedVpn()
+            advanceUntilIdle()
+
+            assertEquals(0, vpnStartRequests)
+            assertFalse(homeDiagnosticsState.value.waitingForVerifiedVpnStart)
+            assertNull(homeDiagnosticsState.value.verificationSheet)
+        }
+
+    @Test
+    fun `verified vpn rejects non actionable unknown scope and busy runs`() =
+        runTest {
+            val states =
+                listOf(
+                    HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome(actionable = false)),
+                    HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome(fingerprintHash = null)),
+                    HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome(), activeRunId = "running"),
+                    HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome(), externalScanActive = true),
+                )
+            var requests = 0
+            states.forEach { state ->
+                val actions =
+                    createActions(
+                        scope = this,
+                        homeDiagnosticsState = MutableStateFlow(state),
+                        requestVpnStart = { requests++ },
+                    )
+                actions.startVerifiedVpn()
+                advanceUntilIdle()
+            }
+            assertEquals(0, requests)
+        }
+
+    @Test
+    fun `verified vpn starts matching actionable network only once`() =
+        runTest {
+            var requests = 0
+            val state = MutableStateFlow(HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome()))
+            val actions =
+                createActions(
+                    scope = this,
+                    homeDiagnosticsState = state,
+                    diagnosticsHomeWorkflowService =
+                        StubDiagnosticsHomeWorkflowService().apply {
+                            currentFingerprint =
+                                "fp-1"
+                        },
+                    requestVpnStart = { requests++ },
+                )
+            actions.startVerifiedVpn()
+            actions.startVerifiedVpn()
+            advanceUntilIdle()
+            assertEquals(1, requests)
+            assertTrue(state.value.waitingForVerifiedVpnStart)
+        }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class MainHomeDiagnosticsShareFailureTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -990,7 +1043,7 @@ private fun createActions(
 
 private fun compositeOutcome(
     runId: String = "home-run",
-    fingerprintHash: String = "fp-1",
+    fingerprintHash: String? = "fp-1",
     actionable: Boolean = true,
 ): DiagnosticsHomeCompositeOutcome =
     DiagnosticsHomeCompositeOutcome(

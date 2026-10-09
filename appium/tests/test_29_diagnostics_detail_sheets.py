@@ -32,6 +32,7 @@ def test_diagnostics_approach_detail(driver):
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
     diag.swipe_to_tools_section()
+    diag.expand_advanced()
 
     assert diag.is_section_visible("tools"), (
         "Tools section should be visible after swiping"

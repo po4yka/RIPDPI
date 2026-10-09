@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -11,7 +13,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsTransferRunUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTransferUiModel
@@ -82,6 +88,7 @@ private fun TransferRun(run: DiagnosticsTransferRunUiModel) {
 private fun TransferTimeline(run: DiagnosticsTransferRunUiModel) {
     var expanded by rememberSaveable(run.runIndex) { mutableStateOf(false) }
     if (run.samples.isNotEmpty()) {
+        TransferMeasuredTimeline(run)
         RipDpiButton(
             text =
                 stringResource(
@@ -93,6 +100,7 @@ private fun TransferTimeline(run: DiagnosticsTransferRunUiModel) {
                 ),
             onClick = { expanded = !expanded },
             variant = RipDpiButtonVariant.Secondary,
+            wrapLabel = true,
             modifier = Modifier.fillMaxWidth(),
         )
         if (expanded) {
@@ -145,3 +153,35 @@ internal fun transferReasonResource(reason: String?): Int =
         "http_error" -> R.string.diagnostics_transfer_stop_http
         else -> R.string.diagnostics_transfer_unobserved
     }
+
+@Composable
+private fun TransferMeasuredTimeline(run: DiagnosticsTransferRunUiModel) {
+    val first = run.samples.first()
+    val last = run.samples.last()
+    val firstLabel = stringResource(R.string.diagnostics_transfer_sample, first.elapsedMs, first.bodyByteCount)
+    val lastLabel = stringResource(R.string.diagnostics_transfer_sample, last.elapsedMs, last.bodyByteCount)
+    val description =
+        stringResource(R.string.diagnostics_transfer_timeline_explanation) + " " + firstLabel + " → " + lastLabel
+    val ink = RipDpiThemeTokens.colors.foreground
+    val divider = RipDpiThemeTokens.colors.divider
+    val maxTime = run.elapsedMs.coerceAtLeast(1)
+    val maxBytes = run.receivedBodyByteCount.coerceAtLeast(1)
+    Canvas(Modifier.fillMaxWidth().height(72.dp).semantics { contentDescription = description }) {
+        val inset = 4.dp.toPx()
+        val width = (size.width - 2 * inset).coerceAtLeast(0f)
+        val height = (size.height - 2 * inset).coerceAtLeast(0f)
+        drawLine(divider, Offset(inset, size.height - inset), Offset(size.width - inset, size.height - inset))
+        // Each dot is an observed sample. No expected length or transfer rate is inferred.
+        run.samples.forEach { sample ->
+            drawCircle(
+                ink,
+                2.dp.toPx(),
+                Offset(
+                    inset + width * sample.elapsedMs.toFloat() / maxTime,
+                    size.height - inset - height * sample.bodyByteCount.toFloat() / maxBytes,
+                ),
+            )
+        }
+    }
+    TransferText(firstLabel + " → " + lastLabel)
+}

@@ -941,6 +941,7 @@ data class DiagnosticsUiState(
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
     val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
     val performance: DiagnosticsPerformanceUiModel? = null,
+    val uiPersona: String = "advanced",
 )
 
 sealed interface DiagnosticsEffect {

@@ -103,7 +103,7 @@ private fun resolveHomeDiagnosticsAvailability(
             runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
     val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
     val latestAudit =
-        runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch)
+        runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch, stringResolver)
             ?: runtime.latestManualDiagnosticSession?.toLatestManualScanUiState()
     val busy = analysisBusy || verificationBusy || runtime.externalScanActive
     return HomeDiagnosticsAvailability(
@@ -123,7 +123,9 @@ private fun resolveHomeDiagnosticsAvailability(
             if (analysisBusy) runtime.analysisStageAnnouncement(stringResolver) else "",
         verificationEnabled =
             !busy && appStatus == AppStatus.Halted && connectionState != ConnectionState.Connecting &&
-                runtime.latestCompositeOutcome?.actionable == true && !fingerprintMismatch,
+                connectionState != ConnectionState.Connected &&
+                runtime.latestCompositeOutcome?.actionable == true && !fingerprintMismatch &&
+                runtime.latestCompositeOutcome.fingerprintHash != null && runtime.currentFingerprintHash != null,
         verificationSupportingText =
             resolveVerificationSupportingText(
                 appStatus,
@@ -281,11 +283,13 @@ private fun resolveVerificationSupportingText(
             stringResolver.getString(R.string.home_diagnostics_no_actionable_result)
         }
 
-        fingerprintMismatch -> {
+        fingerprintMismatch || runtime.latestCompositeOutcome.fingerprintHash == null ||
+            runtime.currentFingerprintHash == null -> {
             stringResolver.getString(R.string.home_diagnostics_run_again)
         }
 
-        appStatus == AppStatus.Running || connectionState == ConnectionState.Connected -> {
+        appStatus != AppStatus.Halted || connectionState == ConnectionState.Connected ||
+            connectionState == ConnectionState.Connecting -> {
             stringResolver.getString(R.string.home_diagnostics_disconnect_first)
         }
 
@@ -468,22 +472,33 @@ private fun HomeDnsResolverClass.label(stringResolver: StringResolver): String =
         },
     )
 
-private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(fingerprintMismatch: Boolean) =
-    HomeDiagnosticsLatestAuditUiState(
-        headline = headline,
-        summary = summary,
-        recommendationSummary = recommendationSummary,
-        ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
-        completedStageCount = completedStageCount,
-        failedStageCount = failedStageCount,
-        totalStageCount = stageSummaries.size,
-        stale = fingerprintMismatch,
-        actionable = actionable && !fingerprintMismatch,
-        directModeResult = directModeVerdict?.result,
-        directModeReasonCode = directModeVerdict?.reasonCode,
-        directTransportClass = directModeVerdict?.transportClass,
-        transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
-    )
+private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
+    fingerprintMismatch: Boolean,
+    stringResolver: StringResolver,
+) = HomeDiagnosticsLatestAuditUiState(
+    headline = headline,
+    summary = summary,
+    recommendationSummary = recommendationSummary,
+    ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
+    completedStageCount = completedStageCount,
+    failedStageCount = failedStageCount,
+    totalStageCount = stageSummaries.size,
+    stale = fingerprintMismatch,
+    actionable = actionable && !fingerprintMismatch,
+    directModeResult = directModeVerdict?.result,
+    directModeReasonCode = directModeVerdict?.reasonCode,
+    directTransportClass = directModeVerdict?.transportClass,
+    transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
+    comparisonSummary =
+        regressionDelta?.takeUnless { fingerprintMismatch }?.let {
+            stringResolver.getString(
+                R.string.home_diagnostics_regression_summary,
+                it.newlyFailedStageKeys.size,
+                it.newlyRecoveredStageKeys.size,
+                it.unchangedStageCount,
+            )
+        },
+)
 
 private fun DiagnosticScanSession.toLatestManualScanUiState() =
     HomeDiagnosticsLatestAuditUiState(

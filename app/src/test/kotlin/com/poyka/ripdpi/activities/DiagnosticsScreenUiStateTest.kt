@@ -7,6 +7,11 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 class DiagnosticsScreenUiStateTest {
+    @Test fun `persisted persona reaches rendered diagnostics state`() {
+        assertEquals("simple", DiagnosticsUiState(uiPersona = "simple").toScreenUiState().uiPersona)
+        assertEquals("advanced", DiagnosticsUiState(uiPersona = "advanced").toScreenUiState().uiPersona)
+    }
+
     @Test fun `screen projection excludes historical collections and preserves visible same id changes`() {
         val original = DiagnosticsUiState(events = eventState("before"))
         val changedHistory = original.copy(events = eventState("after"))

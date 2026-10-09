@@ -17,6 +17,8 @@ data class DiagnosticsScreenUiState(
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
     val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
     val performance: DiagnosticsPerformanceUiModel? = null,
+    val uiPersona: String = "advanced",
+    val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
 )
 
 fun DiagnosticsUiState.toScreenUiState(): DiagnosticsScreenUiState =
@@ -33,6 +35,7 @@ fun DiagnosticsUiState.toScreenUiState(): DiagnosticsScreenUiState =
         selectedProbe = selectedProbe,
         selectedStrategyProbeCandidate = selectedStrategyProbeCandidate,
         performance = performance,
+        uiPersona = uiPersona,
     )
 
 /** Value comparisons happen in the single background projection collector, never in composition. */

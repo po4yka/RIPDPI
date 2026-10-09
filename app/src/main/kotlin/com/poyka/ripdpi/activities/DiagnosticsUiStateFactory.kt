@@ -41,6 +41,7 @@ internal class DiagnosticsUiStateFactory
 
             return DiagnosticsUiState(
                 selectedSection = resolvedInput.selectedSection,
+                uiPersona = input.settings.uiPersona,
                 overview =
                     timer.measureOverview {
                         overviewFactory.build(input, resolvedInput, sessionRows)

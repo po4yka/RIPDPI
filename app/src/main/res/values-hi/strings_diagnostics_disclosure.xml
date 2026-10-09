@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">जाँच के लक्ष्य दिखाएँ (%1$d)</string>
+    <string name="diagnostics_matrix_catalog_hide">जाँच के लक्ष्य छिपाएँ</string>
+    <string name="diagnostics_matrix_cohort_coverage">पूर्ण जवाब: %1$d / %2$d प्रयास · %3$d लक्ष्य</string>
+    <string name="diagnostics_matrix_attempts_show">प्रयास दिखाएँ (%1$d)</string>
+    <string name="diagnostics_matrix_attempts_hide">प्रयास छिपाएँ</string>
+    <string name="diagnostics_probe_check_title">नेटवर्क जाँच</string>
+    <string name="diagnostics_probe_result_recorded">अवलोकन सहेजा गया</string>
+    <string name="diagnostics_probe_result_review">परिणाम देखें</string>
+    <string name="diagnostics_probe_raw_show">तकनीकी विवरण दिखाएँ</string>
+    <string name="diagnostics_probe_raw_hide">तकनीकी विवरण छिपाएँ</string>
+</resources>

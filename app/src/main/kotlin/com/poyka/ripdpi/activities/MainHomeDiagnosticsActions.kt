@@ -352,16 +352,17 @@ internal class MainHomeDiagnosticsActions(
     fun startVerifiedVpn() {
         mutations.launch {
             val latestOutcome = homeDiagnosticsState.value.latestCompositeOutcome ?: return@launch
+            if (!canStartVerifiedVpn()) return@launch
             val currentFingerprint = diagnosticsHomeWorkflowService.currentFingerprintHash()
             homeDiagnosticsState.update { it.copy(currentFingerprintHash = currentFingerprint) }
             if (
-                latestOutcome.fingerprintHash != null &&
-                currentFingerprint != null &&
-                latestOutcome.fingerprintHash != currentFingerprint
+                !latestOutcome.matchesKnownNetwork(currentFingerprint) ||
+                homeDiagnosticsState.value.latestCompositeOutcome != latestOutcome
             ) {
                 mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.home_diagnostics_run_again)))
                 return@launch
             }
+            if (!canStartVerifiedVpn()) return@launch
             homeDiagnosticsState.update {
                 it.copy(
                     waitingForVerifiedVpnStart = true,
@@ -371,6 +372,16 @@ internal class MainHomeDiagnosticsActions(
             }
             requestVpnStart()
         }
+    }
+
+    private fun canStartVerifiedVpn(): Boolean {
+        val state = homeDiagnosticsState.value
+        return state.latestCompositeOutcome?.actionable == true && !state.analysisInProgress() &&
+            !state.externalScanActive && !state.waitingForVerifiedVpnStart &&
+            state.activeVerificationSessionId == null &&
+            serviceStateStore.status.value.first == AppStatus.Halted &&
+            runtimeState.value.connectionState != ConnectionState.Connecting &&
+            runtimeState.value.connectionState != ConnectionState.Connected
     }
 
     val exports = MainHomeDiagnosticsExports(mutations, homeDiagnosticsState)
@@ -584,3 +595,6 @@ private fun List<DiagnosticScanSession>.latestCompletedManualDiagnosticSession()
             session.finishedAt != null &&
             session.status.equals("completed", ignoreCase = true)
     }.maxByOrNull { session -> session.finishedAt ?: session.startedAt }
+
+private fun DiagnosticsHomeCompositeOutcome.matchesKnownNetwork(currentFingerprint: String?): Boolean =
+    fingerprintHash?.let { it == currentFingerprint } == true

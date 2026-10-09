@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">Show test targets (%1$d)</string>
+    <string name="diagnostics_matrix_catalog_hide">Hide test targets</string>
+    <string name="diagnostics_matrix_cohort_coverage">Complete responses: %1$d / %2$d attempts · %3$d targets</string>
+    <string name="diagnostics_matrix_attempts_show">Show attempts (%1$d)</string>
+    <string name="diagnostics_matrix_attempts_hide">Hide attempts</string>
+    <string name="diagnostics_probe_check_title">Network check</string>
+    <string name="diagnostics_probe_result_recorded">Observation recorded</string>
+    <string name="diagnostics_probe_result_review">Review result</string>
+    <string name="diagnostics_probe_raw_show">Show technical details</string>
+    <string name="diagnostics_probe_raw_hide">Hide technical details</string>
+</resources>

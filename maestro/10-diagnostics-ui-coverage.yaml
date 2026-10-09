@@ -23,6 +23,8 @@ appId: com.poyka.ripdpi
     id: "diagnostics-scan-run-in-path"
 - tapOn:
     id: "diagnostics-section-tools"
+- tapOn:
+    id: "diagnostics-expert-toggle"
 - assertVisible:
     id: "diagnostics-share-archive"
 - assertVisible:
