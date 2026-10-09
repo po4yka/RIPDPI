@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
@@ -515,9 +516,9 @@ class MainActivityNavigationInstrumentedTest {
                 composeRule.activity.packageName,
             )
         assertTrue("Simple report label resource must exist", reportLabelId != 0)
-        val reportLabel = stringResolver.getString(reportLabelId)
+        val reportLabel = composeRule.activity.getString(reportLabelId)
 
-        composeRule.scrollToTag(fullRunAction)
+        composeRule.onNodeWithTag(fullRunAction).performScrollTo()
         composeRule
             .onNodeWithTag(fullRunAction)
             .assertTextEquals(reportLabel)
@@ -526,16 +527,16 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.waitUntil(timeoutMillis = 5_000) { runs.startedRunIds.size == 1 }
         val cancelledRunId = runs.startedRunIds.single()
         assertTrue("Report must start the full pipeline", cancelledRunId.startsWith("test-run-"))
-        val cancelLabel = stringResolver.getString(R.string.diagnostics_action_cancel)
+        val cancelLabel = composeRule.activity.getString(R.string.diagnostics_action_cancel)
         composeRule.waitForActionLabel(fullRunAction, cancelLabel)
-        composeRule.scrollToTag(fullRunAction)
+        composeRule.onNodeWithTag(fullRunAction).performScrollTo()
         composeRule.onNodeWithTag(fullRunAction).assertIsEnabled().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runs.cancelledRunIds == listOf(cancelledRunId)
         }
         composeRule.waitForActionLabel(fullRunAction, reportLabel)
 
-        composeRule.scrollToTag(fullRunAction)
+        composeRule.onNodeWithTag(fullRunAction).performScrollTo()
         composeRule
             .onNodeWithTag(fullRunAction)
             .assertTextEquals(reportLabel)
