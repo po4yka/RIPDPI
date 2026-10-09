@@ -10,7 +10,7 @@ Android: core/service protect server, VPN session module and lifecycle, active p
 
 ## Execution
 
-- [ ] SVC-1791570737195239 Reproduce overlapping endpoint and registration ownership with observed failures #bug !high @item:SVC-1791570478587374
+- [x] SVC-1791570737195239 Reproduce overlapping endpoint and registration ownership with observed failures #bug !high @item:SVC-1791570478587374
 - [ ] SVC-1791570737996972 Preserve per-session protection ownership and pass local compatibility gates #bug !high @item:SVC-1791570478587374
 - [ ] SVC-1791570738877357 Verify clean Android catalog repeats and exact published CI #bug !high @item:SVC-1791570478587374
 

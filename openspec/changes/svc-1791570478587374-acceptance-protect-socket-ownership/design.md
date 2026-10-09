@@ -21,7 +21,7 @@ The c2a runtime proves overlapping listener and old-stop windows, TCP empty EOF,
 
 ## Contracts and ownership
 
-- Android owns :core:service VpnProtectSocketServer, VpnServiceSessionModule, ActiveProtectSocketPathProvider, VpnNativeProtectRegistration, VpnServiceSessionLifecycle, ConnectionPolicyRuntimeContextAssembler, and their tests. Existing Android E2E tests may record privacy-safe endpoint presence and failure errno if needed.
+- Android owns :core:service VpnProtectSocketServer, VpnServiceSessionModule, ActiveProtectSocketPathProvider, VpnNativeProtectRegistration, VpnServiceSessionLifecycle, ConnectionPolicyRuntimeContextAssembler, DefaultConnectionPolicyResolver wiring, and their tests. Existing Android E2E tests may record privacy-safe endpoint presence and failure errno if needed.
 - Android also owns core/service/src/testFixtures/kotlin/com/poyka/ripdpi/services/ProtectSocketOwnershipProbe.kt, app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/ProtectSocketOwnershipInstrumentedTest.kt, and one app/build.gradle.kts androidTestImplementation(testFixtures(project(":core:service"))) line. This reuses the existing repository test fixture dependency and adds no production dependency.
 - The actual probe uses production path allocation in an isolated task directory, real LocalSocket/SCM_RIGHTS, and the active VpnService.protect callback. It does not replace routing, protection, or the live VPN endpoint. Extracting the current allocator into an internal function preserves its old behavior for the actual pre-fix probe.
 - The coordinator owns this task and all OpenSpec artifacts. Linux and the reviewer inspect without source writes.
