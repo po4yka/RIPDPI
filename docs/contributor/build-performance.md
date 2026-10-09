@@ -158,16 +158,17 @@ Keep Gradle workers and Cargo/CMake jobs at or below four; Rust release or LTO
 compilation uses at most two jobs. Set tool limits explicitly: Gradle's
 `--max-workers` does not bound child Cargo processes. The [native build policy](../../build-logic/convention/src/main/kotlin/NativeBuildPolicy.kt)
 distributes `ripdpi.nativeCpuBudget` across ABI workers and passes an explicit
-Cargo job count, so set that property as well as the environment limits.
+Cargo job count. Android native tasks reject ambient `CARGO_BUILD_JOBS`.
+Use the Gradle property for Android builds and `--jobs` for direct Cargo builds.
 
 ```sh
 # Local debug; use the per-user heap overrides described above.
-CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 \
-  build-gate -- ./gradlew :app:assembleDebug --max-workers=4 -Pripdpi.nativeCpuBudget=4
+CMAKE_BUILD_PARALLEL_LEVEL=4 \
+  build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleDebug --max-workers=4 -Pripdpi.nativeCpuBudget=4
 
 # Release/LTO: cap the combined native ABI budget at two.
-CARGO_BUILD_JOBS=2 CMAKE_BUILD_PARALLEL_LEVEL=2 \
-  build-gate -- ./gradlew :app:assembleRelease --max-workers=4 -Pripdpi.nativeCpuBudget=2
+CMAKE_BUILD_PARALLEL_LEVEL=2 \
+  build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleRelease --max-workers=4 -Pripdpi.nativeCpuBudget=2
 ```
 
 For direct Cargo commands, retain `--locked` whenever dependencies resolve and
@@ -224,7 +225,8 @@ After changing any committed knob:
 
 ```bash
 set -o pipefail
-export CARGO_BUILD_JOBS=2 CMAKE_BUILD_PARALLEL_LEVEL=2
+unset CARGO_BUILD_JOBS
+export CMAKE_BUILD_PARALLEL_LEVEL=2
 
 # Property propagation + parallel CC active.
 build-gate -- ./gradlew help --info --max-workers=4 -Pripdpi.nativeCpuBudget=2 \
