@@ -1,7 +1,7 @@
 {
-  "maxPerLibraryGrowthBytes": 131072,
+  "maxPerLibraryGrowthBytes": 393216,
   "maxTotalGrowthPercent": 2.0,
-  "maxTotalGrowthBytes": 262144,
+  "maxTotalGrowthBytes": 1572864,
   "libraries": {
     "arm64-v8a": {
       "libripdpi-tunnel.so": 8834528,
@@ -20,5 +20,5 @@
       "libripdpi.so": 12953352
     }
   },
-  "_comment": "Approved refresh on 2026-09-29 from CI run 36545675398 (push, commit 617008b147bd6e46df642aadb062c563a544e886), stripped packaged JNI report after published dependency and non-root Lua changes; growth limits unchanged."
+  "_comment": "Approved refresh on 2026-09-29 from CI run 36545675398 (push, commit 617008b147bd6e46df642aadb062c563a544e886), stripped packaged JNI report after published dependency and non-root Lua changes; growth limits unchanged. Threshold update approved by the user on 2026-10-09 against CI run 37927644982 (commit 6ce2271e7b33f813e098e969b74d191e663b0b61): per-library growth 128 KiB to 384 KiB; total absolute growth 256 KiB to 1.5 MiB; 2.0 percent total cap and all 2026-09-29 measurements retained."
 }
