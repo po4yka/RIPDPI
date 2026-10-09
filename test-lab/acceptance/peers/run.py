@@ -66,11 +66,7 @@ class ProcessLedger:
 
     @staticmethod
     def group_exists(pid):
-        try:
-            os.killpg(pid, 0)
-            return True
-        except ProcessLookupError:
-            return False
+        return hysteria.group_exists(pid)
 
 
 def checked(command, cwd=ROOT, env=None, timeout=900):

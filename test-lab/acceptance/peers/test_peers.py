@@ -79,6 +79,46 @@ class ExactExecutionTest(unittest.TestCase):
 
 
 class PeerLifecycleTest(unittest.TestCase):
+    def test_darwin_permission_only_means_gone_when_inventory_agrees(self):
+        with patch.object(hysteria.os, 'killpg', side_effect=PermissionError), \
+             patch.object(sys, 'platform', 'darwin'), \
+             patch.object(hysteria.subprocess, 'check_output', return_value='12\n34\n'):
+            self.assertFalse(runner.ProcessLedger.group_exists(56))
+            self.assertTrue(runner.ProcessLedger.group_exists(34))
+
+    def test_other_platform_permission_errors_are_not_absence(self):
+        with patch.object(hysteria.os, 'killpg', side_effect=PermissionError), \
+             patch.object(sys, 'platform', 'linux'), \
+             patch.object(hysteria.subprocess, 'check_output') as inventory:
+            with self.assertRaises(PermissionError):
+                runner.ProcessLedger.group_exists(56)
+            inventory.assert_not_called()
+
+    def test_failed_darwin_inventory_cannot_prove_absence(self):
+        with patch.object(hysteria.os, 'killpg', side_effect=PermissionError), \
+             patch.object(sys, 'platform', 'darwin'), \
+             patch.object(hysteria.subprocess, 'check_output', side_effect=subprocess.CalledProcessError(1, 'ps')):
+            with self.assertRaises(subprocess.CalledProcessError):
+                runner.ProcessLedger.group_exists(56)
+
+    def test_permission_denied_signal_preserves_a_live_group(self):
+        process = unittest.mock.Mock(pid=34)
+        with patch.object(hysteria.os, 'killpg', side_effect=PermissionError), \
+             patch.object(sys, 'platform', 'darwin'), \
+             patch.object(hysteria.subprocess, 'check_output', return_value='34\n'):
+            with self.assertRaises(PermissionError):
+                hysteria.stop_group(process)
+            process.wait.assert_not_called()
+
+    def test_permission_denied_signal_accepts_a_verified_absent_group(self):
+        process = unittest.mock.Mock(pid=56)
+        process.poll.return_value = 0
+        with patch.object(hysteria.os, 'killpg', side_effect=PermissionError), \
+             patch.object(sys, 'platform', 'darwin'), \
+             patch.object(hysteria.subprocess, 'check_output', return_value='34\n'):
+            hysteria.stop_group(process)
+        self.assertEqual(process.wait.call_count, 2)
+
     def test_preparation_sigterm_reaps_compiler_session(self):
         self.preparation_signal_reaps_compiler_session(signal.SIGTERM)
 

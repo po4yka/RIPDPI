@@ -10,6 +10,7 @@ import secrets
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -59,12 +60,30 @@ def binary(cache: Path, prepare=False):
     return path
 
 
+def group_exists(pid):
+    try:
+        os.killpg(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        if sys.platform != 'darwin':
+            raise
+        # Darwin can deny a probe after a group is reaped. Only the kernel
+        # process inventory can confirm that the group is absent.
+        inventory = subprocess.check_output(['ps', '-axo', 'pgid='], text=True)
+        return pid in {int(line.strip()) for line in inventory.splitlines() if line.strip()}
+
+
 def stop_group(process):
     for sig in (signal.SIGTERM, signal.SIGKILL):
         try:
             os.killpg(process.pid, sig)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            if group_exists(process.pid):
+                raise
         try:
             process.wait(timeout=3)
         except subprocess.TimeoutExpired:
