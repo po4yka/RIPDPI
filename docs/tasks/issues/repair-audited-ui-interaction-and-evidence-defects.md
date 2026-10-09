@@ -2,7 +2,7 @@
 id: UIX-1791538891055420
 title: Repair audited UI interaction and evidence defects
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: audited-ui-quality
 created: 2026-10-09
 updated: 2026-10-09
+status_detail: All UI fixes and 50 approved goldens are committed and pushed to main at 160e2e165. App 2341, core 1689, and Full golden 285 tests passed. One existing RTL golden test is ignored. Hosted CI is running; native device acceptance is not observed.
 ---
 
 ## Goal

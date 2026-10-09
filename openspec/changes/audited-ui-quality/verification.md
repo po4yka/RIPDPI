@@ -5,7 +5,7 @@ commit_sha: 8be992fd514de802295a451e8ce69cd8f0130ab4
 local: passed
 local_evidence: 2341 app tests and 1689 core tests passed without failures or skips. Static analysis and locale lint passed.
 remote_ci: required
-remote_ci_evidence: Main integration and push are authorized and pending.
+remote_ci_evidence: Main was pushed at 160e2e16581770dfeba3bae413e9ec0727cc0595. GitHub CI run 37934017957 is pending; other triggered gates are running.
 device: required
 device_evidence: Native APK and device acceptance have not been observed.
 artifact: passed
@@ -126,3 +126,22 @@ SDK 37 preview rendering is unsupported by the pinned renderer, which
 supports SDK 21 through 36. SDK 36 previews are compatibility evidence.
 The native APK needs the actual LibXray artifacts. Native device,
 TalkBack, packet traffic, and hosted CI acceptance remain separate.
+
+## Delivery
+
+The integration branch was rebased onto `origin/main` before delivery.
+Only task documents changed after the complete source and golden gates.
+Task contracts passed on the final combined tree.
+
+The main checkout was clean. Fast-forward integration and normal push
+completed with exit 0. `git ls-remote origin refs/heads/main` confirmed
+`160e2e16581770dfeba3bae413e9ec0727cc0595`. No unrelated edits were
+staged or discarded. The approved golden commit contains exactly the
+50 reviewed PNGs. Each source repair has its own commit.
+
+Hosted CI was inspected for this exact SHA. The main CI run is pending:
+https://github.com/po4yka/RIPDPI/actions/runs/37934017957. Locale parity,
+translation export, harness, fleet, Secret Scan, and CodeQL runs were
+in progress. These states do not establish hosted CI acceptance.
+The task is in review; native device and hosted CI acceptance remain
+separate from the completed local implementation and main delivery.
