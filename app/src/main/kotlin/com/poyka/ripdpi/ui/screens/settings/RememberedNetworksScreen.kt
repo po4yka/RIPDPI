@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -118,7 +119,9 @@ internal fun RememberedNetworksScreen(
             )
         }
 
-        if (uiState.isEmpty) {
+        if (uiState.loading) {
+            item(key = "remembered_networks_loading") { RipDpiSpinner() }
+        } else if (uiState.isEmpty) {
             item(key = "remembered_networks_empty") {
                 RememberedNetworksEmptyState()
             }
