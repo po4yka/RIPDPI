@@ -85,17 +85,18 @@ internal class VpnEncryptedDnsFailoverController(
         synchronizeNetworkScope(state, networkScopeKey)
         observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
         resetRolledBackCounters(state, telemetry)
-        if (dnsUsesProxy && isAmbiguousProxyFailure(telemetry.lastDnsError.orEmpty())) {
+        return if (dnsUsesProxy && isAmbiguousProxyFailure(telemetry.lastDnsError.orEmpty())) {
             // A shared proxy failure cannot identify a blocked DNS endpoint.
             // Consume its counters so it cannot trigger a later endpoint failover.
             state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
             state.pathStartQueries = telemetry.dnsQueriesTotal
             state.pathStartFailures = telemetry.dnsFailuresTotal
             state.consecutiveFailureEvents = 0
-            return false
+            false
+        } else {
+            observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
+            failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
         }
-        observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
-        return failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
     }
 
     private suspend fun synchronizeNetworkScope(
