@@ -11,8 +11,8 @@ Task SVC-1791566464861507 follows the clean c25730eca baseline failure. A durabl
 ## Decisions
 
 - Capture a privacy-safe changed-field bitmap and token presence at the original monitor comparison. Do not log field values or raw network identities. Freeze and record the diagnostic source and APK hashes.
-- Prove the exact field transition before the behavior fix. Add regression tests against the unchanged classifier for token acquisition and loss with otherwise equal physical fields.
-- Keep the existing observer and classifier boundary. Compare physical fields independently of token acquisition or loss. A change between two valid generations remains eligible for the existing link refresh event. The final comparison change requires evidence and independent review before implementation.
+- Prove the field transition through the actual binder, authority, snapshot source, fingerprint provider, and unchanged classifier before the behavior fix. Control callback scheduling in an integration regression. Preserve the distinction between this reproduced mechanism and the historical runtime event, whose original field pair was not recorded.
+- Keep the existing observer and classifier boundary. Compare physical fields independently of token acquisition or loss. A change between two valid generations remains eligible for the existing link refresh event. The two actual binder integration regressions fail only at the final no-handover assertion; physical network equality, physical fingerprint equality, and token presence assertions pass. Independent review confirmed this reproduction before the comparison change.
 - Preserve validation, captive portal, metering, DNS, transport, disconnect, and real link recovery behavior. Do not compare only scope hashes and do not remove the transient generation from direct DNS lease processing.
 
 ## Contracts and ownership
@@ -27,6 +27,7 @@ Task SVC-1791566464861507 follows the clean c25730eca baseline failure. A durabl
 - Equal physical fingerprints can cover distinct physical leases. Retain changes between two valid generations and the existing physical state classifications.
 - An absent token can accompany real disconnection. Exclude only token acquisition or loss when the other physical inputs remain equal; keep physical loss events.
 - A successful repeat alone can hide the original interruption. Retain the failure, changed-field evidence, and real baseline, outage, and recovery receipts.
+- Natural diagnostic repeats did not capture the original false-event field pair. Do not claim that the historical runtime field was directly measured; the real callback chain and deterministic production-code regression support the mechanism.
 
 ## Migration Plan
 
