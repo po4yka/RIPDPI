@@ -93,6 +93,8 @@ internal data class RedactedDiagnosticContextSummary(
     val permissions: RedactedPermissionContextSummary,
     val device: RedactedDeviceContextSummary,
     val environment: RedactedEnvironmentContextSummary,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val localNetwork: LocalNetworkContextModel? = null,
 )
 
 internal fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
@@ -175,4 +177,5 @@ internal fun DiagnosticContextModel.toRedactedSummary(): RedactedDiagnosticConte
                 networkMeteredState = environment.networkMeteredState,
                 roamingState = environment.roamingState,
             ),
+        localNetwork = localNetwork?.toSafeLocalNetworkContext(),
     )

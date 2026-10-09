@@ -394,6 +394,37 @@ duration. The same projection supplies current results, history, live transfer
 presentation and bounded text exports. Existing JSON/CSV evidence and native
 wire contracts remain unchanged.
 
+## Local device and default-data SIM context
+
+`DiagnosticContextModel.localNetwork` contains optional, identifier-free local
+observations. `AndroidLocalNetworkContextCollector` captures them for Wi-Fi,
+VPN, cellular and no-network states. Device settings and the default-data SIM
+are separate scopes; they do not establish the route used by a scan.
+
+Device evidence includes airplane mode, Data Saver and its exemption, background
+restriction, power saving, idle mode, battery optimization exemption and metered
+status. SIM evidence uses an explicit default-data subscription and records only
+categorical readiness, data enablement/allowance, roaming policy, voice registration and
+data state. Subscription IDs remain transient. A changed selection invalidates
+all SIM facts in that capture. Missing permissions, unsupported APIs and platform
+errors remain distinct from disabled settings.
+
+`localConstraintCodes()` derives conditions to inspect, not a diagnosis of the
+provider. Roaming policy only raises a condition when roaming is observed. Data
+Saver applies to background metered traffic; an exemption is not a restriction.
+Voice registration does not establish packet-data availability.
+No evidence here establishes account balance, exhausted allowance, registration
+policy or a provider allowlist. The UI explains those limits in all ten locales.
+
+Contexts keep this evidence through existing snapshot JSON. Null optional fields
+are omitted even when default encoding is enabled, so old reports and fixtures
+retain their shape. JSON and text export use fixed enums and a bounded timestamp;
+no phone number, IMSI, ICCID, IMEI, APN or subscription identifier is stored.
+Android API permission and availability contracts are documented in the
+[TelephonyManager reference](https://developer.android.com/reference/android/telephony/TelephonyManager),
+[SubscriptionManager reference](https://developer.android.com/reference/android/telephony/SubscriptionManager)
+and [ConnectivityManager reference](https://developer.android.com/reference/android/net/ConnectivityManager).
+
 ## Adding a probe
 
 See [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) §3 — add the

@@ -146,11 +146,35 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
     val visibleFields =
         remember(group) {
-            group.fields.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
+            group.fields.filter {
+                it.value.isNotBlank() && (group.stackedFields || !it.value.equals("Unknown", ignoreCase = true))
+            }
         }
     if (visibleFields.isEmpty()) return
     RipDpiCard {
         RipDpiScreenSectionHeader(title = group.title)
+        if (group.stackedFields) {
+            visibleFields.forEach { field ->
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    Text(
+                        field.label,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                    Text(
+                        field.value,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = RipDpiThemeTokens.type.body,
+                        color = RipDpiThemeTokens.colors.foreground,
+                    )
+                }
+            }
+            return@RipDpiCard
+        }
         RipDpiTelemetryRows(
             entries =
                 remember(visibleFields) {

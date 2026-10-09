@@ -213,6 +213,7 @@ class DiagnosticsSummaryProjector
                 add("notifications=${summary.permissions.notificationPermissionState}")
                 add("batteryOptimization=${summary.permissions.batteryOptimizationState}")
                 add("dataSaver=${summary.permissions.dataSaverState}")
+                summary.localNetwork?.let { addAll(it.localNetworkSummaryLines()) }
             }
         }
 

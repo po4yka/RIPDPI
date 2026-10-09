@@ -46,6 +46,7 @@ class AndroidDiagnosticsContextProvider
         private val profileCatalog: DiagnosticsProfileCatalog,
         private val serviceStateStore: ServiceStateStore,
     ) : DiagnosticsContextProvider {
+        private val localNetworkCollector = AndroidLocalNetworkContextCollector(context)
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val powerManager =
@@ -83,6 +84,7 @@ class AndroidDiagnosticsContextProvider
                         dataSaverState = dataSaverState(),
                     ),
                 device = buildDeviceContext(packageInfo),
+                localNetwork = localNetworkCollector.capture(),
                 environment =
                     EnvironmentContextModel(
                         batterySaverState = booleanState(powerManager.isPowerSaveMode),

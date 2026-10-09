@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
+import com.poyka.ripdpi.diagnostics.toSafeLocalNetworkContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -82,6 +83,7 @@ class DiagnosticsArchiveRedactor
 
         fun redact(model: DiagnosticContextModel): DiagnosticContextModel =
             model.copy(
+                localNetwork = model.localNetwork?.toSafeLocalNetworkContext(),
                 device =
                     model.device.copy(
                         manufacturer = "redacted",

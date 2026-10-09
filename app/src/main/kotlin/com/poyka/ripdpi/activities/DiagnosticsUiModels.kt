@@ -358,6 +358,7 @@ data class DiagnosticsNetworkSnapshotUiModel(
 data class DiagnosticsContextGroupUiModel(
     val title: String,
     val fields: ImmutableList<DiagnosticsFieldUiModel>,
+    val stackedFields: Boolean = false,
 )
 
 @Immutable
