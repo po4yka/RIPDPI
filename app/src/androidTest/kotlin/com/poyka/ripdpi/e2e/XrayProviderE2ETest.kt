@@ -63,10 +63,15 @@ import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityMeasurementCoordinator
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -99,6 +104,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Real VpnService, Keystore, gomobile engine and TUN; independent host peer, never a public server. */
 @HiltAndroidTest
@@ -109,21 +115,35 @@ class XrayProviderE2ETest {
     @JvmField
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider = ObservedVpnTunnelSessionProvider()
 
-    // Use the production factories, including geo paths and the native dispatcher.
-    @BindValue
-    @JvmField
-    @XrayDatDir
-    val xrayDatDir: String =
-        XrayBridgeModule.provideXrayDatDir(InstrumentationRegistry.getInstrumentation().targetContext)
+    // Nested test modules keep the production lazy singleton construction timing.
+    @Module
+    @InstallIn(SingletonComponent::class)
+    object DiagnosticXrayBridgeModule {
+        @Provides
+        @Singleton
+        @XrayDatDir
+        fun provideXrayDatDir(
+            @ApplicationContext context: Context,
+        ): String = XrayBridgeModule.provideXrayDatDir(context)
 
-    @BindValue
-    @JvmField
-    val xrayNativeBridge: XrayNativeBridge =
-        TracedXrayNativeBridge(XrayBridgeModule.provideXrayNativeBridge(xrayDatDir))
+        @Provides
+        @Singleton
+        fun provideXrayNativeBridge(
+            @XrayDatDir datDir: String,
+        ): XrayNativeBridge {
+            val bridge = XrayBridgeModule.provideXrayNativeBridge(datDir)
+            return if (InstrumentationRegistry.getArguments().getString("ripdpi.xrayDebug") == "true") {
+                TracedXrayNativeBridge(bridge)
+            } else {
+                bridge
+            }
+        }
 
-    @BindValue
-    @JvmField
-    val xrayRuntimeOwner: XrayRuntimeOwner = XrayBridgeModule.provideXrayRuntimeOwner(xrayNativeBridge)
+        @Provides
+        @Singleton
+        fun provideXrayRuntimeOwner(bridge: XrayNativeBridge): XrayRuntimeOwner =
+            XrayBridgeModule.provideXrayRuntimeOwner(bridge)
+    }
 
     @get:Rule(order = 0)
     val hilt = HiltAndroidRule(this)
@@ -881,27 +901,21 @@ class XrayProviderE2ETest {
     private class TracedXrayNativeBridge(
         private val delegate: XrayNativeBridge,
     ) : XrayNativeBridge by delegate {
-        private val enabled = InstrumentationRegistry.getArguments().getString("ripdpi.xrayDebug") == "true"
         private val starts = AtomicInteger()
         private val sockets = AtomicInteger()
 
         override fun registerProtect(controller: XrayProtectController) {
-            if (enabled) {
-                delegate.registerProtect { fd ->
-                    val result = controller.protect(fd)
-                    Log.i(
-                        "XrayNativeTrace",
-                        "protect start=${starts.get()} attempt=${sockets.incrementAndGet()} fd=$fd result=$result",
-                    )
-                    result
-                }
-            } else {
-                delegate.registerProtect(controller)
+            delegate.registerProtect { fd ->
+                val result = controller.protect(fd)
+                Log.i(
+                    "XrayNativeTrace",
+                    "protect start=${starts.get()} attempt=${sockets.incrementAndGet()} fd=$fd result=$result",
+                )
+                result
             }
         }
 
         override fun start(jsonConfig: String): Int {
-            if (!enabled) return delegate.start(jsonConfig)
             val original = Json.parseToJsonElement(jsonConfig).jsonObject
             val originalLog = original["log"]?.jsonObject ?: JsonObject(emptyMap())
             val tracedLog = JsonObject(originalLog + ("loglevel" to JsonPrimitive("debug")))
