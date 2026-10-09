@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1791538891055420
 change: audited-ui-quality
-commit_sha: 92651124770cf055cfe073944794534f1e4685ae
+commit_sha: 8be992fd514de802295a451e8ce69cd8f0130ab4
 local: passed
 local_evidence: 2341 app tests and 1689 core tests passed without failures or skips. Static analysis and locale lint passed.
 remote_ci: required
 remote_ci_evidence: Main integration and push are authorized and pending.
 device: required
 device_evidence: Native APK and device acceptance have not been observed.
-artifact: required
-artifact_evidence: Supported SDK 36 previews and all 50 Full golden differences were inspected. Expected updates await explicit approval; verify is pending.
+artifact: passed
+artifact_evidence: The user approved 50 inspected PNG updates. Full golden verify passed 285 tests, with one existing ignored RTL test. All 396 expected hashes stayed unchanged during verify.
 deployment: not_applicable
 deployment_evidence: This change does not own a deployment.
 ---
@@ -17,9 +17,10 @@ deployment_evidence: This change does not own a deployment.
 # Verification
 
 The combined source passed the complete app gate on `f0425b96`.
-The generated translation manifest is committed as `926511247`.
-Both commits are based on `9e28d0330`; the new diagnostics controls and
-profile ownership from main are preserved.
+The delivered source preserves the generated translation manifest,
+diagnostics controls, and profile ownership. Full golden verify passed
+on `8be992fd5`, based on `8d2902679`. Rebase changed only task documents;
+the tested production and test sources are unchanged.
 
 ## Requirement evidence
 
@@ -53,7 +54,7 @@ indicators, 116 crates, and 354 internal dependency edges. The log is
 `/tmp/ripdpi-ui-quality-architecture-combined.log`. Full locked Cargo
 metadata passed with 116 workspace members and 910 resolved packages.
 Its output is `/tmp/ripdpi-ui-quality-cargo-metadata-final.json`.
-Task contracts passed for 123 tasks and 335 steps.
+Task contracts passed after the final rebase for 122 tasks and 334 steps.
 
 The source translation catalog has 4,701 keys. The owning export script
 added the eleven new UI keys to its manifest. The export checker and its
@@ -97,14 +98,24 @@ unchanged. It captured 50 differences: 45 match the previously reviewed
 images, plus four paired dark states and the repaired tuner. All 50
 were inspected. The exact paths, filters, rationale, and images are in
 `ripdpi-ui-quality-final-golden-evidence-dfey14ib/review-manifest.md`.
-The user approval request is limited to these 50 PNGs. Record and final
-verify have not run.
+The user explicitly approved these 50 PNGs. Narrow record passed all
+46 selected methods. Exactly 50 expected PNGs changed; each matches its
+reviewed actual image byte for byte. The other 346 PNGs are unchanged.
+Normal commit hooks passed.
 
-Main advanced to `6ce2271e7`, with the identical JSON repair and task
-documentation. The integration branch was rebased to `384d260e8`; its
-app, core, build-logic, config, native, and Gradle files match the tested
-and reviewed `5fb4d7d` source. Only task documents changed. Task contracts
-passed after regeneration of the board.
+Final broad `verifyRoborazziGithubFullDebug` passed on `8be992fd5`: 286
+tests in 55 suites, 285 passed, no failures or errors, and one existing
+ignored RTL gallery test. It completed in 1 minute 38 seconds. No SDK
+override was used. All 396 expected hashes stayed unchanged during
+verify. The complete XML, HTML, log, and hash proof is preserved in
+`ripdpi-ui-quality-final-full-verify-evidence-al6nc6ci`. The log is
+`/tmp/ripdpi-ui-quality-final-full-verify.log`.
+
+Main advanced to `8d2902679`, with the identical JSON repair and task
+documentation. The integration branch was rebased without source
+conflicts. Its app, core, build-logic, config, native, and Gradle sources
+match the tested and reviewed tree. The only later app changes are the
+50 approved expected PNGs. Task contracts passed after the final rebase.
 
 Simple runtime stops at `verifyEmbeddedRelayBundle`: it needs a real,
 non-empty `src/simple/assets/embedded-relay-bundle.json`. No placeholder
