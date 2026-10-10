@@ -96,22 +96,24 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## Скриншоты
 
 <p align="center">
-  <a href="docs/screenshots/ru/01-hero.png"><img src="docs/screenshots/ru/01-hero.png" width="260" alt="Управление подключением — настоящий главный экран"/></a>
+  <a href="docs/screenshots/ru/01-hero.png"><img src="docs/screenshots/ru/01-hero.png" width="380" alt="Управление подключением — настоящий главный экран"/></a>
   &nbsp;
-  <a href="docs/screenshots/ru/02-diagnostics.png"><img src="docs/screenshots/ru/02-diagnostics.png" width="260" alt="Проверка сети — настройка сканирования"/></a>
-  &nbsp;
-  <a href="docs/screenshots/ru/03-relays.png"><img src="docs/screenshots/ru/03-relays.png" width="260" alt="Выбор релея — редактор профиля"/></a>
+  <a href="docs/screenshots/ru/02-diagnostics.png"><img src="docs/screenshots/ru/02-diagnostics.png" width="380" alt="Диагностика сети — настоящие результаты проверки"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/ru/04-dns.png"><img src="docs/screenshots/ru/04-dns.png" width="260" alt="Настройка DNS — варианты шифрованного DNS"/></a>
+  <a href="docs/screenshots/ru/03-relays.png"><img src="docs/screenshots/ru/03-relays.png" width="380" alt="Выбор релея — реальные настройки"/></a>
   &nbsp;
-  <a href="docs/screenshots/ru/05-strategies.png"><img src="docs/screenshots/ru/05-strategies.png" width="260" alt="Настройка стратегии — категории packet-стратегий"/></a>
-  &nbsp;
-  <a href="docs/screenshots/ru/06-local-tools.png"><img src="docs/screenshots/ru/06-local-tools.png" width="260" alt="Локальное управление — маршрутизация и резервные копии"/></a>
+  <a href="docs/screenshots/ru/04-dns.png"><img src="docs/screenshots/ru/04-dns.png" width="380" alt="Шифрованный DNS — реальные настройки"/></a>
 </p>
 
-Материалы для Google Play с настоящими снимками приложения. На главном экране подключение отключено; диагностика показывает настройку сканирования; релей — несохранённое изменение. Нажмите изображение, чтобы открыть его в полном размере. [Исходники и экспорт](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/ru/05-strategies.png"><img src="docs/screenshots/ru/05-strategies.png" width="380" alt="Стратегия пакетов — реальные элементы управления"/></a>
+  &nbsp;
+  <a href="docs/screenshots/ru/06-local-tools.png"><img src="docs/screenshots/ru/06-local-tools.png" width="380" alt="Резервные копии и восстановление — реальные настройки"/></a>
+</p>
+
+Материалы для Google Play с настоящими экранами приложения. Нажмите изображение, чтобы открыть его в полном размере. [Захват и экспорт](play-store-screenshots/README.md).
 
 ## Возможности
 

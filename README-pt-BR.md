@@ -24,22 +24,24 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
 **Idioma do banner e dos cartões: English fallback.** Ainda não há materiais Google Play em português brasileiro.
 
 <p align="center">
-  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="260" alt="Controle sua conexão — tela inicial real"/></a>
+  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="Controle de conexão — tela inicial real"/></a>
   &nbsp;
-  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="260" alt="Verifique sua rede — configuração do exame"/></a>
-  &nbsp;
-  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="260" alt="Escolha seu relay — editor de perfis real"/></a>
+  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="380" alt="Diagnóstico de rede — resultados reais"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="260" alt="Configure seu DNS — opções de DNS criptografado"/></a>
+  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="380" alt="Seleção de relay — configurações reais"/></a>
   &nbsp;
-  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="260" alt="Ajuste sua estratégia — categorias de estratégias"/></a>
-  &nbsp;
-  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="260" alt="Controle local — roteamento e backups"/></a>
+  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="380" alt="DNS criptografado — configurações reais"/></a>
 </p>
 
-Material para Google Play com capturas reais do aplicativo. A tela inicial está desconectada; Diagnóstico mostra a configuração do exame; o relay mostra uma alteração não salva. Abra uma imagem em tamanho completo. [Fontes e exportação](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="Estratégia de pacotes — controles reais"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="Backup e restauração — configurações reais"/></a>
+</p>
+
+Material para Google Play com telas reais do aplicativo. Abra uma imagem em tamanho completo. [Captura e exportação](play-store-screenshots/README.md).
 
 Em vez de uma única política global, o RIPDPI classifica cada destino e cada rede separadamente, lembra os resultados validados e torna seus vereditos de falha visíveis. Comece localmente; introduza um relay somente quando o caminho direto não puder ser recuperado.
 

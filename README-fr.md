@@ -96,22 +96,24 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 ## Captures d'écran
 
 <p align="center">
-  <a href="docs/screenshots/fr/01-hero.png"><img src="docs/screenshots/fr/01-hero.png" width="260" alt="Contrôlez votre connexion — écran réel"/></a>
+  <a href="docs/screenshots/fr/01-hero.png"><img src="docs/screenshots/fr/01-hero.png" width="380" alt="Contrôle de connexion — écran réel"/></a>
   &nbsp;
-  <a href="docs/screenshots/fr/02-diagnostics.png"><img src="docs/screenshots/fr/02-diagnostics.png" width="260" alt="Vérifiez votre réseau — configuration du scan"/></a>
-  &nbsp;
-  <a href="docs/screenshots/fr/03-relays.png"><img src="docs/screenshots/fr/03-relays.png" width="260" alt="Choisissez votre relais — éditeur réel"/></a>
+  <a href="docs/screenshots/fr/02-diagnostics.png"><img src="docs/screenshots/fr/02-diagnostics.png" width="380" alt="Diagnostic réseau — résultats réels"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/fr/04-dns.png"><img src="docs/screenshots/fr/04-dns.png" width="260" alt="Configurez votre DNS — options de DNS chiffré"/></a>
+  <a href="docs/screenshots/fr/03-relays.png"><img src="docs/screenshots/fr/03-relays.png" width="380" alt="Choix du relais — paramètres réels"/></a>
   &nbsp;
-  <a href="docs/screenshots/fr/05-strategies.png"><img src="docs/screenshots/fr/05-strategies.png" width="260" alt="Ajustez votre stratégie — stratégies de paquets"/></a>
-  &nbsp;
-  <a href="docs/screenshots/fr/06-local-tools.png"><img src="docs/screenshots/fr/06-local-tools.png" width="260" alt="Contrôle local — routage et sauvegardes"/></a>
+  <a href="docs/screenshots/fr/04-dns.png"><img src="docs/screenshots/fr/04-dns.png" width="380" alt="DNS chiffré — paramètres réels"/></a>
 </p>
 
-Visuels Google Play avec des captures réelles de l’application. L’écran principal est déconnecté ; Diagnostic montre la configuration du scan ; le relais montre une modification non enregistrée. Ouvrez une image en taille réelle. [Sources et export](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/fr/05-strategies.png"><img src="docs/screenshots/fr/05-strategies.png" width="380" alt="Stratégie des paquets — commandes réelles"/></a>
+  &nbsp;
+  <a href="docs/screenshots/fr/06-local-tools.png"><img src="docs/screenshots/fr/06-local-tools.png" width="380" alt="Sauvegarde et restauration — paramètres réels"/></a>
+</p>
+
+Visuels Google Play avec des écrans réels de l’application. Ouvrez une image en taille réelle. [Capture et export](play-store-screenshots/README.md).
 
 ## Fonctionnalités
 

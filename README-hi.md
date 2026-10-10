@@ -95,22 +95,24 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 **बैनर और कार्ड की भाषा: English fallback.** हिन्दी में Google Play सामग्री अभी उपलब्ध नहीं है।
 
 <p align="center">
-  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="260" alt="कनेक्शन नियंत्रण — वास्तविक होम स्क्रीन"/></a>
+  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="कनेक्शन नियंत्रण — वास्तविक होम स्क्रीन"/></a>
   &nbsp;
-  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="260" alt="नेटवर्क जाँच — स्कैन सेटअप"/></a>
-  &nbsp;
-  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="260" alt="Relay चुनें — वास्तविक प्रोफ़ाइल संपादक"/></a>
+  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="380" alt="नेटवर्क निदान — वास्तविक जाँच परिणाम"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="260" alt="DNS सेट करें — एन्क्रिप्टेड DNS विकल्प"/></a>
+  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="380" alt="Relay चयन — वास्तविक सेटिंग"/></a>
   &nbsp;
-  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="260" alt="रणनीति बदलें — पैकेट रणनीतियाँ"/></a>
-  &nbsp;
-  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="260" alt="स्थानीय नियंत्रण — रूटिंग और बैकअप"/></a>
+  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="380" alt="एन्क्रिप्टेड DNS — वास्तविक सेटिंग"/></a>
 </p>
 
-Google Play सामग्री में ऐप की वास्तविक स्क्रीन हैं। होम स्क्रीन डिस्कनेक्टेड है; डायग्नोस्टिक्स में स्कैन सेटअप है; relay में सहेजा नहीं गया बदलाव है। पूरा आकार देखने के लिए चित्र खोलें। [स्रोत और एक्सपोर्ट](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="पैकेट रणनीति — वास्तविक नियंत्रण"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="बैकअप और पुनर्स्थापना — वास्तविक सेटिंग"/></a>
+</p>
+
+Google Play सामग्री में ऐप की वास्तविक स्क्रीन हैं। पूरा आकार देखने के लिए चित्र खोलें। [स्क्रीन कैप्चर और एक्सपोर्ट](play-store-screenshots/README.md).
 
 ## सुविधाएँ
 

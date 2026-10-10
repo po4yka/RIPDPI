@@ -96,22 +96,24 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 ## Capturas de pantalla
 
 <p align="center">
-  <a href="docs/screenshots/es/01-hero.png"><img src="docs/screenshots/es/01-hero.png" width="260" alt="Controla tu conexión — pantalla principal real"/></a>
+  <a href="docs/screenshots/es/01-hero.png"><img src="docs/screenshots/es/01-hero.png" width="380" alt="Control de conexión — pantalla real"/></a>
   &nbsp;
-  <a href="docs/screenshots/es/02-diagnostics.png"><img src="docs/screenshots/es/02-diagnostics.png" width="260" alt="Comprueba tu red — configuración del escaneo"/></a>
-  &nbsp;
-  <a href="docs/screenshots/es/03-relays.png"><img src="docs/screenshots/es/03-relays.png" width="260" alt="Elige tu relay — editor de perfiles real"/></a>
+  <a href="docs/screenshots/es/02-diagnostics.png"><img src="docs/screenshots/es/02-diagnostics.png" width="380" alt="Diagnóstico de red — resultados reales"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/es/04-dns.png"><img src="docs/screenshots/es/04-dns.png" width="260" alt="Configura tu DNS — opciones de DNS cifrado"/></a>
+  <a href="docs/screenshots/es/03-relays.png"><img src="docs/screenshots/es/03-relays.png" width="380" alt="Selección de relay — ajustes reales"/></a>
   &nbsp;
-  <a href="docs/screenshots/es/05-strategies.png"><img src="docs/screenshots/es/05-strategies.png" width="260" alt="Ajusta tu estrategia — categorías de estrategias"/></a>
-  &nbsp;
-  <a href="docs/screenshots/es/06-local-tools.png"><img src="docs/screenshots/es/06-local-tools.png" width="260" alt="Control local — rutas y copias de seguridad"/></a>
+  <a href="docs/screenshots/es/04-dns.png"><img src="docs/screenshots/es/04-dns.png" width="380" alt="DNS cifrado — ajustes reales"/></a>
 </p>
 
-Material para Google Play con capturas reales de la app. La pantalla principal está desconectada; Diagnóstico muestra la configuración del escaneo; el relay muestra una edición sin guardar. Abra una imagen a tamaño completo. [Fuentes y exportación](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/es/05-strategies.png"><img src="docs/screenshots/es/05-strategies.png" width="380" alt="Estrategia de paquetes — controles reales"/></a>
+  &nbsp;
+  <a href="docs/screenshots/es/06-local-tools.png"><img src="docs/screenshots/es/06-local-tools.png" width="380" alt="Copia de seguridad y restauración — ajustes reales"/></a>
+</p>
+
+Imágenes para Google Play con pantallas reales de la aplicación. Abre una imagen a tamaño completo. [Captura y exportación](play-store-screenshots/README.md).
 
 ## Funcionalidades
 

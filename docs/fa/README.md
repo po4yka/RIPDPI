@@ -98,22 +98,24 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## تصاویر صفحه
 
 <p align="center">
-  <a href="../../docs/screenshots/fa/01-hero.png"><img src="../../docs/screenshots/fa/01-hero.png" width="260" alt="کنترل اتصال — صفحهٔ اصلی واقعی"/></a>
+  <a href="../../docs/screenshots/fa/01-hero.png"><img src="../../docs/screenshots/fa/01-hero.png" width="380" alt="کنترل اتصال — صفحهٔ اصلی واقعی"/></a>
   &nbsp;
-  <a href="../../docs/screenshots/fa/02-diagnostics.png"><img src="../../docs/screenshots/fa/02-diagnostics.png" width="260" alt="بررسی شبکه — تنظیم پویش"/></a>
-  &nbsp;
-  <a href="../../docs/screenshots/fa/03-relays.png"><img src="../../docs/screenshots/fa/03-relays.png" width="260" alt="انتخاب رله — ویرایشگر واقعی پروفایل"/></a>
+  <a href="../../docs/screenshots/fa/02-diagnostics.png"><img src="../../docs/screenshots/fa/02-diagnostics.png" width="380" alt="عیب‌یابی شبکه — نتایج واقعی بررسی"/></a>
 </p>
 
 <p align="center">
-  <a href="../../docs/screenshots/fa/04-dns.png"><img src="../../docs/screenshots/fa/04-dns.png" width="260" alt="تنظیم DNS — گزینه‌های DNS رمزگذاری‌شده"/></a>
+  <a href="../../docs/screenshots/fa/03-relays.png"><img src="../../docs/screenshots/fa/03-relays.png" width="380" alt="انتخاب رله — تنظیمات واقعی"/></a>
   &nbsp;
-  <a href="../../docs/screenshots/fa/05-strategies.png"><img src="../../docs/screenshots/fa/05-strategies.png" width="260" alt="تنظیم راهبرد — دسته‌های راهبرد بسته"/></a>
-  &nbsp;
-  <a href="../../docs/screenshots/fa/06-local-tools.png"><img src="../../docs/screenshots/fa/06-local-tools.png" width="260" alt="کنترل محلی — مسیریابی و پشتیبان‌گیری"/></a>
+  <a href="../../docs/screenshots/fa/04-dns.png"><img src="../../docs/screenshots/fa/04-dns.png" width="380" alt="DNS رمزگذاری‌شده — تنظیمات واقعی"/></a>
 </p>
 
-تصاویر Google Play با نماهای واقعی برنامه. صفحهٔ اصلی قطع اتصال را نشان می‌دهد؛ تشخیص، تنظیم پویش را نشان می‌دهد؛ رله، تغییر ذخیره‌نشده را نشان می‌دهد. برای دیدن اندازهٔ کامل روی تصویر کلیک کنید. [منبع تصاویر و خروجی](../../play-store-screenshots/README.md).
+<p align="center">
+  <a href="../../docs/screenshots/fa/05-strategies.png"><img src="../../docs/screenshots/fa/05-strategies.png" width="380" alt="راهبرد بسته‌ها — کنترل‌های واقعی"/></a>
+  &nbsp;
+  <a href="../../docs/screenshots/fa/06-local-tools.png"><img src="../../docs/screenshots/fa/06-local-tools.png" width="380" alt="پشتیبان‌گیری و بازیابی — تنظیمات واقعی"/></a>
+</p>
+
+تصاویر Google Play با صفحه‌های واقعی برنامه. برای دیدن اندازهٔ کامل، تصویر را باز کنید. [ثبت تصویر و خروجی](../../play-store-screenshots/README.md).
 
 ## ویژگی‌ها
 

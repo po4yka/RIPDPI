@@ -22,22 +22,24 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
 ## See the path, not just a switch
 
 <p align="center">
-  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="260" alt="Control your connection — actual Home screen"/></a>
+  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="Connection controls — real Home screen"/></a>
   &nbsp;
-  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="260" alt="Check your network — actual scan setup"/></a>
-  &nbsp;
-  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="260" alt="Choose your relay — actual Profile editor"/></a>
+  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="380" alt="Network diagnosis — real scan results"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="260" alt="Set your DNS — encrypted DNS options"/></a>
+  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="380" alt="Relay selection — real settings"/></a>
   &nbsp;
-  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="260" alt="Tune your strategy — packet strategy categories"/></a>
-  &nbsp;
-  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="260" alt="Keep control locally — routing and backups"/></a>
+  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="380" alt="Encrypted DNS — real settings"/></a>
 </p>
 
-Google Play artwork with actual app captures. Home is disconnected; Diagnostics shows scan setup; Relay shows an unsaved edit. Open an image at full size. [Asset sources and export](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="Packet strategy — real controls"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="Backup and restore — real settings"/></a>
+</p>
+
+Google Play artwork with real app screens. Open an image at full size. [Capture sources and export](play-store-screenshots/README.md).
 
 Instead of a single global policy, RIPDPI classifies each target and network separately, remembers validated outcomes, and makes its failure verdicts visible. Start locally; introduce a relay only when the direct path cannot be recovered.
 

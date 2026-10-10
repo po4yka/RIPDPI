@@ -96,22 +96,24 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 ## 截图
 
 <p align="center">
-  <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="260" alt="管理连接 — 真实主屏幕"/></a>
+  <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="380" alt="连接控制 — 真实主屏幕"/></a>
   &nbsp;
-  <a href="docs/screenshots/zh-CN/02-diagnostics.png"><img src="docs/screenshots/zh-CN/02-diagnostics.png" width="260" alt="检查网络 — 扫描设置"/></a>
-  &nbsp;
-  <a href="docs/screenshots/zh-CN/03-relays.png"><img src="docs/screenshots/zh-CN/03-relays.png" width="260" alt="选择中继 — 真实配置编辑器"/></a>
+  <a href="docs/screenshots/zh-CN/02-diagnostics.png"><img src="docs/screenshots/zh-CN/02-diagnostics.png" width="380" alt="网络诊断 — 真实检查结果"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/zh-CN/04-dns.png"><img src="docs/screenshots/zh-CN/04-dns.png" width="260" alt="设置 DNS — 加密 DNS 选项"/></a>
+  <a href="docs/screenshots/zh-CN/03-relays.png"><img src="docs/screenshots/zh-CN/03-relays.png" width="380" alt="中继选择 — 真实设置"/></a>
   &nbsp;
-  <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="260" alt="调整策略 — 数据包策略类别"/></a>
-  &nbsp;
-  <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="260" alt="本地控制 — 路由和备份"/></a>
+  <a href="docs/screenshots/zh-CN/04-dns.png"><img src="docs/screenshots/zh-CN/04-dns.png" width="380" alt="加密 DNS — 真实设置"/></a>
 </p>
 
-Google Play 宣传图片使用真实应用截图。主屏幕未连接；诊断显示扫描设置；中继显示尚未保存的修改。点击图片可查看完整尺寸。[素材来源与导出](play-store-screenshots/README.md)。
+<p align="center">
+  <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="380" alt="数据包策略 — 真实控制界面"/></a>
+  &nbsp;
+  <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="380" alt="备份与恢复 — 真实设置"/></a>
+</p>
+
+Google Play 宣传素材使用真实应用界面。点击图片可查看完整尺寸。[截图与导出](play-store-screenshots/README.md)。
 
 ## 功能
 

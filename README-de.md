@@ -96,22 +96,24 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 ## Screenshots
 
 <p align="center">
-  <a href="docs/screenshots/de/01-hero.png"><img src="docs/screenshots/de/01-hero.png" width="260" alt="Verbindung steuern — echter Startbildschirm"/></a>
+  <a href="docs/screenshots/de/01-hero.png"><img src="docs/screenshots/de/01-hero.png" width="380" alt="Verbindung steuern — echter Startbildschirm"/></a>
   &nbsp;
-  <a href="docs/screenshots/de/02-diagnostics.png"><img src="docs/screenshots/de/02-diagnostics.png" width="260" alt="Netzwerk prüfen — Einrichtung des Scans"/></a>
-  &nbsp;
-  <a href="docs/screenshots/de/03-relays.png"><img src="docs/screenshots/de/03-relays.png" width="260" alt="Relay wählen — echter Profileditor"/></a>
+  <a href="docs/screenshots/de/02-diagnostics.png"><img src="docs/screenshots/de/02-diagnostics.png" width="380" alt="Netzwerkdiagnose — echte Prüfergebnisse"/></a>
 </p>
 
 <p align="center">
-  <a href="docs/screenshots/de/04-dns.png"><img src="docs/screenshots/de/04-dns.png" width="260" alt="DNS einrichten — verschlüsselte DNS-Optionen"/></a>
+  <a href="docs/screenshots/de/03-relays.png"><img src="docs/screenshots/de/03-relays.png" width="380" alt="Relay auswählen — echte Einstellungen"/></a>
   &nbsp;
-  <a href="docs/screenshots/de/05-strategies.png"><img src="docs/screenshots/de/05-strategies.png" width="260" alt="Strategie anpassen — Paketstrategien"/></a>
-  &nbsp;
-  <a href="docs/screenshots/de/06-local-tools.png"><img src="docs/screenshots/de/06-local-tools.png" width="260" alt="Lokale Kontrolle — Routing und Backups"/></a>
+  <a href="docs/screenshots/de/04-dns.png"><img src="docs/screenshots/de/04-dns.png" width="380" alt="Verschlüsseltes DNS — echte Einstellungen"/></a>
 </p>
 
-Grafiken für Google Play mit echten App-Aufnahmen. Der Startbildschirm ist nicht verbunden; Diagnose zeigt die Scan-Einrichtung; das Relay zeigt eine ungespeicherte Änderung. Ein Bild lässt sich in voller Größe öffnen. [Quellen und Export](play-store-screenshots/README.md).
+<p align="center">
+  <a href="docs/screenshots/de/05-strategies.png"><img src="docs/screenshots/de/05-strategies.png" width="380" alt="Paketstrategie — echte Steuerelemente"/></a>
+  &nbsp;
+  <a href="docs/screenshots/de/06-local-tools.png"><img src="docs/screenshots/de/06-local-tools.png" width="380" alt="Sicherung und Wiederherstellung — echte Einstellungen"/></a>
+</p>
+
+Google Play-Bilder mit echten App-Ansichten. Öffne ein Bild in voller Größe. [Aufnahme und Export](play-store-screenshots/README.md).
 
 ## Funktionen
 

@@ -42,7 +42,7 @@ All colors come from the project's design system (**DESIGN.md** / `RipDpiExtende
 |------|---------|
 | App name | RIPDPI |
 | Design philosophy | Monochrome-first, semantic color for status only. Technical, precise, utilitarian. |
-| Font families | Geist Sans (UI text), Geist Mono (values/configs), Geist Pixel Circle (brand mark only) |
+| Font families | Geist Sans (Latin copy), Vazirmatn v33.003 for `fa`, Geist Mono (values/configs); preserve the app fonts in raw captures |
 
 #### Light Theme Tokens (canonical default)
 
@@ -98,12 +98,12 @@ Use these for screenshot frame corners (40px = ~3.7% of 1080px width) and UI ele
 
 #### Typography Reference
 
-| Element | Family | Weight | Play Store sizing |
-|---------|--------|--------|-------------------|
-| Category label | Geist Sans | 600 (semibold) | ~35px at 1080w |
-| Headline | Geist Sans | 700 (bold) | 103-108px at 1080w |
-| Pill/badge text | Geist Mono | 600 (semibold) | 26-30px at 1080w |
-| Subtext | Geist Sans | 400 (normal) | 28px at 1080w |
+| Element | Family | Weight | Current full-size text |
+|---------|--------|--------|------------------------|
+| Phone headline | Geist Sans or pinned locale font | 700 | 100px at 1080w |
+| Phone explanation | Same locale font | 400 | At least 48px at 1080w |
+| Banner wordmark | Geist Sans | 700 | 64px at 1024w |
+| Banner value statement | Locale font | 400 | 56px at 1024w |
 
 **M3 Expressive principle**: Prefer weight promotion (400->500->700) over size increase for emphasis.
 
@@ -183,12 +183,12 @@ Use `var(--font-geist-sans)` and `var(--font-geist-mono)` in slide styles.
 
 | Slot | Purpose | RIPDPI Suggestion |
 |------|---------|-------------------|
-| #1 | **Connection** | Complete actual Home capture; "Control your connection" |
-| #2 | **Diagnostics** | Complete actual Scan setup; "Check your network" |
-| #3 | **Relay configuration** | Complete actual Profile editor; "Choose your relay" |
-| #4 | **DNS options** | Editorial capability diagram; "Set your DNS" |
-| #5 | **Packet strategies** | Editorial capability diagram; "Tune your strategy" |
-| #6 | **Local tools** | Dark summary with complete Home capture; "Keep control locally" |
+| #1 | **Connection** | Complete Home frame with real service state |
+| #2 | **Diagnostics** | Completed real run and its actual results |
+| #3 | **Relay configuration** | Complete relay controls with a meaningful viewport |
+| #4 | **DNS options** | Actual DNS settings screen |
+| #5 | **Packet strategies** | Actual packet strategy controls |
+| #6 | **Backups** | Actual backup and restore screen; one clear function |
 
 **Rules:**
 - Each slide sells ONE idea
@@ -271,7 +271,7 @@ function Screenshot({ src, alt, style, bgColor = "#ffffff" }: {
 
 ### UI frame placement (Critical)
 
-The current source frames are 1344x2992. Use their exact aspect ratio and scale the complete frame to fit below the headline. Use `top` positioning and check both bottom and side margins. Do not crop or stretch the real UI:
+The current source frames are 1080x1800. Use their exact aspect ratio and scale the complete frame to fit below the headline. Use `top` positioning and check both bottom and side margins. Do not crop or stretch the real UI:
 
 ```tsx
 // Fit the complete frame below a compact heading
@@ -281,13 +281,13 @@ The current source frames are 1344x2992. Use their exact aspect ratio and scale 
     top: 310,           // precise control -- no overlap
     left: "50%",
     transform: "translateX(-50%)",
-    width: 700,
-    aspectRatio: "1344/2992",
+    width: 840,
+    aspectRatio: "1080/1800",
   }}
 />
 ```
 
-**Never use `bottom: 0` + `translateY(N%)` for 1080x2400 screenshots** -- the percentage math is hard to get right and leads to overlap or excessive gaps.
+**Never use `bottom: 0` + `translateY(N%)` for complete source screenshots** -- the percentage math is hard to get right and leads to overlap or excessive gaps.
 
 ### Single-Slide Mode
 
@@ -373,6 +373,10 @@ Captured images go to `docs/screenshots/` for README usage.
 
 ### Visual Quality
 
+- [ ] Each advertised function is visible in its actual app frame; no repeated Home used as evidence for another function
+- [ ] Key headings and explanations remain readable at 260px poster width and 360px banner width
+- [ ] No orphan headings or clipped controls, warnings, or explanations in the chosen source viewport. Long result lists may continue below the viewport.
+- [ ] All seven locale sets pass full-size and thumbnail review; Persian font and grouped RTL branding are verified
 - [ ] No repeated layouts in adjacent slides
 - [ ] No text/screenshot overlap
 - [ ] Screenshots fully contained (no clipping at edges)
