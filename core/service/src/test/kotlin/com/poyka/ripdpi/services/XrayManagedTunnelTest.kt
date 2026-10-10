@@ -66,6 +66,34 @@ class XrayManagedTunnelTest {
             assertEquals(2, driver.stopCount)
         }
 
+    @Test
+    fun `real tunnel driver captures Xray shared upstream on start and rebuild`() =
+        runTest {
+            val events = mutableListOf<String>()
+            val sessions =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = TestVpnTunnelSession(tunFd = 7, events = events),
+                )
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    proxyGroupRepository = TestProxyGroupRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
+                    vpnTunnelSessionProvider = sessions,
+                )
+            val driver = XrayTunnelDriver.fromVpnTunnelRuntime(runtime)
+            val endpoint = VpnTunnelRuntimeTest.localProxyEndpoint
+            driver.start(params, endpoint)
+            assertTrue(runtime.requireReadyEvidence().sharedProxyPath)
+            sessions.session = TestVpnTunnelSession(tunFd = 8, events = events)
+            driver.start(params, endpoint)
+            assertTrue(runtime.requireReadyEvidence().sharedProxyPath)
+            assertEquals(2, events.count { it == "vpn:establish" })
+            driver.stop()
+        }
+
     private fun plainDns(): ActiveDnsSettings =
         ActiveDnsSettings(
             mode = DnsModePlainUdp,

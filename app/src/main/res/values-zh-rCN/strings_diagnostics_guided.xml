@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_review_recommendation">查看建议</string>
+    <string name="diagnostics_guided_recheck">重新检查此网络</string>
+    <string name="diagnostics_guided_verify_title">启动 VPN 并检查访问？</string>
+    <string name="diagnostics_guided_verify_body">VPN 将使用当前设置启动，然后通过快速检查测量 VPN 的访问情况。VPN 启动时网络访问可能暂时中断。</string>
+    <string name="diagnostics_guided_verify_confirm">启动并检查</string>
+</resources>

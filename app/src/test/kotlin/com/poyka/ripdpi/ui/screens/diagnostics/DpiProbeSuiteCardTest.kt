@@ -53,9 +53,9 @@ class DpiProbeSuiteCardTest {
                                 persistentListOf(
                                     DiagnosticsDpiSuiteProbeRowUiModel(
                                         kind = DpiProbeKind.QUIC_H3,
-                                        label = "QUIC/H3 fingerprint",
+                                        label = "QUIC Initial fingerprint",
                                         status = "flagged",
-                                        detail = "0/1 targets passed QUIC/H3 fingerprint checks",
+                                        detail = "0/1 targets passed QUIC Initial fingerprint checks",
                                         tone = DiagnosticsTone.Warning,
                                         detailRows =
                                             persistentListOf(

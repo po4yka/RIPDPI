@@ -2,8 +2,10 @@ package com.poyka.ripdpi.ui.screens.tuner
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -140,9 +142,10 @@ private fun StrategyTunerControls(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                itemVerticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
@@ -154,7 +157,6 @@ private fun StrategyTunerControls(
                         ),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = RipDpiThemeTokens.colors.foreground,
-                    modifier = Modifier.weight(1f),
                 )
                 RipDpiButton(
                     text =
@@ -165,13 +167,15 @@ private fun StrategyTunerControls(
                         },
                     onClick = if (state.isRunning) onCancel else onRun,
                     variant = if (state.isRunning) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
+                    wrapLabel = true,
+                    modifier = Modifier.width(IntrinsicSize.Max),
                 )
             }
             RipDpiTextField(
                 value = state.domainsText,
                 onValueChange = onDomainsChanged,
                 decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.strategy_tuner_domains_label)),
-                behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp),
+                behavior = RipDpiTextFieldBehavior(singleLine = false, minHeight = 96.dp, enabled = !state.isRunning),
                 modifier = Modifier.fillMaxWidth(),
             )
         }

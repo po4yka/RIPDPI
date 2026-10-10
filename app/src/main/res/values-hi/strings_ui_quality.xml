@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">नियम लोड नहीं हो सका</string>
+    <string name="ui_rule_load_failed_body">नियम लोड करने के लिए फिर प्रयास करें। फ़ॉर्म का डेटा सुरक्षित है।</string>
+    <string name="ui_rule_save_failed_title">नियम सेव नहीं हो सका</string>
+    <string name="ui_rule_save_failed_body">आपके बदलाव सुरक्षित हैं। फिर से सेव करने का प्रयास करें।</string>
+    <string name="ui_app_picker_no_matches">कोई मेल खाता ऐप नहीं मिला</string>
+    <string name="ui_app_picker_clear_search">खोज साफ़ करें</string>
+    <string name="ui_profile_catalog_retry">प्रोफ़ाइल फिर लोड करें</string>
+    <string name="diagnostics_tool_state_cancelled">रद्द किया गया</string>
+    <string name="diagnostics_tool_state_disabled">बंद</string>
+</resources>

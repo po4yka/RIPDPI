@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityDomainResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DoqProbeResult
@@ -20,7 +21,7 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
         state = DiagnosticsDnsIntegrityState.Complete,
         summary =
             if (flagged == 0 && doqFlagged == 0 && bootstrapFlagged == 0) {
-                stringResolver.getString(R.string.diagnostics_dns_integrity_complete_clean, checked)
+                stringResolver.getString(R.string.diagnostics_dns_complete_agree, checked)
             } else {
                 stringResolver.getString(
                     R.string.diagnostics_dns_integrity_complete_flagged,
@@ -40,21 +41,8 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
             ),
         rows =
             domains
-                .map { result ->
-                    DiagnosticsDnsIntegrityDomainUiModel(
-                        domain = result.domain,
-                        verdict = result.verdict.displayLabel(),
-                        udpAnswer =
-                            result.udpRecords.joinToString().ifBlank {
-                                stringResolver.getString(R.string.diagnostics_value_timeout)
-                            },
-                        dohAnswer =
-                            result.dohIps.joinToString().ifBlank {
-                                stringResolver.getString(R.string.diagnostics_value_unavailable)
-                            },
-                        tone = result.verdict.tone(),
-                    )
-                }.toPersistentList(),
+                .map { it.toDomainUiModel(stringResolver) }
+                .toPersistentList(),
         doqRows =
             doqResults
                 .map { it.toUiModel(stringResolver) }
@@ -65,6 +53,24 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
                 .toPersistentList(),
     )
 }
+
+private fun DnsIntegrityDomainResult.toDomainUiModel(strings: StringResolver): DiagnosticsDnsIntegrityDomainUiModel =
+    DiagnosticsDnsIntegrityDomainUiModel(
+        domain = domain,
+        verdict = strings.getString(verdict.dnsVerdictLabel()),
+        udpAnswer =
+            udpRecords.joinToString().ifBlank {
+                strings.getString(udpResponse?.let { dnsOutcomeLabel(it.outcome) } ?: R.string.diagnostics_dns_missing)
+            },
+        dohAnswer = dohIps.joinToString().ifBlank { strings.getString(R.string.diagnostics_dns_unknown) },
+        tone = verdict.tone(),
+        dnsResponses =
+            listOf(
+                dnsResponseGroup(strings, R.string.diagnostics_dns_source_udp, udpResponse),
+                dnsResponseGroup(strings, R.string.diagnostics_dns_source_doh_json, dohJsonResponse),
+                dnsResponseGroup(strings, R.string.diagnostics_dns_source_doh_wire, dohWireResponse),
+            ).toPersistentList(),
+    )
 
 private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
     stringResolver: StringResolver,
@@ -96,9 +102,9 @@ private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
     )
     add(
         DiagnosticsMetricUiModel(
-            stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doh_blocked),
-            dohBlocked.toString(),
-            countTone(dohBlocked),
+            stringResolver.getString(R.string.diagnostics_dns_encrypted_unavailable),
+            dohUnavailable.toString(),
+            countTone(dohUnavailable),
         ),
     )
     if (doqResults.isNotEmpty()) {
@@ -161,7 +167,27 @@ private fun DoqProbeResult.toUiModel(stringResolver: StringResolver): Diagnostic
         tone = verdict.tone(),
     )
 
-private fun DnsIntegrityVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
+private fun DnsIntegrityVerdict.dnsVerdictLabel(): Int =
+    when (this) {
+        DnsIntegrityVerdict.DNS_OK -> R.string.diagnostics_dns_ok
+
+        DnsIntegrityVerdict.DNS_NEGATIVE -> R.string.diagnostics_dns_negative
+
+        DnsIntegrityVerdict.UDP_UNAVAILABLE -> R.string.diagnostics_dns_udp_unavailable
+
+        DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE,
+        DnsIntegrityVerdict.DOH_BLOCKED,
+        -> R.string.diagnostics_dns_encrypted_unavailable
+
+        DnsIntegrityVerdict.DNS_DISAGREEMENT,
+        DnsIntegrityVerdict.DNS_SUBSTITUTION,
+        DnsIntegrityVerdict.DNS_INTERCEPTION,
+        DnsIntegrityVerdict.FAKE_NXDOMAIN,
+        DnsIntegrityVerdict.FAKE_IP,
+        -> R.string.diagnostics_dns_disagreement
+
+        DnsIntegrityVerdict.UNKNOWN -> R.string.diagnostics_dns_unknown
+    }
 
 private fun DoqVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
 
@@ -178,6 +204,11 @@ private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
     when (this) {
         DnsIntegrityVerdict.DNS_OK -> DiagnosticsTone.Positive
 
+        DnsIntegrityVerdict.DNS_NEGATIVE -> DiagnosticsTone.Neutral
+
+        DnsIntegrityVerdict.DNS_DISAGREEMENT,
+        DnsIntegrityVerdict.UDP_UNAVAILABLE,
+        DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE,
         DnsIntegrityVerdict.DOH_BLOCKED,
         DnsIntegrityVerdict.DNS_SUBSTITUTION,
         DnsIntegrityVerdict.DNS_INTERCEPTION,

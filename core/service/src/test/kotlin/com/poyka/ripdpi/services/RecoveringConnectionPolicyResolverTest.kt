@@ -17,6 +17,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -86,6 +87,48 @@ class RecoveringConnectionPolicyResolverTest {
 
             assertTrue(failure is CancellationException)
             assertEquals(0, delegateCalls)
+        }
+
+    @Test
+    fun `preflight recovers profiles before its pure delegate and preserves failure cancellation`() =
+        runTest {
+            val events = mutableListOf<String>()
+            val expected = sampleResolution(mode = Mode.VPN)
+            val delegate =
+                object : ConnectionPolicyResolver {
+                    override suspend fun resolve(
+                        mode: Mode,
+                        resolverOverride: TemporaryResolverOverride?,
+                        fingerprint: NetworkFingerprint?,
+                        handoverClassification: String?,
+                    ): ConnectionPolicyResolution = error("Preflight must not activate runtime policy")
+
+                    override suspend fun resolveForPreflight(mode: Mode): ConnectionPolicyResolution {
+                        assertEquals(Mode.VPN, mode)
+                        events += "preflight"
+                        return expected
+                    }
+                }
+            val resolver =
+                RecoveringConnectionPolicyResolver(
+                    delegate,
+                    RecoveryOnlyProfileMutationCoordinator {
+                        events +=
+                            "recover"
+                    },
+                )
+            assertSame(expected, resolver.resolveForPreflight(Mode.VPN))
+            assertEquals(listOf("recover", "preflight"), events)
+            for (failure in listOf(IllegalStateException("recovery failed"), CancellationException("stop"))) {
+                events.clear()
+                val failed =
+                    RecoveringConnectionPolicyResolver(
+                        delegate,
+                        RecoveryOnlyProfileMutationCoordinator { throw failure },
+                    )
+                assertSame(failure, runCatching { failed.resolveForPreflight(Mode.VPN) }.exceptionOrNull())
+                assertTrue(events.isEmpty())
+            }
         }
 
     private fun countingDelegate(onResolve: () -> Unit): ConnectionPolicyResolver =

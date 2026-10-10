@@ -86,7 +86,7 @@ fun RipDpiSnackbar(
             icon?.let {
                 Icon(
                     imageVector = it,
-                    contentDescription = tone.name,
+                    contentDescription = null,
                     tint = palette.icon,
                     modifier = Modifier.size(RipDpiIconSizes.Default),
                 )

@@ -221,21 +221,26 @@ class ProxyServiceAutoApplyLifecycleTest {
                 appSettingsRepository = appSettingsRepository,
                 networkFingerprintProvider = fingerprintProvider,
                 networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                antiCorrelationRoutingPolicy =
-                    object : AntiCorrelationRoutingPolicy {
-                        override fun apply(
-                            settings: com.poyka.ripdpi.proto.AppSettings,
-                            preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
-                        ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> = preferredEdges
-                    },
                 rememberedNetworkPolicyStore = rememberedPolicies,
-                rootHelperManager = RootHelperManager(),
-                environmentDetector = EnvironmentDetector(),
-                serverCapabilityStore = TestServerCapabilityStore(),
                 awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 destinationRoutingPolicySource = destinationRoutingPolicySource,
-                proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                runtimeContextAssembler =
+                    ConnectionPolicyRuntimeContextAssembler(
+                        context = RuntimeEnvironment.getApplication(),
+                        networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                        serverCapabilityStore = TestServerCapabilityStore(),
+                        antiCorrelationRoutingPolicy =
+                            object : AntiCorrelationRoutingPolicy {
+                                override fun apply(
+                                    settings: com.poyka.ripdpi.proto.AppSettings,
+                                    preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
+                                ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> = preferredEdges
+                            },
+                        rootHelperManager = RootHelperManager(),
+                        environmentDetector = EnvironmentDetector(),
+                        proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                        activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                    ),
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(

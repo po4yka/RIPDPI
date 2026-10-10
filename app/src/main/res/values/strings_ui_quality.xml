@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">Could not load rule</string>
+    <string name="ui_rule_load_failed_body">Retry to load the rule. Your current form is kept.</string>
+    <string name="ui_rule_save_failed_title">Could not save rule</string>
+    <string name="ui_rule_save_failed_body">Your changes are kept. Try saving again.</string>
+    <string name="ui_app_picker_no_matches">No matching apps</string>
+    <string name="ui_app_picker_clear_search">Clear search</string>
+    <string name="ui_profile_catalog_retry">Reload profiles</string>
+    <string name="diagnostics_tool_state_cancelled">Cancelled</string>
+    <string name="diagnostics_tool_state_disabled">Disabled</string>
+</resources>

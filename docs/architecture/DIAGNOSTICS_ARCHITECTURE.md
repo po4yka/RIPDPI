@@ -394,6 +394,70 @@ duration. The same projection supplies current results, history, live transfer
 presentation and bounded text exports. Existing JSON/CSV evidence and native
 wire contracts remain unchanged.
 
+## Extended DNS response semantics
+
+DNS address comparisons and DNS response facts have separate contracts. Optional
+`udpResponse` and `encryptedResponse` fields on `DnsObservationFact` contain
+`DnsResponseSemantics`. The same data is stored in probe details under
+`udpDnsResponse` and `encryptedDnsResponse` for current and historical UI.
+`encryptedResponse` describes the selected usable oracle attempt, or the primary
+attempt when all address comparisons are unusable. It is not an aggregate of
+every fallback attempt. Existing resolver details identify that scope.
+Old reports omit these fields and show that metadata was not collected.
+
+The response facts distinguish address answers, NODATA, NXDOMAIN, SERVFAIL,
+REFUSED, other RCODEs, truncation, malformed data, timeout and transport failure.
+The query type is explicit; current scan targets still use A queries. Response
+identity and question validation must succeed before response metadata is trusted.
+The metadata preserves a bounded CNAME target chain, address TTL range, SOA
+negative TTL, header flags and numeric Extended DNS Error codes. It stores no
+raw DNS packets or EDE free text. AD reports a resolver flag; the app does not
+claim local DNSSEC validation. EDE describes the resolver's claim.
+
+A negative response is not a transport failure. Resolver differences, TTL values,
+AD, EDE and timing do not independently establish a provider restriction.
+List-only DNS tools retain explicit missing response metadata and use conservative
+comparison verdicts. Strict runtime DNS resolution remains separate from
+semantic diagnostic parsing.
+
+The evidence survives existing JSON storage without a Room migration. The archive
+canonicalizes nested detail JSON and observation metadata, redacts CNAME targets
+and retains bounded numeric EDE codes. Text summaries emit only codes, counts,
+flags and numeric timing data. Protocol meanings follow
+[RFC 2308](https://www.rfc-editor.org/rfc/rfc2308.html) and
+[RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html).
+
+## Local device and default-data SIM context
+
+`DiagnosticContextModel.localNetwork` contains optional, identifier-free local
+observations. `AndroidLocalNetworkContextCollector` captures them for Wi-Fi,
+VPN, cellular and no-network states. Device settings and the default-data SIM
+are separate scopes; they do not establish the route used by a scan.
+
+Device evidence includes airplane mode, Data Saver and its exemption, background
+restriction, power saving, idle mode, battery optimization exemption and metered
+status. SIM evidence uses an explicit default-data subscription and records only
+categorical readiness, data enablement/allowance, roaming policy, voice registration and
+data state. Subscription IDs remain transient. A changed selection invalidates
+all SIM facts in that capture. Missing permissions, unsupported APIs and platform
+errors remain distinct from disabled settings.
+
+`localConstraintCodes()` derives conditions to inspect, not a diagnosis of the
+provider. Roaming policy only raises a condition when roaming is observed. Data
+Saver applies to background metered traffic; an exemption is not a restriction.
+Voice registration does not establish packet-data availability.
+No evidence here establishes account balance, exhausted allowance, registration
+policy or a provider allowlist. The UI explains those limits in all ten locales.
+
+Contexts keep this evidence through existing snapshot JSON. Null optional fields
+are omitted even when default encoding is enabled, so old reports and fixtures
+retain their shape. JSON and text export use fixed enums and a bounded timestamp;
+no phone number, IMSI, ICCID, IMEI, APN or subscription identifier is stored.
+Android API permission and availability contracts are documented in the
+[TelephonyManager reference](https://developer.android.com/reference/android/telephony/TelephonyManager),
+[SubscriptionManager reference](https://developer.android.com/reference/android/telephony/SubscriptionManager)
+and [ConnectivityManager reference](https://developer.android.com/reference/android/net/ConnectivityManager).
+
 ## Adding a probe
 
 See [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) §3 — add the
@@ -418,3 +482,51 @@ human supervision. The `diagnostics-system` skill owns the deeper
 | Network fingerprint privacy bounds | [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md) |
 | VPN service lifecycle invariants | [`.claude/rules/android-vpn-lifecycle.md`](../../.claude/rules/android-vpn-lifecycle.md) |
 | Diagnostics surface, candidates, home audit | [`AGENTS.md`](../../AGENTS.md) |
+
+
+## Separate IP destination probes
+
+The opt-in `ip-family-connectivity` profile runs three independent TCP control probes: IPv4, IPv6 and NAT64. Full analysis includes this raw-path stage; quick analysis does not. Other profiles do not acquire the new stage without `ipFamilyProbe` configuration.
+
+The IPv4 and IPv6 controls use the paired numeric addresses of the same resolver service. No hostname or other-family fallback can hide a failed family. These results describe TCP availability to that control, not general Internet, TLS or HTTP availability. An IPv4 socket can be supplied by CLAT on IPv6 access.
+
+NAT64 discovery sends a query-bound AAAA request for `ipv4only.arpa` to captured network DNS servers. It does not use a public fallback. The parser supports RFC 6052 prefix lengths /32, /40, /48, /56, /64 and /96; it rejects malformed, ambiguous and IPv4-mapped discovery. Distinct valid prefixes retain response order within a bounded attempt budget. The probe synthesizes the reference IPv4 endpoint and tests TCP through each permitted prefix. Discovery sentinel addresses are never connection targets. Discovery alone is not translation reachability.
+
+Each `ip_family` result carries bounded typed JSON in `ipFamilyEvidence`. Current and historical views use the same parser. Legacy or invalid metadata remains unknown. Redacted archives remove destination addresses, prefixes and unknown text while preserving status, stage, prefix length, duration and counts. Network epoch invalidation changes these results to inconclusive and marks their evidence unverified. No failure alone proves provider interference.
+
+References: [RFC 7050](https://www.rfc-editor.org/rfc/rfc7050.html), [RFC 6052](https://www.rfc-editor.org/rfc/rfc6052.html), [control addresses](https://developers.cloudflare.com/1.1.1.1/ip-addresses/).
+
+
+### Real HTTP/3 measurements
+
+The manual `http3-connectivity` profile and the raw-path stage of full analysis run a real HTTP/3 GET. The probe uses a protected UDP socket, QUIC with certificate and hostname verification, ALPN `h3`, and decoded HTTP/3 response headers. A QUIC Initial response remains separate `quic_reachability` evidence and cannot prove HTTP/3 support.
+
+The probe uses one absolute deadline, at most four resolved peers, a bounded header section and a configurable body cap. It does not follow redirects or fall back to HTTP/2 or TCP. The current transport supports the raw path. An in-path request returns `UNSUPPORTED` and does not open a direct connection. Automatic and background scans cannot start this profile.
+
+Each `http3` result has bounded `http3Evidence`. It records DNS, QUIC/TLS, request, headers, first body byte and body completion separately. Valid HTTP error responses still prove HTTP/3, but are not healthy endpoint results. A body limit or timeout after headers preserves protocol evidence and reports an incomplete transfer. The UI and connection scale use the same validated evidence for current and historical results. TCP and proxy stages are not applicable.
+
+Response bodies, header values and raw errors are not stored. Redacted exports remove the peer address and unknown evidence fields. A network scope change preserves observed protocol facts, marks them unverified and revokes the healthy outcome. Legacy reports without this evidence remain readable and do not acquire an HTTP/3 success claim.
+
+
+### Active packet-size and PMTU measurements
+
+The manual `pmtu-connectivity` profile and the full-analysis `pmtu` stage run
+QUIC DPLPMTUD for IPv4 and IPv6 separately. Quick and background scans exclude
+this profile. The target is visible in the bundled catalog. The probe uses a
+protected direct UDP socket with fragmentation prevented, certificate and
+hostname validation, and `h3` ALPN. It does not need root.
+
+Each `pmtuEvidence` record reports outbound UDP payload bytes from the device
+to the selected peer. Returning ACKs do not measure reverse-path PMTU. The lower bound
+comes from Quinn's ACK-confirmed MTU growth above its initial 1200-byte setting.
+That setting alone is not a measurement. The configured ceiling and completed
+observation window do not prove an exact PMTU or completed search. The peer can
+also limit the search; its UDP limit is not exposed by the public Quinn API.
+A QUIC failure is inconclusive. Lost discovery probes are expected during a
+size search and do not prove provider filtering or a path black hole.
+
+Cancellation and deadlines preserve observed facts. Network-scope invalidation
+removes their authority for the current network, including persisted rows.
+Redacted export removes peer addresses and unknown nested evidence fields.
+Interface MTU remains a separate Android snapshot value. The active probe does
+not change VPN MTU or transport settings.

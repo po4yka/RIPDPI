@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-09
+goal: SVC-1791570478587374 Preserve protect socket ownership across VPN session
+  overlap

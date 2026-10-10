@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screenshot
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.ui.screens.routes.OutboundTarget
+import com.poyka.ripdpi.ui.screens.routes.RuleEditorPersistenceActions
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorScreen
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorUiState
 import kotlinx.collections.immutable.toImmutableList
@@ -67,7 +68,7 @@ class RuleEditorScreenshotTest {
                 onProcessNameChange = {},
                 onPackagesChange = {},
                 onOutboundChange = {},
-                onSave = {},
+                persistenceActions = RuleEditorPersistenceActions(save = {}),
             )
         }
     }

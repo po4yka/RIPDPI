@@ -2,7 +2,7 @@
 id: CIC-1791525871042885
 title: Update pinned Go toolchains to 1.27.2
 kind: chore
-status: blocked
+status: doing
 area: ci
 priority: high
 owner: Dependency maintenance
@@ -11,9 +11,9 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-10
 spec_reason: dependency-only
-status_detail: Current base d22389904aeefa3a621c171f006d2c4323b920c8 fails native hotspot budgets and i18n export; preflight skips native/Android consumers. Full exact-head compatibility evidence is required before merge.
+status_detail: Current main fixes native hotspot budgets. Verify required CI for the updated PR head before merge.
 ---
 
 ## Goal
@@ -44,6 +44,14 @@ change.
   contract tests alone do not establish native compiler/runtime compatibility.
 
 ## Verification evidence
+
+- On 2026-10-10, merged current main `e9471d33ac458a31d75b37212968cfce3de5a720`
+  into the PR branch. This preserves published history and includes the existing
+  native hotspot fixes. The hotspot gate reports zero files over budget.
+- On the combined tree, 65 dependency, outbound, artifact, routing, and tool pin
+  contract tests pass. Architecture health, file LoC limits, native architecture
+  contracts, and locked Cargo metadata pass. Hosted compatibility checks remain
+  required before merge.
 
 - Prepared against `d22389904aeefa3a621c171f006d2c4323b920c8` on 2026-10-09.
 - All 71 focused contract tests pass: 65 across native dependency graph, outbound

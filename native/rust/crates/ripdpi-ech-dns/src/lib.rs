@@ -19,7 +19,8 @@ pub use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
 
 pub use encrypted::{
     EchResolutionOutcome, EncryptedDnsEchResolver, ech_public_name, exchange_encrypted_dns_query,
-    extract_ech_config_list_from_https_response, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
+    exchange_encrypted_dns_query_with_request, extract_ech_config_list_from_https_response,
+    resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
     resolve_https_service_bindings_via_encrypted_dns_with_endpoint, resolve_outbound_ech_config_via_encrypted_dns,
     resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_raw,
 };

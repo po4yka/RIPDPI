@@ -17,11 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -53,6 +55,8 @@ fun HomeScreen(
     onBypassToggle: (Boolean) -> Unit = { onToggleConnection() },
     onVpnToggle: (Boolean) -> Unit = { onToggleConnection() },
     onDiagnosticRun: () -> Unit = {},
+    onRunFullDiagnosticRun: () -> Unit = onDiagnosticRun,
+    onCancelDiagnosticRun: () -> Unit = {},
     onBypassCardClick: () -> Unit = {},
     onVpnCardClick: () -> Unit = {},
     onDiagnosticCardClick: () -> Unit = {},
@@ -140,7 +144,7 @@ fun HomeScreen(
             source = uiState.connectionQualitySource,
             connected = uiState.isConnected,
             dataTransferred = uiState.dataTransferred,
-            onReprobe = onDiagnosticRun,
+            onReprobe = onRunFullDiagnosticRun,
         )
 
         HomeAppliedConfigurationPanel(
@@ -162,14 +166,14 @@ fun HomeScreen(
             secondary = {
                 RipDpiAccordion(
                     title = stringResource(R.string.home_modes_diagnostics_title),
-                    expanded = modesExpanded,
+                    expanded = modesExpanded || homeDiagnostics.analysisAction.busy,
                     onExpandedChange = {
                         modesExpanded = it
                         onModesExpandedChange(it)
                     },
                     headerTestTag = RipDpiTestTags.HomeModesDiagnosticsHeader,
                     stateTestTag =
-                        if (modesExpanded) {
+                        if (modesExpanded || homeDiagnostics.analysisAction.busy) {
                             RipDpiTestTags.HomeModesDiagnosticsExpanded
                         } else {
                             RipDpiTestTags.HomeModesDiagnosticsCollapsed
@@ -182,6 +186,8 @@ fun HomeScreen(
                         onBypassToggle = onBypassToggle,
                         onVpnToggle = onVpnToggle,
                         onDiagnosticRun = onDiagnosticRun,
+                        onRunFullDiagnosticRun = onRunFullDiagnosticRun,
+                        onCancelDiagnosticRun = onCancelDiagnosticRun,
                         onBypassCardClick = onBypassCardClick,
                         onVpnCardClick = onVpnCardClick,
                         onDiagnosticCardClick = onDiagnosticCardClick,
@@ -229,6 +235,8 @@ private fun HomeModeCardList(
     onBypassToggle: (Boolean) -> Unit,
     onVpnToggle: (Boolean) -> Unit,
     onDiagnosticRun: () -> Unit,
+    onRunFullDiagnosticRun: () -> Unit,
+    onCancelDiagnosticRun: () -> Unit,
     onBypassCardClick: () -> Unit,
     onVpnCardClick: () -> Unit,
     onDiagnosticCardClick: () -> Unit,
@@ -258,11 +266,26 @@ private fun HomeModeCardList(
         )
         HomeModeCard(
             uiState = diagnosticCard,
-            onPrimaryAction = onDiagnosticRun,
+            onPrimaryAction =
+                if (
+                    homeDiagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING ||
+                    homeDiagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
+                ) {
+                    onCancelDiagnosticRun
+                } else {
+                    onDiagnosticRun
+                },
             onConfigure = onDiagnosticCardClick,
             onCardClick = onDiagnosticCardClick,
             primaryActionVariant = RipDpiButtonVariant.Outline,
             configureActionVariant = RipDpiButtonVariant.Ghost,
+        )
+        RipDpiButton(
+            text = stringResource(R.string.home_diagnostics_run_analysis),
+            onClick = onRunFullDiagnosticRun,
+            enabled = homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy,
+            variant = RipDpiButtonVariant.Ghost,
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
         )
         if (homeDiagnostics.pcapToggleVisible) {
             RipDpiSwitch(

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +19,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +51,15 @@ data class RipDpiDropdownOption<T>(
     val label: String,
 )
 
+@Immutable
+data class RipDpiDropdownLabels(
+    val label: String? = null,
+    val placeholder: String? = null,
+    val helperText: String? = null,
+    val errorText: String? = null,
+    val accessibilityLabel: String? = label,
+)
+
 @Composable
 fun <T> RipDpiDropdown(
     options: ImmutableList<RipDpiDropdownOption<T>>,
@@ -68,6 +77,35 @@ fun <T> RipDpiDropdown(
     testTag: String? = null,
     optionTagForValue: ((T) -> String)? = null,
 ) {
+    RipDpiDropdown(
+        options = options,
+        selectedValue = selectedValue,
+        onValueSelected = onValueSelected,
+        labels = RipDpiDropdownLabels(label, placeholder, helperText, errorText),
+        modifier = modifier,
+        enabled = enabled,
+        readOnly = readOnly,
+        density = density,
+        interactionSource = interactionSource,
+        testTag = testTag,
+        optionTagForValue = optionTagForValue,
+    )
+}
+
+@Composable
+fun <T> RipDpiDropdown(
+    options: ImmutableList<RipDpiDropdownOption<T>>,
+    selectedValue: T?,
+    onValueSelected: (T) -> Unit,
+    labels: RipDpiDropdownLabels,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    readOnly: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
+    interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
+    optionTagForValue: ((T) -> String)? = null,
+) {
     val type = RipDpiThemeTokens.type
     val components = RipDpiThemeTokens.components
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
@@ -78,7 +116,7 @@ fun <T> RipDpiDropdown(
     val fieldState =
         RipDpiThemeTokens.state.textField.resolve(
             enabled = enabled,
-            hasError = errorText != null,
+            hasError = labels.errorText != null,
             isFocused = isInteractive && (expanded || isFocused),
             isEmpty = selectedLabel.isEmpty(),
         )
@@ -94,7 +132,7 @@ fun <T> RipDpiDropdown(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(components.inputs.textFieldLabelGap),
     ) {
-        label?.let {
+        labels.label?.let {
             Text(text = it, style = type.smallLabel, color = fieldState.label)
         }
         DropdownField(
@@ -103,9 +141,9 @@ fun <T> RipDpiDropdown(
             expanded = expanded,
             setExpanded = setExpanded,
             selectedLabel = selectedLabel,
-            placeholder = placeholder,
-            label = label,
-            errorText = errorText,
+            placeholder = labels.placeholder,
+            label = labels.accessibilityLabel,
+            errorText = labels.errorText,
             testTag = testTag,
             fieldState = fieldState,
             horizontalPadding = horizontalPadding,
@@ -119,7 +157,7 @@ fun <T> RipDpiDropdown(
                 optionTagForValue = optionTagForValue,
             )
         }
-        (errorText ?: helperText)?.let {
+        (labels.errorText ?: labels.helperText)?.let {
             Text(
                 text = it,
                 style = type.caption,
@@ -171,7 +209,6 @@ private fun DropdownField(
                     .heightIn(min = components.inputs.controlHeight)
                     .background(fieldState.container, RipDpiThemeTokens.shapes.xl)
                     .border(animatedBorderWidth, animatedBorderColor, RipDpiThemeTokens.shapes.xl)
-                    .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                     .semantics {
                         label?.let { contentDescription = it }
                         errorText?.let { error(it) }

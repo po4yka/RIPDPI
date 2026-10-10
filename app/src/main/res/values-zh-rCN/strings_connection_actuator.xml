@@ -2,16 +2,16 @@
 <resources>
     <string name="home_connection_actuator_direct">直连</string>
     <string name="home_connection_actuator_relay">中继</string>
-    <string name="home_connection_actuator_state_open">安全线路未启用</string>
-    <string name="home_connection_actuator_state_engaging">安全线路正在接合</string>
-    <string name="home_connection_actuator_state_locked">安全线路已锁定</string>
-    <string name="home_connection_actuator_state_direct">直连线路已锁定</string>
-    <string name="home_connection_actuator_state_degraded">安全线路已锁定，警告于 %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">直连线路已锁定，警告于 %1$s</string>
-    <string name="home_connection_actuator_state_fault">安全线路故障于 %1$s</string>
-    <string name="home_connection_actuator_action_activate">接合安全线路</string>
-    <string name="home_connection_actuator_action_deactivate">释放安全线路</string>
-    <string name="home_connection_actuator_action_confirm_release">再次点按以释放</string>
+    <string name="home_connection_actuator_state_open">未连接</string>
+    <string name="home_connection_actuator_state_engaging">正在连接…</string>
+    <string name="home_connection_actuator_state_locked">已连接</string>
+    <string name="home_connection_actuator_state_direct">已连接</string>
+    <string name="home_connection_actuator_state_degraded">已连接 · 警告：%1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">已连接 · 警告：%1$s</string>
+    <string name="home_connection_actuator_state_fault">连接失败：%1$s</string>
+    <string name="home_connection_actuator_action_activate">连接</string>
+    <string name="home_connection_actuator_action_deactivate">断开连接</string>
+    <string name="home_connection_actuator_action_confirm_release">确认断开连接</string>
     <string name="home_connection_actuator_fault_copy">复制错误信息</string>
     <string name="home_connection_stage_network">网络</string>
     <string name="home_connection_stage_handshake">握手</string>
@@ -23,4 +23,6 @@
     <string name="home_connection_stage_state_complete">已完成</string>
     <string name="home_connection_stage_state_warning">警告</string>
     <string name="home_connection_stage_state_failed">失败</string>
+    <string name="home_connection_actuator_action_cancel">取消连接</string>
+    <string name="home_connection_actuator_action_retry">重试</string>
 </resources>

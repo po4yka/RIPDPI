@@ -53,6 +53,7 @@ class VpnTunnelRuntimeTest {
             )
 
             assertTrue(runtime.isRunning)
+            assertFalse(runtime.requireReadyEvidence().sharedProxyPath)
             assertEquals(
                 dnsSignature(AppSettingsSerializer.defaultValue.activeDnsSettings(), null),
                 runtime.currentDnsSignature,

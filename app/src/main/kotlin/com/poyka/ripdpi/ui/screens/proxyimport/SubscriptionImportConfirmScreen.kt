@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -65,6 +66,7 @@ internal fun SubscriptionImportConfirmScreen(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    SecureWindowEffect()
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.import_subscription_confirm_title),
         navigationIcon = RipDpiIcons.Back,

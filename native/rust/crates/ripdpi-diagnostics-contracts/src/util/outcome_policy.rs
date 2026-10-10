@@ -61,6 +61,20 @@ fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str>
 
 fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &str) -> ProbeOutcomeBucket {
     match probe_type {
+        "pmtu" => match outcome {
+            "pmtu_observed" => ProbeOutcomeBucket::Healthy,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
+        "http3" => match outcome {
+            "http3_complete" => ProbeOutcomeBucket::Healthy,
+            "http3_http_error" | "http3_incomplete" | "http3_unavailable" => ProbeOutcomeBucket::Attention,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
+        "ip_family" => match outcome {
+            "ip_family_reachable" => ProbeOutcomeBucket::Healthy,
+            "ip_family_unavailable" => ProbeOutcomeBucket::Attention,
+            _ => ProbeOutcomeBucket::Inconclusive,
+        },
         "selective_availability" | "selective_availability_summary" => match outcome {
             "matrix_target_available" | "matrix_available" => ProbeOutcomeBucket::Healthy,
             "matrix_unavailable" => ProbeOutcomeBucket::Failed,

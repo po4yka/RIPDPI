@@ -190,7 +190,24 @@ class VpnTunnelRefreshCoordinatorTest {
             }
         }
 
-    private suspend fun kotlinx.coroutines.test.TestScope.routingRefreshFixture(): RoutingRefreshFixture {
+    @Test
+    fun dnsOnlyRefreshPreservesConsumedSharedUpstream() =
+        runTest {
+            with(routingRefreshFixture(sharedProxyPath = true)) {
+                assertTrue(runtime.requireReadyEvidence().sharedProxyPath)
+                resolver.enqueue(refreshResolution(runtime, plainDnsSettings))
+                sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
+                coordinator.refreshIfNeeded(session)
+                assertEquals(2, events.count { it == "vpn:establish" })
+                assertTrue(runtime.requireReadyEvidence().sharedProxyPath)
+                assertEquals(plainDnsSettings.activeDnsSettings(), runtime.requireReadyEvidence().resolverDns)
+                runtime.stop()
+            }
+        }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.routingRefreshFixture(
+        sharedProxyPath: Boolean = false,
+    ): RoutingRefreshFixture {
         val initialSettings = AppSettingsSerializer.defaultValue
         val events = mutableListOf<String>()
         val initialRule = packageRule("com.example.a")
@@ -222,6 +239,7 @@ class VpnTunnelRefreshCoordinatorTest {
             logContext = null,
             localProxyEndpoint = localProxyEndpoint,
             configurationInput = runtime.captureConfigurationInput(),
+            sharedProxyPath = sharedProxyPath,
         )
         val session = VpnRuntimeSession(runtimeId = "current")
         runtime.publishInPathLease(session, localProxyEndpoint)

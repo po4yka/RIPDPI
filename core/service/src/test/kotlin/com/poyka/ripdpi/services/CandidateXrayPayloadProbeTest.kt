@@ -108,10 +108,10 @@ class CandidateXrayPayloadProbeTest {
         protection.set("first") { true }
         val first = checkNotNull(protection.captureDirectProtection())
         assertTrue(first.protect(42))
-        protection.set("second") { true }
+        val secondLease = protection.set("second") { true }
         assertFalse(first.protect(42))
         val second = checkNotNull(protection.captureDirectProtection())
-        protection.clear()
+        protection.clear(secondLease)
         assertFalse(second.protect(42))
     }
 

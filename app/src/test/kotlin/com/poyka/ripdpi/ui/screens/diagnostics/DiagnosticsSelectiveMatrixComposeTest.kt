@@ -24,6 +24,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
@@ -85,6 +86,8 @@ class DiagnosticsSelectiveMatrixComposeTest {
         capture("selective-matrix-input-error")
         composeRule.runOnIdle { enabled.value = false }
         field.assertIsNotEnabled()
+        composeRule.onNodeWithText(text(R.string.diagnostics_matrix_not_verified)).assertDoesNotExist()
+        composeRule.onNodeWithText(text(R.string.diagnostics_matrix_catalog_show, 1)).performScrollTo().performClick()
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_not_verified)))
     }
 
@@ -117,7 +120,10 @@ class DiagnosticsSelectiveMatrixComposeTest {
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_scope_unverified)))
         assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_attempt_count, "2", "2")))
         capture("$name-summary")
-        composeRule.onAllNodesWithText("example.org").assertCountEquals(2)
+        composeRule.onAllNodesWithText("example.org").assertCountEquals(1)
+        composeRule.onAllNodesWithText(text(R.string.diagnostics_matrix_not_verified)).assertCountEquals(0)
+        composeRule.onNodeWithText(text(R.string.diagnostics_matrix_attempts_show, 2)).performScrollTo().performClick()
+        composeRule.onAllNodesWithText("example.org").assertCountEquals(3)
         composeRule.onAllNodesWithText(text(R.string.diagnostics_matrix_not_verified)).assertCountEquals(2)
         assertComplete(composeRule.onNodeWithText("TLS: ${text(R.string.diagnostics_matrix_stage_failed)}"))
         assertComplete(composeRule.onNodeWithText("HTTP: ${text(R.string.diagnostics_matrix_stage_not_run)}"))

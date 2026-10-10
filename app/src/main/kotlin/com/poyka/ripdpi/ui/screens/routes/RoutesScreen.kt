@@ -256,7 +256,11 @@ private fun RuleListRowSummary(
                 color = colors.mutedForeground,
             )
         }
-        RipDpiSwitch(checked = row.rule.enabled, onCheckedChange = { onToggleEnabled() })
+        RipDpiSwitch(
+            checked = row.rule.enabled,
+            onCheckedChange = { onToggleEnabled() },
+            accessibilityLabel = row.rule.name.ifBlank { newRuleName },
+        )
     }
 }
 

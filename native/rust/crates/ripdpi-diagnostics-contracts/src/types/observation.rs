@@ -14,7 +14,7 @@ mod tls;
 
 pub use aggregate::ProbeObservation;
 pub use connection_concurrency::{ConnectionConcurrencyCellStatus, ConnectionConcurrencyObservationFact};
-pub use dns::{DnsObservationFact, DnsObservationStatus};
+pub use dns::{DnsObservationFact, DnsObservationStatus, DnsResponseOutcome, DnsResponseSemantics};
 pub use domain::DomainObservationFact;
 pub use endpoint::{CircumventionObservationFact, EndpointProbeStatus, ServiceObservationFact};
 pub use http::HttpProbeStatus;

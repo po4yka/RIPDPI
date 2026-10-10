@@ -41,6 +41,12 @@ class DiagnosticsLocalNetworkPreflightTest {
                 )
             val cases =
                 listOf(
+                    EngineProbeTaskFamily.HTTP3 to base.copy(http3Probe = Http3ProbeConfig(host = localIp)),
+                    EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(host = localIp)),
+                    EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(connectIpv4 = localIp)),
+                    EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(connectIpv6 = "fd00::1")),
+                    EngineProbeTaskFamily.HTTP3 to
+                        base.copy(http3Probe = Http3ProbeConfig(host = localIp, connectIp = "192.168.50.3")),
                     EngineProbeTaskFamily.QUIC to base.copy(quicTargets = listOf(QuicTarget(host = localIp))),
                     EngineProbeTaskFamily.DNS to
                         base.copy(
@@ -65,7 +71,14 @@ class DiagnosticsLocalNetworkPreflightTest {
                 )
 
             for ((family, localRequest) in cases) {
-                val targetId = if (family == EngineProbeTaskFamily.TELEGRAM) "telegram" else localIp
+                val targetId =
+                    if (family ==
+                        EngineProbeTaskFamily.TELEGRAM
+                    ) {
+                        "telegram"
+                    } else {
+                        localRequest.pmtuProbe?.host ?: localIp
+                    }
                 val publicTarget = TcpTarget(id = targetId, provider = "public", ip = "8.8.8.8")
                 val publicTask = EngineProbeTaskWire(EngineProbeTaskFamily.TCP, targetId, "Public TCP")
                 val localTask = EngineProbeTaskWire(family, targetId, "Local target")

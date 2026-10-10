@@ -386,3 +386,18 @@ func realityHTTPClient(t *testing.T, p *peer, network string, xmux map[string]an
 	t.Cleanup(client.CloseIdleConnections)
 	return client
 }
+
+func TestOwnedDNSHTTPRecoveryReceipts(t *testing.T) {
+	p, endpoint := startDNSHTTPTestPeer(t)
+	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 2 * time.Second}
+	t.Cleanup(client.CloseIdleConnections)
+	for index, name := range []string{"background.test.", "peer-owned-baseline.test.", "peer-owned-recovered.test."} {
+		query := dnsHTTPQuery(t, name, dnsmessage.TypeA)
+		readDNSHTTPAnswer(t, client, dnsHTTPRequest(t, http.MethodPost, endpoint, query), query)
+		want := int64(index)
+		if p.dnsHTTPCount.Load() != want {
+			t.Fatalf("HTTP receipt count=%d want=%d", p.dnsHTTPCount.Load(), want)
+		}
+	}
+	assertDNSHTTPReceiptsUnchanged(t, p)
+}

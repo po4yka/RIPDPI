@@ -2051,7 +2051,7 @@
     <string name="diagnostics_domain_reachability_metric_stub_ips">stub IP</string>
     <string name="diagnostics_domain_reachability_running">%1$d DNS stub IP के साथ पहुँच की जाँच की जा रही है...</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH तैयारी</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC/H3 फ़िंगरप्रिंट</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial फ़िंगरप्रिंट</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 फैट हेडर</string>
     <string name="diagnostics_dpi_suite_cancel">सूट रद्द करें</string>
     <string name="diagnostics_dpi_suite_concurrency">समवर्तीता %1$d</string>

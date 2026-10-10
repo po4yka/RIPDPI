@@ -146,15 +146,20 @@ class ConnectionPolicyResolverTest {
                     appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(null),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -232,15 +237,23 @@ class ConnectionPolicyResolverTest {
                             ),
                         networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                         networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                        networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                        antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                         rememberedNetworkPolicyStore = rememberedStore,
-                        rootHelperManager = RootHelperManager(),
-                        environmentDetector = EnvironmentDetector(),
-                        serverCapabilityStore = TestServerCapabilityStore(),
                         awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                         destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                        proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                        runtimeContextAssembler =
+                            ConnectionPolicyRuntimeContextAssembler(
+                                context = RuntimeEnvironment.getApplication(),
+                                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                                serverCapabilityStore = TestServerCapabilityStore(),
+                                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                                rootHelperManager = RootHelperManager(),
+                                environmentDetector = EnvironmentDetector(),
+                                proxySessionSecretResolver =
+                                    ProxySessionSecretResolver(
+                                        EmptyWsTunnelWorkerCredentialStore,
+                                    ),
+                                activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            ),
                     )
 
                 val resolution = resolver.resolve(mode = Mode.VPN)
@@ -310,15 +323,20 @@ class ConnectionPolicyResolverTest {
                     appSettingsRepository = TestAppSettingsRepository(currentSettings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = rememberedStore,
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(store),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(store),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val uiPreferences =
@@ -380,15 +398,20 @@ class ConnectionPolicyResolverTest {
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = edgeStore,
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = edgeStore,
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -426,15 +449,20 @@ class ConnectionPolicyResolverTest {
                         ),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = rootHelper,
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = rootHelper,
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -476,15 +504,20 @@ class ConnectionPolicyResolverTest {
                         ),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = rememberedStore,
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -536,15 +569,20 @@ class ConnectionPolicyResolverTest {
                     appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = capabilityStore,
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -590,15 +628,20 @@ class ConnectionPolicyResolverTest {
                     appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = capabilityStore,
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -638,15 +681,20 @@ class ConnectionPolicyResolverTest {
                     appSettingsRepository = TestAppSettingsRepository(encryptedGoogleSettings()),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = capabilityStore,
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = capabilityStore,
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -691,17 +739,25 @@ class LuaConnectionPolicyResolverTest {
                                 appSettingsRepository = TestAppSettingsRepository(settings),
                                 networkFingerprintProvider = TestNetworkFingerprintProvider(null),
                                 networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                                networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                                antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                                 rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                                rootHelperManager = FakeRootHelperManager("/tmp/root-helper.sock".takeIf { available }),
-                                environmentDetector = EnvironmentDetector(),
-                                serverCapabilityStore = TestServerCapabilityStore(),
                                 awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                                 destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                                proxySessionSecretResolver =
-                                    ProxySessionSecretResolver(
-                                        EmptyWsTunnelWorkerCredentialStore,
+                                runtimeContextAssembler =
+                                    ConnectionPolicyRuntimeContextAssembler(
+                                        context = context,
+                                        networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                                        serverCapabilityStore = TestServerCapabilityStore(),
+                                        antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                                        rootHelperManager =
+                                            FakeRootHelperManager(
+                                                "/tmp/root-helper.sock".takeIf { available },
+                                            ),
+                                        environmentDetector = EnvironmentDetector(),
+                                        proxySessionSecretResolver =
+                                            ProxySessionSecretResolver(
+                                                EmptyWsTunnelWorkerCredentialStore,
+                                            ),
+                                        activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
                                     ),
                             )
                         val resolution = resolver.resolve(mode = mode)
@@ -814,15 +870,20 @@ class ConnectionPolicyAwgResolverTest {
                         ),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -886,15 +947,20 @@ class ConnectionPolicyAwgResolverTest {
                         ),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = rememberedStore,
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -980,15 +1046,20 @@ class ConnectionPolicyStartAdmissionTest {
                     appSettingsRepository = TestAppSettingsRepository(settings),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(null),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource = EmptyDestinationRoutingPolicySource,
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             assertEquals(EncryptedDnsProtocolDoq, resolver.resolve(mode = Mode.Proxy).activeDns.encryptedDnsProtocol)
@@ -1013,18 +1084,23 @@ class ConnectionPolicyStartAdmissionTest {
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
-                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    rootHelperManager = RootHelperManager(),
-                    environmentDetector = EnvironmentDetector(),
-                    serverCapabilityStore = TestServerCapabilityStore(),
                     awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                     destinationRoutingPolicySource =
                         DestinationRoutingPolicySource {
                             DestinationRoutingPolicySnapshot.Unavailable("rule_source_unavailable")
                         },
-                    proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                    runtimeContextAssembler =
+                        ConnectionPolicyRuntimeContextAssembler(
+                            context = RuntimeEnvironment.getApplication(),
+                            networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                            serverCapabilityStore = TestServerCapabilityStore(),
+                            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                            rootHelperManager = RootHelperManager(),
+                            environmentDetector = EnvironmentDetector(),
+                            proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
+                            activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        ),
                 )
 
             val failure = runCatching { resolver.resolve(mode = Mode.VPN) }.exceptionOrNull()

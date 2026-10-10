@@ -4,7 +4,10 @@ use std::time::{Duration, Instant};
 use crate::transport::{TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr};
 use crate::util::{now_ms, ranged_probe_delay};
 
-use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_dns_query_with_type, parse_dns_response_for_query};
+use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_dns_query_with_type};
+
+use super::semantics::{parse_dns_response_semantics, semantic_address_result, transport_semantics};
+use ripdpi_diagnostics_contracts::types::{DnsResponseOutcome, DnsResponseSemantics};
 
 const UDP_DNS_ATTEMPTS: usize = 3;
 const UDP_DNS_RETRY_JITTER_MIN_MS: u64 = 20;
@@ -12,6 +15,7 @@ const UDP_DNS_RETRY_JITTER_MAX_MS: u64 = 60;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UdpDnsResolution {
     pub result: Result<Vec<String>, String>,
+    pub response: DnsResponseSemantics,
     pub raw_response: Option<Vec<u8>>,
     pub latency_ms: u128,
     pub attempt_count: usize,
@@ -47,6 +51,7 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
             Err(err) => {
                 let resolution = UdpDnsResolution {
                     result: Err(err.clone()),
+                    response: DnsResponseSemantics::unobserved("A", DnsResponseOutcome::Malformed),
                     raw_response: None,
                     latency_ms: started.elapsed().as_millis(),
                     attempt_count,
@@ -59,14 +64,20 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
             }
         };
         match execute_udp_query(server, transport, &packet) {
-            Ok((addresses, response)) => {
+            Ok(response) => {
+                let (result, facts) = match parse_dns_response_semantics(&packet, &response) {
+                    Ok((addresses, facts)) => (semantic_address_result(addresses, &facts), facts),
+                    Err(error) => (Err(error), DnsResponseSemantics::unobserved("A", DnsResponseOutcome::Malformed)),
+                };
                 let error_kind = last_error.as_ref().map(|(_, kind): &(String, String)| kind.clone());
                 let resolution = UdpDnsResolution {
-                    result: Ok(addresses),
-                    raw_response: Some(response),
+                    success_count: usize::from(result.is_ok()),
+                    raw_response: facts.rcode.is_some().then_some(response),
+                    result,
+                    response: facts,
                     latency_ms: started.elapsed().as_millis(),
                     attempt_count,
-                    success_count: 1,
+
                     error_kind,
                     retry_recovered: had_retryable_error,
                     cache_hit: false,
@@ -88,6 +99,7 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
 
     let (err, kind) = last_error.unwrap_or_else(|| ("udp_dns_unavailable".to_string(), "unknown".to_string()));
     UdpDnsResolution {
+        response: transport_semantics(&err),
         result: Err(err),
         raw_response: None,
         latency_ms: started.elapsed().as_millis(),
@@ -99,11 +111,7 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
     }
 }
 
-fn execute_udp_query(
-    server: &str,
-    transport: &TransportConfig,
-    packet: &[u8],
-) -> Result<(Vec<String>, Vec<u8>), String> {
+fn execute_udp_query(server: &str, transport: &TransportConfig, packet: &[u8]) -> Result<Vec<u8>, String> {
     let raw = match transport {
         TransportConfig::Direct { .. } => {
             let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
@@ -115,8 +123,7 @@ fn execute_udp_query(
         }
     }?;
     let (response, _local_addr) = raw;
-    let parsed = parse_dns_response_for_query(&response, packet)?;
-    Ok((parsed, response))
+    Ok(response)
 }
 
 pub fn classify_udp_dns_error(error: &str) -> &'static str {
@@ -181,6 +188,27 @@ mod tests {
 mod measurement_regression {
     use super::*;
     use std::net::UdpSocket;
+
+    #[test]
+    fn negative_response_is_preserved_for_semantic_analysis() {
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        socket.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
+        let address = socket.local_addr().unwrap().to_string();
+        let server = thread::spawn(move || {
+            let mut query = [0; 512];
+            let (len, peer) = socket.recv_from(&mut query).unwrap();
+            let mut response = query[..len].to_vec();
+            response[2..4].copy_from_slice(&0x8183u16.to_be_bytes());
+            socket.send_to(&response, peer).unwrap();
+        });
+        let result = resolve_via_udp_with_observations(
+            "negative.example",
+            &address,
+            &TransportConfig::Direct { route_experiment: None },
+        );
+        server.join().unwrap();
+        assert!(result.raw_response.is_some(), "matching NXDOMAIN must retain response evidence");
+    }
 
     #[test]
     fn repeated_measurement_observes_current_dns_answer() {

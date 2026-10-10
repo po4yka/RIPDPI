@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
 import com.poyka.ripdpi.diagnostics.domain.ProbeFamily
@@ -29,6 +30,9 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
+
+private fun ProfileSpecWire.hasIndependentProbe(): Boolean =
+    listOf(selectiveMatrix, ipFamilyProbe, http3Probe, pmtuProbe).any { it != null }
 
 private const val DefaultDiagnosticsProxyPort = 1080
 private val DefaultRouteProbeConfig =
@@ -102,6 +106,9 @@ internal class DefaultDiagnosticsIntentResolver
                 circumventionTargets = spec.circumventionTargets,
                 throughputTargets = spec.throughputTargets,
                 selectiveMatrix = spec.selectiveMatrix,
+                ipFamilyProbe = spec.ipFamilyProbe,
+                http3Probe = spec.http3Probe,
+                pmtuProbe = spec.pmtuProbe,
                 whitelistSni = spec.whitelistSni,
                 telegramTarget = spec.telegramTarget,
                 strategyProbe = spec.strategyProbe,
@@ -115,7 +122,7 @@ internal class DefaultDiagnosticsIntentResolver
                         )
                     },
                 routeProbe =
-                    if (spec.selectiveMatrix == null) {
+                    if (!spec.hasIndependentProbe()) {
                         spec.routeProbe ?: defaultRouteProbeFor(pathMode, spec.kind, spec.family)
                     } else {
                         null
@@ -217,6 +224,15 @@ internal class DefaultDiagnosticsPlanner
                 }
             val probeTasks =
                 buildList {
+                    intent.http3Probe?.let {
+                        add(ProbeTask(ProbeFamily.HTTP3, it.host, "HTTP/3"))
+                    }
+                    intent.pmtuProbe?.let {
+                        add(ProbeTask(ProbeFamily.PMTU, it.host, "PMTU"))
+                    }
+                    intent.ipFamilyProbe?.let {
+                        add(ProbeTask(ProbeFamily.IP_FAMILY, "ip_family", "IPv4, IPv6 and NAT64"))
+                    }
                     intent.selectiveMatrix?.targets?.forEach {
                         add(ProbeTask(ProbeFamily.SELECTIVE_AVAILABILITY, it.id, it.label))
                     }
@@ -243,6 +259,9 @@ internal class DefaultDiagnosticsPlanner
                 throughputTargets = throughputTargets,
                 routeProbe = intent.routeProbe,
                 selectiveMatrix = intent.selectiveMatrix,
+                ipFamilyProbe = intent.ipFamilyProbe,
+                http3Probe = intent.http3Probe,
+                pmtuProbe = intent.pmtuProbe,
                 probeTasks = probeTasks,
                 confirmGoodDpiEvidence = context.confirmGoodDpiEvidence,
             )

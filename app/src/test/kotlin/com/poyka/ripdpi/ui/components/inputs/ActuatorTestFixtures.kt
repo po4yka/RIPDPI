@@ -11,6 +11,7 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
+import com.poyka.ripdpi.ui.components.EnableKeyboardInput
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -22,8 +23,10 @@ internal fun ComposeContentTestRule.setActuator(
     state: HomeConnectionActuatorUiState,
     onActivate: () -> Unit = {},
     onDeactivate: () -> Unit = {},
+    keyboardInput: Boolean = false,
 ) {
     setContent {
+        if (keyboardInput) EnableKeyboardInput()
         RipDpiTheme {
             RipDpiConnectionActuator(
                 state = state,
@@ -38,38 +41,27 @@ internal fun ComposeContentTestRule.setActuator(
 internal fun actuatorState(status: HomeConnectionActuatorStatus): HomeConnectionActuatorUiState =
     HomeConnectionActuatorUiState(
         status = status,
-        trailingLabel = "Secure",
+        trailingLabel = "Direct",
         routeLabel = "Local VPN",
         statusDescription = "State $status",
         actionLabel = "Action $status",
-        carriageFraction =
-            when (status) {
-                HomeConnectionActuatorStatus.Open -> {
-                    0f
-                }
-
-                HomeConnectionActuatorStatus.Engaging -> {
-                    0.48f
-                }
-
-                HomeConnectionActuatorStatus.Locked,
-                HomeConnectionActuatorStatus.Degraded,
-                -> {
-                    1f
-                }
-
-                HomeConnectionActuatorStatus.Fault -> {
-                    0.68f
-                }
-            },
         stages =
-            persistentListOf(
-                stage(HomeConnectionActuatorStage.Network, HomeConnectionActuatorStageState.Complete),
-                stage(HomeConnectionActuatorStage.Dns, stageStateForDns(status)),
-                stage(HomeConnectionActuatorStage.Handshake, HomeConnectionActuatorStageState.Complete),
-                stage(HomeConnectionActuatorStage.Tunnel, stageStateForTunnel(status)),
-                stage(HomeConnectionActuatorStage.Route, HomeConnectionActuatorStageState.Complete),
-            ),
+            if (status == HomeConnectionActuatorStatus.Engaging) {
+                persistentListOf(
+                    *HomeConnectionActuatorStage.entries
+                        .map {
+                            stage(it, HomeConnectionActuatorStageState.Pending)
+                        }.toTypedArray(),
+                )
+            } else {
+                persistentListOf(
+                    stage(HomeConnectionActuatorStage.Network, HomeConnectionActuatorStageState.Complete),
+                    stage(HomeConnectionActuatorStage.Dns, stageStateForDns(status)),
+                    stage(HomeConnectionActuatorStage.Handshake, HomeConnectionActuatorStageState.Complete),
+                    stage(HomeConnectionActuatorStage.Tunnel, stageStateForTunnel(status)),
+                    stage(HomeConnectionActuatorStage.Route, HomeConnectionActuatorStageState.Complete),
+                )
+            },
     )
 
 private fun stageStateForDns(status: HomeConnectionActuatorStatus): HomeConnectionActuatorStageState =

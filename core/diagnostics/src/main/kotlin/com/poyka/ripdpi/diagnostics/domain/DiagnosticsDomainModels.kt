@@ -12,6 +12,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
+import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
+import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.RouteProbeConfig
@@ -37,6 +40,9 @@ internal enum class ProbeFamily {
     THROUGHPUT,
     DOH_JSON_SURVEY,
     SELECTIVE_AVAILABILITY,
+    IP_FAMILY,
+    HTTP3,
+    PMTU,
 }
 
 internal data class ProbeTask(
@@ -83,6 +89,9 @@ internal data class DiagnosticsIntent(
     val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
+    val ipFamilyProbe: IpFamilyProbeConfig? = null,
+    val http3Probe: Http3ProbeConfig? = null,
+    val pmtuProbe: PmtuProbeConfig? = null,
     val requestedPathMode: ScanPathMode,
 )
 
@@ -110,6 +119,9 @@ internal data class ScanPlan(
     val throughputTargets: List<ThroughputTarget> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
+    val ipFamilyProbe: IpFamilyProbeConfig? = null,
+    val http3Probe: Http3ProbeConfig? = null,
+    val pmtuProbe: PmtuProbeConfig? = null,
     val probeTasks: List<ProbeTask>,
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )

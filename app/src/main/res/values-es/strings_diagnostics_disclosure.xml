@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">Mostrar destinos de prueba (%1$d)</string>
+    <string name="diagnostics_matrix_catalog_hide">Ocultar destinos de prueba</string>
+    <string name="diagnostics_matrix_cohort_coverage">Respuestas completas: %1$d / %2$d intentos · %3$d destinos</string>
+    <string name="diagnostics_matrix_attempts_show">Mostrar intentos (%1$d)</string>
+    <string name="diagnostics_matrix_attempts_hide">Ocultar intentos</string>
+    <string name="diagnostics_probe_check_title">Comprobación de red</string>
+    <string name="diagnostics_probe_result_recorded">Observación guardada</string>
+    <string name="diagnostics_probe_result_review">Revisar resultado</string>
+    <string name="diagnostics_probe_raw_show">Mostrar detalles técnicos</string>
+    <string name="diagnostics_probe_raw_hide">Ocultar detalles técnicos</string>
+</resources>

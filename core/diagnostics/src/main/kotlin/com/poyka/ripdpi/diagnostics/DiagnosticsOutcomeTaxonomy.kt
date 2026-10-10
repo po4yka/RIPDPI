@@ -127,6 +127,9 @@ private fun bucketForProbeOutcome(
 ): DiagnosticsOutcomeBucket =
     when (probeType) {
         "selective_availability", "selective_availability_summary" -> bucketSelectiveMatrix(outcome)
+        "ip_family" -> bucketIpFamily(outcome)
+        "http3" -> bucketHttp3(outcome)
+        "pmtu" -> bucketPmtu(outcome)
         "network_environment" -> bucketNetworkEnvironment(outcome)
         "dns_integrity" -> bucketDnsIntegrity(pathMode, outcome)
         "domain_reachability" -> bucketDomainReachability(outcome)
@@ -136,6 +139,14 @@ private fun bucketForProbeOutcome(
         "circumvention_reachability" -> bucketCircumventionReachability(outcome)
         "telegram_availability" -> bucketTelegramAvailability(outcome)
         "throughput_window" -> bucketThroughputWindow(outcome)
+        else -> bucketStrategyProbeOutcome(probeType, outcome)
+    }
+
+private fun bucketStrategyProbeOutcome(
+    probeType: String,
+    outcome: String,
+): DiagnosticsOutcomeBucket =
+    when (probeType) {
         "strategy_http" -> bucketStrategyHttp(outcome)
         "strategy_https" -> bucketStrategyHttps(outcome)
         "strategy_quic" -> bucketStrategyQuic(outcome)

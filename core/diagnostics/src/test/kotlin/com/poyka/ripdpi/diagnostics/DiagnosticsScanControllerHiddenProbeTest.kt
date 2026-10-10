@@ -115,6 +115,7 @@ class DiagnosticsScanControllerHiddenProbeTest {
                     event = automaticProbeFingerprintProvider.transportSwitchHandoverEvent(),
                 ),
             )
+            services.homeRunLease.acquire("waiting-owner")
             val conflict =
                 services.scanController.startScanOwnedBy(
                     ownerId = "waiting-owner",
@@ -199,6 +200,7 @@ class DiagnosticsScanControllerHiddenProbeTest {
                 ),
             )
             val automaticRawScansBeforeResolution = runtimeCoordinator.automaticRawScanCount.get()
+            services.homeRunLease.acquire("manual-owner")
             val conflict =
                 services.scanController.startScanOwnedBy(
                     ownerId = "manual-owner",

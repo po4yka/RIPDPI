@@ -10,10 +10,10 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -56,10 +56,7 @@ class SimpleHomeScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    /**
-     * The actuator clears its own semantics, so it is addressed by test tag rather than by
-     * label, and "disabled" shows up as a missing click action rather than a disabled flag.
-     */
+    /** Select the action button independently of its current text and enabled state. */
     private fun actuator() = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
 
     /**
@@ -276,14 +273,8 @@ class SimpleHomeScreenTest {
             }
         }
 
-        // The switch carries the action; the actuator's own headline carries the status
-        // prose and its live region. Both must speak this flavor's language.
-        actuator().assert(
-            SemanticsMatcher.expectValue(
-                SemanticsProperties.ContentDescription,
-                listOf("Disconnect"),
-            ),
-        )
+        // The action button and status text must both use this flavor's language.
+        actuator().assertTextEquals("Disconnect")
         composeRule.onNodeWithText("Connected").assertIsDisplayed()
         composeRule.onNodeWithText("Release secure line").assertDoesNotExist()
         composeRule.onNodeWithText("Secure line engaged").assertDoesNotExist()
@@ -317,7 +308,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        actuator().assertHasNoClickAction()
+        actuator().assertIsNotEnabled().performClick()
         composeRule.onNodeWithText("Always-on VPN owns this connection").assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, toggleClicks) }
     }
@@ -384,7 +375,7 @@ class SimpleHomeScreenTest {
         }
 
         actuator().assertHasClickAction()
-        confirmDeactivation()
+        actuator().performClick()
         composeRule.runOnIdle { assertEquals(1, toggleClicks) }
     }
 

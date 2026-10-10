@@ -158,7 +158,12 @@ class HistoryConnectionDetailUiFactoryTest {
         assertEquals(context.getString(R.string.measurement_session_total), errors.scopeLabel)
 
         assertEquals(1, detail.snapshots.size)
-        assertEquals(4, detail.contextGroups.size)
+        assertEquals(5, detail.contextGroups.size)
+        assertTrue(
+            detail.contextGroups.any { group ->
+                group.fields.any { it.value == context.getString(R.string.diagnostics_local_not_collected) }
+            },
+        )
         assertEquals("Field telemetry", detail.contextGroups.last().title)
         assertTrue(
             detail.contextGroups

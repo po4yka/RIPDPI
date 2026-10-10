@@ -1,4 +1,10 @@
+mod pmtu;
+pub use pmtu::run_pmtu_probe;
+mod http3;
+pub use http3::run_http3_probe;
+mod ip_family;
 pub use endpoint::run_selective_matrix_attempt;
+pub use ip_family::run_ip_family_probes;
 pub(crate) mod adapters;
 mod endpoint;
 mod probes;

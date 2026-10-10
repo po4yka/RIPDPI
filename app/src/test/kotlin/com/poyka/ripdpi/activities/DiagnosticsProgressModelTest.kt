@@ -32,31 +32,8 @@ class DiagnosticsProgressModelTest {
         strategyProbeProgress = strategyProbeProgress,
     )
 
-    // --- Phase stepper: connectivity ---
-
     @Test
-    fun `connectivity phase steps - dns phase marks dns active, rest pending`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "dns"),
-                scanKind = ScanKind.CONNECTIVITY,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-            )
-
-        assertEquals(8, model.phaseSteps.size)
-        assertEquals(PhaseState.Active, model.phaseSteps[0].state) // dns
-        assertEquals(PhaseState.Pending, model.phaseSteps[1].state) // reachability
-        assertEquals(PhaseState.Pending, model.phaseSteps[2].state) // quic
-        assertEquals(PhaseState.Pending, model.phaseSteps[3].state) // tcp
-        assertEquals(PhaseState.Pending, model.phaseSteps[4].state) // service
-        assertEquals(PhaseState.Pending, model.phaseSteps[5].state) // circumvention
-        assertEquals(PhaseState.Pending, model.phaseSteps[6].state) // telegram
-        assertEquals(PhaseState.Pending, model.phaseSteps[7].state) // throughput
-    }
-
-    @Test
-    fun `connectivity phase steps - tcp phase marks dns and reachability completed, tcp active`() {
+    fun `current phase does not invent completed or planned phases`() {
         val model =
             support.toProgressUiModel(
                 progress = progress(phase = "tcp"),
@@ -65,85 +42,14 @@ class DiagnosticsProgressModelTest {
                 scanStartedAt = 0L,
             )
 
-        assertEquals(PhaseState.Completed, model.phaseSteps[0].state) // dns
-        assertEquals(PhaseState.Completed, model.phaseSteps[1].state) // reachability
-        assertEquals(PhaseState.Completed, model.phaseSteps[2].state) // quic
-        assertEquals(PhaseState.Active, model.phaseSteps[3].state) // tcp
-        assertEquals(PhaseState.Pending, model.phaseSteps[4].state) // service
-        assertEquals(PhaseState.Pending, model.phaseSteps[5].state) // circumvention
-        assertEquals(PhaseState.Pending, model.phaseSteps[6].state) // telegram
-        assertEquals(PhaseState.Pending, model.phaseSteps[7].state) // throughput
+        assertEquals(1, model.phaseSteps.size)
+        assertEquals("TCP", model.phaseSteps.single().label)
+        assertEquals(PhaseState.Active, model.phaseSteps.single().state)
+        assertEquals(DiagnosticsTone.Warning, model.phaseSteps.single().tone)
     }
 
     @Test
-    fun `connectivity phase steps - finished phase marks all completed`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "finished", completedSteps = 8, totalSteps = 8),
-                scanKind = ScanKind.CONNECTIVITY,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-            )
-
-        model.phaseSteps.forEach { step ->
-            assertEquals("Expected Completed for ${step.label}", PhaseState.Completed, step.state)
-        }
-    }
-
-    @Test
-    fun `connectivity phase steps - starting phase marks all pending`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "starting", completedSteps = 0),
-                scanKind = ScanKind.CONNECTIVITY,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-            )
-
-        model.phaseSteps.forEach { step ->
-            assertEquals("Expected Pending for ${step.label}", PhaseState.Pending, step.state)
-        }
-    }
-
-    @Test
-    fun `connectivity phase steps have correct labels`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "dns"),
-                scanKind = ScanKind.CONNECTIVITY,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-            )
-
-        assertEquals("DNS", model.phaseSteps[0].label)
-        assertEquals("Reach", model.phaseSteps[1].label)
-        assertEquals("QUIC", model.phaseSteps[2].label)
-        assertEquals("TCP", model.phaseSteps[3].label)
-        assertEquals("Svc", model.phaseSteps[4].label)
-        assertEquals("Adaptation", model.phaseSteps[5].label)
-        assertEquals("TG", model.phaseSteps[6].label)
-        assertEquals("Rate", model.phaseSteps[7].label)
-    }
-
-    // --- Phase stepper: strategy probe ---
-
-    @Test
-    fun `strategy probe phase steps - tcp phase marks tcp active, quic pending`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "tcp"),
-                scanKind = ScanKind.STRATEGY_PROBE,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-            )
-
-        assertEquals(2, model.phaseSteps.size)
-        assertEquals(PhaseState.Active, model.phaseSteps[0].state) // tcp
-        assertEquals(PhaseState.Pending, model.phaseSteps[1].state) // quic
-    }
-
-    @Test
-    fun `strategy probe phase steps - quic phase marks tcp completed, quic active`() {
+    fun `strategy progress shows only the reported lane`() {
         val model =
             support.toProgressUiModel(
                 progress = progress(phase = "quic"),
@@ -152,63 +58,49 @@ class DiagnosticsProgressModelTest {
                 scanStartedAt = 0L,
             )
 
-        assertEquals(PhaseState.Completed, model.phaseSteps[0].state) // tcp
-        assertEquals(PhaseState.Active, model.phaseSteps[1].state) // quic
+        assertEquals(1, model.phaseSteps.size)
+        assertEquals("QUIC", model.phaseSteps.single().label)
+        assertEquals(PhaseState.Active, model.phaseSteps.single().state)
     }
 
     @Test
-    fun `strategy probe phase steps have correct labels`() {
+    fun `IP family progress does not inherit unrelated connectivity phases`() {
         val model =
             support.toProgressUiModel(
-                progress = progress(phase = "tcp"),
-                scanKind = ScanKind.STRATEGY_PROBE,
-                isFullAudit = false,
-                scanStartedAt = 0L,
-            )
-
-        assertEquals("TCP", model.phaseSteps[0].label)
-        assertEquals("QUIC", model.phaseSteps[1].label)
-    }
-
-    // --- Tone ---
-
-    @Test
-    fun `active phase step has Warning tone`() {
-        val model =
-            support.toProgressUiModel(
-                progress = progress(phase = "dns"),
+                progress = progress(phase = "ip_family"),
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
             )
 
-        assertEquals(DiagnosticsTone.Warning, model.phaseSteps[0].tone) // active
+        assertEquals(1, model.phaseSteps.size)
+        assertEquals(PhaseState.Active, model.phaseSteps.single().state)
     }
 
     @Test
-    fun `completed phase step has Positive tone`() {
+    fun `finished phase does not claim every probe succeeded`() {
         val model =
             support.toProgressUiModel(
-                progress = progress(phase = "tcp"),
+                progress = progress(phase = "finished", completedSteps = 8, totalSteps = 8),
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
             )
 
-        assertEquals(DiagnosticsTone.Positive, model.phaseSteps[0].tone) // dns = Completed
+        assertEquals(emptyList<PhaseStepUiModel>(), model.phaseSteps)
     }
 
     @Test
-    fun `pending phase step has Neutral tone`() {
+    fun `finished cancellation does not mark the last active phase complete`() {
         val model =
             support.toProgressUiModel(
-                progress = progress(phase = "dns"),
+                progress = progress(phase = "tcp").copy(isFinished = true, message = "Cancelled"),
                 scanKind = ScanKind.CONNECTIVITY,
                 isFullAudit = false,
                 scanStartedAt = 0L,
             )
 
-        assertEquals(DiagnosticsTone.Neutral, model.phaseSteps[3].tone) // telegram = Pending
+        assertEquals(emptyList<PhaseStepUiModel>(), model.phaseSteps)
     }
 
     // --- Scan start time ---

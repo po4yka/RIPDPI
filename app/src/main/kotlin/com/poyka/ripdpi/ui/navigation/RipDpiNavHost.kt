@@ -447,6 +447,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
         val route = backStackEntry.toRoute<Route.Diagnostics>()
         val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
         val pcapCaptureViewModel: PcapCaptureViewModel = hiltViewModel()
+        val diagnosticsHomeState by mainViewModel.uiState.collectAsStateWithLifecycle()
         DiagnosticsRoute(
             callbacks =
                 diagnosticsRouteCallbacks(
@@ -458,6 +459,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             initialSection = diagnosticsInitialSection ?: DiagnosticsSection.Scan.takeIf { route.autoStartScan },
             viewModel = diagnosticsViewModel,
             pcapCaptureViewModel = pcapCaptureViewModel,
+            homeDiagnostics = diagnosticsHomeState.homeDiagnostics,
             topBarExtraActions = {
                 StrategyTunerTopBarAction(
                     onOpen = { navController.navigate(Route.StrategyTuner) { launchSingleTop = true } },
@@ -564,6 +566,10 @@ private fun diagnosticsRouteCallbacks(
         onOpenPcapCaptureList = { navController.navigate(Route.PcapCaptureList) },
         onOpenPastReplays = { navController.navigate(Route.ReplayHistory) },
         onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
+        onCancelHomeAnalysis = mainViewModel::onCancelHomeAnalysis,
+        onCheckNetwork = mainViewModel::onRunHomeQuickAnalysis,
+        onStartVerifiedVpn = mainViewModel::onStartVerifiedVpn,
+        onDismissVerification = mainViewModel.dismissHomeVerificationSheet,
     )
 
 private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {

@@ -2,13 +2,11 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -23,15 +21,14 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun CompactProfileRow(
     profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel?,
     onChangeProfile: () -> Unit,
+    enabled: Boolean = true,
 ) {
     RipDpiCard {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         ) {
             Column(
-                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
@@ -57,11 +54,13 @@ internal fun CompactProfileRow(
             RipDpiButton(
                 text = stringResource(R.string.diagnostics_profile_change_action),
                 onClick = onChangeProfile,
+                enabled = enabled,
                 modifier =
                     Modifier.ripDpiTestTag(
                         com.poyka.ripdpi.ui.testing.RipDpiTestTags.DiagnosticProfileSearchOpen,
                     ),
                 variant = RipDpiButtonVariant.Outline,
+                wrapLabel = true,
             )
         }
     }

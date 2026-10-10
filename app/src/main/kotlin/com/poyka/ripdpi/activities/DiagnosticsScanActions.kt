@@ -25,6 +25,8 @@ internal class DiagnosticsScanActions(
     private val stringResolver: StringResolver,
     private val loadSessionDetail: suspend (sessionId: String, showSensitiveDetails: Boolean) -> Unit,
 ) {
+    private val completionTracker = DiagnosticsScanCompletionTracker()
+
     fun initialize() {
         observeScanCompletion()
         observeCompletedProbes()
@@ -37,14 +39,28 @@ internal class DiagnosticsScanActions(
     private fun observeScanCompletion() {
         mutations.launch {
             var prevProgress: com.poyka.ripdpi.diagnostics.ScanProgress? = null
-            diagnosticsTimelineSource.activeScanProgress.collect { progress ->
-                if (progress == null && prevProgress != null && scanLifecycle.value.scanStartedAt != null) {
-                    emit(buildScanCompletionEffect(currentUiState().scan, stringResolver))
+            combine(
+                diagnosticsTimelineSource.activeScanProgress,
+                diagnosticsTimelineSource.sessions,
+            ) { progress, sessions -> progress to sessions }.collect { (progress, sessions) ->
+                val completedSession =
+                    completionTracker.observe(progress, sessions, diagnosticsScanController.hasActiveHomeRun())
+                if (progress != null && progress.sessionId != prevProgress?.sessionId) {
+                    val runningSession = sessions.firstOrNull { it.id == progress.sessionId }
                     scanLifecycle.update {
                         it.copy(
-                            scanStartedAt = null,
-                            activeScanPathMode = null,
-                            activeScanKind = null,
+                            scanStartedAt =
+                                runningSession?.startedAt
+                                    ?: it.scanStartedAt?.takeIf { prevProgress == null }
+                                    ?: System.currentTimeMillis(),
+                            activeScanPathMode =
+                                runningSession?.pathMode?.let { path ->
+                                    ScanPathMode.entries.firstOrNull { mode ->
+                                        mode.name ==
+                                            path
+                                    }
+                                }
+                                    ?: it.activeScanPathMode,
                             accumulatedProbes = persistentListOf(),
                             accumulatedStrategyCandidates = persistentListOf(),
                             dnsBaselineStatus = null,
@@ -63,6 +79,19 @@ internal class DiagnosticsScanActions(
                             dpiFailureClass = null,
                         )
                     }
+                }
+                completedSession?.let { session ->
+                    val scan = currentUiState().scan
+                    val completedScan =
+                        scan.copy(
+                            latestSession = uiStateFactory.toSessionRow(session),
+                            resolverRecommendation =
+                                scan.resolverRecommendation.takeIf {
+                                    scan.latestSession?.id ==
+                                        session.id
+                                },
+                        )
+                    emit(buildScanCompletionEffect(completedScan, stringResolver))
                 }
                 prevProgress = progress
             }
@@ -306,21 +335,26 @@ internal class DiagnosticsScanActions(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     fun cancelScan() {
-        scanLifecycle.update {
-            it.copy(
-                scanStartedAt = null,
-                activeScanPathMode = null,
-                activeScanKind = null,
-                accumulatedProbes = persistentListOf(),
-                accumulatedStrategyCandidates = persistentListOf(),
-                dnsBaselineStatus = null,
-                sensitiveProfileConsentDialog = null,
-            )
-        }
         mutations.launch {
-            scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = null) }
-            diagnosticsScanController.cancelActiveScan()
+            val sessionId = completionTracker.cancellationTarget(diagnosticsTimelineSource.activeScanProgress.value)
+            if (!completionTracker.beginCancellation(sessionId)) return@launch
+            scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = null, sensitiveProfileConsentDialog = null) }
+            try {
+                diagnosticsScanController.cancelActiveScan()
+                completionTracker.cancellationSucceeded(sessionId)
+            } catch (error: CancellationException) {
+                completionTracker.cancellationFailed(sessionId)
+                throw error
+            } catch (_: Throwable) {
+                completionTracker.cancellationFailed(sessionId)
+                emit(
+                    DiagnosticsEffect.ScanStartFailed(
+                        stringResolver.getString(R.string.diagnostics_error_cancel_failed),
+                    ),
+                )
+            }
         }
     }
 
@@ -360,24 +394,15 @@ internal class DiagnosticsScanActions(
         selectedProfile: DiagnosticsProfileOptionUiModel?,
         allowSensitiveProfileStart: Boolean = false,
     ) {
-        val matrixHosts =
-            if (selectedProfile?.id == SelectiveMatrixProfileId) {
-                parseSelectiveMatrixHosts(mutations.currentUiState().scan.selectiveMatrixHostsInput) ?: return
-            } else {
-                emptyList()
-            }
-        val request =
-            ManualScanUiRequest(
-                profileName = selectedProfile?.name ?: "Scan",
-                pathMode = pathMode,
-                scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
-                isFullAudit = selectedProfile?.isFullAudit == true,
-            )
-        if (selectedProfile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {
-            requestSensitiveProfileConsent(scanLifecycle, selectedProfile.id, request)
-            return
-        }
+        val command =
+            mutations.prepareManualScan(scanLifecycle, pathMode, selectedProfile, allowSensitiveProfileStart) ?: return
+        val request = command.request
         mutations.launch {
+            if (diagnosticsScanController.hasActiveHomeRun() ||
+                diagnosticsTimelineSource.activeScanProgress.value != null
+            ) {
+                return@launch
+            }
             try {
                 selectedProfile?.id?.let { diagnosticsScanController.setActiveProfile(it) }
                 when (
@@ -388,7 +413,7 @@ internal class DiagnosticsScanActions(
                             allowSensitiveProfileStart = allowSensitiveProfileStart,
                             targetOverrides =
                                 if (selectedProfile?.id == SelectiveMatrixProfileId) {
-                                    DiagnosticsScanTargetOverrides(selectiveMatrixHosts = matrixHosts)
+                                    DiagnosticsScanTargetOverrides(selectiveMatrixHosts = command.matrixHosts)
                                 } else {
                                     null
                                 },
@@ -403,25 +428,7 @@ internal class DiagnosticsScanActions(
                     }
 
                     is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
-                        scanLifecycle.update {
-                            it.copy(
-                                scanStartedAt = null,
-                                activeScanPathMode = null,
-                                activeScanKind = null,
-                                pendingAutoOpenAuditSessionId = null,
-                                accumulatedProbes = persistentListOf(),
-                                hiddenProbeConflictDialog =
-                                    HiddenProbeConflictDialogState(
-                                        requestId = result.requestId,
-                                        profileName = result.profileName,
-                                        pathMode = result.pathMode,
-                                        scanKind = result.scanKind,
-                                        isFullAudit = result.isFullAudit,
-                                    ),
-                                sensitiveProfileConsentDialog = null,
-                                queuedManualScanRequest = null,
-                            )
-                        }
+                        scanLifecycle.showHiddenProbeConflict(result)
                     }
                 }
             } catch (error: CancellationException) {
@@ -598,38 +605,6 @@ private fun QueuedManualScanRequest.toManualScanUiRequest(): ManualScanUiRequest
         isFullAudit = isFullAudit,
     )
 
-internal fun buildScanCompletionEffect(
-    scan: DiagnosticsScanUiModel,
-    stringResolver: StringResolver,
-): DiagnosticsEffect.ScanCompleted {
-    val latestSummary =
-        scan.latestSession?.summary
-            ?: stringResolver.getString(R.string.diagnostics_snackbar_scan_complete)
-    val resolverMessage =
-        when {
-            scan.resolverRecommendation != null -> {
-                stringResolver.getString(
-                    R.string.diagnostics_snackbar_dns_recommendation_format,
-                    scan.resolverRecommendation.headline,
-                )
-            }
-
-            latestSummary.contains("resolver override recommended", ignoreCase = true) -> {
-                stringResolver.getString(R.string.diagnostics_snackbar_dns_recommendation_generic)
-            }
-
-            else -> {
-                null
-            }
-        }
-    return DiagnosticsEffect.ScanCompleted(
-        summary = resolverMessage ?: latestSummary,
-        tone = if (resolverMessage != null) DiagnosticsTone.Warning else scanCompletedTone(scan.latestSession),
-        actionLabel = scan.resolverRecommendation?.let { stringResolver.getString(R.string.title_dns_settings) },
-        action = scan.resolverRecommendation?.let { DiagnosticsEffect.SnackbarAction.OpenDnsSettings },
-    )
-}
-
 private fun candidateTimelineTone(outcome: String): DiagnosticsTone =
     when {
         outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
@@ -672,6 +647,69 @@ private fun requestSensitiveProfileConsent(
                     scanKind = request.scanKind,
                     isFullAudit = request.isFullAudit,
                 ),
+        )
+    }
+}
+
+private data class PreparedManualScan(
+    val request: ManualScanUiRequest,
+    val matrixHosts: List<String>,
+)
+
+private fun DiagnosticsMutationRunner.prepareManualScan(
+    scanLifecycle: MutableStateFlow<ScanLifecycleState>,
+    pathMode: ScanPathMode,
+    profile: DiagnosticsProfileOptionUiModel?,
+    allowSensitiveProfileStart: Boolean,
+): PreparedManualScan? {
+    if (diagnosticsScanController.hasActiveHomeRun() ||
+        diagnosticsTimelineSource.activeScanProgress.value != null
+    ) {
+        return null
+    }
+    val hosts =
+        if (profile?.id == SelectiveMatrixProfileId) {
+            parseSelectiveMatrixHosts(currentUiState().scan.selectiveMatrixHostsInput)
+        } else {
+            emptyList()
+        }
+    return hosts?.let { matrixHosts ->
+        val request =
+            ManualScanUiRequest(
+                profileName = profile?.name ?: "Scan",
+                pathMode = pathMode,
+                scanKind = profile?.kind ?: ScanKind.CONNECTIVITY,
+                isFullAudit = profile?.isFullAudit == true,
+            )
+        if (profile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {
+            requestSensitiveProfileConsent(scanLifecycle, profile.id, request)
+            null
+        } else {
+            PreparedManualScan(request, matrixHosts)
+        }
+    }
+}
+
+private fun MutableStateFlow<ScanLifecycleState>.showHiddenProbeConflict(
+    result: DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution,
+) {
+    update {
+        it.copy(
+            scanStartedAt = null,
+            activeScanPathMode = null,
+            activeScanKind = null,
+            pendingAutoOpenAuditSessionId = null,
+            accumulatedProbes = persistentListOf(),
+            hiddenProbeConflictDialog =
+                HiddenProbeConflictDialogState(
+                    requestId = result.requestId,
+                    profileName = result.profileName,
+                    pathMode = result.pathMode,
+                    scanKind = result.scanKind,
+                    isFullAudit = result.isFullAudit,
+                ),
+            sensitiveProfileConsentDialog = null,
+            queuedManualScanRequest = null,
         )
     }
 }

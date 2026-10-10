@@ -41,6 +41,7 @@ internal class DiagnosticsUiStateFactory
 
             return DiagnosticsUiState(
                 selectedSection = resolvedInput.selectedSection,
+                uiPersona = input.settings.uiPersona,
                 overview =
                     timer.measureOverview {
                         overviewFactory.build(input, resolvedInput, sessionRows)
@@ -74,6 +75,9 @@ internal class DiagnosticsUiStateFactory
                 performance = performanceFactory.build(input, timer),
             )
         }
+
+        fun toSessionRow(session: com.poyka.ripdpi.diagnostics.DiagnosticScanSession): DiagnosticsSessionRowUiModel =
+            support.toSessionRowUiModel(session)
 
         fun toSessionDetailUiModel(
             detail: com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail,
@@ -114,6 +118,18 @@ internal class DiagnosticsUiStateFactory
 
 private fun phaseToConnectivityProbeType(phase: String): String? =
     when (phase) {
+        "pmtu" -> {
+            "pmtu"
+        }
+
+        "http3" -> {
+            "http3"
+        }
+
+        "ip_family" -> {
+            "ip_family"
+        }
+
         "environment" -> {
             "network_environment"
         }

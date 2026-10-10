@@ -43,10 +43,10 @@ object BlockLayerDiagnosisMapper {
             DpiProbeError.TlsRstTls,
             -> {
                 diagnosis(
-                    layer = BlockLayer.SNI_BASED_RESET,
+                    layer = BlockLayer.UNKNOWN,
                     bypassClass = BypassStrategyClass.TLS_RECORD_SPLIT,
-                    confidence = EvidenceConfidence.HIGH,
-                    reasonCode = "tls_handshake_reset_or_sni_alert",
+                    confidence = EvidenceConfidence.LOW,
+                    reasonCode = "tls_handshake_reset_or_alert_observed",
                 )
             }
 
@@ -58,9 +58,9 @@ object BlockLayerDiagnosisMapper {
             DpiProbeError.HostUnreach,
             -> {
                 diagnosis(
-                    layer = BlockLayer.IP_BLOCK,
+                    layer = BlockLayer.UNKNOWN,
                     bypassClass = BypassStrategyClass.FAKE_PACKET_TTL,
-                    confidence = EvidenceConfidence.MEDIUM,
+                    confidence = EvidenceConfidence.LOW,
                     reasonCode = "tcp_connect_or_ip_path_failed",
                 )
             }
@@ -73,10 +73,10 @@ object BlockLayerDiagnosisMapper {
             DpiProbeError.TlsMitm,
             -> {
                 diagnosis(
-                    layer = BlockLayer.TLS_HANDSHAKE_INTERFERENCE,
+                    layer = BlockLayer.UNKNOWN,
                     bypassClass = BypassStrategyClass.TLS_RECORD_SPLIT,
-                    confidence = EvidenceConfidence.MEDIUM,
-                    reasonCode = "tls_handshake_interference",
+                    confidence = EvidenceConfidence.LOW,
+                    reasonCode = "tls_handshake_failure_observed",
                 )
             }
 

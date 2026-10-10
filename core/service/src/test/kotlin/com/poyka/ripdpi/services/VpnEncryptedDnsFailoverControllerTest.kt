@@ -413,6 +413,136 @@ class VpnEncryptedDnsFailoverControllerTest {
                 ),
         )
 
+    @Test
+    fun `proxy peer errors do not change resolver or persist a blocked endpoint`() =
+        runTest {
+            for (error in listOf(
+                "SniBlocked: Connection reset by peer",
+                "Connect: SOCKS5 negotiation failed",
+                "Timeout: resolver timed out",
+                "Tls: unexpected EOF",
+                "Tls: handshake failed",
+                "Broken pipe",
+            )) {
+                val env = newEnv()
+                val dns = cloudflareDohDns()
+
+                suspend fun observe(
+                    queries: Long,
+                    failures: Long,
+                    error: String?,
+                ) = env.controller.evaluate(
+                    env.state,
+                    dns,
+                    dnsSignature(dns, null),
+                    env.fingerprint.scopeKey(),
+                    dnsTelemetry(queries, failures, error),
+                    dnsUsesSharedProxy = true,
+                )
+                observe(0, 0, null)
+                repeat(3) { assertFalse(observe((it + 1).toLong(), (it + 1).toLong(), error)) }
+                assertNull(env.overrides.override.value)
+                assertTrue(env.blockedPaths.getBlockedPathKeys(env.fingerprint.scopeKey()).isEmpty())
+                assertEquals(0, env.state.consecutiveFailureEvents)
+                assertFalse(observe(4, 4, "Http: unexpected status 403"))
+                assertTrue(observe(5, 5, "Http: unexpected status 403"))
+                assertNotNull(env.overrides.override.value)
+            }
+        }
+
+    @Test
+    fun `proxy endpoint certificate errors still fail over and persist block`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                dns,
+                dnsSignature(dns, null),
+                env.fingerprint.scopeKey(),
+                dnsTelemetry(queries, failures, error),
+                dnsUsesSharedProxy = true,
+            )
+            observe(0, 0, null)
+            assertFalse(observe(1, 1, "Tls: invalid peer certificate"))
+            assertTrue(observe(2, 2, "Tls: invalid peer certificate"))
+            assertNotNull(env.overrides.override.value)
+            assertTrue(env.blockedPaths.getBlockedPathKeys(env.fingerprint.scopeKey()).isNotEmpty())
+        }
+
+    @Test
+    fun `proxy DNS decode errors still select a fallback endpoint`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                dns,
+                dnsSignature(dns, null),
+                env.fingerprint.scopeKey(),
+                dnsTelemetry(queries, failures, error),
+                dnsUsesSharedProxy = true,
+            )
+            observe(0, 0, null)
+            assertFalse(observe(1, 1, "Decode: invalid DNS response"))
+            assertTrue(observe(2, 2, "Decode: invalid DNS response"))
+            assertNotNull(env.overrides.override.value)
+        }
+
+    @Test
+    fun `local strict proxy timeout remains eligible for endpoint failover`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns().copy(routeThroughProxy = false)
+            val resolution = sampleResolution(com.poyka.ripdpi.data.Mode.VPN, activeDns = dns)
+            val strict =
+                ValidatedSplitStrictDnsPolicy.build(
+                    activeDns = dns,
+                    routingSnapshot =
+                        com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot.Available(
+                            com.poyka.ripdpi.core.routing
+                                .DestinationRoutingPolicy(rules = emptyList(), canonicalDigest = ""),
+                        ),
+                    underlayDnsServers = emptyList(),
+                )
+            val ready =
+                RuntimeTunnelReadyEvidence(
+                    resolution.requestedConfiguration.tunnelInput,
+                    false,
+                    dns,
+                    strict,
+                    "interface",
+                )
+            assertTrue(ready.encryptedDnsUsesProxy)
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                dns,
+                dnsSignature(dns, null),
+                env.fingerprint.scopeKey(),
+                dnsTelemetry(queries, failures, error),
+                dnsUsesSharedProxy = ready.encryptedDnsUsesSharedProxy,
+            )
+            observe(0, 0, null)
+            assertFalse(observe(1, 1, "Timeout: resolver timed out"))
+            assertTrue(observe(2, 2, "Timeout: resolver timed out"))
+            assertNotNull(env.overrides.override.value)
+        }
+
     private fun dnsTelemetry(
         queries: Long,
         failures: Long,

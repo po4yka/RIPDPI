@@ -45,9 +45,9 @@ pub(crate) fn protected_tcp_connect(target: SocketAddr, timeout: Duration) -> io
 
 /// Bind a UDP socket at `bind_addr` for an outbound probe to `server`,
 /// protecting it if the VPN is active so the probe bypasses the tunnel.
-pub(crate) fn protected_udp_bind(bind_addr: SocketAddr, server: SocketAddr) -> io::Result<UdpSocket> {
+pub fn protected_udp_bind(bind_addr: SocketAddr, server: SocketAddr) -> io::Result<UdpSocket> {
     let socket = Socket::new(domain_for(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
-    protect_for_target(&socket, server)?;
+    protect_for_target(&socket, server).map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, error))?;
     socket.bind(&SockAddr::from(bind_addr))?;
     Ok(socket.into())
 }

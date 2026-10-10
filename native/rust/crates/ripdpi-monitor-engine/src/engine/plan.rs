@@ -1,7 +1,8 @@
+mod connectivity_order;
+
 use crate::transport::TransportConfig;
 use crate::types::{ScanKind, ScanPathMode, ScanRequest};
 
-use super::runners::{PROBE_STAGE_REGISTRATIONS, registration_for_family};
 use super::runtime::{ExecutionPlan, ExecutionStageId};
 use super::strategy_plan::build_strategy_execution_plan;
 
@@ -57,34 +58,69 @@ pub(super) fn strategy_stage_order(request: &ScanRequest) -> Vec<ExecutionStageI
 }
 
 pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionStageId> {
-    // Always-on stages — today only `Environment` — come first, in
-    // registration order. Followed by either the probe-task-driven sequence
-    // (user-supplied order, deduplicated) or the canonical registration
-    // order for all selectable stages.
-    let mut ordered: Vec<ExecutionStageId> = PROBE_STAGE_REGISTRATIONS
-        .iter()
-        .filter(|registration| registration.task_family_selector.is_none())
-        .map(|registration| registration.stage_id.clone())
-        .collect();
+    connectivity_order::connectivity_stage_order(request)
+}
 
-    if !request.probe_tasks.is_empty() {
-        for task in &request.probe_tasks {
-            if let Some(registration) = registration_for_family(&task.family)
-                && !ordered.contains(&registration.stage_id)
-            {
-                ordered.push(registration.stage_id.clone());
-            }
-        }
-        return ordered;
+#[cfg(test)]
+mod ip_family_tests {
+    use super::*;
+    #[test]
+    fn absent_configuration_never_schedules_ip_family_even_with_task() {
+        let mut request:ScanRequest=serde_json::from_str(r#"{"profileId":"test","displayName":"test","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#).unwrap();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::IpFamily));
+        request.probe_tasks.push(crate::types::ProbeTask {
+            family: crate::types::ProbeTaskFamily::IpFamily,
+            target_id: "ip-family".into(),
+            label: "IP family".into(),
+        });
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::IpFamily));
+        request.ip_family_probe = Some(crate::types::IpFamilyProbeConfig {
+            version: 1,
+            ipv4_address: "1.1.1.1".into(),
+            ipv6_address: "2606:4700:4700::1111".into(),
+            port: 443,
+            timeout_ms: 1500,
+        });
+        assert_eq!(connectivity_stage_order(&request), [ExecutionStageId::Environment, ExecutionStageId::IpFamily]);
     }
+}
 
-    for registration in PROBE_STAGE_REGISTRATIONS {
-        if registration.stage_id == ExecutionStageId::SelectiveAvailability {
-            continue;
-        }
-        if registration.task_family_selector.is_some() && !ordered.contains(&registration.stage_id) {
-            ordered.push(registration.stage_id.clone());
-        }
+#[cfg(test)]
+mod http3_tests {
+    use super::*;
+    #[test]
+    fn http3_requires_explicit_task_and_configuration() {
+        let mut request: ScanRequest = serde_json::from_str(r#"{"profileId":"test","displayName":"test","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#).unwrap();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
+        request.probe_tasks = vec![crate::types::ProbeTask {
+            family: crate::types::ProbeTaskFamily::Http3,
+            target_id: "http3".into(),
+            label: "HTTP/3".into(),
+        }];
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
+        request.http3_probe = Some(crate::types::Http3ProbeConfig::default());
+        assert!(connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
+        request.probe_tasks.clear();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Http3));
     }
-    ordered
+}
+
+#[cfg(test)]
+mod pmtu_tests {
+    use super::*;
+    #[test]
+    fn pmtu_requires_explicit_task_and_configuration() {
+        let mut request: ScanRequest = serde_json::from_str(r#"{"profileId":"test","displayName":"test","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#).unwrap();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+        request.probe_tasks = vec![crate::types::ProbeTask {
+            family: crate::types::ProbeTaskFamily::Pmtu,
+            target_id: "pmtu".into(),
+            label: "HTTP/3".into(),
+        }];
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+        request.pmtu_probe = Some(crate::types::PmtuProbeConfig::default());
+        assert!(connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+        request.probe_tasks.clear();
+        assert!(!connectivity_stage_order(&request).contains(&ExecutionStageId::Pmtu));
+    }
 }

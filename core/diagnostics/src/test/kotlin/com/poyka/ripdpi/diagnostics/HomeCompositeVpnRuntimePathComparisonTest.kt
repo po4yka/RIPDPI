@@ -211,6 +211,7 @@ private fun createVpnPathCompositeService(
             timelineSource,
             serviceStateStore,
             vpnInPathRuntimeCoordinator(),
+            homeRunLease = DiagnosticsHomeRunLease(),
         ),
     json = json,
     scope = scope,

@@ -29,6 +29,13 @@ val RipDpiEncodeDefaultsJson: Json =
         encodeDefaults = true
     }
 
+/** Tolerant evidence JSON that writes defaults and keeps explicit nulls. */
+val RipDpiTolerantEncodeDefaultsJson: Json =
+    Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
 /** Native/request payloads that intentionally omit explicit nulls without forcing default values. */
 val RipDpiNoExplicitNullsJson: Json =
     Json {

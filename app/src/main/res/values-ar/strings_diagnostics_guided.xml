@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_review_recommendation">مراجعة التوصية</string>
+    <string name="diagnostics_guided_recheck">فحص هذه الشبكة مجدداً</string>
+    <string name="diagnostics_guided_verify_title">تشغيل VPN وفحص الوصول؟</string>
+    <string name="diagnostics_guided_verify_body">يبدأ VPN بإعداداتك الحالية، ثم يقيس فحص قصير الوصول عبر VPN. قد يتوقف الوصول إلى الشبكة مؤقتاً أثناء بدء VPN.</string>
+    <string name="diagnostics_guided_verify_confirm">تشغيل وفحص</string>
+</resources>

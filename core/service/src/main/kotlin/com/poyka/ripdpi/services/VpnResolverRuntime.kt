@@ -118,9 +118,19 @@ internal fun classifyNetworkHandover(
 ): String? =
     when {
         previous == current -> null
+
         previous == null -> "connectivity_restore"
+
         current == null -> "connectivity_loss"
+
         previous.transport != current.transport -> "transport_switch"
+
+        // Binder readiness can acquire or drop a lease token while the physical network is unchanged.
+        // A change between two valid leases still requires a runtime refresh.
+        previous.copy(directDnsUnderlayGeneration = null) == current.copy(directDnsUnderlayGeneration = null) &&
+            (previous.directDnsUnderlayGeneration == null || current.directDnsUnderlayGeneration == null) -> null
+
         previous != current -> "link_refresh"
+
         else -> null
     }

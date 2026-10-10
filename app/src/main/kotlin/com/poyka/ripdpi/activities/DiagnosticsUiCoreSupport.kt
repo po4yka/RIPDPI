@@ -297,11 +297,24 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         tone = toneForProbeResult(pathMode, result, reportResults),
         details =
             result.details
-                .filterNot { it.key == "transferEvidence" }
-                .map { DiagnosticsFieldUiModel(it.key, it.value) }
+                .filterNot {
+                    it.key in
+                        setOf(
+                            "transferEvidence",
+                            "udpDnsResponse",
+                            "encryptedDnsResponse",
+                            "ipFamilyEvidence",
+                            "http3Evidence",
+                            "pmtuEvidence",
+                        )
+                }.map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
         transferEvidence = result.toTransferUiModel(),
         connectionStages = result.toConnectionStageScale()?.toConnectionStageUiModel(networkScopeUnverified),
+        dnsResponses = result.toDnsResponseGroups(strings).toImmutableList(),
+        ipFamily = result.toIpFamilyGroup(strings, networkScopeUnverified),
+        http3 = result.toHttp3Group(strings, networkScopeUnverified),
+        pmtu = result.toPmtuGroup(strings, networkScopeUnverified),
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =

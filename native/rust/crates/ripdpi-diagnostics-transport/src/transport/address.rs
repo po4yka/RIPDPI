@@ -370,6 +370,16 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
         .ok_or(TransportError::NoSocketAddrs)
 }
 
+/// Submit DNS work to the bounded shared executor. Dropping the receiver abandons
+/// the result without spawning another resolver or waiting for a platform lookup.
+pub fn start_address_resolution(
+    host: &str,
+    port: u16,
+    timeout: Duration,
+) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, DnsResolveError>>, DnsResolveError> {
+    DNS_RESOLVER.as_ref().map_err(Clone::clone)?.submit(host.to_owned(), port, timeout)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

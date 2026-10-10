@@ -12,6 +12,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
+import com.poyka.ripdpi.core.XrayBridgeModule
+import com.poyka.ripdpi.core.XrayDatDir
+import com.poyka.ripdpi.core.XrayNativeBridge
+import com.poyka.ripdpi.core.XrayProtectController
+import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
@@ -27,6 +32,7 @@ import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
 import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
+import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -57,10 +63,15 @@ import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityMeasurementCoordinator
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +85,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -87,16 +102,48 @@ import org.junit.Test
 import org.junit.rules.TestRule
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Real VpnService, Keystore, gomobile engine and TUN; independent host peer, never a public server. */
 @HiltAndroidTest
-@UninstallModules(VpnTunnelSessionProviderModule::class)
+@UninstallModules(VpnTunnelSessionProviderModule::class, XrayBridgeModule::class)
 class XrayProviderE2ETest {
     // JUnit creates a fresh test instance, so each case has its own eight-event budget.
     @BindValue
     @JvmField
     val vpnTunnelSessionProvider: VpnTunnelSessionProvider = ObservedVpnTunnelSessionProvider()
+
+    // Nested test modules keep the production lazy singleton construction timing.
+    @Module
+    @InstallIn(SingletonComponent::class)
+    object DiagnosticXrayBridgeModule {
+        @Provides
+        @Singleton
+        @XrayDatDir
+        fun provideXrayDatDir(
+            @ApplicationContext context: Context,
+        ): String = XrayBridgeModule.provideXrayDatDir(context)
+
+        @Provides
+        @Singleton
+        fun provideXrayNativeBridge(
+            @XrayDatDir datDir: String,
+        ): XrayNativeBridge {
+            val bridge = XrayBridgeModule.provideXrayNativeBridge(datDir)
+            return if (InstrumentationRegistry.getArguments().getString("ripdpi.xrayDebug") == "true") {
+                TracedXrayNativeBridge(bridge)
+            } else {
+                bridge
+            }
+        }
+
+        @Provides
+        @Singleton
+        fun provideXrayRuntimeOwner(bridge: XrayNativeBridge): XrayRuntimeOwner =
+            XrayBridgeModule.provideXrayRuntimeOwner(bridge)
+    }
 
     @get:Rule(order = 0)
     val hilt = HiltAndroidRule(this)
@@ -118,6 +165,8 @@ class XrayProviderE2ETest {
     @Inject lateinit var profiles: DurableXrayProfileStore
 
     @Inject lateinit var selection: XrayProviderSelectionStore
+
+    @Inject lateinit var resolverOverrides: ResolverOverrideStore
 
     @Inject lateinit var providerProbes: XrayProviderProbeCoordinator
 
@@ -499,7 +548,12 @@ class XrayProviderE2ETest {
             assertDirectSentinelReachable("before-$network")
             start(network, wrongIdentity = false)
             awaitOwnedPeerEcho(network)
+            assertOwnedEncryptedDnsThroughProvider("baseline-$network")
             val restartCount = state.telemetry.value.restartCount
+            val tunnelProvider = vpnTunnelSessionProvider as ObservedVpnTunnelSessionProvider
+            val establishmentCount = tunnelProvider.establishmentCount
+            val resolverBefore = resolverOverrides.override.value
+            val failuresBefore = state.telemetry.value.tunnelTelemetry.dnsFailuresTotal
             readControl("peer/stop", "POST")
             try {
                 val before = readControl("receipts").getInt("count")
@@ -509,11 +563,51 @@ class XrayProviderE2ETest {
                 assertTrue("Peer loss must not enable a direct bypass", direct.response.isNullOrEmpty())
                 assertEquals(before, readControl("receipts").getInt("count"))
                 assertEquals(directBefore, readControl("direct-receipts").getInt("count"))
+                val dnsReceiptsBefore = readControl("dns-http-receipts").getInt("count")
+                val dnsFailure = testProcessDnsProbe(queryHost = "peer-owned-loss-$network.test", timeoutMs = 3_000L)
+                Log.i(
+                    "XrayPeerRecovery",
+                    "phase=peer-stopped ok=${dnsFailure.ok} rcode=${dnsFailure.rcode} " +
+                        "answers=${dnsFailure.answers.size} failure=${dnsFailure.failureKind}/${dnsFailure.failureStage}",
+                )
+                assertTrue(
+                    "Outage DNS must originate from a distinct test UID",
+                    dnsFailure.probeUid != null && dnsFailure.probeUid != Process.myUid(),
+                )
+                assertTrue("Stopped peer must return no DNS answers", dnsFailure.answers.isEmpty())
+                if (dnsFailure.ok) {
+                    assertEquals("Stopped peer must return SERVFAIL", 2, dnsFailure.rcode)
+                }
+                assertEquals(
+                    "Stopped peer must not reach the real DoH handler",
+                    dnsReceiptsBefore,
+                    readControl("dns-http-receipts").getInt("count"),
+                )
+                awaitUntil {
+                    assertEquals(
+                        "DNS failure must preserve real TUN",
+                        establishmentCount,
+                        tunnelProvider.establishmentCount,
+                    )
+                    assertEquals("Peer loss must preserve resolver", resolverBefore, resolverOverrides.override.value)
+                    state.telemetry.value.tunnelTelemetry.dnsFailuresTotal > failuresBefore
+                }
+                Log.i("XrayPeerRecovery", "phase=peer-stopped dnsFailureObserved=true")
+                assertEquals("Peer loss must preserve resolver", resolverBefore, resolverOverrides.override.value)
+                assertEquals(
+                    "DNS failure must preserve real TUN",
+                    establishmentCount,
+                    tunnelProvider.establishmentCount,
+                )
             } finally {
                 readControl("peer/start", "POST")
             }
             awaitOwnedPeerEcho(network)
+            repeat(3) { assertOwnedEncryptedDnsThroughProvider("recovered-$network-$it") }
             assertOwnedDnsThroughProvider()
+            assertEquals("Recovery must preserve resolver", resolverBefore, resolverOverrides.override.value)
+            assertEquals("Recovery must preserve real TUN", establishmentCount, tunnelProvider.establishmentCount)
+            Log.i("XrayPeerRecovery", "phase=peer-recovered dnsReceiptsVerified=true")
             assertEquals(restartCount, state.telemetry.value.restartCount)
             assertEquals(AppStatus.Running, state.status.value.first)
             runBlocking { controller.stop() }
@@ -545,6 +639,35 @@ class XrayProviderE2ETest {
         )
     }
 
+    private fun assertOwnedEncryptedDnsThroughProvider(label: String) {
+        val before = readControl("dns-http-receipts").getInt("count")
+        val response =
+            testProcessDnsProbe(
+                queryHost = "peer-owned-$label.test",
+                serverHost = "198.18.0.53",
+                timeoutMs = 3_000L,
+            )
+        assertTrue(
+            "Encrypted DNS must originate from a distinct test UID",
+            response.probeUid != null && response.probeUid != Process.myUid(),
+        )
+        assertTrue(
+            "Owned encrypted DNS must succeed through the active provider: ${response.failureKind}/${response.failureStage}",
+            response.ok,
+        )
+        assertEquals(0, response.rcode)
+        assertEquals("MapDNS must return one synthetic answer", 1, response.answers.size)
+        assertTrue(
+            "MapDNS answer must use the configured synthetic range",
+            response.answers.single().startsWith("198.18."),
+        )
+        assertEquals(
+            "Real DoH handler must receive the query",
+            before + 1,
+            readControl("dns-http-receipts").getInt("count"),
+        )
+    }
+
     private fun assertOwnedDnsThroughProvider() {
         val before = readControl("dns-receipts").getInt("count")
         val packetsBefore = state.telemetry.value.tunnelStats
@@ -553,7 +676,13 @@ class XrayProviderE2ETest {
             "DNS must originate from a distinct test UID",
             response.probeUid != null && response.probeUid != Process.myUid(),
         )
-        assertTrue("Owned UDP DNS query must succeed through the active provider", response.ok)
+        assertTrue(
+            "Owned UDP DNS query must succeed through the active provider: " +
+                "failure=${response.failureKind}/${response.failureStage} errno=${response.errno} " +
+                "rcode=${response.rcode} dnsFailures=${state.telemetry.value.tunnelTelemetry.dnsFailuresTotal} " +
+                "dnsQueries=${state.telemetry.value.tunnelTelemetry.dnsQueriesTotal}",
+            response.ok,
+        )
         assertEquals(0, response.rcode)
         assertEquals(listOf("192.0.2.77"), response.answers)
         val receipts = readControl("dns-receipts")
@@ -765,6 +894,39 @@ class XrayProviderE2ETest {
             JSONObject(connection.inputStream.use { it.readBytes().decodeToString() })
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /** Diagnostic delegation keeps the real engine, protection result and lifecycle. */
+    private class TracedXrayNativeBridge(
+        private val delegate: XrayNativeBridge,
+    ) : XrayNativeBridge by delegate {
+        private val starts = AtomicInteger()
+        private val sockets = AtomicInteger()
+
+        override fun registerProtect(controller: XrayProtectController) {
+            delegate.registerProtect { fd ->
+                val result = controller.protect(fd)
+                Log.i(
+                    "XrayNativeTrace",
+                    "protect start=${starts.get()} attempt=${sockets.incrementAndGet()} fd=$fd result=$result",
+                )
+                result
+            }
+        }
+
+        override fun start(jsonConfig: String): Int {
+            val original = Json.parseToJsonElement(jsonConfig).jsonObject
+            val originalLog = original["log"]?.jsonObject ?: JsonObject(emptyMap())
+            val tracedLog = JsonObject(originalLog + ("loglevel" to JsonPrimitive("debug")))
+            val traced = JsonObject(original + ("log" to tracedLog))
+            check(original.filterKeys { it != "log" } == traced.filterKeys { it != "log" })
+            check(originalLog.filterKeys { it != "loglevel" } == tracedLog.filterKeys { it != "loglevel" })
+            Log.i(
+                "XrayNativeTrace",
+                "start generation=${starts.incrementAndGet()} configChange=loglevel-only version=${delegate.version()}",
+            )
+            return delegate.start(traced.toString())
         }
     }
 

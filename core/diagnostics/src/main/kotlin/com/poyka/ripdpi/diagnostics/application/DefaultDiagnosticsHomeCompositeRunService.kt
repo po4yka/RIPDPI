@@ -13,7 +13,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsNetworkScope
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -76,7 +75,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
         private val completionOrder = HomeCompositeCompletionOrder()
         private val packetCaptureCoordinator = HomePacketCaptureTerminalCoordinator(scope)
         private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
-        private val runJobs = HomeCompositeRunJobs(scope)
+        private val runJobs = HomeCompositeRunJobs(scope, stageExecutor.homeRunLease) { !stageExecutor.hasActiveScan() }
         private val activeProbeSafetyPolicy = ActiveProbeSafetyPolicy()
         private val passiveVpnRouteEvidenceBuilder = PassiveVpnRouteEvidenceBuilder()
         private val detectionStageCoordinator =
@@ -326,7 +325,7 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
-        private fun launchRun(
+        private suspend fun launchRun(
             runId: String,
             block: suspend () -> Unit,
         ) {
@@ -360,28 +359,35 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
+        @Suppress("detekt.TooGenericExceptionCaught")
         private suspend fun admitAndLaunchRun(
             runId: String,
             options: DiagnosticsHomeRunOptions,
             block: suspend () -> Unit,
         ) {
             try {
+                if (!runJobs.reserve(runId)) {
+                    throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
+                }
                 packetCaptureCoordinator.admit(runId, options)
                 launchRun(runId, block)
-            } catch (error: CancellationException) {
-                clearRejectedRun(runId)
-                throw error
-            } catch (error: DiagnosticsScanStartRejectedException) {
+            } catch (error: Throwable) {
                 clearRejectedRun(runId)
                 throw error
             }
         }
 
         private suspend fun clearRejectedRun(runId: String) {
-            packetCaptureCoordinator.settle(runId)
-            runDetectionResults.remove(runId)
-            packetCaptureCoordinator.clear(runId)
-            progressState.update { current -> current - runId }
+            withContext(NonCancellable) {
+                try {
+                    packetCaptureCoordinator.settle(runId)
+                    runDetectionResults.remove(runId)
+                    packetCaptureCoordinator.clear(runId)
+                    progressState.update { current -> current - runId }
+                } finally {
+                    runJobs.releaseReservation(runId)
+                }
+            }
         }
 
         private fun updateRunStatus(

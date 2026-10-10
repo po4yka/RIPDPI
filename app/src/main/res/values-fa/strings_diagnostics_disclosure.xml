@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">نمایش مقصدهای آزمون (%1$d)</string>
+    <string name="diagnostics_matrix_catalog_hide">پنهان کردن مقصدهای آزمون</string>
+    <string name="diagnostics_matrix_cohort_coverage">پاسخ‌های کامل: %1$d / %2$d تلاش · %3$d مقصد</string>
+    <string name="diagnostics_matrix_attempts_show">نمایش تلاش‌ها (%1$d)</string>
+    <string name="diagnostics_matrix_attempts_hide">پنهان کردن تلاش‌ها</string>
+    <string name="diagnostics_probe_check_title">بررسی شبکه</string>
+    <string name="diagnostics_probe_result_recorded">مشاهده ذخیره شد</string>
+    <string name="diagnostics_probe_result_review">بررسی نتیجه</string>
+    <string name="diagnostics_probe_raw_show">نمایش جزئیات فنی</string>
+    <string name="diagnostics_probe_raw_hide">پنهان کردن جزئیات فنی</string>
+</resources>

@@ -67,36 +67,34 @@ internal fun CompactProbeRow(
     probe: DiagnosticsProbeResultUiModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    expertMode: Boolean = true,
 ) {
-    Row(
+    Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .heightIn(min = ProbeRowMinHeightDp.dp)
                 .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = RipDpiThemeTokens.spacing.sm),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = probe.target,
+                text = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = probe.probeType,
+                text = diagnosticProbeTitle(probe, expertMode),
                 style = RipDpiThemeTokens.type.smallLabel,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
         StatusIndicator(
-            label = probe.outcome,
+            label = diagnosticProbeOutcome(probe, expertMode),
             tone = statusTone(probe.tone),
         )
     }
@@ -146,11 +144,35 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
     val visibleFields =
         remember(group) {
-            group.fields.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
+            group.fields.filter {
+                it.value.isNotBlank() && (group.stackedFields || !it.value.equals("Unknown", ignoreCase = true))
+            }
         }
     if (visibleFields.isEmpty()) return
     RipDpiCard {
         RipDpiScreenSectionHeader(title = group.title)
+        if (group.stackedFields) {
+            visibleFields.forEach { field ->
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    Text(
+                        field.label,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                    Text(
+                        field.value,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = RipDpiThemeTokens.type.body,
+                        color = RipDpiThemeTokens.colors.foreground,
+                    )
+                }
+            }
+            return@RipDpiCard
+        }
         RipDpiTelemetryRows(
             entries =
                 remember(visibleFields) {
@@ -265,25 +287,44 @@ internal fun ProbeResultRow(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = probe.target,
+                    text = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = probe.probeType,
+                    text =
+                        if (probe.pmtu != null) {
+                            probe.pmtu.title
+                        } else if (probe.http3 != null) {
+                            probe.http3.title
+                        } else if (probe.ipFamily !=
+                            null
+                        ) {
+                            stringResource(R.string.diagnostics_ip_title)
+                        } else {
+                            probe.probeType
+                        },
                     style = RipDpiThemeTokens.type.secondaryBody,
                     color = colors.mutedForeground,
                 )
             }
             StatusIndicator(
-                label = probe.outcome,
+                label =
+                    (probe.pmtu ?: probe.http3 ?: probe.ipFamily)
+                        ?.fields
+                        ?.firstOrNull()
+                        ?.value ?: probe.outcome,
                 tone = statusTone(probe.tone),
             )
         }
         probe.connectionStages?.let { DiagnosticsConnectionStageCard(it) }
         probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        probe.ipFamily?.let { ContextGroupCard(it) }
+        probe.http3?.let { ContextGroupCard(it) }
+        probe.pmtu?.let { ContextGroupCard(it) }
+        DiagnosticsDnsResponseCards(probe.dnsResponses)
     }
 }
 

@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 @Serializable
 data class TransferProgressSample(
@@ -95,7 +95,7 @@ private const val TransferEvidenceMaxCharacters = 65_536
 private const val TransferTargetMaxCharacters = 2_048
 private const val TransferMaxRuns = 10
 private const val TransferMaxSamples = 64
-private val TransferEvidenceJson = Json { encodeDefaults = true }
+private val TransferEvidenceJson = RipDpiEncodeDefaultsJson
 private val TransferCompleteReasons = setOf("content_length_complete", "chunked_complete", "eof_complete")
 private val TransferTerminationReasons =
     TransferCompleteReasons +

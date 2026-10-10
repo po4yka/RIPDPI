@@ -654,26 +654,6 @@ class ProfileUtilityViewModelTest {
         }
 
     @Test
-    fun `initial catalog storage failure is failed rather than an established empty catalog`() =
-        runTest {
-            val disk = FaultingPreferencesContext(RuntimeEnvironment.getApplication())
-            val f = Fixture(disk, MemorySettings(), MemoryRelayCredentials())
-            try {
-                f.stores.relayProfiles.save(Profile)
-                disk.failCatalogRead = true
-                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { f.vm.uiState.collect {} }
-                val state = f.awaitState { it.catalogState == ProfileCatalogState.Failed }
-                assertFalse(state.loading)
-                assertEquals(ProfileUtilityFailure.Persistence, state.failure)
-                assertTrue(state.profiles.isEmpty())
-                assertTrue(f.dispatches.isEmpty())
-            } finally {
-                disk.failCatalogRead = false
-                f.close()
-            }
-        }
-
-    @Test
     fun `fastest physical change between completed candidates rejects a mixed round`() =
         verifyBetweenCandidatesChange { publishLinks(1_400) }
 
@@ -731,466 +711,497 @@ class ProfileUtilityViewModelTest {
                 f.close()
             }
         }
+}
 
-    private suspend fun TestScope.fixture(
-        disk: FaultingPreferencesContext = FaultingPreferencesContext(RuntimeEnvironment.getApplication()),
-        settings: MemorySettings = MemorySettings(),
-        credentials: MemoryRelayCredentials = MemoryRelayCredentials(),
-    ): Fixture {
-        val fixture = Fixture(disk, settings, credentials)
-        fixture.stores.relayProfiles.save(Profile)
-        credentials.save(Credentials)
-        fixture.mutations.recover()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.vm.uiState.collect {} }
-        fixture.awaitState { !it.loading && it.profiles.any { item -> item.reference == Reference } }
-        fixture.vm.updateUrl(ProbeUrl)
-        fixture.awaitState { it.canMeasure }
-        return fixture
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29])
+class ProfileUtilityCatalogRecoveryTest {
+    @get:Rule val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `catalog read failure shows recovery and retry restores saved profiles`() =
+        runTest {
+            val disk = FaultingPreferencesContext(RuntimeEnvironment.getApplication())
+            val f = Fixture(disk, MemorySettings(), MemoryRelayCredentials())
+            try {
+                f.stores.relayProfiles.save(Profile)
+                disk.failCatalogRead = true
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { f.vm.uiState.collect {} }
+                val state = f.awaitState { it.catalogState == ProfileCatalogState.Failed }
+                assertFalse(state.loading)
+                assertEquals(ProfileUtilityFailure.Persistence, state.failure)
+                assertTrue(state.profiles.isEmpty())
+                assertTrue(f.dispatches.isEmpty())
+                disk.failCatalogRead = false
+                f.vm.retryCatalog()
+                val ready = f.awaitState { it.catalogState == ProfileCatalogState.Ready }
+                assertEquals(Reference, ready.profiles.single().reference)
+                assertEquals(null, ready.failure)
+                assertTrue(f.dispatches.isEmpty())
+            } finally {
+                disk.failCatalogRead = false
+                f.close()
+            }
+        }
+}
+
+private suspend fun TestScope.fixture(
+    disk: FaultingPreferencesContext = FaultingPreferencesContext(RuntimeEnvironment.getApplication()),
+    settings: MemorySettings = MemorySettings(),
+    credentials: MemoryRelayCredentials = MemoryRelayCredentials(),
+): Fixture {
+    val fixture = Fixture(disk, settings, credentials)
+    fixture.stores.relayProfiles.save(Profile)
+    credentials.save(Credentials)
+    fixture.mutations.recover()
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.vm.uiState.collect {} }
+    fixture.awaitState { !it.loading && it.profiles.any { item -> item.reference == Reference } }
+    fixture.vm.updateUrl(ProbeUrl)
+    fixture.awaitState { it.canMeasure }
+    return fixture
+}
+
+private const val ProbeUrl = "https://unit.example/payload"
+private const val AppliedAt = 1_800_000_000_000L
+private val Profile =
+    RelayProfileRecord(
+        id = "unit-trojan",
+        kind = "trojan",
+        server = "relay.example",
+        serverName = "relay.example",
+        operatorName = "Unit relay",
+    )
+private val Reference = ProfileUtilityReference.NativeRelay(Profile.id)
+private val Credentials = RelayCredentialRecord(profileId = Profile.id, trojanPassword = "fixture-unit-only-credential")
+
+private fun xrayProfile() =
+    XrayProfile(
+        name = "Unit Xray",
+        outbound =
+            XrayProfile.Outbound(
+                serverAddress = "xray.example",
+                serverPort = 443,
+                uuid = "9f37c02d-c9f5-408f-96b2-c71671e90435",
+                security = XrayProfile.Security.TLS,
+                network = XrayProfile.Network.TCP,
+                tls = XrayProfile.Tls(serverName = "xray.example"),
+            ),
+    )
+
+private class Fixture(
+    val disk: FaultingPreferencesContext,
+    val settings: MemorySettings,
+    val credentials: MemoryRelayCredentials,
+) : AutoCloseable {
+    val authority =
+        PauseIntentAuthority(
+            CheckedPauseAuthorityPersistence(disk),
+            object : PauseClock {
+                override fun read() = PauseClockReading(AppliedAt, 10_000, 7)
+            },
+            RuntimeIntentLinearizer(),
+        )
+    val selector = SelectorActiveGroupStore(disk, authority)
+    val stores =
+        ProfileMutationStores(
+            settings,
+            SharedPreferencesRelayProfileStore(disk),
+            credentials,
+            SharedPreferencesWarpProfileStore(disk),
+            rejectingPort<WarpCredentialStore>(),
+            SharedPreferencesWarpEndpointStore(disk),
+            SharedPreferencesXrayProfileMetadataStore(disk),
+            MemoryXraySecrets(),
+            SharedPreferencesXrayProviderSelectionStore(disk),
+            SharedPreferencesBootSessionStateStore(disk.getSharedPreferences("unit-boot", Context.MODE_PRIVATE)),
+            MemoryGroupBlob(),
+            selector,
+        )
+    val mutations =
+        ProfileMutationRecoveryCoordinator(
+            stores,
+            rejectingPort<AwgProfileDao>(),
+            rejectingPort<AwgCredentialStore>(),
+            MemoryJournal(),
+            ProfileMutationGenerationPublisher(),
+            authority,
+        )
+    val groups = SharedPreferencesProxyGroupRepository(stores.groupBlob, mutations)
+    val selectionStore = SharedPreferencesSelectorSelectionStore(disk, mutations, authority, selector)
+    val xrayProfiles = DefaultDurableXrayProfileStore(stores.xrayMetadata, stores.xraySecrets)
+    val runtimeRegistry = DefaultServiceRuntimeRegistry()
+    private val connectivity = shadowOf(disk.getSystemService(ConnectivityManager::class.java))
+    private val previousCallbacks = connectivity.networkCallbacks.toSet()
+    val epoch = CandidateRelayNetworkEpoch(disk)
+    private val physical = ShadowNetwork.newInstance(817)
+    private val callback = (connectivity.networkCallbacks.toSet() - previousCallbacks).single()
+
+    @Volatile private var environment =
+        CandidateRelayProbeEnvironment(false, "chrome_stable", emptyMap(), false, false)
+
+    suspend fun changePolicy() {
+        settings.update { setTlsFingerprintProfile("firefox") }
+        environment = environment.copy(tlsProfile = "firefox")
     }
 
-    private class Fixture(
-        val disk: FaultingPreferencesContext,
-        val settings: MemorySettings,
-        val credentials: MemoryRelayCredentials,
-    ) : AutoCloseable {
-        val authority =
-            PauseIntentAuthority(
-                CheckedPauseAuthorityPersistence(disk),
-                object : PauseClock {
-                    override fun read() = PauseClockReading(AppliedAt, 10_000, 7)
-                },
-                RuntimeIntentLinearizer(),
-            )
-        val selector = SelectorActiveGroupStore(disk, authority)
-        val stores =
-            ProfileMutationStores(
-                settings,
-                SharedPreferencesRelayProfileStore(disk),
-                credentials,
-                SharedPreferencesWarpProfileStore(disk),
-                rejectingPort<WarpCredentialStore>(),
-                SharedPreferencesWarpEndpointStore(disk),
-                SharedPreferencesXrayProfileMetadataStore(disk),
-                MemoryXraySecrets(),
-                SharedPreferencesXrayProviderSelectionStore(disk),
-                SharedPreferencesBootSessionStateStore(disk.getSharedPreferences("unit-boot", Context.MODE_PRIVATE)),
-                MemoryGroupBlob(),
-                selector,
-            )
-        val mutations =
-            ProfileMutationRecoveryCoordinator(
-                stores,
-                rejectingPort<AwgProfileDao>(),
-                rejectingPort<AwgCredentialStore>(),
-                MemoryJournal(),
-                ProfileMutationGenerationPublisher(),
-                authority,
-            )
-        val groups = SharedPreferencesProxyGroupRepository(stores.groupBlob, mutations)
-        val selectionStore = SharedPreferencesSelectorSelectionStore(disk, mutations, authority, selector)
-        val xrayProfiles = DefaultDurableXrayProfileStore(stores.xrayMetadata, stores.xraySecrets)
-        val runtimeRegistry = DefaultServiceRuntimeRegistry()
-        private val connectivity = shadowOf(disk.getSystemService(ConnectivityManager::class.java))
-        private val previousCallbacks = connectivity.networkCallbacks.toSet()
-        val epoch = CandidateRelayNetworkEpoch(disk)
-        private val physical = ShadowNetwork.newInstance(817)
-        private val callback = (connectivity.networkCallbacks.toSet() - previousCallbacks).single()
+    val runtimes = CopyOnWriteArrayList<ControlledRelayRuntime>()
+    val httpUrls = CopyOnWriteArrayList<String>()
+    val latencies = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val httpClockNanos =
+        java.util.concurrent.atomic
+            .AtomicLong()
+    val failedHttpProfiles =
+        java.util.concurrent.ConcurrentHashMap
+            .newKeySet<String>()
+    val failedStopProfiles =
+        java.util.concurrent.ConcurrentHashMap
+            .newKeySet<String>()
+    private val firstDispatch = CompletableDeferred<RuntimeActivationReceipt>()
+    val httpEntered = CompletableDeferred<Unit>()
+    val httpCalls = MutableStateFlow(0)
+    var cancelCompletionRelease: CompletableDeferred<Unit>? = null
+    val cancelCompletionEntered = CompletableDeferred<Unit>()
+    val cancelCompletionReturned = CompletableDeferred<Unit>()
 
-        @Volatile private var environment =
-            CandidateRelayProbeEnvironment(false, "chrome_stable", emptyMap(), false, false)
+    @Volatile var httpRelease: CompletableDeferred<Unit>? = null
 
-        suspend fun changePolicy() {
-            settings.update { setTlsFingerprintProfile("firefox") }
-            environment = environment.copy(tlsProfile = "firefox")
+    @Volatile var afterHttp: () -> Unit = {}
+
+    @Volatile var failStop = false
+
+    @Volatile var onPreflight: () -> Unit = {}
+    private val http =
+        construct(
+            "com.poyka.ripdpi.services.CandidateHttpPayloadProbe",
+            internalTcpProbe { endpoint, url ->
+                assertEquals("127.0.0.1", endpoint.host)
+                assertEquals(1234, endpoint.port)
+                httpUrls += url
+                httpCalls.value += 1
+                httpEntered.complete(Unit)
+                httpRelease?.await()
+                afterHttp()
+                val profileId = runtimes.last().profileId
+                httpClockNanos.addAndGet((latencies[profileId] ?: 0L) * 1_000_000L)
+                construct(
+                    "com.poyka.ripdpi.services.RelayTcpProbeResult",
+                    profileId !in failedHttpProfiles,
+                    204,
+                    null,
+                )
+            },
+            { httpClockNanos.get() },
+        ) as CandidateHttpPayloadProbe
+    private val probeFixtures =
+        ProfileUtilityProbeFixtures(
+            http,
+            suspend { environment },
+            { failStop || runtimes.last().profileId in failedStopProfiles },
+            runtimes::add,
+        )
+    val probe = probeFixtures.relay
+    private val controlledMeasurement: CandidateRelayMeasurements =
+        object : CandidateRelayMeasurements by probe {
+            override suspend fun measure(
+                profile: RelayProfileRecord,
+                credentials: RelayCredentialRecord,
+                probeUrl: String,
+            ): CandidateRelayMeasurement =
+                try {
+                    probe.measure(profile, credentials, probeUrl)
+                } catch (cancelled: CancellationException) {
+                    val release = cancelCompletionRelease
+                    if (release != null) {
+                        withContext(NonCancellable) {
+                            cancelCompletionEntered.complete(Unit)
+                            release.await()
+                            cancelCompletionReturned.complete(Unit)
+                        }
+                    }
+                    throw cancelled
+                }
         }
 
-        val runtimes = CopyOnWriteArrayList<ControlledRelayRuntime>()
-        val httpUrls = CopyOnWriteArrayList<String>()
-        val latencies = java.util.concurrent.ConcurrentHashMap<String, Long>()
-        private val httpClockNanos =
-            java.util.concurrent.atomic
-                .AtomicLong()
-        val failedHttpProfiles =
-            java.util.concurrent.ConcurrentHashMap
-                .newKeySet<String>()
-        val failedStopProfiles =
-            java.util.concurrent.ConcurrentHashMap
-                .newKeySet<String>()
-        private val firstDispatch = CompletableDeferred<RuntimeActivationReceipt>()
-        val httpEntered = CompletableDeferred<Unit>()
-        val httpCalls = MutableStateFlow(0)
-        var cancelCompletionRelease: CompletableDeferred<Unit>? = null
-        val cancelCompletionEntered = CompletableDeferred<Unit>()
-        val cancelCompletionReturned = CompletableDeferred<Unit>()
+    fun occupyXray(block: () -> Unit) = probeFixtures.occupyXray(block)
 
-        @Volatile var httpRelease: CompletableDeferred<Unit>? = null
+    private val xrayProbe = probeFixtures.xray
+    private val requestedCapture = createRequestedCapture()
+    private val measured =
+        construct(
+            "com.poyka.ripdpi.services.MeasuredActivationRegistry",
+            authority,
+            mutations,
+            requestedCapture,
+            settings,
+        ) as MeasuredActivationRegistry
+    private val consumer = construct("com.poyka.ripdpi.services.RuntimeAppliedReceiptConsumer", authority, measured)
+    private val composite = construct("com.poyka.ripdpi.services.AppliedRuntimeConfigurationStore", consumer)
+    val applied = composite as AppliedRuntimeConfigurationSource
+    val dispatches = CopyOnWriteArrayList<RuntimeActivationReceipt>()
+    private val controller =
+        port(ServiceController::class.java) { name, args ->
+            when (name) {
+                "preflight" -> {
+                    onPreflight()
+                    ServiceStartPreflightResult.Allowed
+                }
 
-        @Volatile var afterHttp: () -> Unit = {}
+                "startPrepared" -> {
+                    val receipt = args[1] as RuntimeActivationReceipt
+                    assertTrue(authority.isCurrent(receipt))
+                    dispatches += receipt
+                    firstDispatch.complete(receipt)
+                    ServiceStartResult.Accepted(receipt)
+                }
 
-        @Volatile var failStop = false
-
-        @Volatile var onPreflight: () -> Unit = {}
-        private val http =
-            construct(
-                "com.poyka.ripdpi.services.CandidateHttpPayloadProbe",
-                internalTcpProbe { endpoint, url ->
-                    assertEquals("127.0.0.1", endpoint.host)
-                    assertEquals(1234, endpoint.port)
-                    httpUrls += url
-                    httpCalls.value += 1
-                    httpEntered.complete(Unit)
-                    httpRelease?.await()
-                    afterHttp()
-                    val profileId = runtimes.last().profileId
-                    httpClockNanos.addAndGet((latencies[profileId] ?: 0L) * 1_000_000L)
-                    construct(
-                        "com.poyka.ripdpi.services.RelayTcpProbeResult",
-                        profileId !in failedHttpProfiles,
-                        204,
-                        null,
-                    )
-                },
-                { httpClockNanos.get() },
-            ) as CandidateHttpPayloadProbe
-        private val probeFixtures =
-            ProfileUtilityProbeFixtures(
-                http,
-                suspend { environment },
-                { failStop || runtimes.last().profileId in failedStopProfiles },
-                runtimes::add,
-            )
-        val probe = probeFixtures.relay
-        private val controlledMeasurement: CandidateRelayMeasurements =
-            object : CandidateRelayMeasurements by probe {
-                override suspend fun measure(
-                    profile: RelayProfileRecord,
-                    credentials: RelayCredentialRecord,
-                    probeUrl: String,
-                ): CandidateRelayMeasurement =
-                    try {
-                        probe.measure(profile, credentials, probeUrl)
-                    } catch (cancelled: CancellationException) {
-                        val release = cancelCompletionRelease
-                        if (release != null) {
-                            withContext(NonCancellable) {
-                                cancelCompletionEntered.complete(Unit)
-                                release.await()
-                                cancelCompletionReturned.complete(Unit)
-                            }
-                        }
-                        throw cancelled
-                    }
-            }
-
-        fun occupyXray(block: () -> Unit) = probeFixtures.occupyXray(block)
-
-        private val xrayProbe = probeFixtures.xray
-        private val requestedCapture = createRequestedCapture()
-        private val measured =
-            construct(
-                "com.poyka.ripdpi.services.MeasuredActivationRegistry",
-                authority,
-                mutations,
-                requestedCapture,
-                settings,
-            ) as MeasuredActivationRegistry
-        private val consumer = construct("com.poyka.ripdpi.services.RuntimeAppliedReceiptConsumer", authority, measured)
-        private val composite = construct("com.poyka.ripdpi.services.AppliedRuntimeConfigurationStore", consumer)
-        val applied = composite as AppliedRuntimeConfigurationSource
-        val dispatches = CopyOnWriteArrayList<RuntimeActivationReceipt>()
-        private val controller =
-            port(ServiceController::class.java) { name, args ->
-                when (name) {
-                    "preflight" -> {
-                        onPreflight()
-                        ServiceStartPreflightResult.Allowed
-                    }
-
-                    "startPrepared" -> {
-                        val receipt = args[1] as RuntimeActivationReceipt
-                        assertTrue(authority.isCurrent(receipt))
-                        dispatches += receipt
-                        firstDispatch.complete(receipt)
-                        ServiceStartResult.Accepted(receipt)
-                    }
-
-                    else -> {
-                        error("Unexpected service command: $name")
-                    }
+                else -> {
+                    error("Unexpected service command: $name")
                 }
             }
-        private val measurement =
-            ProfileUtilityMeasurementCoordinator(
+        }
+    private val measurement =
+        ProfileUtilityMeasurementCoordinator(
+            mutations,
+            authority,
+            stores.relayProfiles,
+            credentials,
+            groups,
+            controlledMeasurement,
+            xrayProbe,
+            xrayProfiles,
+            stores.xrayMetadata,
+            stores.xraySecrets,
+            object : NetworkFingerprintProvider {
+                override fun capture() = NetworkFingerprint("wifi", true, false, "off", listOf("192.0.2.53"))
+            },
+            epoch,
+            runtimeRegistry,
+            applied,
+        )
+    val vm =
+        ProfileUtilityViewModel(
+            ProfileUtilityCatalogReader(mutations, stores, authority),
+            authority,
+            mutations,
+            applied,
+            measurement,
+            MeasuredProfileActivationCoordinator(
                 mutations,
+                settings,
                 authority,
+                controller,
+                measured,
+                runtimeRegistry,
+            ),
+            controlledMeasurement,
+            xrayProbe,
+        )
+    private val viewModels = ViewModelStore().apply { put("profiles", vm) }
+
+    init {
+        assertNull(epoch.capture())
+        callback.onAvailable(physical)
+        assertNull(epoch.capture())
+        callback.onCapabilitiesChanged(
+            physical,
+            NetworkCapabilities().apply {
+                invokePublic(this, "addTransportType", NetworkCapabilities.TRANSPORT_WIFI)
+                listOf(
+                    NetworkCapabilities.NET_CAPABILITY_INTERNET,
+                    NetworkCapabilities.NET_CAPABILITY_NOT_VPN,
+                    NetworkCapabilities.NET_CAPABILITY_VALIDATED,
+                    NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED,
+                ).forEach { invokePublic(this, "addCapability", it) }
+            },
+        )
+        assertNull(epoch.capture())
+        publishLinks(1_500)
+        assertNull(epoch.capture())
+        callback.onBlockedStatusChanged(physical, false)
+        assertTrue(epoch.capture() != null)
+    }
+
+    fun publishLinks(mtu: Int) {
+        val route =
+            RouteInfo::class.java
+                .getDeclaredConstructor(
+                    IpPrefix::class.java,
+                    InetAddress::class.java,
+                    String::class.java,
+                ).newInstance(
+                    IpPrefix::class.java
+                        .getDeclaredConstructor(
+                            InetAddress::class.java,
+                            Int::class.javaPrimitiveType,
+                        ).newInstance(InetAddress.getByName("0.0.0.0"), 0),
+                    InetAddress.getByName("192.0.2.1"),
+                    "unit0",
+                )
+        callback.onLinkPropertiesChanged(
+            physical,
+            LinkProperties().apply {
+                interfaceName = "unit0"
+                this.mtu = mtu
+                invokePublic(
+                    this,
+                    "addLinkAddress",
+                    LinkAddress::class.java
+                        .getDeclaredConstructor(
+                            InetAddress::class.java,
+                            Int::class.javaPrimitiveType,
+                        ).newInstance(InetAddress.getByName("192.0.2.2"), 24),
+                )
+                addRoute(route)
+                setDnsServers(listOf(InetAddress.getByName("192.0.2.53")))
+            },
+        )
+    }
+
+    private fun createRequestedCapture(): Any {
+        val selectorResolver =
+            construct(
+                "com.poyka.ripdpi.services.DefaultSelectorRelayRuntimeProfileResolver",
+                selector,
+                selectionStore,
+                groups,
+            )
+        val catalogs =
+            construct(
+                "com.poyka.ripdpi.services.RuntimeConfigurationCatalogCapture",
+                mutations,
                 stores.relayProfiles,
                 credentials,
-                groups,
-                controlledMeasurement,
-                xrayProbe,
+                stores.warpCredentials,
                 xrayProfiles,
-                stores.xrayMetadata,
-                stores.xraySecrets,
-                object : NetworkFingerprintProvider {
-                    override fun capture() = NetworkFingerprint("wifi", true, false, "off", listOf("192.0.2.53"))
-                },
-                epoch,
-                runtimeRegistry,
-                applied,
+                stores.xraySelection,
+                selectorResolver,
             )
-        val vm =
-            ProfileUtilityViewModel(
-                ProfileUtilityCatalogReader(mutations, stores, authority),
-                authority,
-                mutations,
-                applied,
-                measurement,
-                MeasuredProfileActivationCoordinator(
-                    mutations,
-                    settings,
-                    authority,
-                    controller,
-                    measured,
-                    runtimeRegistry,
-                ),
-                controlledMeasurement,
-                xrayProbe,
-            )
-        private val viewModels = ViewModelStore().apply { put("profiles", vm) }
+        val compiled =
+            DestinationRoutingPolicyCompiler.compile(
+                emptyList(),
+            ) as DestinationRoutingPolicyCompileResult.Success
+        // Invoke the real capture factory: no direct HMAC/digest/proof construction or private-field access.
+        return construct(
+            "com.poyka.ripdpi.services.RequestedRuntimeConfigurationCapture",
+            construct("com.poyka.ripdpi.services.RuntimeConfigurationIdentityFactory"),
+            catalogs,
+            DestinationRoutingPolicySource { DestinationRoutingPolicySnapshot.Available(compiled.policy) },
+            ProxySessionSecretResolver(rejectingPort<WsTunnelWorkerCredentialStore>()),
+            groups,
+            authority,
+            object : RuntimeExperimentSelectionProvider {
+                override fun current() = RuntimeExperimentSelection()
+            },
+        )
+    }
 
-        init {
-            assertNull(epoch.capture())
-            callback.onAvailable(physical)
-            assertNull(epoch.capture())
-            callback.onCapabilitiesChanged(
-                physical,
-                NetworkCapabilities().apply {
-                    invokePublic(this, "addTransportType", NetworkCapabilities.TRANSPORT_WIFI)
-                    listOf(
-                        NetworkCapabilities.NET_CAPABILITY_INTERNET,
-                        NetworkCapabilities.NET_CAPABILITY_NOT_VPN,
-                        NetworkCapabilities.NET_CAPABILITY_VALIDATED,
-                        NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED,
-                    ).forEach { invokePublic(this, "addCapability", it) }
-                },
-            )
-            assertNull(epoch.capture())
-            publishLinks(1_500)
-            assertNull(epoch.capture())
-            callback.onBlockedStatusChanged(physical, false)
-            assertTrue(epoch.capture() != null)
-        }
-
-        fun publishLinks(mtu: Int) {
-            val route =
-                RouteInfo::class.java
-                    .getDeclaredConstructor(
-                        IpPrefix::class.java,
-                        InetAddress::class.java,
-                        String::class.java,
-                    ).newInstance(
-                        IpPrefix::class.java
-                            .getDeclaredConstructor(
-                                InetAddress::class.java,
-                                Int::class.javaPrimitiveType,
-                            ).newInstance(InetAddress.getByName("0.0.0.0"), 0),
-                        InetAddress.getByName("192.0.2.1"),
-                        "unit0",
-                    )
-            callback.onLinkPropertiesChanged(
-                physical,
-                LinkProperties().apply {
-                    interfaceName = "unit0"
-                    this.mtu = mtu
-                    invokePublic(
-                        this,
-                        "addLinkAddress",
-                        LinkAddress::class.java
-                            .getDeclaredConstructor(
-                                InetAddress::class.java,
-                                Int::class.javaPrimitiveType,
-                            ).newInstance(InetAddress.getByName("192.0.2.2"), 24),
-                    )
-                    addRoute(route)
-                    setDnsServers(listOf(InetAddress.getByName("192.0.2.53")))
-                },
-            )
-        }
-
-        private fun createRequestedCapture(): Any {
-            val selectorResolver =
-                construct(
-                    "com.poyka.ripdpi.services.DefaultSelectorRelayRuntimeProfileResolver",
-                    selector,
-                    selectionStore,
-                    groups,
-                )
-            val catalogs =
-                construct(
-                    "com.poyka.ripdpi.services.RuntimeConfigurationCatalogCapture",
-                    mutations,
-                    stores.relayProfiles,
-                    credentials,
-                    stores.warpCredentials,
-                    xrayProfiles,
-                    stores.xraySelection,
-                    selectorResolver,
-                )
-            val compiled =
-                DestinationRoutingPolicyCompiler.compile(
-                    emptyList(),
-                ) as DestinationRoutingPolicyCompileResult.Success
-            // Invoke the real capture factory: no direct HMAC/digest/proof construction or private-field access.
-            return construct(
-                "com.poyka.ripdpi.services.RequestedRuntimeConfigurationCapture",
-                construct("com.poyka.ripdpi.services.RuntimeConfigurationIdentityFactory"),
-                catalogs,
-                DestinationRoutingPolicySource { DestinationRoutingPolicySnapshot.Available(compiled.policy) },
-                ProxySessionSecretResolver(rejectingPort<WsTunnelWorkerCredentialStore>()),
-                groups,
-                authority,
-                object : RuntimeExperimentSelectionProvider {
-                    override fun current() = RuntimeExperimentSelection()
-                },
-            )
-        }
-
-        suspend fun addProfile(profile: RelayProfileRecord) {
-            mutations.upsertRelay(
-                mutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
-                profile,
-                Credentials.copy(profileId = profile.id),
-                enabled = false,
-                select = false,
-            )
-            awaitState { state ->
-                state.profiles.any { it.reference == ProfileUtilityReference.NativeRelay(profile.id) }
-            }
-        }
-
-        suspend fun awaitDispatch(): RuntimeActivationReceipt =
-            withContext(Dispatchers.Default) { withTimeout(10_000) { firstDispatch.await() } }
-
-        suspend fun begin(
-            receipt: RuntimeActivationReceipt,
-            profile: RelayProfileRecord = Profile,
-        ): RuntimeConfigurationAttempt {
-            val requested = invokeSuspend(requestedCapture, "capture", Mode.Proxy, settings.snapshot(), null)
-            val identity = invokePublic(checkNotNull(requested), "getIdentity")
-            val selection = RuntimeConfigurationSelection("native", relayKind = profile.kind, profileId = profile.id)
-            val attempt =
-                RuntimeConfigurationAttempt(
-                    "unit-runtime",
-                    1,
-                    Mode.Proxy,
-                    selection,
-                    RuntimeConfigurationApplyReason.InitialStart,
-                    RuntimeAppliedIntent.Activation(receipt),
-                    checkNotNull(authority.states.value).profileUtility.catalogGeneration,
-                )
-            assertEquals(true, invokePublic(composite, "begin", attempt, identity))
-            return attempt
-        }
-
-        suspend fun consumedInput(profile: RelayProfileRecord = Profile): CandidateRelayMeasurement.Succeeded {
-            val measured = withContext(Dispatchers.IO) { probe.measure(profile, Credentials, ProbeUrl) }
-            assertTrue(
-                "Consumed unit input must itself complete real candidate cleanup: $measured",
-                measured is CandidateRelayMeasurement.Succeeded,
-            )
-            return measured as CandidateRelayMeasurement.Succeeded
-        }
-
-        fun acknowledge(
-            attempt: RuntimeConfigurationAttempt,
-            consumed: CandidateRelayMeasurement.Succeeded?,
-        ): Boolean {
-            val configuration =
-                AppliedRuntimeConfiguration(
-                    attempt.runtimeId,
-                    attempt.revision,
-                    AppliedAt,
-                    Mode.Proxy,
-                    attempt.requestedSelection,
-                    attempt.requestedSelection,
-                    RuntimeConfigurationDns("plain", "system"),
-                    RuntimeConfigurationStrategy(false),
-                    attempt.reason,
-                )
-            return invokePublic(
-                composite,
-                "acknowledge",
-                attempt,
-                configuration,
-                consumed?.configurationProof,
-            ) as Boolean
-        }
-
-        fun recents() = checkNotNull(authority.states.value).profileUtility.recents
-
-        fun assertNoSelection() {
-            assertTrue(dispatches.isEmpty())
-            assertTrue(recents().isEmpty())
-            assertNull(checkNotNull(authority.states.value).command)
-        }
-
-        fun assertCleanedCandidates(expected: Int) {
-            assertEquals(expected, runtimes.size)
-            runtimes.forEach {
-                assertTrue(it.stopCalls.get() > 0)
-                assertTrue(it.finished.isCompleted)
-            }
-            assertFalse(probe.cleanupPending.value)
-        }
-
-        suspend fun awaitState(predicate: (ProfileUtilityUiState) -> Boolean): ProfileUtilityUiState =
-            try {
-                withContext(Dispatchers.Default) { withTimeout(10_000) { vm.uiState.first(predicate) } }
-            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
-                throw AssertionError("Expected UI state was not observed; actual=${vm.uiState.value}", timeout)
-            }
-
-        suspend fun awaitItem(predicate: (ProfileUtilityItem) -> Boolean): ProfileUtilityItem =
-            awaitState { state -> state.profiles.singleOrNull { it.reference == Reference }?.let(predicate) == true }
-                .profiles
-                .single { it.reference == Reference }
-
-        override fun close() {
-            failStop = false
-            disk.failAuthorityCommit = false
-            viewModels.clear()
-            callback.onLost(physical)
-            disk.getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback)
+    suspend fun addProfile(profile: RelayProfileRecord) {
+        mutations.upsertRelay(
+            mutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+            profile,
+            Credentials.copy(profileId = profile.id),
+            enabled = false,
+            select = false,
+        )
+        awaitState { state ->
+            state.profiles.any { it.reference == ProfileUtilityReference.NativeRelay(profile.id) }
         }
     }
 
-    private companion object {
-        const val ProbeUrl = "https://unit.example/payload"
-        const val AppliedAt = 1_800_000_000_000L
-        val Profile =
-            RelayProfileRecord(
-                id = "unit-trojan",
-                kind = "trojan",
-                server = "relay.example",
-                serverName = "relay.example",
-                operatorName = "Unit relay",
-            )
-        val Reference = ProfileUtilityReference.NativeRelay(Profile.id)
-        val Credentials = RelayCredentialRecord(profileId = Profile.id, trojanPassword = "fixture-unit-only-credential")
+    suspend fun awaitDispatch(): RuntimeActivationReceipt =
+        withContext(Dispatchers.Default) { withTimeout(10_000) { firstDispatch.await() } }
 
-        fun xrayProfile() =
-            XrayProfile(
-                name = "Unit Xray",
-                outbound =
-                    XrayProfile.Outbound(
-                        serverAddress = "xray.example",
-                        serverPort = 443,
-                        uuid = "9f37c02d-c9f5-408f-96b2-c71671e90435",
-                        security = XrayProfile.Security.TLS,
-                        network = XrayProfile.Network.TCP,
-                        tls = XrayProfile.Tls(serverName = "xray.example"),
-                    ),
+    suspend fun begin(
+        receipt: RuntimeActivationReceipt,
+        profile: RelayProfileRecord = Profile,
+    ): RuntimeConfigurationAttempt {
+        val requested = invokeSuspend(requestedCapture, "capture", Mode.Proxy, settings.snapshot(), null)
+        val identity = invokePublic(checkNotNull(requested), "getIdentity")
+        val selection = RuntimeConfigurationSelection("native", relayKind = profile.kind, profileId = profile.id)
+        val attempt =
+            RuntimeConfigurationAttempt(
+                "unit-runtime",
+                1,
+                Mode.Proxy,
+                selection,
+                RuntimeConfigurationApplyReason.InitialStart,
+                RuntimeAppliedIntent.Activation(receipt),
+                checkNotNull(authority.states.value).profileUtility.catalogGeneration,
             )
+        assertEquals(true, invokePublic(composite, "begin", attempt, identity))
+        return attempt
+    }
+
+    suspend fun consumedInput(profile: RelayProfileRecord = Profile): CandidateRelayMeasurement.Succeeded {
+        val measured = withContext(Dispatchers.IO) { probe.measure(profile, Credentials, ProbeUrl) }
+        assertTrue(
+            "Consumed unit input must itself complete real candidate cleanup: $measured",
+            measured is CandidateRelayMeasurement.Succeeded,
+        )
+        return measured as CandidateRelayMeasurement.Succeeded
+    }
+
+    fun acknowledge(
+        attempt: RuntimeConfigurationAttempt,
+        consumed: CandidateRelayMeasurement.Succeeded?,
+    ): Boolean {
+        val configuration =
+            AppliedRuntimeConfiguration(
+                attempt.runtimeId,
+                attempt.revision,
+                AppliedAt,
+                Mode.Proxy,
+                attempt.requestedSelection,
+                attempt.requestedSelection,
+                RuntimeConfigurationDns("plain", "system"),
+                RuntimeConfigurationStrategy(false),
+                attempt.reason,
+            )
+        return invokePublic(
+            composite,
+            "acknowledge",
+            attempt,
+            configuration,
+            consumed?.configurationProof,
+        ) as Boolean
+    }
+
+    fun recents() = checkNotNull(authority.states.value).profileUtility.recents
+
+    fun assertNoSelection() {
+        assertTrue(dispatches.isEmpty())
+        assertTrue(recents().isEmpty())
+        assertNull(checkNotNull(authority.states.value).command)
+    }
+
+    fun assertCleanedCandidates(expected: Int) {
+        assertEquals(expected, runtimes.size)
+        runtimes.forEach {
+            assertTrue(it.stopCalls.get() > 0)
+            assertTrue(it.finished.isCompleted)
+        }
+        assertFalse(probe.cleanupPending.value)
+    }
+
+    suspend fun awaitState(predicate: (ProfileUtilityUiState) -> Boolean): ProfileUtilityUiState =
+        try {
+            withContext(Dispatchers.Default) { withTimeout(10_000) { vm.uiState.first(predicate) } }
+        } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+            throw AssertionError("Expected UI state was not observed; actual=${vm.uiState.value}", timeout)
+        }
+
+    suspend fun awaitItem(predicate: (ProfileUtilityItem) -> Boolean): ProfileUtilityItem =
+        awaitState { state -> state.profiles.singleOrNull { it.reference == Reference }?.let(predicate) == true }
+            .profiles
+            .single { it.reference == Reference }
+
+    override fun close() {
+        failStop = false
+        disk.failAuthorityCommit = false
+        viewModels.clear()
+        callback.onLost(physical)
+        disk.getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback)
     }
 }
 

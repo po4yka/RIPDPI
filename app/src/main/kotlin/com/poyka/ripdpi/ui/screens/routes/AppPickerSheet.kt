@@ -80,6 +80,15 @@ fun AppPickerSheet(
                 modifier = Modifier.fillMaxWidth().heightIn(max = maxListHeight),
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
+                if (filtered.isEmpty()) {
+                    item(key = "no-matching-apps") {
+                        Text(
+                            text = stringResource(R.string.ui_app_picker_no_matches),
+                            style = RipDpiThemeTokens.type.body,
+                            color = RipDpiThemeTokens.colors.mutedForeground,
+                        )
+                    }
+                }
                 items(filtered, key = { it.packageName }) { app ->
                     AppPickerRow(
                         app = app,
@@ -94,6 +103,15 @@ fun AppPickerSheet(
                         },
                     )
                 }
+            }
+            if (filtered.isEmpty() && query.isNotEmpty()) {
+                RipDpiButton(
+                    text = stringResource(R.string.ui_app_picker_clear_search),
+                    onClick = { query = "" },
+                    modifier = Modifier.fillMaxWidth(),
+                    wrapLabel = true,
+                    variant = com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant.Outline,
+                )
             }
             RipDpiButton(
                 text = stringResource(R.string.app_picker_done),

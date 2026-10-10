@@ -170,6 +170,10 @@ internal class FakeDiagnosticsTimelineSource : DiagnosticsTimelineSource {
 
 internal class FakeDiagnosticsScanController : DiagnosticsScanController {
     override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+    var homeRunActive = false
+
+    override fun hasActiveHomeRun(): Boolean = homeRunActive
+
     var onStartScan: (suspend (ScanPathMode, String?) -> DiagnosticsManualScanStartResult)? = null
     var onResolveHiddenProbeConflict:
         (suspend (String, HiddenProbeConflictAction) -> DiagnosticsManualScanResolution)? = null

@@ -6,8 +6,11 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
+import com.poyka.ripdpi.diagnostics.Http3ProbeConfig
+import com.poyka.ripdpi.diagnostics.IpFamilyProbeConfig
 import com.poyka.ripdpi.diagnostics.LogHealthSummary
 import com.poyka.ripdpi.diagnostics.ObservationFact
+import com.poyka.ripdpi.diagnostics.PmtuProbeConfig
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
@@ -39,6 +42,9 @@ data class DiagnosticsProfileProjection(
     val packRefs: List<String> = emptyList(),
     val strategyProbeSuiteId: String? = null,
     val selectiveMatrix: SelectiveMatrixConfig? = null,
+    val ipFamilyProbe: IpFamilyProbeConfig? = null,
+    val http3Probe: Http3ProbeConfig? = null,
+    val pmtuProbe: PmtuProbeConfig? = null,
 )
 
 @Serializable

@@ -15,6 +15,7 @@ def test_diagnostics_share_save_buttons(driver):
     assert diag.is_loaded(), "Diagnostics screen should be visible"
 
     diag.swipe_to_tools_section()
+    diag.expand_advanced()
     diag.scroll_to(diag.SHARE_ARCHIVE)
 
     assert diag.is_visible(diag.SHARE_ARCHIVE), (

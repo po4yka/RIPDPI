@@ -15,30 +15,40 @@ class BlockLayerDiagnosisMapperTest {
     }
 
     @Test
-    fun `tls reset and sni alert map to tls record split`() {
-        val rstDiagnosis = BlockLayerDiagnosisMapper.fromDpiError(DpiProbeError.TlsRstTls)
-        val sniDiagnosis = BlockLayerDiagnosisMapper.fromDpiError(DpiProbeError.TlsAlertSni)
-
-        assertEquals(BlockLayer.SNI_BASED_RESET, rstDiagnosis?.layer)
-        assertEquals(BypassStrategyClass.TLS_RECORD_SPLIT, rstDiagnosis?.bypassClass)
-        assertEquals(BlockLayer.SNI_BASED_RESET, sniDiagnosis?.layer)
-        assertEquals(BypassStrategyClass.TLS_RECORD_SPLIT, sniDiagnosis?.bypassClass)
+    fun `single tls failures do not establish a blocking mechanism`() {
+        listOf(
+            DpiProbeError.TlsRstTls,
+            DpiProbeError.TlsRst,
+            DpiProbeError.TlsAlertSni,
+            DpiProbeError.TlsSpoof,
+            DpiProbeError.TlsAlertHandshake,
+            DpiProbeError.TlsBlockVersion,
+            DpiProbeError.TlsEof,
+            DpiProbeError.TlsDrop,
+            DpiProbeError.TlsMitm,
+        ).forEach { error ->
+            val diagnosis = BlockLayerDiagnosisMapper.fromDpiError(error)
+            assertEquals(error.toString(), BlockLayer.UNKNOWN, diagnosis?.layer)
+            assertEquals(EvidenceConfidence.LOW, diagnosis?.confidence)
+            assertEquals(BypassStrategyClass.TLS_RECORD_SPLIT, diagnosis?.bypassClass)
+        }
     }
 
     @Test
-    fun `tcp path failures map to fake packet ttl class`() {
-        val diagnosis = BlockLayerDiagnosisMapper.fromDpiError(DpiProbeError.SynDrop)
-
-        assertEquals(BlockLayer.IP_BLOCK, diagnosis?.layer)
-        assertEquals(BypassStrategyClass.FAKE_PACKET_TTL, diagnosis?.bypassClass)
-    }
-
-    @Test
-    fun `tls handshake anomalies map to tls handshake interference`() {
-        val diagnosis = BlockLayerDiagnosisMapper.fromDpiError(DpiProbeError.TlsSpoof)
-
-        assertEquals(BlockLayer.TLS_HANDSHAKE_INTERFERENCE, diagnosis?.layer)
-        assertEquals(BypassStrategyClass.TLS_RECORD_SPLIT, diagnosis?.bypassClass)
+    fun `single tcp failures do not establish an IP block`() {
+        listOf(
+            DpiProbeError.SynDrop,
+            DpiProbeError.TcpRst,
+            DpiProbeError.TcpAbort,
+            DpiProbeError.Refused,
+            DpiProbeError.NetUnreach,
+            DpiProbeError.HostUnreach,
+        ).forEach { error ->
+            val diagnosis = BlockLayerDiagnosisMapper.fromDpiError(error)
+            assertEquals(error.toString(), BlockLayer.UNKNOWN, diagnosis?.layer)
+            assertEquals(EvidenceConfidence.LOW, diagnosis?.confidence)
+            assertEquals(BypassStrategyClass.FAKE_PACKET_TTL, diagnosis?.bypassClass)
+        }
     }
 
     @Test

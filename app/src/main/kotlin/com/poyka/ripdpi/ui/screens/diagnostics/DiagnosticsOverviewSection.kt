@@ -22,6 +22,7 @@ import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -40,7 +41,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 private const val DiagnosticsSwitcherStackFontScale = 1.5f
 
 internal enum class DiagnosticsSimpleFunnelAction {
-    Apply,
+    Inspect,
     Review,
     Unavailable,
 }
@@ -48,7 +49,7 @@ internal enum class DiagnosticsSimpleFunnelAction {
 internal fun DiagnosticsScanUiModel.simpleFunnelAction(isActiveScan: Boolean): DiagnosticsSimpleFunnelAction {
     if (strategyProbeReport == null || isActiveScan) return DiagnosticsSimpleFunnelAction.Unavailable
     return if (strategyProbeReport.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.HIGH) {
-        DiagnosticsSimpleFunnelAction.Apply
+        DiagnosticsSimpleFunnelAction.Inspect
     } else {
         DiagnosticsSimpleFunnelAction.Review
     }
@@ -133,9 +134,13 @@ internal fun OverviewSection(
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
     onRunScan: () -> Unit,
-    onApplyRecommendedPath: () -> Unit,
+    onReviewRecommendedPath: () -> Unit,
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
+    expertMode: Boolean = true,
+    homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    onCheckNetwork: () -> Unit = {},
+    onStartVerifiedVpn: () -> Unit = {},
 ) {
     TrackRecomposition("DiagnosticsOverview")
     val spacing = RipDpiThemeTokens.spacing
@@ -157,13 +162,18 @@ internal fun OverviewSection(
                 onRunScan = onRunScan,
             )
         }
+        if (homeDiagnostics.latestAudit != null) {
+            item {
+                DiagnosticsGuidedActions(homeDiagnostics, onCheckNetwork, onStartVerifiedVpn)
+            }
+        }
         item {
             DiagnosticsSimpleFunnelCard(
                 overview = overview,
                 scan = scan,
                 isActiveScan = isActiveScan,
                 onReviewChoices = { onSelectSection(DiagnosticsSection.Scan) },
-                onApplyRecommendedPath = onApplyRecommendedPath,
+                onReviewRecommendedPath = onReviewRecommendedPath,
             )
         }
         if (live.health != DiagnosticsHealth.Idle && live.metrics.isNotEmpty()) {
@@ -178,7 +188,7 @@ internal fun OverviewSection(
                 }
             }
         }
-        overview.activeProfile?.let { profile ->
+        overview.activeProfile?.takeIf { expertMode }?.let { profile ->
             item {
                 RipDpiCard {
                     androidx.compose.material3.Text(
@@ -221,7 +231,7 @@ internal fun OverviewSection(
             item {
                 CollapsibleSection(
                     title = stringResource(R.string.diagnostics_recent_activity_section),
-                    defaultExpanded = true,
+                    defaultExpanded = expertMode,
                 ) {
                     overview.latestSession?.let { session ->
                         SessionRow(session = session, onClick = { onSelectSession(session.id) })
@@ -250,7 +260,7 @@ internal fun OverviewSection(
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_attention_section))
                     overview.warnings.forEach { warning ->
-                        EventRow(event = warning, onClick = null)
+                        EventRow(event = diagnosticWarningPresentation(warning, expertMode), onClick = null)
                     }
                 }
             }
@@ -264,11 +274,11 @@ private fun DiagnosticsSimpleFunnelCard(
     scan: DiagnosticsScanUiModel,
     isActiveScan: Boolean,
     onReviewChoices: () -> Unit,
-    onApplyRecommendedPath: () -> Unit,
+    onReviewRecommendedPath: () -> Unit,
 ) {
     val report = scan.strategyProbeReport
     val action = scan.simpleFunnelAction(isActiveScan)
-    val hasHighConfidence = action == DiagnosticsSimpleFunnelAction.Apply
+    val hasHighConfidence = action == DiagnosticsSimpleFunnelAction.Inspect
     val currentMemory = overview.rememberedNetworks.firstOrNull { it.isCurrentMatch }
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
@@ -301,12 +311,12 @@ private fun DiagnosticsSimpleFunnelCard(
             text =
                 stringResource(
                     if (hasHighConfidence) {
-                        R.string.diagnostics_simple_funnel_apply_action
+                        R.string.diagnostics_guided_review_recommendation
                     } else {
                         R.string.diagnostics_simple_funnel_review_action
                     },
                 ),
-            onClick = if (hasHighConfidence) onApplyRecommendedPath else onReviewChoices,
+            onClick = if (hasHighConfidence) onReviewRecommendedPath else onReviewChoices,
             enabled = action != DiagnosticsSimpleFunnelAction.Unavailable,
             variant = RipDpiButtonVariant.Outline,
             modifier =

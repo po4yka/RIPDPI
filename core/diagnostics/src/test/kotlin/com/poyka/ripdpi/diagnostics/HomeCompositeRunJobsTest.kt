@@ -50,7 +50,8 @@ class HomeCompositeRunJobsTest {
     @Test
     fun `teardown keeps admission and executes once until cleanup completes`() =
         runTest {
-            val jobs = HomeCompositeRunJobs(backgroundScope)
+            val lease = DiagnosticsHomeRunLease()
+            val jobs = HomeCompositeRunJobs(backgroundScope, lease)
             val teardownStarted = CompletableDeferred<Unit>()
             val finishTeardown = CompletableDeferred<Unit>()
             assertTrue(jobs.launch("first", onFailure = { throw it }) { awaitCancellation() })
@@ -64,6 +65,8 @@ class HomeCompositeRunJobsTest {
                 }
             teardownStarted.await()
 
+            assertTrue(lease.isActive())
+            assertFalse(lease.permits(null))
             assertFalse(jobs.launch("overlap", onFailure = { throw it }) { awaitCancellation() })
             assertFalse(jobs.cancel("first") { error("duplicate teardown") })
 
@@ -71,6 +74,7 @@ class HomeCompositeRunJobsTest {
             cancellation.await()
             runCurrent()
 
+            assertFalse(lease.isActive())
             assertTrue(jobs.launch("next", onFailure = { throw it }) { awaitCancellation() })
         }
 }

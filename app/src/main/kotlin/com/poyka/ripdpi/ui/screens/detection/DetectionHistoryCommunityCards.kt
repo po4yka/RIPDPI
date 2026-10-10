@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.community.CommunityStats
@@ -23,7 +20,6 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.time.Instant
 import java.time.ZoneId
@@ -40,7 +36,6 @@ private const val percentScale = 100.0
 internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
     val limited = entries.take(historyEntryLimit)
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         Text(
@@ -48,7 +43,7 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
-        for ((index, entry) in limited.withIndex()) {
+        for (entry in limited) {
             val scoreColor =
                 when {
                     entry.stealthScore >= highStealthScoreThreshold -> colors.success
@@ -65,39 +60,8 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                     Text(formatTimestamp(entry.timestamp), style = type.caption, color = colors.mutedForeground)
                 }
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (index > 0) {
-                        val diff = entry.stealthScore - limited[index - 1].stealthScore
-                        val (icon, desc, tint) =
-                            when {
-                                diff > 0 -> {
-                                    Triple(
-                                        RipDpiIcons.KeyboardArrowUp,
-                                        stringResource(R.string.detection_score_improved),
-                                        colors.success,
-                                    )
-                                }
-
-                                diff < 0 -> {
-                                    Triple(
-                                        RipDpiIcons.KeyboardArrowDown,
-                                        stringResource(R.string.detection_score_degraded),
-                                        colors.destructive,
-                                    )
-                                }
-
-                                else -> {
-                                    Triple(
-                                        RipDpiIcons.Remove,
-                                        stringResource(R.string.detection_score_unchanged),
-                                        colors.mutedForeground,
-                                    )
-                                }
-                            }
-                        Icon(icon, contentDescription = desc, modifier = Modifier.size(16.dp), tint = tint)
-                    }
                     val stealthScoreDescription =
                         stringResource(R.string.detection_stealth_score_a11y, entry.stealthScore)
                     Text(

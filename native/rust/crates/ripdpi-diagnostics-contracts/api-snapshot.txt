@@ -45,6 +45,18 @@ pub ripdpi_diagnostics_contracts::types::DnsObservationStatus::SinkholeSubstitut
 pub ripdpi_diagnostics_contracts::types::DnsObservationStatus::SuspiciousDivergence
 pub ripdpi_diagnostics_contracts::types::DnsObservationStatus::UdpBlocked
 pub ripdpi_diagnostics_contracts::types::DnsObservationStatus::Unavailable
+pub enum ripdpi_diagnostics_contracts::types::DnsResponseOutcome
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Answer
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Malformed
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Nodata
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::NotObserved
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Nxdomain
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::OtherRcode
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Refused
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Servfail
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Timeout
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::TransportError
+pub ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Truncated
 pub enum ripdpi_diagnostics_contracts::types::EndpointProbeStatus
 pub ripdpi_diagnostics_contracts::types::EndpointProbeStatus::Blocked
 pub ripdpi_diagnostics_contracts::types::EndpointProbeStatus::Failed
@@ -70,7 +82,11 @@ pub enum ripdpi_diagnostics_contracts::types::ProbeTaskFamily
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Circumvention
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Dns
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::DohJsonSurvey
+pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Http3
+pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::IpFamily
+pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Pmtu
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Quic
+pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::SelectiveAvailability
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Service
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Tcp
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Telegram
@@ -354,6 +370,7 @@ pub ripdpi_diagnostics_contracts::types::DnsObservationFact::comparison_score: c
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::domain: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::encrypted_addresses: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::encrypted_latency_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::DnsObservationFact::encrypted_response: core::option::Option<ripdpi_diagnostics_contracts::types::DnsResponseSemantics>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::forged_address_pool: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::forged_addresses: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::injection_latency_ratio: core::option::Option<u64>
@@ -365,7 +382,26 @@ pub ripdpi_diagnostics_contracts::types::DnsObservationFact::tampering_score: co
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::udp_addresses: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::udp_has_edns0: core::option::Option<bool>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::udp_latency_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::DnsObservationFact::udp_response: core::option::Option<ripdpi_diagnostics_contracts::types::DnsResponseSemantics>
 pub ripdpi_diagnostics_contracts::types::DnsObservationFact::udp_response_size: core::option::Option<u32>
+pub struct ripdpi_diagnostics_contracts::types::DnsResponseSemantics
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::authenticated_data: core::option::Option<bool>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::authoritative: core::option::Option<bool>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::cname_targets: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::extended_dns_error_codes: alloc::vec::Vec<u16>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::has_soa: core::option::Option<bool>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::negative_ttl_seconds: core::option::Option<u32>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::outcome: ripdpi_diagnostics_contracts::types::DnsResponseOutcome
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::query_type: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::rcode: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::recursion_available: core::option::Option<bool>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::truncated: core::option::Option<bool>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::ttl_max_seconds: core::option::Option<u32>
+pub ripdpi_diagnostics_contracts::types::DnsResponseSemantics::ttl_min_seconds: core::option::Option<u32>
+impl ripdpi_diagnostics_contracts::types::DnsResponseSemantics
+pub fn ripdpi_diagnostics_contracts::types::DnsResponseSemantics::from_detail_json(&str) -> core::option::Option<Self>
+pub fn ripdpi_diagnostics_contracts::types::DnsResponseSemantics::to_detail_json(&self) -> core::option::Option<alloc::string::String>
+pub fn ripdpi_diagnostics_contracts::types::DnsResponseSemantics::unobserved(&str, ripdpi_diagnostics_contracts::types::DnsResponseOutcome) -> Self
 pub struct ripdpi_diagnostics_contracts::types::DnsTarget
 pub ripdpi_diagnostics_contracts::types::DnsTarget::domain: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::DnsTarget::encrypted_bootstrap_ips: alloc::vec::Vec<alloc::string::String>
@@ -435,6 +471,42 @@ pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::planned_steps: 
 pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_global_deadline_steps: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::skipped_by_stage_budget_steps: usize
 pub ripdpi_diagnostics_contracts::types::ExecutionStageSnapshot::stage_id: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::Http3Evidence
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::alpn: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::attempt_count: u32
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::body_complete: bool
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::dns_status: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::duration_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::first_byte_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::handshake_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::headers_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::http3_validated: bool
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::http_status: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::path_scope: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::peer_address: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::request_sent: bool
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::response_bytes: u64
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::stage: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::tls_validated: bool
+pub ripdpi_diagnostics_contracts::types::Http3Evidence::version: u32
+impl ripdpi_diagnostics_contracts::Http3Evidence
+pub fn ripdpi_diagnostics_contracts::Http3Evidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+impl core::default::Default for ripdpi_diagnostics_contracts::Http3Evidence
+pub fn ripdpi_diagnostics_contracts::Http3Evidence::default() -> Self
+pub struct ripdpi_diagnostics_contracts::types::Http3ProbeConfig
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::connect_ip: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::max_response_bytes: u64
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::path: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::port: u16
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::types::Http3ProbeConfig::version: u32
+impl ripdpi_diagnostics_contracts::Http3ProbeConfig
+pub fn ripdpi_diagnostics_contracts::Http3ProbeConfig::validate(&self) -> core::result::Result<(), &'static str>
+impl core::default::Default for ripdpi_diagnostics_contracts::Http3ProbeConfig
+pub fn ripdpi_diagnostics_contracts::Http3ProbeConfig::default() -> Self
 pub struct ripdpi_diagnostics_contracts::types::InPathProxyCredentials
 pub ripdpi_diagnostics_contracts::types::InPathProxyCredentials::password: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::InPathProxyCredentials::username: alloc::string::String
@@ -448,6 +520,33 @@ pub struct ripdpi_diagnostics_contracts::types::InPathRoute
 pub ripdpi_diagnostics_contracts::types::InPathRoute::credentials: ripdpi_diagnostics_contracts::types::InPathProxyCredentials
 pub ripdpi_diagnostics_contracts::types::InPathRoute::host: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::InPathRoute::port: u16
+pub struct ripdpi_diagnostics_contracts::types::IpFamilyEvidence
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::attempt_count: u32
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::destination_address: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::destination_port: u16
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::discovery_status: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::duration_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::family: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::path_scope: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::prefix: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::prefix_length: core::option::Option<u8>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::resolver_source: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::stage: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::version: u32
+impl ripdpi_diagnostics_contracts::IpFamilyEvidence
+pub fn ripdpi_diagnostics_contracts::IpFamilyEvidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub struct ripdpi_diagnostics_contracts::types::IpFamilyProbeConfig
+pub ripdpi_diagnostics_contracts::types::IpFamilyProbeConfig::ipv4_address: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::IpFamilyProbeConfig::ipv6_address: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::IpFamilyProbeConfig::port: u16
+pub ripdpi_diagnostics_contracts::types::IpFamilyProbeConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::types::IpFamilyProbeConfig::version: u32
+impl ripdpi_diagnostics_contracts::IpFamilyProbeConfig
+pub fn ripdpi_diagnostics_contracts::IpFamilyProbeConfig::validate(&self) -> core::result::Result<(), &'static str>
+impl core::default::Default for ripdpi_diagnostics_contracts::IpFamilyProbeConfig
+pub fn ripdpi_diagnostics_contracts::IpFamilyProbeConfig::default() -> Self
 pub struct ripdpi_diagnostics_contracts::types::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -458,6 +557,45 @@ pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::policy_signature: c
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::runtime_id: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::source: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::NativeSessionEvent::subsystem: core::option::Option<alloc::string::String>
+pub struct ripdpi_diagnostics_contracts::types::PmtuEvidence
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::acknowledged_udp_payload_lower_bound_bytes: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::address_family: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::alpn: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::black_hole_count: u64
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::configured_upper_bound_reached: bool
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::configured_upper_bound_udp_payload_bytes: u16
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::current_udp_payload_bytes: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::duration_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::fragmentation_prevented: bool
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::handshake_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::initial_udp_payload_bytes: u16
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::lost_probe_count: u64
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::method: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::observation_window_complete: bool
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::path_scope: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::peer_address: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::sent_probe_count: u64
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::tls_validated: bool
+pub ripdpi_diagnostics_contracts::types::PmtuEvidence::version: u32
+impl ripdpi_diagnostics_contracts::PmtuEvidence
+pub fn ripdpi_diagnostics_contracts::PmtuEvidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+impl core::default::Default for ripdpi_diagnostics_contracts::PmtuEvidence
+pub fn ripdpi_diagnostics_contracts::PmtuEvidence::default() -> Self
+pub struct ripdpi_diagnostics_contracts::types::PmtuProbeConfig
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::connect_ipv4: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::connect_ipv6: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::observation_ms: u64
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::port: u16
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::upper_bound_udp_payload_bytes: u16
+pub ripdpi_diagnostics_contracts::types::PmtuProbeConfig::version: u32
+impl ripdpi_diagnostics_contracts::PmtuProbeConfig
+pub fn ripdpi_diagnostics_contracts::PmtuProbeConfig::validate(&self) -> core::result::Result<(), &'static str>
+impl core::default::Default for ripdpi_diagnostics_contracts::PmtuProbeConfig
+pub fn ripdpi_diagnostics_contracts::PmtuProbeConfig::default() -> Self
 pub struct ripdpi_diagnostics_contracts::types::ProbeDetail
 pub ripdpi_diagnostics_contracts::types::ProbeDetail::key: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ProbeDetail::value: alloc::string::String
@@ -509,6 +647,7 @@ pub ripdpi_diagnostics_contracts::types::ScanProgress::phase: alloc::string::Str
 pub ripdpi_diagnostics_contracts::types::ScanProgress::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ScanProgress::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::types::ScanProgress::total_steps: usize
+pub ripdpi_diagnostics_contracts::types::ScanProgress::transfer_progress: core::option::Option<ripdpi_diagnostics_contracts::TransferProgress>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanReport
@@ -542,12 +681,15 @@ pub ripdpi_diagnostics_contracts::types::ScanRequest::display_name: alloc::strin
 pub ripdpi_diagnostics_contracts::types::ScanRequest::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DnsTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DomainTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::family: ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::types::ScanRequest::http3_probe: core::option::Option<ripdpi_diagnostics_contracts::Http3ProbeConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::types::InPathRoute>
+pub ripdpi_diagnostics_contracts::types::ScanRequest::ip_family_probe: core::option::Option<ripdpi_diagnostics_contracts::IpFamilyProbeConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::kind: ripdpi_diagnostics_contracts::types::ScanKind
 pub ripdpi_diagnostics_contracts::types::ScanRequest::manual_only: bool
 pub ripdpi_diagnostics_contracts::types::ScanRequest::network_snapshot: core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::pack_refs: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::path_mode: ripdpi_diagnostics_contracts::types::ScanPathMode
+pub ripdpi_diagnostics_contracts::types::ScanRequest::pmtu_probe: core::option::Option<ripdpi_diagnostics_contracts::PmtuProbeConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::probe_tasks: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::ProbeTask>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::profile_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ScanRequest::proxy_host: core::option::Option<alloc::string::String>
@@ -556,6 +698,7 @@ pub ripdpi_diagnostics_contracts::types::ScanRequest::quic_targets: alloc::vec::
 pub ripdpi_diagnostics_contracts::types::ScanRequest::region_tag: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::scan_deadline_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::ScanRequest::selective_matrix: core::option::Option<ripdpi_diagnostics_contracts::SelectiveMatrixConfig>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::service_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::ServiceTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::strategy_probe: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyProbeRequest>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::tcp_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::TcpTarget>
@@ -566,6 +709,25 @@ impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> fo
 pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
 pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub struct ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig::catalog_version: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig::max_response_bytes: usize
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig::repetitions: usize
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig::targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::SelectiveMatrixTarget>
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixConfig::version: u32
+impl ripdpi_diagnostics_contracts::SelectiveMatrixConfig
+pub fn ripdpi_diagnostics_contracts::SelectiveMatrixConfig::validate(&self) -> core::result::Result<(), &'static str>
+pub struct ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::cohort: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::id: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::infrastructure_group: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::label: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::last_verified_at: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::source_date: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::source_url: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::SelectiveMatrixTarget::url: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::ServiceObservationFact
 pub ripdpi_diagnostics_contracts::types::ServiceObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::types::ServiceObservationFact::endpoint_failure: ripdpi_diagnostics_contracts::types::TransportFailureKind
@@ -838,6 +1000,29 @@ pub ripdpi_diagnostics_contracts::types::ThroughputTarget::port: core::option::O
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::runs: usize
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::window_bytes: usize
+pub struct ripdpi_diagnostics_contracts::types::TransferEvidence
+pub ripdpi_diagnostics_contracts::types::TransferEvidence::runs: alloc::vec::Vec<ripdpi_diagnostics_contracts::TransferMeasurement>
+pub ripdpi_diagnostics_contracts::types::TransferEvidence::version: u32
+impl ripdpi_diagnostics_contracts::TransferEvidence
+pub fn ripdpi_diagnostics_contracts::TransferEvidence::to_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub struct ripdpi_diagnostics_contracts::types::TransferMeasurement
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::elapsed_ms: u64
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::expected_body_byte_count: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::first_body_byte_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::last_body_progress_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::received_body_byte_count: u64
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::response_complete: bool
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::run_count: usize
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::run_index: usize
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::samples: alloc::vec::Vec<ripdpi_diagnostics_contracts::TransferSample>
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::termination_reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::TransferMeasurement::window_complete: bool
+pub struct ripdpi_diagnostics_contracts::types::TransferProgress
+pub ripdpi_diagnostics_contracts::types::TransferProgress::measurement: ripdpi_diagnostics_contracts::TransferMeasurement
+pub ripdpi_diagnostics_contracts::types::TransferProgress::target: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::TransferSample
+pub ripdpi_diagnostics_contracts::types::TransferSample::body_byte_count: u64
+pub ripdpi_diagnostics_contracts::types::TransferSample::elapsed_ms: u64
 pub struct ripdpi_diagnostics_contracts::types::TransportPivotRecommendation
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::preferred_family: ripdpi_diagnostics_contracts::types::TransportFamily
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::reason_code: alloc::string::String
@@ -935,6 +1120,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::schema_version: u32
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::total_steps: usize
+pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::transfer_progress: core::option::Option<ripdpi_diagnostics_contracts::TransferProgress>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanReportWire
@@ -969,13 +1155,16 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::display_name: all
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DnsTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DomainTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::family: ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::http3_probe: core::option::Option<ripdpi_diagnostics_contracts::Http3ProbeConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::types::InPathRoute>
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::ip_family_probe: core::option::Option<ripdpi_diagnostics_contracts::IpFamilyProbeConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::kind: ripdpi_diagnostics_contracts::types::ScanKind
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::native_log_level: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::network_snapshot: core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::pack_refs: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::path_mode: ripdpi_diagnostics_contracts::types::ScanPathMode
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::pmtu_probe: core::option::Option<ripdpi_diagnostics_contracts::PmtuProbeConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::probe_tasks: alloc::vec::Vec<ripdpi_diagnostics_contracts::wire::EngineProbeTaskWire>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::profile_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::proxy_host: core::option::Option<alloc::string::String>
@@ -985,6 +1174,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::region_tag: core:
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::scan_deadline_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::schema_version: u32
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::selective_matrix: core::option::Option<ripdpi_diagnostics_contracts::SelectiveMatrixConfig>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::service_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::ServiceTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::strategy_probe: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyProbeRequest>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::tcp_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::TcpTarget>
@@ -1071,7 +1261,11 @@ pub enum ripdpi_diagnostics_contracts::ProbeTaskFamily
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Circumvention
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Dns
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::DohJsonSurvey
+pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Http3
+pub ripdpi_diagnostics_contracts::ProbeTaskFamily::IpFamily
+pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Pmtu
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Quic
+pub ripdpi_diagnostics_contracts::ProbeTaskFamily::SelectiveAvailability
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Service
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Tcp
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Telegram
@@ -1208,6 +1402,7 @@ pub ripdpi_diagnostics_contracts::DnsObservationFact::comparison_score: core::op
 pub ripdpi_diagnostics_contracts::DnsObservationFact::domain: alloc::string::String
 pub ripdpi_diagnostics_contracts::DnsObservationFact::encrypted_addresses: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::encrypted_latency_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::DnsObservationFact::encrypted_response: core::option::Option<ripdpi_diagnostics_contracts::types::DnsResponseSemantics>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::forged_address_pool: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::forged_addresses: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::injection_latency_ratio: core::option::Option<u64>
@@ -1219,6 +1414,7 @@ pub ripdpi_diagnostics_contracts::DnsObservationFact::tampering_score: core::opt
 pub ripdpi_diagnostics_contracts::DnsObservationFact::udp_addresses: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::udp_has_edns0: core::option::Option<bool>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::udp_latency_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::DnsObservationFact::udp_response: core::option::Option<ripdpi_diagnostics_contracts::types::DnsResponseSemantics>
 pub ripdpi_diagnostics_contracts::DnsObservationFact::udp_response_size: core::option::Option<u32>
 pub struct ripdpi_diagnostics_contracts::DnsTarget
 pub ripdpi_diagnostics_contracts::DnsTarget::domain: alloc::string::String
@@ -1276,6 +1472,7 @@ pub ripdpi_diagnostics_contracts::EngineProgressWire::schema_version: u32
 pub ripdpi_diagnostics_contracts::EngineProgressWire::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::EngineProgressWire::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::EngineProgressWire::total_steps: usize
+pub ripdpi_diagnostics_contracts::EngineProgressWire::transfer_progress: core::option::Option<ripdpi_diagnostics_contracts::TransferProgress>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanReportWire
@@ -1310,13 +1507,16 @@ pub ripdpi_diagnostics_contracts::EngineScanRequestWire::display_name: alloc::st
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DnsTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DomainTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::family: ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::http3_probe: core::option::Option<ripdpi_diagnostics_contracts::Http3ProbeConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::types::InPathRoute>
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::ip_family_probe: core::option::Option<ripdpi_diagnostics_contracts::IpFamilyProbeConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::kind: ripdpi_diagnostics_contracts::types::ScanKind
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::log_context: core::option::Option<ripdpi_proxy_config::types::runtime_context::ProxyLogContext>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::native_log_level: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::network_snapshot: core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::pack_refs: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::path_mode: ripdpi_diagnostics_contracts::types::ScanPathMode
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::pmtu_probe: core::option::Option<ripdpi_diagnostics_contracts::PmtuProbeConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::probe_tasks: alloc::vec::Vec<ripdpi_diagnostics_contracts::wire::EngineProbeTaskWire>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::profile_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::proxy_host: core::option::Option<alloc::string::String>
@@ -1326,6 +1526,7 @@ pub ripdpi_diagnostics_contracts::EngineScanRequestWire::region_tag: core::optio
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::scan_deadline_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::schema_version: u32
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::selective_matrix: core::option::Option<ripdpi_diagnostics_contracts::SelectiveMatrixConfig>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::service_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::ServiceTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::strategy_probe: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyProbeRequest>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::tcp_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::TcpTarget>
@@ -1336,6 +1537,69 @@ impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> fo
 pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
 pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub struct ripdpi_diagnostics_contracts::Http3Evidence
+pub ripdpi_diagnostics_contracts::Http3Evidence::alpn: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::Http3Evidence::attempt_count: u32
+pub ripdpi_diagnostics_contracts::Http3Evidence::body_complete: bool
+pub ripdpi_diagnostics_contracts::Http3Evidence::dns_status: alloc::string::String
+pub ripdpi_diagnostics_contracts::Http3Evidence::duration_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::Http3Evidence::first_byte_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::Http3Evidence::handshake_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::Http3Evidence::headers_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::Http3Evidence::http3_validated: bool
+pub ripdpi_diagnostics_contracts::Http3Evidence::http_status: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::Http3Evidence::path_scope: alloc::string::String
+pub ripdpi_diagnostics_contracts::Http3Evidence::peer_address: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::Http3Evidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::Http3Evidence::request_sent: bool
+pub ripdpi_diagnostics_contracts::Http3Evidence::response_bytes: u64
+pub ripdpi_diagnostics_contracts::Http3Evidence::stage: alloc::string::String
+pub ripdpi_diagnostics_contracts::Http3Evidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::Http3Evidence::tls_validated: bool
+pub ripdpi_diagnostics_contracts::Http3Evidence::version: u32
+impl ripdpi_diagnostics_contracts::Http3Evidence
+pub fn ripdpi_diagnostics_contracts::Http3Evidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+impl core::default::Default for ripdpi_diagnostics_contracts::Http3Evidence
+pub fn ripdpi_diagnostics_contracts::Http3Evidence::default() -> Self
+pub struct ripdpi_diagnostics_contracts::Http3ProbeConfig
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::connect_ip: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::max_response_bytes: u64
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::path: alloc::string::String
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::port: u16
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::Http3ProbeConfig::version: u32
+impl ripdpi_diagnostics_contracts::Http3ProbeConfig
+pub fn ripdpi_diagnostics_contracts::Http3ProbeConfig::validate(&self) -> core::result::Result<(), &'static str>
+impl core::default::Default for ripdpi_diagnostics_contracts::Http3ProbeConfig
+pub fn ripdpi_diagnostics_contracts::Http3ProbeConfig::default() -> Self
+pub struct ripdpi_diagnostics_contracts::IpFamilyEvidence
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::attempt_count: u32
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::destination_address: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::destination_port: u16
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::discovery_status: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::duration_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::family: alloc::string::String
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::path_scope: alloc::string::String
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::prefix: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::prefix_length: core::option::Option<u8>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::resolver_source: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::stage: alloc::string::String
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::version: u32
+impl ripdpi_diagnostics_contracts::IpFamilyEvidence
+pub fn ripdpi_diagnostics_contracts::IpFamilyEvidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub struct ripdpi_diagnostics_contracts::IpFamilyProbeConfig
+pub ripdpi_diagnostics_contracts::IpFamilyProbeConfig::ipv4_address: alloc::string::String
+pub ripdpi_diagnostics_contracts::IpFamilyProbeConfig::ipv6_address: alloc::string::String
+pub ripdpi_diagnostics_contracts::IpFamilyProbeConfig::port: u16
+pub ripdpi_diagnostics_contracts::IpFamilyProbeConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::IpFamilyProbeConfig::version: u32
+impl ripdpi_diagnostics_contracts::IpFamilyProbeConfig
+pub fn ripdpi_diagnostics_contracts::IpFamilyProbeConfig::validate(&self) -> core::result::Result<(), &'static str>
+impl core::default::Default for ripdpi_diagnostics_contracts::IpFamilyProbeConfig
+pub fn ripdpi_diagnostics_contracts::IpFamilyProbeConfig::default() -> Self
 pub struct ripdpi_diagnostics_contracts::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -1346,6 +1610,45 @@ pub ripdpi_diagnostics_contracts::NativeSessionEvent::policy_signature: core::op
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::runtime_id: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::source: alloc::string::String
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::subsystem: core::option::Option<alloc::string::String>
+pub struct ripdpi_diagnostics_contracts::PmtuEvidence
+pub ripdpi_diagnostics_contracts::PmtuEvidence::acknowledged_udp_payload_lower_bound_bytes: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::address_family: alloc::string::String
+pub ripdpi_diagnostics_contracts::PmtuEvidence::alpn: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::black_hole_count: u64
+pub ripdpi_diagnostics_contracts::PmtuEvidence::configured_upper_bound_reached: bool
+pub ripdpi_diagnostics_contracts::PmtuEvidence::configured_upper_bound_udp_payload_bytes: u16
+pub ripdpi_diagnostics_contracts::PmtuEvidence::current_udp_payload_bytes: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::duration_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::fragmentation_prevented: bool
+pub ripdpi_diagnostics_contracts::PmtuEvidence::handshake_elapsed_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::initial_udp_payload_bytes: u16
+pub ripdpi_diagnostics_contracts::PmtuEvidence::lost_probe_count: u64
+pub ripdpi_diagnostics_contracts::PmtuEvidence::method: alloc::string::String
+pub ripdpi_diagnostics_contracts::PmtuEvidence::observation_window_complete: bool
+pub ripdpi_diagnostics_contracts::PmtuEvidence::path_scope: alloc::string::String
+pub ripdpi_diagnostics_contracts::PmtuEvidence::peer_address: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::PmtuEvidence::sent_probe_count: u64
+pub ripdpi_diagnostics_contracts::PmtuEvidence::status: alloc::string::String
+pub ripdpi_diagnostics_contracts::PmtuEvidence::tls_validated: bool
+pub ripdpi_diagnostics_contracts::PmtuEvidence::version: u32
+impl ripdpi_diagnostics_contracts::PmtuEvidence
+pub fn ripdpi_diagnostics_contracts::PmtuEvidence::to_detail_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+impl core::default::Default for ripdpi_diagnostics_contracts::PmtuEvidence
+pub fn ripdpi_diagnostics_contracts::PmtuEvidence::default() -> Self
+pub struct ripdpi_diagnostics_contracts::PmtuProbeConfig
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::connect_ipv4: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::connect_ipv6: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::host: alloc::string::String
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::observation_ms: u64
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::port: u16
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::upper_bound_udp_payload_bytes: u16
+pub ripdpi_diagnostics_contracts::PmtuProbeConfig::version: u32
+impl ripdpi_diagnostics_contracts::PmtuProbeConfig
+pub fn ripdpi_diagnostics_contracts::PmtuProbeConfig::validate(&self) -> core::result::Result<(), &'static str>
+impl core::default::Default for ripdpi_diagnostics_contracts::PmtuProbeConfig
+pub fn ripdpi_diagnostics_contracts::PmtuProbeConfig::default() -> Self
 pub struct ripdpi_diagnostics_contracts::ProbeDetail
 pub ripdpi_diagnostics_contracts::ProbeDetail::key: alloc::string::String
 pub ripdpi_diagnostics_contracts::ProbeDetail::value: alloc::string::String
@@ -1408,6 +1711,7 @@ pub ripdpi_diagnostics_contracts::ScanProgress::phase: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanProgress::session_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanProgress::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::ScanProgress::total_steps: usize
+pub ripdpi_diagnostics_contracts::ScanProgress::transfer_progress: core::option::Option<ripdpi_diagnostics_contracts::TransferProgress>
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanReport
@@ -1441,12 +1745,15 @@ pub ripdpi_diagnostics_contracts::ScanRequest::display_name: alloc::string::Stri
 pub ripdpi_diagnostics_contracts::ScanRequest::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DnsTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::domain_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::DomainTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::family: ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily
+pub ripdpi_diagnostics_contracts::ScanRequest::http3_probe: core::option::Option<ripdpi_diagnostics_contracts::Http3ProbeConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::in_path_route: core::option::Option<ripdpi_diagnostics_contracts::types::InPathRoute>
+pub ripdpi_diagnostics_contracts::ScanRequest::ip_family_probe: core::option::Option<ripdpi_diagnostics_contracts::IpFamilyProbeConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::kind: ripdpi_diagnostics_contracts::types::ScanKind
 pub ripdpi_diagnostics_contracts::ScanRequest::manual_only: bool
 pub ripdpi_diagnostics_contracts::ScanRequest::network_snapshot: core::option::Option<ripdpi_proxy_config::types::network::NetworkSnapshot>
 pub ripdpi_diagnostics_contracts::ScanRequest::pack_refs: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanRequest::path_mode: ripdpi_diagnostics_contracts::types::ScanPathMode
+pub ripdpi_diagnostics_contracts::ScanRequest::pmtu_probe: core::option::Option<ripdpi_diagnostics_contracts::PmtuProbeConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::probe_tasks: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::ProbeTask>
 pub ripdpi_diagnostics_contracts::ScanRequest::profile_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanRequest::proxy_host: core::option::Option<alloc::string::String>
@@ -1455,6 +1762,7 @@ pub ripdpi_diagnostics_contracts::ScanRequest::quic_targets: alloc::vec::Vec<rip
 pub ripdpi_diagnostics_contracts::ScanRequest::region_tag: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanRequest::route_probe: core::option::Option<ripdpi_diagnostics_contracts::types::RouteProbeConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::scan_deadline_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::ScanRequest::selective_matrix: core::option::Option<ripdpi_diagnostics_contracts::SelectiveMatrixConfig>
 pub ripdpi_diagnostics_contracts::ScanRequest::service_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::ServiceTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::strategy_probe: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyProbeRequest>
 pub ripdpi_diagnostics_contracts::ScanRequest::tcp_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::TcpTarget>
@@ -1465,6 +1773,25 @@ impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> fo
 pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
 pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub struct ripdpi_diagnostics_contracts::SelectiveMatrixConfig
+pub ripdpi_diagnostics_contracts::SelectiveMatrixConfig::catalog_version: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixConfig::max_response_bytes: usize
+pub ripdpi_diagnostics_contracts::SelectiveMatrixConfig::repetitions: usize
+pub ripdpi_diagnostics_contracts::SelectiveMatrixConfig::targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::SelectiveMatrixTarget>
+pub ripdpi_diagnostics_contracts::SelectiveMatrixConfig::timeout_ms: u64
+pub ripdpi_diagnostics_contracts::SelectiveMatrixConfig::version: u32
+impl ripdpi_diagnostics_contracts::SelectiveMatrixConfig
+pub fn ripdpi_diagnostics_contracts::SelectiveMatrixConfig::validate(&self) -> core::result::Result<(), &'static str>
+pub struct ripdpi_diagnostics_contracts::SelectiveMatrixTarget
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::cohort: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::id: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::infrastructure_group: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::label: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::last_verified_at: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::source_date: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::source_url: alloc::string::String
+pub ripdpi_diagnostics_contracts::SelectiveMatrixTarget::url: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::ServiceObservationFact
 pub ripdpi_diagnostics_contracts::ServiceObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::ServiceObservationFact::endpoint_failure: ripdpi_diagnostics_contracts::types::TransportFailureKind
@@ -1660,6 +1987,29 @@ pub ripdpi_diagnostics_contracts::ThroughputTarget::port: core::option::Option<u
 pub ripdpi_diagnostics_contracts::ThroughputTarget::runs: usize
 pub ripdpi_diagnostics_contracts::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::window_bytes: usize
+pub struct ripdpi_diagnostics_contracts::TransferEvidence
+pub ripdpi_diagnostics_contracts::TransferEvidence::runs: alloc::vec::Vec<ripdpi_diagnostics_contracts::TransferMeasurement>
+pub ripdpi_diagnostics_contracts::TransferEvidence::version: u32
+impl ripdpi_diagnostics_contracts::TransferEvidence
+pub fn ripdpi_diagnostics_contracts::TransferEvidence::to_json(&self) -> core::result::Result<alloc::string::String, serde_json::error::Error>
+pub struct ripdpi_diagnostics_contracts::TransferMeasurement
+pub ripdpi_diagnostics_contracts::TransferMeasurement::elapsed_ms: u64
+pub ripdpi_diagnostics_contracts::TransferMeasurement::expected_body_byte_count: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::TransferMeasurement::first_body_byte_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::TransferMeasurement::last_body_progress_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::TransferMeasurement::received_body_byte_count: u64
+pub ripdpi_diagnostics_contracts::TransferMeasurement::response_complete: bool
+pub ripdpi_diagnostics_contracts::TransferMeasurement::run_count: usize
+pub ripdpi_diagnostics_contracts::TransferMeasurement::run_index: usize
+pub ripdpi_diagnostics_contracts::TransferMeasurement::samples: alloc::vec::Vec<ripdpi_diagnostics_contracts::TransferSample>
+pub ripdpi_diagnostics_contracts::TransferMeasurement::termination_reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::TransferMeasurement::window_complete: bool
+pub struct ripdpi_diagnostics_contracts::TransferProgress
+pub ripdpi_diagnostics_contracts::TransferProgress::measurement: ripdpi_diagnostics_contracts::TransferMeasurement
+pub ripdpi_diagnostics_contracts::TransferProgress::target: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::TransferSample
+pub ripdpi_diagnostics_contracts::TransferSample::body_byte_count: u64
+pub ripdpi_diagnostics_contracts::TransferSample::elapsed_ms: u64
 pub const ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32
 pub type ripdpi_diagnostics_contracts::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation
 pub type ripdpi_diagnostics_contracts::EngineProbeTaskFamily = ripdpi_diagnostics_contracts::types::ProbeTaskFamily

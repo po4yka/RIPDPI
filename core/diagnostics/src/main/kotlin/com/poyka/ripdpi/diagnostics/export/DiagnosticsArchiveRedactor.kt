@@ -13,9 +13,14 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
+import com.poyka.ripdpi.diagnostics.canonicalDnsResponseSemantics
+import com.poyka.ripdpi.diagnostics.canonicalHttp3ProbeEvidence
+import com.poyka.ripdpi.diagnostics.canonicalIpFamilyProbeEvidence
+import com.poyka.ripdpi.diagnostics.canonicalPmtuProbeEvidence
 import com.poyka.ripdpi.diagnostics.canonicalTransferEvidence
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.sanitizeVpnRouteEvidenceForArchive
+import com.poyka.ripdpi.diagnostics.toSafeLocalNetworkContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -82,6 +87,7 @@ class DiagnosticsArchiveRedactor
 
         fun redact(model: DiagnosticContextModel): DiagnosticContextModel =
             model.copy(
+                localNetwork = model.localNetwork?.toSafeLocalNetworkContext(),
                 device =
                     model.device.copy(
                         manufacturer = "redacted",
@@ -311,6 +317,10 @@ private fun projectStructuredArchiveJson(
             element
         }
 
+        fieldName in DnsSemanticsObservationFields -> {
+            canonicalDnsResponseSemantics(element.toString())?.let(Json::parseToJsonElement) ?: JsonNull
+        }
+
         fieldName?.isArchiveRawWireField == true -> {
             JsonPrimitive("redacted")
         }
@@ -359,6 +369,22 @@ private fun projectArchiveObject(element: JsonObject): JsonObject {
     return JsonObject(
         element.mapValues { (key, value) ->
             when {
+                key == "value" && declaredField == "pmtuEvidence" -> {
+                    JsonPrimitive(canonicalPmtuProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
+                key == "value" && declaredField == "http3Evidence" -> {
+                    JsonPrimitive(canonicalHttp3ProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
+                key == "value" && declaredField == "ipFamilyEvidence" -> {
+                    JsonPrimitive(canonicalIpFamilyProbeEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
+                key == "value" && declaredField in DnsSemanticsDetailFields -> {
+                    JsonPrimitive(canonicalDnsResponseSemantics((value as? JsonPrimitive)?.content) ?: "unavailable")
+                }
+
                 key == "value" && declaredField == "transferEvidence" -> {
                     JsonPrimitive(canonicalTransferEvidence((value as? JsonPrimitive)?.content) ?: "unavailable")
                 }
@@ -723,3 +749,6 @@ private const val JsonEndpointFieldKeyPattern =
         "upstreamAddress)\"\\s*:\\s*\")"
 private const val JsonEndpointFieldValuePattern =
     "(?!redacted|<redacted>|unavailable|unknown|none|null)(?:[^\"\\\\]|\\\\.)*\""
+
+private val DnsSemanticsObservationFields = setOf("udpResponse", "encryptedResponse")
+private val DnsSemanticsDetailFields = setOf("udpDnsResponse", "encryptedDnsResponse")

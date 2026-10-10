@@ -12,6 +12,6 @@ appId: com.poyka.ripdpi
 - assertVisible:
     id: "diagnostics-simple-funnel"
 - assertVisible:
-    id: "diagnostics-simple-check"
+    id: "diagnostics-overview-run-scan-action"
 - assertVisible:
     id: "diagnostics-simple-apply"

@@ -484,6 +484,7 @@ class TaskctlContractTest(TaskctlFixture):
             taskctl.load_state(self.root)
 
     def test_prepare_dropped_spec_preserves_open_step_as_dropped(self) -> None:
+        self.add_simple_task()
         self.add_active_spec_task(status="review", done=False)
         args = argparse.Namespace(
             root=self.root,
@@ -499,10 +500,157 @@ class TaskctlContractTest(TaskctlFixture):
             self.root / "openspec/changes/dgn-1786234567890101-change/tasks.md"
         ).read_text(encoding="utf-8")
 
-        self.assertEqual("dropped", documents[0].values["status"])
-        self.assertEqual([], steps)
+        dropped = next(document for document in documents if document.task_id == args.query)
+        self.assertEqual("dropped", dropped.values["status"])
+        self.assertEqual(["CIC-1786234567890002"], [step.task_id for step in steps])
         self.assertIn("DROPPED:", tasks_text)
         self.assertNotIn("- [x]", tasks_text)
+
+    def dropped_warning(self) -> dict:
+        return {"items": [{"id": "dgn-1786234567890101-change", "type": "change",
+                           "valid": False, "issues": [{"level": "WARNING", "path": "tasks.md",
+                           "message": "This change counts as 0 tasks: no line in its tracked task files is a checkbox, fixture"}]}]}
+
+    def test_dropped_spec_warning_allows_strict_validation_and_verification(self) -> None:
+        self.add_simple_task()
+        self.add_active_spec_task(status="review", done=False)
+        taskctl.command_close_prepare(argparse.Namespace(
+            root=self.root, query="DGN-1786234567890101", outcome="dropped",
+            reason="Duplicate capability.", evidence="Canonical task owns the work."))
+        self.write_board()
+        documents, steps = taskctl.load_state(self.root)
+        def run(command, **kwargs):
+            output = json.dumps(self.dropped_warning()) if "--strict" in command else ""
+            return subprocess.CompletedProcess(command, 1 if output else 0, output)
+        with mock.patch.object(taskctl, "tool_binary", return_value=Path("tool")), mock.patch.object(
+            taskctl, "run_command", side_effect=run
+        ):
+            taskctl.validate_repository(self.root, base=None, upstreams=True)
+            taskctl.verify_task(self.root, next(item for item in documents if item.values["status"] == "dropped"), steps, archive_ready=False)
+
+    def test_dropped_warning_rejects_active_changes_other_issues_and_malformed_results(self) -> None:
+        self.add_active_spec_task(status="review", done=False)
+        documents, _ = taskctl.load_state(self.root)
+        warning = self.dropped_warning()
+        self.assertFalse(taskctl.only_dropped_task_warnings(json.dumps(warning), documents))
+        taskctl.command_close_prepare(argparse.Namespace(
+            root=self.root, query=documents[0].task_id, outcome="dropped",
+            reason="Duplicate capability.", evidence="Canonical task owns the work."))
+        documents, _ = taskctl.load_state(self.root)
+        self.assertTrue(taskctl.only_dropped_task_warnings(json.dumps(warning), documents))
+        with_info = self.dropped_warning()
+        with_info["items"].append({"valid": True, "type": "spec", "id": "existing-spec", "issues": [
+            {"level": "INFO", "path": "spec.md", "message": "Existing informational notice"}]})
+        self.assertTrue(taskctl.only_dropped_task_warnings(json.dumps(with_info), documents))
+        variants = ["not-json", "{}", '{"items": []}']
+        for field, value in (("id", "other-change"), ("type", "spec"), ("valid", "false")):
+            payload = self.dropped_warning()
+            payload["items"][0][field] = value
+            variants.append(json.dumps(payload))
+        for field, value in (("level", "ERROR"), ("path", "spec.md"), ("message", "Other warning")):
+            payload = self.dropped_warning()
+            payload["items"][0]["issues"][0][field] = value
+            variants.append(json.dumps(payload))
+        payload = self.dropped_warning()
+        payload["items"][0]["issues"].append({"level": "ERROR", "message": "Invalid spec"})
+        variants.append(json.dumps(payload))
+        payload = self.dropped_warning()
+        payload["items"].append({"valid": False, "type": "change", "id": "other", "issues": []})
+        variants.append(json.dumps(payload))
+        for extra in ({"valid": True}, *({"valid": True, "type": "change", "id": "active-change",
+                      "issues": [{"level": level, "path": "spec.md", "message": "Invalid spec"}]}
+                      for level in ("ERROR", "WARNING", "UNKNOWN"))):
+            payload = self.dropped_warning()
+            payload["items"].append(extra)
+            variants.append(json.dumps(payload))
+        for output in variants:
+            with self.subTest(output=output):
+                self.assertFalse(taskctl.only_dropped_task_warnings(output, documents))
+
+    def test_new_rejects_non_epic_parent_before_allocating_or_writing(self) -> None:
+        self.add_simple_task()
+        args = taskctl.build_parser().parse_args([
+            "new", "--title", "Invalid child", "--kind", "bug", "--area", "ci",
+            "--priority", "high", "--parent", "CIC-1786234567890001",
+            "--spec-mode", "not-required", "--spec-reason", "tooling-only",
+        ])
+        args.root = self.root
+        with mock.patch.object(taskctl, "allocate_id", return_value="CIC-1786234567890401") as allocate:
+            with self.assertRaisesRegex(taskctl.ContractError, "parent.*epic"):
+                taskctl.command_new(args)
+            allocate.assert_not_called()
+        self.assertEqual(1, len(list((self.root / "docs/tasks/issues").glob("*.md"))))
+
+    def test_repair_drop_receipt_keeps_terminal_hashes_and_other_tasks(self) -> None:
+        self.add_simple_task()
+        self.add_active_spec_task(status="review", done=False)
+        args = argparse.Namespace(
+            root=self.root, query="DGN-1786234567890101", outcome="dropped",
+            reason="Duplicate plan.", evidence="The retained plan owns the work.",
+        )
+        taskctl.command_close_prepare(args)
+        change = self.root / "openspec/changes/dgn-1786234567890101-change"
+        drop_path = change / ".taskctl-drop.json"
+        close_bytes = (change / ".taskctl-close.json").read_bytes()
+        receipt = json.loads(drop_path.read_text(encoding="utf-8"))
+        receipt["dropped_step_ids"].append("CIC-1786234567890002")
+        drop_path.write_text(json.dumps(receipt), encoding="utf-8")
+        with self.assertRaisesRegex(taskctl.ContractError, "dropped step prefix"):
+            taskctl.load_state(self.root)
+        self.assertEqual(0, taskctl.command_repair_drop_receipt(args))
+        self.assertEqual(["DGN-1786234567890102"], json.loads(drop_path.read_text())["dropped_step_ids"])
+        self.assertEqual(close_bytes, (change / ".taskctl-close.json").read_bytes())
+        documents, steps = taskctl.load_state(self.root)
+        self.assertEqual(2, len(documents))
+        self.assertEqual(["CIC-1786234567890002"], [step.task_id for step in steps])
+
+    def test_drop_receipt_repair_rejects_modified_terminal_execution(self) -> None:
+        self.add_active_spec_task(status="review", done=False)
+        args = argparse.Namespace(
+            root=self.root, query="DGN-1786234567890101", outcome="dropped",
+            reason="Duplicate plan.", evidence="The retained plan owns the work.",
+        )
+        taskctl.command_close_prepare(args)
+        change = self.root / "openspec/changes/dgn-1786234567890101-change"
+        receipt_before = (change / ".taskctl-drop.json").read_bytes()
+        with (change / "tasks.md").open("a", encoding="utf-8") as handle:
+            handle.write("Changed terminal content.\n")
+        with self.assertRaisesRegex(taskctl.ContractError, "content hashes"):
+            taskctl.command_repair_drop_receipt(args)
+        self.assertEqual(receipt_before, (change / ".taskctl-drop.json").read_bytes())
+
+    def test_drop_receipt_repair_rolls_back_when_another_task_is_invalid(self) -> None:
+        other_path = self.add_simple_task()
+        self.add_active_spec_task(status="review", done=False)
+        args = argparse.Namespace(
+            root=self.root, query="DGN-1786234567890101", outcome="dropped",
+            reason="Duplicate plan.", evidence="The retained plan owns the work.",
+        )
+        taskctl.command_close_prepare(args)
+        drop_path = self.root / "openspec/changes/dgn-1786234567890101-change/.taskctl-drop.json"
+        receipt = json.loads(drop_path.read_text(encoding="utf-8"))
+        receipt["dropped_step_ids"].append("CIC-1786234567890002")
+        drop_path.write_text(json.dumps(receipt), encoding="utf-8")
+        receipt_before = drop_path.read_bytes()
+        other = taskctl.read_document(other_path)
+        values = dict(other.values)
+        values["title"] = ""
+        other_path.write_text(taskctl.render_document(values, other.body), encoding="utf-8")
+        with self.assertRaisesRegex(taskctl.ContractError, "title must be"):
+            taskctl.command_repair_drop_receipt(args)
+        self.assertEqual(receipt_before, drop_path.read_bytes())
+
+    def test_new_required_task_checks_tool_before_writing(self) -> None:
+        self.add_simple_task()
+        args = taskctl.build_parser().parse_args([
+            "new", "--title", "Required task", "--kind", "bug", "--area", "ci",
+            "--priority", "high", "--spec-mode", "required",
+        ])
+        args.root = self.root
+        with mock.patch.object(taskctl, "tool_binary", side_effect=taskctl.ContractError("missing pinned tool")):
+            with self.assertRaisesRegex(taskctl.ContractError, "missing pinned tool"):
+                taskctl.command_new(args)
+        self.assertEqual(1, len(list((self.root / "docs/tasks/issues").glob("*.md"))))
 
     def test_new_simple_task_uses_global_allocator_and_execution_contract(self) -> None:
         self.add_simple_task()

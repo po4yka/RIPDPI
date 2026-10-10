@@ -307,7 +307,7 @@ internal class HistoryConnectionDetailUiFactory
                             field(R.string.diagnostics_field_locale, device.locale),
                         ).toImmutableList(),
                 ),
-            )
+            ) + measurementSupport.toLocalNetworkGroups(localNetwork)
 
         private fun buildFieldTelemetryGroup(
             session: DiagnosticConnectionSession,

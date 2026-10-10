@@ -42,15 +42,17 @@ pub(super) fn classify_dns_answer_class(
         return None;
     }
     match (udp_result, encrypted_result) {
+        (Ok(udp_ips), Ok(encrypted_ips)) if udp_ips.is_empty() || encrypted_ips.is_empty() => None,
         (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
             DnsAnswerOverlap::Match => Some(DnsAnswerClass::Clean),
             DnsAnswerOverlap::CompatibleDivergence => Some(DnsAnswerClass::Divergent),
             DnsAnswerOverlap::SinkholeSubstitution => Some(DnsAnswerClass::Poisoned),
         },
         (Err(error), Ok(encrypted_ips))
-            if !encrypted_ips.is_empty() && matches!(error.as_str(), "dns_nxdomain" | "dns_no_answer") =>
+            if !encrypted_ips.is_empty()
+                && matches!(error.as_str(), "dns_nxdomain" | "dns_no_answer" | "dns_nodata") =>
         {
-            Some(DnsAnswerClass::Poisoned)
+            Some(DnsAnswerClass::Divergent)
         }
         _ => None,
     }

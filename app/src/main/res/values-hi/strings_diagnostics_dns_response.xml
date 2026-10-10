@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_source_udp">DNS · UDP</string>
+    <string name="diagnostics_dns_source_encrypted">DNS · एन्क्रिप्टेड रिज़ॉल्वर</string>
+    <string name="diagnostics_dns_source_doh_json">DNS · DoH JSON</string>
+    <string name="diagnostics_dns_source_doh_wire">DNS · DoH wire</string>
+    <string name="diagnostics_dns_response">उत्तर</string>
+    <string name="diagnostics_dns_query">क्वेरी का प्रकार</string>
+    <string name="diagnostics_dns_rcode">उत्तर कोड (RCODE)</string>
+    <string name="diagnostics_dns_cname">CNAME लक्ष्य</string>
+    <string name="diagnostics_dns_ttl_min">न्यूनतम TTL (सेकंड)</string>
+    <string name="diagnostics_dns_ttl_max">अधिकतम TTL (सेकंड)</string>
+    <string name="diagnostics_dns_negative_ttl">नकारात्मक TTL (सेकंड)</string>
+    <string name="diagnostics_dns_tc">संक्षिप्त (TC)</string>
+    <string name="diagnostics_dns_aa">प्रामाणिक (AA)</string>
+    <string name="diagnostics_dns_ra">पुनरावृत्ति उपलब्ध (RA)</string>
+    <string name="diagnostics_dns_ad">प्रमाणित डेटा फ़्लैग (AD)</string>
+    <string name="diagnostics_dns_soa">SOA मौजूद</string>
+    <string name="diagnostics_dns_ede">विस्तृत DNS त्रुटि कोड (EDE)</string>
+    <string name="diagnostics_dns_limits">साक्ष्य की सीमाएँ</string>
+    <string name="diagnostics_dns_unknown">अज्ञात</string>
+    <string name="diagnostics_dns_yes">हाँ</string>
+    <string name="diagnostics_dns_no">नहीं</string>
+    <string name="diagnostics_dns_missing">उत्तर का मेटाडेटा एकत्र नहीं हुआ या उपलब्ध नहीं है</string>
+    <string name="diagnostics_dns_answer">पतों वाला उत्तर</string>
+    <string name="diagnostics_dns_nodata">माँगे गए प्रकार के रिकॉर्ड नहीं हैं (NODATA)</string>
+    <string name="diagnostics_dns_nxdomain">नाम मौजूद नहीं है (NXDOMAIN)</string>
+    <string name="diagnostics_dns_servfail">रिज़ॉल्वर विफल (SERVFAIL)</string>
+    <string name="diagnostics_dns_refused">क्वेरी अस्वीकृत (REFUSED)</string>
+    <string name="diagnostics_dns_other_rcode">अन्य उत्तर कोड</string>
+    <string name="diagnostics_dns_truncated">संक्षिप्त उत्तर</string>
+    <string name="diagnostics_dns_timeout">समय सीमा में कोई उत्तर नहीं</string>
+    <string name="diagnostics_dns_transport_error">ट्रांसपोर्ट त्रुटि</string>
+    <string name="diagnostics_dns_malformed">अमान्य या बेमेल उत्तर</string>
+    <string name="diagnostics_dns_disagreement">DNS उत्तर अलग हैं</string>
+    <string name="diagnostics_dns_udp_unavailable">UDP तुलना उपलब्ध नहीं</string>
+    <string name="diagnostics_dns_encrypted_unavailable">एन्क्रिप्टेड तुलना उपलब्ध नहीं</string>
+    <string name="diagnostics_dns_negative">नकारात्मक उत्तर मेल खाते हैं</string>
+    <string name="diagnostics_dns_ok">DNS उत्तर मेल खाते हैं</string>
+    <string name="diagnostics_dns_caution">ये रिज़ॉल्वर के उत्तर के तथ्य हैं। AD स्थानीय DNSSEC सत्यापन नहीं है; EDE रिज़ॉल्वर का दावा है। अलग उत्तर, TTL मान या नकारात्मक उत्तर प्रदाता द्वारा अवरोध साबित नहीं करते।</string>
+    <string name="diagnostics_dns_none">कुछ रिपोर्ट नहीं हुआ</string>
+    <string name="diagnostics_dns_show">DNS उत्तर के तथ्य दिखाएँ</string>
+    <string name="diagnostics_dns_hide">DNS उत्तर के तथ्य छिपाएँ</string>
+    <string name="diagnostics_dns_complete_agree">%1$d शामिल डोमेन के DNS पता उत्तर मेल खाते हैं।</string>
+</resources>

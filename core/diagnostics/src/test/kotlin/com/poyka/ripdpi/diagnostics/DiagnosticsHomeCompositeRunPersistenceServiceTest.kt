@@ -132,7 +132,13 @@ class DiagnosticsHomeCompositeRunPersistenceServiceTest {
             networkScopeFactory = stableHomeNetworkScopeFactory(),
             serviceStateStore = serviceStateStore,
             vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
-            stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+            stageExecutor =
+                HomeCompositeStageExecutor(
+                    scanController,
+                    timelineSource,
+                    serviceStateStore,
+                    homeRunLease = DiagnosticsHomeRunLease(),
+                ),
             json = diagnosticsTestJson(),
             scope = scope,
         )

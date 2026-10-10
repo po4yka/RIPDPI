@@ -73,6 +73,7 @@ internal class VpnEncryptedDnsFailoverController(
         currentDnsSignature: String?,
         networkScopeKey: String?,
         telemetry: NativeRuntimeSnapshot,
+        dnsUsesSharedProxy: Boolean = false,
     ): Boolean {
         val encryptedDns = activeDns?.takeIf { it.isEncrypted }
         val currentPath = encryptedDns?.toEncryptedDnsPathCandidate()
@@ -84,8 +85,18 @@ internal class VpnEncryptedDnsFailoverController(
         synchronizeNetworkScope(state, networkScopeKey)
         observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
         resetRolledBackCounters(state, telemetry)
-        observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
-        return failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
+        return if (dnsUsesSharedProxy && isAmbiguousProxyFailure(telemetry.lastDnsError.orEmpty())) {
+            // A shared proxy failure cannot identify a blocked DNS endpoint.
+            // Consume its counters so it cannot trigger a later endpoint failover.
+            state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
+            state.pathStartQueries = telemetry.dnsQueriesTotal
+            state.pathStartFailures = telemetry.dnsFailuresTotal
+            state.consecutiveFailureEvents = 0
+            false
+        } else {
+            observeSuccessfulPath(state, currentPath, networkScopeKey, telemetry)
+            failoverAfterFailure(state, encryptedDns, currentPath, networkScopeKey, telemetry)
+        }
     }
 
     private suspend fun synchronizeNetworkScope(
@@ -268,6 +279,15 @@ internal class VpnEncryptedDnsFailoverController(
         state.consecutiveFailureEvents = 0
         state.exhausted = false
         state.currentPathPersisted = false
+    }
+
+    internal fun isAmbiguousProxyFailure(error: String): Boolean {
+        val lower = error.lowercase()
+        if ("certificate" in lower || lower.startsWith("http:") || lower.startsWith("decode:")) return false
+        return lower.startsWith("connect:") || lower.startsWith("timeout:") || lower.startsWith("sniblocked:") ||
+            lower.startsWith("tls:") ||
+            isCatastrophicDnsError(error) || "socks5" in lower || "timeout" in lower || "timed out" in lower ||
+            "unexpected eof" in lower || "end of file" in lower || "connection closed" in lower
     }
 
     internal fun buildAutoFailoverReason(lastDnsError: String): String {

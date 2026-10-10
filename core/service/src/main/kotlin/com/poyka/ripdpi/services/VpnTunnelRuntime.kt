@@ -189,6 +189,7 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
         profileInterface: VpnProfileInterface? = null,
         configurationInput: VpnTunnelConfigurationInput,
+        sharedProxyPath: Boolean = false,
     ) {
         check(tunSession == null) { "VPN field not null" }
         appliedNetworkReceiptStore.invalidate()
@@ -203,6 +204,7 @@ internal class VpnTunnelRuntime(
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
                 profileInterface = profileInterface,
                 configurationInput = configurationInput,
+                sharedProxyPath = sharedProxyPath,
             )
         // Builder.establish() can return before Android's route updates converge.
         // Retain ownership until native readiness or orchestrated Failed cleanup;
@@ -231,6 +233,7 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy? = null,
         profileInterface: VpnProfileInterface? = null,
         configurationInput: VpnTunnelConfigurationInput,
+        sharedProxyPath: Boolean = false,
     ) {
         val previouslyRetiringSession = retiringSession
         if (previouslyRetiringSession != null) {
@@ -252,6 +255,7 @@ internal class VpnTunnelRuntime(
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
                 profileInterface = profileInterface,
                 configurationInput = configurationInput,
+                sharedProxyPath = sharedProxyPath,
             )
 
         // Own the replacement before retiring the old bridge, including failure paths.
@@ -296,6 +300,7 @@ internal class VpnTunnelRuntime(
         splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
         profileInterface: VpnProfileInterface?,
         configurationInput: VpnTunnelConfigurationInput,
+        sharedProxyPath: Boolean,
     ): PendingTunnel {
         val settings = configurationInput.settings.withProfileInterface(profileInterface)
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns, splitStrictDnsPolicy)
@@ -362,6 +367,7 @@ internal class VpnTunnelRuntime(
                 forceTunnelDns = forceTunnelDns,
                 resolverDns = dnsPlan.resolverDns,
                 splitStrictDnsPolicy = splitStrictDnsPolicy,
+                sharedProxyPath = sharedProxyPath,
             )
         } catch (error: Exception) {
             vpnHost.finishDirectDnsUnderlay(directDnsPrepareToken, DirectDnsUnderlayAction.Abort)
@@ -440,6 +446,7 @@ internal class VpnTunnelRuntime(
                     pendingTunnel.resolverDns,
                     pendingTunnel.splitStrictDnsPolicy,
                     pendingTunnel.interfacePolicySignature,
+                    pendingTunnel.sharedProxyPath,
                 )
         } catch (error: Exception) {
             val rollback =
@@ -718,6 +725,7 @@ internal class VpnTunnelRuntime(
         val forceTunnelDns: Boolean,
         val resolverDns: ActiveDnsSettings,
         val splitStrictDnsPolicy: ValidatedSplitStrictDnsPolicy?,
+        val sharedProxyPath: Boolean,
     )
 
     private data class BridgeRollbackResult(

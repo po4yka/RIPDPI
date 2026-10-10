@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_guided_review_recommendation">सुझाव देखें</string>
+    <string name="diagnostics_guided_recheck">इस नेटवर्क की फिर से जाँच करें</string>
+    <string name="diagnostics_guided_verify_title">VPN शुरू करके पहुँच जाँचें?</string>
+    <string name="diagnostics_guided_verify_body">VPN आपकी वर्तमान सेटिंग के साथ शुरू होगा। फिर एक छोटी जाँच VPN के ज़रिए पहुँच को मापेगी। VPN शुरू होते समय नेटवर्क की पहुँच कुछ देर रुक सकती है।</string>
+    <string name="diagnostics_guided_verify_confirm">शुरू करें और जाँचें</string>
+</resources>

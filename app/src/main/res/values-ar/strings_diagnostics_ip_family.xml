@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">النتيجة</string>
+    <string name="diagnostics_ip_stage">المرحلة المقاسة</string>
+    <string name="diagnostics_ip_reason">السبب</string>
+    <string name="diagnostics_ip_duration">المدة (مللي ثانية)</string>
+    <string name="diagnostics_ip_attempts">محاولات DNS/TCP</string>
+    <string name="diagnostics_ip_scope">نطاق المسار</string>
+    <string name="diagnostics_ip_discovery">اكتشاف DNS64</string>
+    <string name="diagnostics_ip_prefix_length">طول البادئة (بت)</string>
+    <string name="diagnostics_ip_resolver">مصدر DNS</string>
+    <string name="diagnostics_ip_limits">التفسير</string>
+    <string name="diagnostics_ip_measurement">حدود القياس</string>
+    <string name="diagnostics_ip_unknown">غير معروف</string>
+    <string name="diagnostics_ip_missing">لم تتم ملاحظته</string>
+    <string name="diagnostics_ip_tcp">اتصال TCP</string>
+    <string name="diagnostics_ip_dns64">اكتشاف بادئة DNS64</string>
+    <string name="diagnostics_ip_raw">مسار الشبكة المباشر</string>
+    <string name="diagnostics_ip_proxy">مسار الوكيل غير مدعوم</string>
+    <string name="diagnostics_ip_network_dns">خوادم DNS من لقطة الشبكة</string>
+    <string name="diagnostics_ip_reachable">تم إنشاء اتصال TCP</string>
+    <string name="diagnostics_ip_failed">فشل</string>
+    <string name="diagnostics_ip_timeout">انتهت المهلة</string>
+    <string name="diagnostics_ip_unsupported">غير مدعوم</string>
+    <string name="diagnostics_ip_cancelled">تم الإلغاء</string>
+    <string name="diagnostics_ip_invalid">بيانات غير صالحة</string>
+    <string name="diagnostics_ip_discovered">تم اكتشاف البادئة</string>
+    <string name="diagnostics_ip_no_prefix">لم تتم ملاحظة بادئة</string>
+    <string name="diagnostics_ip_refused">تم رفض الاتصال</string>
+    <string name="diagnostics_ip_unreachable">الوجهة أو الشبكة غير متاحة</string>
+    <string name="diagnostics_ip_permission">تم رفض الإذن</string>
+    <string name="diagnostics_ip_io">خطأ في النقل</string>
+    <string name="diagnostics_ip_no_dns">خوادم DNS للشبكة غير متاحة</string>
+    <string name="diagnostics_ip_dns_error">فشل استعلام DNS</string>
+    <string name="diagnostics_ip_invalid_prefix">بادئة DNS64 غير صالحة أو ملتبسة</string>
+    <string name="diagnostics_ip_invalid_config">إعداد اختبار غير صالح</string>
+    <string name="diagnostics_ip_caution">يختبر خدمة مرجعية واحدة عبر TCP. لا يؤكد وصول HTTP أو الإنترنت العام ولا يثبت تدخل مزود الخدمة.</string>
+    <string name="diagnostics_ip_clat_caution">قد يستخدم نجاح IPv4 تقنية CLAT ولا يثبت وجود شبكة IPv4 أصلية.</string>
+    <string name="diagnostics_ip_nat64_caution">اكتشاف بادئة DNS64 لا يثبت عمل مسار NAT64. وحده اتصال TCP الناجح يختبر الترجمة.</string>
+    <string name="diagnostics_ip_network_changed">تغيرت الشبكة؛ لم تعد النتيجة تصف الاتصال الحالي.</string>
+</resources>

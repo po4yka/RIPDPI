@@ -60,6 +60,24 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
         }
         config.validate().map_err(str::to_string)?;
     }
+    if let Some(config) = &request.http3_probe {
+        if request.kind != ScanKind::Connectivity {
+            return Err("http3Probe requires a connectivity scan".into());
+        }
+        config.validate().map_err(str::to_owned)?;
+    }
+    if let Some(config) = &request.pmtu_probe {
+        if request.kind != ScanKind::Connectivity {
+            return Err("pmtuProbe requires a connectivity scan".into());
+        }
+        config.validate().map_err(str::to_owned)?;
+    }
+    if let Some(config) = &request.ip_family_probe {
+        if request.kind != ScanKind::Connectivity {
+            return Err("ipFamilyProbe requires a connectivity scan".into());
+        }
+        config.validate().map_err(str::to_string)?;
+    }
     if request.kind == ScanKind::StrategyProbe {
         let strategy_probe = request
             .strategy_probe

@@ -606,7 +606,7 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
-    fun `active scan forces scan section and profile selection updates manager`() =
+    fun `active scan forces scan section and blocks profile changes`() =
         runTest {
             val manager =
                 FakeDiagnosticsManager().apply {
@@ -648,9 +648,16 @@ class DiagnosticsViewModelTest {
 
             val state = viewModel.uiState.value
             assertEquals(DiagnosticsSection.Scan, state.selectedSection)
-            assertEquals("custom", manager.lastActiveProfileId)
-            assertEquals("custom", state.scan.selectedProfileId)
+            assertNull(manager.lastActiveProfileId)
+            assertEquals("default", state.scan.selectedProfileId)
             assertNotNull(state.scan.activeProgress)
+
+            manager.progressState.value = null
+            advanceUntilIdle()
+            viewModel.selectProfile("custom")
+            advanceUntilIdle()
+            assertEquals("custom", manager.lastActiveProfileId)
+            assertEquals("custom", viewModel.uiState.value.scan.selectedProfileId)
             collector.cancel()
         }
 

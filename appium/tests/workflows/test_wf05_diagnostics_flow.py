@@ -32,7 +32,8 @@ def test_diagnostics_scan_and_share(workflow_app):
     # Step 4: Swipe to tools section.
     diag.swipe_to_next_section()
 
-    # Step 5: Verify share/save buttons are visible.
+    # Step 5: Expand technical tools and verify share/save buttons.
+    diag.expand_advanced()
     diag.scroll_incrementally_to(DiagnosticsPage.SHARE_ARCHIVE)
     diag.wait_until(
         lambda: diag.is_visible(DiagnosticsPage.SHARE_ARCHIVE),

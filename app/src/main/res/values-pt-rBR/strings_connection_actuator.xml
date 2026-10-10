@@ -2,16 +2,16 @@
 <resources>
     <string name="home_connection_actuator_direct">Direto</string>
     <string name="home_connection_actuator_relay">Relay</string>
-    <string name="home_connection_actuator_state_open">Linha segura desativada</string>
-    <string name="home_connection_actuator_state_engaging">Ativando linha segura</string>
-    <string name="home_connection_actuator_state_locked">Linha segura bloqueada</string>
-    <string name="home_connection_actuator_state_direct">Linha direta bloqueada</string>
-    <string name="home_connection_actuator_state_degraded">Linha segura bloqueada, aviso em %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Linha direta bloqueada, aviso em %1$s</string>
-    <string name="home_connection_actuator_state_fault">Falha na linha segura em %1$s</string>
-    <string name="home_connection_actuator_action_activate">Ativar linha segura</string>
-    <string name="home_connection_actuator_action_deactivate">Liberar linha segura</string>
-    <string name="home_connection_actuator_action_confirm_release">Toque novamente para liberar</string>
+    <string name="home_connection_actuator_state_open">Desconectado</string>
+    <string name="home_connection_actuator_state_engaging">Conectando…</string>
+    <string name="home_connection_actuator_state_locked">Conectado</string>
+    <string name="home_connection_actuator_state_direct">Conectado</string>
+    <string name="home_connection_actuator_state_degraded">Conectado · aviso: %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Conectado · aviso: %1$s</string>
+    <string name="home_connection_actuator_state_fault">Falha na conexão: %1$s</string>
+    <string name="home_connection_actuator_action_activate">Conectar</string>
+    <string name="home_connection_actuator_action_deactivate">Desconectar</string>
+    <string name="home_connection_actuator_action_confirm_release">Confirmar desconexão</string>
     <string name="home_connection_actuator_fault_copy">Copiar o erro</string>
     <string name="home_connection_stage_network">Rede</string>
     <string name="home_connection_stage_handshake">Handshake</string>
@@ -23,4 +23,6 @@
     <string name="home_connection_stage_state_complete">concluído</string>
     <string name="home_connection_stage_state_warning">aviso</string>
     <string name="home_connection_stage_state_failed">falhou</string>
+    <string name="home_connection_actuator_action_cancel">Cancelar conexão</string>
+    <string name="home_connection_actuator_action_retry">Tentar novamente</string>
 </resources>

@@ -88,6 +88,7 @@ internal interface XrayTunnelDriver {
                         params.splitStrictDnsPolicy,
                         null,
                         params.configurationInput,
+                        true,
                     )
                 }
 

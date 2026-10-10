@@ -14,6 +14,9 @@ pub(super) fn classify_dns_probe_outcome(
     udp_retry_recovered: bool,
 ) -> String {
     match (udp_result, encrypted_result) {
+        (Ok(udp_ips), Ok(encrypted_ips)) if udp_ips.is_empty() || encrypted_ips.is_empty() => {
+            "dns_unavailable".to_string()
+        }
         (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
             DnsAnswerOverlap::Match => {
                 if !expected.is_empty() && ip_set(udp_ips) != expected.clone() {
@@ -34,6 +37,7 @@ pub(super) fn classify_dns_probe_outcome(
             DnsAnswerOverlap::SinkholeSubstitution => "dns_sinkhole_substitution".to_string(),
         },
         (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
+        (Err(err), Ok(_)) if is_unusable_dns_response(err) => "dns_unavailable".to_string(),
         (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
         (Err(_), Ok(_)) if is_udp_timeout_evidence(udp_error_kind, udp_attempt_count) => {
             // Failed attempts do not prove recovery or provider interference.
@@ -52,4 +56,23 @@ pub(super) fn classify_dns_probe_outcome(
 
 fn is_udp_timeout_evidence(udp_error_kind: Option<&str>, udp_attempt_count: usize) -> bool {
     matches!(udp_error_kind, Some("timeout" | "would_block")) && udp_attempt_count > 0
+}
+
+fn is_unusable_dns_response(error: &str) -> bool {
+    matches!(
+        error,
+        "dns_nodata"
+            | "dns_servfail"
+            | "dns_refused"
+            | "dns_truncated"
+            | "dns_response_unusable"
+            | "dns_malformed_response"
+            | "dns_response_mismatch"
+            | "dns_answer_owner_mismatch"
+            | "dns_address_at_cname_owner"
+            | "dns_invalid_cname_chain"
+            | "dns_cname_chain_too_long"
+            | "dns_unsupported_query_type"
+            | "dns_malformed_query"
+    )
 }

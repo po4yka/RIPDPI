@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">Aktive Paketgröße / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">Per ACK bestätigte Untergrenze der UDP-Nutzlast</string>
+    <string name="diagnostics_pmtu_current">Aktuelle QUIC-UDP-Nutzlastgröße</string>
+    <string name="diagnostics_pmtu_ceiling">Konfigurierte UDP-Nutzlastgrenze</string>
+    <string name="diagnostics_pmtu_initial">Anfängliche QUIC-UDP-Nutzlastgröße</string>
+    <string name="diagnostics_pmtu_window">Beobachtungsfenster abgeschlossen</string>
+    <string name="diagnostics_pmtu_reached">Konfigurierte Grenze erreicht</string>
+    <string name="diagnostics_pmtu_fragmentation">IP-Fragmentierung verhindert</string>
+    <string name="diagnostics_pmtu_sent">Gesendete Größensonden</string>
+    <string name="diagnostics_pmtu_lost">Verlorene Größensonden</string>
+    <string name="diagnostics_pmtu_resets">QUIC-Pfadgrößen-Rücksetzungen</string>
+    <string name="diagnostics_pmtu_bytes">%1$d Byte</string>
+    <string name="diagnostics_pmtu_observed">Untergrenze beobachtet</string>
+    <string name="diagnostics_pmtu_inconclusive">Nicht eindeutig</string>
+    <string name="diagnostics_pmtu_no_ack">Keine Größensonde wurde bestätigt</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">Die Plattform garantiert keine unfragmentierten Pakete</string>
+    <string name="diagnostics_pmtu_partial">Verbindung vor Beobachtungsende beendet</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD misst ausgehende UDP-Nutzlastbytes von diesem Gerät zum gewählten Server auf diesem Pfad. Der per ACK bestätigte Wert ist eine Untergrenze, keine exakte Pfad-MTU. Ein ACK auf dem Rückweg misst dessen PMTU nicht. Die konfigurierte Grenze und die Schnittstellen-MTU sind getrennte Werte. Eine Teilbeobachtung bestätigt keine vollständige Messung.</string>
+    <string name="diagnostics_pmtu_loss_caution">Bei der Größensuche können Sonden verloren gehen. Dies belegt weder ein Pfad-Blackhole noch eine Anbieterbeschränkung. Auch die Gegenstelle kann die Paketgröße begrenzen.</string>
+</resources>

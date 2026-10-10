@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +32,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -126,14 +126,26 @@ fun RipDpiChip(
                 }.background(animatedContainer, chipShape)
                 .border(RipDpiStroke.Thin, animatedBorderColor, chipShape)
                 .semantics { contentDescription = text }
-                .focusable(enabled = enabled, interactionSource = interactionSource)
-                .ripDpiSelectable(
-                    selected = selected,
-                    enabled = enabled,
-                    role = role,
-                    interactionSource = interactionSource,
-                    hapticFeedback = hapticFeedback,
-                    onClick = onClick,
+                .then(
+                    if (role == Role.Checkbox) {
+                        Modifier.ripDpiToggleable(
+                            value = selected,
+                            enabled = enabled,
+                            role = role,
+                            interactionSource = interactionSource,
+                            hapticFeedback = hapticFeedback,
+                            onValueChange = { onClick() },
+                        )
+                    } else {
+                        Modifier.ripDpiSelectable(
+                            selected = selected,
+                            enabled = enabled,
+                            role = role,
+                            interactionSource = interactionSource,
+                            hapticFeedback = hapticFeedback,
+                            onClick = onClick,
+                        )
+                    },
                 ).padding(
                     horizontal = horizontalPadding,
                     vertical = verticalPadding,

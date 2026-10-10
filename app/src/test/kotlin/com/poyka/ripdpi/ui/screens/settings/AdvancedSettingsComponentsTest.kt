@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -150,7 +151,12 @@ class AdvancedSettingsComponentsTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.advancedDescription(AdvancedOptionSetting.DesyncMethod.name))
             .assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedOption(AdvancedOptionSetting.DesyncMethod)).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedOption(AdvancedOptionSetting.DesyncMethod))
+            .assert(
+                androidx.compose.ui.test
+                    .hasContentDescription("Bypass strategy"),
+            )
     }
 
     // -- ProfileSummaryLine --

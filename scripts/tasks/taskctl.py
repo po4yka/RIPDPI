@@ -793,12 +793,52 @@ def validate_upstreams(root: Path, documents: list[Document]) -> None:
         openspec = tool_binary(root, "openspec")
         commands = (
             ("schema", "validate", "ripdpi-change", "--json"),
-            ("validate", "--all", "--strict", "--no-interactive"),
+            ("validate", "--all", "--strict", "--no-interactive", "--json"),
         )
         for args in commands:
             result = run_command((str(openspec), *args), root=root)
-            if result.returncode != 0:
+            if result.returncode != 0 and not (
+                args[0] == "validate" and only_dropped_task_warnings(result.stdout or "", documents)
+            ):
                 fail(f"openspec {' '.join(args)} failed:\n{(result.stdout or '').rstrip()}")
+
+
+def only_dropped_task_warnings(output: str, documents: Sequence[Document]) -> bool:
+    # load_state has already checked terminal ownership and close/drop receipts.
+    dropped = {
+        document.values["openspec_change"] for document in documents
+        if document.values["status"] == "dropped" and document.values["spec_mode"] == "required"
+    }
+    try:
+        payload = json.loads(output)
+        items = payload["items"]
+        if not isinstance(items, list) or not items or any(
+            not isinstance(item, dict) or not isinstance(item.get("valid"), bool)
+            or not isinstance(item.get("id"), str) or not item["id"]
+            or item.get("type") not in {"change", "spec"}
+            or not isinstance(item.get("issues"), list)
+            or (item["valid"] and any(
+                not isinstance(issue, dict) or issue.get("level") != "INFO"
+                or not isinstance(issue.get("path"), str)
+                or not isinstance(issue.get("message"), str) for issue in item["issues"]
+            )) for item in items
+        ):
+            return False
+        if len({(item["type"], item["id"]) for item in items}) != len(items):
+            return False
+        invalid = [item for item in items if item["valid"] is False]
+        return bool(invalid) and all(
+            item["type"] == "change" and item["id"] in dropped
+            and len(item["issues"]) == 1
+            and item["issues"][0]["level"] == "WARNING"
+            and item["issues"][0]["path"] == "tasks.md"
+            and item["issues"][0]["message"].startswith(
+                "This change counts as 0 tasks: no line in its tracked task files is a checkbox,"
+            )
+            for item in invalid
+        )
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def validate_generated_assets(root: Path) -> None:
@@ -1177,6 +1217,10 @@ def command_graph(args: argparse.Namespace) -> int:
 
 def command_new(args: argparse.Namespace) -> int:
     documents, steps = load_state(args.root)
+    if args.parent is not None:
+        parent = next((document for document in documents if document.task_id == args.parent), None)
+        if parent is None or parent.values["kind"] != "epic":
+            fail("--parent must identify an existing epic")
     used = {
         ID_RE.fullmatch(document.values["id"]).group(2)  # type: ignore[union-attr]
         for document in documents
@@ -1190,6 +1234,7 @@ def command_new(args: argparse.Namespace) -> int:
         fail("spec-not-required task requires --spec-reason")
     if args.spec_mode == "not-required" and args.kind in {"feature", "epic"}:
         fail(f"{args.kind} cannot waive OpenSpec")
+    openspec = tool_binary(args.root, "openspec") if args.spec_mode == "required" else None
     task_id = allocate_id(args.root, args.area, used)
     slug = args.slug or slugify(args.title)
     path = args.root / "docs/tasks/issues" / f"{slug}.md"
@@ -1230,7 +1275,6 @@ def command_new(args: argparse.Namespace) -> int:
             encoding="utf-8",
         )
     else:
-        openspec = tool_binary(args.root, "openspec")
         result = run_command(
             (
                 str(openspec),
@@ -1443,7 +1487,7 @@ def verify_task(root: Path, document: Document, steps: list[Step], *, archive_re
         if execution.parent.parent.name != "archive":
             openspec = tool_binary(root, "openspec")
             result = run_command((str(openspec), "validate", change, "--strict", "--json"), root=root)
-            if result.returncode != 0:
+            if result.returncode != 0 and not only_dropped_task_warnings(result.stdout or "", [document]):
                 fail(f"OpenSpec change {change} is invalid:\n{(result.stdout or '').rstrip()}")
         evidence = evidence_values(execution.parent / "verification.md")
         if archive_ready:
@@ -1552,7 +1596,10 @@ def prepare_dropped_execution(
     reason: str,
 ) -> Path:
     execution = expected_execution_path(root, document)
-    dropped_step_ids = {step.task_id for step in steps if not step.done}
+    dropped_step_ids = {
+        step.task_id for step in steps
+        if not step.done and step.item_id == document.task_id and step.path == execution
+    }
     rewritten: list[str] = []
     for line in execution.read_text(encoding="utf-8").splitlines():
         match = STEP_RE.match(line)
@@ -1650,6 +1697,37 @@ def command_close_prepare(args: argparse.Namespace) -> int:
         },
     )
     print(f"Prepared terminal state for {document.task_id}; commit it before purge")
+    return 0
+
+
+def command_repair_drop_receipt(args: argparse.Namespace) -> int:
+    documents = [read_document(path) for path in issue_paths(args.root)]
+    document = find_document(documents, args.query)
+    validate_issue_shape(document)
+    if document.values["status"] != "dropped":
+        fail("drop receipt repair requires a dropped task")
+    execution = expected_execution_path(args.root, document)
+    read_lifecycle_receipt(args.root, document, execution, "close")
+    receipt = read_lifecycle_receipt(args.root, document, execution, "drop")
+    dropped_ids: list[str] = []
+    for line in execution.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^- ([A-Z][A-Z0-9]*-\d{16}) DROPPED: (.*)$", line)
+        if match:
+            if not re.search(rf"(?:^|\s)@item:{re.escape(document.task_id)}(?:\s|$)", match.group(2)):
+                fail("dropped execution line has a different task owner")
+            dropped_ids.append(match.group(1))
+    if len(dropped_ids) != len(set(dropped_ids)):
+        fail("duplicate dropped execution IDs")
+    receipt["dropped_step_ids"] = sorted(dropped_ids)
+    path = lifecycle_receipt_path(args.root, document, execution, "drop")
+    previous = path.read_bytes()
+    path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    try:
+        load_state(args.root)
+    except Exception:
+        path.write_bytes(previous)
+        raise
+    print(f"Repaired drop receipt for {document.task_id}; task and execution are unchanged")
     return 0
 
 
@@ -1789,6 +1867,9 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--reason")
     prepare.add_argument("--evidence", required=True)
     prepare.set_defaults(handler=command_close_prepare)
+    repair = close_sub.add_parser("repair-drop-receipt")
+    repair.add_argument("query")
+    repair.set_defaults(handler=command_repair_drop_receipt)
     purge = close_sub.add_parser("purge")
     purge.add_argument("query")
     purge.set_defaults(handler=command_close_purge)

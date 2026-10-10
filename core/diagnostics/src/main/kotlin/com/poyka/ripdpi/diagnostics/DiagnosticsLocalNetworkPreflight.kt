@@ -97,6 +97,25 @@ private class LocalNetworkScanFilter(
                     val uri = URI(it.url)
                     requireHosts(it.connectIps, it.connectIp, uri.host.orEmpty(), it.port ?: uri.networkPort())
                 },
+            http3Probe =
+                allowed(
+                    listOfNotNull(request.http3Probe),
+                    EngineProbeTaskFamily.HTTP3,
+                    "http3",
+                    { it.host },
+                ) {
+                    requireDirectEndpoint(it.connectIp ?: it.host, it.port)
+                }.singleOrNull(),
+            pmtuProbe =
+                allowed(
+                    listOfNotNull(request.pmtuProbe),
+                    EngineProbeTaskFamily.PMTU,
+                    "pmtu",
+                    { it.host },
+                ) {
+                    requireDirectEndpoint(it.connectIpv4 ?: it.host, it.port)
+                    requireDirectEndpoint(it.connectIpv6 ?: it.host, it.port)
+                }.singleOrNull(),
             telegramTarget =
                 allowed(
                     listOfNotNull(request.telegramTarget),

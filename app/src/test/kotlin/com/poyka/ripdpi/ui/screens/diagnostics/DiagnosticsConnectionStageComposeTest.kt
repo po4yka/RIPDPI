@@ -60,6 +60,8 @@ class DiagnosticsConnectionStageComposeTest {
     fun scaleStartsCompactAndExpandsWithSeparateTimingLabels() {
         show()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsConnectionStageLanes).assertDoesNotExist()
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_transfer_scope_unverified)))
+        capture("connection-stages-collapsed-unverified")
         composeRule.onNodeWithText(text(R.string.diagnostics_stages_show, 2)).performScrollTo().performClick()
         verifyExpanded("connection-stages")
         composeRule.onNodeWithText(text(R.string.diagnostics_stages_hide, 2)).performScrollTo().performClick()

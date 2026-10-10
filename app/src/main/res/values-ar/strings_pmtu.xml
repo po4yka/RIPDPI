@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">حجم الحزم النشط / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">الحد الأدنى لحمولة UDP المؤكد بواسطة ACK</string>
+    <string name="diagnostics_pmtu_current">حجم حمولة UDP الحالي في QUIC</string>
+    <string name="diagnostics_pmtu_ceiling">السقف المضبوط لحمولة UDP</string>
+    <string name="diagnostics_pmtu_initial">حجم حمولة UDP الأولي في QUIC</string>
+    <string name="diagnostics_pmtu_window">اكتملت فترة المراقبة</string>
+    <string name="diagnostics_pmtu_reached">تم بلوغ السقف المضبوط</string>
+    <string name="diagnostics_pmtu_fragmentation">تم منع تجزئة IP</string>
+    <string name="diagnostics_pmtu_sent">مجسات الحجم المرسلة</string>
+    <string name="diagnostics_pmtu_lost">مجسات الحجم المفقودة</string>
+    <string name="diagnostics_pmtu_resets">إعادات ضبط حجم مسار QUIC</string>
+    <string name="diagnostics_pmtu_bytes">%1$d بايت</string>
+    <string name="diagnostics_pmtu_observed">تم رصد الحد الأدنى</string>
+    <string name="diagnostics_pmtu_inconclusive">غير حاسم</string>
+    <string name="diagnostics_pmtu_no_ack">لم يتم تأكيد أي مجس حجم</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">لا تضمن المنصة حزمًا دون تجزئة</string>
+    <string name="diagnostics_pmtu_partial">انتهى الاتصال قبل اكتمال المراقبة</string>
+    <string name="diagnostics_pmtu_caution">يقيس QUIC DPLPMTUD بايتات حمولة UDP الصادرة من هذا الجهاز إلى الخادم المحدد عبر هذا المسار. القيمة المؤكدة بواسطة ACK هي حد أدنى وليست MTU الدقيقة للمسار. عودة ACK لا تقيس PMTU لمسار العودة. السقف المضبوط وMTU الواجهة قيمتان منفصلتان. لا تؤكد المراقبة الجزئية اكتمال القياس.</string>
+    <string name="diagnostics_pmtu_loss_caution">قد تفقد المجسات أثناء البحث عن الحجم. لا يثبت ذلك وجود ثقب أسود في المسار أو قيود من المزود. قد تحد الوجهة أيضًا من حجم الحزم.</string>
+</resources>

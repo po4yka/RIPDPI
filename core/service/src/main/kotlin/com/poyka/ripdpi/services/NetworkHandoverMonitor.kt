@@ -9,6 +9,7 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.core.content.ContextCompat
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -129,6 +130,10 @@ internal fun observeNetworkHandoverEvents(
 ): Flow<NetworkHandoverEvent> =
     flow {
         var previousFingerprint = captureFingerprint()
+        Logger.withTag("NetworkHandover").i {
+            "initialCapturePresent=${previousFingerprint != null} " +
+                "initialLeaseTokenPresent=${previousFingerprint?.directDnsUnderlayGeneration != null}"
+        }
         val eventSignals =
             if (debounceMs > 0L) {
                 debouncedSignals(signals, debounceMs)
@@ -138,6 +143,12 @@ internal fun observeNetworkHandoverEvents(
         eventSignals.collect {
             val currentFingerprint = captureFingerprint()
             val classification = classifyNetworkHandover(previousFingerprint, currentFingerprint)
+            Logger.withTag("NetworkHandover").i {
+                "classification=${classification ?: "none"} " +
+                    "changedFields=${networkHandoverChangedFields(previousFingerprint, currentFingerprint)} " +
+                    "leaseTokenBeforePresent=${previousFingerprint?.directDnsUnderlayGeneration != null} " +
+                    "leaseTokenAfterPresent=${currentFingerprint?.directDnsUnderlayGeneration != null}"
+            }
             if (classification != null) {
                 emit(
                     NetworkHandoverEvent(
@@ -151,6 +162,23 @@ internal fun observeNetworkHandoverEvents(
             previousFingerprint = currentFingerprint
         }
     }
+
+private fun networkHandoverChangedFields(
+    previous: NetworkFingerprint?,
+    current: NetworkFingerprint?,
+): String =
+    listOf(
+        "presence" to ((previous != null) != (current != null)),
+        "transport" to (previous?.transport != current?.transport),
+        "validation" to (previous?.networkValidated != current?.networkValidated),
+        "captive" to (previous?.captivePortalDetected != current?.captivePortalDetected),
+        "privateDns" to (previous?.privateDnsMode != current?.privateDnsMode),
+        "dns" to (previous?.dnsServers != current?.dnsServers),
+        "wifi" to (previous?.wifi != current?.wifi),
+        "cellular" to (previous?.cellular != current?.cellular),
+        "metered" to (previous?.metered != current?.metered),
+        "leaseToken" to (previous?.directDnsUnderlayGeneration != current?.directDnsUnderlayGeneration),
+    ).filter { it.second }.joinToString(",") { it.first }.ifEmpty { "none" }
 
 @OptIn(FlowPreview::class)
 private fun debouncedSignals(

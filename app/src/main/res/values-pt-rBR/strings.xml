@@ -95,7 +95,7 @@
     <string name="strategy_tuner_apply">Aplicar</string>
     <string name="strategy_tuner_applied">Aplicado</string>
     <string name="diagnostics_simple_funnel_title">Verificação de rede</string>
-    <string name="diagnostics_simple_funnel_body">Execute uma verificação, revise o veredito e aplique automaticamente apenas recomendações de alta confiança.</string>
+    <string name="diagnostics_simple_funnel_body">Execute uma verificação, confira os resultados e escolha o próximo passo.</string>
     <string name="diagnostics_simple_funnel_verdict_running">Verificando esta rede…</string>
     <string name="diagnostics_simple_funnel_memory_format">Nesta rede, %1$s funcionou da última vez.</string>
     <string name="diagnostics_simple_funnel_check_action">Verificar rede</string>
@@ -3879,7 +3879,7 @@ Fonte: %2$s</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">IPs stub</string>
     <string name="diagnostics_domain_reachability_running">Sondando acessibilidade com %1$d IPs stub de DNS...</string>
     <string name="diagnostics_dpi_probe_kind_ech">Prontidão de ECH</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">Impressão digital QUIC/H3</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">Impressão digital QUIC Initial</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">Cabeçalho grande TCP16</string>
     <string name="diagnostics_dpi_suite_cancel">Cancelar suíte</string>
     <string name="diagnostics_dpi_suite_concurrency">Concorrência %1$d</string>

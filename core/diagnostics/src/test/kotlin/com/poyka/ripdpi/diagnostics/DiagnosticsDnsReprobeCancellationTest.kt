@@ -264,7 +264,14 @@ class DiagnosticsDnsReprobeCancellationTest {
             )
             assertTrue(serviceStateStore.status.value.first != AppStatus.Running)
 
-            val admission = ScanAdmissionService(FakeAppSettingsRepository(), stores, fixtures.activeScanRegistry, json)
+            val admission =
+                ScanAdmissionService(
+                    FakeAppSettingsRepository(),
+                    stores,
+                    fixtures.activeScanRegistry,
+                    json,
+                    homeRunLease = DiagnosticsHomeRunLease(),
+                )
             assertNull(
                 "Admission must reject an automatic probe while a DNS-corrected re-probe is pending",
                 admission.admitAutomaticProbe(settings),

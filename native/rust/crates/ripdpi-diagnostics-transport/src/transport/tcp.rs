@@ -28,6 +28,14 @@ pub fn connect_transport_observed(
     }
 }
 
+/// Connect exactly one numeric peer through the protected direct path.
+/// Preserves the OS error kind for diagnostics and never performs DNS or family fallback.
+pub fn connect_direct_address(address: SocketAddr) -> std::io::Result<TcpStream> {
+    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "scan deadline exceeded"))?;
+    super::protect::protected_tcp_connect(address, timeout)
+}
+
 pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, TransportError> {
     connect_direct_observed(std::slice::from_ref(target), port, None)
         .map(|result| result.stream)

@@ -58,3 +58,11 @@ pub use tls_alert::TlsAlertOfflineProbe;
 
 #[path = "selective_availability.rs"]
 pub mod selective_availability;
+
+#[path = "ip_family.rs"]
+pub mod ip_family;
+
+#[path = "http3.rs"]
+pub mod http3;
+#[path = "pmtu.rs"]
+pub mod pmtu;

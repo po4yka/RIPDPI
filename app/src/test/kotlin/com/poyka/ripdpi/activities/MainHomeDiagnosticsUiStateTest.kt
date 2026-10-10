@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DirectModeReasonCode
@@ -8,9 +9,109 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class MainHomeDiagnosticsUiStateTest {
+    @Test
+    fun `quick and full analysis fallbacks describe their actual scope for visible and spoken status`() {
+        listOf(
+            true to R.string.diagnostics_simple_funnel_verdict_running,
+            false to R.string.home_diagnostics_analysis_running,
+        ).forEach { (quickScan, message) ->
+            val uiState =
+                buildHomeDiagnosticsUiState(
+                    settings = AppSettingsSerializer.defaultValue,
+                    appStatus = AppStatus.Halted,
+                    connectionState = ConnectionState.Disconnected,
+                    runtime = HomeDiagnosticsRuntimeState(activeRunId = "run", quickScanActive = quickScan),
+                    stringResolver = FakeStringResolver(),
+                )
+
+            assertEquals(message.toString(), uiState.analysisAction.supportingText)
+            assertEquals(message.toString(), uiState.analysisAction.stageAnnouncement)
+        }
+    }
+
+    @Test
+    fun `quick analysis startup keeps generic diagnostics admission copy`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime = HomeDiagnosticsRuntimeState(analysisStarting = true, quickScanActive = true),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(R.string.home_diagnostics_analysis_starting.toString(), uiState.analysisAction.supportingText)
+        assertEquals(R.string.home_diagnostics_analysis_starting.toString(), uiState.analysisAction.stageAnnouncement)
+    }
+
+    @Test
+    fun `unknown audit or current network gives explicit rerun reason`() {
+        listOf(null to "fp-1", "fp-1" to null).forEach { (auditFingerprint, currentFingerprint) ->
+            val uiState =
+                buildHomeDiagnosticsUiState(
+                    settings = AppSettingsSerializer.defaultValue,
+                    appStatus = AppStatus.Halted,
+                    connectionState = ConnectionState.Disconnected,
+                    runtime =
+                        HomeDiagnosticsRuntimeState(
+                            latestCompositeOutcome =
+                                DiagnosticsHomeCompositeOutcome(
+                                    runId = "audit",
+                                    fingerprintHash = auditFingerprint,
+                                    actionable = true,
+                                    headline = "Completed",
+                                    summary = "Completed checks",
+                                ),
+                            currentFingerprintHash = currentFingerprint,
+                        ),
+                    stringResolver = FakeStringResolver(),
+                )
+            assertFalse(uiState.verifiedVpnAction.enabled)
+            assertEquals(R.string.home_diagnostics_run_again.toString(), uiState.verifiedVpnAction.supportingText)
+        }
+    }
+
+    @Test
+    fun `connected connecting and reconnecting transitions keep verified start disabled with reason`() {
+        val states =
+            listOf(
+                AppStatus.Halted to ConnectionState.Connected,
+                AppStatus.Halted to ConnectionState.Connecting,
+                AppStatus.Reconnecting to ConnectionState.Disconnected,
+                AppStatus.Running to ConnectionState.Disconnected,
+            )
+        states.forEach { (status, connection) ->
+            val uiState =
+                buildHomeDiagnosticsUiState(
+                    settings = AppSettingsSerializer.defaultValue,
+                    appStatus = status,
+                    connectionState = connection,
+                    runtime =
+                        HomeDiagnosticsRuntimeState(
+                            latestCompositeOutcome =
+                                DiagnosticsHomeCompositeOutcome(
+                                    runId = "audit",
+                                    fingerprintHash = "fp-1",
+                                    actionable = true,
+                                    headline = "Completed",
+                                    summary = "Completed checks",
+                                ),
+                            currentFingerprintHash = "fp-1",
+                        ),
+                    stringResolver = FakeStringResolver(),
+                )
+            assertFalse(uiState.verifiedVpnAction.enabled)
+            assertEquals(
+                R.string.home_diagnostics_disconnect_first.toString(),
+                uiState.verifiedVpnAction.supportingText,
+            )
+        }
+    }
+
     @Test
     fun `cancelled analysis start is exposed as a terminal cancelled state`() {
         val uiState =

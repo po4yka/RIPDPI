@@ -2,12 +2,11 @@ package com.poyka.ripdpi.ui.screens.tuner
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
@@ -29,15 +28,14 @@ internal fun StrategyTunerRankedRow(
     onApply: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(vertical = spacing.xs),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column {
             Text(
                 text = result.strategyLabel,
                 style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -55,28 +53,34 @@ internal fun StrategyTunerRankedRow(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        RipDpiMetricPill(
-            text =
-                if (isBest) {
-                    stringResource(R.string.strategy_tuner_best_badge)
-                } else {
-                    stringResource(
-                        R.string.strategy_tuner_rate_format,
-                        (result.successRate * PercentScale).toInt(),
-                    )
-                },
-            tone = if (isBest) RipDpiMetricTone.Positive else RipDpiMetricTone.Neutral,
-        )
-        RipDpiButton(
-            text =
-                if (isApplied) {
-                    stringResource(R.string.strategy_tuner_applied)
-                } else {
-                    stringResource(R.string.strategy_tuner_apply)
-                },
-            onClick = onApply,
-            enabled = applyEnabled && !isApplied,
-            variant = RipDpiButtonVariant.Secondary,
-        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            RipDpiMetricPill(
+                text =
+                    if (isBest) {
+                        stringResource(R.string.strategy_tuner_best_badge)
+                    } else {
+                        stringResource(
+                            R.string.strategy_tuner_rate_format,
+                            (result.successRate * PercentScale).toInt(),
+                        )
+                    },
+                tone = if (isBest) RipDpiMetricTone.Positive else RipDpiMetricTone.Neutral,
+            )
+            RipDpiButton(
+                text =
+                    if (isApplied) {
+                        stringResource(R.string.strategy_tuner_applied)
+                    } else {
+                        stringResource(R.string.strategy_tuner_apply)
+                    },
+                onClick = onApply,
+                enabled = applyEnabled && !isApplied,
+                variant = RipDpiButtonVariant.Secondary,
+                wrapLabel = true,
+            )
+        }
     }
 }

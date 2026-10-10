@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">Активный размер пакетов / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">Подтверждённая ACK нижняя граница UDP-нагрузки</string>
+    <string name="diagnostics_pmtu_current">Текущий размер UDP-нагрузки QUIC</string>
+    <string name="diagnostics_pmtu_ceiling">Заданный предел UDP-нагрузки</string>
+    <string name="diagnostics_pmtu_initial">Начальный размер UDP-нагрузки QUIC</string>
+    <string name="diagnostics_pmtu_window">Окно наблюдения завершено</string>
+    <string name="diagnostics_pmtu_reached">Заданный предел достигнут</string>
+    <string name="diagnostics_pmtu_fragmentation">Фрагментация IP предотвращена</string>
+    <string name="diagnostics_pmtu_sent">Отправлено размерных проб</string>
+    <string name="diagnostics_pmtu_lost">Потеряно размерных проб</string>
+    <string name="diagnostics_pmtu_resets">Сбросы размера пути QUIC</string>
+    <string name="diagnostics_pmtu_bytes">%1$d байт</string>
+    <string name="diagnostics_pmtu_observed">Нижняя граница измерена</string>
+    <string name="diagnostics_pmtu_inconclusive">Недостаточно данных</string>
+    <string name="diagnostics_pmtu_no_ack">Ни одна размерная проба не подтверждена</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">Платформа не гарантирует отсутствие фрагментации</string>
+    <string name="diagnostics_pmtu_partial">Соединение завершилось до конца наблюдения</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD измеряет исходящую UDP-нагрузку в байтах от этого устройства к выбранному серверу по этому пути. Значение, подтверждённое ACK, — нижняя граница, а не точный MTU пути. Возврат ACK не измеряет PMTU обратного пути. Заданный предел и MTU интерфейса — отдельные значения. Частичное наблюдение не подтверждает завершённое измерение.</string>
+    <string name="diagnostics_pmtu_loss_caution">Потери проб возможны при поиске размера. Они не доказывают чёрную дыру на пути или ограничения провайдера. Размер пакета также может ограничивать удалённый узел.</string>
+</resources>

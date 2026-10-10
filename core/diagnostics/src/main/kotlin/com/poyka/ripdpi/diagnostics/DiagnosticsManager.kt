@@ -136,6 +136,10 @@ interface DiagnosticsScanController {
 
     suspend fun releaseSessionsOwnedBy(ownerId: String) = Unit
 
+    fun hasActiveScan(): Boolean = false
+
+    fun hasActiveHomeRun(): Boolean = false
+
     suspend fun setActiveProfile(profileId: String)
 }
 

@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
-enum class ConnectionStage { DNS, TCP, PROXY, TLS, HTTP_HEADERS, FIRST_BODY_BYTE, BODY, QUIC_RESPONSE }
+enum class ConnectionStage { DNS, TCP, PROXY, TLS, HTTP_HEADERS, FIRST_BODY_BYTE, BODY, QUIC_RESPONSE, QUIC_HANDSHAKE }
 
 enum class ConnectionStageState {
     SUCCEEDED,
@@ -23,6 +23,7 @@ enum class ConnectionLaneKind {
     TLS_ECH,
     HTTP,
     QUIC,
+    HTTP3,
     DNS_SYSTEM,
     DNS_ENCRYPTED,
     BOOTSTRAP,

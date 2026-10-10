@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.PauseIntentAuthority
 import com.poyka.ripdpi.data.ProfileMutationRecoveryAccess
+import com.poyka.ripdpi.data.ProfileUtilityCatalog
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
@@ -19,7 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -45,14 +48,22 @@ internal class ProfileUtilityViewModel
         private var operation: Job? = null
 
         @Volatile private var operationToken: Any = Any()
+        private val catalogReload = MutableStateFlow(0L)
+
+        @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
         private val committedCatalog =
-            catalog
-                .observe()
-                .map<com.poyka.ripdpi.data.ProfileUtilityCatalog, CatalogObservation> { CatalogObservation.Ready(it) }
-                .catch {
-                    if (it is CancellationException) throw it
-                    failure.value = ProfileUtilityFailure.Persistence
-                    emit(CatalogObservation.Failed)
+            catalogReload
+                .flatMapLatest {
+                    catalog
+                        .observe()
+                        .map<ProfileUtilityCatalog, CatalogObservation> {
+                            CatalogObservation.Ready(it)
+                        }.onStart { emit(CatalogObservation.Loading) }
+                        .catch {
+                            if (it is CancellationException) throw it
+                            failure.value = ProfileUtilityFailure.Persistence
+                            emit(CatalogObservation.Failed)
+                        }
                 }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CatalogObservation.Loading)
         private val cleanup = combine(native.cleanupPending, xray.cleanupPending) { n, x -> n || x }
         private val command = combine(results, url, failure) { r, u, f -> CommandState(r, u, f) }
@@ -98,6 +109,12 @@ internal class ProfileUtilityViewModel
                 SharingStarted.WhileSubscribed(5_000),
                 ProfileUtilityUiState(0, persistentListOf(), "", ProfileCatalogState.Loading, false, false, null),
             )
+
+        fun retryCatalog() {
+            if (committedCatalog.value != CatalogObservation.Failed) return
+            failure.value = null
+            catalogReload.update { it + 1 }
+        }
 
         fun updateUrl(value: String) {
             if (value != url.value) cancel()

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">Tamanho ativo dos pacotes / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">Limite inferior da carga UDP confirmado por ACK</string>
+    <string name="diagnostics_pmtu_current">Tamanho atual da carga UDP do QUIC</string>
+    <string name="diagnostics_pmtu_ceiling">Teto configurado da carga UDP</string>
+    <string name="diagnostics_pmtu_initial">Tamanho inicial da carga UDP do QUIC</string>
+    <string name="diagnostics_pmtu_window">Janela de observação concluída</string>
+    <string name="diagnostics_pmtu_reached">Teto configurado atingido</string>
+    <string name="diagnostics_pmtu_fragmentation">Fragmentação IP impedida</string>
+    <string name="diagnostics_pmtu_sent">Sondas de tamanho enviadas</string>
+    <string name="diagnostics_pmtu_lost">Sondas de tamanho perdidas</string>
+    <string name="diagnostics_pmtu_resets">Redefinições do tamanho do caminho QUIC</string>
+    <string name="diagnostics_pmtu_bytes">%1$d bytes</string>
+    <string name="diagnostics_pmtu_observed">Limite inferior observado</string>
+    <string name="diagnostics_pmtu_inconclusive">Inconclusivo</string>
+    <string name="diagnostics_pmtu_no_ack">Nenhuma sonda de tamanho foi confirmada</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">A plataforma não garante pacotes sem fragmentação</string>
+    <string name="diagnostics_pmtu_partial">A conexão terminou antes de concluir a observação</string>
+    <string name="diagnostics_pmtu_caution">O QUIC DPLPMTUD mede bytes de carga UDP enviados deste dispositivo ao servidor selecionado por este caminho. O valor confirmado por ACK é um limite inferior, não o MTU exato do caminho. O ACK de retorno não mede o PMTU do caminho inverso. O teto configurado e o MTU da interface são valores separados. Uma observação parcial não confirma uma medição completa.</string>
+    <string name="diagnostics_pmtu_loss_caution">Pode haver perda de sondas na busca de tamanho. Isso não comprova um buraco negro no caminho nem uma restrição do provedor. O destino também pode limitar o tamanho dos pacotes.</string>
+</resources>

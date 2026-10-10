@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectedException
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanStartRejectionReason
 import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -15,13 +17,36 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun updateSelectiveMatrixHosts(input: String) {
+        if ((
+                mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
+                    mutations.diagnosticsScanController.hasActiveHomeRun()
+            )
+        ) {
+            return
+        }
         selection.update { it.copy(selectiveMatrixHostsInput = input) }
     }
 
     fun selectProfile(profileId: String) {
-        selection.update { it.copy(selectedProfileId = profileId) }
+        if ((
+                mutations.diagnosticsTimelineSource.activeScanProgress.value != null ||
+                    mutations.diagnosticsScanController.hasActiveHomeRun()
+            )
+        ) {
+            return
+        }
         mutations.launch {
-            diagnosticsScanController.setActiveProfile(profileId)
+            if (diagnosticsTimelineSource.activeScanProgress.value != null ||
+                diagnosticsScanController.hasActiveHomeRun()
+            ) {
+                return@launch
+            }
+            try {
+                diagnosticsScanController.setActiveProfile(profileId)
+                selection.update { it.copy(selectedProfileId = profileId) }
+            } catch (rejected: DiagnosticsScanStartRejectedException) {
+                if (rejected.reason != DiagnosticsScanStartRejectionReason.ScanAlreadyActive) throw rejected
+            }
         }
     }
 

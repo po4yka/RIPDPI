@@ -1,0 +1,11 @@
+{
+  "change": "svc-1791570478587374-acceptance-protect-socket-ownership",
+  "evidence_summary": "Clean1e51343f1: full42 plus Xray repeat1/repeat2/VM-routed PASS; combined7631 executed and staticAnalysis PASS; all5 exact published code workflows PASS; independent source/JNI/runtime review CLEAR; own AVD/Lima stopped, artifacts/evidence preserved; committed review precedes terminal record.",
+  "execution_sha256": "fb9395fccb732f1d313b4a50d7e21fd21aafcc9683076a75f6802a684cbdb23d",
+  "issue_sha256": "efa604d06918cf1570817d25c0fc1ae55b93a3002de3fd6377cf5255a3097d1a",
+  "outcome": "done",
+  "prepared_at": "2026-10-09T21:01:39Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1791570478587374"
+}

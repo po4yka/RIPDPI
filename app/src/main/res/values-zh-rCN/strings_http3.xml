@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">已确认 HTTP/3 响应</string>
+    <string name="diagnostics_http3_tls">已验证 TLS 证书和主机名</string>
+    <string name="diagnostics_http3_sent">已发送请求</string>
+    <string name="diagnostics_http3_complete">已完整接收响应体</string>
+    <string name="diagnostics_http3_status_code">HTTP 状态</string>
+    <string name="diagnostics_http3_bytes">响应字节数</string>
+    <string name="diagnostics_http3_dns">DNS 解析</string>
+    <string name="diagnostics_http3_handshake">QUIC 握手</string>
+    <string name="diagnostics_http3_request">HTTP 请求</string>
+    <string name="diagnostics_http3_headers">HTTP 响应头</string>
+    <string name="diagnostics_http3_body">HTTP 响应体</string>
+    <string name="diagnostics_http3_elapsed">总耗时</string>
+    <string name="diagnostics_http3_handshake_time">握手完成耗时</string>
+    <string name="diagnostics_http3_headers_time">收到响应头耗时</string>
+    <string name="diagnostics_http3_first_byte_time">收到首字节耗时</string>
+    <string name="diagnostics_http3_observed">已观测</string>
+    <string name="diagnostics_http3_not_observed">未观测</string>
+    <string name="diagnostics_http3_success">响应完整</string>
+    <string name="diagnostics_http3_http_error">HTTP 错误响应</string>
+    <string name="diagnostics_http3_body_limit">已达到响应字节上限</string>
+    <string name="diagnostics_http3_pinned">指定地址</string>
+    <string name="diagnostics_http3_resolved">地址已解析</string>
+    <string name="diagnostics_http3_no_addresses">未返回地址</string>
+    <string name="diagnostics_http3_connect_error">QUIC 连接失败</string>
+    <string name="diagnostics_http3_tls_error">TLS 验证失败</string>
+    <string name="diagnostics_http3_alpn_error">未协商 HTTP/3 ALPN</string>
+    <string name="diagnostics_http3_protocol_error">HTTP/3 协议错误</string>
+    <string name="diagnostics_http3_protect_error">套接字保护失败</string>
+    <string name="diagnostics_http3_caution">仅 QUIC Initial 或握手不能确认 HTTP/3。即使出现 HTTP 错误，响应头也可确认 HTTP/3。未完整接收的响应体仍为不完整。此控制探测结果不能证明运营商干预。</string>
+    <string name="diagnostics_http3_milliseconds">%1$d 毫秒</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">QUIC 连接尝试次数</string>
+</resources>

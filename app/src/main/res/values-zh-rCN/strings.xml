@@ -93,7 +93,7 @@
     <string name="strategy_tuner_apply">应用</string>
     <string name="strategy_tuner_applied">已应用</string>
     <string name="diagnostics_simple_funnel_title">网络检查</string>
-    <string name="diagnostics_simple_funnel_body">运行一次检查，查看结论，然后只自动应用高置信度建议。</string>
+    <string name="diagnostics_simple_funnel_body">运行检查，查看结果，然后选择下一步。</string>
     <string name="diagnostics_simple_funnel_verdict_running">正在检查此网络…</string>
     <string name="diagnostics_simple_funnel_memory_format">在此网络上，%1$s 上次可用。</string>
     <string name="diagnostics_simple_funnel_check_action">检查网络</string>
@@ -3874,7 +3874,7 @@ fake_burst 3</string>
     <string name="diagnostics_domain_reachability_metric_stub_ips">存根 IP</string>
     <string name="diagnostics_domain_reachability_running">正在用 %1$d 个 DNS 存根 IP 探测可达性……</string>
     <string name="diagnostics_dpi_probe_kind_ech">ECH 就绪度</string>
-    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC/H3 指纹</string>
+    <string name="diagnostics_dpi_probe_kind_quic_h3">QUIC Initial 指纹</string>
     <string name="diagnostics_dpi_probe_kind_tcp16">TCP16 肥头部</string>
     <string name="diagnostics_dpi_suite_cancel">取消套件</string>
     <string name="diagnostics_dpi_suite_concurrency">并发 %1$d</string>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">सक्रिय पैकेट आकार / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">ACK से पुष्ट UDP पेलोड की निचली सीमा</string>
+    <string name="diagnostics_pmtu_current">वर्तमान QUIC UDP पेलोड आकार</string>
+    <string name="diagnostics_pmtu_ceiling">कॉन्फ़िगर की गई UDP पेलोड सीमा</string>
+    <string name="diagnostics_pmtu_initial">प्रारंभिक QUIC UDP पेलोड आकार</string>
+    <string name="diagnostics_pmtu_window">अवलोकन अवधि पूरी हुई</string>
+    <string name="diagnostics_pmtu_reached">कॉन्फ़िगर की गई सीमा मिली</string>
+    <string name="diagnostics_pmtu_fragmentation">IP विखंडन रोका गया</string>
+    <string name="diagnostics_pmtu_sent">भेजे गए आकार प्रोब</string>
+    <string name="diagnostics_pmtu_lost">खोए हुए आकार प्रोब</string>
+    <string name="diagnostics_pmtu_resets">QUIC पथ आकार रीसेट</string>
+    <string name="diagnostics_pmtu_bytes">%1$d बाइट</string>
+    <string name="diagnostics_pmtu_observed">निचली सीमा देखी गई</string>
+    <string name="diagnostics_pmtu_inconclusive">अनिर्णायक</string>
+    <string name="diagnostics_pmtu_no_ack">किसी आकार प्रोब की पुष्टि नहीं हुई</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">यह प्लेटफ़ॉर्म बिना विखंडन वाले पैकेट की गारंटी नहीं देता</string>
+    <string name="diagnostics_pmtu_partial">अवलोकन पूरा होने से पहले कनेक्शन समाप्त हुआ</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD इस पथ पर इस डिवाइस से चुने गए सर्वर तक जाने वाले UDP पेलोड बाइट मापता है। ACK से पुष्ट मान निचली सीमा है, सटीक पथ MTU नहीं। वापस आया ACK वापसी पथ का PMTU नहीं मापता। कॉन्फ़िगर की गई सीमा और इंटरफ़ेस MTU अलग मान हैं। आंशिक अवलोकन पूर्ण माप की पुष्टि नहीं करता।</string>
+    <string name="diagnostics_pmtu_loss_caution">आकार खोज के दौरान प्रोब खो सकते हैं। इससे पथ ब्लैक होल या प्रदाता प्रतिबंध साबित नहीं होता। दूसरा छोर भी पैकेट आकार सीमित कर सकता है।</string>
+</resources>

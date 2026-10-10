@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_rule_load_failed_title">Не удалось загрузить правило</string>
+    <string name="ui_rule_load_failed_body">Повторите загрузку правила. Данные формы сохранены.</string>
+    <string name="ui_rule_save_failed_title">Не удалось сохранить правило</string>
+    <string name="ui_rule_save_failed_body">Ваши изменения сохранены в форме. Попробуйте ещё раз.</string>
+    <string name="ui_app_picker_no_matches">Подходящих приложений нет</string>
+    <string name="ui_app_picker_clear_search">Очистить поиск</string>
+    <string name="ui_profile_catalog_retry">Загрузить профили снова</string>
+    <string name="diagnostics_tool_state_cancelled">Отменено</string>
+    <string name="diagnostics_tool_state_disabled">Отключено</string>
+</resources>

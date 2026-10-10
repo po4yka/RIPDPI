@@ -116,6 +116,7 @@ data class DiagnosticsDnsIntegrityDomainUiModel(
     val udpAnswer: String,
     val dohAnswer: String,
     val tone: DiagnosticsTone,
+    val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
 )
 
 @Immutable
@@ -156,6 +157,7 @@ data class DiagnosticsDnsAvailabilityServerUiModel(
     val availability: String,
     val latency: String,
     val tone: DiagnosticsTone,
+    val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
 )
 
 @Stable
@@ -358,6 +360,7 @@ data class DiagnosticsNetworkSnapshotUiModel(
 data class DiagnosticsContextGroupUiModel(
     val title: String,
     val fields: ImmutableList<DiagnosticsFieldUiModel>,
+    val stackedFields: Boolean = false,
 )
 
 @Immutable
@@ -528,6 +531,10 @@ data class DiagnosticsProbeResultUiModel(
     val details: ImmutableList<DiagnosticsFieldUiModel>,
     val transferEvidence: DiagnosticsTransferUiModel? = null,
     val connectionStages: DiagnosticsConnectionStageUiModel? = null,
+    val dnsResponses: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
+    val ipFamily: DiagnosticsContextGroupUiModel? = null,
+    val http3: DiagnosticsContextGroupUiModel? = null,
+    val pmtu: DiagnosticsContextGroupUiModel? = null,
 )
 
 @Stable
@@ -934,6 +941,7 @@ data class DiagnosticsUiState(
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
     val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
     val performance: DiagnosticsPerformanceUiModel? = null,
+    val uiPersona: String = "advanced",
 )
 
 sealed interface DiagnosticsEffect {

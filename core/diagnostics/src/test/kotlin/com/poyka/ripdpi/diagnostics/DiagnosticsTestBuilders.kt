@@ -88,6 +88,7 @@ internal data class DiagnosticsServicesBundle(
     val bootstrapper: DiagnosticsBootstrapper,
     val timelineSource: DefaultDiagnosticsTimelineSource,
     val scanController: DefaultDiagnosticsScanController,
+    val homeRunLease: DiagnosticsHomeRunLease,
     val detailLoader: DiagnosticsDetailLoader,
     val shareService: DiagnosticsShareService,
     val resolverActions: DiagnosticsResolverActions,
@@ -217,6 +218,7 @@ internal fun createDiagnosticsServices(
     controllerScope: CoroutineScope = scope,
     bridgeMutex: Mutex = Mutex(),
     retirementQueue: BridgeRetirementQueue = testBridgeRetirementQueue(scope),
+    homeRunLease: DiagnosticsHomeRunLease = DiagnosticsHomeRunLease(),
 ): DiagnosticsServicesBundle {
     lateinit var scanController: DefaultDiagnosticsScanController
     val mapper = DiagnosticsBoundaryMapper(json)
@@ -254,7 +256,8 @@ internal fun createDiagnosticsServices(
             json = json,
         )
     val activeScanRegistry = ActiveScanRegistry(timelineSource, bridgeMutex)
-    val scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json)
+    val scanAdmissionService =
+        ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json, homeRunLease)
     val bridgeExecutionService =
         BridgeExecutionService(
             networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
@@ -361,6 +364,7 @@ internal fun createDiagnosticsServices(
             ),
         timelineSource = timelineSource,
         scanController = scanController,
+        homeRunLease = homeRunLease,
         detailLoader =
             DefaultDiagnosticsDetailLoader(
                 scanRecordStore = stores,

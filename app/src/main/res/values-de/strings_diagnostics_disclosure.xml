@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_matrix_catalog_show">Testziele anzeigen (%1$d)</string>
+    <string name="diagnostics_matrix_catalog_hide">Testziele ausblenden</string>
+    <string name="diagnostics_matrix_cohort_coverage">Vollständige Antworten: %1$d / %2$d Versuche · %3$d Ziele</string>
+    <string name="diagnostics_matrix_attempts_show">Versuche anzeigen (%1$d)</string>
+    <string name="diagnostics_matrix_attempts_hide">Versuche ausblenden</string>
+    <string name="diagnostics_probe_check_title">Netzwerkprüfung</string>
+    <string name="diagnostics_probe_result_recorded">Beobachtung gespeichert</string>
+    <string name="diagnostics_probe_result_review">Ergebnis prüfen</string>
+    <string name="diagnostics_probe_raw_show">Technische Details anzeigen</string>
+    <string name="diagnostics_probe_raw_hide">Technische Details ausblenden</string>
+</resources>

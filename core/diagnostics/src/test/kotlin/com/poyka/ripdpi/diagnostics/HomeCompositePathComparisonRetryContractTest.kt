@@ -153,7 +153,13 @@ class HomeCompositePathComparisonRetryContractTest {
                         },
                     serviceStateStore = serviceStateStore,
                     vpnRouteEvidenceProvider = UnavailableVpnRouteEvidenceProvider,
-                    stageExecutor = HomeCompositeStageExecutor(scanController, timelineSource, serviceStateStore),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            scanController,
+                            timelineSource,
+                            serviceStateStore,
+                            homeRunLease = DiagnosticsHomeRunLease(),
+                        ),
                     json = json,
                     scope = backgroundScope,
                 )

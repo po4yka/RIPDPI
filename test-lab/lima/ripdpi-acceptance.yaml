@@ -30,8 +30,8 @@ provision:
       set -euo pipefail
       export DEBIAN_FRONTEND=noninteractive
       printf 'APT::Snapshot "20260926T000000Z";\n' > /etc/apt/apt.conf.d/50acceptance-snapshot
-      apt-get update
-      apt-get install -y --no-install-recommends python3 iproute2 nftables tcpdump ethtool docker.io docker-compose-v2 ca-certificates curl
+      apt-get -o Acquire::Retries=2 update
+      apt-get -o Acquire::Retries=2 install -y --no-install-recommends python3 iproute2 nftables tcpdump ethtool docker.io docker-compose-v2 ca-certificates curl
       systemctl enable --now docker
       install -d -m 0755 /var/lib/ripdpi-acceptance
       dpkg-query -W -f='${Package}\t${Version}\n' > /var/lib/ripdpi-acceptance/packages.tsv

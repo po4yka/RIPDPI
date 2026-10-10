@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">HTTP/3 response confirmed</string>
+    <string name="diagnostics_http3_tls">TLS certificate and hostname verified</string>
+    <string name="diagnostics_http3_sent">Request sent</string>
+    <string name="diagnostics_http3_complete">Body fully received</string>
+    <string name="diagnostics_http3_status_code">HTTP status</string>
+    <string name="diagnostics_http3_bytes">Response bytes</string>
+    <string name="diagnostics_http3_dns">DNS resolution</string>
+    <string name="diagnostics_http3_handshake">QUIC handshake</string>
+    <string name="diagnostics_http3_request">HTTP request</string>
+    <string name="diagnostics_http3_headers">HTTP headers</string>
+    <string name="diagnostics_http3_body">HTTP body</string>
+    <string name="diagnostics_http3_elapsed">Total elapsed time</string>
+    <string name="diagnostics_http3_handshake_time">Handshake elapsed time</string>
+    <string name="diagnostics_http3_headers_time">Headers elapsed time</string>
+    <string name="diagnostics_http3_first_byte_time">First byte elapsed time</string>
+    <string name="diagnostics_http3_observed">Observed</string>
+    <string name="diagnostics_http3_not_observed">Not observed</string>
+    <string name="diagnostics_http3_success">Response complete</string>
+    <string name="diagnostics_http3_http_error">HTTP error response</string>
+    <string name="diagnostics_http3_body_limit">Response byte limit reached</string>
+    <string name="diagnostics_http3_pinned">Pinned address</string>
+    <string name="diagnostics_http3_resolved">Address resolved</string>
+    <string name="diagnostics_http3_no_addresses">No addresses returned</string>
+    <string name="diagnostics_http3_connect_error">QUIC connection failed</string>
+    <string name="diagnostics_http3_tls_error">TLS verification failed</string>
+    <string name="diagnostics_http3_alpn_error">HTTP/3 ALPN not negotiated</string>
+    <string name="diagnostics_http3_protocol_error">HTTP/3 protocol error</string>
+    <string name="diagnostics_http3_protect_error">Socket protection failed</string>
+    <string name="diagnostics_http3_caution">A QUIC Initial or handshake alone does not confirm HTTP/3. Response headers confirm HTTP/3 even with an HTTP error. An incomplete body remains incomplete. This control result does not prove provider interference.</string>
+    <string name="diagnostics_http3_milliseconds">%1$d ms</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">QUIC connection attempts</string>
+</resources>

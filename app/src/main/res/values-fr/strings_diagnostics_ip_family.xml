@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">Résultat</string>
+    <string name="diagnostics_ip_stage">Étape mesurée</string>
+    <string name="diagnostics_ip_reason">Motif</string>
+    <string name="diagnostics_ip_duration">Durée (ms)</string>
+    <string name="diagnostics_ip_attempts">Tentatives DNS/TCP</string>
+    <string name="diagnostics_ip_scope">Portée du chemin</string>
+    <string name="diagnostics_ip_discovery">Détection DNS64</string>
+    <string name="diagnostics_ip_prefix_length">Longueur du préfixe (bits)</string>
+    <string name="diagnostics_ip_resolver">Source DNS</string>
+    <string name="diagnostics_ip_limits">Interprétation</string>
+    <string name="diagnostics_ip_measurement">Limites de mesure</string>
+    <string name="diagnostics_ip_unknown">Inconnu</string>
+    <string name="diagnostics_ip_missing">Non observé</string>
+    <string name="diagnostics_ip_tcp">Connexion TCP</string>
+    <string name="diagnostics_ip_dns64">Recherche du préfixe DNS64</string>
+    <string name="diagnostics_ip_raw">Chemin réseau direct</string>
+    <string name="diagnostics_ip_proxy">Chemin via proxy non pris en charge</string>
+    <string name="diagnostics_ip_network_dns">Serveurs DNS du relevé réseau</string>
+    <string name="diagnostics_ip_reachable">Connexion TCP établie</string>
+    <string name="diagnostics_ip_failed">Échec</string>
+    <string name="diagnostics_ip_timeout">Délai dépassé</string>
+    <string name="diagnostics_ip_unsupported">Non pris en charge</string>
+    <string name="diagnostics_ip_cancelled">Annulé</string>
+    <string name="diagnostics_ip_invalid">Données non valides</string>
+    <string name="diagnostics_ip_discovered">Préfixe détecté</string>
+    <string name="diagnostics_ip_no_prefix">Aucun préfixe observé</string>
+    <string name="diagnostics_ip_refused">Connexion refusée</string>
+    <string name="diagnostics_ip_unreachable">Destination ou réseau inaccessible</string>
+    <string name="diagnostics_ip_permission">Permission refusée</string>
+    <string name="diagnostics_ip_io">Erreur de transport</string>
+    <string name="diagnostics_ip_no_dns">DNS du réseau indisponible</string>
+    <string name="diagnostics_ip_dns_error">Échec de la requête DNS</string>
+    <string name="diagnostics_ip_invalid_prefix">Préfixe DNS64 non valide ou ambigu</string>
+    <string name="diagnostics_ip_invalid_config">Configuration du test non valide</string>
+    <string name="diagnostics_ip_caution">Teste un service témoin par TCP. Ne confirme ni HTTP ni un accès Internet général et ne prouve aucune intervention du fournisseur.</string>
+    <string name="diagnostics_ip_clat_caution">Une connexion IPv4 réussie peut utiliser CLAT et ne prouve pas un réseau IPv4 natif.</string>
+    <string name="diagnostics_ip_nat64_caution">Un préfixe DNS64 détecté ne prouve pas un chemin NAT64 fonctionnel. Seule une connexion TCP réussie teste la traduction.</string>
+    <string name="diagnostics_ip_network_changed">Le réseau a changé ; le résultat ne décrit plus la connexion actuelle.</string>
+</resources>

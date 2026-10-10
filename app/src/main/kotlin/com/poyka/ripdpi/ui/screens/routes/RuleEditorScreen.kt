@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.routes
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,10 +72,19 @@ fun RuleEditorRoute(
         onProcessNameChange = viewModel::setProcessName,
         onPackagesChange = viewModel::setPackages,
         onOutboundChange = viewModel::setOutboundTag,
-        onSave = { viewModel.save(onBack) },
+        persistenceActions =
+            RuleEditorPersistenceActions(
+                save = { viewModel.save(onBack) },
+                retryLoad = viewModel::retryLoad,
+            ),
         modifier = modifier,
     )
 }
+
+internal class RuleEditorPersistenceActions(
+    val save: () -> Unit,
+    val retryLoad: () -> Unit = {},
+)
 
 @Composable
 internal fun RuleEditorScreen(
@@ -90,7 +100,7 @@ internal fun RuleEditorScreen(
     onProcessNameChange: (String) -> Unit,
     onPackagesChange: (Set<String>) -> Unit,
     onOutboundChange: (OutboundTag) -> Unit,
-    onSave: () -> Unit,
+    persistenceActions: RuleEditorPersistenceActions,
     modifier: Modifier = Modifier,
 ) {
     var showAppPicker by remember { mutableStateOf(false) }
@@ -104,9 +114,14 @@ internal fun RuleEditorScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {
-        if (!state.loaded) {
+        state.failure?.let { failure ->
+            item(key = "rule_editor_failure") {
+                RuleEditorFailureCard(failure, persistenceActions.retryLoad)
+            }
+        }
+        if (!state.loaded && state.failure == null) {
             item(key = "rule_editor_loading") { RipDpiSpinner() }
-        } else {
+        } else if (state.loaded) {
             if (state.isEmpty) {
                 item(key = "rule_editor_empty_warning") {
                     WarningBanner(
@@ -131,7 +146,7 @@ internal fun RuleEditorScreen(
                 onOpenAppPicker = { showAppPicker = true },
             )
             outboundSection(state = state, onOutboundChange = onOutboundChange)
-            actionsSection(state = state, onBack = onBack, onSave = onSave)
+            actionsSection(state = state, onBack = onBack, onSave = persistenceActions.save)
         }
     }
 
@@ -145,6 +160,46 @@ internal fun RuleEditorScreen(
             },
             onDismiss = { showAppPicker = false },
         )
+    }
+}
+
+@Composable
+private fun RuleEditorFailureCard(
+    failure: RuleEditorFailure,
+    onRetryLoad: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        WarningBanner(
+            title =
+                stringResource(
+                    if (failure ==
+                        RuleEditorFailure.Load
+                    ) {
+                        R.string.ui_rule_load_failed_title
+                    } else {
+                        R.string.ui_rule_save_failed_title
+                    },
+                ),
+            message =
+                stringResource(
+                    if (failure ==
+                        RuleEditorFailure.Load
+                    ) {
+                        R.string.ui_rule_load_failed_body
+                    } else {
+                        R.string.ui_rule_save_failed_body
+                    },
+                ),
+            tone = WarningBannerTone.Error,
+        )
+        if (failure == RuleEditorFailure.Load) {
+            RipDpiButton(
+                text = stringResource(R.string.startup_recovery_retry),
+                onClick = onRetryLoad,
+                modifier = Modifier.fillMaxWidth(),
+                wrapLabel = true,
+            )
+        }
     }
 }
 
@@ -174,7 +229,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.identitySection(
                     style = RipDpiThemeTokens.type.body,
                     color = RipDpiThemeTokens.colors.foreground,
                 )
-                RipDpiSwitch(checked = state.enabled, onCheckedChange = onEnabledChange)
+                RipDpiSwitch(
+                    checked = state.enabled,
+                    onCheckedChange = onEnabledChange,
+                    accessibilityLabel = stringResource(R.string.rule_editor_enabled),
+                )
             }
         }
     }
@@ -361,7 +420,7 @@ private fun previewRuleEditorScreen() {
             onProcessNameChange = {},
             onPackagesChange = {},
             onOutboundChange = {},
-            onSave = {},
+            persistenceActions = RuleEditorPersistenceActions(save = {}),
         )
     }
 }
@@ -388,7 +447,7 @@ private fun previewRuleEditorScreenEmptyDark() {
             onProcessNameChange = {},
             onPackagesChange = {},
             onOutboundChange = {},
-            onSave = {},
+            persistenceActions = RuleEditorPersistenceActions(save = {}),
         )
     }
 }

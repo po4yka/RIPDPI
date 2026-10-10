@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
+import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -44,6 +46,7 @@ data class DnsServer(
 data class DnsProbeSample(
     val status: DnsProbeStatus,
     val latencyMs: Long? = null,
+    val response: DnsResponseSemantics? = null,
 )
 
 data class DnsServerResult(
@@ -52,6 +55,7 @@ data class DnsServerResult(
     val availableDomains: Int,
     val totalDomains: Int,
     val avgLatencyMs: Long?,
+    val responses: Map<String, DnsResponseSemantics> = emptyMap(),
 )
 
 fun interface UdpAvailabilityProbe {
@@ -133,6 +137,12 @@ class DnsAvailabilitySurvey(
             availableDomains = latencies.size,
             totalDomains = domains.size,
             avgLatencyMs = latencies.takeIf { it.isNotEmpty() }?.average()?.toLong(),
+            responses =
+                domains
+                    .zip(samples)
+                    .mapNotNull { (domain, sample) ->
+                        sample.response?.let { domain to it }
+                    }.toMap(),
         )
     }
 
@@ -140,9 +150,20 @@ class DnsAvailabilitySurvey(
         runCatching { block() }.getOrElse { error ->
             currentCoroutineContext().ensureActive()
             when (error) {
-                is TimeoutCancellationException, is SocketTimeoutException -> DnsProbeSample(DnsProbeStatus.TIMEOUT)
-                is CancellationException -> throw error
-                else -> DnsProbeSample(DnsProbeStatus.TIMEOUT)
+                is TimeoutCancellationException, is SocketTimeoutException -> {
+                    DnsProbeSample(DnsProbeStatus.TIMEOUT, response = dnsFailure(DnsResponseOutcome.TIMEOUT).response)
+                }
+
+                is CancellationException -> {
+                    throw error
+                }
+
+                else -> {
+                    DnsProbeSample(
+                        DnsProbeStatus.ERROR,
+                        response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
+                    )
+                }
             }
         }
 
@@ -204,18 +225,19 @@ class DatagramUdpAvailabilityProbe(
             DatagramSocket().use { socket ->
                 socket.soTimeout = timeoutMs.toInt()
                 val address = InetAddress.getByName(server.endpoint)
-                socket.send(DatagramPacket(query, query.size, address, DnsPort))
+                socket.connect(address, DnsPort)
+                socket.send(DatagramPacket(query, query.size))
                 val buffer = ByteArray(MaxDnsPacketBytes)
                 val response = DatagramPacket(buffer, buffer.size)
                 val startNs = System.nanoTime()
                 socket.receive(response)
                 val latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs).coerceAtLeast(1)
-                val records = DnsWireBuilder.parseResponse(buffer.copyOf(response.length), transactionId)
-                if (records.any(::isIpv4Literal)) {
-                    DnsProbeSample(DnsProbeStatus.OK, latencyMs)
-                } else {
-                    DnsProbeSample(DnsProbeStatus.ERROR)
-                }
+                val answer = DnsWireBuilder.parseResponse(buffer.copyOf(response.length), query)
+                DnsProbeSample(
+                    if (answer.addresses.isNotEmpty()) DnsProbeStatus.OK else DnsProbeStatus.ERROR,
+                    latencyMs.takeIf { answer.addresses.isNotEmpty() },
+                    answer.response,
+                )
             }
         }
 
@@ -257,28 +279,41 @@ class OkHttpDohWireAvailabilityProbe(
             val startNs = System.nanoTime()
             client.newCall(post).execute().use { response ->
                 if (response.code != MethodNotAllowed) {
-                    return@withContext decodeDohResponse(response.body.bytes(), transactionId, startNs)
+                    if (!response.isSuccessful) {
+                        return@withContext DnsProbeSample(
+                            DnsProbeStatus.ERROR,
+                            response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
+                        )
+                    }
+                    return@withContext decodeDohResponse(response.body.bytes(), query, startNs)
                 }
             }
             val get = buildGetRequest(server.endpoint, query)
             client.newCall(get).execute().use { response ->
-                decodeDohResponse(response.body.bytes(), transactionId, startNs)
+                if (!response.isSuccessful) {
+                    return@withContext DnsProbeSample(
+                        DnsProbeStatus.ERROR,
+                        response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
+                    )
+                }
+                decodeDohResponse(response.body.bytes(), query, startNs)
             }
         }
 
     private fun decodeDohResponse(
         bytes: ByteArray,
-        transactionId: Int,
+        query: ByteArray,
         startNs: Long,
     ): DnsProbeSample {
-        val records = DnsWireBuilder.parseResponse(bytes, transactionId)
-        return if (records.any(::isIpv4Literal)) {
+        val answer = DnsWireBuilder.parseResponse(bytes, query)
+        return if (answer.addresses.isNotEmpty()) {
             DnsProbeSample(
                 status = DnsProbeStatus.OK,
                 latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs).coerceAtLeast(1),
+                response = answer.response,
             )
         } else {
-            DnsProbeSample(DnsProbeStatus.ERROR)
+            DnsProbeSample(DnsProbeStatus.ERROR, response = answer.response)
         }
     }
 
@@ -312,11 +347,3 @@ class OkHttpDohWireAvailabilityProbe(
         val DnsMessageMediaType = DnsMessageContentType.toMediaType()
     }
 }
-
-private fun isIpv4Literal(value: String): Boolean {
-    val parts = value.split('.')
-    return parts.size == Ipv4PartCount && parts.all { part -> part.toIntOrNull() in Ipv4ByteRange }
-}
-
-private const val Ipv4PartCount = 4
-private val Ipv4ByteRange = 0..255

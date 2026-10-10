@@ -7,9 +7,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -21,6 +23,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
@@ -81,6 +84,33 @@ class HomeModeCardTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
             .assertIsNotEnabled()
+    }
+
+    @Test
+    fun `running diagnostic action stays clickable to stop the run`() {
+        var stopped = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeModeCard(
+                    uiState =
+                        HomeModeCardUiState(
+                            mode = HomeMode.Diagnostic,
+                            title = "Diagnostics",
+                            primaryActionLabel = "Cancel",
+                            isLoading = true,
+                            primaryActionEnabled = true,
+                        ),
+                    onPrimaryAction = { stopped++ },
+                    onConfigure = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
+            .assertIsEnabled()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, stopped) }
     }
 
     @Test
@@ -237,6 +267,40 @@ class HomeModeCardTest {
                 .onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name))
                 .fetchSemanticsNode()
         assertTrue(primary.boundsInRoot.bottom <= configure.boundsInRoot.top)
+    }
+
+    @Test
+    fun `long actions wrap at 320dp with large font`() = assertWrappedAction(LayoutDirection.Ltr)
+
+    @Test
+    fun `long RTL actions wrap at 320dp with large font`() = assertWrappedAction(LayoutDirection.Rtl)
+
+    private fun assertWrappedAction(direction: LayoutDirection) {
+        val label =
+            if (direction ==
+                LayoutDirection.Rtl
+            ) {
+                "بدء الفحص التشخيصي للشبكة"
+            } else {
+                "Запустить диагностическое сканирование"
+            }
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f), LocalLayoutDirection provides direction) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(320.dp)) {
+                        HomeModeCard(card(mode = HomeMode.Diagnostic).copy(primaryActionLabel = label), {}, {})
+                    }
+                }
+            }
+        }
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithText(label, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val layout = layouts.single()
+        assertTrue(layout.lineCount > 1)
+        assertFalse((0 until layout.lineCount).any(layout::isLineEllipsized))
     }
 
     private fun card(

@@ -88,6 +88,24 @@ internal val HomeCompositeStageSpecs =
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
+            key = "ip_family",
+            label = "IPv4, IPv6 and NAT64",
+            profileId = IpFamilyProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "http3",
+            label = "HTTP/3",
+            profileId = Http3ProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "pmtu",
+            label = "Active packet sizes / PMTU",
+            profileId = PmtuProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
             key = "ru_throttling",
             label = "Throttling check",
             profileId = "ru-throttling",

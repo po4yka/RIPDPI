@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">Resultado</string>
+    <string name="diagnostics_ip_stage">Etapa medida</string>
+    <string name="diagnostics_ip_reason">Motivo</string>
+    <string name="diagnostics_ip_duration">Duración (ms)</string>
+    <string name="diagnostics_ip_attempts">Intentos DNS/TCP</string>
+    <string name="diagnostics_ip_scope">Ámbito de la ruta</string>
+    <string name="diagnostics_ip_discovery">Detección de DNS64</string>
+    <string name="diagnostics_ip_prefix_length">Longitud del prefijo (bits)</string>
+    <string name="diagnostics_ip_resolver">Origen del DNS</string>
+    <string name="diagnostics_ip_limits">Interpretación</string>
+    <string name="diagnostics_ip_measurement">Límites de la medición</string>
+    <string name="diagnostics_ip_unknown">Desconocido</string>
+    <string name="diagnostics_ip_missing">No observado</string>
+    <string name="diagnostics_ip_tcp">Conexión TCP</string>
+    <string name="diagnostics_ip_dns64">Detección del prefijo DNS64</string>
+    <string name="diagnostics_ip_raw">Ruta de red directa</string>
+    <string name="diagnostics_ip_proxy">La ruta por proxy no es compatible</string>
+    <string name="diagnostics_ip_network_dns">Servidores DNS de la captura de red</string>
+    <string name="diagnostics_ip_reachable">Conexión TCP establecida</string>
+    <string name="diagnostics_ip_failed">Error</string>
+    <string name="diagnostics_ip_timeout">Tiempo agotado</string>
+    <string name="diagnostics_ip_unsupported">No compatible</string>
+    <string name="diagnostics_ip_cancelled">Cancelado</string>
+    <string name="diagnostics_ip_invalid">Datos no válidos</string>
+    <string name="diagnostics_ip_discovered">Prefijo detectado</string>
+    <string name="diagnostics_ip_no_prefix">No se observó ningún prefijo</string>
+    <string name="diagnostics_ip_refused">Conexión rechazada</string>
+    <string name="diagnostics_ip_unreachable">Destino o red inaccesibles</string>
+    <string name="diagnostics_ip_permission">Permiso denegado</string>
+    <string name="diagnostics_ip_io">Error de transporte</string>
+    <string name="diagnostics_ip_no_dns">DNS de la red no disponible</string>
+    <string name="diagnostics_ip_dns_error">Error en la consulta DNS</string>
+    <string name="diagnostics_ip_invalid_prefix">Prefijo DNS64 no válido o ambiguo</string>
+    <string name="diagnostics_ip_invalid_config">Configuración de prueba no válida</string>
+    <string name="diagnostics_ip_caution">Prueba un servicio de control por TCP. No confirma el acceso HTTP ni a Internet en general, ni identifica interferencia del proveedor.</string>
+    <string name="diagnostics_ip_clat_caution">El éxito de IPv4 puede usar CLAT y no demuestra una red IPv4 nativa.</string>
+    <string name="diagnostics_ip_nat64_caution">Detectar un prefijo DNS64 no demuestra que NAT64 funcione. Solo una conexión TCP correcta comprueba la traducción.</string>
+    <string name="diagnostics_ip_network_changed">La red cambió; el resultado ya no describe la conexión actual.</string>
+</resources>

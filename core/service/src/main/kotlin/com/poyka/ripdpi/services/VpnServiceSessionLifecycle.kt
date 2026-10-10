@@ -44,6 +44,8 @@ internal class VpnServiceSessionLifecycle(
     private var coordinator: VpnServiceRuntimeCoordinator? = null
     private var protectSocketServer: VpnProtectSocketServer? = null
     private val cleanup = VpnServiceSessionCleanup()
+    private val nativeProtectLease = VpnNativeProtectRegistration.Lease()
+    private var protectPathLease: ActiveProtectSocketPathProvider.Lease? = null
     private val intentCallbacks =
         ServiceShellIntentCallbacks(
             acceptedStart = runtimeResumeIntentTracker::recordAcceptedStart,
@@ -67,14 +69,13 @@ internal class VpnServiceSessionLifecycle(
                     establishProtectPath(
                         startProtectSocketServer = socketServer::start,
                         advertiseProtectPath = {
-                            activeProtectSocketPathProvider.set(
-                                socketServer.socketPath,
-                                service::protect,
-                            )
+                            protectPathLease =
+                                activeProtectSocketPathProvider.set(
+                                    socketServer.socketPath,
+                                    service::protect,
+                                )
                         },
-                        registerNativeProtect = {
-                            VpnNativeProtectRegistration.register(service, service.underlyingNetworkBinder)
-                        },
+                        registerNativeProtect = ::registerNativeProtection,
                         rollbackProtection = ::cleanupNativeProtect,
                     )
                 }.exceptionOrNull()
@@ -212,12 +213,18 @@ internal class VpnServiceSessionLifecycle(
         const val DESTROY_TIMEOUT_MS = 10_000L
     }
 
+    private fun registerNativeProtection() {
+        VpnNativeProtectRegistration.register(nativeProtectLease, service, service.underlyingNetworkBinder)
+    }
+
     private fun cleanupNativeProtect() {
         withdrawProtectPath(
-            withdrawProtectPath = activeProtectSocketPathProvider::clear,
+            withdrawProtectPath = {
+                protectPathLease?.let(activeProtectSocketPathProvider::clear)
+            },
             cleanupNativeProtect = {
                 cleanup.cleanupNativeProtect(
-                    unregisterNativeProtect = VpnNativeProtectRegistration::unregister,
+                    unregisterNativeProtect = { VpnNativeProtectRegistration.unregister(nativeProtectLease) },
                     stopProtectSocketServer = { protectSocketServer?.stop() },
                 )
             },

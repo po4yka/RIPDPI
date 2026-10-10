@@ -176,7 +176,6 @@ private fun HomeDisclosureScene() {
                         routeLabel = stringResource(R.string.home_mode_local_dpi_bypass),
                         statusDescription = stringResource(R.string.home_connection_actuator_state_locked),
                         actionLabel = stringResource(R.string.home_connection_actuator_action_deactivate),
-                        carriageFraction = 1f,
                     ),
                 modeCards = cards,
             ),

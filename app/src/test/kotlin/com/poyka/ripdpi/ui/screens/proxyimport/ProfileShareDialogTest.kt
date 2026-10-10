@@ -1,16 +1,19 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
+import android.view.WindowManager
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowDialog
 
 /**
  * Robolectric UI tests for [ProfileShareDialog]: QR + URI share for a saved profile.
@@ -50,6 +53,13 @@ class ProfileShareDialogTest {
                 )
             }
         }
+
+        composeRule.waitForIdle()
+        val dialogWindow = requireNotNull(ShadowDialog.getLatestDialog()?.window)
+        assertEquals(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            dialogWindow.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE,
+        )
 
         // The warning copy is visible.
         composeRule.onNodeWithText("This QR code contains secrets").assertExists()

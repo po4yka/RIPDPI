@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_ip_title">IPv4 / IPv6 / NAT64</string>
+    <string name="diagnostics_ip_v4">IPv4</string>
+    <string name="diagnostics_ip_v6">IPv6</string>
+    <string name="diagnostics_ip_nat64">NAT64</string>
+    <string name="diagnostics_ip_status">نتیجه</string>
+    <string name="diagnostics_ip_stage">مرحله اندازه‌گیری‌شده</string>
+    <string name="diagnostics_ip_reason">دلیل</string>
+    <string name="diagnostics_ip_duration">مدت (میلی‌ثانیه)</string>
+    <string name="diagnostics_ip_attempts">تلاش‌های DNS/TCP</string>
+    <string name="diagnostics_ip_scope">محدوده مسیر</string>
+    <string name="diagnostics_ip_discovery">کشف DNS64</string>
+    <string name="diagnostics_ip_prefix_length">طول پیشوند (بیت)</string>
+    <string name="diagnostics_ip_resolver">منبع DNS</string>
+    <string name="diagnostics_ip_limits">تفسیر</string>
+    <string name="diagnostics_ip_measurement">محدودیت‌های اندازه‌گیری</string>
+    <string name="diagnostics_ip_unknown">نامشخص</string>
+    <string name="diagnostics_ip_missing">مشاهده نشده</string>
+    <string name="diagnostics_ip_tcp">اتصال TCP</string>
+    <string name="diagnostics_ip_dns64">کشف پیشوند DNS64</string>
+    <string name="diagnostics_ip_raw">مسیر مستقیم شبکه</string>
+    <string name="diagnostics_ip_proxy">مسیر پراکسی پشتیبانی نمی‌شود</string>
+    <string name="diagnostics_ip_network_dns">سرورهای DNS از تصویر وضعیت شبکه</string>
+    <string name="diagnostics_ip_reachable">اتصال TCP برقرار شد</string>
+    <string name="diagnostics_ip_failed">ناموفق</string>
+    <string name="diagnostics_ip_timeout">پایان مهلت</string>
+    <string name="diagnostics_ip_unsupported">پشتیبانی نمی‌شود</string>
+    <string name="diagnostics_ip_cancelled">لغو شد</string>
+    <string name="diagnostics_ip_invalid">داده نامعتبر</string>
+    <string name="diagnostics_ip_discovered">پیشوند پیدا شد</string>
+    <string name="diagnostics_ip_no_prefix">پیشوندی مشاهده نشد</string>
+    <string name="diagnostics_ip_refused">اتصال رد شد</string>
+    <string name="diagnostics_ip_unreachable">مقصد یا شبکه در دسترس نیست</string>
+    <string name="diagnostics_ip_permission">مجوز رد شد</string>
+    <string name="diagnostics_ip_io">خطای انتقال</string>
+    <string name="diagnostics_ip_no_dns">DNS شبکه در دسترس نیست</string>
+    <string name="diagnostics_ip_dns_error">درخواست DNS ناموفق بود</string>
+    <string name="diagnostics_ip_invalid_prefix">پیشوند DNS64 نامعتبر یا مبهم</string>
+    <string name="diagnostics_ip_invalid_config">پیکربندی آزمون نامعتبر</string>
+    <string name="diagnostics_ip_caution">یک سرویس کنترل با TCP آزمایش می‌شود. این آزمون دسترسی HTTP یا اینترنت عمومی را تأیید نمی‌کند و دخالت ارائه‌دهنده را ثابت نمی‌کند.</string>
+    <string name="diagnostics_ip_clat_caution">موفقیت IPv4 ممکن است از CLAT استفاده کند و شبکه بومی IPv4 را ثابت نمی‌کند.</string>
+    <string name="diagnostics_ip_nat64_caution">کشف پیشوند DNS64 مسیر فعال NAT64 را ثابت نمی‌کند. تنها اتصال موفق TCP ترجمه را آزمایش می‌کند.</string>
+    <string name="diagnostics_ip_network_changed">شبکه تغییر کرده است؛ نتیجه دیگر اتصال فعلی را توصیف نمی‌کند.</string>
+</resources>

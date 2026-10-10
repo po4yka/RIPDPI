@@ -147,6 +147,70 @@ class NetworkHandoverMonitorTest {
             job.cancel()
         }
 
+    @Test
+    fun `binder token loss alone does not restart an unchanged physical network`() =
+        runTest {
+            val signals = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val physical = wifiFingerprint(dnsServer = "1.1.1.1")
+            var currentFingerprint: NetworkFingerprint? = physical.copy(directDnsUnderlayGeneration = 17L)
+            val events = mutableListOf<NetworkHandoverEvent>()
+            val job =
+                backgroundScope.launch {
+                    observeNetworkHandoverEvents(
+                        signals = signals,
+                        captureFingerprint = { currentFingerprint },
+                        debounceMs = 2_000L,
+                        clock = { testScheduler.currentTime },
+                    ).toList(events)
+                }
+
+            runCurrent()
+            currentFingerprint = physical
+            signals.emit(Unit)
+            testScheduler.advanceTimeBy(2_000L)
+            runCurrent()
+
+            assertTrue(events.isEmpty())
+            job.cancel()
+        }
+
+    @Test
+    fun `physical changes remain actionable during binder token acquisition and loss`() {
+        val physical = wifiFingerprint(dnsServer = "1.1.1.1")
+        val changes =
+            listOf(
+                physical.copy(networkValidated = false),
+                physical.copy(captivePortalDetected = true),
+                physical.copy(dnsServers = listOf("8.8.8.8")),
+                physical.copy(privateDnsMode = "custom"),
+                physical.copy(metered = true),
+                physical.copy(wifi = physical.wifi?.copy(gateway = "192.0.2.2")),
+            )
+        for ((beforeToken, afterToken) in listOf(null to 17L, 17L to null)) {
+            val before = physical.copy(directDnsUnderlayGeneration = beforeToken)
+            assertEquals(null, classifyNetworkHandover(before, physical.copy(directDnsUnderlayGeneration = afterToken)))
+            changes.forEach { changed ->
+                assertEquals(
+                    "link_refresh",
+                    classifyNetworkHandover(before, changed.copy(directDnsUnderlayGeneration = afterToken)),
+                )
+            }
+            assertEquals(
+                "transport_switch",
+                classifyNetworkHandover(before, cellularFingerprint().copy(directDnsUnderlayGeneration = afterToken)),
+            )
+            assertEquals("connectivity_loss", classifyNetworkHandover(before, null))
+            assertEquals("connectivity_restore", classifyNetworkHandover(null, before))
+        }
+        assertEquals(
+            "link_refresh",
+            classifyNetworkHandover(
+                physical.copy(directDnsUnderlayGeneration = 17L),
+                physical.copy(directDnsUnderlayGeneration = 18L),
+            ),
+        )
+    }
+
     private fun wifiFingerprint(dnsServer: String): NetworkFingerprint =
         NetworkFingerprint(
             transport = "wifi",

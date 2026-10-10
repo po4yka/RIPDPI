@@ -20,7 +20,6 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.util.Locale
 
 @Composable
 internal fun CidrWhitelistDetectionCard(
@@ -32,7 +31,7 @@ internal fun CidrWhitelistDetectionCard(
     var tracesExpanded by remember(tool.rows) { mutableStateOf(false) }
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )

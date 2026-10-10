@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_http3_title">HTTP/3</string>
+    <string name="diagnostics_http3_validated">پاسخ HTTP/3 تأیید شد</string>
+    <string name="diagnostics_http3_tls">گواهی TLS و نام میزبان بررسی شد</string>
+    <string name="diagnostics_http3_sent">درخواست ارسال شد</string>
+    <string name="diagnostics_http3_complete">بدنه کامل دریافت شد</string>
+    <string name="diagnostics_http3_status_code">وضعیت HTTP</string>
+    <string name="diagnostics_http3_bytes">بایت‌های پاسخ</string>
+    <string name="diagnostics_http3_dns">حل DNS</string>
+    <string name="diagnostics_http3_handshake">دست‌دهی QUIC</string>
+    <string name="diagnostics_http3_request">درخواست HTTP</string>
+    <string name="diagnostics_http3_headers">سرآیندهای HTTP</string>
+    <string name="diagnostics_http3_body">بدنه HTTP</string>
+    <string name="diagnostics_http3_elapsed">زمان کل</string>
+    <string name="diagnostics_http3_handshake_time">زمان تا دست‌دهی</string>
+    <string name="diagnostics_http3_headers_time">زمان تا سرآیندها</string>
+    <string name="diagnostics_http3_first_byte_time">زمان تا اولین بایت</string>
+    <string name="diagnostics_http3_observed">مشاهده شد</string>
+    <string name="diagnostics_http3_not_observed">مشاهده نشد</string>
+    <string name="diagnostics_http3_success">پاسخ کامل</string>
+    <string name="diagnostics_http3_http_error">پاسخ خطای HTTP</string>
+    <string name="diagnostics_http3_body_limit">سقف بایت‌های پاسخ رسید</string>
+    <string name="diagnostics_http3_pinned">نشانی تعیین‌شده</string>
+    <string name="diagnostics_http3_resolved">نشانی حل شد</string>
+    <string name="diagnostics_http3_no_addresses">نشانی دریافت نشد</string>
+    <string name="diagnostics_http3_connect_error">اتصال QUIC ناموفق بود</string>
+    <string name="diagnostics_http3_tls_error">بررسی TLS ناموفق بود</string>
+    <string name="diagnostics_http3_alpn_error">ALPN برای HTTP/3 توافق نشد</string>
+    <string name="diagnostics_http3_protocol_error">خطای پروتکل HTTP/3</string>
+    <string name="diagnostics_http3_protect_error">حفاظت سوکت ناموفق بود</string>
+    <string name="diagnostics_http3_caution">بسته QUIC Initial یا دست‌دهی به‌تنهایی HTTP/3 را تأیید نمی‌کند. سرآیندهای پاسخ حتی با خطای HTTP، پروتکل HTTP/3 را تأیید می‌کنند. بدنه ناقص همچنان ناقص است. نتیجه این آزمون کنترلی دخالت ارائه‌دهنده را ثابت نمی‌کند.</string>
+    <string name="diagnostics_http3_milliseconds">%1$d میلی‌ثانیه</string>
+    <string name="diagnostics_http3_number">%1$d</string>
+    <string name="diagnostics_http3_attempts">تلاش‌های اتصال QUIC</string>
+</resources>

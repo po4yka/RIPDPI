@@ -96,6 +96,21 @@ class DpiSuiteVerdictAggregatorTest {
         assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
     }
 
+    @Test
+    fun uncertainDnsEvidenceDoesNotBecomeInterference() {
+        listOf(
+            DnsIntegrityVerdict.DNS_DISAGREEMENT,
+            DnsIntegrityVerdict.UDP_UNAVAILABLE,
+            DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE,
+            DnsIntegrityVerdict.DNS_NEGATIVE,
+        ).forEach {
+            assertEquals(
+                SuiteVerdict.INCONCLUSIVE,
+                DpiSuiteVerdictAggregator.aggregate(listOf(dnsIntegrity(it))).verdict,
+            )
+        }
+    }
+
     private fun dnsIntegrity(verdict: DnsIntegrityVerdict): DpiSuiteProbeResult.DnsIntegrity =
         DpiSuiteProbeResult.DnsIntegrity(
             DnsIntegrityResult(

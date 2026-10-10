@@ -237,6 +237,8 @@ data class DiagnosticContextModel(
     val permissions: PermissionContextModel,
     val device: DeviceContextModel,
     val environment: EnvironmentContextModel,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val localNetwork: LocalNetworkContextModel? = null,
 )
 
 @Serializable

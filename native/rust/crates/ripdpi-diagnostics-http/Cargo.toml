@@ -13,6 +13,20 @@ ripdpi-diagnostics-tls = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 
+bytes = { workspace = true }
+h3 = { workspace = true }
+h3-quinn = { workspace = true }
+http = { workspace = true }
+quinn = { workspace = true }
+rustls = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time", "net", "macros", "sync"] }
+webpki-roots = { workspace = true }
+
+[dev-dependencies]
+quic-mtu-test-util = { workspace = true }
+rcgen = { workspace = true }
+ripdpi-native-protect = { workspace = true }
+
 [features]
 hickory = ["ripdpi-diagnostics-tls/hickory"]
 quic-native = ["ripdpi-diagnostics-tls/quic-native", "ripdpi-diagnostics-transport/quic-native"]

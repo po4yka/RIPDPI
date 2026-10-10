@@ -17,14 +17,13 @@ class DiagnosticToolStateLabelTest {
     fun bothToolCardsResolveAllStatesInTheSelectedLocale() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val expected = listOf("Простой", "Выполняется", "Завершено", "Ошибка")
-        val states =
-            listOf(
-                DiagnosticsDnsIntegrityState.entries.toList(),
-                DiagnosticsDomainReachabilityState.entries.toList(),
-            )
-
-        states.forEach { toolStates ->
-            assertEquals(expected, toolStates.map { context.getString(diagnosticToolStateLabelRes(it)) })
-        }
+        assertEquals(
+            expected,
+            DiagnosticsDnsIntegrityState.entries.map { context.getString(diagnosticToolStateLabelRes(it)) },
+        )
+        assertEquals(
+            expected,
+            DiagnosticsDomainReachabilityState.entries.map { context.getString(diagnosticToolStateLabelRes(it)) },
+        )
     }
 }

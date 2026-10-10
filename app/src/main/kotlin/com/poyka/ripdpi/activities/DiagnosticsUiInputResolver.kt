@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -22,9 +23,7 @@ internal class DiagnosticsUiInputResolver
             eventModels: List<DiagnosticsEventUiModel>,
         ): ResolvedDiagnosticsUiInput {
             val visibleProfiles = input.visibleProfiles()
-            val activeProfile =
-                visibleProfiles.firstOrNull { it.id == input.selectedProfileId }
-                    ?: visibleProfiles.firstOrNull()
+            val activeProfile = input.resolveActiveProfile(visibleProfiles)
             val latestSnapshot =
                 input.snapshots
                     .firstOrNull()
@@ -39,7 +38,7 @@ internal class DiagnosticsUiInputResolver
                 input.sessions.latestFinishedSessionForLaunchOrigin(DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND)
             val latestUserInitiatedSession =
                 input.sessions.latestFinishedSessionForLaunchOrigin(DiagnosticsScanLaunchOrigin.USER_INITIATED)
-            val latestProfileSession = input.sessions.latestSessionForProfile(activeProfile?.id, latestCompletedSession)
+            val latestProfileSession = input.sessions.latestSessionForProfile(activeProfile?.id)
             val latestProfileReport = latestProfileSession?.report
             val latestStrategyProbeReport = latestProfileSession.toStrategyProbeReport(latestProfileReport)
             val sessionDetailWithVisibility =
@@ -98,6 +97,18 @@ internal class DiagnosticsUiInputResolver
             )
         }
 
+        private fun DiagnosticsUiStateInput.resolveActiveProfile(
+            visibleProfiles: List<DiagnosticProfile>,
+        ): DiagnosticProfile? {
+            val runningProfileId =
+                progress?.sessionId?.let { sessionId ->
+                    sessions.firstOrNull { it.id == sessionId }?.profileId
+                }
+            return visibleProfiles.firstOrNull { it.id == runningProfileId }
+                ?: visibleProfiles.firstOrNull { it.id == selectedProfileId }
+                ?: visibleProfiles.firstOrNull()
+        }
+
         private fun DiagnosticsUiStateInput.visibleProfiles() =
             profiles.filter { profile ->
                 profile.request?.resolveLegalSafetyPolicy()?.access != DiagnosticsJurisdictionProfileAccess.BLOCKED
@@ -144,13 +155,11 @@ internal class DiagnosticsUiInputResolver
         private fun List<DiagnosticScanSession>.firstCompletedOrLatest(): DiagnosticScanSession? =
             firstOrNull { it.report != null } ?: firstOrNull()
 
-        private fun List<DiagnosticScanSession>.latestSessionForProfile(
-            profileId: String?,
-            fallbackSession: DiagnosticScanSession?,
-        ): DiagnosticScanSession? =
-            firstOrNull { it.profileId == profileId && it.report != null }
-                ?: firstOrNull { it.profileId == profileId }
-                ?: fallbackSession
+        private fun List<DiagnosticScanSession>.latestSessionForProfile(profileId: String?): DiagnosticScanSession? =
+            profileId?.let { selectedId ->
+                firstOrNull { it.profileId == selectedId && it.report != null }
+                    ?: firstOrNull { it.profileId == selectedId }
+            }
 
         private fun List<DiagnosticScanSession>.latestFinishedSessionForLaunchOrigin(
             launchOrigin: DiagnosticsScanLaunchOrigin,

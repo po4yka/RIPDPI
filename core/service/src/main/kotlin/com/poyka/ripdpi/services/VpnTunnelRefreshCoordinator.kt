@@ -59,6 +59,7 @@ internal class VpnTunnelRefreshCoordinator(
                     splitStrictDnsPolicy = latestConnectionPolicy.splitStrictDnsPolicy,
                     profileInterface = dependencies.vpnTunnelRuntime.consumedProfileInterface,
                     forceTunnelDns = dependencies.vpnTunnelRuntime.consumedForceTunnelDns,
+                    sharedProxyPath = dependencies.vpnTunnelRuntime.requireReadyEvidence().sharedProxyPath,
                 )
                 dependencies.vpnTunnelRuntime.publishInPathLease(refreshSession, endpoint)
                 callbacks.updateRuntimeDnsState(refreshSession, latestConnectionPolicy)
@@ -101,11 +102,22 @@ internal class VpnTunnelRefreshCoordinator(
         session: VpnRuntimeSession,
         telemetry: VpnTelemetrySnapshot,
     ): Boolean =
-        dependencies.dnsPolicyCoordinator.maybeRecoverEncryptedDns(
-            session = session,
-            currentDnsSignature = dependencies.vpnTunnelRuntime.currentDnsSignature ?: session.currentDnsSignature,
-            telemetry = telemetry.tunnelTelemetry,
-        )
+        dependencies.mutex.withLock {
+            val activeSession = state.runtimeSession()
+            if (state.status() != ServiceStatus.Connected || activeSession?.runtimeId != session.runtimeId ||
+                !dependencies.vpnTunnelRuntime.isForwarding
+            ) {
+                return@withLock false
+            }
+            val recoverySession = checkNotNull(activeSession)
+            dependencies.dnsPolicyCoordinator.maybeRecoverEncryptedDns(
+                session = recoverySession,
+                currentDnsSignature =
+                    dependencies.vpnTunnelRuntime.currentDnsSignature ?: recoverySession.currentDnsSignature,
+                telemetry = telemetry.tunnelTelemetry,
+                dnsUsesSharedProxy = dependencies.vpnTunnelRuntime.requireReadyEvidence().encryptedDnsUsesSharedProxy,
+            )
+        }
 }
 
 internal interface VpnTunnelRefreshDependencies {

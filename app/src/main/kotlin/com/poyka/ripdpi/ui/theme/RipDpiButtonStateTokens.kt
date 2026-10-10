@@ -120,10 +120,27 @@ data class RipDpiButtonStateTokens(
         isFocused: Boolean,
     ): Color =
         when {
-            !interactive && role == RipDpiButtonStateRole.Outline -> colors.border
-            isFocused -> colors.outline
-            role == RipDpiButtonStateRole.Outline -> colors.border
-            else -> Color.Transparent
+            !interactive && role == RipDpiButtonStateRole.Outline -> {
+                colors.border
+            }
+
+            isFocused -> {
+                when (role) {
+                    RipDpiButtonStateRole.Primary,
+                    RipDpiButtonStateRole.Destructive,
+                    -> colors.background
+
+                    else -> colors.foreground
+                }
+            }
+
+            role == RipDpiButtonStateRole.Outline -> {
+                colors.border
+            }
+
+            else -> {
+                Color.Transparent
+            }
         }
 }
 
@@ -147,7 +164,7 @@ data class RipDpiIconButtonStateTokens(
             content = resolveIconButtonContent(role, interactive),
             border =
                 if (isFocused) {
-                    colors.outline
+                    if (role == RipDpiIconButtonStateRole.Filled) colors.background else colors.foreground
                 } else if (role == RipDpiIconButtonStateRole.Outline) {
                     colors.border
                 } else {

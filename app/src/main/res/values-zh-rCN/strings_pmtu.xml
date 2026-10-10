@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_pmtu_title">主动数据包大小 / PMTU</string>
+    <string name="diagnostics_pmtu_ipv4">PMTU · IPv4</string>
+    <string name="diagnostics_pmtu_ipv6">PMTU · IPv6</string>
+    <string name="diagnostics_pmtu_lower_bound">ACK 确认的 UDP 载荷下限</string>
+    <string name="diagnostics_pmtu_current">当前 QUIC UDP 载荷大小</string>
+    <string name="diagnostics_pmtu_ceiling">配置的 UDP 载荷上限</string>
+    <string name="diagnostics_pmtu_initial">初始 QUIC UDP 载荷大小</string>
+    <string name="diagnostics_pmtu_window">观测窗口已完成</string>
+    <string name="diagnostics_pmtu_reached">已达到配置上限</string>
+    <string name="diagnostics_pmtu_fragmentation">已阻止 IP 分片</string>
+    <string name="diagnostics_pmtu_sent">已发送的大小探测包</string>
+    <string name="diagnostics_pmtu_lost">丢失的大小探测包</string>
+    <string name="diagnostics_pmtu_resets">QUIC 路径大小重置次数</string>
+    <string name="diagnostics_pmtu_bytes">%1$d 字节</string>
+    <string name="diagnostics_pmtu_observed">已观测到下限</string>
+    <string name="diagnostics_pmtu_inconclusive">无法确定</string>
+    <string name="diagnostics_pmtu_no_ack">没有大小探测包得到确认</string>
+    <string name="diagnostics_pmtu_fragmentation_unavailable">此平台无法保证数据包不分片</string>
+    <string name="diagnostics_pmtu_partial">连接在观测完成前结束</string>
+    <string name="diagnostics_pmtu_caution">QUIC DPLPMTUD 测量从此设备经此路径发往所选服务器的出站 UDP 载荷字节数。ACK 确认值是下限，并非精确的路径 MTU。返回的 ACK 不能测量反向路径的 PMTU。配置上限与接口 MTU 是不同的值。部分观测不能确认测量已完成。</string>
+    <string name="diagnostics_pmtu_loss_caution">搜索大小时可能丢失探测包。这不能证明存在路径黑洞或运营商限制。对端也可能限制数据包大小。</string>
+</resources>

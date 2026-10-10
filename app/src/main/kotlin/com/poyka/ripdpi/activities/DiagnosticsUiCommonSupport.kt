@@ -38,12 +38,12 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
         name =
-            if (profile.id ==
-                SelectiveMatrixProfileId
-            ) {
-                context.getString(R.string.diagnostics_matrix_title)
-            } else {
-                profile.name
+            when (profile.id) {
+                SelectiveMatrixProfileId -> context.getString(R.string.diagnostics_matrix_title)
+                "pmtu-connectivity" -> context.getString(R.string.diagnostics_pmtu_title)
+                "http3-connectivity" -> context.getString(R.string.diagnostics_http3_title)
+                "ip-family-connectivity" -> context.getString(R.string.diagnostics_ip_title)
+                else -> profile.name
             },
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,
@@ -197,12 +197,11 @@ internal fun DiagnosticsUiFactorySupport.toAutomaticProbeCalloutUiModel(
 internal fun DiagnosticsUiFactorySupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =
     core.toEventUiModel(event)
 
-private val connectivityPhaseOrder =
-    listOf("dns", "reachability", "quic", "tcp", "service", "circumvention", "telegram", "throughput")
-private val strategyProbePhaseOrder = listOf("tcp", "quic")
-
 private fun String.toPhaseLabel(ctx: StringResolver): String =
     when (this) {
+        "pmtu" -> ctx.getString(R.string.diagnostics_pmtu_title)
+        "http3" -> ctx.getString(R.string.diagnostics_http3_title)
+        "ip_family" -> ctx.getString(R.string.diagnostics_ip_title)
         "dns" -> ctx.getString(R.string.diagnostics_phase_dns)
         "reachability" -> ctx.getString(R.string.diagnostics_phase_reach)
         "quic" -> ctx.getString(R.string.diagnostics_phase_quic)
@@ -232,33 +231,25 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     dpiFailureClass: DpiFailureClass? = null,
     networkContext: ScanNetworkContextUiModel? = null,
 ): DiagnosticsProgressUiModel {
-    // Clamped here rather than only at the bar: the ETA formula below divides by `fraction` and
-    // multiplies by `1 - fraction`, so an over-count from any earlier stage would yield a
-    // negative ETA.
+    // Clamp the measured counters before the UI draws the progress bar.
     val fraction =
         if (progress.totalSteps <= 0) {
             0f
         } else {
             (progress.completedSteps.toFloat() / progress.totalSteps.toFloat()).coerceIn(0f, 1f)
         }
-    val phaseOrder =
-        if (scanKind == ScanKind.STRATEGY_PROBE) strategyProbePhaseOrder else connectivityPhaseOrder
-    val isFinished = progress.phase == "finished"
-    val currentIndex = phaseOrder.indexOf(progress.phase)
+    // Progress reports the current phase, not the plan or outcomes of earlier phases.
+    // A terminal event can mean cancellation or failure, so it does not prove completion.
     val phaseSteps =
-        phaseOrder.mapIndexed { index, phase ->
-            val state =
-                when {
-                    isFinished -> PhaseState.Completed
-                    currentIndex < 0 -> PhaseState.Pending
-                    index < currentIndex -> PhaseState.Completed
-                    index == currentIndex -> PhaseState.Active
-                    else -> PhaseState.Pending
-                }
-            PhaseStepUiModel(
-                label = phase.toPhaseLabel(context),
-                state = state,
-                tone = state.tone(),
+        if (progress.isFinished || progress.phase == "finished") {
+            emptyList()
+        } else {
+            listOf(
+                PhaseStepUiModel(
+                    label = progress.phase.toPhaseLabel(context),
+                    state = PhaseState.Active,
+                    tone = PhaseState.Active.tone(),
+                ),
             )
         }
     val strategyProbeProgress =

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_dns_source_udp">DNS · UDP</string>
+    <string name="diagnostics_dns_source_encrypted">DNS · محلل مشفر</string>
+    <string name="diagnostics_dns_source_doh_json">DNS · DoH JSON</string>
+    <string name="diagnostics_dns_source_doh_wire">DNS · DoH wire</string>
+    <string name="diagnostics_dns_response">الاستجابة</string>
+    <string name="diagnostics_dns_query">نوع الاستعلام</string>
+    <string name="diagnostics_dns_rcode">رمز الاستجابة (RCODE)</string>
+    <string name="diagnostics_dns_cname">أهداف CNAME</string>
+    <string name="diagnostics_dns_ttl_min">الحد الأدنى لـ TTL (ثوانٍ)</string>
+    <string name="diagnostics_dns_ttl_max">الحد الأقصى لـ TTL (ثوانٍ)</string>
+    <string name="diagnostics_dns_negative_ttl">TTL للاستجابة السلبية (ثوانٍ)</string>
+    <string name="diagnostics_dns_tc">مقتطعة (TC)</string>
+    <string name="diagnostics_dns_aa">موثوقة (AA)</string>
+    <string name="diagnostics_dns_ra">التكرار متاح (RA)</string>
+    <string name="diagnostics_dns_ad">علامة بيانات موثقة (AD)</string>
+    <string name="diagnostics_dns_soa">وجود SOA</string>
+    <string name="diagnostics_dns_ede">رموز أخطاء DNS الموسعة (EDE)</string>
+    <string name="diagnostics_dns_limits">حدود الأدلة</string>
+    <string name="diagnostics_dns_unknown">غير معروف</string>
+    <string name="diagnostics_dns_yes">نعم</string>
+    <string name="diagnostics_dns_no">لا</string>
+    <string name="diagnostics_dns_missing">لم تُجمع بيانات الاستجابة أو أنها غير متاحة</string>
+    <string name="diagnostics_dns_answer">استجابة بعناوين</string>
+    <string name="diagnostics_dns_nodata">لا توجد سجلات من النوع المطلوب (NODATA)</string>
+    <string name="diagnostics_dns_nxdomain">الاسم غير موجود (NXDOMAIN)</string>
+    <string name="diagnostics_dns_servfail">فشل المحلل (SERVFAIL)</string>
+    <string name="diagnostics_dns_refused">رُفض الاستعلام (REFUSED)</string>
+    <string name="diagnostics_dns_other_rcode">رمز استجابة آخر</string>
+    <string name="diagnostics_dns_truncated">استجابة مقتطعة</string>
+    <string name="diagnostics_dns_timeout">لا استجابة قبل انتهاء المهلة</string>
+    <string name="diagnostics_dns_transport_error">خطأ في النقل</string>
+    <string name="diagnostics_dns_malformed">استجابة غير سليمة أو غير مطابقة</string>
+    <string name="diagnostics_dns_disagreement">استجابات DNS مختلفة</string>
+    <string name="diagnostics_dns_udp_unavailable">مقارنة UDP غير متاحة</string>
+    <string name="diagnostics_dns_encrypted_unavailable">المقارنة المشفرة غير متاحة</string>
+    <string name="diagnostics_dns_negative">الاستجابات السلبية متطابقة</string>
+    <string name="diagnostics_dns_ok">استجابات DNS متطابقة</string>
+    <string name="diagnostics_dns_caution">هذه بيانات من استجابة المحلل. لا تعني AD تحقق DNSSEC محليًا؛ وEDE ادعاء من المحلل. لا تثبت اختلافات الإجابات أو قيم TTL أو الردود السلبية وجود حظر من مزود الخدمة.</string>
+    <string name="diagnostics_dns_none">لم يُبلغ عن شيء</string>
+    <string name="diagnostics_dns_show">عرض بيانات استجابات DNS</string>
+    <string name="diagnostics_dns_hide">إخفاء بيانات استجابات DNS</string>
+    <string name="diagnostics_dns_complete_agree">تتطابق استجابات عناوين DNS في %1$d نطاقات مضمنة.</string>
+</resources>

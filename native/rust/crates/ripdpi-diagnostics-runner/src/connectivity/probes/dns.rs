@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::connectivity::adapters::dns::{resolve_via_encrypted_dns_with_raw, resolve_via_udp_with_observations};
+use crate::connectivity::adapters::dns::{
+    resolve_via_encrypted_dns_with_observations, resolve_via_udp_with_observations,
+};
 use crate::connectivity::adapters::dns_oracle::{DnsOracleConfig, DnsOracleResponse, evaluate_dns_oracles};
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::connectivity::adapters::util::{DEFAULT_DNS_SERVER, is_suspected_dns_tampering_outcome};
@@ -76,6 +78,7 @@ pub fn run_dns_probe_with_context(
     };
     let udp_resolution = resolve_via_udp_with_observations(&target.domain, &udp_server, context.transport());
     let udp_latency_ms = udp_resolution.latency_ms.to_string();
+    let mut response_evidence = Vec::new();
     let oracle_assessment = evaluate_dns_oracles(
         resolvers.primary.clone(),
         &resolvers.fallback,
@@ -83,19 +86,30 @@ pub fn run_dns_probe_with_context(
         DnsOracleConfig::default(),
         || cancel.load(Ordering::Acquire),
         |endpoint, _| {
-            let (result, raw_response) =
-                resolve_via_encrypted_dns_with_raw(&target.domain, endpoint.clone(), context.transport());
+            let (result, raw_response, facts) =
+                resolve_via_encrypted_dns_with_observations(&target.domain, endpoint.clone(), context.transport());
+            response_evidence.push((endpoint.clone(), facts, raw_response.clone()));
             result.map(|addresses| DnsOracleResponse { addresses, raw_response })
         },
         |answer| answer.addresses.clone(),
     );
+    let encrypted_response = oracle_assessment
+        .selected
+        .as_ref()
+        .and_then(|selected| {
+            response_evidence
+                .iter()
+                .find(|(endpoint, _, raw)| endpoint == &selected.endpoint && raw == &selected.value.raw_response)
+        })
+        .or_else(|| response_evidence.first())
+        .map(|(_, facts, _)| facts);
     let encrypted_result = oracle_result_for_probe(&oracle_assessment);
     let raw_encrypted_response =
         oracle_assessment.selected.as_ref().and_then(|selected| selected.value.raw_response.clone());
     let encrypted_latency_ms = oracle_assessment.preferred_latency_ms().to_string();
 
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
-    let outcome = classify_dns_probe_outcome(
+    let mut outcome = classify_dns_probe_outcome(
         &udp_resolution.result,
         &encrypted_result,
         path_mode,
@@ -105,6 +119,18 @@ pub fn run_dns_probe_with_context(
         udp_resolution.attempt_count,
         udp_resolution.retry_recovered,
     );
+    if matches!(
+        udp_resolution.response.outcome,
+        ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Nodata
+            | ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Servfail
+            | ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Refused
+            | ripdpi_diagnostics_contracts::types::DnsResponseOutcome::OtherRcode
+            | ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Truncated
+            | ripdpi_diagnostics_contracts::types::DnsResponseOutcome::Malformed
+            | ripdpi_diagnostics_contracts::types::DnsResponseOutcome::NotObserved
+    ) {
+        outcome = "dns_unavailable".to_string();
+    }
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
     let selected_endpoint =
         oracle_assessment.selected.as_ref().map_or(&resolvers.primary, |selected| &selected.endpoint);
@@ -139,6 +165,15 @@ pub fn run_dns_probe_with_context(
             oracle_assessment: &oracle_assessment,
         }),
     };
+    for (key, facts) in
+        [("udpDnsResponse", Some(&udp_resolution.response)), ("encryptedDnsResponse", encrypted_response)]
+    {
+        if let Some(facts) = facts
+            && let Some(value) = facts.to_detail_json()
+        {
+            result.details.push(ProbeDetail { key: key.to_string(), value });
+        }
+    }
     append_dns_classifier_details(
         &mut result,
         &target.domain,

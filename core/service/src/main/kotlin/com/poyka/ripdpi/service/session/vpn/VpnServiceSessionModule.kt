@@ -67,6 +67,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import java.io.File
 import java.util.Optional
+import java.util.UUID
 
 internal data class VpnCoordinatorServices(
     val upstreamRelaySupervisor: UpstreamRelaySupervisor,
@@ -96,7 +97,7 @@ internal object VpnServiceSessionModule {
     ): VpnProtectSocketServer =
         VpnProtectSocketServer(
             vpnService = vpnService,
-            socketPath = File(vpnService.filesDir, "protect_path").absolutePath,
+            socketPath = vpnProtectSocketPath(vpnService.filesDir),
             protectFailureMonitor = protectFailureMonitor,
         )
 
@@ -435,3 +436,6 @@ internal object VpnServiceSessionModule {
 }
 
 private const val XrayBootstrapTimeoutMillis = 5_000L
+
+internal fun vpnProtectSocketPath(filesDir: File): String =
+    File(filesDir, "vp-${UUID.randomUUID().toString().replace("-", "")}").absolutePath

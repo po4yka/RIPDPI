@@ -125,7 +125,7 @@ private fun DiagnosticsScreen(
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenModeEditor: () -> Unit = {},
-    onApplyRecommendedPath: () -> Unit = {},
+    onReviewRecommendedPath: () -> Unit = {},
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
 ) {
@@ -171,7 +171,7 @@ private fun DiagnosticsScreen(
                 onRequestVpnPermission = onRequestVpnPermission,
                 onOpenHistory = onOpenHistory,
                 onOpenModeEditor = onOpenModeEditor,
-                onApplyRecommendedPath = onApplyRecommendedPath,
+                onReviewRecommendedPath = onReviewRecommendedPath,
             ),
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
@@ -683,7 +683,7 @@ class DiagnosticsScreenTest {
     }
 
     @Test
-    fun simpleFunnelAppliesHighConfidenceRecommendation() {
+    fun simpleFunnelReviewsHighConfidenceRecommendation() {
         var applyCalls = 0
         val tcpCandidateDetail = auditCandidateDetail()
         val scan =
@@ -732,13 +732,17 @@ class DiagnosticsScreenTest {
                             scan = scan,
                         ),
                     pagerState = pagerState,
-                    onApplyRecommendedPath = { applyCalls++ },
+                    onReviewRecommendedPath = { applyCalls++ },
                 )
             }
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
-        composeRule.onNodeWithText("On this network, Local bypass worked last time.").assertIsDisplayed()
+        composeRule
+            .onNodeWithText(
+                "On this network, Local bypass worked last time.",
+            ).performScrollTo()
+            .assertIsDisplayed()
         composeRule
             .onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleApply)
             .performScrollTo()
@@ -746,7 +750,15 @@ class DiagnosticsScreenTest {
             .assertIsEnabled()
             .performClick()
 
-        assertEquals(DiagnosticsSimpleFunnelAction.Apply, scan.simpleFunnelAction(isActiveScan = false))
+        assertEquals(DiagnosticsSimpleFunnelAction.Inspect, scan.simpleFunnelAction(isActiveScan = false))
+        assertEquals(tcpCandidateDetail, scan.recommendedCandidate())
+        assertEquals(
+            null,
+            scan
+                .copy(
+                    strategyProbeReport = scan.strategyProbeReport?.copy(candidateDetails = persistentMapOf()),
+                ).recommendedCandidate(),
+        )
         composeRule.runOnIdle { assertEquals(1, applyCalls) }
     }
 

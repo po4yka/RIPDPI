@@ -5,17 +5,76 @@ import com.poyka.ripdpi.services.testsupport.HarnessStallGate
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.FileDescriptor
 import java.io.FileInputStream
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class VpnProtectSocketServerTest {
+    @Test
+    fun `stop before successful bind preserves a foreign endpoint`() {
+        val endpoint = File.createTempFile("protect-foreign-", ".sock")
+        endpoint.writeText("foreign-endpoint")
+        val server = VpnProtectSocketServer(endpoint.path, RecordingVpnProtectFailureMonitor(), { true })
+        try {
+            server.stop()
+            assertTrue("A server that did not bind must not unlink a foreign endpoint", endpoint.exists())
+            assertEquals("foreign-endpoint", endpoint.readText())
+        } finally {
+            endpoint.delete()
+        }
+    }
+
+    @Test
+    fun `failed startup cannot unlink a foreign filesystem entry`() {
+        val endpoint = File.createTempFile("protect-foreign-bind-", ".sock")
+        endpoint.writeText("foreign-endpoint")
+        val server = VpnProtectSocketServer(endpoint.path, RecordingVpnProtectFailureMonitor(), { true })
+        try {
+            assertThrows(IOException::class.java) { server.start() }
+            server.stop()
+            server.stop()
+            assertEquals("foreign-endpoint", endpoint.readText())
+            val successor = VpnProtectSocketServer(endpoint.path, RecordingVpnProtectFailureMonitor(), { true })
+            val failure = assertThrows(IOException::class.java) { successor.start() }
+            assertEquals("Protect endpoint already exists", failure.message)
+            successor.stop()
+            assertEquals("foreign-endpoint", endpoint.readText())
+        } finally {
+            server.stop()
+            endpoint.delete()
+        }
+    }
+
+    @Test
+    fun `failed startup preserves a dangling foreign symlink`() {
+        val directory = Files.createTempDirectory("protect-foreign-link-")
+        val endpoint = directory.resolve("endpoint.sock")
+        Files.createSymbolicLink(endpoint, directory.resolve("missing-target"))
+        val server = VpnProtectSocketServer(endpoint.toString(), RecordingVpnProtectFailureMonitor(), { true })
+        try {
+            val failure = assertThrows(IOException::class.java) { server.start() }
+            assertEquals("Protect endpoint already exists", failure.message)
+            server.stop()
+            assertTrue(Files.exists(endpoint, LinkOption.NOFOLLOW_LINKS))
+            assertTrue(Files.isSymbolicLink(endpoint))
+        } finally {
+            server.stop()
+            Files.deleteIfExists(endpoint)
+            Files.deleteIfExists(directory)
+        }
+    }
+
     @Test
     fun `handle client session rejects handshake without ancillary fd`() {
         val monitor = RecordingVpnProtectFailureMonitor()

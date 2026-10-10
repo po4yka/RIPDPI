@@ -11,6 +11,7 @@ class DiagnosticsPage(BasePage):
     SCREEN = "diagnostics-screen"
     SHARE_ARCHIVE = "diagnostics-share-archive"
     HISTORY_ACTION = "diagnostics-top-history-action"
+    EXPERT_TOGGLE = "diagnostics-expert-toggle"
 
     # Scan states
     SCAN_STATE_IDLE = "diagnostics-scan-state-idle"
@@ -122,6 +123,10 @@ class DiagnosticsPage(BasePage):
 
     def tap_cancel_scan(self) -> None:
         self.tap(self.SCAN_CANCEL)
+
+    def expand_advanced(self) -> None:
+        """Open technical tools from the default guided persona."""
+        self.tap(self.EXPERT_TOGGLE)
 
     def tap_approach_mode_strategies(self) -> None:
         self.tap(self.APPROACH_MODE_STRATEGIES)

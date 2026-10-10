@@ -23,7 +23,7 @@ internal fun DiagnosticsUiFactorySupport.toLiveContextGroups(
         liveServiceGroup(context.service),
         liveEnvironmentGroup(context.permissions, context.environment),
         liveHostLearningGroup(context.service),
-    )
+    ) + toLocalNetworkGroups(context.localNetwork)
 
 internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
     context: DiagnosticContextModel,
@@ -34,12 +34,13 @@ internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
         permissionContextGroup(context.permissions),
         deviceContextGroup(context.device),
         environmentContextGroup(context.environment),
-    )
+    ) + toLocalNetworkGroups(context.localNetwork)
 
 private fun DiagnosticsUiFactorySupport.overviewContextFields(
     context: DiagnosticContextModel,
 ): List<DiagnosticsFieldUiModel> =
     listOf(
+        field(R.string.diagnostics_local_title, localNetworkOverview(context.localNetwork)),
         field(R.string.diagnostics_field_app, context.device.appVersionName),
         field(R.string.diagnostics_field_device, "${context.device.manufacturer} ${context.device.model}"),
         field(

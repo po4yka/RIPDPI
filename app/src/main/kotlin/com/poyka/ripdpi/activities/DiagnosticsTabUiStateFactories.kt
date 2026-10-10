@@ -52,6 +52,13 @@ internal class DiagnosticsScanUiStateFactory
                     activeProfile = resolvedInput.activeProfile,
                     activeProfileRequest = resolvedInput.activeProfileRequest,
                     latestProfileSession = resolvedInput.latestProfileSession,
+                    runningSession =
+                        input.progress?.let { progress ->
+                            input.sessions.firstOrNull {
+                                it.id ==
+                                    progress.sessionId
+                            }
+                        },
                     activeScanPathMode = input.activeScanPathMode,
                     latestReportResults = resolvedInput.latestReportResults,
                     latestResolverRecommendation = resolvedInput.latestResolverRecommendation,

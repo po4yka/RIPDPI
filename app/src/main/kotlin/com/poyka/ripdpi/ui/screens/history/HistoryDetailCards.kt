@@ -38,6 +38,11 @@ internal fun ProbeGroupCard(group: DiagnosticsProbeGroupUiModel) {
 
 @Composable
 internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
+    if (group.stackedFields) {
+        com.poyka.ripdpi.ui.screens.diagnostics
+            .ContextGroupCard(group)
+        return
+    }
     RipDpiCard {
         Text(
             text = group.title,

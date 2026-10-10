@@ -19,6 +19,7 @@ internal data class BuildScanUiModelParams(
     val activeProfile: DiagnosticProfile?,
     val activeProfileRequest: DiagnosticsProfileProjection?,
     val latestProfileSession: DiagnosticScanSession?,
+    val runningSession: DiagnosticScanSession? = null,
     val activeScanPathMode: ScanPathMode?,
     val latestReportResults: List<DiagnosticsProbeResultUiModel>,
     val latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
@@ -70,7 +71,8 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         selectedProfileId = params.activeProfile?.id,
         selectedProfile = selectedProfile,
         activePathMode =
-            params.activeScanPathMode
+            params.runningSession?.pathMode?.let(::parsePathMode)
+                ?: params.activeScanPathMode
                 ?: params.latestProfileSession?.pathMode?.let(::parsePathMode)
                 ?: ScanPathMode.RAW_PATH,
         activeProgress = activeProgress,
@@ -146,7 +148,7 @@ private fun DiagnosticsUiFactorySupport.buildActiveScanProgress(
             progress = progress,
             scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
             isFullAudit = selectedProfile?.isFullAudit == true,
-            scanStartedAt = params.scanStartedAt ?: System.currentTimeMillis(),
+            scanStartedAt = params.runningSession?.startedAt ?: params.scanStartedAt ?: 0L,
             completedProbes = params.completedProbes,
             candidateTimeline = params.candidateTimeline,
             dnsBaselineStatus = params.dnsBaselineStatus,

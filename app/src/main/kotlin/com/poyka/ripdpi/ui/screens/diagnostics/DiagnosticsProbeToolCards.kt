@@ -33,7 +33,6 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.util.Locale
 
 @Composable
 internal fun Tcp16FatHeaderProbeCard(
@@ -44,7 +43,7 @@ internal fun Tcp16FatHeaderProbeCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )
@@ -106,7 +105,7 @@ internal fun AllowlistSniFinderCard(
         }
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )
@@ -200,7 +199,7 @@ internal fun DnsAvailabilitySurveyCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )
@@ -230,6 +229,7 @@ internal fun DnsAvailabilitySurveyCard(
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )
+                    DiagnosticsDnsResponseCards(row.dnsResponses)
                 }
             }
         }
@@ -258,7 +258,7 @@ internal fun HttpCompressionProbeCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         StatusIndicator(
-            label = tool.state.name.lowercase(Locale.US),
+            label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
             pulsing = tool.state.running(),
         )

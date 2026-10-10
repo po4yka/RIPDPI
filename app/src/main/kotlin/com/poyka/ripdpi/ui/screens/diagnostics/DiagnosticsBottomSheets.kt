@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,6 +37,12 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val SessionDetailMaxEvents = 6
 
+@Immutable
+internal data class DiagnosticsProbeSheetPresentation(
+    val selectedProbe: DiagnosticsProbeResultUiModel?,
+    val expertMode: Boolean = true,
+)
+
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +50,7 @@ internal fun DiagnosticsBottomSheetHost(
     selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
     selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
     selectedEvent: DiagnosticsEventUiModel?,
-    selectedProbe: DiagnosticsProbeResultUiModel?,
+    probePresentation: DiagnosticsProbeSheetPresentation,
     selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
     onDismissSessionDetail: () -> Unit,
     onToggleSensitiveSessionDetails: () -> Unit,
@@ -55,6 +62,7 @@ internal fun DiagnosticsBottomSheetHost(
     onDismissProbeDetail: () -> Unit,
     onDismissApproachDetail: () -> Unit,
 ) {
+    val expertMode = probePresentation.expertMode
     val colors = RipDpiThemeTokens.colors
 
     if (selectedStrategyProbeCandidate == null) {
@@ -208,20 +216,27 @@ internal fun DiagnosticsBottomSheetHost(
         }
     }
 
-    selectedProbe?.let { probe ->
+    probePresentation.selectedProbe?.let { probe ->
         val context = LocalContext.current
         val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
         val performHaptic = rememberRipDpiHapticPerformer()
         RipDpiBottomSheet(
             onDismissRequest = onDismissProbeDetail,
-            title = probe.target,
-            message = probe.probeType,
+            title = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
+            message = diagnosticProbeTitle(probe, expertMode),
             icon = RipDpiIcons.Search,
             testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
         ) {
             probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
             probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
-            StatusIndicator(label = probe.outcome, tone = statusTone(probe.tone))
+            probe.ipFamily?.let { ContextGroupCard(it) }
+            probe.http3?.let { ContextGroupCard(it) }
+            probe.pmtu?.let { ContextGroupCard(it) }
+            DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
+            StatusIndicator(
+                label = diagnosticProbeOutcome(probe, expertMode),
+                tone = statusTone(probe.tone),
+            )
             probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
                 SettingsRow(
                     title = stringResource(R.string.diagnostics_probe_retry_count_label),
@@ -229,28 +244,12 @@ internal fun DiagnosticsBottomSheetHost(
                     monospaceValue = true,
                 )
             }
-            probe.details.forEach { detail ->
-                SettingsRow(
-                    title = detail.label,
-                    value = detail.value,
-                    monospaceValue = true,
-                )
-            }
+            ProbeTechnicalDetails(probe, expertMode)
             val probeCopyLabel = stringResource(R.string.clipboard_label_probe_details)
             RipDpiButton(
                 text = stringResource(R.string.diagnostics_probe_copy_action),
                 onClick = {
-                    val text =
-                        buildString {
-                            appendLine("${probe.probeType} -> ${probe.target}")
-                            appendLine("Outcome: ${probe.outcome}")
-                            probe.probeRetryCount?.takeIf { it > 0 }?.let { count ->
-                                appendLine("Retries: $count")
-                            }
-                            probe.details.forEach { detail ->
-                                appendLine("${detail.label}: ${detail.value}")
-                            }
-                        }
+                    val text = formatDiagnosticsProbeEvidence(probe)
                     clipboardManager?.setPrimaryClip(
                         ClipData.newPlainText(probeCopyLabel, text.trimEnd()),
                     )
@@ -443,6 +442,34 @@ private fun CapabilityEvidenceCard(evidence: List<com.poyka.ripdpi.activities.Di
             item.fields.forEach { field ->
                 SettingsRow(title = field.label, value = field.value)
             }
+        }
+    }
+}
+
+@Composable
+private fun ProbeTechnicalDetails(
+    probe: DiagnosticsProbeResultUiModel,
+    expertMode: Boolean,
+) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(probe.id) {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+    if (!expertMode) {
+        RipDpiButton(
+            text =
+                stringResource(
+                    if (expanded) R.string.diagnostics_probe_raw_hide else R.string.diagnostics_probe_raw_show,
+                ),
+            onClick = { expanded = !expanded },
+            variant = RipDpiButtonVariant.Secondary,
+            wrapLabel = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    if (expertMode || expanded) {
+        SettingsRow(title = probe.probeType, value = probe.outcome, monospaceValue = true)
+        probe.details.forEach { detail ->
+            SettingsRow(title = detail.label, value = detail.value, monospaceValue = true)
         }
     }
 }

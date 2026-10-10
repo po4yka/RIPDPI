@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -29,12 +30,12 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -85,6 +86,7 @@ internal fun XrayProfileImportScreen(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    SecureWindowEffect()
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.xray_import_title),
         navigationIcon = RipDpiIcons.Back,
@@ -257,12 +259,15 @@ private fun XrayCapabilitiesCard(
             title = stringResource(R.string.xray_import_capabilities_title),
             supporting = stringResource(R.string.xray_import_capabilities_body),
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
             capabilities.forEach { capability ->
-                RipDpiChip(
+                Text(
                     text = stringResource(stringIdFor(capability.titleKey)),
-                    onClick = {},
-                    selected = true,
+                    style = RipDpiThemeTokens.type.body,
+                    color = RipDpiThemeTokens.colors.foreground,
                 )
             }
         }

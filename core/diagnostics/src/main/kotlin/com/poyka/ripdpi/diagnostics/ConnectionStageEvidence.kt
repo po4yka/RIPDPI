@@ -57,20 +57,25 @@ internal fun connectionLane(
         kind = kind,
         attempt = attempt,
         stages =
-            (if (kind == ConnectionLaneKind.QUIC) listOf(ConnectionStage.QUIC_RESPONSE) else ConnectionStandardStages)
-                .map { stage ->
-                    measurements.singleOrNull { it.stage == stage }
-                        ?: ConnectionStageMeasurement(
-                            stage,
-                            if (stage in
-                                applicable
-                            ) {
-                                ConnectionStageState.UNKNOWN
-                            } else {
-                                ConnectionStageState.NOT_APPLICABLE
-                            },
-                        )
-                },
+            (
+                when (kind) {
+                    ConnectionLaneKind.QUIC -> listOf(ConnectionStage.QUIC_RESPONSE)
+                    ConnectionLaneKind.HTTP3 -> ConnectionHttp3Stages
+                    else -> ConnectionStandardStages
+                }
+            ).map { stage ->
+                measurements.singleOrNull { it.stage == stage }
+                    ?: ConnectionStageMeasurement(
+                        stage,
+                        if (stage in
+                            applicable
+                        ) {
+                            ConnectionStageState.UNKNOWN
+                        } else {
+                            ConnectionStageState.NOT_APPLICABLE
+                        },
+                    )
+            },
         networkScopeUnverified = unverified,
     )
 
@@ -85,3 +90,6 @@ internal fun stageState(token: String?): ConnectionStageState =
         "partial", "limit" -> ConnectionStageState.PARTIAL
         else -> ConnectionStageState.UNKNOWN
     }
+
+internal val ConnectionHttp3Stages =
+    listOf(ConnectionStage.DNS, ConnectionStage.QUIC_HANDSHAKE) + ConnectionStandardStages.drop(1)

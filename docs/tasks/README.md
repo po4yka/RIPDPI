@@ -97,6 +97,12 @@ OpenSpec completion uses:
 
 Commit the prepared terminal record. Only afterward run `./taskctl close purge <TASK-ID>` and commit the deletion separately. CI inspects Git history and rejects deletion without the preceding terminal commit. Direct upstream archive, `--no-validate`, manual change-directory moves, and mdtask archive/ID assignment are unsupported.
 
+Older drop receipts can contain unrelated execution IDs. Use
+`./taskctl close repair-drop-receipt <TASK-ID>` to regenerate these IDs from the
+unchanged dropped execution file. This command first checks the terminal content
+hashes and then validates the full portfolio. It does not change task state or
+execution records. Modified terminal files and invalid ownership are rejected.
+
 A cancelled item uses the explicit dropped path:
 
 ```bash
@@ -119,3 +125,5 @@ The `task-contracts` CI job, Lefthook, and `just task-check` all call the same v
 ## Tool licenses
 
 OpenSpec 1.9.0 is MIT-licensed. mdtask 0.1.17 uses PolyForm Shield 1.0.0 and is pinned solely as an internal development tool; its noncompete and required notice are recorded in `tools/tasking/THIRD_PARTY_NOTICES.md`. A dependency upgrade or merge that introduces mdtask requires explicit owner/legal approval; do not infer approval from passing CI.
+
+A dropped OpenSpec change has `DROPPED:` execution lines. The pinned validator reports a zero-checkbox warning for this form. `taskctl` accepts only this specific warning after it validates the terminal state, owned execution, and close/drop receipts. All other OpenSpec issues remain strict validation failures.

@@ -90,6 +90,12 @@ pub struct ScanRequest {
     pub throughput_targets: Vec<ThroughputTarget>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selective_matrix: Option<super::SelectiveMatrixConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ip_family_probe: Option<super::IpFamilyProbeConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http3_probe: Option<super::Http3ProbeConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pmtu_probe: Option<super::PmtuProbeConfig>,
     pub whitelist_sni: Vec<String>,
     #[serde(default)]
     pub telegram_target: Option<TelegramTarget>,

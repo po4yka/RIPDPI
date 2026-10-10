@@ -103,7 +103,7 @@ private fun resolveHomeDiagnosticsAvailability(
             runtime.activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING
     val verificationBusy = runtime.waitingForVerifiedVpnStart || runtime.activeVerificationSessionId != null
     val latestAudit =
-        runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch)
+        runtime.latestCompositeOutcome?.toLatestAuditUiState(fingerprintMismatch, stringResolver)
             ?: runtime.latestManualDiagnosticSession?.toLatestManualScanUiState()
     val busy = analysisBusy || verificationBusy || runtime.externalScanActive
     return HomeDiagnosticsAvailability(
@@ -123,7 +123,9 @@ private fun resolveHomeDiagnosticsAvailability(
             if (analysisBusy) runtime.analysisStageAnnouncement(stringResolver) else "",
         verificationEnabled =
             !busy && appStatus == AppStatus.Halted && connectionState != ConnectionState.Connecting &&
-                runtime.latestCompositeOutcome?.actionable == true && !fingerprintMismatch,
+                connectionState != ConnectionState.Connected &&
+                runtime.latestCompositeOutcome?.actionable == true && !fingerprintMismatch &&
+                runtime.latestCompositeOutcome.fingerprintHash != null && runtime.currentFingerprintHash != null,
         verificationSupportingText =
             resolveVerificationSupportingText(
                 appStatus,
@@ -182,13 +184,32 @@ private fun resolveAnalysisSupportingText(
         }
     }
 
+internal fun StringResolver.homeAnalysisRunningLabel(quickScan: Boolean): String =
+    getString(
+        if (quickScan) {
+            R.string.diagnostics_simple_funnel_verdict_running
+        } else {
+            R.string.home_diagnostics_analysis_running
+        },
+    )
+
 private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: StringResolver): String {
     if (analysisStarting) {
         return stringResolver.getString(R.string.home_diagnostics_analysis_starting)
     }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
-    val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+    val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
+    val stageLabel =
+        if (activeStage?.stageKey == "pmtu") {
+            stringResolver.getString(R.string.diagnostics_pmtu_title)
+        } else if (activeStage?.stageKey == "http3") {
+            stringResolver.getString(R.string.diagnostics_http3_title)
+        } else if (activeStage?.stageKey == "ip_family") {
+            stringResolver.getString(R.string.diagnostics_ip_title)
+        } else {
+            activeStage?.stageLabel
+        }
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
@@ -199,7 +220,7 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
         }
     return listOfNotNull(stagePrefix, activeRunStageProgress ?: stageLabel)
         .joinToString(" · ")
-        .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
+        .ifBlank { stringResolver.homeAnalysisRunningLabel(quickScanActive) }
 }
 
 /**
@@ -215,7 +236,17 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
     }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
-    val stageLabel = progress?.stages?.getOrNull(activeStageIndex ?: -1)?.stageLabel
+    val activeStage = progress?.stages?.getOrNull(activeStageIndex ?: -1)
+    val stageLabel =
+        if (activeStage?.stageKey == "pmtu") {
+            stringResolver.getString(R.string.diagnostics_pmtu_title)
+        } else if (activeStage?.stageKey == "http3") {
+            stringResolver.getString(R.string.diagnostics_http3_title)
+        } else if (activeStage?.stageKey == "ip_family") {
+            stringResolver.getString(R.string.diagnostics_ip_title)
+        } else {
+            activeStage?.stageLabel
+        }
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
@@ -226,7 +257,7 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
         }
     return listOfNotNull(stagePrefix, stageLabel)
         .joinToString(" · ")
-        .ifBlank { stringResolver.getString(R.string.home_diagnostics_analysis_running) }
+        .ifBlank { stringResolver.homeAnalysisRunningLabel(quickScanActive) }
 }
 
 private fun resolveVerificationSupportingText(
@@ -261,11 +292,13 @@ private fun resolveVerificationSupportingText(
             stringResolver.getString(R.string.home_diagnostics_no_actionable_result)
         }
 
-        fingerprintMismatch -> {
+        fingerprintMismatch || runtime.latestCompositeOutcome.fingerprintHash == null ||
+            runtime.currentFingerprintHash == null -> {
             stringResolver.getString(R.string.home_diagnostics_run_again)
         }
 
-        appStatus == AppStatus.Running || connectionState == ConnectionState.Connected -> {
+        appStatus != AppStatus.Halted || connectionState == ConnectionState.Connected ||
+            connectionState == ConnectionState.Connecting -> {
             stringResolver.getString(R.string.home_diagnostics_disconnect_first)
         }
 
@@ -332,7 +365,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         recommendationSummary = recommendationSummary,
         appliedSettings = appliedSettings.toImmutableList(),
         capabilityEvidence = capabilityEvidence.map(::toCapabilityEvidenceUiModel).toImmutableList(),
-        stageSummaries = stageSummaries.map(DiagnosticsHomeCompositeStageSummary::toUiState).toImmutableList(),
+        stageSummaries = stageSummaries.map { it.toUiState(stringResolver) }.toImmutableList(),
         completedStageCount = completedStageCount,
         failedStageCount = failedStageCount,
         shareBusy = runtime.shareBusy,
@@ -398,9 +431,15 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
                 .toImmutableList(),
     )
 
-private fun DiagnosticsHomeCompositeStageSummary.toUiState() =
+private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: StringResolver) =
     HomeDiagnosticsStageUiState(
-        label = stageLabel,
+        label =
+            when (stageKey) {
+                "pmtu" -> stringResolver.getString(R.string.diagnostics_pmtu_title)
+                "http3" -> stringResolver.getString(R.string.diagnostics_http3_title)
+                "ip_family" -> stringResolver.getString(R.string.diagnostics_ip_title)
+                else -> stageLabel
+            },
         headline = headline,
         summary = summary,
         failed = status == DiagnosticsHomeCompositeStageStatus.FAILED,
@@ -442,22 +481,33 @@ private fun HomeDnsResolverClass.label(stringResolver: StringResolver): String =
         },
     )
 
-private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(fingerprintMismatch: Boolean) =
-    HomeDiagnosticsLatestAuditUiState(
-        headline = headline,
-        summary = summary,
-        recommendationSummary = recommendationSummary,
-        ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
-        completedStageCount = completedStageCount,
-        failedStageCount = failedStageCount,
-        totalStageCount = stageSummaries.size,
-        stale = fingerprintMismatch,
-        actionable = actionable && !fingerprintMismatch,
-        directModeResult = directModeVerdict?.result,
-        directModeReasonCode = directModeVerdict?.reasonCode,
-        directTransportClass = directModeVerdict?.transportClass,
-        transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
-    )
+private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
+    fingerprintMismatch: Boolean,
+    stringResolver: StringResolver,
+) = HomeDiagnosticsLatestAuditUiState(
+    headline = headline,
+    summary = summary,
+    recommendationSummary = recommendationSummary,
+    ownedStackLaunchUrl = ownedStackBrowserLaunchUrl(directModeVerdict?.authority),
+    completedStageCount = completedStageCount,
+    failedStageCount = failedStageCount,
+    totalStageCount = stageSummaries.size,
+    stale = fingerprintMismatch,
+    actionable = actionable && !fingerprintMismatch,
+    directModeResult = directModeVerdict?.result,
+    directModeReasonCode = directModeVerdict?.reasonCode,
+    directTransportClass = directModeVerdict?.transportClass,
+    transportRemediationEvidence = capabilityEvidence.toTransportRemediationEvidence(),
+    comparisonSummary =
+        regressionDelta?.takeUnless { fingerprintMismatch }?.let {
+            stringResolver.getString(
+                R.string.home_diagnostics_regression_summary,
+                it.newlyFailedStageKeys.size,
+                it.newlyRecoveredStageKeys.size,
+                it.unchangedStageCount,
+            )
+        },
+)
 
 private fun DiagnosticScanSession.toLatestManualScanUiState() =
     HomeDiagnosticsLatestAuditUiState(

@@ -247,6 +247,7 @@ class DiagnosticsExecutionPolicyTest {
                             ),
                         ),
                     json = json,
+                    homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
             val admitted = service.admitAutomaticProbe(defaultDiagnosticsAppSettings())
@@ -376,4 +377,5 @@ private fun scanAdmissionService(
         profileCatalog = stores,
         activeScanRegistry = registry,
         json = json,
+        homeRunLease = DiagnosticsHomeRunLease(),
     )

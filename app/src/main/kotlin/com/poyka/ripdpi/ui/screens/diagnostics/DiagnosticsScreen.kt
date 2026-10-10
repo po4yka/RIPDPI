@@ -37,6 +37,7 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScreenUiState
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -103,7 +104,10 @@ data class DiagnosticsScreenActions(
     val onRequestVpnPermission: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onOpenModeEditor: () -> Unit = {},
-    val onApplyRecommendedPath: () -> Unit = {},
+    val onReviewRecommendedPath: () -> Unit = {},
+    val onCheckNetwork: () -> Unit = {},
+    val onStartVerifiedVpn: () -> Unit = {},
+    val onDismissVerification: () -> Unit = {},
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
     val onOpenPcapCaptureList: () -> Unit = {},
     val onOpenPastReplays: () -> Unit = {},
@@ -155,7 +159,9 @@ fun DiagnosticsScreen(
     topBarExtraActions: @Composable () -> Unit = {},
 ) {
     TrackRecomposition("DiagnosticsScreen")
+    val homeDiagnostics = uiState.homeDiagnostics
     var showDebugInfo by rememberSaveable { mutableStateOf(false) }
+    var expertMode by rememberSaveable(uiState.uiPersona) { mutableStateOf(uiState.uiPersona == "advanced") }
 
     DiagnosticsScreenFrame(
         uiState = uiState,
@@ -163,6 +169,9 @@ fun DiagnosticsScreen(
         snackbarHostState = snackbarHostState,
         actions = actions,
         showDebugInfo = showDebugInfo,
+        expertMode = expertMode,
+        onExpertModeChange = { expertMode = it },
+        homeDiagnostics = homeDiagnostics,
         onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
         tools =
             DiagnosticsToolsUiModel(
@@ -181,7 +190,8 @@ fun DiagnosticsScreen(
         topBarExtraActions = topBarExtraActions,
         modifier = modifier,
     )
-    DiagnosticsScreenDialogs(uiState = uiState, actions = actions)
+    DiagnosticsScreenDialogs(uiState = uiState, actions = actions, expertMode = expertMode)
+    DiagnosticsVerificationResult(homeDiagnostics.verificationSheet, actions.onDismissVerification)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -192,6 +202,9 @@ private fun DiagnosticsScreenFrame(
     snackbarHostState: SnackbarHostState,
     actions: DiagnosticsScreenActions,
     showDebugInfo: Boolean,
+    expertMode: Boolean,
+    onExpertModeChange: (Boolean) -> Unit,
+    homeDiagnostics: HomeDiagnosticsUiState,
     onToggleDebugInfo: () -> Unit,
     tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
@@ -238,6 +251,7 @@ private fun DiagnosticsScreenFrame(
                     onSelectSection = actions.onSelectSection,
                     modifier = Modifier.padding(horizontal = layout.horizontalPadding),
                 )
+                DiagnosticsExpertToggle(expertMode, onExpertModeChange)
                 if (showDebugInfo) {
                     uiState.performance?.let { performance ->
                         DiagnosticsPerformanceCard(
@@ -256,6 +270,9 @@ private fun DiagnosticsScreenFrame(
                     uiState = uiState,
                     pagerState = pagerState,
                     actions = actions,
+                    expertMode = expertMode,
+                    onExpertModeChange = onExpertModeChange,
+                    homeDiagnostics = homeDiagnostics,
                     tools = tools,
                     rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
@@ -310,6 +327,9 @@ private fun DiagnosticsScreenPager(
     uiState: DiagnosticsScreenUiState,
     pagerState: PagerState,
     actions: DiagnosticsScreenActions,
+    expertMode: Boolean,
+    onExpertModeChange: (Boolean) -> Unit,
+    homeDiagnostics: HomeDiagnosticsUiState,
     tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,
@@ -328,10 +348,14 @@ private fun DiagnosticsScreenPager(
                     overview = uiState.overview,
                     scan = uiState.scan,
                     live = uiState.live,
-                    isActiveScan = uiState.scan.activeProgress != null,
+                    isActiveScan = uiState.scan.activeProgress != null || homeDiagnostics.diagnosticsAdmissionBusy,
                     onSelectSection = actions.onSelectSection,
-                    onRunScan = actions.onRunScan,
-                    onApplyRecommendedPath = actions.onApplyRecommendedPath,
+                    onRunScan = if (uiState.uiPersona == "simple") actions.onCheckNetwork else actions.onRunScan,
+                    onReviewRecommendedPath = actions.onReviewRecommendedPath,
+                    expertMode = expertMode,
+                    homeDiagnostics = homeDiagnostics,
+                    onCheckNetwork = actions.onCheckNetwork,
+                    onStartVerifiedVpn = actions.onStartVerifiedVpn,
                     onSelectSession = actions.onSelectSession,
                     onOpenHistory = actions.onOpenHistory,
                 )
@@ -353,17 +377,31 @@ private fun DiagnosticsScreenPager(
                     onOpenHistory = actions.onOpenHistory,
                     onOpenModeEditor = actions.onOpenModeEditor,
                     onOpenOwnedStackBrowser = actions.onOpenOwnedStackBrowser,
+                    onSelectSession = actions.onSelectSession,
+                    expertMode = expertMode,
+                    compositeRunBusy = homeDiagnostics.compositeRunBusy,
+                    admissionBusy = homeDiagnostics.diagnosticsAdmissionBusy,
                 )
             }
 
             DiagnosticsSection.Tools -> {
-                DiagnosticsToolsPagerPage(
-                    uiState = uiState,
-                    actions = actions,
-                    tools = tools,
-                    rootModeEnabled = rootModeEnabled,
-                    pcapRecording = pcapRecording,
-                )
+                if (!expertMode) {
+                    DiagnosticsGuidedTools(
+                        scan = uiState.scan,
+                        busy = homeDiagnostics.diagnosticsAdmissionBusy || uiState.scan.isBusy,
+                        onSelectProfile = actions.onSelectProfile,
+                        onSelectSection = actions.onSelectSection,
+                        onExpand = { onExpertModeChange(true) },
+                    )
+                } else {
+                    DiagnosticsToolsPagerPage(
+                        uiState = uiState,
+                        actions = actions,
+                        tools = tools,
+                        rootModeEnabled = rootModeEnabled,
+                        pcapRecording = pcapRecording,
+                    )
+                }
             }
         }
     }
@@ -437,12 +475,13 @@ private fun DiagnosticsScreenActions.toDiagnosticsDpiToolActions(): DiagnosticsD
 private fun DiagnosticsScreenDialogs(
     uiState: DiagnosticsScreenUiState,
     actions: DiagnosticsScreenActions,
+    expertMode: Boolean,
 ) {
     DiagnosticsBottomSheetHost(
         selectedSessionDetail = uiState.selectedSessionDetail,
         selectedApproachDetail = uiState.selectedApproachDetail,
         selectedEvent = uiState.selectedEvent,
-        selectedProbe = uiState.selectedProbe,
+        probePresentation = DiagnosticsProbeSheetPresentation(uiState.selectedProbe, expertMode),
         selectedStrategyProbeCandidate = uiState.selectedStrategyProbeCandidate,
         onDismissSessionDetail = actions.onDismissSessionDetail,
         onToggleSensitiveSessionDetails = actions.onToggleSensitiveSessionDetails,
@@ -527,17 +566,7 @@ private fun SensitiveProfileConsentDialog(
                 message = stringResource(R.string.diagnostics_sensitive_profile_consent_body_format, profileName),
                 tone = RipDpiDialogTone.Info,
             ),
-    ) {
-        RipDpiButton(
-            text = stringResource(R.string.diagnostics_sensitive_profile_consent_dismiss),
-            onClick = actions.onDismissSensitiveProfileConsentDialog,
-            variant = RipDpiButtonVariant.Ghost,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsSensitiveProfileConsentDismiss),
-        )
-    }
+    )
 }
 
 @Preview(showBackground = true, name = "Dashboard — idle")

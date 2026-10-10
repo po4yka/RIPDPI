@@ -42,6 +42,44 @@ class RuntimeReadyReceiptFactoryTest {
         }
     }
 
+    @Test fun `DNS proxy attribution uses the consumed strict policy and force flag`() {
+        val resolution = sampleResolution(Mode.VPN)
+        val dns = resolution.activeDns.copy(routeThroughProxy = false)
+        val strict =
+            ValidatedSplitStrictDnsPolicy.build(
+                activeDns = dns,
+                routingSnapshot =
+                    com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot.Available(
+                        com.poyka.ripdpi.core.routing
+                            .DestinationRoutingPolicy(rules = emptyList(), canonicalDigest = ""),
+                    ),
+                underlayDnsServers = emptyList(),
+            )
+
+        fun evidence(
+            force: Boolean,
+            proxy: Boolean,
+            policy: ValidatedSplitStrictDnsPolicy?,
+            shared: Boolean = false,
+        ) = RuntimeTunnelReadyEvidence(
+            resolution.requestedConfiguration.tunnelInput,
+            force,
+            dns.copy(routeThroughProxy = proxy),
+            policy,
+            "interface",
+            shared,
+        )
+        assertFalse(evidence(false, false, null).encryptedDnsUsesProxy)
+        assertTrue(evidence(true, false, null).encryptedDnsUsesProxy)
+        assertTrue(evidence(false, true, null).encryptedDnsUsesProxy)
+        assertTrue(evidence(false, false, strict).encryptedDnsUsesProxy)
+        assertFalse(evidence(false, false, strict).encryptedDnsUsesSharedProxy)
+        assertFalse(evidence(false, false, null, shared = true).encryptedDnsUsesSharedProxy)
+        assertTrue(evidence(false, false, strict, shared = true).encryptedDnsUsesSharedProxy)
+        assertTrue(evidence(true, false, null, shared = true).encryptedDnsUsesSharedProxy)
+        assertTrue(evidence(false, true, null, shared = true).encryptedDnsUsesSharedProxy)
+    }
+
     @Test fun `saved custom command does not label normalized consumed UI preferences custom`() {
         val settings =
             AppSettingsSerializer.defaultValue
