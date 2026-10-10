@@ -6,6 +6,12 @@ on:
       - "test-lab/chaos/tspu/**"
       - "scripts/ci/run-l7-adversarial-dryrun.sh"
       - "scripts/ci/run-tspu-dryrun.sh"
+      - "scripts/ci/run-l7-engine-evidence.sh"
+      - "scripts/ci/run-phase16-matrix-entry.sh"
+      - "scripts/ci/phase16*.py"
+      - "scripts/tests/test_phase16_matrix.py"
+      - "contract-fixtures/phase16_lab_matrix.json"
+      - "native/rust/**"
       - ".github/workflows/l7-adversarial-dryrun.yml"
   push:
     branches:
@@ -14,6 +20,12 @@ on:
       - "test-lab/chaos/tspu/**"
       - "scripts/ci/run-l7-adversarial-dryrun.sh"
       - "scripts/ci/run-tspu-dryrun.sh"
+      - "scripts/ci/run-l7-engine-evidence.sh"
+      - "scripts/ci/run-phase16-matrix-entry.sh"
+      - "scripts/ci/phase16*.py"
+      - "scripts/tests/test_phase16_matrix.py"
+      - "contract-fixtures/phase16_lab_matrix.json"
+      - "native/rust/**"
       - ".github/workflows/l7-adversarial-dryrun.yml"
   workflow_dispatch:
 
@@ -38,10 +50,49 @@ jobs:
           RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR: ${{ runner.temp }}/l7-adversarial-dryrun
         run: bash scripts/ci/run-l7-adversarial-dryrun.sh
 
+      - name: Test Phase16 evidence contracts
+        run: python3 -m unittest scripts.tests.test_phase16_matrix
+
       - name: Upload verdict report + pcaps
         if: ${{ always() && env.ACT != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: l7-adversarial-dryrun-artifacts
           path: ${{ runner.temp }}/l7-adversarial-dryrun
+          retention-days: 14
+
+  engine-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: l7-engine-evidence
+          setup-java: "false"
+          setup-gradle: "false"
+          skip-android-sdk-ndk: "true"
+
+      - name: Install raw packet capture tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake libclang-dev tcpdump tshark
+          sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
+
+      - name: Run current-engine TLS packet gate
+        env:
+          RIPDPI_L7_ENGINE_ARTIFACT_DIR: ${{ runner.temp }}/l7-engine-evidence
+        run: bash scripts/ci/run-l7-engine-evidence.sh
+
+      - name: Upload engine gate receipt and local fixture captures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: l7-engine-evidence
+          path: ${{ runner.temp }}/l7-engine-evidence
+          if-no-files-found: warn
           retention-days: 14

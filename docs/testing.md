@@ -280,11 +280,24 @@ runner prerequisites are available; do not substitute a synthetic row for
 physical-network evidence.
 
 The runner writes `phase16-run.json` and `phase16-pcap-summary.json` under
-`build/phase16-matrix/<entry-id>/`, including when the release gate fails.
-A nonzero exit code means that the run did not pass its gate. For the synthetic
-L7 row, read `l7-adversarial/verdict-report.json` and the summary's
-`l7Adversarial.failedCells`; the dry-run can complete and still fail this gate.
-Do not treat a completed dry-run as a passing release check.
+`build/phase16-matrix/<entry-id>/`, including when a gate fails. A nonzero exit
+code means that the selected check did not pass.
+
+The synthetic L7 row is a classifier self-test. Its complete expected matrix
+contains 23 `blocked` controls and 40 `bypassed` cells. The produced report must
+match all 63 expected results, versions, totals, and evidence files. Expected
+`blocked` results prove that the classifier detects its control traces. They do
+not fail this self-test. The `l7Adversarial` summary identifies this purpose and
+sets `releaseAcceptance=false`, even when the self-test passes.
+
+The separate `l7_engine_packet_evidence_v1` row runs the current CLI on Linux.
+It captures a real TLS handshake with no desync and a second handshake with
+`-s 3`. The control must expose the fixture SNI to the classifiers. The candidate
+must retain a complete handshake and application response while each captured
+TCP segment evades the declared SNI classifiers. Read its
+`l7-engine/verdict-report.json` and the separate `l7EngineEvidence` summary.
+Missing, stale, synthetic, incomplete, unsupported, or blocked engine evidence
+fails the gate.
 
 - `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
 - Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, and even explicitly filtered real-provider rows require `workflow_dispatch` with `include_real_provider=true`.
@@ -293,7 +306,8 @@ Do not treat a completed dry-run as a passing release check.
 - The same fixture also carries required non-baseline `networkCondition` rows for PMTUD blackholes, rooted IP fragmentation under MTU stress, IPv6 extension-header blackholes, and carrier-style NAT/reordering. Those rows require `RIPDPI_PHASE16_PREPARE_HOOK` so they fail closed instead of running against an unstressed baseline path.
 - `.github/workflows/phase16-matrix.yml` fans that fixture out onto self-hosted `ripdpi-lab` runners instead of pretending GitHub-hosted runners can provide those environments.
 - `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus `phase16-pcap-summary.json` for each entry so archive/export work can consume the same measurement evidence consistently; real-provider rows fail closed with `status=runner_unavailable` unless `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` is readable, declares the requested `carrierNamespace`, sets `pcapScrubPolicy=required`, and `RIPDPI_PHASE16_PREPARE_HOOK` is executable. For real-provider rows the hook receives the requested namespace through the positional `carrierNamespace` argument and `RIPDPI_PHASE16_REQUESTED_NAMESPACE`; hook stdout/stderr is suppressed and only non-secret hook status metadata is written to artifacts.
-- For L7 emulator rows, `scripts/ci/run-phase16-matrix-entry.sh` runs `scripts/ci/run-l7-adversarial-dryrun.sh` under `build/phase16-matrix/<entry-id>/l7-adversarial/`, records `l7-adversarial/verdict-report.json`, and fails the lane when any adversary-pattern cell reports `blocked`; `degraded` or `inconclusive` cells are surfaced as a `partial` summary verdict for release-owner review.
+- For the L7 emulator row, `scripts/ci/run-phase16-matrix-entry.sh` runs `scripts/ci/run-l7-adversarial-dryrun.sh` under `build/phase16-matrix/<entry-id>/l7-adversarial/`. The same strict expected-matrix validator checks the produced report and the summary. A changed verdict in either direction, a duplicate or missing cell, an invalid report, or missing evidence fails the self-test.
+- The opt-in engine row uses `scripts/ci/run-l7-engine-evidence.sh` and a fresh raw packet capture from the current CLI. Its declared coverage is the `-s 3` TLS profile against RST-on-SNI, SNI replacement, and their combination in a per-segment model. QUIC, MTU, byte-budget blackholes, TCP reassembly by a censor, physical Android devices, and carrier networks are outside this coverage. Unsupported requested coverage fails; it is not counted as a bypass. Default matrix emission excludes this row; select `matrix_filter=l7_engine_packet_evidence_v1` on Linux to run it.
 - `scripts/ci/phase16_pcap_summary.py` understands both host `capture.pcap`/`capture.tshark.json` artifacts and Android `device-capture.pcap`/`device-capture.tshark.json` artifacts.
 - `scripts/ci/phase16_pcap_summary.py` also links L7 emulator evidence through `linkedArtifacts.l7VerdictReport` and summarizes `l7Adversarial.gateVerdict`, `failedCells`, and `partialCells`; this is synthetic adversary-pattern evidence, not proof from a carrier SIM. Real-provider confidence still requires filtered rows with `evidenceTier=real-provider`, a namespace-specific private runner config, and SIM-backed captures whose identifiers are scrubbed before upload.
 
@@ -733,7 +747,7 @@ These have task issues under `docs/tasks/issues/` and are sized for routine road
 
 ### Phase-16 real-world confidence status
 
-The original infrastructure spike is closed and its task note was removed per task-board lifecycle rules. The L7 adversarial emulator and generator-driven packet-smoke follow-ups are complete: the synthetic-adversarial release lane and deterministic generated CLI packet-smoke samples are now repo-side release evidence. [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) remains open for the operator-owned private SIM runner; the repo-side fail-closed runner contract exists, but real-provider confidence still requires a self-hosted runner with the `real-provider` and namespace labels to upload the required artifacts.
+The original infrastructure spike is closed and its task note was removed per task-board lifecycle rules. The L7 fixture replay checks classifier behavior against known results. A separate current-engine packet gate checks its declared TCP SNI coverage with raw captures. Generator-driven CLI packet smoke provides additional bounded wire checks. These local models do not establish carrier-level acceptance. [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) remains open for the operator-owned private SIM runner; the repo-side fail-closed runner contract exists, but real-provider confidence still requires a self-hosted runner with the `real-provider` and namespace labels to upload the required artifacts.
 
 **L7 adversarial emulator v1 landed.** Dry-run behavior is verifiable on any host:
 
@@ -743,7 +757,8 @@ bash scripts/ci/run-l7-adversarial-dryrun.sh
 
 The live `nfqueue` mode is documented with the emulator harness. Phase-16 now distinguishes `synthetic-lab`, `synthetic-adversarial`, and opt-in `real-provider` evidence in the matrix fixture, runner manifest, and pcap summary; release owners must keep those tiers separate when interpreting confidence.
 
-- **Adversarial L7 emulator release gating.** `matrix_filter=l7_adversarial_emulator_v1_1` selects the synthetic-adversarial row on GitHub-hosted Linux without carrier hardware. The row writes `l7-adversarial/verdict-report.json`, links it from `phase16-pcap-summary.json`, and fails closed when any adversary-pattern cell reports `blocked`.
+- **L7 classifier self-test.** `matrix_filter=l7_adversarial_emulator_v1_1` selects the synthetic fixture row. The row must match all 63 expected results, including its 23 blocked controls. Its receipt is never release acceptance.
+- **Current-engine packet gate.** `matrix_filter=l7_engine_packet_evidence_v1` selects the separate Linux row. `bash scripts/ci/run-l7-engine-evidence.sh` runs the same producer directly. The gate requires detected no-desync controls, successful candidate TLS traffic, complete declared coverage, current source and binary provenance, and raw capture integrity. Every applicable candidate cell must be `bypassed`.
 - **Generator-driven packet-smoke.** `scripts/ci/run-cli-packet-smoke.sh` runs all named CLI packet-smoke scenarios first, then generated samples from `scripts/ci/packet-smoke-generator.py`; PR/default runs use a bounded budget of 8 cells and scheduled runs use 64 cells unless overridden. Each generated fixture records `generator_seed`, `generator_axis_values`, and `generator_origin` in `fixture-manifest.json`.
 - **Phase-16 lab matrix on real-provider SIMs.** The repo-side contract is implemented: filtered real-provider rows require `include_real_provider=true`, a readable `RIPDPI_PHASE16_REAL_PROVIDER_CONFIG` with `pcapScrubPolicy=required`, and an executable `RIPDPI_PHASE16_PREPARE_HOOK`; missing or invalid runner state writes `runner_unavailable` metadata. Actual real-provider confidence still requires the private self-hosted SIM runner to execute the filtered rows and upload the `phase16-<entry-id>` evidence artifact.
 
@@ -769,7 +784,7 @@ PR CI includes:
 - `rust-loom` -- exhaustive concurrency verification (20 min timeout)
 - `cli-packet-smoke` -- CLI proxy behavioral verification with pcap capture
 - `fleet-fixtures` -- exact deploy checkout + real bundle emission + deploy validation + `*FleetCompat*` production-parser suite, on PRs touching the subscription/routing/AWG/relay models or the fleet fixtures
-- `l7-dryrun` -- L7 adversarial emulator matrix-runner dry-run + unittest suite, on PRs touching the harness or its CI script. Uploads `verdict-report.json` and per-cell `.pcap` artifacts for triage.
+- `l7-dryrun` -- L7 classifier fixture replay and its unittest suite. The workflow also runs the separate current-engine TLS packet gate on Linux when native or harness inputs change. It uploads classifier reports and engine captures in separate artifacts.
 - `l7-live` -- L7 adversarial emulator live-mode smoke. Installs `nftables` and `python3-netfilterqueue` on an ubuntu-latest runner, loads the CI nft ruleset that funnels TCP:8443 into nfqueue 0, runs the live handler with a watchdog `--timeout-seconds`, sends a synthetic TLS ClientHello with a fixture-denylisted SNI, and asserts that the resulting `verdict-report.json` records at least one `blocked` cell. Uploads `verdict-report.json` and `handler.log` as artifacts.
 
 Nightly/manual lanes add:

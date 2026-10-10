@@ -46,7 +46,7 @@ test-lab/chaos/tspu/
 └── tests/              # pytest suite, stdlib-only, runs anywhere
 ```
 
-## Two run modes
+## Run modes
 
 ### Dry-run (any host, including macOS)
 
@@ -55,7 +55,11 @@ Replays packet traces from `fixtures/desync_modes/*.json` against each pattern's
 - `verdict-report.json` — per-cell verdict + evidence summary.
 - `<cell>.pcap` — synthesized evidence pcap from the replayed trace. It records modeled classification, not a captured injected response. Pcap format is stdlib-only; no scapy / dpkt dependency.
 
-This mode exists so the harness shape is verifiable on every PR without requiring a Linux runner.
+This mode checks the classifier against 63 known results, including 23 expected
+blocked controls. The strict expected-matrix validator rejects changed verdicts
+in either direction, incomplete or duplicate cells, invalid report metadata,
+bad totals, and missing evidence. A passing fixture replay has
+`purpose=classifier-self-test` and `releaseAcceptance=false`.
 
 ```bash
 cd test-lab/chaos/tspu
@@ -69,16 +73,44 @@ python3 -m runner.cli dry-run \
 
 Builds the container in `Dockerfile`, attaches nfqueue rules, and dispatches real traffic through the userspace classifier. The current NFQUEUE adapter is deliberately narrow: it makes stateless decisions from directly parsed packet fields and can accept or drop a packet. It does not inject RSTs, rewrite SNI, fragment packets, accumulate per-flow byte counts, or decrypt QUIC Initials for SNI/ALPN. The focused live smoke runs only when its harness paths change in `.github/workflows/l7-adversarial-live.yml`; `scripts/ci/act-local.sh l7-live` is the local equivalent. Phase-16 real-provider carrier lanes remain separate operator-run release evidence.
 
+### Current-engine packets (Linux only, requires raw capture)
+
+From the repository root:
+
+```bash
+bash scripts/ci/run-l7-engine-evidence.sh
+```
+
+The producer builds the current CLI and runs two strict TLS packet-smoke tests
+against the local fixture: a no-desync control and a candidate with `-s 3`.
+Both must complete a TLS handshake and receive the expected fixture response.
+The gate checks raw upstream packets, the fixture events, the source revision
+and content, the binary, the commands, and capture hashes. It reconstructs the
+candidate ClientHello to prove that a complete SNI-bearing request was sent,
+then applies the classifiers to the actual individual TCP segments. The
+no-desync control must be detected, and every applicable candidate cell must
+be `bypassed`.
+
+Coverage is limited to RST-on-SNI, SNI replacement, and their combination in a
+per-segment classifier model. QUIC decryption, MTU, byte-budget blackholes,
+stateful censor reassembly, Android VPN operation, and carrier-level acceptance
+are not covered. Unsupported requested coverage fails. The engine gate cannot
+accept a fixture dry-run or NFQUEUE smoke report as current-engine evidence.
+Phase16 selects this lane with `matrix_filter=l7_engine_packet_evidence_v1`.
+
 ## Verdict semantics
 
 | verdict | meaning |
 |---|---|
-| `bypassed` | Pattern's classifier did not match any packet in the trace. The desync mode evades this pattern. |
+| `bypassed` | Pattern's classifier did not match any packet in the supplied trace. Application acceptance additionally requires validated current-engine evidence and declared coverage. |
 | `blocked` | Pattern's classifier matched. The live adapter drops the matched packet; dry-run records the matched packet index. This does not prove the fate of the complete flow. |
 | `degraded` | Fixture explicitly requests `force_degraded`; live mode currently emits only `blocked` or `bypassed`. |
-| `inconclusive` | Trace malformed or missing data the pattern requires. Does not gate PRs. |
+| `inconclusive` | Trace malformed or missing data the pattern requires. This cannot pass the engine gate. |
 
-Current workflows publish these verdicts as evidence; `blocked` and `inconclusive` do not fail or gate `ripdpi-desync` changes. See `docs/testing.md` for the Phase-16 release-evidence contract.
+The fixture self-test compares each verdict with its expected result. Its
+blocked controls stay in the matrix. The separate engine gate rejects blocked,
+inconclusive, incomplete, or unsupported candidate evidence. See
+`docs/testing.md` for the Phase16 evidence contract.
 
 ## Combination matrices
 

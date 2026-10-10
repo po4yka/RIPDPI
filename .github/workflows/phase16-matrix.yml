@@ -80,12 +80,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-android-rust
-        if: matrix.executionKind != 'l7_adversarial_emulator'
+        if: matrix.executionKind != 'l7_adversarial_emulator' && matrix.executionKind != 'l7_engine_packet_evidence'
         with:
           rust-components: ""
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
+
+      - uses: ./.github/actions/setup-android-rust
+        if: matrix.executionKind == 'l7_engine_packet_evidence'
+        with:
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: l7-engine-evidence
+          rust-cache-save: "false"
+          setup-java: "false"
+          setup-gradle: "false"
+          skip-android-sdk-ndk: "true"
 
       - name: Enable KVM for emulator
         if: matrix.executionKind == 'android_packet_smoke' && contains(matrix.runsOnJson, 'ubuntu-latest')
@@ -107,7 +118,7 @@ jobs:
         if: matrix.executionKind != 'l7_adversarial_emulator' && contains(matrix.runsOnJson, 'ubuntu-latest')
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq tcpdump tshark
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq cmake libclang-dev tcpdump tshark
           sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 
       - name: Run Phase 16 matrix entry
