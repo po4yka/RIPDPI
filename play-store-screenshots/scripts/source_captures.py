@@ -55,3 +55,25 @@ DISPLAY_PROFILES["home"] = {"densityDpi": 290, "fontScale": 1.24}
 DISPLAY_PROFILES["relay"] = {"densityDpi": 260, "fontScale": 1.5}
 
 HOME_SCROLL_PIXELS = {locale: 20 if locale in ("en", "de", "fr", "fa") else 0 for locale in LOCALES}
+
+BACKUP_DENSITIES = {"en": 480, "ru": 460, "es": 460, "de": 460, "fr": 460, "fa": 440, "zh-CN": 500}
+DNS_DISPLAY_PROFILES = {
+    "en": {"densityDpi": 360, "fontScale": 1.0},
+    "ru": {"densityDpi": 300, "fontScale": 1.18},
+    "es": {"densityDpi": 300, "fontScale": 1.18},
+    "de": {"densityDpi": 300, "fontScale": 1.2},
+    "fr": {"densityDpi": 300, "fontScale": 1.2},
+    "fa": {"densityDpi": 360, "fontScale": 1.0},
+    "zh-CN": {"densityDpi": 420, "fontScale": 0.8571429},
+}
+DISPLAY_OVERRIDES = {
+    locale: {
+        "backup": {"densityDpi": BACKUP_DENSITIES[locale], "fontScale": round(360 / BACKUP_DENSITIES[locale], 7)},
+        "dns-settings": DNS_DISPLAY_PROFILES[locale],
+    } for locale in LOCALES
+}
+DNS_BOTTOM_FOCUS_PIXELS = {locale: 0 if locale in ("fa", "zh-CN") else 45 for locale in LOCALES}
+
+
+def display_profile(locale: str, name: str) -> dict:
+    return DISPLAY_OVERRIDES.get(locale, {}).get(name, DISPLAY_PROFILES[name])

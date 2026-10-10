@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -69,9 +69,18 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
                    for locale, value in measurements.items())):
         errors.append("Missing actual Home content viewport receipts.")
     displays = receipts.get("displayFrames", {})
-    expected_displays = {f"{locale}/{name}": {**profile, "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
-                         for locale in LOCALES for name, profile in DISPLAY_PROFILES.items()}
-    if displays != expected_displays or manifest.get("state", {}).get("displayProfiles") != DISPLAY_PROFILES:
+    expected_displays = {f"{locale}/{name}": {**display_profile(locale, name), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
+                         for locale in LOCALES for name in DISPLAY_PROFILES}
+    dns_focus = receipts.get("dnsFocus", {})
+    if (manifest.get("state", {}).get("dnsBottomFocusPixels") != DNS_BOTTOM_FOCUS_PIXELS
+            or set(dns_focus) != set(LOCALES)
+            or any(value.get("requestedBottomScrollPixels") != DNS_BOTTOM_FOCUS_PIXELS[locale]
+                   or not value.get("observedAtUtc")
+                   or abs(value.get("observedBottomScrollPixels", -1000) - DNS_BOTTOM_FOCUS_PIXELS[locale]) > 4
+                   for locale, value in dns_focus.items())):
+        errors.append("Missing actual DNS editor viewport receipts.")
+    if (displays != expected_displays or manifest.get("state", {}).get("displayProfiles") != DISPLAY_PROFILES
+            or manifest.get("state", {}).get("localeDisplayOverrides") != DISPLAY_OVERRIDES):
         errors.append("Missing actual per-frame density and font-scale receipts.")
     inputs = input_hashes(root)
     if inputs_sha256(manifest.get("uiInputs", {})) != manifest.get("uiInputsSha256"):

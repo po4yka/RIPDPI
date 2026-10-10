@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
 spec = importlib.util.spec_from_file_location("validator", Path(__file__).with_name("validate-source-captures.py"))
 validator = importlib.util.module_from_spec(spec)
@@ -49,7 +49,11 @@ class SourceCaptureTests(unittest.TestCase):
                      "uiInputs": self.inputs, "uiInputsSha256": inputs_sha256(self.inputs), "images": images}
         self.data["runReceipts"]["homeMeasurements"] = {locale: {"sampleCount": 2, "observedAtUtc": "2026-10-10T00:00:00+00:00", "contentScrollPixels": HOME_SCROLL_PIXELS[locale], "observedContentScrollPixels": HOME_SCROLL_PIXELS[locale]} for locale in LOCALES}
         self.data["runReceipts"]["permissions"] = {"api": 37, "granted": list(capture.runtime_permissions(37)), "observedAtUtc": "2026-10-10T00:00:00+00:00"}
-        self.data["runReceipts"]["displayFrames"] = {f"{locale}/{name}": {**profile, "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"} for locale in LOCALES for name, profile in DISPLAY_PROFILES.items()}
+        self.data["runReceipts"]["displayFrames"] = {f"{locale}/{name}": {**display_profile(locale, name), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"} for locale in LOCALES for name in DISPLAY_PROFILES}
+        self.data["state"].update({"localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS})
+        self.data["runReceipts"]["dnsFocus"] = {locale: {"requestedBottomScrollPixels": offset,
+            "observedBottomScrollPixels": offset, "observedAtUtc": "2026-10-10T00:00:00+00:00"}
+            for locale, offset in DNS_BOTTOM_FOCUS_PIXELS.items()}
         self.save()
 
     def save(self):
@@ -58,6 +62,23 @@ class SourceCaptureTests(unittest.TestCase):
     def validate(self, inputs=None):
         with patch.object(validator, "input_hashes", return_value=inputs or self.inputs):
             return validator.validate(self.manifest, self.root)
+
+    def test_a_changed_actual_locale_stops_capture(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.adb = Mock(return_value="Locales for com.poyka.ripdpi are [en]")
+        with self.assertRaisesRegex(RuntimeError, "No frame was saved"):
+            device.verify_locale("ru")
+        device.verify_locale("en")
+
+    def test_unobserved_dns_focus_is_rejected(self):
+        self.data["runReceipts"]["dnsFocus"]["ru"]["observedBottomScrollPixels"] = 0
+        self.save()
+        self.assertTrue(any("DNS editor viewport" in error for error in self.validate()))
+
+    def test_unapplied_locale_display_override_is_rejected(self):
+        self.data["runReceipts"]["displayFrames"]["fa/backup"]["densityDpi"] = DENSITY_DPI
+        self.save()
+        self.assertTrue(any("per-frame density" in error for error in self.validate()))
 
     def test_unobserved_home_scroll_is_rejected(self):
         self.data["runReceipts"]["homeMeasurements"]["fa"]["observedContentScrollPixels"] = 0

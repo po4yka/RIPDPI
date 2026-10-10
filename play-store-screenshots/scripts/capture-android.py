@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_BOTTOM_FOCUS_PIXELS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
@@ -58,6 +58,11 @@ class CaptureDevice:
     def adb(self, *args: str, raw: bool = False) -> bytes | str:
         return run(["adb", "-s", self.serial, *args], raw=raw)
 
+    def verify_locale(self, expected: str) -> None:
+        actual = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
+        if f"[{expected}]" not in actual:
+            raise RuntimeError(f"The actual Android locale does not match {expected}. No frame was saved.")
+
     def tree(self) -> ElementTree.Element:
         self.adb("shell", "uiautomator", "dump", "/sdcard/ripdpi-docs.xml")
         return ElementTree.fromstring(self.adb("exec-out", "cat", "/sdcard/ripdpi-docs.xml"))
@@ -85,7 +90,9 @@ class CaptureDevice:
         time.sleep(0.8)
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
-        profile = DISPLAY_PROFILES.get(name, {"densityDpi": DENSITY_DPI, "fontScale": 1.0})
+        locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
+        self.locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
+        profile = display_profile(self.locale, name)
         self.adb("shell", "wm", "density", str(profile["densityDpi"]) if profile["densityDpi"] != DENSITY_DPI else "reset")
         self.adb("shell", "settings", "put", "system", "font_scale", str(profile["fontScale"]))
         self.adb("shell", "am", "force-stop", PACKAGE)
@@ -271,7 +278,17 @@ class CaptureDevice:
         # The last screen contains the full custom DoH and IPv6 cards.
         for _ in range(3):
             self.scroll(550)
-        self.scroll(-45)
+        before = self.bounds(self.tag(self.tree(), "dns-custom-save"))[1]
+        offset = DNS_BOTTOM_FOCUS_PIXELS[self.locale]
+        if offset:
+            self.scroll(-offset)
+        after = self.bounds(self.tag(self.tree(), "dns-custom-save"))[1]
+        observed = after - before
+        if abs(observed - offset) > 4:
+            raise RuntimeError(f"The actual DNS editor did not reach its complete viewport: {self.locale}, requested {offset}px, observed {observed}px.")
+        self.receipts.setdefault("dnsFocus", {})[self.locale] = {
+            "requestedBottomScrollPixels": offset, "observedBottomScrollPixels": observed,
+            "observedAtUtc": datetime.now(timezone.utc).isoformat()}
 
     def clear_statusbar_demo(self) -> None:
         # Keep Android's current time and real service/network indicators.
@@ -308,7 +325,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "localeDisplayOverrides": DISPLAY_OVERRIDES, "dnsBottomFocusPixels": DNS_BOTTOM_FOCUS_PIXELS, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
@@ -370,9 +387,7 @@ def main() -> None:
         first = True
         for locale in LOCALES:
             device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
-            actual_locale = device.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
-            if f"[{locale}]" not in actual_locale:
-                raise RuntimeError(f"The Android locale did not change to {locale}.")
+            device.verify_locale(locale)
             for name, (route, source_name) in SCREENS.items():
                 device.show_route(name, route, reset=first)
                 first = False
@@ -382,10 +397,11 @@ def main() -> None:
                 density_values = list(map(int, re.findall(r"density: ([0-9]+)", observed_density)))
                 profile = {"densityDpi": density_values[-1],
                            "fontScale": float(device.adb("shell", "settings", "get", "system", "font_scale"))}
-                if profile != DISPLAY_PROFILES[name] or device.adb("shell", "wm", "size") != "Physical size: 1080x1800":
+                if profile != display_profile(locale, name) or device.adb("shell", "wm", "size") != "Physical size: 1080x1800":
                     raise RuntimeError("The actual frame display does not match its capture profile.")
                 device.receipts.setdefault("displayFrames", {})[f"{locale}/{name}"] = {
                     **profile, "physicalDensityDpi": density_values[0], "screen": "1080x1800"}
+                device.verify_locale(locale)
                 path.write_bytes(device.adb("exec-out", "screencap", "-p", raw=True))
                 direct = ROOT / f"docs/screenshots/ui/{locale}/{name}.png"
                 direct.parent.mkdir(parents=True, exist_ok=True)
