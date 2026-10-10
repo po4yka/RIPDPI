@@ -36,7 +36,13 @@ The tradeoff we accept is higher translator onboarding friction (contributors ne
 
 Everything is done through a normal GitHub fork and pull request — no account on any external translation platform is required.
 
-1. **Create the resource directory.** Copy `app/src/main/res/values/strings.xml` to a new locale directory `app/src/main/res/values-<qualifier>/strings.xml`.
+1. **Create the resource directory.** Create `app/src/main/res/values-<qualifier>/`.
+   Inspect **all** `app/src/main/res/values/*.xml` files for translatable
+   `<string>`, `<plurals>`, and `<string-array>` entries. Copy these entries
+   into locale XML files, keeping the source file split or combining them
+   without duplicate resource names. Do not copy only `strings.xml`: source
+   strings also live in feature-specific XML files. Do not copy unrelated
+   color, theme, or other resource definitions into the locale directory.
 
    Use the Android resource qualifier convention (BCP-47, `b+` form or the legacy region form):
    - Language only: `values-pt` (Portuguese), `values-it` (Italian).
@@ -46,17 +52,31 @@ Everything is done through a normal GitHub fork and pull request — no account 
 
 2. **Translate the values, and only the values.** Edit the text content of each `<string>`, `<plurals>`, and `<string-array>` entry. Do **not** translate or alter the `name="…"` attributes, and do **not** include any string marked `translatable="false"` — those are not user-facing and must stay out of locale files. Preserve all format specifiers (`%1$s`, `%d`), escaping (`\'`, `\n`), and inline markup exactly as in the source.
 
-3. **Mirror the service module.** Repeat steps 1–2 for `core/service/src/main/res/values/strings.xml` → `core/service/src/main/res/values-<qualifier>/strings.xml`. It is only 4 translatable strings, but it is required — a missing key there fails CI the same way.
+3. **Mirror the service module.** Repeat steps 1–2 for every translatable
+   entry across `core/service/src/main/res/values/*.xml`, writing them under
+   `core/service/src/main/res/values-<qualifier>/`. Include split files such as
+   `strings_pause.xml`; a missing service key also fails CI.
 
-4. **Register the locale.** Add the locale to `app/src/main/res/xml/locales_config.xml` as a `<locale android:name="…" />` entry. Use the **BCP-47 tag** here (e.g. `pt-BR`, `zh-CN`), which uses a hyphen and no `r` prefix — distinct from the resource directory qualifier in step 1.
+4. **Register the locale.** Add the locale to `app/src/main/res/xml/locales_config.xml`
+   as a `<locale android:name="…" />` entry. Use the **BCP-47 tag** here
+   (e.g. `pt-BR`, `zh-CN`), which uses a hyphen and no `r` prefix — distinct
+   from the resource directory qualifier in step 1. Update the expected tags
+   and test description in
+   `app/src/test/kotlin/com/poyka/ripdpi/platform/LocalesConfigTest.kt`.
+   Keep `language_name_*` native display names identical across locales.
 
-5. **Run Android lint for both resource owners.** `MissingTranslation` is configured as an error, understands every XML file in a locale directory, and ignores source entries marked `translatable="false"`:
+5. **Run Android lint for both resource owners and the locale registry test.** `MissingTranslation` is configured as an error, understands every XML file in a locale directory, and ignores source entries marked `translatable="false"`:
 
    ```bash
    ./gradlew :app:lintGithubFullDebug :core:service:lintDebug
+   ./gradlew :app:testGithubFullDebugUnitTest \
+     --tests com.poyka.ripdpi.platform.LocalesConfigTest
    ```
 
-6. **Open a pull request** with all of the above in a single commit/PR: the new `values-<qualifier>/` resources for both `:app` and `:core:service`, plus the `locales_config.xml` entry. CI runs the parity and lint gates automatically.
+6. **Open a pull request** with all of the above in a single commit/PR:
+   the complete `values-<qualifier>/` resources for both `:app` and
+   `:core:service`, the `locales_config.xml` entry, and the updated
+   `LocalesConfigTest`. CI runs the resource and test gates.
 
 ## String freeze
 
