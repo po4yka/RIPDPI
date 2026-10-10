@@ -27,9 +27,9 @@ If the Puppeteer browser is unavailable, use an installed compatible Chromium th
 
 ## Capture real Android screens
 
-Use a dedicated emulator. The first capture route clears historical measurements and seeds RIPDPI settings. Later routes and locales reseed settings but retain the new real measurements. The command also changes the emulator locale, theme, motion settings, and status bar. It does not reset operating-system VPN consent. Do not use a personal device or an acceptance emulator.
+Use a dedicated emulator. The first capture route clears historical measurements and seeds RIPDPI settings. Later routes and locales reseed settings but retain the new real measurements. The command also changes the emulator locale, theme, and motion settings. The screenshots retain the natural Android status bar and capture time. It does not reset operating-system VPN consent. Do not use a personal device or an acceptance emulator.
 
-Build the pinned libXray artifacts as described in [the native bootstrap](../native/xray/README.md). The capture command verifies the AAR, builds and installs the current `githubFullDebug` APK, then captures the actual app. Grant actual Android VPN consent through the normal app prompt before capture. The script requires the Android `ACTIVATE_VPN` operation to be allowed. The debug permission preset does not grant operating-system consent. The current artwork uses a documented 1080×1800 Android viewport at 420 dpi. The renderer follows each source image's intrinsic aspect ratio; it does not crop, stretch, or repaint UI pixels.
+Build the pinned libXray artifacts as described in [the native bootstrap](../native/xray/README.md). The capture command verifies the AAR, builds and installs the current `githubFullDebug` APK, then captures the actual app. Grant actual Android VPN consent through the normal app prompt before capture. The script requires the Android `ACTIVATE_VPN` operation to be allowed. The debug permission preset does not grant operating-system consent. On Android API 37, the script also grants the local-network permission. After the connected Home frame, it uses the normal Home Disconnect control before the raw network check. The current artwork uses a physical 1080×1800 Android viewport. The renderer follows each source image's intrinsic aspect ratio; it does not crop, stretch, or repaint UI pixels.
 
 ```bash
 python3 scripts/capture-android.py \
@@ -38,9 +38,25 @@ python3 scripts/capture-android.py \
 python3 scripts/validate-source-captures.py
 ```
 
+The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy configuration use that profile. Home uses 290 dpi / 1.24. The relay picker uses 260 dpi / 1.5 by default, with localized overrides. DNS and backup profiles also depend on the locale. [The owning profile constants](scripts/source_captures.py) define these settings; the manifest records each frame's actual readback. Capture cleanup restores the base density and font scale on success and failure.
+
+| Locale | Relay: dpi / font scale | DNS: dpi / font scale | Backup: dpi / font scale |
+|---|---|---|---|
+| en | 260 / 1.5 | 360 / 1 | 480 / 0.75 |
+| ru | 260 / 1.5 | 300 / 1.18 | 460 / 0.7826087 |
+| es | 260 / 1.5 | 290 / 1.24 | 460 / 0.7826087 |
+| de | 260 / 1.5 | 300 / 1.2 | 460 / 0.7826087 |
+| fr | 260 / 1.5 | 300 / 1.2 | 460 / 0.7826087 |
+| fa | 250 / 1.56 | 360 / 1 | 440 / 0.8181818 |
+| zh-CN | 255 / 1.5294118 | 420 / 0.8571429 | 500 / 0.72 |
+
+Home capture requires at least two observed RTT samples. For English, German, French, and Persian, a bounded native scroll brings the complete quality-window metadata into view; the manifest records its measured delta. The other three locales need no Home scroll. DNS capture focuses the complete custom DoH form and IPv6 controls. Its prefilled values are not applied. Native scroll focus is recorded per locale.
+
 Inspect all 42 source frames at full size. Check the captured state and whole content blocks, not just the PNG dimensions. In particular, the diagnostics poster must show an actual completed check, not demo results or the run warning screen. Connection data must come from the real service. Do not use a simulated connected preset. A warning that applies to the captured state must stay visible.
 
 `public/screenshots/source-capture.json` records the APK/build revision, verified libXray hashes, device/API/viewport, routes, states, capture time, UI input hashes, and source file hashes. It is the source of truth for the observed connection and check results. Emulator results do not establish physical-device or carrier-level acceptance. A failed check must retain its actual classification; artwork must not turn it into a success.
+
+Display-only frame retakes retain the original APK/build producer and the other frame hashes. The manifest records each retake in `frameRecaptures`, including the tool revision, actual time, and old/new image hashes. The source validator checks this receipt history as well as all retained images.
 
 Generic user-visible section and built-in profile names are localized in the app. Protocol names and user-defined names remain unchanged. The seven artwork locales use their own Android frames. Hindi and Brazilian Portuguese README galleries retain an explicitly labelled English fallback.
 
@@ -51,8 +67,8 @@ Generic user-visible section and built-in profile names are localized in the app
 | `01-hero.png` | Control your connection | Home connection state and traffic |
 | `02-diagnostics.png` | Check your network | Completed network check results |
 | `03-relays.png` | Choose your relay | Relay transport selection |
-| `04-dns.png` | Set your DNS | DNS settings and resolver selection |
-| `05-strategies.png` | Tune your strategy | Packet strategy settings |
+| `04-dns.png` | Set your DNS | Custom DoH form and IPv6 options |
+| `05-strategies.png` | Tune your strategy | Strategy configuration editor |
 | `06-local-tools.png` | Save your settings | Backup and restore settings |
 | `feature-graphic.png` | Check your connection path | Brand group and an editorial phone → network → server diagram |
 
