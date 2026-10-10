@@ -5,6 +5,11 @@ transports. It belongs to the Android functional acceptance tier. It proves
 traffic, identity rejection, and service lifecycle behavior; it does not prove
 packet behavior on a physical network.
 
+The patched Xray core blocks private destinations after outbound redirects.
+Each fixture-owned outbound has a `finalRules` entry that permits only its
+owned listener address, port, and protocol. A final block rule rejects
+all other destinations. The default routing outbound remains `blackhole`.
+
 The published transport ports use fixture-owned TCP forwarding listeners. Xray
 listens on separate loopback ports in the same host or network namespace. These
 listeners forward bytes without changing protocol messages or authentication.

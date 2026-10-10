@@ -234,9 +234,9 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		"log": map[string]any{"loglevel": logLevel}, "inbounds": inbounds,
 		"outbounds": []any{
 			map[string]any{"tag": "deny", "protocol": "blackhole"},
-			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": map[string]any{"redirect": echoListener.Addr().String()}},
-			map[string]any{"tag": "owned-dns", "protocol": "freedom", "settings": map[string]any{"redirect": dnsListener.LocalAddr().String()}},
-			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": map[string]any{"redirect": dnsHTTPListener.Addr().String()}},
+			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": ownedRedirect("tcp", echoListener.Addr().(*net.TCPAddr).AddrPort())},
+			map[string]any{"tag": "owned-dns", "protocol": "freedom", "settings": ownedRedirect("udp", dnsListener.LocalAddr().(*net.UDPAddr).AddrPort())},
+			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp"}, "network": "tcp", "ip": []string{"192.0.2.77/32"}, "port": "80", "outboundTag": "owned-echo"},
@@ -260,6 +260,18 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	p.traceLifecycle("ready")
 	ready = true
 	return p, nil
+}
+
+func ownedRedirect(network string, target netip.AddrPort) map[string]any {
+	// Xray blocks private destinations after redirect. Permit only this owned
+	// listener's protocol, address, and port; all other targets remain blocked.
+	return map[string]any{
+		"redirect": target.String(),
+		"finalRules": []any{
+			map[string]any{"action": "allow", "network": network, "ip": []string{target.Addr().String() + "/32"}, "port": int(target.Port())},
+			map[string]any{"action": "block"},
+		},
+	}
 }
 
 func (p *peer) serveOwnedDNS(conn net.PacketConn) {
