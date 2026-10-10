@@ -2,7 +2,7 @@
 id: TST-1791621908659469
 title: Correct documentation audit findings and refresh screenshots
 kind: chore
-status: doing
+status: done
 area: testing
 priority: high
 owner: Documentation maintainer
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-10
 updated: 2026-10-10
 spec_reason: docs-only
+closed_at: "2026-10-10T09:31:19Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All 29 correction commits were integrated by fast-forward and pushed to origin/main; remote SHA 51039ca370553a6cbf70350b6df42dfae335f803 matches local main. Nine public README variants corrected. APK build, libXray verification, 21 actual Android captures across seven locales, source freshness, five regression tests, production image capture and strict 56/56 image validation passed. 1260 Markdown files and 1052 local references have no missing targets; README selectors passed 72 link and nine bold assertions. Design, harness, task, architecture and locked Cargo metadata checks passed; baselines unchanged. Exact text projection autoreview returned zero actionable findings; full diff TruffleHog clean; PNGs separately visually inspected. Phase16 command starts and 53 harness tests passed, but runtime gate exit 1 has 23 blocked and 40 bypassed cells out of 63, documented without claiming physical-device or carrier-network acceptance. Remote required CI and CodeQL completion remain unverified.
 ---
 
 ## Goal
