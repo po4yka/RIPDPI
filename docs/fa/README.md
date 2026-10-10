@@ -98,15 +98,14 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## تصاویر صفحه
 
 <p align="center">
-  <img src="../../docs/screenshots/fa/01-hero.png" width="200" alt="پنل تبلیغاتی با صفحهٔ اصلی RIPDPI"/>
+  <a href="../../docs/screenshots/ui/fa/home.png"><img src="../../docs/screenshots/ui/fa/home.png" width="360" alt="صفحهٔ اصلی RIPDPI، قطع اتصال"/></a>
   &nbsp;
-  <img src="../../docs/screenshots/fa/05-diagnostics.png" width="200" alt="پنل تبلیغاتی با تنظیم پویش تشخیصی"/>
+  <a href="../../docs/screenshots/ui/fa/diagnostics.png"><img src="../../docs/screenshots/ui/fa/diagnostics.png" width="360" alt="تنظیم پویش تشخیصی پیش از اجرا"/></a>
   &nbsp;
-  <img src="../../docs/screenshots/fa/03-relays.png" width="200" alt="پنل تبلیغاتی با پیکربندی رله"/>
+  <a href="../../docs/screenshots/ui/fa/relay.png"><img src="../../docs/screenshots/ui/fa/relay.png" width="360" alt="تنظیمات رلهٔ خروجی در ویرایشگر"/></a>
 </p>
 
-پنل تشخیص تنظیم پویش را نشان می‌دهد و پنل رله پیکربندی را. دیگر [تصاویر تبلیغاتی](../../play-store-screenshots/README.md) جدا نگه داشته شده‌اند.
-
+صفحهٔ اصلی در حالت قطع اتصال است. تشخیص تنظیم پویش را نشان می‌دهد. تنظیمات رله یک تغییر ذخیره‌نشده در ویرایشگر است. برای باز کردن تصویر با وضوح کامل روی آن بزنید. [تصاویر تبلیغاتی](../../play-store-screenshots/README.md) جدا نگه داشته شده‌اند.
 
 ## ویژگی‌ها
 

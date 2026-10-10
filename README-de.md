@@ -96,15 +96,14 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/de/01-hero.png" width="200" alt="Werbetafel mit dem RIPDPI-Startbildschirm"/>
+  <a href="docs/screenshots/ui/de/home.png"><img src="docs/screenshots/ui/de/home.png" width="360" alt="RIPDPI-Startbildschirm, nicht verbunden"/></a>
   &nbsp;
-  <img src="docs/screenshots/de/05-diagnostics.png" width="200" alt="Werbetafel mit der Einrichtung des Diagnosescans"/>
+  <a href="docs/screenshots/ui/de/diagnostics.png"><img src="docs/screenshots/ui/de/diagnostics.png" width="360" alt="Einrichtung des Diagnosescans vor dem Start"/></a>
   &nbsp;
-  <img src="docs/screenshots/de/03-relays.png" width="200" alt="Werbetafel mit der Relay-Konfiguration"/>
+  <a href="docs/screenshots/ui/de/relay.png"><img src="docs/screenshots/ui/de/relay.png" width="360" alt="Ausgehende Relay-Einstellungen im Editor"/></a>
 </p>
 
-Das Diagnosebild zeigt die Scan-Einrichtung, das Relay-Bild die Konfiguration. Weitere [Werbegrafiken](play-store-screenshots/README.md) stehen separat.
-
+Der Startbildschirm zeigt den getrennten Zustand. Diagnose zeigt die Scan-Einrichtung. Die Relay-Einstellungen zeigen eine ungespeicherte Änderung im Editor. Ein Bild auswählen, um es in voller Auflösung zu öffnen. [Werbegrafiken](play-store-screenshots/README.md) stehen separat.
 
 ## Funktionen
 

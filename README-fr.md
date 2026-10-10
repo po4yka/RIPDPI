@@ -96,15 +96,14 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 ## Captures d'écran
 
 <p align="center">
-  <img src="docs/screenshots/fr/01-hero.png" width="200" alt="Panneau promotionnel avec l'écran principal de RIPDPI"/>
+  <a href="docs/screenshots/ui/fr/home.png"><img src="docs/screenshots/ui/fr/home.png" width="360" alt="Écran principal de RIPDPI, déconnecté"/></a>
   &nbsp;
-  <img src="docs/screenshots/fr/05-diagnostics.png" width="200" alt="Panneau promotionnel avec la configuration du scan de diagnostic"/>
+  <a href="docs/screenshots/ui/fr/diagnostics.png"><img src="docs/screenshots/ui/fr/diagnostics.png" width="360" alt="Configuration du scan de diagnostic avant son lancement"/></a>
   &nbsp;
-  <img src="docs/screenshots/fr/03-relays.png" width="200" alt="Panneau promotionnel avec la configuration du relais"/>
+  <a href="docs/screenshots/ui/fr/relay.png"><img src="docs/screenshots/ui/fr/relay.png" width="360" alt="Paramètres du relais sortant dans l’éditeur"/></a>
 </p>
 
-Le panneau de diagnostic montre la configuration du scan ; celui du relais montre sa configuration. Les autres [illustrations promotionnelles](play-store-screenshots/README.md) sont conservées séparément.
-
+L'écran principal est déconnecté. Diagnostics montre la configuration du scan. Les paramètres du relais montrent une modification non enregistrée dans l'éditeur. Sélectionnez une image pour l'ouvrir en pleine résolution. Les [illustrations promotionnelles](play-store-screenshots/README.md) sont conservées séparément.
 
 ## Fonctionnalités
 

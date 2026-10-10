@@ -96,15 +96,14 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 ## Capturas de pantalla
 
 <p align="center">
-  <img src="docs/screenshots/es/01-hero.png" width="200" alt="Panel promocional con la pantalla principal de RIPDPI"/>
+  <a href="docs/screenshots/ui/es/home.png"><img src="docs/screenshots/ui/es/home.png" width="360" alt="Pantalla principal de RIPDPI, desconectado"/></a>
   &nbsp;
-  <img src="docs/screenshots/es/05-diagnostics.png" width="200" alt="Panel promocional con la configuración del escaneo diagnóstico"/>
+  <a href="docs/screenshots/ui/es/diagnostics.png"><img src="docs/screenshots/ui/es/diagnostics.png" width="360" alt="Configuración del escaneo diagnóstico antes de ejecutarlo"/></a>
   &nbsp;
-  <img src="docs/screenshots/es/03-relays.png" width="200" alt="Panel promocional con la configuración del relevo"/>
+  <a href="docs/screenshots/ui/es/relay.png"><img src="docs/screenshots/ui/es/relay.png" width="360" alt="Configuración del relevo de salida en el editor"/></a>
 </p>
 
-El panel de diagnóstico muestra la configuración del escaneo; el panel de relevo muestra su configuración. Las demás [ilustraciones promocionales](play-store-screenshots/README.md) se mantienen aparte.
-
+La pantalla principal está desconectada. Diagnóstico muestra la configuración del escaneo. Los ajustes de relevo muestran una edición sin guardar. Seleccione una imagen para abrirla a resolución completa. Las [ilustraciones promocionales](play-store-screenshots/README.md) se mantienen aparte.
 
 ## Funcionalidades
 

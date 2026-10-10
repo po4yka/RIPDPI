@@ -96,15 +96,14 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## Скриншоты
 
 <p align="center">
-  <img src="docs/screenshots/ru/01-hero.png" width="200" alt="Промопанель с главным экраном RIPDPI"/>
+  <a href="docs/screenshots/ui/ru/home.png"><img src="docs/screenshots/ui/ru/home.png" width="360" alt="Главный экран RIPDPI, подключение отключено"/></a>
   &nbsp;
-  <img src="docs/screenshots/ru/05-diagnostics.png" width="200" alt="Промопанель с настройкой диагностического сканирования"/>
+  <a href="docs/screenshots/ui/ru/diagnostics.png"><img src="docs/screenshots/ui/ru/diagnostics.png" width="360" alt="Настройка диагностического сканирования до запуска"/></a>
   &nbsp;
-  <img src="docs/screenshots/ru/03-relays.png" width="200" alt="Промопанель с настройками relay"/>
+  <a href="docs/screenshots/ui/ru/relay.png"><img src="docs/screenshots/ui/ru/relay.png" width="360" alt="Настройки исходящего relay в редакторе"/></a>
 </p>
 
-Панель диагностики показывает настройку сканирования, а панель relay — конфигурацию. Другие [маркетинговые иллюстрации](play-store-screenshots/README.md) размещены отдельно.
-
+На главном экране подключение отключено. Диагностика показывает настройку сканирования. Настройки relay показаны как несохранённое изменение в редакторе. Нажмите изображение, чтобы открыть его в полном разрешении. [Маркетинговые иллюстрации](play-store-screenshots/README.md) размещены отдельно.
 
 ## Возможности
 

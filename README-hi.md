@@ -95,15 +95,14 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 **स्क्रीनशॉट भाषा: English fallback.** इस README के लिए अभी हिन्दी UI captures उपलब्ध नहीं हैं।
 
 <p align="center">
-  <img src="docs/screenshots/en/01-hero.png" width="200" alt="RIPDPI होम स्क्रीन वाला प्रचार पैनल"/>
+  <a href="docs/screenshots/ui/en/home.png"><img src="docs/screenshots/ui/en/home.png" width="360" alt="RIPDPI होम स्क्रीन, डिस्कनेक्टेड"/></a>
   &nbsp;
-  <img src="docs/screenshots/en/05-diagnostics.png" width="200" alt="डायग्नोस्टिक स्कैन सेटअप वाला प्रचार पैनल"/>
+  <a href="docs/screenshots/ui/en/diagnostics.png"><img src="docs/screenshots/ui/en/diagnostics.png" width="360" alt="स्कैन से पहले डायग्नोस्टिक स्कैन सेटअप"/></a>
   &nbsp;
-  <img src="docs/screenshots/en/03-relays.png" width="200" alt="Relay कॉन्फ़िगरेशन वाला प्रचार पैनल"/>
+  <a href="docs/screenshots/ui/en/relay.png"><img src="docs/screenshots/ui/en/relay.png" width="360" alt="संपादक में outbound relay सेटिंग्स"/></a>
 </p>
 
-डायग्नोस्टिक पैनल स्कैन सेटअप दिखाता है और relay पैनल कॉन्फ़िगरेशन। अन्य [प्रचार चित्र](play-store-screenshots/README.md) अलग रखे गए हैं।
-
+होम स्क्रीन डिस्कनेक्टेड है। Diagnostics स्कैन सेटअप दिखाता है। Relay सेटिंग्स संपादक में एक सहेजा नहीं गया बदलाव दिखाती हैं। पूरी resolution में खोलने के लिए चित्र चुनें। [प्रचार चित्र](play-store-screenshots/README.md) अलग रखे गए हैं।
 
 ## सुविधाएँ
 

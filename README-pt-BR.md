@@ -24,14 +24,14 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
 **Idioma das capturas: English fallback.** Ainda não há capturas da interface em português brasileiro para este README.
 
 <p align="center">
-  <img src="docs/screenshots/en/01-hero.png" width="200" alt="Painel promocional com a tela inicial do RIPDPI"/>
+  <a href="docs/screenshots/ui/en/home.png"><img src="docs/screenshots/ui/en/home.png" width="360" alt="Tela inicial do RIPDPI, desconectado"/></a>
   &nbsp;
-  <img src="docs/screenshots/en/05-diagnostics.png" width="200" alt="Painel promocional com a configuração do exame diagnóstico"/>
+  <a href="docs/screenshots/ui/en/diagnostics.png"><img src="docs/screenshots/ui/en/diagnostics.png" width="360" alt="Configuração do exame diagnóstico antes da execução"/></a>
   &nbsp;
-  <img src="docs/screenshots/en/03-relays.png" width="200" alt="Painel promocional com a configuração do relay"/>
+  <a href="docs/screenshots/ui/en/relay.png"><img src="docs/screenshots/ui/en/relay.png" width="360" alt="Configurações do relay de saída no editor"/></a>
 </p>
 
-O painel de diagnóstico mostra a configuração do exame; o painel do relay mostra a configuração. Outras [ilustrações promocionais](play-store-screenshots/README.md) são mantidas separadamente.
+A tela inicial está desconectada. Diagnóstico mostra a configuração do exame. As configurações do relay mostram uma alteração não salva no editor. Selecione uma imagem para abri-la em resolução completa. As [ilustrações promocionais](play-store-screenshots/README.md) são mantidas separadamente.
 
 Em vez de uma única política global, o RIPDPI classifica cada destino e cada rede separadamente, lembra os resultados validados e torna seus vereditos de falha visíveis. Comece localmente; introduza um relay somente quando o caminho direto não puder ser recuperado.
 
@@ -118,7 +118,6 @@ Princípio de design do RIPDPI: classificar cada destino e cada rede separadamen
 2. **Mutar o caminho local quando a rede é o problema.** Marcadores semânticos, posicionamento adaptativo das divisões, cadeias de payloads falsos, OOB/desordem, registros TLS randomizados, variação do fingerprint QUIC — montados a partir de crates Rust do próprio repositório.
 3. **Recorrer a um relay tunelado quando o caminho direto está degradado.** A matriz de relays acima distingue backends nativos do relay-core, subprocessos auxiliares, pluggable transports externos e superfícies separadas de perfis de VPN/túnel, para que caminhos não suportados ou opt-in não fiquem escondidos atrás de um único rótulo de recurso.
 4. **Relatos honestos.** Os vereditos são tipados e exibidos; os resultados do classificador de falhas são expostos em vez de suprimidos; os pacotes de exportação de diagnóstico ocultam segredos.
-
 
 ## Recursos
 

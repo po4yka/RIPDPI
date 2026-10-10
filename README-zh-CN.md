@@ -96,15 +96,14 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 ## 截图
 
 <p align="center">
-  <img src="docs/screenshots/zh-CN/01-hero.png" width="200" alt="包含 RIPDPI 主屏幕的宣传面板"/>
+  <a href="docs/screenshots/ui/zh-CN/home.png"><img src="docs/screenshots/ui/zh-CN/home.png" width="360" alt="RIPDPI 主屏幕，未连接"/></a>
   &nbsp;
-  <img src="docs/screenshots/zh-CN/05-diagnostics.png" width="200" alt="包含诊断扫描设置的宣传面板"/>
+  <a href="docs/screenshots/ui/zh-CN/diagnostics.png"><img src="docs/screenshots/ui/zh-CN/diagnostics.png" width="360" alt="运行前的诊断扫描设置"/></a>
   &nbsp;
-  <img src="docs/screenshots/zh-CN/03-relays.png" width="200" alt="包含中继配置的宣传面板"/>
+  <a href="docs/screenshots/ui/zh-CN/relay.png"><img src="docs/screenshots/ui/zh-CN/relay.png" width="360" alt="编辑器中的出站中继设置"/></a>
 </p>
 
-诊断面板显示扫描设置，中继面板显示配置。其他[宣传插图](play-store-screenshots/README.md)单独维护。
-
+主屏幕显示未连接状态。诊断显示扫描设置。中继设置显示编辑器中尚未保存的修改。点击图片可查看完整分辨率。[宣传插图](play-store-screenshots/README.md)单独维护。
 
 ## 功能
 

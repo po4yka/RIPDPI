@@ -22,14 +22,14 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
 ## See the path, not just a switch
 
 <p align="center">
-  <img src="docs/screenshots/en/01-hero.png" width="200" alt="Promotional panel with the RIPDPI home screen"/>
+  <a href="docs/screenshots/ui/en/home.png"><img src="docs/screenshots/ui/en/home.png" width="360" alt="RIPDPI home screen, disconnected"/></a>
   &nbsp;
-  <img src="docs/screenshots/en/05-diagnostics.png" width="200" alt="Promotional panel with diagnostic scan setup"/>
+  <a href="docs/screenshots/ui/en/diagnostics.png"><img src="docs/screenshots/ui/en/diagnostics.png" width="360" alt="Diagnostic scan setup before a scan"/></a>
   &nbsp;
-  <img src="docs/screenshots/en/03-relays.png" width="200" alt="Promotional panel with relay configuration"/>
+  <a href="docs/screenshots/ui/en/relay.png"><img src="docs/screenshots/ui/en/relay.png" width="360" alt="Outbound relay settings in the editor"/></a>
 </p>
 
-The diagnostics panel shows scan setup. The relay panel shows configuration. More [marketing illustrations](play-store-screenshots/README.md) are kept separately.
+Home is disconnected. Diagnostics shows scan setup. Relay settings show an unsaved edit in the editor. Select an image to open it at full resolution. [Marketing illustrations](play-store-screenshots/README.md) are kept separately.
 
 Instead of a single global policy, RIPDPI classifies each target and network separately, remembers validated outcomes, and makes its failure verdicts visible. Start locally; introduce a relay only when the direct path cannot be recovered.
 
@@ -116,7 +116,6 @@ RIPDPI's design principle: classify each target and each network separately, app
 2. **Mutate the local path when the network is the problem.** Semantic markers, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, QUIC fingerprint variation — assembled from in-repo Rust crates.
 3. **Fall back to a tunneled relay when the direct path is degraded.** The relay matrix above distinguishes native relay-core backends, helper subprocesses, external pluggable transports, and separate VPN/tunnel profile surfaces so unsupported or opt-in paths are not hidden behind one feature label.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
-
 
 ## Features
 
