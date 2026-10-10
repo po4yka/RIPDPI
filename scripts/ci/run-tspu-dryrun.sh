@@ -46,23 +46,13 @@ if [[ ! -s "$REPORT" ]]; then
     exit 3
 fi
 
-PCAP_COUNT="$(find "$ARTIFACT_DIR" -name '*.pcap' -type f | wc -l | tr -d ' ')"
-if [[ "$PCAP_COUNT" -lt 1 ]]; then
-    echo "no pcap artifacts produced under $ARTIFACT_DIR" >&2
-    exit 4
-fi
+echo "--- classifier self-test receipt"
+(
+    cd "$TSPU_DIR"
+    "$PYTHON_BIN" -m runner.expectations \
+        --report "$REPORT" \
+        --repo-root "$ROOT" \
+        --receipt "$ARTIFACT_DIR/classifier-self-test.json"
+)
 
-echo "--- summary"
-"$PYTHON_BIN" - <<PY
-import json, sys
-with open("$REPORT") as fh:
-    report = json.load(fh)
-cells = report.get("cells", [])
-totals = report.get("totals", {})
-print(f"cells={len(cells)} totals={json.dumps(totals, sort_keys=True)}")
-# Sanity: every totals key is a known verdict.
-for verdict in totals:
-    assert verdict in ("bypassed", "blocked", "degraded", "inconclusive"), verdict
-PY
-
-echo "tspu dry-run OK"
+echo "tspu classifier self-test OK (not engine release acceptance)"

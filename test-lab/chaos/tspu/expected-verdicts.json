@@ -1,0 +1,322 @@
+{
+  "expectation_schema_version": 1,
+  "report_schema_version": 1,
+  "matrix_version": 1,
+  "cells": [
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "rst-after-sni-match",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "quic-initial-drop",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "sni-replace",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "ip-blackhole-after-n-bytes",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "mtu-clamp",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:tcp-sni-and-mtu",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:quic-strict",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-tcp-and-blackhole",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "split_offset_3_chlo",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "tlsrandrec_profile_a",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "fakettl_2_then_real",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "quic_initial_with_blocked_sni",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "quic_initial_with_fake_decoy",
+      "verdict": "bypassed"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "large_tls_record_single_packet",
+      "verdict": "blocked"
+    },
+    {
+      "pattern_id": "combo:all-five",
+      "desync_mode_id": "long_lived_flow_post_blackhole",
+      "verdict": "blocked"
+    }
+  ]
+}
