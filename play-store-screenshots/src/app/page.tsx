@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import { getCopy, LOCALES, DEFAULT_LOCALE, type Locale, type SlideCopy } from "@/copy";
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -280,6 +280,7 @@ function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
   const exportSingle = useCallback(
     async (el: HTMLElement, name: string, w: number, h: number) => {
       setExporting(name);
+      const originalStyle = el.getAttribute("style");
       try {
         el.style.position = "fixed";
         el.style.left = "0px";
@@ -287,23 +288,19 @@ function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
         el.style.zIndex = "-1";
         el.style.opacity = "1";
 
-        const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
-        await toPng(el, opts);
-        const dataUrl = await toPng(el, opts);
-
-        el.style.position = "";
-        el.style.left = "";
-        el.style.top = "";
-        el.style.zIndex = "";
-        el.style.opacity = "";
+        const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA", quality: 1 };
+        await toJpeg(el, opts);
+        const dataUrl = await toJpeg(el, opts);
 
         const link = document.createElement("a");
-        link.download = `${name}-${w}x${h}.png`;
+        link.download = `${name}-${w}x${h}.jpg`;
         link.href = dataUrl;
         link.click();
       } catch (err) {
         console.error("Export failed:", err);
       } finally {
+        if (originalStyle === null) el.removeAttribute("style");
+        else el.setAttribute("style", originalStyle);
         setExporting(null);
       }
     },
@@ -318,6 +315,7 @@ function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
       const w = parseInt(el.dataset.slideW || String(PHONE_W));
       const h = parseInt(el.dataset.slideH || String(PHONE_H));
       const name = el.dataset.slideExport!;
+      const originalStyle = el.getAttribute("style");
 
       el.style.position = "fixed";
       el.style.left = "0px";
@@ -325,24 +323,21 @@ function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
       el.style.zIndex = "-1";
       el.style.opacity = "1";
 
-      const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
+      const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA", quality: 1 };
       try {
-        await toPng(el, opts);
-        const dataUrl = await toPng(el, opts);
+        await toJpeg(el, opts);
+        const dataUrl = await toJpeg(el, opts);
         const link = document.createElement("a");
         const prefix = w === FEATURE_GRAPHIC.w ? "feature-graphic" : `${String(i + 1).padStart(2, "0")}-${name}`;
-        link.download = `${prefix}-${w}x${h}.png`;
+        link.download = `${prefix}-${w}x${h}.jpg`;
         link.href = dataUrl;
         link.click();
       } catch (err) {
         console.error(`Export failed for ${name}:`, err);
+      } finally {
+        if (originalStyle === null) el.removeAttribute("style");
+        else el.setAttribute("style", originalStyle);
       }
-
-      el.style.position = "";
-      el.style.left = "";
-      el.style.top = "";
-      el.style.zIndex = "";
-      el.style.opacity = "";
       await new Promise((r) => setTimeout(r, 300));
     }
     setExporting(null);

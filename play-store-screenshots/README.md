@@ -24,6 +24,8 @@ http://localhost:3000/?slide=N&lang=XX
 
 Where `N` is `1..6` or `fg` (feature graphic), and `XX` is one of the 7 locale codes.
 
+The preview cards and **Export All** download quality-1 JPEG files at the full target dimensions. JPEG avoids the RGBA output of browser canvas PNG encoding. Batch capture remains RGB PNG and runs the complete source, layout, and output checks. Browser export preserves each preview's original style on success and failure.
+
 ## Capture the Android sources
 
 Use a dedicated emulator. The capture command resets RIPDPI app data and changes the emulator locale, theme, motion settings, and status bar. Do not use a personal device or an existing acceptance emulator.
@@ -104,4 +106,4 @@ The current listing story and output registry are defined above and in `src/app/
 - Only the three routes listed in the source manifest are current device captures. Other root PNGs (`home-dark`, `settings`, `history`, and other unused files) are retained legacy inputs. The renderer does not use them. Recapture them before any future use.
 - UI freshness uses sorted source paths and SHA-256 content hashes from app main/full/debug/github resources, core main sources, and Android build inputs. It requires no historical Git object and works in shallow CI checkouts. A changed input fails preflight with the paths and the recapture command. Test sources and prose are excluded. The build revision remains provenance; it is not a freshness dependency.
 - Hash validation detects changed sources and files. It does not replace the full-resolution visual review after capture.
-- Google Play rejects RGBA — the `backgroundColor: "#FAFAFA"` in `toPng` options and the Puppeteer `clip` flatten alpha. Do not remove either.
+- Google Play requires RGB PNG or JPEG. An opaque canvas background does not make browser PNG encoding RGB. Interactive export uses JPEG; batch export uses opaque Puppeteer screenshots and verifies RGB PNG headers.
