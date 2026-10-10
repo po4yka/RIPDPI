@@ -618,7 +618,7 @@ The audit checklist for every `assume_init*` call:
 1. **Safe constructors.** `T::default()`, struct literals with all fields named, `Vec::new()` + `push`, `String::new()` + `push_str`, etc.
 2. **`array::from_fn(|i| init(i))`** for arrays that can be initialised by a closure. The closure runs in element order; if it panics mid-build, std's drop guard correctly drops the prefix it built.
 3. **`Vec::with_capacity` + `spare_capacity_mut` + guarded `set_len`** (per "`Vec::set_len` initialisation contract"). The `spare_capacity_mut()` typing keeps `MaybeUninit` visible; writes go through `MaybeUninit::write`; `set_len` runs only after the producer reports `n`.
-4. **`unsafe fn` recv-style API directly accepting `&mut [MaybeUninit<T>]`.** Std's `UdpSocket::recv_from` / `TcpStream::read` / `read_buf` accept `&mut [MaybeUninit<u8>]` natively (Rust 1.85+); no `assume_init` needed because the bytes go through `slice::from_raw_parts(..., received)` to produce a `&[u8]` of exactly the initialised prefix. This is the pattern used at the only `MaybeUninit` production site in the workspace (`ripdpi-privileged-ops/src/linux/experimental_tier3/icmp_wrapped_udp.rs`).
+4. **A receive API with an explicit uninitialised-buffer contract.** `socket2::Socket::recv_from` accepts `&mut [MaybeUninit<u8>]` and initialises the first `received` bytes. The workspace ICMP receive path uses this API: `open_icmp_recv_socket` in `ripdpi-privileged-ops/src/linux/experimental_tier3/raw_socket.rs` returns a `socket2::Socket`, consumed by `icmp_wrapped_udp.rs`. After the receive, the audited `slice::from_raw_parts(..., received)` exposes only the initialised prefix. Do not transfer this contract to std sockets: on the pinned toolchain, std `UdpSocket::recv_from` and `Read::read` for `TcpStream` require `&mut [u8]`; `Read::read_buf` uses `BorrowedCursor`, not a `MaybeUninit` slice. An API's exact type and initialisation guarantee must support the proof before a raw slice is created.
 
 **Anti-patterns.**
 
@@ -631,10 +631,10 @@ The audit checklist for every `assume_init*` call:
 
 | Site | Shape | Audit |
 |---|---|---|
-| `ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` recv buffer, consumed via `slice::from_raw_parts(buf.as_ptr().cast::<u8>(), received)` | Sound. `UdpSocket::recv_from` natively accepts `&mut [MaybeUninit<u8>]` and is documented to initialise the first `received` bytes. The follow-on `slice::from_raw_parts` is allowlisted under issue #6. No `assume_init*` is used. |
+| `ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` recv buffer, consumed via `slice::from_raw_parts(buf.as_ptr().cast::<u8>(), received)` | Sound. The `socket2::Socket::recv_from` contract initialises the first `received` bytes of `&mut [MaybeUninit<u8>]`; this is not std `UdpSocket`. The follow-on `slice::from_raw_parts` is allowlisted under issue #6. No `assume_init*` is used. |
 | `soundness-canaries/.../lib.rs (test)` | Test-mode `&mut [MaybeUninit<u8>]` parameter in `simulated_recv_fill` | Sound. Issue #16 regression test demonstrating the workspace's recommended `with_capacity + spare_capacity_mut + set_len` idiom. Miri-validated. |
 
-**ZERO production `assume_init` / `assume_init_ref` / `assume_init_mut` / `assume_init_drop` / `assume_init_read` calls** in the entire workspace. Every byte-fill operation goes through either `recv_from(&mut [MaybeUninit<u8>])` followed by `slice::from_raw_parts` (issue-#6-audited) or `Vec::with_capacity + spare_capacity_mut + MaybeUninit::write + set_len` (issue-#16-audited). The scanner enforces zero baseline going forward.
+**ZERO production `assume_init` / `assume_init_ref` / `assume_init_mut` / `assume_init_drop` / `assume_init_read` calls** in the entire workspace. Every byte-fill operation goes through either `socket2::Socket::recv_from(&mut [MaybeUninit<u8>])` followed by `slice::from_raw_parts` (issue-#6-audited) or `Vec::with_capacity + spare_capacity_mut + MaybeUninit::write + set_len` (issue-#16-audited). The scanner enforces zero baseline going forward.
 
 **Allowlist entry requirements.** An `MaybeUninit::assume_init` allowlist entry's `enforcement` field MUST address every point as FIVE NAMED mandatory fields:
 
