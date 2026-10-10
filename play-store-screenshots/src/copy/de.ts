@@ -17,7 +17,7 @@ export const de: SlideCopy = {
       { title: "Oder eigenes Relay", desc: "VLESS, Hysteria2, Tor & mehr" },
       { title: "Verschlüsseltes DNS", desc: "DoH, DoT, DNSCrypt" },
     ],
-    bottomBadge: "Auf jedem Gerät einsetzbar",
+    bottomBadge: "Android 8.1+ · Ohne Root",
   },
 
   slide3: {

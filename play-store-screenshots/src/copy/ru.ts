@@ -17,7 +17,7 @@ export const ru: SlideCopy = {
       { title: "Или свой релей", desc: "VLESS, Hysteria2, Tor и другие" },
       { title: "Шифрованный DNS внутри", desc: "DoH, DoT, DNSCrypt" },
     ],
-    bottomBadge: "Работает на любом устройстве",
+    bottomBadge: "Android 8.1+ · Без root",
   },
 
   slide3: {

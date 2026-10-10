@@ -20,7 +20,7 @@ export const fr: SlideCopy = {
       { title: "Ou votre propre relais", desc: "VLESS, Hysteria2, Tor & plus" },
       { title: "DNS chiffré intégré", desc: "DoH, DoT, DNSCrypt" },
     ],
-    bottomBadge: "Compatible avec tout appareil",
+    bottomBadge: "Android 8.1+ · Sans root",
   },
 
   slide3: {

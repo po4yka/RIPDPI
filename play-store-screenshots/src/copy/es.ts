@@ -17,7 +17,7 @@ export const es: SlideCopy = {
       { title: "O tu propio relé", desc: "VLESS, Hysteria2, Tor y más" },
       { title: "DNS cifrado integrado", desc: "DoH, DoT, DNSCrypt" },
     ],
-    bottomBadge: "Compatible con cualquier dispositivo",
+    bottomBadge: "Android 8.1+ · Sin root",
   },
 
   slide3: {

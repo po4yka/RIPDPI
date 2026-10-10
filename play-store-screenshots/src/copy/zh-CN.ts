@@ -17,7 +17,7 @@ export const zhCN: SlideCopy = {
       { title: "或用自有中继", desc: "VLESS、Hysteria2、Tor 等" },
       { title: "内置加密 DNS", desc: "DoH、DoT、DNSCrypt" },
     ],
-    bottomBadge: "任何设备都能用",
+    bottomBadge: "Android 8.1+ · 无需 root",
   },
 
   slide3: {

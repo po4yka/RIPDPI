@@ -17,7 +17,7 @@ export const fa: SlideCopy = {
       { title: "یا رلهٔ خودتان", desc: "VLESS، Hysteria2، Tor و بیشتر" },
       { title: "DNS رمزنگاری‌شدهٔ داخلی", desc: "DoH، DoT، DNSCrypt" },
     ],
-    bottomBadge: "روی هر دستگاهی",
+    bottomBadge: "اندروید ۸٫۱ به بالا · بدون روت",
   },
 
   slide3: {
