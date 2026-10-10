@@ -163,6 +163,14 @@ cd RIPDPI
 
 APK 输出位于对应变体目录中，例如 `app/build/outputs/apk/githubFull/debug/`；release 任务和路径请参阅 [distribution.md](docs/distribution.md)。
 
+本地 debug 构建为 Snowflake、obfs4、WebTunnel 和 Cloudflare 发布辅助程序使用 stub 启动器。这些辅助程序无法在默认 debug APK 中传输流量。要构建真实辅助程序，除上述 Rust/NDK 工具外，还需安装 Go 和 Git，并能访问固定版本的仓库与 Go 模块。Go 工具链版本来自[源清单](native/pluggable-transports/sources.json)。启用严格错误处理，使辅助程序构建失败时终止构建：
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## 测试
 
 ```bash

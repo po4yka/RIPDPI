@@ -163,6 +163,14 @@ Les compilations locales utilisent par défaut `host` (`ripdpi.localNativeAbisDe
 
 Les APK sont produits dans des répertoires propres aux variantes, par exemple `app/build/outputs/apk/githubFull/debug/` ; consultez [distribution.md](docs/distribution.md) pour les tâches et chemins de release.
 
+Les builds debug locaux utilisent des lanceurs stub pour Snowflake, obfs4, WebTunnel et le helper de publication Cloudflare. Ces helpers ne transmettent pas de trafic dans cet APK debug. Pour produire les vrais helpers, installez Go et Git en plus des outils Rust/NDK ci-dessus ; il faut accéder aux dépôts fixés et aux modules Go. Les versions de Go sont dans [le manifeste des sources](native/pluggable-transports/sources.json). Activez les erreurs strictes pour arrêter le build si un helper ne peut pas être compilé :
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Tests
 
 ```bash

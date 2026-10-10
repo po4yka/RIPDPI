@@ -163,6 +163,14 @@ cd RIPDPI
 
 APK आउटपुट variant-विशिष्ट directories में बनते हैं, उदाहरण के लिए `app/build/outputs/apk/githubFull/debug/`; release tasks और paths के लिए [distribution.md](docs/distribution.md) देखें।
 
+स्थानीय debug builds Snowflake, obfs4, WebTunnel और Cloudflare publish helper के लिए stub launchers का उपयोग करते हैं। ये helpers डिफ़ॉल्ट debug APK में ट्रैफ़िक नहीं भेज सकते। वास्तविक helpers के लिए ऊपर दिए Rust/NDK tools के साथ Go और Git तथा pinned repositories और Go modules तक पहुँच चाहिए। Go versions [source manifest](native/pluggable-transports/sources.json) में हैं। Strict failures सक्षम करें ताकि helper build विफल होने पर build रुक जाए:
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Testing
 
 ```bash

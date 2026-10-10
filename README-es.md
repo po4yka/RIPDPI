@@ -163,6 +163,14 @@ Las compilaciones locales utilizan por defecto `host` (`ripdpi.localNativeAbisDe
 
 Los APK se generan en directorios específicos de variante, por ejemplo `app/build/outputs/apk/githubFull/debug/`; consulta [distribution.md](docs/distribution.md) para las tareas y rutas de release.
 
+Las compilaciones debug locales usan lanzadores stub para Snowflake, obfs4, WebTunnel y el auxiliar de publicación de Cloudflare. Esos auxiliares no pueden transmitir tráfico en el APK debug predeterminado. Para crear auxiliares reales, instale Go y Git además de las herramientas Rust/NDK anteriores; se necesita acceso a los repositorios fijados y los módulos Go. Las versiones de Go están en [el manifiesto de fuentes](native/pluggable-transports/sources.json). Active los fallos estrictos para que un fallo del auxiliar detenga la compilación:
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Pruebas
 
 ```bash

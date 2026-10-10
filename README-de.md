@@ -163,6 +163,14 @@ Lokale Builds verwenden standardmäßig `host` (`ripdpi.localNativeAbisDefault`)
 
 APK-Ausgaben liegen in variantenspezifischen Verzeichnissen, zum Beispiel `app/build/outputs/apk/githubFull/debug/`; Release-Aufgaben und -Pfade stehen in [distribution.md](docs/distribution.md).
 
+Lokale Debug-Builds verwenden Stub-Starter für Snowflake, obfs4, WebTunnel und den Cloudflare-Publish-Helfer. Diese Helfer können im Standard-Debug-APK keinen Verkehr übertragen. Für echte Helfer sind zusätzlich zu Rust/NDK Go und Git sowie Zugriff auf die festgelegten Repositories und Go-Module erforderlich. Die Go-Versionen stehen im [Quellmanifest](native/pluggable-transports/sources.json). Strikte Fehlerbehandlung stoppt den Build, wenn ein Helfer nicht gebaut werden kann:
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Tests
 
 ```bash

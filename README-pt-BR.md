@@ -177,6 +177,14 @@ Builds locais usam `host` como padrão (`ripdpi.localNativeAbisDefault`), que co
 
 A saída do APK é específica por flavor, por exemplo `app/build/outputs/apk/githubFull/debug/`; consulte [distribution.md](docs/distribution.md) para conhecer as tarefas e os caminhos de release.
 
+Builds debug locais usam launchers stub para Snowflake, obfs4, WebTunnel e o auxiliar de publicação Cloudflare. Esses auxiliares não transmitem tráfego no APK debug padrão. Para gerar auxiliares reais, instale Go e Git além das ferramentas Rust/NDK acima; é preciso acessar os repositórios fixados e os módulos Go. As versões de Go estão no [manifesto de fontes](native/pluggable-transports/sources.json). Ative falhas estritas para interromper o build se um auxiliar não puder ser compilado:
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Testes
 
 ```bash

@@ -177,6 +177,14 @@ Local builds default to `host` (`ripdpi.localNativeAbisDefault`), which resolves
 
 APK output is flavor-specific, for example `app/build/outputs/apk/githubFull/debug/`; see [distribution.md](docs/distribution.md) for release tasks and paths.
 
+Local debug builds use stub launchers for Snowflake, obfs4, WebTunnel, and the Cloudflare publish helper. Those helpers cannot carry traffic in the default debug APK. To build real helper assets, install Go and Git in addition to the Rust/NDK tools above; source builds need access to the pinned repositories and Go modules. The Go toolchain versions come from [the source manifest](native/pluggable-transports/sources.json). Use strict failures so a failed helper build stops the build:
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Testing
 
 ```bash

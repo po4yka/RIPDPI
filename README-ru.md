@@ -163,6 +163,14 @@ cd RIPDPI
 
 APK создаются в каталогах вариантов, например `app/build/outputs/apk/githubFull/debug/`; задачи и пути release-сборок описаны в [distribution.md](docs/distribution.md).
 
+Локальная debug-сборка использует заглушки запуска Snowflake, obfs4, WebTunnel и помощника публикации Cloudflare. В таком APK эти помощники не передают трафик. Для настоящих helper assets нужны Go и Git в дополнение к Rust/NDK выше, а также доступ к закреплённым репозиториям и модулям Go. Версии Go заданы в [манифесте исходников](native/pluggable-transports/sources.json). Включите строгую обработку ошибок, чтобы сбой сборки помощника остановил сборку:
+
+```bash
+./gradlew assembleDebug \
+  -Pripdpi.pluggableTransportAssetsMode=source \
+  -Pripdpi.pluggableTransportAssetsStrictFailures=true
+```
+
 ## Тестирование
 
 ```bash
