@@ -195,4 +195,4 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 ## 翻译 RIPDPI
 
-翻译由社区通过 GitHub 拉取请求（pull request）贡献。如需新增或改进某个语言，请参阅 [docs/localization.md](docs/localization.md)。每条字符串在合并前都会经过人工审核；机器翻译只是起点，绝不是最终文案。
+翻译由社区通过 GitHub pull request 贡献。新增或改进语言请参阅 [docs/localization.md](docs/localization.md)，各语言的审核状态与日期见[来源记录](docs/localization-provenance.md)。结构检查不能证明语言准确性；阿拉伯语、印地语和巴西葡萄牙语仍待母语使用者审核。

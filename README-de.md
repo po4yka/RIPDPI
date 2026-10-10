@@ -195,4 +195,4 @@ Details: [docs/testing.md](docs/testing.md)
 
 ## RIPDPI übersetzen
 
-Übersetzungen werden von der Community über GitHub-Pull-Requests beigetragen. Wie du eine Sprache hinzufügst oder verbesserst, beschreibt [docs/localization.md](docs/localization.md). Jede Zeichenkette wird vor dem Merge von einem Menschen geprüft; maschinelle Übersetzung ist nur ein Ausgangspunkt, niemals der endgültige Text.
+Übersetzungen werden von der Community über GitHub-Pull-Requests beigetragen. Hinweise zum Hinzufügen oder Verbessern einer Sprache stehen in [docs/localization.md](docs/localization.md), Status und Prüfdaten im [Herkunftsverzeichnis](docs/localization-provenance.md). Strukturprüfungen belegen keine sprachliche Genauigkeit; Arabisch, Hindi und brasilianisches Portugiesisch warten noch auf eine Prüfung durch Muttersprachler.

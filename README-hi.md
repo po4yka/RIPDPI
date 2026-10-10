@@ -210,4 +210,4 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 ## RIPDPI का अनुवाद करें
 
-अनुवाद GitHub pull requests के माध्यम से समुदाय द्वारा योगदान किए जाते हैं। किसी locale को जोड़ने या सुधारने के तरीके के लिए [docs/localization.md](docs/localization.md) देखें। प्रत्येक string को मर्ज होने से पहले एक मनुष्य द्वारा समीक्षा की जाती है; मशीनी अनुवाद केवल एक शुरुआती बिंदु है, कभी भी अंतिम प्रति नहीं।
+अनुवाद GitHub pull requests के माध्यम से समुदाय द्वारा योगदान किए जाते हैं। किसी locale को जोड़ने या सुधारने के लिए [docs/localization.md](docs/localization.md) और review की स्थिति व तारीखों के लिए [provenance ledger](docs/localization-provenance.md) देखें। संरचनात्मक जाँच भाषाई सटीकता सिद्ध नहीं करती; अरबी, हिन्दी और ब्राज़ीलियाई पुर्तगाली अभी native-speaker review की प्रतीक्षा में हैं।

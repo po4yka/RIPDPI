@@ -195,4 +195,4 @@ Détails : [docs/testing.md](docs/testing.md)
 
 ## Traduire RIPDPI
 
-Les traductions sont fournies par la communauté via des pull requests GitHub. Consultez [docs/localization.md](docs/localization.md) pour savoir comment ajouter ou améliorer une langue. Chaque chaîne est relue par un humain avant d'être fusionnée ; la traduction automatique n'est qu'un point de départ, jamais le texte final.
+Les traductions sont des contributions de la communauté via des pull requests GitHub. Consultez [docs/localization.md](docs/localization.md) pour ajouter ou améliorer une langue et [le registre de provenance](docs/localization-provenance.md) pour les statuts et dates de révision. Les contrôles structurels ne prouvent pas la justesse linguistique ; l'arabe, le hindi et le portugais brésilien attendent encore une révision par des locuteurs natifs.

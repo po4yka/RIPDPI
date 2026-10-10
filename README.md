@@ -224,4 +224,4 @@ Details: [docs/testing.md](docs/testing.md)
 
 ## Translate RIPDPI
 
-Translations are community-contributed through GitHub pull requests. See [docs/localization.md](docs/localization.md) for how to add or improve a locale and [the provenance ledger](docs/localization-provenance.md) for each locale's machine-translation and review status.
+Translations are community contributions through GitHub pull requests. See [docs/localization.md](docs/localization.md) for how to add or improve a locale and [the provenance ledger](docs/localization-provenance.md) for each locale and review date. Structural checks do not establish linguistic accuracy; Arabic, Hindi, and Brazilian Portuguese still await a native-speaker review.
