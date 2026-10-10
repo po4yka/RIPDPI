@@ -377,10 +377,13 @@ must still classify cleanly on non-root devices (degrade, do not crash).
 
 ### Compatibility checks
 
-- **Privacy is non-negotiable.** Hash inputs must stay inside the canonical
-  recipe in [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md):
-  never put IMEI/IMSI, raw BSSID/SSID, or device IPs into the hash, logs,
-  telemetry, goldens, or any persisted artifact.
+- **Privacy is non-negotiable.** Preserve the canonical hash recipe in
+  `NetworkFingerprint.canonicalParts()` and
+  [`.claude/rules/network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md).
+  Current transient hash inputs include SSID, BSSID, gateway, DNS addresses,
+  and cellular identity fields. Never persist or log these raw inputs
+  separately, or include them in telemetry, crash reports, or goldens.
+  Never add IMEI, IMSI, or user-account identifiers to the recipe.
 - Only the SHA-256 hash + a non-sensitive summary may be persisted.
 - A scope-key change orphans every existing remembered policy — treat the
   key recipe as a migration-bearing contract.
