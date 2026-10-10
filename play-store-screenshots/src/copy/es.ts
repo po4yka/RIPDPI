@@ -47,7 +47,7 @@ export const es: SlideCopy = {
     "Estado de conexión y tráfico",
     "Resultados de la prueba de tu red",
     "Elige un transporte para tu perfil",
-    "DNS cifrado y selección de servidor",
+    "DoH propio y opciones de IPv6",
     "Ajusta los paquetes de tu conexión",
     "Exporta y restaura tu configuración"
   ]

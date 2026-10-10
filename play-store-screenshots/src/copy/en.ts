@@ -47,7 +47,7 @@ export const en: SlideCopy = {
     "See connection state and traffic",
     "Read your network check results",
     "Choose a transport for your profile",
-    "Choose encrypted DNS and a resolver",
+    "Set custom DoH and IPv6 options",
     "Adjust packet settings for your connection",
     "Export and restore your configuration"
   ]
