@@ -225,7 +225,8 @@ itself unavailable on the device must produce a clean "unavailable" outcome or
 | Dispatch site | Privileged commands | Fallback |
 |---------------|---------------------|----------|
 | `fake_send/root_helper_dispatch.rs` → callers `fake_send/{fake_rst,fake_tcp,flagged_payload,ordered_segments,seqovl}.rs` | `send_fake_rst/tcp`, `send_flagged_tcp_payload`, `send_ordered_tcp_segments`, `send_seqovl_tcp` | `if let Some(result) = …dispatch::send_*(…) { return result }` → local `ripdpi_privileged_ops::send_*` |
-| `ip_fragmentation/tcp_fragment.rs` | `send_ip_fragmented_tcp`, `send_multi_disorder_tcp` | `if let Some(result) = with_root_helper(…) { return result }` → local `ripdpi_privileged_ops::*` |
+| `ip_fragmentation/tcp_fragment.rs` | `send_ip_fragmented_tcp` | `if let Some(result) = with_root_helper(…) { return result }` → local `ripdpi_privileged_ops::send_ip_fragmented_tcp` |
+| `ip_fragmentation/multi_disorder.rs` | `send_multi_disorder_tcp` | `if let Some(result) = with_root_helper(…) { return result }` → local `ripdpi_privileged_ops::send_multi_disorder_tcp` |
 | `ip_fragmentation/udp.rs` | `send_ip_fragmented_udp` | same |
 | `ip_fragmentation/capabilities.rs` | `probe_capabilities` | `with_root_helper(…)` → local `probe_ip_fragmentation_capabilities` |
 | `experimental_tier3.rs` | `send_syn_hide_tcp`, `send_icmp_wrapped_udp`, `recv_icmp_wrapped_udp`, `send_raw_ip_packet` | `if let Some(result) = with_root_helper(…) { return result }` → local `ripdpi_privileged_ops::*` |
