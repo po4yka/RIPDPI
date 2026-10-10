@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-10
+goal: UIX-1791637564152260 Fix Google Play visual audit findings with real app
+  screens
