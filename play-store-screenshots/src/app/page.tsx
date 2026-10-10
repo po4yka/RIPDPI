@@ -69,7 +69,7 @@ function Caption({ copy, index, bottom = false, align = "start", dark = false }:
         align === "end" ? "auto 0" : "0 auto" }}>
       {copy.headlines[index].map((line, i) => <span key={line}>{line}{i === 0 && <br />}</span>)}
     </h1>
-    <p data-overlay-text data-description style={{ margin: "20px 0 0", fontSize: 48,
+    <p data-overlay-text data-description style={{ margin: "40px 0 0", fontSize: 48,
       lineHeight: 1.25, width: "fit-content", maxWidth: "100%", color: dark ? BRAND.mutedFg : BRAND_LIGHT.mutedFg,
       marginInline: align === "center" ? "auto" : align === "end" ? "auto 0" : "0 auto" }}>
       {copy.descriptions[index]}

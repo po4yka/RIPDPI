@@ -87,6 +87,13 @@ async function main() {
             textArea += Math.max(box.width * box.height, glyphs.width * glyphs.height);
             textRects.push(glyphs);
           }
+          for (let i = 0; i < textRects.length; i++) {
+            for (let j = i + 1; j < textRects.length; j++) {
+              const a = textRects[i], b = textRects[j];
+              if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top)
+                throw new Error("Marketing text blocks overlap");
+            }
+          }
           const textFraction = textArea / (bounds.width * bounds.height);
           if (textFraction > 0.2) throw new Error(`Text envelope exceeds 20%: ${textFraction}`);
           const headline = slide.querySelector("h1");
