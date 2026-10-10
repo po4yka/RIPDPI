@@ -1047,7 +1047,7 @@ fakeddisorder endhost</string>
         <item quantity="one">, %d fehlgeschlagen</item>
         <item quantity="other">, %d fehlgeschlagen</item>
     </plurals>
-    <string name="strategy_config_editor_label">Bypass strategy</string>
+    <string name="strategy_config_editor_label">Umgehungsstrategie</string>
     <string name="strategy_config_import_empty">Die ausgewählte Datei ist leer.</string>
     <string name="strategy_config_imported_title">Konfiguration importiert</string>
     <string name="strategy_config_lua_function_placeholder">nach Laden automatisch erkannt</string>

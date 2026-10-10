@@ -1444,7 +1444,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_path_datastore">Settings DataStore / استراتيجية التجاوز</string>
     <string name="strategy_config_path_imported">مخزن مؤقت للنص المستورد</string>
     <string name="strategy_config_path_not_selected">لم يُحدد نص برمجي</string>
-    <string name="strategy_config_editor_label">Bypass strategy</string>
+    <string name="strategy_config_editor_label">استراتيجية التجاوز</string>
     <string name="strategy_config_export_action">تصدير</string>
     <string name="strategy_config_export_title">تصدير إعداد الاستراتيجية</string>
     <string name="strategy_config_reload_action">إعادة تحميل</string>

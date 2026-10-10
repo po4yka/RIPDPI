@@ -988,7 +988,7 @@ fakeddisorder endhost</string>
     <plurals name="stage_failed_chip">
         <item quantity="other">%d 项失败</item>
     </plurals>
-    <string name="strategy_config_editor_label">Bypass strategy</string>
+    <string name="strategy_config_editor_label">绕过策略</string>
     <string name="strategy_config_export_title">导出策略配置</string>
     <string name="strategy_config_import_unreadable">所选文件无法读取。</string>
     <string name="strategy_config_load_action">加载</string>

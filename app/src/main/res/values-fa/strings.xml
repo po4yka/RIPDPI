@@ -2251,7 +2251,7 @@ fakeddisorder endhost</string>
         <item quantity="one">%d ناموفق</item>
         <item quantity="other">%d ناموفق</item>
     </plurals>
-    <string name="strategy_config_editor_label">Bypass strategy</string>
+    <string name="strategy_config_editor_label">راهبرد دور زدن</string>
     <string name="strategy_config_import_empty">فایل انتخاب‌شده خالی است.</string>
     <string name="strategy_config_import_unreadable">فایل انتخاب‌شده قابل خواندن نبود.</string>
     <string name="strategy_config_invalid_title">پیکربندی اعتبارسنجی نشد</string>
