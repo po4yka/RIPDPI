@@ -270,7 +270,6 @@ for suffix, field in fields.items():
 subprocess.run(["bash", "scripts/ci/run-phase16-matrix-entry.sh"],
                env=environment, check=True)
 PY_PHASE16
-python3 scripts/ci/phase16_pcap_summary.py --artifact-root "build/phase16-matrix/$entry_id"
 ```
 
 The entry runner requires `PHASE16_ENTRY_ID` and `PHASE16_EXECUTION_KIND`;
@@ -279,6 +278,13 @@ metadata fields, as `.github/workflows/phase16-matrix.yml` does, so evidence
 keeps the correct transport, fault, and tier. Select an entry only after its
 runner prerequisites are available; do not substitute a synthetic row for
 physical-network evidence.
+
+The runner writes `phase16-run.json` and `phase16-pcap-summary.json` under
+`build/phase16-matrix/<entry-id>/`, including when the release gate fails.
+A nonzero exit code means that the run did not pass its gate. For the synthetic
+L7 row, read `l7-adversarial/verdict-report.json` and the summary's
+`l7Adversarial.failedCells`; the dry-run can complete and still fail this gate.
+Do not treat a completed dry-run as a passing release check.
 
 - `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
 - Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, and even explicitly filtered real-provider rows require `workflow_dispatch` with `include_real_provider=true`.
