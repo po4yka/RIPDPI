@@ -2,7 +2,7 @@
 id: UIX-1791634100675692
 title: Present verified Google Play marketing assets in READMEs
 kind: chore
-status: doing
+status: done
 area: ui
 priority: high
 owner: Play Store presentation maintainer
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-10
 updated: 2026-10-10
 spec_reason: tooling-only
+closed_at: "2026-10-10T12:26:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Integrated and pushed main at 4d91edec61d0bcb18b071be9da387112d170d972; git ls-remote confirmed the same SHA. Production renderer and 49 layout pages passed; largest text envelope 11.24 percent. Strict validator passed all 56 RGB PNGs, source provenance passed 21 unchanged Android frames, five source validator tests passed, and nine README selectors and all image paths passed. Independent visual review checked all locales and found no remaining actionable issue. Actual browser clicks exported eight RGB JPEGs; the forced encoding failure restored preview styles. Combined harness-check, task contracts, architecture-health (zero new or worsened indicators) and locked Cargo metadata passed. Autoreview --mode commit on the combined text review projection 3560b5ba4d5a46b5f7832a9adf33cc3cb3ea3114 exited zero with no findings; binary assets were covered by strict validation and independent visual review. Google Play upload and acceptance were not requested or tested; remote CI was pending at push.
 ---
 
 ## Goal
