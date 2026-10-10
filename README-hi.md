@@ -147,6 +147,8 @@ Relay ट्रैफ़िक गोपनीयता आपके द्व�
 
 आवश्यकताएँ: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, आवश्यक ABIs के लिए Android Rust targets, [`just`](https://just.systems) (task runner; `justfile` recipes CI को प्रतिबिंबित करती हैं), और [`lefthook`](https://github.com/evilmartians/lefthook) (pre-commit gates को वायर करने के लिए एक बार `lefthook install` चलाएँ)।
 
+नए checkout में APK packaging से पहले परियोजना के patches वाला वास्तविक libXray AAR भी चाहिए। [libXray packaging](docs/native/libxray-packaging.md#build) के अनुसार amd64 Go, pinned `gomobile` और `gobind`, तथा `ANDROID_NDK_HOME` तैयार करें। Producer को नया या खाली `native/xray/artifacts/` directory और pinned sources तक पहुँच चाहिए। वर्तमान versions से मेल खाने वाली verified artifact directory को पुनः उपयोग करने के लिए Gradle को `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` दें; packaging gate फिर भी उस directory को verify करता है।
+
 Android CLI 1.0+ से आवश्यक SDK पैकेज स्थापित करें:
 
 ```bash
@@ -156,6 +158,8 @@ android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

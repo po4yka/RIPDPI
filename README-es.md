@@ -147,6 +147,8 @@ La privacidad del tráfico de relevo depende del endpoint de relevo y del perfil
 
 Requisitos: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain de Rust `1.98.1`, targets de Rust para Android para las ABI necesarias.
 
+Un checkout nuevo también necesita el AAR real de libXray con los parches del proyecto antes de empaquetar el APK. Prepare Go amd64, las versiones fijadas de `gomobile` y `gobind`, y `ANDROID_NDK_HOME` según [la guía de libXray](docs/native/libxray-packaging.md#build). El productor necesita un directorio `native/xray/artifacts/` nuevo o vacío y acceso a las fuentes fijadas. Para reutilizar un directorio verificado compatible con las versiones actuales, pase `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` a Gradle; la comprobación de empaquetado sigue verificándolo.
+
 Instale los paquetes SDK necesarios con Android CLI 1.0+:
 
 ```bash
@@ -156,6 +158,8 @@ android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

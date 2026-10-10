@@ -147,6 +147,8 @@ La confidentialité du trafic de relais dépend du point de terminaison et du pr
 
 Prérequis : JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, chaîne d'outils Rust `1.98.1`, cibles Rust Android pour les ABI nécessaires.
 
+Un checkout neuf nécessite aussi le vrai AAR libXray avec les correctifs du projet avant de créer l'APK. Préparez Go amd64, les versions fixées de `gomobile` et `gobind`, ainsi que `ANDROID_NDK_HOME` selon [la procédure libXray](docs/native/libxray-packaging.md#build). Le producteur nécessite un dossier `native/xray/artifacts/` neuf ou vide et un accès aux sources fixées. Pour réutiliser un dossier vérifié conforme aux versions actuelles, passez `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` à Gradle ; la vérification avant empaquetage reste active.
+
 Installez les paquets SDK requis avec Android CLI 1.0+ :
 
 ```bash
@@ -156,6 +158,8 @@ android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

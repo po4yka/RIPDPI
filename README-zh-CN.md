@@ -147,6 +147,8 @@ RIPDPI 记录用于诊断和故障排除的操作元数据：网络快照、解�
 
 要求：JDK 17、Android SDK (platform `37`, CMake `3.31.6`)、Android NDK `29.0.14206865`、Rust 工具链 `1.98.1`、所需 ABI 的 Android Rust 目标。
 
+新的 checkout 在打包 APK 前还需要带有项目补丁的真实 libXray AAR。按 [libXray 打包说明](docs/native/libxray-packaging.md#build)准备 amd64 Go、固定版本的 `gomobile` 和 `gobind` 以及 `ANDROID_NDK_HOME`。生成脚本需要新的或空的 `native/xray/artifacts/` 目录，并能访问固定版本的源码。要复用已经验证且符合当前版本的产物目录，可向 Gradle 传入 `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts`；打包检查仍会验证该目录。
+
 使用 Android CLI 1.0+ 安装所需 SDK 软件包：
 
 ```bash
@@ -156,6 +158,8 @@ android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

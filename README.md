@@ -33,11 +33,15 @@ Instead of a single global policy, RIPDPI classifies each target and network sep
 
 ## Quick start
 
+Prepare the [build prerequisites](#build-requirements), including the real libXray AAR toolchain, before running these commands.
+
 Build the Android debug APK from source:
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 
@@ -161,6 +165,8 @@ Multi-hop relay chains carry an ordered list of 2-4 TCP hops (entry, optional in
 
 Requirements: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, Android Rust targets for the needed ABIs, [`just`](https://just.systems) (task runner; `justfile` recipes mirror CI), and [`lefthook`](https://github.com/evilmartians/lefthook) (run `lefthook install` once to wire the pre-commit gates).
 
+A fresh checkout also needs the real patched libXray AAR before APK packaging. Prepare the amd64 Go toolchain, pinned `gomobile` and `gobind`, and `ANDROID_NDK_HOME` as described in [libXray packaging](docs/native/libxray-packaging.md#build). The producer needs a new or empty `native/xray/artifacts/` directory and network access to the pinned sources. To reuse a verified matching artifact directory, pass `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` to Gradle. The packaging gate still verifies that directory.
+
 Install the required SDK packages with Android CLI 1.0+:
 
 ```bash
@@ -170,6 +176,8 @@ android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

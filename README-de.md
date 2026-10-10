@@ -147,6 +147,8 @@ Der Datenschutz des Relay-Verkehrs hängt von dem von Ihnen konfigurierten Relay
 
 Voraussetzungen: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust-Toolchain `1.98.1`, Android-Rust-Targets für die benötigten ABIs.
 
+Ein neuer Checkout benötigt vor der APK-Paketierung auch das echte libXray-AAR mit den Projekt-Patches. amd64-Go, die festgelegten Versionen von `gomobile` und `gobind` sowie `ANDROID_NDK_HOME` gemäß [libXray-Anleitung](docs/native/libxray-packaging.md#build) vorbereiten. Der Erzeuger benötigt ein neues oder leeres Verzeichnis `native/xray/artifacts/` und Zugriff auf die festgelegten Quellen. Ein geprüftes, zu den aktuellen Versionen passendes Artefaktverzeichnis lässt sich mit `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` an Gradle übergeben; die Paketierungsprüfung bleibt aktiv.
+
 Die erforderlichen SDK-Pakete mit Android CLI 1.0+ installieren:
 
 ```bash
@@ -156,6 +158,8 @@ android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 
