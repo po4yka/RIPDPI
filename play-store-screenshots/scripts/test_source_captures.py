@@ -70,6 +70,29 @@ class SourceCaptureTests(unittest.TestCase):
             device.verify_locale("ru")
         device.verify_locale("en")
 
+    def test_relay_recapture_cannot_change_the_apk_producer_receipt(self):
+        self.data["runReceipts"]["fullBatchCapturedAtUtc"] = "2026-10-10T00:00:00+00:00"
+        self.data["runReceipts"]["frameRecaptures"] = {"fa/relay": {
+            "observedAtUtc": "2026-10-10T00:00:00+00:00", "apkSha256": self.data["apk"]["sha256"],
+            "builtFromRevision": self.data["builtFromRevision"], "captureToolRevision": "1" * 40,
+            "previousSha256": "2" * 64, "sha256": self.data["images"]["play-store-screenshots/public/screenshots/fa/relay.png"],
+            "fullBatchCapturedAtUtc": "2026-10-10T00:00:00+00:00", "previousManifestSha256": "3" * 64}}
+        self.save()
+        self.assertEqual(self.validate(), [])
+        self.data["runReceipts"]["frameRecaptures"]["fa/relay"]["apkSha256"] = "0" * 64
+        self.save()
+        self.assertTrue(any("truthful producer" in error for error in self.validate()))
+
+    def test_unapplied_complete_relay_viewports_are_rejected(self):
+        for locale in ("fa", "zh-CN"):
+            with self.subTest(locale=locale):
+                self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
+                    **DISPLAY_PROFILES["relay"], "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
+                self.save()
+                self.assertTrue(any("per-frame density" in error for error in self.validate()))
+                self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
+                    **display_profile(locale, "relay"), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
+
     def test_unobserved_dns_focus_is_rejected(self):
         self.data["runReceipts"]["dnsFocus"]["ru"]["observedBottomScrollPixels"] = 0
         self.save()

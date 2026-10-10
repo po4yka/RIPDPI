@@ -39,6 +39,18 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     if manifest.get("state", {}).get("statusBar") != STATUS_BAR:
         errors.append("Use the native Android status bar without synthetic demo indicators.")
     receipts = manifest.get("runReceipts", {})
+    for frame, receipt in receipts.get("frameRecaptures", {}).items():
+        path = f"play-store-screenshots/public/screenshots/{frame}.png"
+        if (frame not in ("fa/relay", "zh-CN/relay") or not receipt.get("observedAtUtc")
+                or receipt.get("apkSha256") != manifest.get("apk", {}).get("sha256")
+                or receipt.get("builtFromRevision") != manifest.get("builtFromRevision")
+                or not re.fullmatch(r"[a-f0-9]{40}", receipt.get("captureToolRevision", ""))
+                or not re.fullmatch(r"[a-f0-9]{64}", receipt.get("previousSha256", ""))
+                or not receipt.get("fullBatchCapturedAtUtc")
+                or receipt.get("fullBatchCapturedAtUtc") != receipts.get("fullBatchCapturedAtUtc")
+                or not re.fullmatch(r"[a-f0-9]{64}", receipt.get("previousManifestSha256", ""))
+                or receipt.get("sha256") != manifest.get("images", {}).get(path)):
+            errors.append("Missing truthful producer and hash receipts for a recaptured relay frame.")
     vpn = receipts.get("vpn", {})
     diagnostic = receipts.get("diagnostics", {})
     if (vpn.get("service") != "RipDpiVpnService" or vpn.get("transport") != "VPN CONNECTED; owner com.poyka.ripdpi"
