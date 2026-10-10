@@ -343,10 +343,18 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
 
 **Current state.** Versioning is explicit for native-facing JSON contracts:
 
-- The **diagnostics engine** request/report/progress wire uses schema `5` on
-  both Kotlin and Rust. `schemaVersion` is required; missing, older, and future
-  versions are rejected. The bundled diagnostics catalog has an independent
-  schema and is not part of this engine envelope.
+- The **diagnostics engine** live request/report/progress wire uses schema `9`
+  on both Kotlin and Rust. `schemaVersion` is required; missing, older, and
+  future versions are rejected at the live boundary. The version is defined by
+  Kotlin `DiagnosticsEngineSchemaVersion` in
+  `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt`
+  and Rust `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` in
+  `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs`.
+  Reading stored reports is a separate compatibility path:
+  `DiagnosticsContractCodecs.kt` accepts stored report schema `8` and current
+  schema `9`; that does not permit schema `8` at the live JNI boundary.
+  The bundled diagnostics catalog has an independent schema and is not part
+  of this engine envelope.
 - The **strategy-pack** config carries `LoadedStrategyConfig.version: u32`
   (`ripdpi-strategy-config`).
 - The **relay native runtime config** carries required `schemaVersion: 10` on
