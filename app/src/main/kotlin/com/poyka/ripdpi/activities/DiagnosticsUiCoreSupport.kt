@@ -27,11 +27,13 @@ internal open class DiagnosticsUiFormatter
     @Inject
     constructor() {
         open val locale: Locale = Locale.US
+        open val timestampLocale: Locale
+            get() = Locale.getDefault()
         open val zoneId: ZoneId = ZoneId.systemDefault()
 
         open fun formatTimestamp(timestamp: Long): String =
             DateTimeFormatter
-                .ofPattern("MMM d, HH:mm", locale)
+                .ofPattern("MMM d, HH:mm", timestampLocale)
                 .withZone(zoneId)
                 .format(Instant.ofEpochMilli(timestamp))
 

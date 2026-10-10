@@ -68,11 +68,35 @@ class DiagnosticsUiCoreSupportTest {
             testDiagnosticsUiCoreSupport(
                 object : DiagnosticsUiFormatter() {
                     override val locale: Locale = Locale.US
+                    override val timestampLocale: Locale = Locale.US
                     override val zoneId: ZoneId = ZoneId.of("America/New_York")
                 },
             )
 
         assertEquals("Dec 31, 19:00", support.formatTimestamp(0L))
+    }
+
+    @Test
+    fun `human timestamps follow the active locale without changing numeric formatters`() {
+        val previous = Locale.getDefault()
+        val support =
+            testDiagnosticsUiCoreSupport(
+                object : DiagnosticsUiFormatter() {
+                    override val zoneId: ZoneId = ZoneId.of("UTC")
+                },
+            )
+        try {
+            Locale.setDefault(Locale.forLanguageTag("ru"))
+            assertEquals("окт. 10, 00:00", support.formatTimestamp(1_791_590_400_000L))
+            Locale.setDefault(Locale.forLanguageTag("fa"))
+            assertEquals("اکتبر 10, 00:00", support.formatTimestamp(1_791_590_400_000L))
+            Locale.setDefault(Locale.US)
+            assertEquals("Oct 10, 00:00", support.formatTimestamp(1_791_590_400_000L))
+            assertEquals("1.5 KB", support.formatBytes(1_500L))
+            assertEquals("1.5 Kbps", support.formatBps(1_500L))
+        } finally {
+            Locale.setDefault(previous)
+        }
     }
 
     @Test
