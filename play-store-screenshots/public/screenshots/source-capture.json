@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "capturedAtUtc": "2026-10-10T09:18:36.652334+00:00",
-  "builtFromRevision": "6aa1a516f58f28a526c68a92c24e5f7cfbc98246",
+  "capturedAtUtc": "2026-10-10T15:41:53.593900+00:00",
+  "builtFromRevision": "79f42770660f7d3dcad89bf914b7345e286ff210",
   "apk": {
     "variant": "githubFullDebug",
     "filename": "app-github-full-arm64-v8a-debug.apk",
-    "sha256": "4311112cb91f8bccdec4b4efb94affd8ce2f84b95c20bd79b60e5edb8e0c20cb"
+    "sha256": "c74f5c805ba64eb7136fb5f7f89e134c1ce098858dd0bd194c6a2b28cd7718d1"
   },
   "libXray": {
     "manifestSha256": "c476ba46948648c4d339177d19e794e80a53894a2309df0e11b329769028391e",
@@ -14,12 +14,13 @@
   },
   "device": {
     "kind": "dedicated emulator",
-    "avd": "RIPDPI_Docs_20261010",
+    "avd": "RIPDPI_PlayVisual_20261010",
     "model": "sdk_gphone64_arm64",
     "api": 37,
     "abi": "arm64-v8a",
-    "screen": "1344x2992",
-    "densityDpi": 480
+    "screen": "1080x1800",
+    "densityDpi": 360,
+    "physicalDensityDpi": 360
   },
   "theme": "light",
   "locales": [
@@ -34,20 +35,548 @@
   "routes": {
     "home": "home",
     "diagnostics": "diagnostics",
-    "relay": "mode_editor"
+    "relay": "mode_editor",
+    "dns-settings": "dns_settings",
+    "strategies": "strategy_config",
+    "backup": "backup_restore"
   },
   "state": {
     "permissionPreset": "granted",
-    "servicePreset": "idle",
+    "servicePreset": "live",
     "dataPreset": "settings_ready",
     "motion": "disabled",
-    "statusBar": "Android demo mode: 12:00, battery 100%, notifications hidden",
-    "home": "disconnected; actual setup advisory is visible",
-    "diagnostics": "Scan tab before a run; scrolled when needed to show the action; no measured results",
-    "relay": "editor scrolled to relay fields; enabled as an unsaved edit; no credentials or connection"
+    "displayProfiles": {
+      "home": {
+        "densityDpi": 290,
+        "fontScale": 1.24
+      },
+      "diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0
+      },
+      "relay": {
+        "densityDpi": 260,
+        "fontScale": 1.5
+      },
+      "dns-settings": {
+        "densityDpi": 360,
+        "fontScale": 1.0
+      },
+      "strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0
+      },
+      "backup": {
+        "densityDpi": 360,
+        "fontScale": 1.0
+      }
+    },
+    "localeDisplayOverrides": {
+      "en": {
+        "backup": {
+          "densityDpi": 480,
+          "fontScale": 0.75
+        },
+        "dns-settings": {
+          "densityDpi": 360,
+          "fontScale": 1.0
+        }
+      },
+      "ru": {
+        "backup": {
+          "densityDpi": 460,
+          "fontScale": 0.7826087
+        },
+        "dns-settings": {
+          "densityDpi": 300,
+          "fontScale": 1.18
+        }
+      },
+      "es": {
+        "backup": {
+          "densityDpi": 460,
+          "fontScale": 0.7826087
+        },
+        "dns-settings": {
+          "densityDpi": 290,
+          "fontScale": 1.24
+        }
+      },
+      "de": {
+        "backup": {
+          "densityDpi": 460,
+          "fontScale": 0.7826087
+        },
+        "dns-settings": {
+          "densityDpi": 300,
+          "fontScale": 1.2
+        }
+      },
+      "fr": {
+        "backup": {
+          "densityDpi": 460,
+          "fontScale": 0.7826087
+        },
+        "dns-settings": {
+          "densityDpi": 300,
+          "fontScale": 1.2
+        }
+      },
+      "fa": {
+        "backup": {
+          "densityDpi": 440,
+          "fontScale": 0.8181818
+        },
+        "dns-settings": {
+          "densityDpi": 360,
+          "fontScale": 1.0
+        },
+        "relay": {
+          "densityDpi": 250,
+          "fontScale": 1.56
+        }
+      },
+      "zh-CN": {
+        "backup": {
+          "densityDpi": 500,
+          "fontScale": 0.72
+        },
+        "dns-settings": {
+          "densityDpi": 420,
+          "fontScale": 0.8571429
+        },
+        "relay": {
+          "densityDpi": 255,
+          "fontScale": 1.5294118
+        }
+      }
+    },
+    "dnsBottomFocusPixels": {
+      "en": 45,
+      "ru": 45,
+      "es": 45,
+      "de": 45,
+      "fr": 45,
+      "fa": 0,
+      "zh-CN": 0
+    },
+    "homeScrollPixels": {
+      "en": 20,
+      "ru": 0,
+      "es": 0,
+      "de": 20,
+      "fr": 20,
+      "fa": 20,
+      "zh-CN": 0
+    },
+    "statusBar": "Native Android status bar: current time and actual service/network indicators",
+    "home": "real VPN service started through the app; Android VPN consent granted normally",
+    "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
+    "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
+    "dns-settings": "actual custom DoH editor prefilled from Cloudflare and IPv6 controls; no unsaved values applied",
+    "strategies": "actual built-in strategy editor with save, reload, import and export; no claimed strategy outcome",
+    "backup": "actual local backup export and restore controls",
+    "history": "first dedicated route clears previous history; later routes preserve the new scan"
   },
   "limitations": "App UI illustrations. Permission state uses the debug automation contract. No network, VPN, server or physical-device acceptance is claimed.",
-  "uiInputsSha256": "c8b94361d8dbffe4dce3455888fcb0a18942ef4bf144e80a75c2172ddb36ff5f",
+  "runReceipts": {
+    "permissions": {
+      "api": 37,
+      "granted": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.ACCESS_LOCAL_NETWORK"
+      ],
+      "observedAtUtc": "2026-10-10T15:12:47.829904+00:00"
+    },
+    "vpn": {
+      "observedAtUtc": "2026-10-10T15:28:14.714088+00:00",
+      "service": "RipDpiVpnService",
+      "transport": "VPN CONNECTED; owner com.poyka.ripdpi",
+      "stoppedNormallyAtUtc": "2026-10-10T15:28:26.595792+00:00"
+    },
+    "homeMeasurements": {
+      "en": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:13:06.635713+00:00",
+        "contentScrollPixels": 20,
+        "observedContentScrollPixels": 17
+      },
+      "ru": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:16:28.723242+00:00",
+        "contentScrollPixels": 0,
+        "observedContentScrollPixels": 0
+      },
+      "es": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:18:53.350548+00:00",
+        "contentScrollPixels": 0,
+        "observedContentScrollPixels": 0
+      },
+      "de": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:21:07.698520+00:00",
+        "contentScrollPixels": 20,
+        "observedContentScrollPixels": 18
+      },
+      "fr": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:23:43.045598+00:00",
+        "contentScrollPixels": 20,
+        "observedContentScrollPixels": 19
+      },
+      "fa": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:26:06.871225+00:00",
+        "contentScrollPixels": 20,
+        "observedContentScrollPixels": 18
+      },
+      "zh-CN": {
+        "sampleCount": 2,
+        "observedAtUtc": "2026-10-10T15:28:17.968807+00:00",
+        "contentScrollPixels": 0,
+        "observedContentScrollPixels": 0
+      }
+    },
+    "displayFrames": {
+      "en/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "en/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "en/relay": {
+        "densityDpi": 260,
+        "fontScale": 1.5,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "en/dns-settings": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "en/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "en/backup": {
+        "densityDpi": 480,
+        "fontScale": 0.75,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "ru/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "ru/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "ru/relay": {
+        "densityDpi": 260,
+        "fontScale": 1.5,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "ru/dns-settings": {
+        "densityDpi": 300,
+        "fontScale": 1.18,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "ru/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "ru/backup": {
+        "densityDpi": 460,
+        "fontScale": 0.7826087,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "es/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "es/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "es/relay": {
+        "densityDpi": 260,
+        "fontScale": 1.5,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "es/dns-settings": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "es/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "es/backup": {
+        "densityDpi": 460,
+        "fontScale": 0.7826087,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "de/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "de/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "de/relay": {
+        "densityDpi": 260,
+        "fontScale": 1.5,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "de/dns-settings": {
+        "densityDpi": 300,
+        "fontScale": 1.2,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "de/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "de/backup": {
+        "densityDpi": 460,
+        "fontScale": 0.7826087,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fr/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fr/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fr/relay": {
+        "densityDpi": 260,
+        "fontScale": 1.5,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fr/dns-settings": {
+        "densityDpi": 300,
+        "fontScale": 1.2,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fr/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fr/backup": {
+        "densityDpi": 460,
+        "fontScale": 0.7826087,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fa/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fa/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fa/relay": {
+        "densityDpi": 250,
+        "fontScale": 1.56,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fa/dns-settings": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fa/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "fa/backup": {
+        "densityDpi": 440,
+        "fontScale": 0.8181818,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "zh-CN/home": {
+        "densityDpi": 290,
+        "fontScale": 1.24,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "zh-CN/diagnostics": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "zh-CN/relay": {
+        "densityDpi": 255,
+        "fontScale": 1.5294118,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "zh-CN/dns-settings": {
+        "densityDpi": 420,
+        "fontScale": 0.8571429,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "zh-CN/strategies": {
+        "densityDpi": 360,
+        "fontScale": 1.0,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      },
+      "zh-CN/backup": {
+        "densityDpi": 500,
+        "fontScale": 0.72,
+        "physicalDensityDpi": 360,
+        "screen": "1080x1800"
+      }
+    },
+    "diagnostics": {
+      "id": "abdc6c9c-de47-4635-ab86-c0eba0580e30",
+      "profileId": "default",
+      "status": "completed",
+      "reportCompletionKind": null,
+      "reportTerminationReason": null,
+      "startedAt": 1791645215315,
+      "finishedAt": 1791645240860,
+      "reportBytes": 151615,
+      "reportSha256": "d660069080b0d9e62a138804bac3a0fbeb3a53f70b4879013f92c17817e08046",
+      "resultCount": 21,
+      "outcomes": {
+        "dns_compatible_divergence": 6,
+        "dns_match": 3,
+        "network_available": 1,
+        "ok": 3,
+        "tcp_16kb_blocked": 1,
+        "tcp_reset": 2,
+        "tls_ok": 5
+      },
+      "previousSessionId": null,
+      "clickedAt": 1791645206000
+    },
+    "dnsFocus": {
+      "en": {
+        "requestedBottomScrollPixels": 45,
+        "observedBottomScrollPixels": 44,
+        "observedAtUtc": "2026-10-10T15:15:58.307064+00:00"
+      },
+      "ru": {
+        "requestedBottomScrollPixels": 45,
+        "observedBottomScrollPixels": 45,
+        "observedAtUtc": "2026-10-10T15:18:22.430225+00:00"
+      },
+      "es": {
+        "requestedBottomScrollPixels": 45,
+        "observedBottomScrollPixels": 45,
+        "observedAtUtc": "2026-10-10T15:20:36.662373+00:00"
+      },
+      "de": {
+        "requestedBottomScrollPixels": 45,
+        "observedBottomScrollPixels": 47,
+        "observedAtUtc": "2026-10-10T15:22:55.929733+00:00"
+      },
+      "fr": {
+        "requestedBottomScrollPixels": 45,
+        "observedBottomScrollPixels": 46,
+        "observedAtUtc": "2026-10-10T15:25:28.118393+00:00"
+      },
+      "fa": {
+        "requestedBottomScrollPixels": 0,
+        "observedBottomScrollPixels": 0,
+        "observedAtUtc": "2026-10-10T15:27:44.879520+00:00"
+      },
+      "zh-CN": {
+        "requestedBottomScrollPixels": 0,
+        "observedBottomScrollPixels": 0,
+        "observedAtUtc": "2026-10-10T15:30:26.853322+00:00"
+      }
+    },
+    "fullBatchCapturedAtUtc": "2026-10-10T15:30:46.556147+00:00",
+    "frameRecaptures": {
+      "fa/relay": {
+        "observedAtUtc": "2026-10-10T15:40:22.251608+00:00",
+        "apkSha256": "c74f5c805ba64eb7136fb5f7f89e134c1ce098858dd0bd194c6a2b28cd7718d1",
+        "builtFromRevision": "79f42770660f7d3dcad89bf914b7345e286ff210",
+        "captureToolRevision": "2ed50b358a43130190422eb522192bb5cd8bc8e9",
+        "previousSha256": "2e0dccab910d63aaf6a690bad89e54459db73987d1a691c3aaf79b9d09cd17be",
+        "sha256": "8f5fb03628ef9def234ba39c3653bc4b456b03bdaee752db737e33a3300b8b6e",
+        "fullBatchCapturedAtUtc": "2026-10-10T15:30:46.556147+00:00",
+        "previousManifestSha256": "d4ec515e29568d8d0918bded528dad73ead89f1dcc84a48e90c4d8f6e0c06021"
+      },
+      "zh-CN/relay": {
+        "observedAtUtc": "2026-10-10T15:41:52.932670+00:00",
+        "apkSha256": "c74f5c805ba64eb7136fb5f7f89e134c1ce098858dd0bd194c6a2b28cd7718d1",
+        "builtFromRevision": "79f42770660f7d3dcad89bf914b7345e286ff210",
+        "captureToolRevision": "2ed50b358a43130190422eb522192bb5cd8bc8e9",
+        "previousSha256": "8b13b637ad4780952fb373f545ef0d599e6d7f6c5695a6960824097efe8a29fd",
+        "sha256": "d9f03707bed56ce703dae754c8aa73806c8cf45b12783c37247c92e6e5e8407b",
+        "fullBatchCapturedAtUtc": "2026-10-10T15:30:46.556147+00:00",
+        "previousManifestSha256": "d2b9a78d477ca3293b7431452eb2c0dc3680a7f137d4e0597b45b7ddbd567399"
+      }
+    }
+  },
+  "uiInputsSha256": "9d04f5c362e7fd578aa20d16a8998e3226c16b8b7a950cbbde6712b7e6330aba",
   "uiInputs": {
     "app/build.gradle.kts": "73cfae4774228d3741dca45eaf0dc46b9094c5494b970f43c6ded2f96cb02941",
     "app/src/debug/AndroidManifest.xml": "0a71b2dbb6392c1721b94200c058c294497d6096a8ca76de700a831be1b985c7",
@@ -173,11 +702,11 @@
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsTelemetryMetrics.kt": "6ea073d5a276e04254a7a37db0acbcd2d6d5a51f3495f692b8ffe6d5cc9ddf55",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsTlsKeylogPath.kt": "e14b090ecbf938995ccf40e15445896ee918dbc3cebcb75ca97d56dd160b4851",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsTransferUiModel.kt": "9ed72463e72e6ec85b6bf86a50af753935de467552084018a33d10c5a0f2b14d",
-    "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt": "ce0e2f5a70ac2456be620043808142041efb17ef1c93159f178a8345ac8afea4",
+    "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt": "46a98c3f9e6c34b98586001999f935dd2f4fce267fdf6bddf87bfea17ec43c76",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextGroups.kt": "23ea892fe05d87d4415eb5a2fea1c3ef7fbf4b9bb28507892ea3a3697139d10f",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextLabels.kt": "82bf0859d76592259af286fc13d07104bbcd1198567d0c572a25d4698d4187a4",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextWarnings.kt": "aaf3e31b4386eaa56aee1d136f5c13aea362406a6243c3d6cfc6ee4144e27e16",
-    "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCoreSupport.kt": "fa9586279cafd1b5afb03968461378dc97cd3936bbe7d08cbafb125ecb2ece8b",
+    "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCoreSupport.kt": "fd0777a59f2939597c59aa49d8d43a56e31f7006d49542f45eb3c42ccf4c877a",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiFactorySupport.kt": "333e4b1b2778a034be2d21b35b4087a33c3ba7bb7ad0efcd982124a6ba2ea274",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiInputResolver.kt": "5ff0c05730e8796ec8b8ed10e20219208bcd441749214fcd0cefce4dca775bce",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiModelMappers.kt": "fa6778497c1f8ac57d302ac03695edbdd05a527c8ebdee50605fa1890300090f",
@@ -215,6 +744,7 @@
     "app/src/main/kotlin/com/poyka/ripdpi/activities/HomePauseUiState.kt": "98e21cb50cada38a48466e38e6537e01a95681108f3b49df90ed0f63dc1998a8",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/HomePauseViewModel.kt": "256b1c0ad78337f481f14ab5595b3c4fa5ed4a7421fcf22f65d9e1033250f34d",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/HomePcapCaptureLeaseCoordinator.kt": "a2ed8cbdfa361860673114847dfcc83d75661b45d50959ccc0e8782255b5827c",
+    "app/src/main/kotlin/com/poyka/ripdpi/activities/HomeStrategyLabel.kt": "3ef4196da416195dd7ea7930831b022110f8eedc1b78d5435b9ea1ee0b9873f1",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/LauncherIconManager.kt": "3b13c90c380339a5aaeb8548e8293c98f1c1df9877054eff7b688d9f94873461",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/LogAggregatorUseCase.kt": "9027f97a04bf68068916522764b4fcae314ce8b2d0b6dcf3b85ec3dcbf96f5b6",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/LogsUiModels.kt": "edc55197c440de93d215eb808e3e13b728fc88949913a00fcd1a4981b8af5ee0",
@@ -225,7 +755,7 @@
     "app/src/main/kotlin/com/poyka/ripdpi/activities/MainActivityHost.kt": "2397a8dc63f8dd95b4439fec6439adbe47a25724264d0e06205c1741753a71d2",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/MainActivityShellController.kt": "6706da6d76e5914b44ea39a4c2172cbe995a9862e1df24c49fbeb6515e314d48",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/MainAppLockLifecycleCoordinator.kt": "820bc07c60baca055accfb5b66d01d0d87490417257191ad31c2235fcab736ac",
-    "app/src/main/kotlin/com/poyka/ripdpi/activities/MainConnectionActions.kt": "5a66cce489c02b44ac55d3b6374216f7050e3203d0eb5f7124952dfda022fa8b",
+    "app/src/main/kotlin/com/poyka/ripdpi/activities/MainConnectionActions.kt": "c30f59b8884f5b0eeb5802a4f3dae4a0e2df2af806afa53cb85eed3650c85200",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/MainCrashReportCoordinator.kt": "4295d41fbde01b28f7f7eee1404dc2d0bc8ab58fcb9f61f35647f8d194fa2f71",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/MainDependencyGroups.kt": "56738be21110fd6e5fc345c25ab6189ffce8cdb3c10fe4f467ca4fc9a5e70a41",
     "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt": "900e0d88d0f59c2e7fe325ab8f9a82f0daef07e410a01040f914a75a5b75a830",
@@ -864,7 +1394,7 @@
     "app/src/main/res/values-ar/diagnostics_fallbacks.xml": "0ffeae241fe3d28cb96edc750d3cb9fb911324ad8f2f80f12bd25df53ea25367",
     "app/src/main/res/values-ar/diagnostics_initial_states.xml": "66f9094b7a8e730c8b4dbd45f1267a9c409462267b7a9dc21aedceb347006f3b",
     "app/src/main/res/values-ar/home_diagnostics_strings.xml": "0becfab4b5f062b5791cbd2794364d252f869510701cbfe05c33c0595243e174",
-    "app/src/main/res/values-ar/strings.xml": "2b28b2e6cb2f9d68446f6a50551beb26f7d7e8a22dc1e81f15529d9d59701668",
+    "app/src/main/res/values-ar/strings.xml": "8fe430fe1dad07e6371752bbd25a502250802c5ba03c1f841986b71dc5dc4da7",
     "app/src/main/res/values-ar/strings_connection_actuator.xml": "8c2d9356b24298ec82c0056e751e43f6b3e8d1ddb97a7dea448e4abc2776bd54",
     "app/src/main/res/values-ar/strings_connection_stages.xml": "8de10a1a126da832f71012e4514a8e97bf3e70ceed60a56e2fc3437648e4f22e",
     "app/src/main/res/values-ar/strings_diagnostics_disclosure.xml": "5915b296a442cbd3f4295f2680f4025426c3ff61aa5d2419072d94ccffcacdfe",
@@ -893,7 +1423,7 @@
     "app/src/main/res/values-de/diagnostics_fallbacks.xml": "ef298238e87f0417739ccf2659bc098ab76892874a35e8b87f0340738cc6718c",
     "app/src/main/res/values-de/diagnostics_initial_states.xml": "f9a2a25ca684c812844b7e135de9678d569b29b553ff2a3c1ca7b1493d112b03",
     "app/src/main/res/values-de/home_diagnostics_strings.xml": "3f89bfbdff64ca363333ca759a8a5c02724025182302eae4ff3e698b78c7b84d",
-    "app/src/main/res/values-de/strings.xml": "95fe966d1a23e31e0cc2d40b2ab4fd280a2f17240deb108721d99cfe08277d3c",
+    "app/src/main/res/values-de/strings.xml": "fe339ee77b854168564552700a77e52f6df2ddb068a656ad0d6afdefb1d76cc9",
     "app/src/main/res/values-de/strings_connection_actuator.xml": "e670a86b709d587f438bae6f6bf48d2ea8b4f754581e67343f3e26bbb82fbd95",
     "app/src/main/res/values-de/strings_connection_stages.xml": "bef3ff254598ff2c56fd541268e4f29a55966a0488dc1be6f8e6a68ec2232545",
     "app/src/main/res/values-de/strings_diagnostics_disclosure.xml": "15dbd5170ed2f2eb381261b75a1bf7f076e0837e17a18cecffedac2ca86b5e52",
@@ -922,7 +1452,7 @@
     "app/src/main/res/values-es/diagnostics_fallbacks.xml": "e6bc1c088626f3c72401758baca45ee33087f3f2712e87491391be1893dd4d12",
     "app/src/main/res/values-es/diagnostics_initial_states.xml": "7386431b55a950e4af7e3d4f4df8529ba78735a14686971833e5b56ad83ebf65",
     "app/src/main/res/values-es/home_diagnostics_strings.xml": "e08a4ad44f80b7238cf86d82b2d8497c88126e283a3e63c876185abd3afd0a4f",
-    "app/src/main/res/values-es/strings.xml": "8207029e7573b9aef5b2ef88854d8db9c98d321ba8aa8507c7d068f7022882b8",
+    "app/src/main/res/values-es/strings.xml": "fe2e549066f920cb36e31595203ac7c2e1c0cb615ffd6d0758049b4074d21e45",
     "app/src/main/res/values-es/strings_connection_actuator.xml": "c06a4f1beae5e96879497d6076aa73590000cdd0bae5b2b808f9c881a34b486d",
     "app/src/main/res/values-es/strings_connection_stages.xml": "1ef322a36c16eb2680b11f1dd1510a87cebd6947418af9a97c44abde280b0ee8",
     "app/src/main/res/values-es/strings_diagnostics_disclosure.xml": "bde2a7c40fa3e0a1065716dc4ea28ae3dd0f3af0e803955dec947a8ca747c9a6",
@@ -951,7 +1481,7 @@
     "app/src/main/res/values-fa/diagnostics_fallbacks.xml": "85a1efb2cada36cc09ad86162a4c20d8fc47183d231a3d744bfe456d26d931e5",
     "app/src/main/res/values-fa/diagnostics_initial_states.xml": "beb2bcbce468a86b3431cc0becdba0c1a8c5d67c75a542797409ab266299bcc1",
     "app/src/main/res/values-fa/home_diagnostics_strings.xml": "184fe3b3816f1320807600c7a56152e63d4c5b279acae28671dde601dbe282a5",
-    "app/src/main/res/values-fa/strings.xml": "4be78f402e4cbcf46800319612eb67bdb25626700fe47f09114375973f71f3b2",
+    "app/src/main/res/values-fa/strings.xml": "b7aa5e39f7d0c36dece7396f4ac48df8e7b1ce4ec5640794e26805e88689dcd1",
     "app/src/main/res/values-fa/strings_connection_actuator.xml": "ab95189a74b436ea3c3dea9f0a61d1f4b458fe6bddd67a0f9a8f734527c8cc22",
     "app/src/main/res/values-fa/strings_connection_stages.xml": "f828972b09bc01071456954a1ff422d43dedc506520023b4b76c68502b83f4f8",
     "app/src/main/res/values-fa/strings_diagnostics_disclosure.xml": "e86207c4867cf8d222325027e39dd6d95c1c72a2c45ccddf02459a037deceb5b",
@@ -980,7 +1510,7 @@
     "app/src/main/res/values-fr/diagnostics_fallbacks.xml": "e2f9fd67d718a394e697b605c28a3a7d2f40b69a008d37e03b32bf7e20e6ee37",
     "app/src/main/res/values-fr/diagnostics_initial_states.xml": "5d7a5afe109a718f1ed86aec65c06d362127ec418007d1f4a0ce442b524a7bda",
     "app/src/main/res/values-fr/home_diagnostics_strings.xml": "d5f71921a071287e2d2a34bff8de5e01c5d37a0c57c6a2afbe31d46434488fac",
-    "app/src/main/res/values-fr/strings.xml": "3d3d3cd5820a80b522e867521170017715bc75f6758f5431ef6ce16ca65a6f33",
+    "app/src/main/res/values-fr/strings.xml": "5be7420705576c1d860ac30c3612dac7da99c3604150bb4cf0ee92055c8883b1",
     "app/src/main/res/values-fr/strings_connection_actuator.xml": "ec3c9e2787f1b7702f08a242d7d0226d7c3fa737beafa5cc3bc10ed0572d8ac4",
     "app/src/main/res/values-fr/strings_connection_stages.xml": "52cd14d2fd2ea42cd72576da17322b48b1a10d208e82fdeb832ca78cc982f192",
     "app/src/main/res/values-fr/strings_diagnostics_disclosure.xml": "94fb46fb7a6e98e7272cbfe22afbb6309e933521fa673e525c797450906f6aac",
@@ -1009,7 +1539,7 @@
     "app/src/main/res/values-hi/diagnostics_fallbacks.xml": "c7d3910ea9d3bf86d2efcedcda1454f85d42bff43d880faeef8b2fdf8f6a7f76",
     "app/src/main/res/values-hi/diagnostics_initial_states.xml": "056dc95509432a1a4b99cc5ae41fa4c07d0dad51d19d5161ae7f11fef7230d3d",
     "app/src/main/res/values-hi/home_diagnostics_strings.xml": "f15cfaba74c4c0ccdd663087985b50c04eb9a3752ef48434fbe7265e3ca8cb77",
-    "app/src/main/res/values-hi/strings.xml": "64d6d22101192f43c6c228e99ea18a0b5cc50f9ccd47019df02476a0e3407fcd",
+    "app/src/main/res/values-hi/strings.xml": "da7c2ce9ad3dadc42d18a41c49022e891af52c58e20600a511becd0b3e1bf2e5",
     "app/src/main/res/values-hi/strings2.xml": "06104a65b7458d35e3cf421b8276fb25d2d5e07b24129b13a716f2a90a1a81f1",
     "app/src/main/res/values-hi/strings_connection_actuator.xml": "eb1d586c50cf5cf79ca6a6322951128ad7614fe1319eb2e62ef23ec1c292d2ab",
     "app/src/main/res/values-hi/strings_connection_stages.xml": "abcb4f73c74017596ced1356c433c36669078c938400d23a320651a69e6d3cc1",
@@ -1040,7 +1570,7 @@
     "app/src/main/res/values-pt-rBR/diagnostics_fallbacks.xml": "1df5d98ee1f8d9c194989cc672b5349d8b50dde3efd4f4cdc32a9f5b6e430c70",
     "app/src/main/res/values-pt-rBR/diagnostics_initial_states.xml": "19bc7e7a0e6c84b5b8f9b17a4f7e9b232ef8ac3bb1fc3a6dc24837cf71a17552",
     "app/src/main/res/values-pt-rBR/home_diagnostics_strings.xml": "5ea33d68ca25d9716d9a19f2d0e110e007787ac89cca5893e45d505168c2c48a",
-    "app/src/main/res/values-pt-rBR/strings.xml": "e8f91f0b52e32f061ec120691d86493aefe8e2a20d0b7d45d5eaa33f3dc39b09",
+    "app/src/main/res/values-pt-rBR/strings.xml": "46a26ec799cef358e91ce48dc70379d6bf9d92b7fb51fe1d8a0d2b7bf5a1f310",
     "app/src/main/res/values-pt-rBR/strings_connection_actuator.xml": "c8001798c70e967f71060adad489b4c38fbbabc8f1832da0ab8bd4a157779abf",
     "app/src/main/res/values-pt-rBR/strings_connection_stages.xml": "e4de017d4ae1c6985f4e23ff159bc77e54ff7ba9437660c43373c6d2d590ee85",
     "app/src/main/res/values-pt-rBR/strings_diagnostics_disclosure.xml": "7895b5f6ece9fab97a0959f0a50b6e67eb1966872c620e3df14360ef914a625b",
@@ -1070,7 +1600,7 @@
     "app/src/main/res/values-ru/diagnostics_initial_states.xml": "3e22cb37d176647a6cd28782d380d9a8b844cc6d9dbb59517a09ed52cf8ff1b0",
     "app/src/main/res/values-ru/diagnostics_scan_completion.xml": "e2d34e6513b7f12f29061d1153b9083263c9c1ed1e72799fa46e0e089cff4f57",
     "app/src/main/res/values-ru/home_diagnostics_strings.xml": "a89564c78bf73a6deaa224810f9e61dda955aaae57ec69601955b38172588ac3",
-    "app/src/main/res/values-ru/strings.xml": "22d3cddfc4b1dd27da775071f4cc544fc15a3123444f1ae663c7c1c3458963a1",
+    "app/src/main/res/values-ru/strings.xml": "821eada089a6c358df19a322cf37b4a691e10979a38413437e0671c534341f1b",
     "app/src/main/res/values-ru/strings2.xml": "4b0aa5782caf78577278093354d9c89d2bb83eda9a7e05291122e72ba34f155c",
     "app/src/main/res/values-ru/strings_connection_actuator.xml": "b59f8a05560b34230dbec5382c9643d2f61ca04087a939621a35e28bbb715b16",
     "app/src/main/res/values-ru/strings_connection_stages.xml": "8cdaf7733121a3a3d93513f669d16a3f89572a9f9a466975b19f3c0e27e03d6c",
@@ -1103,7 +1633,7 @@
     "app/src/main/res/values-zh-rCN/diagnostics_fallbacks.xml": "2aee14950747fbd8d40deb19b9bf15f44a1b13d4ee6a2e382b264111b38d2340",
     "app/src/main/res/values-zh-rCN/diagnostics_initial_states.xml": "40e7b93e59c2e8ee25bd88900f324c9bc8ba04c2faccfea5a589ffd97ed85dd0",
     "app/src/main/res/values-zh-rCN/home_diagnostics_strings.xml": "26be0aed6a6465737e7f22fe26c9030bfbd652acfd2be108c5ce8046fb77a48b",
-    "app/src/main/res/values-zh-rCN/strings.xml": "3ab45711b3cad0047b27535f590af0aba5787d18da4f82d6ba47c7ccb757ae38",
+    "app/src/main/res/values-zh-rCN/strings.xml": "b96fc66dec92f2a639fffdec2664e399183e0075ad155d998150c463dd64107a",
     "app/src/main/res/values-zh-rCN/strings_connection_actuator.xml": "f9544b7f9c6fb3478c40213b55f66885a5c915e806647fd5873a5edf11ebdbee",
     "app/src/main/res/values-zh-rCN/strings_connection_stages.xml": "8fb7cc60f7a0e0d8defbb0304e726196ba43014f4801b66157ce1ec49ba43d86",
     "app/src/main/res/values-zh-rCN/strings_diagnostics_disclosure.xml": "b4e39220a2296ccb184ecf2a3a49afc7348d778034e0c9ea9ac65ad1d420e54f",
@@ -1134,7 +1664,7 @@
     "app/src/main/res/values/diagnostics_initial_states.xml": "23b43e828730a59dd2730b12bb8ef831254d73a97b856e04c9cfe32a6ca2e678",
     "app/src/main/res/values/home_diagnostics_strings.xml": "5031d903adcd6820150d1697fc63c7d2df08b932ca75f54f818e80185ce13283",
     "app/src/main/res/values/ic_launcher_background.xml": "5ce3c98f11dfd86646d11cf7ad66b1d495cd05e80201e08d15450ec72747fae4",
-    "app/src/main/res/values/strings.xml": "96cc44335634633856ac6b895d298525f6408cc23334981d79d2a1d7c868835b",
+    "app/src/main/res/values/strings.xml": "131cd448a1eda2d8e203ed6f7e75ad6b2071a6015cd7939edc4a06cd7affc44a",
     "app/src/main/res/values/strings_connection_actuator.xml": "5c047200492fb2e06979089c9d6b9857bae91d0dacbe5cdbeb969529b4bb4d63",
     "app/src/main/res/values/strings_connection_stages.xml": "f584aaa83f7ac61ed349f6595577ddb3ae56832037254d9fb57c213944235870",
     "app/src/main/res/values/strings_diagnostics_disclosure.xml": "0be3897005030a1d874a57577cb41a86cfe1f9c369885ae6906174a51447ba10",
@@ -2402,50 +2932,95 @@
     "gradle/libs.versions.toml": "aad2757df8ba639fa929fa5d3c760902787f6330d535abbcb98d0c69ec0b926d"
   },
   "images": {
-    "play-store-screenshots/public/screenshots/en/home-light.png": "ee07b2349a6a06f2d5effe23a77a4cbbfabcee5077dfc6459478b8d1575239de",
-    "docs/screenshots/ui/en/home.png": "ee07b2349a6a06f2d5effe23a77a4cbbfabcee5077dfc6459478b8d1575239de",
-    "play-store-screenshots/public/screenshots/en/diagnostics.png": "94631286ba75af2f62f4707f39e49979d1fbd418ac8ac25d7440d1f7c86244d3",
-    "docs/screenshots/ui/en/diagnostics.png": "94631286ba75af2f62f4707f39e49979d1fbd418ac8ac25d7440d1f7c86244d3",
-    "play-store-screenshots/public/screenshots/en/relay.png": "c5bd6f124a1e1d9164fb13d96b7c147b791475b330963929cfb62c3627a96109",
-    "docs/screenshots/ui/en/relay.png": "c5bd6f124a1e1d9164fb13d96b7c147b791475b330963929cfb62c3627a96109",
-    "play-store-screenshots/public/screenshots/ru/home-light.png": "b25d06a3101cb85405e242c7b5f7e6bff75a615ce4a91436465d458ca06f2889",
-    "docs/screenshots/ui/ru/home.png": "b25d06a3101cb85405e242c7b5f7e6bff75a615ce4a91436465d458ca06f2889",
-    "play-store-screenshots/public/screenshots/ru/diagnostics.png": "c921273a962b487f20f4a2cce70dc3aecbc7daadaf01ac4fb2a07904344a3c83",
-    "docs/screenshots/ui/ru/diagnostics.png": "c921273a962b487f20f4a2cce70dc3aecbc7daadaf01ac4fb2a07904344a3c83",
-    "play-store-screenshots/public/screenshots/ru/relay.png": "8f2e0deddf103a0f37e89c7cdef36448a1ea4169aba7c27f0f35b6a27aaf3556",
-    "docs/screenshots/ui/ru/relay.png": "8f2e0deddf103a0f37e89c7cdef36448a1ea4169aba7c27f0f35b6a27aaf3556",
-    "play-store-screenshots/public/screenshots/es/home-light.png": "4d1ff69d6019430f52a97dafa49fdde8040455b20398837f48a5021b7487e7b2",
-    "docs/screenshots/ui/es/home.png": "4d1ff69d6019430f52a97dafa49fdde8040455b20398837f48a5021b7487e7b2",
-    "play-store-screenshots/public/screenshots/es/diagnostics.png": "a47317ef4c143015fa41b421be8826b64d0ca53ec37aa7295ffde5801937d327",
-    "docs/screenshots/ui/es/diagnostics.png": "a47317ef4c143015fa41b421be8826b64d0ca53ec37aa7295ffde5801937d327",
-    "play-store-screenshots/public/screenshots/es/relay.png": "cc41bd4e6ad8f652b7028633ce02d9e47c200307f3a6a91cec71f44afeadea0d",
-    "docs/screenshots/ui/es/relay.png": "cc41bd4e6ad8f652b7028633ce02d9e47c200307f3a6a91cec71f44afeadea0d",
-    "play-store-screenshots/public/screenshots/de/home-light.png": "26b20d629a919f6410087a015d0faf957af4c79c69edf92bf0da5e6fd1941cbc",
-    "docs/screenshots/ui/de/home.png": "26b20d629a919f6410087a015d0faf957af4c79c69edf92bf0da5e6fd1941cbc",
-    "play-store-screenshots/public/screenshots/de/diagnostics.png": "7d3c39910934d9e42a34593e9763662c6db46e75388222cadc30cc393c83063f",
-    "docs/screenshots/ui/de/diagnostics.png": "7d3c39910934d9e42a34593e9763662c6db46e75388222cadc30cc393c83063f",
-    "play-store-screenshots/public/screenshots/de/relay.png": "8c172baaa3eebc2c2673926e411fb1264b429f149dceec0e7f81d8d87d083a33",
-    "docs/screenshots/ui/de/relay.png": "8c172baaa3eebc2c2673926e411fb1264b429f149dceec0e7f81d8d87d083a33",
-    "play-store-screenshots/public/screenshots/fr/home-light.png": "c0858b4d273ae12826eedd8317dd18860c9c366a1e93ba85612d53a96c93cddb",
-    "docs/screenshots/ui/fr/home.png": "c0858b4d273ae12826eedd8317dd18860c9c366a1e93ba85612d53a96c93cddb",
-    "play-store-screenshots/public/screenshots/fr/diagnostics.png": "1a08db9b34349af3490eb2ee3a7d946e0c3f6b78a56a06f0d276e16c8cfd6bfa",
-    "docs/screenshots/ui/fr/diagnostics.png": "1a08db9b34349af3490eb2ee3a7d946e0c3f6b78a56a06f0d276e16c8cfd6bfa",
-    "play-store-screenshots/public/screenshots/fr/relay.png": "238b5a413336e85b1278dc1fe25072de7cfa7b7bf292275e195c28ba9b78c7e1",
-    "docs/screenshots/ui/fr/relay.png": "238b5a413336e85b1278dc1fe25072de7cfa7b7bf292275e195c28ba9b78c7e1",
-    "play-store-screenshots/public/screenshots/fa/home-light.png": "6ad91cbe38d7ff6f0035808c6ad7c43911e97973300d78cad55d8827e4db28a6",
-    "docs/screenshots/ui/fa/home.png": "6ad91cbe38d7ff6f0035808c6ad7c43911e97973300d78cad55d8827e4db28a6",
-    "play-store-screenshots/public/screenshots/fa/diagnostics.png": "bb6c3f8b146da301dba71bf00407c4d0c963f2c05b301d42366d7f2731af6e22",
-    "docs/screenshots/ui/fa/diagnostics.png": "bb6c3f8b146da301dba71bf00407c4d0c963f2c05b301d42366d7f2731af6e22",
-    "play-store-screenshots/public/screenshots/fa/relay.png": "b1326366e0b7b72ce8b767c375ec90bf5a43b749c181af98f953f03be0f675fb",
-    "docs/screenshots/ui/fa/relay.png": "b1326366e0b7b72ce8b767c375ec90bf5a43b749c181af98f953f03be0f675fb",
-    "play-store-screenshots/public/screenshots/zh-CN/home-light.png": "b9e9f7ef1332a9aa38e58fff02b6c8d29fddcfb9e31064e986de4aa5e8ac8eb8",
-    "docs/screenshots/ui/zh-CN/home.png": "b9e9f7ef1332a9aa38e58fff02b6c8d29fddcfb9e31064e986de4aa5e8ac8eb8",
-    "play-store-screenshots/public/screenshots/zh-CN/diagnostics.png": "09aad87eba3f44dd8e19a0297849caeb0e1b5fff64f89e00d8d6c2ddd0cb0bd9",
-    "docs/screenshots/ui/zh-CN/diagnostics.png": "09aad87eba3f44dd8e19a0297849caeb0e1b5fff64f89e00d8d6c2ddd0cb0bd9",
-    "play-store-screenshots/public/screenshots/zh-CN/relay.png": "5ac669b45dc31724d86ad76ce8e76cf9e4886e04dfad0e4cfbf0acce99cee95f",
-    "docs/screenshots/ui/zh-CN/relay.png": "5ac669b45dc31724d86ad76ce8e76cf9e4886e04dfad0e4cfbf0acce99cee95f",
-    "play-store-screenshots/public/screenshots/home-light.png": "ee07b2349a6a06f2d5effe23a77a4cbbfabcee5077dfc6459478b8d1575239de",
-    "play-store-screenshots/public/screenshots/diagnostics.png": "94631286ba75af2f62f4707f39e49979d1fbd418ac8ac25d7440d1f7c86244d3",
-    "play-store-screenshots/public/screenshots/relay.png": "c5bd6f124a1e1d9164fb13d96b7c147b791475b330963929cfb62c3627a96109"
+    "play-store-screenshots/public/screenshots/en/home-light.png": "1deb5e1d9966d729b03d8d2dd237f4db4141a0c85853e3fba0f6221e28698a76",
+    "docs/screenshots/ui/en/home.png": "1deb5e1d9966d729b03d8d2dd237f4db4141a0c85853e3fba0f6221e28698a76",
+    "play-store-screenshots/public/screenshots/en/diagnostics.png": "47555bf8203afd43542784c9939d8bb54e4659b0d209b6025dd0fba882b64914",
+    "docs/screenshots/ui/en/diagnostics.png": "47555bf8203afd43542784c9939d8bb54e4659b0d209b6025dd0fba882b64914",
+    "play-store-screenshots/public/screenshots/en/relay.png": "8d5532bda851fdf77c179aa8ab3de4c3ac726fb242d31ee2516b74a85543806e",
+    "docs/screenshots/ui/en/relay.png": "8d5532bda851fdf77c179aa8ab3de4c3ac726fb242d31ee2516b74a85543806e",
+    "play-store-screenshots/public/screenshots/en/dns-settings.png": "d75cd3ab3560cf4e7e273000647729c540895ec47f0386d9f47e5101dc760d33",
+    "docs/screenshots/ui/en/dns-settings.png": "d75cd3ab3560cf4e7e273000647729c540895ec47f0386d9f47e5101dc760d33",
+    "play-store-screenshots/public/screenshots/en/strategies.png": "be751b76d0c1961e8a1caa96c691eae6a53581c02f6fa830c806b54472100b12",
+    "docs/screenshots/ui/en/strategies.png": "be751b76d0c1961e8a1caa96c691eae6a53581c02f6fa830c806b54472100b12",
+    "play-store-screenshots/public/screenshots/en/backup.png": "ad00fc5a4df2d15c0f8ab90be4900992a4faaef88c32edfaeb8e67e04a1bc436",
+    "docs/screenshots/ui/en/backup.png": "ad00fc5a4df2d15c0f8ab90be4900992a4faaef88c32edfaeb8e67e04a1bc436",
+    "play-store-screenshots/public/screenshots/ru/home-light.png": "ba8160cf30ec842fbd29f4a69e6e650db94893131f23f6ef898cffb01ce49c25",
+    "docs/screenshots/ui/ru/home.png": "ba8160cf30ec842fbd29f4a69e6e650db94893131f23f6ef898cffb01ce49c25",
+    "play-store-screenshots/public/screenshots/ru/diagnostics.png": "26153d4e3c6209cf76312053c1739cd15acc71d38c2f04e7f5bc87f59d220695",
+    "docs/screenshots/ui/ru/diagnostics.png": "26153d4e3c6209cf76312053c1739cd15acc71d38c2f04e7f5bc87f59d220695",
+    "play-store-screenshots/public/screenshots/ru/relay.png": "19809c77235ef9a7661800b41f0fb45eebb2b93319366e0c63498c42f8ff8725",
+    "docs/screenshots/ui/ru/relay.png": "19809c77235ef9a7661800b41f0fb45eebb2b93319366e0c63498c42f8ff8725",
+    "play-store-screenshots/public/screenshots/ru/dns-settings.png": "d178cfb2e7fb50494fb6627f6eb6d70f225add548c0669ab5ff3188e800bdb25",
+    "docs/screenshots/ui/ru/dns-settings.png": "d178cfb2e7fb50494fb6627f6eb6d70f225add548c0669ab5ff3188e800bdb25",
+    "play-store-screenshots/public/screenshots/ru/strategies.png": "e818e379038ad622142cf38e44be91f6515708af8c1436f27a6410d8dbcc4310",
+    "docs/screenshots/ui/ru/strategies.png": "e818e379038ad622142cf38e44be91f6515708af8c1436f27a6410d8dbcc4310",
+    "play-store-screenshots/public/screenshots/ru/backup.png": "cb72f55d153cb8a2c7405cc9ed2bf104295f2f16e93a40d173170e666c9fee23",
+    "docs/screenshots/ui/ru/backup.png": "cb72f55d153cb8a2c7405cc9ed2bf104295f2f16e93a40d173170e666c9fee23",
+    "play-store-screenshots/public/screenshots/es/home-light.png": "9c596c5c1a40f9dd89f0c9b84cc9afd5c053d896b62737869fe98dac934c8a16",
+    "docs/screenshots/ui/es/home.png": "9c596c5c1a40f9dd89f0c9b84cc9afd5c053d896b62737869fe98dac934c8a16",
+    "play-store-screenshots/public/screenshots/es/diagnostics.png": "1849fedf489f6e76576f463be824a8c365cce9deb87cf5a45116ff0553c62fa1",
+    "docs/screenshots/ui/es/diagnostics.png": "1849fedf489f6e76576f463be824a8c365cce9deb87cf5a45116ff0553c62fa1",
+    "play-store-screenshots/public/screenshots/es/relay.png": "8365849107d0b024910b9e52dddbcc448668f240b176551e8ef3273e7c25e5af",
+    "docs/screenshots/ui/es/relay.png": "8365849107d0b024910b9e52dddbcc448668f240b176551e8ef3273e7c25e5af",
+    "play-store-screenshots/public/screenshots/es/dns-settings.png": "d8a5f89ba093c6340ae9dad5928fb0b19bc39ec063bc9cbc198b6729d0de6044",
+    "docs/screenshots/ui/es/dns-settings.png": "d8a5f89ba093c6340ae9dad5928fb0b19bc39ec063bc9cbc198b6729d0de6044",
+    "play-store-screenshots/public/screenshots/es/strategies.png": "b69d1779130578d05aa0993425282cd3b24d7efea82377276b08498c3595b308",
+    "docs/screenshots/ui/es/strategies.png": "b69d1779130578d05aa0993425282cd3b24d7efea82377276b08498c3595b308",
+    "play-store-screenshots/public/screenshots/es/backup.png": "d0ba813689a9bf8471646499975660b1d56285d368c3459240a36e2c0bbdc299",
+    "docs/screenshots/ui/es/backup.png": "d0ba813689a9bf8471646499975660b1d56285d368c3459240a36e2c0bbdc299",
+    "play-store-screenshots/public/screenshots/de/home-light.png": "f73e72062b280b0202fc892e160b509aa63e2c6ef7fb991b1948fdcfe6da0097",
+    "docs/screenshots/ui/de/home.png": "f73e72062b280b0202fc892e160b509aa63e2c6ef7fb991b1948fdcfe6da0097",
+    "play-store-screenshots/public/screenshots/de/diagnostics.png": "4995232ba88e95ce2c9f9c4ee8ba1295da01d1a40d4510b0e3203fed55496c4a",
+    "docs/screenshots/ui/de/diagnostics.png": "4995232ba88e95ce2c9f9c4ee8ba1295da01d1a40d4510b0e3203fed55496c4a",
+    "play-store-screenshots/public/screenshots/de/relay.png": "5d7857fa02dc6b2236e3207b89f10219e67ce4f8e7749f80c0d43c665b87419d",
+    "docs/screenshots/ui/de/relay.png": "5d7857fa02dc6b2236e3207b89f10219e67ce4f8e7749f80c0d43c665b87419d",
+    "play-store-screenshots/public/screenshots/de/dns-settings.png": "2c4c424645976516b5c63908e7413489c028ae1c52e7dc16720aea07a98129f1",
+    "docs/screenshots/ui/de/dns-settings.png": "2c4c424645976516b5c63908e7413489c028ae1c52e7dc16720aea07a98129f1",
+    "play-store-screenshots/public/screenshots/de/strategies.png": "3fc31c2a0fe0eedfacff038bea00aa524594b75b6c644a6c1fd33f44b64c7fc0",
+    "docs/screenshots/ui/de/strategies.png": "3fc31c2a0fe0eedfacff038bea00aa524594b75b6c644a6c1fd33f44b64c7fc0",
+    "play-store-screenshots/public/screenshots/de/backup.png": "f52b2a13f39ae81b3936d3870a895910f082e8cb9eb1b68d9fcfcb6bddaeaf6d",
+    "docs/screenshots/ui/de/backup.png": "f52b2a13f39ae81b3936d3870a895910f082e8cb9eb1b68d9fcfcb6bddaeaf6d",
+    "play-store-screenshots/public/screenshots/fr/home-light.png": "e6a9165d75635d16dd1ac06aa567bc6911275204e4606cf097ee59255ecbedf3",
+    "docs/screenshots/ui/fr/home.png": "e6a9165d75635d16dd1ac06aa567bc6911275204e4606cf097ee59255ecbedf3",
+    "play-store-screenshots/public/screenshots/fr/diagnostics.png": "3f5fd6158fef89492d0f34a1d60d322d69398d99ae1f019c9ab50ad3acf4a2a2",
+    "docs/screenshots/ui/fr/diagnostics.png": "3f5fd6158fef89492d0f34a1d60d322d69398d99ae1f019c9ab50ad3acf4a2a2",
+    "play-store-screenshots/public/screenshots/fr/relay.png": "dec8cdfb8e89789ed3c6791f2941550568a1098c744e65433ca2cf4ebe133e02",
+    "docs/screenshots/ui/fr/relay.png": "dec8cdfb8e89789ed3c6791f2941550568a1098c744e65433ca2cf4ebe133e02",
+    "play-store-screenshots/public/screenshots/fr/dns-settings.png": "87733e5c045e71a3922bc01bce30e29d47ecc400ccf9fbdd9ebb3aadd994f6e9",
+    "docs/screenshots/ui/fr/dns-settings.png": "87733e5c045e71a3922bc01bce30e29d47ecc400ccf9fbdd9ebb3aadd994f6e9",
+    "play-store-screenshots/public/screenshots/fr/strategies.png": "b6ecd57c93c9fb3c4dd3f939c9505feef12da1051c7f4a1bb864cfd67a59fe58",
+    "docs/screenshots/ui/fr/strategies.png": "b6ecd57c93c9fb3c4dd3f939c9505feef12da1051c7f4a1bb864cfd67a59fe58",
+    "play-store-screenshots/public/screenshots/fr/backup.png": "aa1cad521514b5282661a424d78574d34e1a103750343cda6cc7d75527d1aa33",
+    "docs/screenshots/ui/fr/backup.png": "aa1cad521514b5282661a424d78574d34e1a103750343cda6cc7d75527d1aa33",
+    "play-store-screenshots/public/screenshots/fa/home-light.png": "a2e76754c2be3f95e288af1e73acb3e7f848e47c7f9172ebd755b200e4d11d7e",
+    "docs/screenshots/ui/fa/home.png": "a2e76754c2be3f95e288af1e73acb3e7f848e47c7f9172ebd755b200e4d11d7e",
+    "play-store-screenshots/public/screenshots/fa/diagnostics.png": "3535dd196dcadb00a3aaf3161d22ff625b75a17afdc1d582ed34bbbd3f5412c7",
+    "docs/screenshots/ui/fa/diagnostics.png": "3535dd196dcadb00a3aaf3161d22ff625b75a17afdc1d582ed34bbbd3f5412c7",
+    "play-store-screenshots/public/screenshots/fa/relay.png": "8f5fb03628ef9def234ba39c3653bc4b456b03bdaee752db737e33a3300b8b6e",
+    "docs/screenshots/ui/fa/relay.png": "8f5fb03628ef9def234ba39c3653bc4b456b03bdaee752db737e33a3300b8b6e",
+    "play-store-screenshots/public/screenshots/fa/dns-settings.png": "bce7d435dd8bcf459444dde5de33d339ac2cd0f9532f3d89584dec0d8edc39d0",
+    "docs/screenshots/ui/fa/dns-settings.png": "bce7d435dd8bcf459444dde5de33d339ac2cd0f9532f3d89584dec0d8edc39d0",
+    "play-store-screenshots/public/screenshots/fa/strategies.png": "8e696e6407ba0651210071f62c0c1ce799d217ed53f0c422a998bc9ff8f9baab",
+    "docs/screenshots/ui/fa/strategies.png": "8e696e6407ba0651210071f62c0c1ce799d217ed53f0c422a998bc9ff8f9baab",
+    "play-store-screenshots/public/screenshots/fa/backup.png": "58a26ff1eb92bf36dd366a3cac020545a3a4e9a854913e6c38d5aa2ec57d210d",
+    "docs/screenshots/ui/fa/backup.png": "58a26ff1eb92bf36dd366a3cac020545a3a4e9a854913e6c38d5aa2ec57d210d",
+    "play-store-screenshots/public/screenshots/zh-CN/home-light.png": "6215125fcd52cb138362adae067e4cd8fbe3b4ab7c21510755883bfac28ee1e2",
+    "docs/screenshots/ui/zh-CN/home.png": "6215125fcd52cb138362adae067e4cd8fbe3b4ab7c21510755883bfac28ee1e2",
+    "play-store-screenshots/public/screenshots/zh-CN/diagnostics.png": "dca3a0a1e5a4cba032d7c917b01b218b84eec7b25a95c3b10117c80f8bfcb69d",
+    "docs/screenshots/ui/zh-CN/diagnostics.png": "dca3a0a1e5a4cba032d7c917b01b218b84eec7b25a95c3b10117c80f8bfcb69d",
+    "play-store-screenshots/public/screenshots/zh-CN/relay.png": "d9f03707bed56ce703dae754c8aa73806c8cf45b12783c37247c92e6e5e8407b",
+    "docs/screenshots/ui/zh-CN/relay.png": "d9f03707bed56ce703dae754c8aa73806c8cf45b12783c37247c92e6e5e8407b",
+    "play-store-screenshots/public/screenshots/zh-CN/dns-settings.png": "07c116c954ca4ab6c08e07ea1b30571cadb77ccb91e57c25d43d66a813df3a12",
+    "docs/screenshots/ui/zh-CN/dns-settings.png": "07c116c954ca4ab6c08e07ea1b30571cadb77ccb91e57c25d43d66a813df3a12",
+    "play-store-screenshots/public/screenshots/zh-CN/strategies.png": "c9d6c8f4018a59e62a834abe0cb5f489b31a6d1de3ba8239c3ed3477fc7b362f",
+    "docs/screenshots/ui/zh-CN/strategies.png": "c9d6c8f4018a59e62a834abe0cb5f489b31a6d1de3ba8239c3ed3477fc7b362f",
+    "play-store-screenshots/public/screenshots/zh-CN/backup.png": "b913e15b178d35de12edd9aa74f32da6ff9cb0e1bc0e5c8cf055ecd95d23671e",
+    "docs/screenshots/ui/zh-CN/backup.png": "b913e15b178d35de12edd9aa74f32da6ff9cb0e1bc0e5c8cf055ecd95d23671e",
+    "play-store-screenshots/public/screenshots/home-light.png": "1deb5e1d9966d729b03d8d2dd237f4db4141a0c85853e3fba0f6221e28698a76",
+    "play-store-screenshots/public/screenshots/diagnostics.png": "47555bf8203afd43542784c9939d8bb54e4659b0d209b6025dd0fba882b64914",
+    "play-store-screenshots/public/screenshots/relay.png": "8d5532bda851fdf77c179aa8ab3de4c3ac726fb242d31ee2516b74a85543806e",
+    "play-store-screenshots/public/screenshots/dns-settings.png": "d75cd3ab3560cf4e7e273000647729c540895ec47f0386d9f47e5101dc760d33",
+    "play-store-screenshots/public/screenshots/strategies.png": "be751b76d0c1961e8a1caa96c691eae6a53581c02f6fa830c806b54472100b12",
+    "play-store-screenshots/public/screenshots/backup.png": "ad00fc5a4df2d15c0f8ab90be4900992a4faaef88c32edfaeb8e67e04a1bc436"
   }
 }
