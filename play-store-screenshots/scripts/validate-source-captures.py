@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -40,7 +40,7 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     vpn = receipts.get("vpn", {})
     diagnostic = receipts.get("diagnostics", {})
     if (vpn.get("service") != "RipDpiVpnService" or vpn.get("transport") != "VPN CONNECTED; owner com.poyka.ripdpi"
-            or not vpn.get("observedAtUtc")):
+            or not vpn.get("observedAtUtc") or not vpn.get("stoppedNormallyAtUtc")):
         errors.append("Missing a real owned VPN connection receipt.")
     if (not diagnostic.get("id") or diagnostic.get("id") == diagnostic.get("previousSessionId")
             or diagnostic.get("profileId") != "default" or diagnostic.get("status") != "completed"
@@ -51,6 +51,18 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
             or (diagnostic.get("finishedAt") or 0) < diagnostic.get("startedAt", 1)
             or sum(diagnostic.get("outcomes", {}).values()) != diagnostic.get("resultCount")):
         errors.append("Missing a new completed diagnostic receipt with real outcomes and report hash.")
+    permission_receipt = receipts.get("permissions", {})
+    expected_permissions = ["android.permission.POST_NOTIFICATIONS"]
+    if manifest.get("device", {}).get("api", 0) >= 37:
+        expected_permissions.append("android.permission.ACCESS_LOCAL_NETWORK")
+    if (permission_receipt.get("api") != manifest.get("device", {}).get("api")
+            or permission_receipt.get("granted") != expected_permissions or not permission_receipt.get("observedAtUtc")):
+        errors.append("Missing actual Android runtime permission receipts.")
+    displays = receipts.get("displayFrames", {})
+    expected_displays = {f"{locale}/{name}": {**profile, "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
+                         for locale in LOCALES for name, profile in DISPLAY_PROFILES.items()}
+    if displays != expected_displays or manifest.get("state", {}).get("displayProfiles") != DISPLAY_PROFILES:
+        errors.append("Missing actual per-frame density and font-scale receipts.")
     inputs = input_hashes(root)
     if inputs_sha256(manifest.get("uiInputs", {})) != manifest.get("uiInputsSha256"):
         errors.append("The recorded UI input list does not match its digest.")

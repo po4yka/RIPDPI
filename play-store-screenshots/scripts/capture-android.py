@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
@@ -26,6 +26,10 @@ def is_new_completed_scan(receipt: dict | None, previous_id: str | None, clicked
     return bool(receipt and receipt["id"] != previous_id and receipt["startedAt"] >= clicked_at
                 and receipt["finishedAt"] is not None and receipt["status"] == "completed"
                 and receipt["resultCount"] > 0 and receipt["reportBytes"] > 0)
+
+
+def runtime_permissions(api: int) -> tuple[str, ...]:
+    return ("android.permission.POST_NOTIFICATIONS",) + (("android.permission.ACCESS_LOCAL_NETWORK",) if api >= 37 else ())
 
 
 def run(args: list[str], *, raw: bool = False) -> bytes | str:
@@ -63,11 +67,16 @@ class CaptureDevice:
         time.sleep(0.6)
 
     def scroll(self, delta: int) -> None:
-        step = max(-600, min(600, delta + (24 if delta > 0 else -24)))
+        density = int(re.findall(r"density: ([0-9]+)", self.adb("shell", "wm", "density"))[-1])
+        slop = round(density * 8 / 160)
+        step = max(-600, min(600, delta + (slop if delta > 0 else -slop)))
         self.adb("shell", "input", "swipe", "540", "1450" if step > 0 else "750", "540", str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
 
     def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
+        profile = DISPLAY_PROFILES.get(name, {"densityDpi": DENSITY_DPI, "fontScale": 1.0})
+        self.adb("shell", "wm", "density", str(profile["densityDpi"]) if profile["densityDpi"] != DENSITY_DPI else "reset")
+        self.adb("shell", "settings", "put", "system", "font_scale", str(profile["fontScale"]))
         self.adb("shell", "am", "force-stop", PACKAGE)
         args = ["shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity"]
         for suffix in ("ENABLED", "DISABLE_MOTION"):
@@ -100,7 +109,9 @@ class CaptureDevice:
         button = self.tag(tree, "connection-actuator-button")
         if button is None:
             raise RuntimeError("The real connection control is missing.")
-        self.tap(button)
+        connectivity = self.adb("shell", "dumpsys", "connectivity")
+        if "ni{VPN CONNECTED extra: VPN:com.poyka.ripdpi}" not in connectivity:
+            self.tap(button)
         for _ in range(30):
             services = self.adb("shell", "dumpsys", "activity", "services", PACKAGE)
             connectivity = self.adb("shell", "dumpsys", "connectivity")
@@ -111,6 +122,16 @@ class CaptureDevice:
                 return
             time.sleep(1)
         raise RuntimeError("A real VPN did not start. Grant Android VPN consent through the normal app first.")
+
+    def disconnect_live(self) -> None:
+        self.tap(self.tag(self.tree(), "connection-actuator-button"))
+        for _ in range(30):
+            if "ni{VPN CONNECTED extra: VPN:com.poyka.ripdpi}" not in self.adb("shell", "dumpsys", "connectivity"):
+                self.receipts["vpn"]["stoppedNormallyAtUtc"] = datetime.now(timezone.utc).isoformat()
+                time.sleep(2)
+                return
+            time.sleep(1)
+        raise RuntimeError("The normal Home disconnect did not stop the real VPN.")
 
     def latest_scan(self) -> dict | None:
         with tempfile.TemporaryDirectory(prefix="ripdpi-listing-scan-") as directory:
@@ -164,7 +185,7 @@ class CaptureDevice:
             else:
                 raise RuntimeError("The real diagnostic scan exceeded five minutes. No frame was saved.")
         self.tap(self.tag(self.tree(), "diagnostics-section-scan"))
-        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 800)
+        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 590)
 
     def align(self, tag_name: str, top: int, attempts: int = 32) -> None:
         for _ in range(attempts):
@@ -173,7 +194,7 @@ class CaptureDevice:
                 self.scroll(500)
                 continue
             delta = self.bounds(node)[1] - top
-            if abs(delta) <= 12:
+            if abs(delta) <= 4:
                 return
             self.scroll(delta)
         raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
@@ -188,7 +209,7 @@ class CaptureDevice:
             if switch is not None:
                 if switch.get("checked") == "false":
                     self.tap(switch)
-                self.align("mode-editor-relay-section-tls-transports", 300)
+                self.align("mode-editor-relay-section-tls-transports", 262)
                 return
             self.scroll(550)
         raise RuntimeError("The relay editor switch is missing.")
@@ -243,11 +264,11 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
                    "model": device.adb("shell", "getprop", "ro.product.model"),
                    "api": int(device.adb("shell", "getprop", "ro.build.version.sdk")),
                    "abi": device.adb("shell", "getprop", "ro.product.cpu.abi"),
-                   "screen": "1080x1800", "densityDpi": DENSITY_DPI},
+                   "screen": "1080x1800", "densityDpi": DENSITY_DPI, "physicalDensityDpi": DENSITY_DPI},
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "statusBar": "Android demo mode: 12:00, battery 100%, notifications hidden",
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "statusBar": "Android demo mode: 12:00, battery 100%, notifications hidden",
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
@@ -271,6 +292,8 @@ def main() -> None:
     device = CaptureDevice(args.serial)
     if "ACTIVATE_VPN: allow" not in device.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
         parser.error("Grant actual Android VPN consent through the normal app before capture.")
+    device.adb("shell", "wm", "density", "reset")
+    device.adb("shell", "settings", "put", "system", "font_scale", "1.0")
     if device.adb("shell", "wm", "size") != "Physical size: 1080x1800" or device.adb("shell", "wm", "density") != "Physical density: 360":
         parser.error("Use a dedicated emulator at physical 1080x1800, 360 dpi; no resize or crop is applied.")
     abi = device.adb("shell", "getprop", "ro.product.cpu.abi")
@@ -288,7 +311,14 @@ def main() -> None:
     subprocess.run(build_args, cwd=ROOT, check=True)
     apk = ROOT / f"app/build/outputs/apk/githubFull/debug/app-github-full-{abi}-debug.apk"
     device.adb("install", "-r", str(apk))
-    device.adb("shell", "pm", "grant", PACKAGE, "android.permission.POST_NOTIFICATIONS")
+    api = int(device.adb("shell", "getprop", "ro.build.version.sdk"))
+    for permission in runtime_permissions(api):
+        device.adb("shell", "pm", "grant", PACKAGE, permission)
+    package_state = device.adb("shell", "dumpsys", "package", PACKAGE)
+    if not all(f"{permission}: granted=true" in package_state for permission in runtime_permissions(api)):
+        raise RuntimeError("Required real Android runtime permissions were not granted.")
+    device.receipts["permissions"] = {"api": api, "granted": list(runtime_permissions(api)),
+                                      "observedAtUtc": datetime.now(timezone.utc).isoformat()}
     device.adb("shell", "cmd", "uimode", "night", "no")
     for setting in ("window_animation_scale", "transition_animation_scale", "animator_duration_scale"):
         device.adb("shell", "settings", "put", "global", setting, "0")
@@ -308,6 +338,14 @@ def main() -> None:
                 first = False
                 path = PROJECT / f"public/screenshots/{locale}/{source_name}.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
+                observed_density = device.adb("shell", "wm", "density")
+                density_values = list(map(int, re.findall(r"density: ([0-9]+)", observed_density)))
+                profile = {"densityDpi": density_values[-1],
+                           "fontScale": float(device.adb("shell", "settings", "get", "system", "font_scale"))}
+                if profile != DISPLAY_PROFILES[name] or device.adb("shell", "wm", "size") != "Physical size: 1080x1800":
+                    raise RuntimeError("The actual frame display does not match its capture profile.")
+                device.receipts.setdefault("displayFrames", {})[f"{locale}/{name}"] = {
+                    **profile, "physicalDensityDpi": density_values[0], "screen": "1080x1800"}
                 path.write_bytes(device.adb("exec-out", "screencap", "-p", raw=True))
                 direct = ROOT / f"docs/screenshots/ui/{locale}/{name}.png"
                 direct.parent.mkdir(parents=True, exist_ok=True)
@@ -315,9 +353,13 @@ def main() -> None:
                 if locale == "en":
                     shutil.copyfile(path, PROJECT / f"public/screenshots/{source_name}.png")
                 print(f"Captured {locale}/{name}", flush=True)
+                if name == "home":
+                    device.disconnect_live()
         record_manifest(device, apk, xray_artifacts, revision, inputs)
     finally:
         device.demo_mode(False)
+        device.adb("shell", "wm", "density", "reset")
+        device.adb("shell", "settings", "put", "system", "font_scale", "1.0")
     print("Inspect all frames, then run bun run capture:prod. These frames do not prove network acceptance.")
 
 
