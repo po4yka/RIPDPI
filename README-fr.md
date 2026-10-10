@@ -145,7 +145,13 @@ La confidentialité du trafic de relais dépend du point de terminaison et du pr
 
 ## Compilation
 
-Prérequis : JDK 17, Android SDK, Android NDK `29.0.14206865`, chaîne d'outils Rust `1.98.1`, cibles Rust Android pour les ABI nécessaires.
+Prérequis : JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, chaîne d'outils Rust `1.98.1`, cibles Rust Android pour les ABI nécessaires.
+
+Installez les paquets SDK requis avec Android CLI 1.0+ :
+
+```bash
+android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
+```
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

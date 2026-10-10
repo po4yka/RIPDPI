@@ -147,7 +147,13 @@ RIPDPI فراداده‌های عملیاتی را برای تشخیص و عیب
 
 ## ساخت
 
-پیش‌نیازها: JDK 17، Android SDK، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.98.1`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
+پیش‌نیازها: JDK 17، Android SDK (platform `37`, CMake `3.31.6`)، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.98.1`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
+
+بسته‌های لازم SDK را با Android CLI 1.0+ نصب کنید:
+
+```bash
+android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
+```
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

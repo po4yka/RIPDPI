@@ -145,7 +145,13 @@ Relay ट्रैफ़िक गोपनीयता आपके द्व�
 
 ## Build
 
-आवश्यकताएँ: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, आवश्यक ABIs के लिए Android Rust targets, [`just`](https://just.systems) (task runner; `justfile` recipes CI को प्रतिबिंबित करती हैं), और [`lefthook`](https://github.com/evilmartians/lefthook) (pre-commit gates को वायर करने के लिए एक बार `lefthook install` चलाएँ)।
+आवश्यकताएँ: JDK 17, Android SDK (platform `37`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, आवश्यक ABIs के लिए Android Rust targets, [`just`](https://just.systems) (task runner; `justfile` recipes CI को प्रतिबिंबित करती हैं), और [`lefthook`](https://github.com/evilmartians/lefthook) (pre-commit gates को वायर करने के लिए एक बार `lefthook install` चलाएँ)।
+
+Android CLI 1.0+ से आवश्यक SDK पैकेज स्थापित करें:
+
+```bash
+android sdk install platforms/android-37 ndk/29.0.14206865 cmake/3.31.6
+```
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
