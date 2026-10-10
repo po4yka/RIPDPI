@@ -32,7 +32,7 @@ Show Google Play feature graphics and designed screenshots in all README galleri
 | Owner | Paths |
 | --- | --- |
 | Asset worker in isolated play-store-assets worktree | play-store-screenshots/src, capture.mjs, scripts/validate-play-store.mjs, package scripts, renderer README, generated docs/screenshots marketing PNGs; no raw capture changes |
-| Integration owner in play-store-presentation worktree | Nine root/localized READMEs, task records and generated board, combined checks, integration and push |
+| Integration owner in play-store-presentation worktree | Nine root/localized READMEs, generator AGENTS.md and screenshot skill factual guidance, task records and generated board, combined checks, integration and push |
 | Read-only reviewers | Claims, source evidence, layout and final diff |
 
 The existing seven marketing locales remain en, ru, es, de, fr, fa and zh-CN. Raw Android frames and app source are not changed. The app icon uses the canonical launcher asset. Generator and output files have one writer.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="RIPDPI Logo"/>
+  <a href="docs/screenshots/ru/feature-graphic.png"><img src="docs/screenshots/ru/feature-graphic.png" width="100%" alt="Баннер RIPDPI для Google Play"/></a>
 </p>
 
 <h1 align="center">RIPDPI</h1>
@@ -96,14 +96,22 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## Скриншоты
 
 <p align="center">
-  <a href="docs/screenshots/ui/ru/home.png"><img src="docs/screenshots/ui/ru/home.png" width="360" alt="Главный экран RIPDPI, подключение отключено"/></a>
+  <a href="docs/screenshots/ru/01-hero.png"><img src="docs/screenshots/ru/01-hero.png" width="260" alt="Управление подключением — настоящий главный экран"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/ru/diagnostics.png"><img src="docs/screenshots/ui/ru/diagnostics.png" width="360" alt="Настройка диагностического сканирования до запуска"/></a>
+  <a href="docs/screenshots/ru/02-diagnostics.png"><img src="docs/screenshots/ru/02-diagnostics.png" width="260" alt="Проверка сети — настройка сканирования"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/ru/relay.png"><img src="docs/screenshots/ui/ru/relay.png" width="360" alt="Настройки исходящего relay в редакторе"/></a>
+  <a href="docs/screenshots/ru/03-relays.png"><img src="docs/screenshots/ru/03-relays.png" width="260" alt="Выбор релея — редактор профиля"/></a>
 </p>
 
-На главном экране подключение отключено. Диагностика показывает настройку сканирования. Настройки relay показаны как несохранённое изменение в редакторе. Нажмите изображение, чтобы открыть его в полном разрешении. [Маркетинговые иллюстрации](play-store-screenshots/README.md) размещены отдельно.
+<p align="center">
+  <a href="docs/screenshots/ru/04-dns.png"><img src="docs/screenshots/ru/04-dns.png" width="260" alt="Настройка DNS — варианты шифрованного DNS"/></a>
+  &nbsp;
+  <a href="docs/screenshots/ru/05-strategies.png"><img src="docs/screenshots/ru/05-strategies.png" width="260" alt="Настройка стратегии — категории packet-стратегий"/></a>
+  &nbsp;
+  <a href="docs/screenshots/ru/06-local-tools.png"><img src="docs/screenshots/ru/06-local-tools.png" width="260" alt="Локальное управление — маршрутизация и резервные копии"/></a>
+</p>
+
+Материалы для Google Play с настоящими снимками приложения. На главном экране подключение отключено; диагностика показывает настройку сканирования; релей — несохранённое изменение. Нажмите изображение, чтобы открыть его в полном размере. [Исходники и экспорт](play-store-screenshots/README.md).
 
 ## Возможности
 

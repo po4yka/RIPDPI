@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="RIPDPI Logo"/>
+  <a href="docs/screenshots/de/feature-graphic.png"><img src="docs/screenshots/de/feature-graphic.png" width="100%" alt="RIPDPI-Grafik für Google Play"/></a>
 </p>
 
 <h1 align="center">RIPDPI</h1>
@@ -96,14 +96,22 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 ## Screenshots
 
 <p align="center">
-  <a href="docs/screenshots/ui/de/home.png"><img src="docs/screenshots/ui/de/home.png" width="360" alt="RIPDPI-Startbildschirm, nicht verbunden"/></a>
+  <a href="docs/screenshots/de/01-hero.png"><img src="docs/screenshots/de/01-hero.png" width="260" alt="Verbindung steuern — echter Startbildschirm"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/de/diagnostics.png"><img src="docs/screenshots/ui/de/diagnostics.png" width="360" alt="Einrichtung des Diagnosescans vor dem Start"/></a>
+  <a href="docs/screenshots/de/02-diagnostics.png"><img src="docs/screenshots/de/02-diagnostics.png" width="260" alt="Netzwerk prüfen — Einrichtung des Scans"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/de/relay.png"><img src="docs/screenshots/ui/de/relay.png" width="360" alt="Ausgehende Relay-Einstellungen im Editor"/></a>
+  <a href="docs/screenshots/de/03-relays.png"><img src="docs/screenshots/de/03-relays.png" width="260" alt="Relay wählen — echter Profileditor"/></a>
 </p>
 
-Der Startbildschirm zeigt den getrennten Zustand. Diagnose zeigt die Scan-Einrichtung. Die Relay-Einstellungen zeigen eine ungespeicherte Änderung im Editor. Ein Bild auswählen, um es in voller Auflösung zu öffnen. [Werbegrafiken](play-store-screenshots/README.md) stehen separat.
+<p align="center">
+  <a href="docs/screenshots/de/04-dns.png"><img src="docs/screenshots/de/04-dns.png" width="260" alt="DNS einrichten — verschlüsselte DNS-Optionen"/></a>
+  &nbsp;
+  <a href="docs/screenshots/de/05-strategies.png"><img src="docs/screenshots/de/05-strategies.png" width="260" alt="Strategie anpassen — Paketstrategien"/></a>
+  &nbsp;
+  <a href="docs/screenshots/de/06-local-tools.png"><img src="docs/screenshots/de/06-local-tools.png" width="260" alt="Lokale Kontrolle — Routing und Backups"/></a>
+</p>
+
+Grafiken für Google Play mit echten App-Aufnahmen. Der Startbildschirm ist nicht verbunden; Diagnose zeigt die Scan-Einrichtung; das Relay zeigt eine ungespeicherte Änderung. Ein Bild lässt sich in voller Größe öffnen. [Quellen und Export](play-store-screenshots/README.md).
 
 ## Funktionen
 

@@ -1,7 +1,7 @@
 <div dir="rtl">
 
 <p align="center">
-  <img src="../../app/src/main/ic_launcher-playstore.png" width="120" alt="نشان RIPDPI"/>
+  <a href="../../docs/screenshots/fa/feature-graphic.png"><img src="../../docs/screenshots/fa/feature-graphic.png" width="100%" alt="بنر RIPDPI برای Google Play"/></a>
 </p>
 
 <h1 align="center">RIPDPI</h1>
@@ -98,14 +98,22 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## تصاویر صفحه
 
 <p align="center">
-  <a href="../../docs/screenshots/ui/fa/home.png"><img src="../../docs/screenshots/ui/fa/home.png" width="360" alt="صفحهٔ اصلی RIPDPI، قطع اتصال"/></a>
+  <a href="../../docs/screenshots/fa/01-hero.png"><img src="../../docs/screenshots/fa/01-hero.png" width="260" alt="کنترل اتصال — صفحهٔ اصلی واقعی"/></a>
   &nbsp;
-  <a href="../../docs/screenshots/ui/fa/diagnostics.png"><img src="../../docs/screenshots/ui/fa/diagnostics.png" width="360" alt="تنظیم پویش تشخیصی پیش از اجرا"/></a>
+  <a href="../../docs/screenshots/fa/02-diagnostics.png"><img src="../../docs/screenshots/fa/02-diagnostics.png" width="260" alt="بررسی شبکه — تنظیم پویش"/></a>
   &nbsp;
-  <a href="../../docs/screenshots/ui/fa/relay.png"><img src="../../docs/screenshots/ui/fa/relay.png" width="360" alt="تنظیمات رلهٔ خروجی در ویرایشگر"/></a>
+  <a href="../../docs/screenshots/fa/03-relays.png"><img src="../../docs/screenshots/fa/03-relays.png" width="260" alt="انتخاب رله — ویرایشگر واقعی پروفایل"/></a>
 </p>
 
-صفحهٔ اصلی در حالت قطع اتصال است. تشخیص تنظیم پویش را نشان می‌دهد. تنظیمات رله یک تغییر ذخیره‌نشده در ویرایشگر است. برای باز کردن تصویر با وضوح کامل روی آن بزنید. [تصاویر تبلیغاتی](../../play-store-screenshots/README.md) جدا نگه داشته شده‌اند.
+<p align="center">
+  <a href="../../docs/screenshots/fa/04-dns.png"><img src="../../docs/screenshots/fa/04-dns.png" width="260" alt="تنظیم DNS — گزینه‌های DNS رمزگذاری‌شده"/></a>
+  &nbsp;
+  <a href="../../docs/screenshots/fa/05-strategies.png"><img src="../../docs/screenshots/fa/05-strategies.png" width="260" alt="تنظیم راهبرد — دسته‌های راهبرد بسته"/></a>
+  &nbsp;
+  <a href="../../docs/screenshots/fa/06-local-tools.png"><img src="../../docs/screenshots/fa/06-local-tools.png" width="260" alt="کنترل محلی — مسیریابی و پشتیبان‌گیری"/></a>
+</p>
+
+تصاویر Google Play با نماهای واقعی برنامه. صفحهٔ اصلی قطع اتصال را نشان می‌دهد؛ تشخیص، تنظیم پویش را نشان می‌دهد؛ رله، تغییر ذخیره‌نشده را نشان می‌دهد. برای دیدن اندازهٔ کامل روی تصویر کلیک کنید. [منبع تصاویر و خروجی](../../play-store-screenshots/README.md).
 
 ## ویژگی‌ها
 

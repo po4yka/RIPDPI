@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="RIPDPI: diagnóstico de caminho de rede no Android que mede o caminho direto, classifica a falha e aplica a correção mais leve que funciona ou um relay opcional"/>
+  <a href="docs/screenshots/en/feature-graphic.png"><img src="docs/screenshots/en/feature-graphic.png" width="100%" alt="Gráfico do RIPDPI para Google Play (English fallback)"/></a>
 </p>
 
 <p align="center">
@@ -21,17 +21,25 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
 
 ## Veja o caminho, não apenas um interruptor
 
-**Idioma das capturas: English fallback.** Ainda não há capturas da interface em português brasileiro para este README.
+**Idioma do banner e dos cartões: English fallback.** Ainda não há materiais Google Play em português brasileiro.
 
 <p align="center">
-  <a href="docs/screenshots/ui/en/home.png"><img src="docs/screenshots/ui/en/home.png" width="360" alt="Tela inicial do RIPDPI, desconectado"/></a>
+  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="260" alt="Controle sua conexão — tela inicial real"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/en/diagnostics.png"><img src="docs/screenshots/ui/en/diagnostics.png" width="360" alt="Configuração do exame diagnóstico antes da execução"/></a>
+  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="260" alt="Verifique sua rede — configuração do exame"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/en/relay.png"><img src="docs/screenshots/ui/en/relay.png" width="360" alt="Configurações do relay de saída no editor"/></a>
+  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="260" alt="Escolha seu relay — editor de perfis real"/></a>
 </p>
 
-A tela inicial está desconectada. Diagnóstico mostra a configuração do exame. As configurações do relay mostram uma alteração não salva no editor. Selecione uma imagem para abri-la em resolução completa. As [ilustrações promocionais](play-store-screenshots/README.md) são mantidas separadamente.
+<p align="center">
+  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="260" alt="Configure seu DNS — opções de DNS criptografado"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="260" alt="Ajuste sua estratégia — categorias de estratégias"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="260" alt="Controle local — roteamento e backups"/></a>
+</p>
+
+Material para Google Play com capturas reais do aplicativo. A tela inicial está desconectada; Diagnóstico mostra a configuração do exame; o relay mostra uma alteração não salva. Abra uma imagem em tamanho completo. [Fontes e exportação](play-store-screenshots/README.md).
 
 Em vez de uma única política global, o RIPDPI classifica cada destino e cada rede separadamente, lembra os resultados validados e torna seus vereditos de falha visíveis. Comece localmente; introduza um relay somente quando o caminho direto não puder ser recuperado.
 

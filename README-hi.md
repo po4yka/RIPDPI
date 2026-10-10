@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="RIPDPI लोगो"/>
+  <a href="docs/screenshots/en/feature-graphic.png"><img src="docs/screenshots/en/feature-graphic.png" width="100%" alt="Google Play के लिए RIPDPI बैनर (English fallback)"/></a>
 </p>
 
 <h1 align="center">RIPDPI</h1>
@@ -92,17 +92,25 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 
 ## स्क्रीनशॉट
 
-**स्क्रीनशॉट भाषा: English fallback.** इस README के लिए अभी हिन्दी UI captures उपलब्ध नहीं हैं।
+**बैनर और कार्ड की भाषा: English fallback.** हिन्दी में Google Play सामग्री अभी उपलब्ध नहीं है।
 
 <p align="center">
-  <a href="docs/screenshots/ui/en/home.png"><img src="docs/screenshots/ui/en/home.png" width="360" alt="RIPDPI होम स्क्रीन, डिस्कनेक्टेड"/></a>
+  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="260" alt="कनेक्शन नियंत्रण — वास्तविक होम स्क्रीन"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/en/diagnostics.png"><img src="docs/screenshots/ui/en/diagnostics.png" width="360" alt="स्कैन से पहले डायग्नोस्टिक स्कैन सेटअप"/></a>
+  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="260" alt="नेटवर्क जाँच — स्कैन सेटअप"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/en/relay.png"><img src="docs/screenshots/ui/en/relay.png" width="360" alt="संपादक में outbound relay सेटिंग्स"/></a>
+  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="260" alt="Relay चुनें — वास्तविक प्रोफ़ाइल संपादक"/></a>
 </p>
 
-होम स्क्रीन डिस्कनेक्टेड है। Diagnostics स्कैन सेटअप दिखाता है। Relay सेटिंग्स संपादक में एक सहेजा नहीं गया बदलाव दिखाती हैं। पूरी resolution में खोलने के लिए चित्र चुनें। [प्रचार चित्र](play-store-screenshots/README.md) अलग रखे गए हैं।
+<p align="center">
+  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="260" alt="DNS सेट करें — एन्क्रिप्टेड DNS विकल्प"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="260" alt="रणनीति बदलें — पैकेट रणनीतियाँ"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="260" alt="स्थानीय नियंत्रण — रूटिंग और बैकअप"/></a>
+</p>
+
+Google Play सामग्री में ऐप की वास्तविक स्क्रीन हैं। होम स्क्रीन डिस्कनेक्टेड है; डायग्नोस्टिक्स में स्कैन सेटअप है; relay में सहेजा नहीं गया बदलाव है। पूरा आकार देखने के लिए चित्र खोलें। [स्रोत और एक्सपोर्ट](play-store-screenshots/README.md).
 
 ## सुविधाएँ
 

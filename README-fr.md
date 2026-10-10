@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="Logo RIPDPI"/>
+  <a href="docs/screenshots/fr/feature-graphic.png"><img src="docs/screenshots/fr/feature-graphic.png" width="100%" alt="Visuel RIPDPI pour Google Play"/></a>
 </p>
 
 <h1 align="center">RIPDPI</h1>
@@ -96,14 +96,22 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 ## Captures d'écran
 
 <p align="center">
-  <a href="docs/screenshots/ui/fr/home.png"><img src="docs/screenshots/ui/fr/home.png" width="360" alt="Écran principal de RIPDPI, déconnecté"/></a>
+  <a href="docs/screenshots/fr/01-hero.png"><img src="docs/screenshots/fr/01-hero.png" width="260" alt="Contrôlez votre connexion — écran réel"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/fr/diagnostics.png"><img src="docs/screenshots/ui/fr/diagnostics.png" width="360" alt="Configuration du scan de diagnostic avant son lancement"/></a>
+  <a href="docs/screenshots/fr/02-diagnostics.png"><img src="docs/screenshots/fr/02-diagnostics.png" width="260" alt="Vérifiez votre réseau — configuration du scan"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/fr/relay.png"><img src="docs/screenshots/ui/fr/relay.png" width="360" alt="Paramètres du relais sortant dans l’éditeur"/></a>
+  <a href="docs/screenshots/fr/03-relays.png"><img src="docs/screenshots/fr/03-relays.png" width="260" alt="Choisissez votre relais — éditeur réel"/></a>
 </p>
 
-L'écran principal est déconnecté. Diagnostics montre la configuration du scan. Les paramètres du relais montrent une modification non enregistrée dans l'éditeur. Sélectionnez une image pour l'ouvrir en pleine résolution. Les [illustrations promotionnelles](play-store-screenshots/README.md) sont conservées séparément.
+<p align="center">
+  <a href="docs/screenshots/fr/04-dns.png"><img src="docs/screenshots/fr/04-dns.png" width="260" alt="Configurez votre DNS — options de DNS chiffré"/></a>
+  &nbsp;
+  <a href="docs/screenshots/fr/05-strategies.png"><img src="docs/screenshots/fr/05-strategies.png" width="260" alt="Ajustez votre stratégie — stratégies de paquets"/></a>
+  &nbsp;
+  <a href="docs/screenshots/fr/06-local-tools.png"><img src="docs/screenshots/fr/06-local-tools.png" width="260" alt="Contrôle local — routage et sauvegardes"/></a>
+</p>
+
+Visuels Google Play avec des captures réelles de l’application. L’écran principal est déconnecté ; Diagnostic montre la configuration du scan ; le relais montre une modification non enregistrée. Ouvrez une image en taille réelle. [Sources et export](play-store-screenshots/README.md).
 
 ## Fonctionnalités
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="120" alt="RIPDPI 徽标"/>
+  <a href="docs/screenshots/zh-CN/feature-graphic.png"><img src="docs/screenshots/zh-CN/feature-graphic.png" width="100%" alt="RIPDPI 的 Google Play 宣传横幅"/></a>
 </p>
 
 <h1 align="center">RIPDPI</h1>
@@ -96,14 +96,22 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 ## 截图
 
 <p align="center">
-  <a href="docs/screenshots/ui/zh-CN/home.png"><img src="docs/screenshots/ui/zh-CN/home.png" width="360" alt="RIPDPI 主屏幕，未连接"/></a>
+  <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="260" alt="管理连接 — 真实主屏幕"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/zh-CN/diagnostics.png"><img src="docs/screenshots/ui/zh-CN/diagnostics.png" width="360" alt="运行前的诊断扫描设置"/></a>
+  <a href="docs/screenshots/zh-CN/02-diagnostics.png"><img src="docs/screenshots/zh-CN/02-diagnostics.png" width="260" alt="检查网络 — 扫描设置"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/zh-CN/relay.png"><img src="docs/screenshots/ui/zh-CN/relay.png" width="360" alt="编辑器中的出站中继设置"/></a>
+  <a href="docs/screenshots/zh-CN/03-relays.png"><img src="docs/screenshots/zh-CN/03-relays.png" width="260" alt="选择中继 — 真实配置编辑器"/></a>
 </p>
 
-主屏幕显示未连接状态。诊断显示扫描设置。中继设置显示编辑器中尚未保存的修改。点击图片可查看完整分辨率。[宣传插图](play-store-screenshots/README.md)单独维护。
+<p align="center">
+  <a href="docs/screenshots/zh-CN/04-dns.png"><img src="docs/screenshots/zh-CN/04-dns.png" width="260" alt="设置 DNS — 加密 DNS 选项"/></a>
+  &nbsp;
+  <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="260" alt="调整策略 — 数据包策略类别"/></a>
+  &nbsp;
+  <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="260" alt="本地控制 — 路由和备份"/></a>
+</p>
+
+Google Play 宣传图片使用真实应用截图。主屏幕未连接；诊断显示扫描设置；中继显示尚未保存的修改。点击图片可查看完整尺寸。[素材来源与导出](play-store-screenshots/README.md)。
 
 ## 功能
 

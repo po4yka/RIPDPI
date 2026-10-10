@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="RIPDPI: Android network-path diagnostics that measures the direct path, classifies the failure, and applies the lightest working fix or an optional relay"/>
+  <a href="docs/screenshots/en/feature-graphic.png"><img src="docs/screenshots/en/feature-graphic.png" width="100%" alt="Google Play feature graphic for RIPDPI"/></a>
 </p>
 
 <p align="center">
@@ -22,14 +22,22 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
 ## See the path, not just a switch
 
 <p align="center">
-  <a href="docs/screenshots/ui/en/home.png"><img src="docs/screenshots/ui/en/home.png" width="360" alt="RIPDPI home screen, disconnected"/></a>
+  <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="260" alt="Control your connection — actual Home screen"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/en/diagnostics.png"><img src="docs/screenshots/ui/en/diagnostics.png" width="360" alt="Diagnostic scan setup before a scan"/></a>
+  <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="260" alt="Check your network — actual scan setup"/></a>
   &nbsp;
-  <a href="docs/screenshots/ui/en/relay.png"><img src="docs/screenshots/ui/en/relay.png" width="360" alt="Outbound relay settings in the editor"/></a>
+  <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="260" alt="Choose your relay — actual Profile editor"/></a>
 </p>
 
-Home is disconnected. Diagnostics shows scan setup. Relay settings show an unsaved edit in the editor. Select an image to open it at full resolution. [Marketing illustrations](play-store-screenshots/README.md) are kept separately.
+<p align="center">
+  <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="260" alt="Set your DNS — encrypted DNS options"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="260" alt="Tune your strategy — packet strategy categories"/></a>
+  &nbsp;
+  <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="260" alt="Keep control locally — routing and backups"/></a>
+</p>
+
+Google Play artwork with actual app captures. Home is disconnected; Diagnostics shows scan setup; Relay shows an unsaved edit. Open an image at full size. [Asset sources and export](play-store-screenshots/README.md).
 
 Instead of a single global policy, RIPDPI classifies each target and network separately, remembers validated outcomes, and makes its failure verdicts visible. Start locally; introduce a relay only when the direct path cannot be recovered.
 

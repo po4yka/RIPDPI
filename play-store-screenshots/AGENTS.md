@@ -19,14 +19,14 @@ Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x
 
 | Path | Role |
 |------|------|
-| `src/app/page.tsx` (~1,180 lines) | Single-file generator: 6 phone slides + 1 feature graphic + `SLIDES` registry |
+| `src/app/page.tsx`  | Single-file generator: 6 phone slides + 1 feature graphic + `SLIDES` registry |
 | `src/app/layout.tsx` | Geist Sans + Geist Mono font setup |
 | `src/app/globals.css` | Minimal global styles |
 | `capture.mjs` | Puppeteer headless batch driver |
 | `public/screenshots/` | RAW 1344x2992 app captures (INPUT, manually produced — see Stage 1) |
 | `public/app-icon.png` | Copied from `app/src/main/ic_launcher-playstore.png` (brutalist black silhouette; refresh with `cp` after any brand change) |
 | `../docs/screenshots/` | Puppeteer OUTPUT, checked into git, referenced by READMEs |
-| `package.json` | Next.js 16.2.11, React 19.2.4, Puppeteer 24, Tailwind 4 |
+| `package.json` | Pinned renderer dependencies; see `package.json` and `bun.lock` |
 
 ## Two-Stage Pipeline
 
@@ -49,9 +49,9 @@ Expected files in `public/screenshots/`:
 | `history.png` | Connection history |
 | `relay.png` | Mode editor — outbound relay protocol picker |
 
-> Slides currently embed `home-light.png` (Slide 1), `relay.png` (Slide 3), and `diagnostics.png` (Slide 5). The other files are kept as Stage-1 inputs for future slides.
+> Use only the localized captures recorded in `public/screenshots/source-capture.json`: `home-light.png`, `diagnostics.png`, and `relay.png`. Slides 1, 2, 3 and 6 show complete real frames. Legacy root inputs must be recaptured before use. Run `scripts/validate-source-captures.py` before rendering.
 
-Regenerate: install the debug build on a 1080x2400 device, navigate to each screen, capture with `adb shell screencap -p`, copy out with `adb pull`. Light/dark variants come from the system theme toggle.
+Regenerate with `scripts/capture-android.py` on a dedicated emulator as described in `README.md`. Preserve the physical 1344x2992 screen, capture locale and recorded idle states. This operation resets app data; do not use a personal device or acceptance emulator.
 
 ### Stage 2 — Render marketing slides via Next.js + Puppeteer
 
@@ -63,21 +63,21 @@ Defined in `page.tsx` (grep for `const SLIDES`). The feature graphic is a separa
 
 | Idx | `id` | Label | Headline |
 |-----|------|-------|----------|
-| 1 | `hero` | Hero | Browse without borders |
-| 2 | `no-root` | No Root | One tap. No root. |
-| 3 | `relays` | Relays | Local bypass or your relay |
-| 4 | `controls` | Controls | Fine-tune every packet |
-| 5 | `diagnostics` | Diagnostics | See what's really happening |
-| 6 | `more` | More Features | And so much more. |
-| fg | — | Feature Graphic | Browse without borders |
+| 1 | `hero` | Home | Control your connection |
+| 2 | `diagnostics` | Diagnostics | Check your network |
+| 3 | `relays` | Relays | Choose your relay |
+| 4 | `dns` | DNS | Set your DNS |
+| 5 | `strategies` | Strategies | Tune your strategy |
+| 6 | `local-tools` | Local tools | Keep control locally |
+| fg | — | Feature Graphic | Connection tools on Android |
 
-Puppeteer file names are pinned in `capture.mjs` (grep for `const SLIDES`): `01-hero`, `02-no-root`, …, `feature-graphic`.
+Puppeteer file names are pinned in `capture.mjs` (grep for `const SLIDES`): `01-hero`, `02-diagnostics`, `03-relays`, `04-dns`, `05-strategies`, `06-local-tools`, and `feature-graphic`.
 
 ## Common Workflows
 
 | Goal | Command |
 |------|---------|
-| Iterate locally, click cards to export individually | `bun install && bun run dev` then open `localhost:3000` |
+| Iterate locally, click cards to export JPEG individually | `bun install && bun run dev` then open `localhost:3000` |
 | Render one slide at full resolution for debugging | `localhost:3000/?slide=N` where N is `1..6` or `fg` |
 | Batch capture for release (one-shot) | `bun run capture:prod` -- builds, boots the prod server on :3099, runs `capture.mjs`, and tears the server down on success or failure |
 | Batch capture for release (manual) | `bun run build && bun run start -- -p 3099 &` then `node capture.mjs` |
@@ -90,8 +90,8 @@ First install on a fresh machine needs `bun pm trust puppeteer` so Chromium down
 
 - **Production build mandatory for Puppeteer.** Dev-server HMR websocket causes Puppeteer to hang. Use `next build && next start` for batch capture.
 - **Next.js 16 `useSearchParams` requires Suspense.** `page.tsx` already wraps `ScreenshotsPage` in `<Suspense>` — keep it that way.
-- **No alpha in output PNGs.** Google Play rejects RGBA. The `backgroundColor: "#FAFAFA"` in the `toPng` options and the Puppeteer `clip` settings flatten alpha — do not remove either.
-- **Use `top:` positioning for the Screenshot component**, not `bottom + translateY`. Source captures are 1344x2992 (taller than the 1920 canvas), so percentage math from the bottom gets messy.
+- **Export formats.** Batch capture produces RGB PNGs and verifies their IHDR color type. Browser export uses JPEG with an opaque background. An opaque canvas PNG can still be RGBA; background color alone does not prove RGB PNG output.
+- **Use `top:` positioning for the Screenshot component**, not `bottom + translateY`. Source captures are 1344x2992. Scale them with their complete aspect ratio and keep all pixels visible inside the canvas. Do not clip the warning, state or navigation. Added taglines must occupy no more than 20% of the canvas.
 - **`bun pm trust puppeteer`** is required for Chromium to download on first install.
 - **Output goes to `../docs/screenshots/`**, not `./out/`. That sibling path is what the README link selectors expect; do not relocate without updating consumers.
 

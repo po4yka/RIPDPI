@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Overview
 
-Build or update the Next.js page in `play-store-screenshots/` that renders Google Play Store screenshots as **advertisements** (not UI showcases) and exports them via `html-to-image` + Puppeteer batch capture at Google Play's required resolutions.
+Build or update the Next.js page in `play-store-screenshots/` that renders Google Play Store screenshots as designed store artwork with accurate app UI and exports them via `html-to-image` + Puppeteer batch capture at Google Play's required resolutions.
 
 **Google Play constraints:**
 - Max 8 screenshots per device type (phone, 7" tablet, 10" tablet)
@@ -20,7 +20,9 @@ Build or update the Next.js page in `play-store-screenshots/` that renders Googl
 
 ## Core Principle
 
-**Screenshots are advertisements, not documentation.** Every screenshot sells one idea. If you're showing UI, you're doing it wrong -- you're selling a *feeling*, an *outcome*, or killing a *pain point*.
+Each screenshot communicates one supported capability. Show the real app experience, and prioritize actual UI in the first three screenshots. Preserve the captured state, warnings and disabled controls. Use short headings to explain the capability without promising an unverified outcome. Do not invent settings, measurements or active connections.
+
+Follow the [Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en). They take precedence over older marketing examples in this skill.
 
 ## Existing Project Structure
 
@@ -108,7 +110,9 @@ Use these for screenshot frame corners (40px = ~3.7% of 1080px width) and UI ele
 | Feature list | 1. path optimization (proxy + VPN modes) 2. No root required 3. Advanced strategy controls (TCP, QUIC, DNS) 4. Encrypted DNS (DoH/DoT/DNSCrypt) 5. Integrated diagnostics & monitoring 6. Per-network policies 7. Works with AdGuard 8. Session telemetry & export |
 | Style direction | Light, monochrome-first. Restrained semantic color (use info/success/warning only when the state itself matters). No decorative gradients on any slide — DESIGN.md forbids them in-app and the marketing surface honors the same rule. |
 
-### Ask the User
+### Confirm missing requirements
+
+For an existing generator, keep its configured slide count and locales unless the user asks to change them. A request to implement banners includes the feature graphic. Ask only when a missing requirement could change the result; otherwise use the existing project defaults and proceed.
 
 1. **Number of slides** -- "How many screenshots do you want? (Google Play allows up to 8)"
 2. **Feature Graphic** -- "Shall I generate a Feature Graphic (1024x500)? It's required for Play Store listings."
@@ -179,12 +183,12 @@ Use `var(--font-geist-sans)` and `var(--font-geist-mono)` in slide styles.
 
 | Slot | Purpose | RIPDPI Suggestion |
 |------|---------|-------------------|
-| #1 | **Hero / Main Benefit** | Home screen on light bg. "Browse without borders" |
-| #2 | **Differentiator** | Brutalist black silhouette logo on light, text-focused. "One tap. No root." |
-| #3 | **Core Feature** | Settings screenshot on light bg. "Your privacy. Your rules." |
-| #4 | **Core Feature** | Protocol pills, text-focused, light. "Fine-tune every packet" |
-| #5 | **Core Feature** | Diagnostics screenshot on light bg; info accent legitimately marks active probes. "See what's really happening" |
-| #6 | **More Features** | Feature pills + icon, dark inversion for rhythm. "And so much more." |
+| #1 | **Connection** | Complete actual Home capture; "Control your connection" |
+| #2 | **Diagnostics** | Complete actual Scan setup; "Check your network" |
+| #3 | **Relay configuration** | Complete actual Profile editor; "Choose your relay" |
+| #4 | **DNS options** | Editorial capability diagram; "Set your DNS" |
+| #5 | **Packet strategies** | Editorial capability diagram; "Tune your strategy" |
+| #6 | **Local tools** | Dark summary with complete Home capture; "Keep control locally" |
 
 **Rules:**
 - Each slide sells ONE idea
@@ -265,20 +269,20 @@ function Screenshot({ src, alt, style, bgColor = "#ffffff" }: {
 }
 ```
 
-### Phone Placement (Critical)
+### UI frame placement (Critical)
 
-The high-res screenshots are 1080x2400 (taller than the 1080x1920 canvas). **Use `top` positioning** to control exactly where the phone starts below the headline:
+The current source frames are 1344x2992. Use their exact aspect ratio and scale the complete frame to fit below the headline. Use `top` positioning and check both bottom and side margins. Do not crop or stretch the real UI:
 
 ```tsx
-// 3-line headline (~400px) + gap = top: 520
+// Fit the complete frame below a compact heading
 <Screenshot src="/screenshots/home-light.png" alt="Home"
   style={{
     position: "absolute",
-    top: 520,           // precise control -- no overlap
+    top: 310,           // precise control -- no overlap
     left: "50%",
     transform: "translateX(-50%)",
-    width: "76%",
-    aspectRatio: "1080/2400",
+    width: 700,
+    aspectRatio: "1344/2992",
   }}
 />
 ```
@@ -316,10 +320,10 @@ function ScreenshotsPage() {
 ### Browser Export (interactive)
 
 ```typescript
-import { toPng } from "html-to-image";
-const opts = { width: w, height: h, pixelRatio: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
-await toPng(el, opts);  // warm-up call
-const dataUrl = await toPng(el, opts);  // actual capture
+import { toJpeg } from "html-to-image";
+const opts = { width: w, height: h, pixelRatio: 1, quality: 1, cacheBust: true, backgroundColor: "#FAFAFA" };
+await toJpeg(el, opts);  // warm-up call
+const dataUrl = await toJpeg(el, opts);  // actual JPEG capture
 ```
 
 ### Puppeteer Batch Export (headless)
@@ -349,7 +353,7 @@ Captured images go to `docs/screenshots/` for README usage.
 ### Key Export Rules
 
 - **Double-call trick** for html-to-image: first call warms up fonts/images
-- **backgroundColor**: Always set to strip alpha (Google Play rejects alpha PNGs)
+- **Formats**: Browser downloads use opaque JPEG. Batch capture uses RGB PNG, checked by the strict asset validator. Background color alone does not change a canvas PNG from RGBA to RGB.
 - **Numbered filenames**: `01-hero.png`, `02-no-root.png`, etc.
 - **Feature Graphic filename**: `feature-graphic.png`
 - **Production server only** for Puppeteer -- dev server HMR websocket causes infinite loading
@@ -358,14 +362,14 @@ Captured images go to `docs/screenshots/` for README usage.
 
 ### Google Play Compliance
 
-- [ ] No alpha transparency (`backgroundColor` set)
+- [ ] No alpha transparency; batch PNG color type is checked, browser export is JPEG
 - [ ] Text overlay <= 20% of screenshot area
 - [ ] No promotional pricing, rankings, or awards
 - [ ] Aspect ratio valid (1920/1080 = 1.78, passes max 2:1)
 - [ ] Minimum 4 screenshots
 - [ ] Feature Graphic exactly 1024x500
 - [ ] Each file under 8 MB
-- [ ] All exports are 24-bit PNG
+- [ ] Batch assets are 24-bit PNG; browser downloads are JPEG
 
 ### Visual Quality
 
@@ -390,7 +394,7 @@ Captured images go to `docs/screenshots/` for README usage.
 | Screenshot clipped at edges | Use `left/right: "4%"` not negative values |
 | Blank Puppeteer captures | Must use production build (`bun run build && bun run start`) |
 | useSearchParams build error | Wrap component in `<Suspense>` |
-| Low-res screenshots look bad | Only use 1080x2400 from `docs/screenshots/`; text-focused slides for others |
+| Low-res screenshots look bad | Use only validated Stage-1 captures from `play-store-screenshots/public/screenshots/`; never use rendered marketing output as raw input |
 | Decorative gradients on slides | DESIGN.md forbids them in the app and they also break the marketing brand. Use solid backgrounds plus the `Grid` utility for subtle texture. No `linear-gradient(...)` or radial-glow orbs anywhere. |
 | Bright saturated status accents | Use restrained DESIGN.md tokens (`#1D4ED8` info, `#047857` success, `#B45309` warning), never bubblegum-bright variants. Reserve status color for slides where the state itself matters. |
 | All slides look the same | Vary: centered phone, right-offset, left-offset, text-only, pills-only |
