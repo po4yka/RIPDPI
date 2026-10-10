@@ -2,7 +2,7 @@
 id: CIC-1791525871042885
 title: Update pinned Go toolchains to 1.27.2
 kind: chore
-status: doing
+status: done
 area: ci
 priority: high
 owner: Dependency maintenance
@@ -13,7 +13,10 @@ openspec_change: null
 created: 2026-10-09
 updated: 2026-10-10
 spec_reason: dependency-only
-status_detail: Current main fixes native hotspot budgets. Verify required CI for the updated PR head before merge.
+status_detail: CI run 38032180477 passes all 47 jobs on 0d8ae556724967647d95ecc8101e5e4f1137a847; independent review has no actionable findings.
+closed_at: "2026-10-10T07:29:34Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: CI run 38032180477 attempt 1 passes all 47 jobs and ci-required on 0d8ae556724967647d95ecc8101e5e4f1137a847. Xray producer, linked Kotlin, upstream peers, locked Go fixture builds, four ABIs, and Android API 27/33/35/36/37 including API 35 Xray TUN acceptance pass. 71 local contracts and full workspace Clippy pass; independent review has no actionable findings.
 ---
 
 ## Goal
@@ -44,6 +47,22 @@ change.
   contract tests alone do not establish native compiler/runtime compatibility.
 
 ## Verification evidence
+
+- Hosted CI run `38032180477`, attempt 1, passes for head
+  `0d8ae556724967647d95ecc8101e5e4f1137a847`: all 47 executed jobs and
+  `ci-required` succeed. This includes Xray native production and verification,
+  linked Kotlin tests, SSH/Mieru/AnyTLS interoperability, locked Go peer tests and
+  builds, all four native ABIs, and Android API 27/33/35/36/37 instrumentation.
+  API 35 includes the real Xray provider TUN acceptance checks.
+  https://github.com/po4yka/RIPDPI/actions/runs/38032180477.
+- CodeQL, secret scan, harness checks, and the routed acceptance contract workflow
+  also pass for that head. The standalone acceptance peer and Android lanes are
+  skipped by their workflow route; the actual Xray TUN checks run in the main CI
+  instrumentation job as recorded above.
+- Independent review found no actionable issues in the Go pin changes. Local
+  full-workspace Clippy and all commit hooks pass. Go resolves the actual
+  `go1.27.2` toolchain. The previous unresolved evidence below is historical and
+  is now superseded by these observed results.
 
 - On 2026-10-10, merged current main `e9471d33ac458a31d75b37212968cfce3de5a720`
   into the PR branch. This preserves published history and includes the existing

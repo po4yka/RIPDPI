@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "CI run 38032180477 attempt 1 passes all 47 jobs and ci-required on 0d8ae556724967647d95ecc8101e5e4f1137a847. Xray producer, linked Kotlin, upstream peers, locked Go fixture builds, four ABIs, and Android API 27/33/35/36/37 including API 35 Xray TUN acceptance pass. 71 local contracts and full workspace Clippy pass; independent review has no actionable findings.",
+  "execution_sha256": "19a31fbb375a8ed7f4fcbd44643c45046879e0f7e952a21762443a4cc21743f9",
+  "issue_sha256": "ee855aae9f77235334ab60f8c45fe52ebe6d925861c706a22a967416748a9fcb",
+  "outcome": "done",
+  "prepared_at": "2026-10-10T07:29:34Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1791525871042885"
+}
