@@ -55,12 +55,13 @@ When no relay is configured, traffic exits the device directly — on-device mut
 
 ### Diagnostics
 
-Scans each connection target independently and produces a typed verdict:
+Scans each connection target independently and produces one of three typed results:
 
-- `TRANSPARENT_WORKS` — raw path works, no intervention needed
+- `TRANSPARENT_WORKS` — a tested transparent path works, with or without on-device strategies
 - `OWNED_STACK_ONLY` — works only via the app's owned TLS stack
-- `NO_DIRECT_SOLUTION` — on-device mutations cannot recover this target; relay required
-- `IP_BLOCK_SUSPECT` — IP-level block detected
+- `NO_DIRECT_SOLUTION` — no tested direct solution succeeded within this run's budget; consider a relay or another test
+
+Suspected blocking is recorded separately in `transportClass`, for example `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT`, or `QUIC_BLOCK_SUSPECT`. These classes describe evidence of a possible cause; they are not additional result variants or proof of a block.
 
 Verdicts are stored per network fingerprint and replayed automatically when the same network is seen again. The diagnostics screen adds TCP and QUIC strategy probing from the `ripdpi-diagnostics-candidates` quick/full-matrix suites, DNS tampering detection, DoH/DoT/DNSCrypt/DoQ resolver recommendations, and exportable diagnostic archives.
 

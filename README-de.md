@@ -72,12 +72,13 @@ Sowohl der lokale Proxy-Modus als auch der Android-VPN-Weiterleitungsmodus funkt
 
 ### Diagnose
 
-Scannt jedes Verbindungsziel unabhängig und liefert ein typisiertes Urteil:
+Prüft jedes Verbindungsziel einzeln und erzeugt eines von drei typisierten Ergebnissen:
 
-- `TRANSPARENT_WORKS` – der rohe Pfad funktioniert, keine Intervention erforderlich
+- `TRANSPARENT_WORKS` — ein geprüfter transparenter Pfad funktioniert, mit oder ohne Strategien auf dem Gerät
 - `OWNED_STACK_ONLY` – funktioniert nur über den app-eigenen TLS-Stack
-- `NO_DIRECT_SOLUTION` – Mutationen auf dem Gerät können dieses Ziel nicht wiederherstellen; ein Relay ist erforderlich
-- `IP_BLOCK_SUSPECT` – Blockierung auf IP-Ebene erkannt
+- `NO_DIRECT_SOLUTION` — im Budget dieses Laufs war keine geprüfte direkte Lösung erfolgreich; ein Relay oder einen weiteren Test erwägen
+
+Ein vermuteter Block wird separat in `transportClass` erfasst, etwa als `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` oder `QUIC_BLOCK_SUSPECT`. Diese Klassen beschreiben Hinweise auf eine mögliche Ursache; sie sind keine weiteren Ergebnisvarianten und kein Nachweis einer Blockierung.
 
 Urteile werden pro Netzwerk-Fingerabdruck gespeichert und automatisch wiedergegeben, sobald dasselbe Netzwerk erneut erkannt wird. Der Diagnosebildschirm ergänzt TCP- und QUIC-Strategie-Probing aus den Suites `ripdpi-diagnostics-candidates` (quick/full-matrix), die Erkennung von DNS-Manipulationen, Empfehlungen für DoH-/DoT-/DNSCrypt-/DoQ-Resolver sowie exportierbare Diagnosearchive.
 

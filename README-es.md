@@ -72,12 +72,13 @@ Tanto el modo proxy local como el modo de redirección VPN de Android funcionan 
 
 ### Diagnósticos
 
-Escanea cada destino de conexión de forma independiente y produce un veredicto tipado:
+Escanea cada destino de forma independiente y produce uno de tres resultados tipados:
 
-- `TRANSPARENT_WORKS` — la ruta directa funciona, no se requiere intervención
+- `TRANSPARENT_WORKS` — una ruta transparente probada funciona, con o sin estrategias en el dispositivo
 - `OWNED_STACK_ONLY` — funciona solo a través de la pila TLS propia de la aplicación
-- `NO_DIRECT_SOLUTION` — las mutaciones en el dispositivo no pueden recuperar este destino; se requiere relevo
-- `IP_BLOCK_SUSPECT` — bloqueo a nivel de IP detectado
+- `NO_DIRECT_SOLUTION` — ninguna solución directa probada tuvo éxito dentro del presupuesto de esta ejecución; considere un relevo u otra prueba
+
+La sospecha de bloqueo se registra por separado en `transportClass`, por ejemplo `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` o `QUIC_BLOCK_SUSPECT`. Estas clases describen indicios de una posible causa; no son variantes adicionales del resultado ni una prueba de bloqueo.
 
 Los veredictos se almacenan por huella de red y se reproducen automáticamente cuando se ve la misma red de nuevo. La pantalla de diagnósticos añade sondeo de estrategias TCP y QUIC desde las suites `ripdpi-diagnostics-candidates` (quick/full-matrix), detección de manipulación de DNS, recomendaciones de resolutores DoH/DoT/DNSCrypt/DoQ y archivos de diagnóstico exportables.
 

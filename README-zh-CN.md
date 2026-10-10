@@ -72,12 +72,13 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 ### 诊断
 
-独立扫描每个连接目标，并生成类型化的判定结果：
+分别扫描每个连接目标，并产生三种类型化结果之一：
 
-- `TRANSPARENT_WORKS` — 原始路径有效，无需干预
+- `TRANSPARENT_WORKS` — 经过测试的透明路径有效，可能使用了设备端策略，也可能没有
 - `OWNED_STACK_ONLY` — 仅通过应用的自有 TLS 堆栈工作
-- `NO_DIRECT_SOLUTION` — 设备端变换无法恢复此目标；需要中继
-- `IP_BLOCK_SUSPECT` — 检测到 IP 级阻塞
+- `NO_DIRECT_SOLUTION` — 在本次运行的预算内，没有经过测试的直接解决方案成功；可考虑中继或其他测试
+
+疑似阻断单独记录在 `transportClass` 中，例如 `IP_BLOCK_SUSPECT`、`SNI_TLS_SUSPECT` 或 `QUIC_BLOCK_SUSPECT`。这些分类描述可能原因的迹象，并非额外的结果类型，也不代表已经证实阻断。
 
 判定结果按网络指纹存储，当再次见到同一网络时自动重放。诊断屏幕添加了来自 `ripdpi-diagnostics-candidates` quick/full-matrix 套件的 TCP 和 QUIC 策略探测、DNS 篡改检测、DoH/DoT/DNSCrypt/DoQ 解析器建议，以及可导出的诊断存档。
 

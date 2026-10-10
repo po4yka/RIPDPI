@@ -55,12 +55,13 @@ Quando nenhum relay está configurado, o tráfego sai do dispositivo diretamente
 
 ### Diagnóstico
 
-Varre cada destino de conexão de forma independente e produz um veredito tipado:
+Examina cada destino de conexão separadamente e produz um de três resultados tipados:
 
-- `TRANSPARENT_WORKS` — o caminho bruto funciona, nenhuma intervenção é necessária
+- `TRANSPARENT_WORKS` — um caminho transparente testado funciona, com ou sem estratégias no dispositivo
 - `OWNED_STACK_ONLY` — funciona apenas pela pilha TLS própria do aplicativo
-- `NO_DIRECT_SOLUTION` — as mutações no dispositivo não conseguem recuperar este destino; é necessário um relay
-- `IP_BLOCK_SUSPECT` — bloqueio em nível de IP detectado
+- `NO_DIRECT_SOLUTION` — nenhuma solução direta testada teve sucesso dentro do orçamento desta execução; considere um relay ou outro teste
+
+A suspeita de bloqueio é registrada separadamente em `transportClass`, por exemplo `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` ou `QUIC_BLOCK_SUSPECT`. Essas classes descrevem indícios de uma possível causa; não são variantes adicionais do resultado nem prova de bloqueio.
 
 Os vereditos são armazenados por fingerprint de rede e reproduzidos automaticamente quando a mesma rede é vista novamente. A tela de diagnóstico adiciona sondagem de estratégias TCP e QUIC das suítes quick/full-matrix do `ripdpi-diagnostics-candidates`, detecção de adulteração de DNS, recomendações de resolvedores DoH/DoT/DNSCrypt/DoQ e arquivos de diagnóstico exportáveis.
 
