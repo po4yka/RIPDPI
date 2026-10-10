@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
@@ -106,6 +106,7 @@ class CaptureDevice:
             raise RuntimeError(f"The app did not open {route}. No frame was saved.")
         if name == "home":
             self.connect_live()
+            self.focus_home_measurements()
         elif name == "diagnostics":
             self.show_completed_scan()
         elif name == "relay":
@@ -137,6 +138,7 @@ class CaptureDevice:
     def wait_for_home_measurements(self) -> None:
         locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
         locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
+        self.home_locale = locale
         directory = "values" if locale == "en" else "values-" + locale.replace("-", "-r", 1)
         template = next(
             string.text for path in (ROOT / "app/src/main/res" / directory).glob("*.xml")
@@ -151,6 +153,18 @@ class CaptureDevice:
                 return
             time.sleep(2)
         raise RuntimeError("Real Home RTT measurements were not ready within one minute. No frame was saved.")
+
+    def focus_home_measurements(self) -> None:
+        offset = HOME_SCROLL_PIXELS[self.home_locale]
+        before = self.bounds(self.tag(self.tree(), "connection-actuator-button"))[1]
+        if offset:
+            self.scroll(offset)
+        after = self.bounds(self.tag(self.tree(), "connection-actuator-button"))[1]
+        observed = before - after
+        if abs(observed - offset) > 4:
+            raise RuntimeError("The actual Home content did not reach its complete measurement viewport.")
+        self.receipts["homeMeasurements"][self.home_locale].update({
+            "contentScrollPixels": offset, "observedContentScrollPixels": observed})
 
     def disconnect_live(self) -> None:
         button = self.tag(self.tree(), "connection-actuator-button")
@@ -294,7 +308,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "statusBar": STATUS_BAR,
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "homeScrollPixels": HOME_SCROLL_PIXELS, "statusBar": STATUS_BAR,
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",

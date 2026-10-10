@@ -51,5 +51,7 @@ def inputs_sha256(inputs: dict[str, str]) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 DISPLAY_PROFILES = {name: {"densityDpi": DENSITY_DPI, "fontScale": 1.0} for name in SCREENS}
-DISPLAY_PROFILES["home"] = {"densityDpi": 320, "fontScale": 1.125}
+DISPLAY_PROFILES["home"] = {"densityDpi": 290, "fontScale": 1.24}
 DISPLAY_PROFILES["relay"] = {"densityDpi": 260, "fontScale": 1.5}
+
+HOME_SCROLL_PIXELS = {locale: 20 if locale in ("en", "de", "fr", "fa") else 0 for locale in LOCALES}

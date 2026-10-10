@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -63,6 +63,11 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     measurements = receipts.get("homeMeasurements", {})
     if set(measurements) != set(LOCALES) or any(value.get("sampleCount", 0) < 2 or not value.get("observedAtUtc") for value in measurements.values()):
         errors.append("Missing actual Home RTT measurement readiness receipts.")
+    if (manifest.get("state", {}).get("homeScrollPixels") != HOME_SCROLL_PIXELS
+            or any(value.get("contentScrollPixels") != HOME_SCROLL_PIXELS.get(locale)
+                   or abs(value.get("observedContentScrollPixels", -1000) - HOME_SCROLL_PIXELS.get(locale, 0)) > 4
+                   for locale, value in measurements.items())):
+        errors.append("Missing actual Home content viewport receipts.")
     displays = receipts.get("displayFrames", {})
     expected_displays = {f"{locale}/{name}": {**profile, "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
                          for locale in LOCALES for name, profile in DISPLAY_PROFILES.items()}
