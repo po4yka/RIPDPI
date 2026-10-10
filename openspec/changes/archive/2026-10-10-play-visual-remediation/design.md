@@ -33,4 +33,4 @@ See proposal.md and the visual audit. Existing route navigation can reach the re
 
 No persisted schema migration. Rebuild the APK, capture all source frames, validate source integrity, render all outputs, inspect full and thumbnail sizes and update READMEs. Rollback is a normal source commit revert followed by recapture, with no device or user data migration.
 
-Gates: affected app unit tests; app/service locale lint; source-capture tests and validator; production renderer; strict56PNG checks;49locale layout checks; browser JPEG smoke;9README selectors; harness-check; architecture-health; locked Cargo metadata; independent source and visual review. Hosted CI is recorded separately; no deployment or Play upload is owned.
+Gates: affected app unit tests; app/service locale lint; source-capture tests and validator; production renderer; strict checks for 56 PNG files; 49 locale layout checks; browser JPEG smoke; nine README selectors; harness-check; architecture-health; locked Cargo metadata; independent source and visual review. Hosted CI is recorded separately; no deployment or Play upload is owned.

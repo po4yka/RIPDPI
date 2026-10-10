@@ -2,7 +2,7 @@
 id: UIX-1791637564152260
 title: Fix Google Play visual audit findings with real app screens
 kind: bug
-status: doing
+status: done
 area: ui
 priority: high
 owner: Play visual remediation
@@ -12,6 +12,10 @@ spec_mode: required
 openspec_change: play-visual-remediation
 created: 2026-10-10
 updated: 2026-10-10
+status_detail: All eleven visual findings are closed. Source, device, layout, export and combined checks passed; implementation is pushed to main with verified remote SHA. Hosted CI remains separately observed.
+closed_at: "2026-10-10T15:54:36Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All eleven findings closed by independent review. Main implementation fefc897d73ec46edbc39c828f2e1b0e52fd2fe5e pushed and remote SHA verified. Local/device/artifact checks passed; archived verification records exact evidence. Hosted CI was running; Google Play upload and physical-device acceptance are outside scope.
 ---
 
 ## Goal
