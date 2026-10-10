@@ -25,8 +25,8 @@ export const es: SlideCopy = {
       "estrategia"
     ],
     [
-      "Control",
-      "local"
+      "Guarda tus",
+      "ajustes"
     ]
   ],
   "labels": [
@@ -37,14 +37,18 @@ export const es: SlideCopy = {
     "Controles de estrategia",
     "Herramientas locales"
   ],
-  "localTools": [
-    "Túnel dividido",
-    "Reglas de enrutamiento",
-    "Copia y restauración"
-  ],
-  "dnsDescription": "Elige un protocolo DNS cifrado",
-  "strategyDescription": "Ajusta TCP, TLS, HTTP y QUIC",
   "featureGraphic": {
-    "tagline": "Herramientas de conexión en Android"
-  }
+    "tagline": [
+      "Comprueba tu",
+      "ruta de conexión"
+    ]
+  },
+  "descriptions": [
+    "Estado de conexión y tráfico",
+    "Resultados de la prueba de tu red",
+    "Elige un transporte para tu perfil",
+    "DNS cifrado y selección de servidor",
+    "Ajusta los paquetes de tu conexión",
+    "Exporta y restaura tu configuración"
+  ]
 };

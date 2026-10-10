@@ -25,8 +25,8 @@ export const en: SlideCopy = {
       "strategy"
     ],
     [
-      "Keep control",
-      "locally"
+      "Save your",
+      "settings"
     ]
   ],
   "labels": [
@@ -37,14 +37,18 @@ export const en: SlideCopy = {
     "Strategy controls",
     "Local tools"
   ],
-  "localTools": [
-    "Split tunnel",
-    "Routing rules",
-    "Backup & restore"
-  ],
-  "dnsDescription": "Choose an encrypted DNS protocol",
-  "strategyDescription": "Adjust TCP, TLS, HTTP and QUIC settings",
   "featureGraphic": {
-    "tagline": "Connection tools on Android"
-  }
+    "tagline": [
+      "Check your",
+      "connection path"
+    ]
+  },
+  "descriptions": [
+    "See connection state and traffic",
+    "Read your network check results",
+    "Choose a transport for your profile",
+    "Choose encrypted DNS and a resolver",
+    "Adjust packet settings for your connection",
+    "Export and restore your configuration"
+  ]
 };

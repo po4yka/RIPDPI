@@ -25,8 +25,8 @@ export const de: SlideCopy = {
       "Strategie an"
     ],
     [
-      "Behalte die",
-      "lokale Kontrolle"
+      "Sichere deine",
+      "Einstellungen"
     ]
   ],
   "labels": [
@@ -37,14 +37,18 @@ export const de: SlideCopy = {
     "Strategieeinstellungen",
     "Lokale Werkzeuge"
   ],
-  "localTools": [
-    "Split-Tunneling",
-    "Routing-Regeln",
-    "Sichern und Wiederherstellen"
-  ],
-  "dnsDescription": "Wähle ein verschlüsseltes DNS-Protokoll",
-  "strategyDescription": "Passe TCP, TLS, HTTP und QUIC an",
   "featureGraphic": {
-    "tagline": "Verbindungswerkzeuge für Android"
-  }
+    "tagline": [
+      "Prüfe deinen",
+      "Verbindungsweg"
+    ]
+  },
+  "descriptions": [
+    "Verbindungsstatus und Datenverkehr",
+    "Ergebnisse deiner Netzwerkprüfung",
+    "Wähle einen Transport für dein Profil",
+    "Verschlüsseltes DNS und Serverwahl",
+    "Paketoptionen für deine Verbindung",
+    "Konfiguration sichern und wiederherstellen"
+  ]
 };

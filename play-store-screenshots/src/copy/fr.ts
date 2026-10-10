@@ -25,8 +25,8 @@ export const fr: SlideCopy = {
       "stratégie"
     ],
     [
-      "Gardez le",
-      "contrôle local"
+      "Sauvegardez",
+      "vos réglages"
     ]
   ],
   "labels": [
@@ -37,14 +37,18 @@ export const fr: SlideCopy = {
     "Réglages de stratégie",
     "Outils locaux"
   ],
-  "localTools": [
-    "Tunnel fractionné",
-    "Règles de routage",
-    "Sauvegarde et restauration"
-  ],
-  "dnsDescription": "Choisissez un protocole DNS chiffré",
-  "strategyDescription": "Réglez TCP, TLS, HTTP et QUIC",
   "featureGraphic": {
-    "tagline": "Outils de connexion sur Android"
-  }
+    "tagline": [
+      "Vérifiez votre",
+      "chemin réseau"
+    ]
+  },
+  "descriptions": [
+    "État de connexion et trafic",
+    "Résultats de votre test réseau",
+    "Choisissez un transport pour votre profil",
+    "DNS chiffré et choix du serveur",
+    "Réglez les paquets de votre connexion",
+    "Exportez et restaurez votre configuration"
+  ]
 };

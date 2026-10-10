@@ -27,6 +27,10 @@ function ensureDir(dir) {
 }
 
 async function main() {
+  const sourceManifest = JSON.parse(fs.readFileSync("public/screenshots/source-capture.json", "utf8"));
+  const sourceSize = /^([1-9]\d*)x([1-9]\d*)$/.exec(sourceManifest.device?.screen ?? "");
+  if (!sourceSize) throw new Error("Capture manifest has no valid physical screen size");
+  const captureSize = { width: Number(sourceSize[1]), height: Number(sourceSize[2]) };
   ensureDir(OUT_DIR);
   for (const lang of LANGS) {
     ensureDir(path.join(OUT_DIR, lang));
@@ -52,7 +56,7 @@ async function main() {
         const response = await page.goto(url, { waitUntil: "load", timeout: 60000 });
         if (!response?.ok()) throw new Error(`Failed to load ${url}: ${response?.status()}`);
         await page.waitForSelector(`[data-marketing-slide][data-locale="${lang}"]`, { timeout: 30000 });
-        const measurement = await page.evaluate(async () => {
+        const measurement = await page.evaluate(async ({ captureSize, phone }) => {
           await document.fonts.ready;
           await Promise.all(Array.from(document.images, async (img) => {
             await img.decode();
@@ -64,9 +68,15 @@ async function main() {
             r.right <= bounds.right + 0.5 && r.bottom <= bounds.bottom + 0.5;
           const texts = Array.from(slide.querySelectorAll("[data-overlay-text]"));
           const textRects = [];
+          let smallestTextAt260 = Infinity;
           let textArea = 0;
           for (const text of texts) {
             const box = text.getBoundingClientRect();
+            const computed = getComputedStyle(text);
+            const fontSize = Number.parseFloat(computed.fontSize);
+            smallestTextAt260 = Math.min(smallestTextAt260, fontSize * 260 / bounds.width);
+            if (fontSize < (phone ? 48 : 50))
+              throw new Error(`Marketing text too small: ${text.textContent}`);
             const range = document.createRange();
             range.selectNodeContents(text);
             const glyphs = range.getBoundingClientRect();
@@ -80,20 +90,35 @@ async function main() {
           const textFraction = textArea / (bounds.width * bounds.height);
           if (textFraction > 0.2) throw new Error(`Text envelope exceeds 20%: ${textFraction}`);
           const headline = slide.querySelector("h1");
-          if (headline && headline.getBoundingClientRect().height > 190)
-            throw new Error(`Headline exceeds two lines: ${headline.textContent}`);
+          if (headline) {
+            const style = getComputedStyle(headline);
+            if (Number.parseFloat(style.fontSize) < 100 ||
+              headline.getBoundingClientRect().height > Number.parseFloat(style.lineHeight) * 2 + 1)
+              throw new Error(`Headline is too small or exceeds two lines: ${headline.textContent}`);
+          }
+          if (slide.dataset.locale === "fa") {
+            const family = getComputedStyle(slide).fontFamily.split(",")[0];
+            if (!family.toLowerCase().includes("vazirmatn") ||
+              !document.fonts.check(`400 48px ${family}`, "شبکه") ||
+              !document.fonts.check(`700 100px ${family}`, "تنظیمات"))
+              throw new Error("Pinned Persian font is not loaded");
+          }
           const captures = Array.from(slide.querySelectorAll("[data-app-capture]"));
+          if (captures.length !== (phone ? 1 : 0))
+            throw new Error("Each phone poster must show one real feature frame; banner uses no miniature UI");
           for (const img of captures) {
             const r = img.getBoundingClientRect();
-            if (!within(r) || img.naturalWidth !== 1344 || img.naturalHeight !== 2992 ||
+            if (!within(r) || img.naturalWidth !== captureSize.width || img.naturalHeight !== captureSize.height ||
+              r.width < 824 ||
               Math.abs(r.width / r.height - img.naturalWidth / img.naturalHeight) > 0.0001)
               throw new Error(`Clipped or distorted Android capture: ${img.src}`);
             if (textRects.some((t) =>
               t.left < r.right && t.right > r.left && t.top < r.bottom && t.bottom > r.top
             )) throw new Error(`Marketing text overlaps Android UI: ${img.src}`);
           }
-          return { textFraction, actualUiCount: captures.length };
-        });
+          return { textFraction, actualUiCount: captures.length, smallestTextAt260,
+            actualUiWidthAt260: captures.length ? captures[0].getBoundingClientRect().width * 260 / bounds.width : null };
+        }, { captureSize, phone: slide.param !== "fg" });
         if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join("; ")}`);
         const stagedPath = path.join(staging, lang, `${slide.name}.png`);
         await page.screenshot({ path: stagedPath, type: "png", omitBackground: false,

@@ -45,115 +45,101 @@ const BRAND = {
 } as const;
 
 // Marketing copy is separate from the unchanged Android pixels.
+const marketingFont = (copy: SlideCopy) => copy.locale === "fa"
+  ? "var(--font-vazirmatn), sans-serif"
+  : "var(--font-geist-sans), Arial, sans-serif";
+
 function Slide({ children, copy, dark = false }: {
   children: React.ReactNode; copy: SlideCopy; dark?: boolean;
 }) {
   return <div data-marketing-slide data-locale={copy.locale} dir={copy.dir}
     style={{ width: PHONE_W, height: PHONE_H, background: dark ? BRAND.bg : BRAND_LIGHT.bg,
       color: dark ? BRAND.text : BRAND_LIGHT.text, position: "relative", overflow: "hidden",
-      fontFamily: "var(--font-geist-sans), Arial, sans-serif" }}>{children}</div>;
+      fontFamily: marketingFont(copy) }}>{children}</div>;
 }
 
-function Caption({ copy, index, dark = false }: { copy: SlideCopy; index: number; dark?: boolean }) {
-  const palette = dark ? BRAND : BRAND_LIGHT;
-  return <header style={{ position: "absolute", top: 54, left: 72, right: 72 }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
-      <span data-overlay-text style={{ fontSize: 26, fontWeight: 600, color: palette.mutedFg,
-        letterSpacing: "0.025em" }}>{copy.labels[index]}</span>
-      <span style={{ flex: 1, height: 1, background: palette.border }} />
-      <span data-overlay-text dir="ltr" style={{ fontSize: 24, fontFamily: "var(--font-geist-mono), monospace",
-        color: palette.mutedFg }}>RIPDPI / {String(index + 1).padStart(2, "0")}</span>
-    </div>
-    <h1 data-overlay-text style={{ margin: 0, fontSize: 76, fontWeight: 700, lineHeight: 1.2,
-      letterSpacing: "-0.035em", width: "fit-content", maxWidth: "100%" }}>
+function Caption({ copy, index, bottom = false, align = "start", dark = false }: {
+  copy: SlideCopy; index: number; bottom?: boolean; align?: "start" | "center" | "end"; dark?: boolean;
+}) {
+  return <header style={{ position: "absolute", top: bottom ? 1500 : 52, left: 72, right: 72,
+    textAlign: align }}>
+    <h1 data-overlay-text data-headline style={{ margin: 0, fontSize: 100, fontWeight: 700,
+      lineHeight: 1.08, letterSpacing: copy.locale === "fa" ? 0 : "-0.035em",
+      width: "fit-content", maxWidth: "100%", marginInline: align === "center" ? "auto" :
+        align === "end" ? "auto 0" : "0 auto" }}>
       {copy.headlines[index].map((line, i) => <span key={line}>{line}{i === 0 && <br />}</span>)}
     </h1>
+    <p data-overlay-text data-description style={{ margin: "20px 0 0", fontSize: 48,
+      lineHeight: 1.25, width: "fit-content", maxWidth: "100%", color: dark ? BRAND.mutedFg : BRAND_LIGHT.mutedFg,
+      marginInline: align === "center" ? "auto" : align === "end" ? "auto 0" : "0 auto" }}>
+      {copy.descriptions[index]}
+    </p>
   </header>;
 }
 
-function AppCapture({ copy, src, left = 204, width = 672, top = 350 }: {
-  copy: SlideCopy; src: string; left?: number; width?: number; top?: number;
+function AppCapture({ copy, src, index, left = 120, width = 840, top = 454 }: {
+  copy: SlideCopy; src: string; index: number; left?: number; width?: number; top?: number;
 }) {
+  // Height follows the real image's intrinsic ratio. The batch gate checks dimensions
+  // against the capture manifest and requires the complete frame to fit on the canvas.
   return <img data-app-capture src={`/screenshots/${copy.locale}/${src}.png`}
-    alt={`${copy.labels[src === "home-light" ? 0 : src === "diagnostics" ? 1 : 2]} — Android`}
-    draggable={false} style={{ position: "absolute", top, left, width,
-      height: width * 2992 / 1344, display: "block", objectFit: "contain",
-      boxShadow: "0 16px 48px rgba(26,26,26,0.12)" }} />;
+    alt={`${copy.labels[index]} — Android`} draggable={false}
+    style={{ position: "absolute", top, left, width, height: "auto", display: "block",
+      boxShadow: "0 12px 32px rgba(26,26,26,0.14)" }} />;
 }
 
 function Slide1({ copy }: { copy: SlideCopy }) {
-  return <Slide copy={copy}><Caption copy={copy} index={0} />
-    <AppCapture copy={copy} src="home-light" /></Slide>;
+  return <Slide copy={copy}><Caption copy={copy} index={0} align="center" />
+    <AppCapture copy={copy} src="home-light" index={0} /></Slide>;
 }
 function Slide2({ copy }: { copy: SlideCopy }) {
-  return <Slide copy={copy}><Caption copy={copy} index={1} />
-    <AppCapture copy={copy} src="diagnostics" left={294} /></Slide>;
+  return <Slide copy={copy}><AppCapture copy={copy} src="diagnostics" index={1} left={72} top={56} />
+    <Caption copy={copy} index={1} bottom /></Slide>;
 }
 function Slide3({ copy }: { copy: SlideCopy }) {
   return <Slide copy={copy}><Caption copy={copy} index={2} />
-    <AppCapture copy={copy} src="relay" left={114} /></Slide>;
-}
-
-// These editorial diagrams describe settings; they do not imitate app UI.
-function CapabilityRows({ tokens, dark = false }: { tokens: readonly string[]; dark?: boolean }) {
-  const palette = dark ? BRAND : BRAND_LIGHT;
-  return <div dir="ltr" style={{ position: "absolute", top: 590, left: 96, right: 96 }}>
-    {tokens.map((token, i) => <div key={token} style={{ height: 240, borderTop: `2px solid ${palette.border}`,
-      display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <span data-overlay-text style={{ fontFamily: "var(--font-geist-mono), monospace", fontSize: 22,
-        color: palette.mutedFg }}>{String(i + 1).padStart(2, "0")}</span>
-      <span data-overlay-text style={{ fontSize: 100, lineHeight: 1, letterSpacing: "-0.05em",
-        fontWeight: 600 }}>{token}</span>
-      <div aria-hidden style={{ width: 120, height: 2, background: palette.text }} />
-    </div>)}
-  </div>;
-}
-function EditorialNote({ children }: { children: React.ReactNode }) {
-  return <p data-overlay-text style={{ position: "absolute", top: 1690, left: 96, right: 96,
-    width: "fit-content", maxWidth: 888, margin: 0, fontSize: 32, lineHeight: 1.45,
-    color: BRAND_LIGHT.mutedFg }}>{children}</p>;
+    <AppCapture copy={copy} src="relay" index={2} left={168} /></Slide>;
 }
 function Slide4({ copy }: { copy: SlideCopy }) {
-  return <Slide copy={copy}><Caption copy={copy} index={3} />
-    <CapabilityRows tokens={["DoH", "DoT", "DNSCrypt"]} />
-    <EditorialNote>{copy.dnsDescription}</EditorialNote></Slide>;
+  return <Slide copy={copy}><AppCapture copy={copy} src="dns-settings" index={3} left={72} top={56} />
+    <Caption copy={copy} index={3} bottom align="end" /></Slide>;
 }
 function Slide5({ copy }: { copy: SlideCopy }) {
-  return <Slide copy={copy}><Caption copy={copy} index={4} />
-    <CapabilityRows tokens={["TCP", "TLS", "HTTP", "QUIC"]} />
-    <EditorialNote>{copy.strategyDescription}</EditorialNote></Slide>;
+  return <Slide copy={copy}><Caption copy={copy} index={4} align="end" />
+    <AppCapture copy={copy} src="strategies" index={4} left={72} /></Slide>;
 }
 function Slide6({ copy }: { copy: SlideCopy }) {
-  return <Slide copy={copy} dark><Caption copy={copy} index={5} dark />
-    <AppCapture copy={copy} src="home-light" width={500} left={96} top={600} />
-    <div style={{ position: "absolute", top: 770, left: 650, right: 72 }}>
-      {copy.localTools.map((tool, i) => <div key={tool} style={{ minHeight: 240,
-        borderTop: `1px solid ${BRAND.mutedFg}`, paddingTop: 24 }}>
-        <span data-overlay-text dir="ltr" style={{ display: "block", width: "fit-content",
-          fontFamily: "var(--font-geist-mono), monospace", fontSize: 22, color: BRAND.mutedFg,
-          marginBottom: 22 }}>{String(i + 1).padStart(2, "0")}</span>
-        <span data-overlay-text style={{ display: "block", width: "fit-content", maxWidth: "100%",
-          fontSize: 34, fontWeight: 500, lineHeight: 1.3 }}>{tool}</span>
-      </div>)}
-    </div></Slide>;
+  return <Slide copy={copy} dark><AppCapture copy={copy} src="backup" index={5} top={56} />
+    <Caption copy={copy} index={5} bottom align="center" dark /></Slide>;
 }
 function FeatureGraphicSlide({ copy }: { copy: SlideCopy }) {
-  return <div data-marketing-slide data-locale={copy.locale} dir={copy.dir} style={{ width: FEATURE_GRAPHIC.w,
-    height: FEATURE_GRAPHIC.h, background: BRAND_LIGHT.bg, color: BRAND_LIGHT.text,
-    position: "relative", overflow: "hidden", fontFamily: "var(--font-geist-sans), Arial, sans-serif" }}>
-    <div style={{ position: "absolute", inset: 40, border: `1px solid ${BRAND_LIGHT.border}` }} />
-    <img src="/app-icon.png" alt="" style={{ position: "absolute", left: 96, top: 82,
-      width: 72, height: 72 }} />
-    <img data-app-capture src={`/screenshots/${copy.locale}/home-light.png`} alt="Android"
-      style={{ position: "absolute", left: 746, top: 75, width: 156,
-        height: 156 * 2992 / 1344, display: "block", objectFit: "contain",
-        boxShadow: "0 8px 24px rgba(26,26,26,0.12)" }} />
-    <div style={{ position: "absolute", left: 96, top: 178, width: 570 }}>
-      <div data-overlay-text dir="ltr" style={{ fontWeight: 700, fontSize: 88, lineHeight: 1.2,
-        letterSpacing: "-0.065em", width: "fit-content" }}>RIPDPI</div>
-      <p data-overlay-text style={{ fontSize: 30, lineHeight: 1.25, margin: "24px 0 0",
-        width: "fit-content", maxWidth: "100%", color: BRAND_LIGHT.mutedFg }}>{copy.featureGraphic.tagline}</p>
+  const rtl = copy.dir === "rtl";
+  return <div data-marketing-slide data-locale={copy.locale} dir={copy.dir}
+    style={{ width: FEATURE_GRAPHIC.w, height: FEATURE_GRAPHIC.h, background: BRAND_LIGHT.bg,
+      color: BRAND_LIGHT.text, position: "relative", overflow: "hidden", fontFamily: marketingFont(copy) }}>
+    <div style={{ position: "absolute", top: 64, insetInlineStart: 64, display: "flex",
+      alignItems: "center", gap: 20 }}>
+      <img src="/app-icon.png" alt="" style={{ width: 56, height: 56 }} />
+      <div data-overlay-text dir="ltr" style={{ fontFamily: "var(--font-geist-sans), sans-serif",
+        fontWeight: 700, fontSize: 64, lineHeight: 1.1, letterSpacing: "-0.055em" }}>RIPDPI</div>
     </div>
+    <p data-overlay-text data-description style={{ position: "absolute", top: 226,
+      insetInlineStart: 64, width: "fit-content", maxWidth: 532, margin: 0,
+      fontSize: 56, lineHeight: 1.2, textAlign: "start", fontWeight: 400 }}>
+      {copy.featureGraphic.tagline.map((line, i) => <span key={line}>{line}{i === 0 && <br />}</span>)}
+    </p>
+    {/* Editorial path diagram. It does not represent an app screen or a measured result. */}
+    <svg aria-hidden viewBox="0 0 320 240" style={{ position: "absolute", top: 154,
+      insetInlineEnd: 64, width: 300, height: 225, transform: rtl ? "scaleX(-1)" : undefined }}>
+      <g fill="none" stroke={BRAND_LIGHT.text} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="7" y="63" width="66" height="112" rx="12" />
+        <path d="M29 155h22M74 120h48M181 120h48" />
+        <circle cx="152" cy="120" r="29" />
+        <rect x="229" y="83" width="82" height="32" rx="6" />
+        <rect x="229" y="127" width="82" height="32" rx="6" />
+        <path d="M245 99h2M245 143h2" />
+      </g>
+    </svg>
   </div>;
 }
 

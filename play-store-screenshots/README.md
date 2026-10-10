@@ -1,109 +1,90 @@
-# RIPDPI Play Store Screenshots
+# RIPDPI Play Store artwork
 
-Next.js + Puppeteer renderer that produces Google Play Store marketing assets for the RIPDPI Android app:
+The Next.js + Puppeteer renderer produces six 1080×1920 phone posters and one 1024×500 feature graphic in `en`, `ru`, `es`, `de`, `fr`, `fa`, and `zh-CN`.
 
-- Six 1080×1920 phone screenshots
-- One 1024×500 feature graphic
-- Localized in 7 locales: `en`, `ru`, `es`, `de`, `fr`, `fa`, `zh-CN`
+Final RGB PNGs are committed to `../docs/screenshots/`. Root files are exact English aliases. All nine README galleries use the posters. Unchanged Android frames remain in `public/screenshots/<locale>/` and `../docs/screenshots/ui/<locale>/` for inspection.
 
-Marketing output is committed to `../docs/screenshots/`. README galleries use these marketing posters. The unchanged Android frames remain in `../docs/screenshots/ui/<locale>/` for inspection.
-
-## Quick start
+## Preview and export
 
 ```bash
-bun install
-bun pm trust puppeteer    # one-time, allows Chromium download
-bun run dev               # iterate locally at localhost:3000
+bun install --frozen-lockfile
+bun run dev
 ```
 
-Render a single slide at full resolution:
+Open `http://localhost:3000/?lang=ru`. A single full-size asset uses `?slide=N&lang=XX`, where `N` is `1..6` or `fg`.
 
-```
-http://localhost:3000/?slide=N&lang=XX
-```
+Click a preview or **Export All** to download full-size quality-1 JPEGs. Each export restores the preview's original style on success and failure. Browser canvas PNGs can include an alpha channel even with an opaque background, so interactive export uses JPEG. Batch export uses verified RGB PNG.
 
-Where `N` is `1..6` or `fg` (feature graphic), and `XX` is one of the 7 locale codes.
-
-The preview cards and **Export All** download quality-1 JPEG files at the full target dimensions. JPEG avoids the RGBA output of browser canvas PNG encoding. Batch capture remains RGB PNG and runs the complete source, layout, and output checks. Browser export preserves each preview's original style on success and failure.
-
-## Capture the Android sources
-
-Use a dedicated emulator. The capture command resets RIPDPI app data and changes the emulator locale, theme, motion settings, and status bar. Do not use a personal device or an existing acceptance emulator.
-
-Create a fresh Pixel 10 Pro XL AVD with the installed API 37 system image. Keep its physical 1344×2992 screen and 480 dpi density. Start it without snapshots. Build or obtain the pinned libXray producer artifacts first; see [the native bootstrap](../native/xray/README.md). The command verifies the AAR before it builds and installs the current `githubFullDebug` APK. It uses the emulator ABI.
-
-From this directory:
-
-```bash
-python3 scripts/capture-android.py \
-  --serial emulator-5580 \
-  --xray-artifacts /absolute/path/to/native/xray/artifacts
-python3 scripts/validate-source-captures.py
-```
-
-Inspect all 21 frames at full resolution before rendering. The command captures `en`, `ru`, `es`, `de`, `fr`, `fa`, and `zh-CN`. Each marketing locale uses its own Android UI. Some bundled profile names and transport group labels remain English in the current app; the captures retain them. The direct README copies retain the captured pixels. Hindi and Brazilian Portuguese README galleries use an explicitly labelled English fallback.
-
-The captured states are UI illustrations:
-
-- **Home:** disconnected, with the actual setup advisory visible.
-- **Diagnostics:** the Scan setup before a run, including the direct-network interruption and restoration warning. The view scrolls when needed to show the scan action. No measured results are shown.
-- **Relay:** the Profile editor at the relay fields, with the relay toggle enabled as an unsaved edit. This is a scrolled view of the editor, not its complete form. No credentials are entered and no connection is started.
-
-The debug automation contract selects the route, grants its permission preset, loads `settings_ready`, keeps the service idle, and disables motion. Android demo mode sets 12:00, battery 100%, and hides notifications. These frames do not establish VPN, network, server, or physical-device acceptance.
-
-`public/screenshots/source-capture.json` records the build revision, APK hash and variant, verified libXray AAR and manifest hashes, device, API, theme, locales, routes, capture time, state, and raw-file hashes. The current capture uses a dedicated API 37 emulator; API 37 is a capture environment, not the minimum supported Android version.
-
-## Batch capture for release
+For batch output:
 
 ```bash
 bun run capture:prod
 ```
 
-This first checks the Android source manifest and UI input hashes, then builds the prod bundle, boots a server on port 3099, captures all 56 assets (7 slides × 8 paths — 7 locales + root English fallback) into `../docs/screenshots/`, validates them against Google Play constraints (RGB no-alpha, ≤8 MB, correct dimensions), and tears down the server.
+This validates the source manifest and current UI input hashes, builds the production bundle, starts a server on port 3099, checks and captures all 49 locale pages, publishes 56 files including English aliases, validates the PNGs, and stops the server. A failed locale layout does not replace existing output. The owning driver removes only known obsolete generated names.
+
+If the Puppeteer browser is unavailable, use an installed compatible Chromium through `PUPPETEER_EXECUTABLE_PATH`; do not modify the dependency lockfile to bypass a local browser cache problem.
+
+## Capture real Android screens
+
+Use a dedicated emulator. The capture command resets RIPDPI app data and changes the emulator locale, theme, motion settings, and status bar. Do not use a personal device or an acceptance emulator.
+
+Build the pinned libXray artifacts as described in [the native bootstrap](../native/xray/README.md). The capture command verifies the AAR, builds and installs the current `githubFullDebug` APK, then captures the actual app. Grant actual Android VPN consent through the normal app prompt before capture. The debug permission preset does not grant operating-system consent. The current artwork uses a documented 1080×1800 Android viewport at 420 dpi. The renderer follows each source image's intrinsic aspect ratio; it does not crop, stretch, or repaint UI pixels.
+
+```bash
+python3 scripts/capture-android.py \
+  --serial emulator-5556 \
+  --xray-artifacts /absolute/path/to/native/xray/artifacts
+python3 scripts/validate-source-captures.py
+```
+
+Inspect all 42 source frames at full size. Check the captured state and whole content blocks, not just the PNG dimensions. In particular, the diagnostics poster must show an actual completed check, not demo results or the run warning screen. Connection data must come from the real service. Do not use a simulated connected preset. A warning that applies to the captured state must stay visible.
+
+`public/screenshots/source-capture.json` records the APK/build revision, verified libXray hashes, device/API/viewport, routes, states, capture time, UI input hashes, and source file hashes. It is the source of truth for the observed connection and check results. Emulator results do not establish physical-device or carrier-level acceptance. A failed check must retain its actual classification; artwork must not turn it into a success.
+
+Generic user-visible section and built-in profile names are localized in the app. Protocol names and user-defined names remain unchanged. The seven artwork locales use their own Android frames. Hindi and Brazilian Portuguese README galleries retain an explicitly labelled English fallback.
+
+## Listing story
+
+| Asset | Message | Real visual source |
+|---|---|---|
+| `01-hero.png` | Control your connection | Home connection state and traffic |
+| `02-diagnostics.png` | Check your network | Completed network check results |
+| `03-relays.png` | Choose your relay | Relay transport selection |
+| `04-dns.png` | Set your DNS | DNS settings and resolver selection |
+| `05-strategies.png` | Tune your strategy | Packet strategy settings |
+| `06-local-tools.png` | Save your settings | Backup and restore settings |
+| `feature-graphic.png` | Check your connection path | Brand group and an editorial phone → network → server diagram |
+
+Every phone poster contains one complete, unchanged feature frame. All six features are shown in the app; protocol-only diagrams and repeated Home illustrations are not used. The source frame is 840 px wide on each 1080 px poster. Top and bottom captions alternate, with different alignments. The sixth poster uses the dark brand palette, while the real app frame retains its captured light theme.
+
+Headlines use 100 px type, and explanatory copy uses 48 px type. At a 260 px poster width, the app frame is about 202 px wide and explanatory type is at least 11.5 px. README galleries use larger posters, two per row. The banner has one short action, a small brand icon, and a clear connection path diagram. It does not use a miniature app screen or imitate measured data.
+
+Persian copy uses bundled **Vazirmatn v33.003**, regular and bold. The source, SHA-256 values, and SIL OFL 1.1 license are in [`public/fonts`](public/fonts/README.md). The RTL brand group and banner composition mirror together. Other locales retain Geist Sans. The font is a marketing asset, not an Android dependency.
+
+## Verification
+
+Capture waits for font readiness and image decoding. It rejects page errors, clipped text, text over real UI, image distortion, a mismatch with the source manifest viewport, and a frame smaller than 824 px. Each phone poster must contain one real frame. It also rejects small marketing text, headlines longer than two lines, and a missing Persian font.
+
+The sum of visible marketing text bounding boxes must fit within 20% of each canvas. This conservative layout measure does not certify approval by Google Play. Strict output validation checks the complete 56-file set, 8-bit RGB without alpha, exact dimensions, a maximum size of 8 MB, and byte-identical root English aliases.
+
+Before publication, review all 49 unique assets at full size and at 260 px phone / 360 px banner width. Check actual UI meaning, scroll boundaries, disabled states, language, spacing and readability. Automated geometry checks do not detect a badly chosen source viewport.
 
 ## Project layout
 
 | Path | Role |
-|------|------|
-| `src/app/page.tsx` | Single-file slide generator + `SLIDES` registry |
-| `src/copy/{lang}.ts` | Per-locale copy dictionaries |
-| `capture.mjs` | Puppeteer driver — loops over all locales and slides |
-| `scripts/capture-prod.mjs` | Orchestrates build → server → capture → teardown |
-| `scripts/validate-play-store.mjs` | Zero-dep PNG header validator |
-| `scripts/capture-android.py` | Builds and captures the real app on a dedicated emulator |
-| `scripts/validate-source-captures.py` | Checks raw-frame integrity, locale selection, and UI input freshness |
-| `public/screenshots/<locale>/` | Current Stage-1 raw Home, Scan setup, and Profile editor captures |
-| `public/screenshots/source-capture.json` | Device and producer provenance for the current three routes |
-| `../docs/screenshots/ui/<locale>/` | Direct copies of those Android captures for the README galleries |
-| `public/app-icon.png` | Copied from `app/src/main/ic_launcher-playstore.png` |
-| `../docs/screenshots/` | Final Puppeteer output (committed to git) |
+|---|---|
+| `src/app/page.tsx` | Six posters, feature graphic, preview and export |
+| `src/app/layout.tsx` | Geist and pinned local Persian font loading |
+| `src/copy/{lang}.ts` | Localized headings and descriptions |
+| `capture.mjs` | Fail-closed layout gate and staged batch output |
+| `scripts/capture-prod.mjs` | Production server lifecycle |
+| `scripts/capture-android.py` | Actual Android capture flow |
+| `scripts/validate-source-captures.py` | Frame integrity, locale and UI freshness |
+| `scripts/validate-play-store.mjs` | Strict PNG and file-set checks |
+| `public/screenshots/source-capture.json` | Capture provenance and observed states |
+| `public/fonts/` | Pinned Persian fonts and license |
+| `public/app-icon.png` | Canonical app icon |
+| `../docs/screenshots/` | Generated store artwork |
 
-## Listing story
-
-| Asset | Message | Visual source |
-|------|---------|---------------|
-| `01-hero.png` | Control your connection | Complete, disconnected Home frame |
-| `02-diagnostics.png` | Check your network | Complete Scan setup frame, including its warning and action |
-| `03-relays.png` | Choose your relay | Complete captured view of the unsaved relay editor |
-| `04-dns.png` | Set your DNS | Editorial diagram: DoH, DoT, DNSCrypt |
-| `05-strategies.png` | Tune your strategy | Editorial diagram: TCP, TLS, HTTP, QUIC |
-| `06-local-tools.png` | Keep control locally | Complete Home frame with Split tunnel, Routing rules, and Backup & restore labels |
-| `feature-graphic.png` | Connection tools on Android | Wordmark, small canonical icon, and complete Home frame |
-
-The first three posters show the current app in its own locale. They keep the full 1344×2992 source image visible, with no device frame, crop, or added UI. The Scan setup has no measured results. The relay editor is an unsaved edit. The two diagrams describe supported settings and do not imitate UI or promise a network outcome. Slide 6 uses the dark brand palette; its actual app image retains the source light theme.
-
-Capture waits for fonts and image decoding. It rejects a failed page, clipped text, a distorted or clipped source image, and text over an app image. The sum of the visible marketing text bounding boxes must fit within 20% of each canvas. This is a conservative layout measurement, not a certification by Google Play. All 49 localized pages must pass before the driver replaces output files. It removes only the four known retired asset names. Strict output validation requires all 56 current files, 8-bit RGB without alpha, exact dimensions, files no larger than 8 MB, and identical root English fallbacks.
-
-## Brand and design
-
-Marketing slides honor the root `DESIGN.md` monochrome-first system: `#FAFAFA` background, `#1A1A1A` foreground, restrained status color, no decorative gradients. The dark `BRAND` token set is reserved for at most 1–2 rhythm-break slides as a strict inversion (currently Slide 6 only).
-
-The current listing story and output registry are defined above and in `src/app/page.tsx` and `capture.mjs`. The repository skill contains the general design workflow. Its older sample slogans are not listing claims.
-
-## Caveats
-
-- Production build is mandatory for Puppeteer — `bun run dev` HMR hangs the headless browser.
-- Only the three routes listed in the source manifest are current device captures. Other root PNGs (`home-dark`, `settings`, `history`, and other unused files) are retained legacy inputs. The renderer does not use them. Recapture them before any future use.
-- UI freshness uses sorted source paths and SHA-256 content hashes from app main/full/debug/github resources, core main sources, and Android build inputs. It requires no historical Git object and works in shallow CI checkouts. A changed input fails preflight with the paths and the recapture command. Test sources and prose are excluded. The build revision remains provenance; it is not a freshness dependency.
-- Hash validation detects changed sources and files. It does not replace the full-resolution visual review after capture.
-- Google Play requires RGB PNG or JPEG. An opaque canvas background does not make browser PNG encoding RGB. Interactive export uses JPEG; batch export uses opaque Puppeteer screenshots and verifies RGB PNG headers.
+Marketing follows `../DESIGN.md`: flat `#FAFAFA` and `#1A1A1A`, restrained status color, and no gradients. Legacy raw root PNGs are not used. Recapture any additional screen before using it. UI freshness checks sorted Android source paths and SHA-256 content hashes; a change fails preflight with the recapture command. Prose and test files are excluded.

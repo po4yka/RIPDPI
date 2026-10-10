@@ -25,8 +25,8 @@ export const zhCN: SlideCopy = {
       "策略"
     ],
     [
-      "在本地",
-      "保持掌控"
+      "保存您的",
+      "设置"
     ]
   ],
   "labels": [
@@ -37,14 +37,18 @@ export const zhCN: SlideCopy = {
     "策略设置",
     "本地工具"
   ],
-  "localTools": [
-    "分流隧道",
-    "路由规则",
-    "备份与恢复"
-  ],
-  "dnsDescription": "选择加密 DNS 协议",
-  "strategyDescription": "调整 TCP、TLS、HTTP 和 QUIC 设置",
   "featureGraphic": {
-    "tagline": "Android 连接工具"
-  }
+    "tagline": [
+      "检查您的",
+      "网络连接路径"
+    ]
+  },
+  "descriptions": [
+    "查看连接状态与流量",
+    "查看您的网络检查结果",
+    "为配置选择传输方式",
+    "选择加密 DNS 和解析服务器",
+    "调整连接的数据包设置",
+    "导出与恢复您的配置"
+  ]
 };

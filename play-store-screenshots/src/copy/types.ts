@@ -4,8 +4,6 @@ export interface SlideCopy {
   readonly dir: "ltr" | "rtl";
   readonly headlines: readonly (readonly [string, string])[];
   readonly labels: readonly string[];
-  readonly localTools: readonly string[];
-  readonly dnsDescription: string;
-  readonly strategyDescription: string;
-  readonly featureGraphic: { readonly tagline: string };
+  readonly descriptions: readonly string[];
+  readonly featureGraphic: { readonly tagline: readonly [string, string] };
 }
