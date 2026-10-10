@@ -806,7 +806,7 @@ ws-tunnel escalation event, which fires for all ws-tunnel handshakes.
 
 Relevant sources:
 
-- `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs`
+- `native/rust/crates/ripdpi-ws-transport-port/src/dc.rs`
 - `native/rust/crates/ripdpi-ws-tunnel/src/mtproto.rs`
 - `native/rust/crates/ripdpi-ws-tunnel/src/connect.rs`
 - `native/rust/crates/ripdpi-ws-tunnel/src/relay.rs`
