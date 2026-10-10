@@ -1,8 +1,9 @@
 # libXray Android packaging
 
 Reproducible, pinned, auditable packaging of the [libXray](https://github.com/XTLS/libXray)
-gomobile wrapper around [Xray-core](https://github.com/XTLS/Xray-core) for the
-Xray provider mode. The build produces an Android `.aar` (per-ABI `.so`
+gomobile wrapper around [Xray-core](https://github.com/XTLS/Xray-core), with the
+repository-owned managed-runtime and protection patches, for the Xray provider
+mode. The build produces an Android `.aar` (per-ABI `.so`
 payloads). **No binary is committed** — only the build path, the verification
 gate, the version pins, and the license/notice obligations live in the repo.
 
@@ -17,9 +18,12 @@ gate, the version pins, and the license/notice obligations live in the repo.
 | `gomobile` | `golang.org/x/mobile` pseudo-version | https://github.com/golang/mobile | BSD-3-Clause |
 | `libxray-canary` / `xray-core-canary` | opt-in upstream-watch refs (never shipped) | — | — |
 
-The build script reads these pins and fails if libXray's `go.mod` vendors a
-different xray-core than `xray-core` declares (stable channel). The verify
-script fails if a produced artifact's manifest drifts from any pin.
+The current build accepts only the stable source and patch policy in
+`native/xray/patches/manifest.json`. It checks the upstream libXray commit,
+Xray-core and gRPC module checksums, and all three patch digests before applying
+the patches in isolated source copies. The artifact verifier binds the AAR,
+build recipe, patch manifest, `build-go.mod`, and `build-go.sum` by digest.
+A matching version label alone is insufficient.
 
 > **Versioning note (verified upstream 2026-05-30).** libXray uses **CalVer**
 > git tags (`vYY.M.D`, e.g. `v26.3.27`) that track xray-core — there is no
@@ -27,9 +31,9 @@ script fails if a produced artifact's manifest drifts from any pin.
 > libXray vendors, which differs from the git tag: libXray `v26.3.27` vendors
 > `github.com/xtls/xray-core v1.260327.0` (tag `v26.3.27` ↔ module
 > `v1.260327.0`). The build script's drift gate compares the pin to the go.mod
-> value, so `xray-core` is pinned as `1.260327.0`. These pins were validated in
-> the container lane below (libXray clone + xray-core drift gate pass on
-> Go 1.26.2+ / NDK 29).
+> value. The 2026-05-30 container check established that historical source
+> relationship; it does not verify today's patched AAR. Read current pins
+> from the version catalog and patch manifest.
 
 ## Stable vs canary update policy
 
@@ -44,107 +48,127 @@ script fails if a produced artifact's manifest drifts from any pin.
 
 **Canary** (opt-in, never shipped):
 
-- `libxray-canary` / `xray-core-canary` may point at a commit SHA or
-  pre-release tag for the recurring upstream REALITY / ECH / XHTTP watch.
-- `scripts/native/build-libxray.sh --channel canary` builds them.
-- A canary artifact is **rejected** by `verify-libxray-artifacts.sh --release`
-  and by the `:core:engine:verifyLibXrayArtifacts` task when a
-  `release`/`bundle`/`publish` task is in the Gradle graph.
+- `libxray-canary` / `xray-core-canary` remain watch refs in the version
+  catalog. The current production builder rejects `--channel canary`.
+- A future canary build needs its own reviewed source/patch contract.
+  Both local and release artifact verification currently require `stable`.
 
 ## Build
 
+Run from the repository root. Install the SDK/NDK declared in
+`gradle.properties`, JDK tools including `javap`, Python 3.12+, Git, and an
+**amd64 Go host toolchain**. Set `ANDROID_SDK_ROOT` to that SDK installation.
+The current CI producer is `.github/actions/build-xray/action.yml`; it selects
+Go `go1.27.2` and installs the exact catalog versions of `gomobile` and `gobind`.
+The following bootstrap reads these values from their owners:
+
 ```sh
-# Full release ABI set (reads ripdpi.nativeAbis / minSdk / NDK from gradle.properties)
-scripts/native/build-libxray.sh
-
-# Local iteration, single ABI
-scripts/native/build-libxray.sh --abis arm64-v8a
-
-# Upstream-watch canary (never ship)
-scripts/native/build-libxray.sh --channel canary
-
-# Toolchain preflight only
-scripts/native/build-libxray.sh --check-toolchain
+export GOTOOLCHAIN="$(sed -n 's/^        GOTOOLCHAIN: //p' .github/actions/build-xray/action.yml)"
+export GOSUMDB=sum.golang.org
+export GOPROXY=https://proxy.golang.org,direct
+export GOMAXPROCS=1 GOFLAGS=-p=1
+export GOBIN="$PWD/build/libxray-toolchain/bin"
+gomobile_version="$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["gomobile"])')"
+ndk_version="$(sed -n 's/^ripdpi.nativeNdkVersion=//p' gradle.properties)"
+export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/$ndk_version"
+mkdir -p "$GOBIN"
+go install "golang.org/x/mobile/cmd/gomobile@v$gomobile_version"
+go install "golang.org/x/mobile/cmd/gobind@v$gomobile_version"
+export PATH="$GOBIN:$PATH"
+# Do not run gomobile init: it can replace the pinned gobind with latest.
+bash scripts/native/build-libxray.sh --check-toolchain
+# Output must be new or empty; the default is native/xray/artifacts/.
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh --release
 ```
 
+For local single-ABI iteration, select and verify the same ABI:
+
+```sh
+RIPDPI_XRAY_AAR_DIR="$PWD/build/libxray-arm64" \
+  bash scripts/native/build-libxray.sh --abis arm64-v8a
+RIPDPI_XRAY_AAR_DIR="$PWD/build/libxray-arm64" \
+  bash scripts/native/verify-libxray-artifacts.sh --abis arm64-v8a
+```
+
+The producer runs native protection regressions before publishing the AAR.
+Preparation downloads pinned sources and dependencies; it is not an offline
+bootstrap. Reuse a verified artifact set for subsequent offline builds.
+
 Requires Go + gomobile + NDK (pinned by `ripdpi.nativeNdkVersion`). The script
-is fail-closed: a missing toolchain exits non-zero with install instructions
+is fail-closed: a missing or mismatched toolchain exits non-zero with a reason
 and never produces a partial/stub artifact. ABI/SDK/NDK values come only from
 `gradle.properties` — they are not hardcoded in the script.
 
 Output (gitignored) lands in `native/xray/artifacts/`:
 
 - `libxray.aar` — gomobile AAR with `jni/<abi>/*.so`
-- `libxray-artifact.json` — manifest the verify gate diffs against the pins
+- `libxray-artifact.json` — schema-2 provenance and content digests
+- `build-go.mod` and `build-go.sum` — verified build dependency records
 
-Override the output dir with `RIPDPI_XRAY_AAR_DIR=...`.
+Override the producer/standalone verifier output directory with
+`RIPDPI_XRAY_AAR_DIR=...`. It must be new or empty for each build; an existing
+set is not overwritten. Keep all four files together when reusing an artifact.
 
-## Host architecture (x86_64 only)
+## Host architecture
 
-`gomobile bind` invokes the NDK **host** clang, and the Android NDK ships host
-toolchains for x86_64 only (`linux-x86_64` / `darwin-x86_64`) — there is no
-`linux-aarch64` prebuilt. On an arm64 Linux host gomobile aborts with
-`panic: unsupported GOARCH: arm64`. The build script guards this and exits
-non-zero on a non-x86_64 host before reaching gomobile.
+The builder checks `go env GOHOSTARCH` and requires `amd64` before invoking
+`gomobile bind`. On Apple Silicon, run the bootstrap with an actual amd64 Go
+installation under Rosetta, or use an amd64 Linux runner. A native arm64 Go
+installation remains unsupported for this producer. Verification runs on any
+host architecture with Python and JDK `javap`.
 
-Consequences:
+## Historical container lane
 
-- **x86_64 Linux / Intel mac / amd64 CI:** runs natively.
-- **Apple Silicon (arm64):** run the container lane below under amd64 emulation
-  (`--platform linux/amd64`, requires a working `binfmt`/`qemu-user`), or use an
-  x86_64 CI runner. The verify script (pure shell) runs on any arch.
+`scripts/native/libxray-build.Dockerfile` records the older Go 1.26 / SDK 36
+container procedure from 2026-05-30. It also runs `gomobile init`, which can
+replace the pinned `gobind`. It is not the current bootstrap procedure.
+Use the producer action and commands above; do not treat the historical
+container check as proof of the current patched artifact.
 
-## Container build lane
-
-`scripts/native/libxray-build.Dockerfile` is the reproducible toolchain image
-(Go 1.26 + Android SDK 36 + NDK 29 + pinned gomobile). It was used to verify the
-pins above end-to-end (toolchain + libXray `v26.3.27` clone + xray-core drift
-gate) on 2026-05-30.
-
-```sh
-# Build the toolchain image (x86_64; add --platform linux/amd64 on Apple Silicon)
-docker build --platform linux/amd64 \
-  -f scripts/native/libxray-build.Dockerfile -t ripdpi/libxray-build .
-
-# Build + verify the AAR (worktree mounted read-only; artifacts in the container)
-docker run --rm --platform linux/amd64 -v "$PWD":/work:ro \
-  -e RIPDPI_XRAY_AAR_DIR=/artifacts ripdpi/libxray-build \
-  -c 'cd /work && bash scripts/native/build-libxray.sh \
-      && bash scripts/native/verify-libxray-artifacts.sh'
-```
-
-## Verify (runs anywhere — pure shell, no Go needed)
+## Verify (Python and JDK, no Go needed)
 
 ```sh
 scripts/native/verify-libxray-artifacts.sh            # local/CI gate
-scripts/native/verify-libxray-artifacts.sh --release  # also reject canary channel
+scripts/native/verify-libxray-artifacts.sh --release  # require the full ABI set
 ./gradlew :core:engine:verifyLibXrayArtifacts         # Gradle wiring
 ```
 
-Fails on: missing artifact dir / AAR / manifest, a missing `.so` for any ABI in
-`ripdpi.nativeAbis`, version drift vs the pins, a native payload over the
-budget, or a canary manifest in a release-like build.
+Fails on missing files, source/patch/recipe or content digest drift, missing
+required gomobile Java API signatures, invalid ELF machine/class, LOAD
+segments without 16 KiB alignment, ABI coverage mismatch, and byte-budget
+violations. A non-stable manifest is rejected for every build. The standalone
+verifier defaults to the full ABI set from `ripdpi.nativeAbis`; use `--abis`
+for a local subset and `--release` for full release verification.
 
 ### Native payload byte budget
 
-The summed per-ABI `.so` payload must stay under **160 MiB** (`167772160` bytes),
-overridable for a documented bump via `RIPDPI_XRAY_PAYLOAD_BUDGET_BYTES`. The
-build strips debug symbols (`gomobile bind -ldflags="-s -w"`); measured for
-libXray `v26.3.27` the stripped payload is **~126 MiB** across the 4 ABIs
-(~32 MiB each), so the budget leaves ~27% headroom for xray-core growth while
-still failing an unstripped build (~178 MiB) or an accidental geo-asset bundle.
-ABI splits ship one `.so` per device (~32 MiB), not all four. Geo assets (`geoip.dat` / `geosite.dat`) are
-**not** bundled into the AAR — they are delivered separately to keep the native
-payload bounded (see size note below).
+The fixed verifier budget in `scripts/native/libxray_artifacts.py` is
+**160 MiB** (`167772160` bytes), applied to both the AAR archive and the summed
+native `.so` payload. There is no environment-variable budget override.
+The build strips symbols and sets 16 KiB ELF alignment. Historical upstream
+size measurements do not replace measurement of the current patched AAR.
+Geo assets (`geoip.dat` / `geosite.dat`) are delivered separately.
 
 ## Gradle wiring (no binary churn)
 
-`:core:engine` registers `verifyLibXrayArtifacts` (an `Exec` task over the
-verify script) with the artifact directory and pins as Gradle inputs. The
-artifact dir is `native/xray/artifacts` by default, overridable with
-`-Pripdpi.prebuiltXrayAarDir=...`. The task is **not** wired into `assemble` so
-offline / native-less builds (no NDK 29, no gomobile) keep working; CI and
-release packaging invoke it explicitly.
+`:core:engine` registers `verifyLibXrayArtifacts` and
+`verifyLibXrayReleaseArtifacts`. Real APK/AAB builds link the AAR and attach
+`verifyLibXrayArtifacts` to `preBuild`, so a fresh checkout without a verified
+artifact set fails before packaging. Gradle verifies existing artifacts; it
+does not produce the Go AAR automatically.
+
+The artifact directory defaults to `native/xray/artifacts` and can be selected
+with `-Pripdpi.prebuiltXrayAarDir=/absolute/verified-artifacts`. That directory
+must contain the complete four-file set. The local task verifies the selected
+packaged ABIs; release verification requires all four. CI produces the real
+runtime through `.github/actions/build-xray/action.yml` and verifies it with
+`--release` before consumers use it.
+
+Only explicitly native-less validation with `ripdpi.skipNativeBuild=true`
+can compile the stub when no AAR is present. A stub build does not prove Xray
+runtime or APK/AAB acceptance; do not use that setting to bypass the packaging
+gate.
 
 ## License / NOTICE obligations
 
