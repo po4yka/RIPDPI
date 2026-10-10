@@ -19,6 +19,8 @@ prepare_hook="${RIPDPI_PHASE16_PREPARE_HOOK:-}"
 cleanup_hook="${RIPDPI_PHASE16_CLEANUP_HOOK:-}"
 real_provider_config="${RIPDPI_PHASE16_REAL_PROVIDER_CONFIG:-}"
 l7_dryrun_script="${RIPDPI_PHASE16_L7_ADVERSARIAL_DRYRUN_SCRIPT:-${RIPDPI_PHASE16_TSPU_DRYRUN_SCRIPT:-$repo_root/scripts/ci/run-l7-adversarial-dryrun.sh}}"
+l7_engine_script="${RIPDPI_PHASE16_L7_ENGINE_SCRIPT:-$repo_root/scripts/ci/run-l7-engine-evidence.sh}"
+l7_engine_artifact_dir="$artifact_root/l7-engine"
 l7_artifact_dir="$artifact_root/l7-adversarial"
 l7_verdict_report="$l7_artifact_dir/verdict-report.json"
 summary_script="$repo_root/scripts/ci/phase16_pcap_summary.py"
@@ -70,6 +72,7 @@ payload = {
     "evidenceTier": os.environ.get("PHASE16_EVIDENCE_TIER", "synthetic-lab"),
     "carrierNamespace": os.environ.get("PHASE16_CARRIER_NAMESPACE", ""),
     "l7VerdictReport": os.environ.get("PHASE16_L7_VERDICT_REPORT", ""),
+    "l7EngineVerdictReport": os.environ.get("PHASE16_L7_ENGINE_VERDICT_REPORT", ""),
     "realProvider": {
         "configRequired": os.environ.get("PHASE16_REAL_PROVIDER_CONFIG_REQUIRED") == "true",
         "configPresent": os.environ.get("PHASE16_REAL_PROVIDER_CONFIG_PRESENT") == "true",
@@ -285,7 +288,7 @@ if [[ -n "$prepare_hook" ]]; then
     prepare_hook_executed="true"
     "$prepare_hook" "${prepare_args[@]}"
   fi
-elif [[ "$network_condition" != "baseline" && "$execution_kind" != "l7_adversarial_emulator" ]]; then
+elif [[ "$network_condition" != "baseline" && "$execution_kind" != "l7_adversarial_emulator" && "$execution_kind" != "l7_engine_packet_evidence" ]]; then
   failure_message="non-baseline Phase 16 entry requires RIPDPI_PHASE16_PREPARE_HOOK: $network_condition"
   echo "$failure_message" >&2
   exit 1
@@ -330,31 +333,42 @@ case "$execution_kind" in
       echo "$failure_message" >&2
       exit 1
     fi
-    if ! python3 - "$l7_verdict_report" <<'PY'
+    if ! (cd "$repo_root/test-lab/chaos/tspu" && python3 -m runner.expectations \
+      --report "$l7_verdict_report" --repo-root "$repo_root" \
+      --receipt "$l7_artifact_dir/classifier-self-test.json"); then
+      failure_message="L7 classifier self-test report failed validation"
+      exit 1
+    fi
+    ;;
+  l7_engine_packet_evidence)
+    if [[ "$runner_required" != "lab" || "$evidence_tier" != "synthetic-lab" || "$mode" != "proxy" ]]; then
+      failure_message="L7 engine evidence requires lab runner, synthetic-lab evidence, and proxy mode"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    if [[ ! -x "$l7_engine_script" ]]; then
+      failure_message="L7 engine evidence script is not executable: $l7_engine_script"
+      echo "$failure_message" >&2
+      exit 1
+    fi
+    export RIPDPI_L7_ENGINE_ARTIFACT_DIR="$l7_engine_artifact_dir"
+    export PHASE16_L7_ENGINE_VERDICT_REPORT="l7-engine/verdict-report.json"
+    bash "$l7_engine_script"
+    if ! (cd "$repo_root/test-lab/chaos/tspu" && python3 - "$l7_engine_artifact_dir/verdict-report.json" "$repo_root" <<'PY_GATE'
 import json
+from pathlib import Path
 import sys
+from runner.engine_evidence import validate_report
 
-report_path = sys.argv[1]
-with open(report_path, "r", encoding="utf-8") as handle:
-    report = json.load(handle)
-cells = report.get("cells", [])
-if not isinstance(cells, list) or not cells:
-    print(f"L7 adversarial verdict report has no cells: {report_path}", file=sys.stderr)
-    sys.exit(2)
-failed = [
-    f"{cell.get('desync_mode_id', '<unknown>')}::{cell.get('pattern_id', '<unknown>')}"
-    for cell in cells
-    if cell.get("verdict") == "blocked"
-]
-if failed:
-    print("L7 adversarial release gate failed cells: " + ", ".join(failed[:10]), file=sys.stderr)
-    if len(failed) > 10:
-        print(f"... plus {len(failed) - 10} additional failed cells", file=sys.stderr)
-    sys.exit(1)
-print("L7 adversarial release gate passed")
-PY
-    then
-      failure_message="L7 adversarial verdict report contains failed cells"
+receipt = validate_report(Path(sys.argv[1]), Path(sys.argv[2]))
+(Path(sys.argv[1]).parent / "engine-release.json").write_text(json.dumps(receipt, indent=2) + "\n")
+print(json.dumps(receipt, sort_keys=True))
+valid = (receipt.get("purpose") == "engine-release" and receipt.get("gateVerdict") == "pass"
+         and receipt.get("releaseAcceptance") is True and receipt.get("errors") == [])
+sys.exit(0 if valid else 1)
+PY_GATE
+    ); then
+      failure_message="L7 engine packet evidence failed release validation"
       exit 1
     fi
     ;;

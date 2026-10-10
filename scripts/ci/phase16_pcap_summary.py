@@ -4,16 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
 SUMMARY_VERSION = "phase16_pcap_summary_v1"
-SUPPORT_DIRECTORIES = {"shared", "l7-adversarial"}
+SUPPORT_DIRECTORIES = {"shared", "l7-adversarial", "l7-engine"}
 L7_VERDICT_REPORT = "l7-adversarial/verdict-report.json"
-L7_FAIL_VERDICT = "blocked"
-L7_PARTIAL_VERDICTS = {"degraded", "inconclusive"}
+L7_ENGINE_VERDICT_REPORT = "l7-engine/verdict-report.json"
 
 
 def repo_root() -> Path:
@@ -98,69 +98,65 @@ def relative_artifact_path(artifact_root: Path, path: Path) -> str:
         return path.as_posix()
 
 
-def l7_report_relative_path(run_metadata: dict[str, Any]) -> str:
-    configured = run_metadata.get("l7VerdictReport")
-    return configured if isinstance(configured, str) and configured else L7_VERDICT_REPORT
-
-
-def summarize_l7_cells(cells: list[dict[str, Any]]) -> list[dict[str, str]]:
-    return [
-        {
-            "desyncModeId": str(cell.get("desync_mode_id", "")),
-            "patternId": str(cell.get("pattern_id", "")),
-            "verdict": str(cell.get("verdict", "")),
-        }
-        for cell in cells
-    ]
-
-
-def summarize_l7_verdict_report(artifact_root: Path, run_metadata: dict[str, Any]) -> dict[str, Any]:
-    relative_path = l7_report_relative_path(run_metadata)
-    report_path = artifact_root / relative_path
-    empty_summary = {
-        "present": False,
-        "reportPath": relative_path,
-        "gateVerdict": "",
-        "cellCount": 0,
-        "failedCellCount": 0,
-        "partialCellCount": 0,
-        "totals": {},
-        "failedCells": [],
-        "partialCells": [],
-    }
-    if not report_path.exists():
-        return empty_summary
-    report = read_json(report_path)
-    cells = report.get("cells", []) if isinstance(report, dict) else []
-    failed_cells = [
-        cell
-        for cell in cells
-        if isinstance(cell, dict) and cell.get("verdict") == L7_FAIL_VERDICT
-    ]
-    partial_cells = [
-        cell
-        for cell in cells
-        if isinstance(cell, dict) and cell.get("verdict") in L7_PARTIAL_VERDICTS
-    ]
-    if failed_cells:
-        gate_verdict = "fail"
-    elif partial_cells or not cells:
-        gate_verdict = "partial"
-    else:
-        gate_verdict = "pass"
+def summarize_l7_verdict_report(artifact_root: Path, run_metadata: dict[str, Any],
+                                engine: bool = False) -> dict[str, Any]:
+    metadata_key = "l7EngineVerdictReport" if engine else "l7VerdictReport"
+    default_path = L7_ENGINE_VERDICT_REPORT if engine else L7_VERDICT_REPORT
+    relative_path = run_metadata.get(metadata_key) or default_path
+    purpose = "engine-release" if engine else "classifier-self-test"
+    receipt: dict[str, Any] = {"purpose": purpose, "gateVerdict": "fail", "releaseAcceptance": False,
+                               "errors": [], "coverage": {}}
+    report_path = artifact_root / default_path
+    report: dict[str, Any] = {}
+    confined_path = False
+    try:
+        if not isinstance(relative_path, str) or Path(relative_path).is_absolute():
+            raise ValueError("report path must be relative")
+        report_path = artifact_root / relative_path
+        report_path.resolve().relative_to(artifact_root.resolve())
+        confined_path = True
+        tspu_dir = repo_root() / "test-lab/chaos/tspu"
+        if str(tspu_dir) not in sys.path:
+            sys.path.insert(0, str(tspu_dir))
+        if engine:
+            from runner.engine_evidence import validate_report
+        else:
+            from runner.expectations import validate_report
+        receipt = validate_report(report_path, repo_root())
+        # A receipt for another purpose cannot establish this gate.
+        if (receipt.get("purpose") != purpose or receipt.get("gateVerdict") not in {"pass", "fail"}
+                or not isinstance(receipt.get("errors"), list)
+                or (receipt.get("gateVerdict") == "pass" and receipt.get("errors") != [])
+                or (engine and receipt.get("gateVerdict") == "pass"
+                    and receipt.get("releaseAcceptance") is not True)
+                or (not engine and receipt.get("releaseAcceptance") is not False)):
+            raise ValueError("validator returned an invalid evidence receipt")
+        loaded = read_json(report_path)
+        if isinstance(loaded, dict):
+            report = loaded
+    except (OSError, ValueError, TypeError, ImportError) as error:
+        receipt = {"purpose": purpose, "gateVerdict": "fail", "releaseAcceptance": False,
+                   "errors": [str(error)], "coverage": {}}
+    cells = report.get("cells", [])
+    cells = cells if isinstance(cells, list) else []
+    partial_cells = [cell for cell in cells if isinstance(cell, dict)
+                     and cell.get("verdict") in {"degraded", "inconclusive"}]
+    mismatches = receipt.get("mismatchedCells", [])
     return {
-        "present": True,
-        "reportPath": relative_artifact_path(artifact_root, report_path),
-        "gateVerdict": gate_verdict,
-        "reportSchemaVersion": report.get("report_schema_version") if isinstance(report, dict) else None,
-        "matrixVersion": report.get("matrix_version") if isinstance(report, dict) else None,
-        "mode": report.get("mode", "") if isinstance(report, dict) else "",
+        **receipt,
+        "present": confined_path and report_path.is_file(),
+        "reportPath": relative_artifact_path(artifact_root, report_path) if confined_path else default_path,
+        "reportSchemaVersion": report.get("report_schema_version"),
+        "matrixVersion": report.get("matrix_version"),
+        "mode": report.get("mode", ""),
         "cellCount": len(cells),
-        "failedCellCount": len(failed_cells),
+        "failedCellCount": len(mismatches),
         "partialCellCount": len(partial_cells),
-        "totals": report.get("totals", {}) if isinstance(report, dict) else {},
-        "failedCells": summarize_l7_cells(failed_cells),
-        "partialCells": summarize_l7_cells(partial_cells),
+        "totals": report.get("totals", {}),
+        "failedCells": mismatches,
+        "partialCells": [{"patternId": str(cell.get("pattern_id", "")),
+                          "desyncModeId": str(cell.get("desync_mode_id", "")),
+                          "verdict": str(cell.get("verdict", ""))} for cell in partial_cells],
     }
 
 
@@ -374,6 +370,7 @@ def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> d
         raise FileNotFoundError(f"artifact root does not exist: {artifact_root}")
     run_metadata = load_run_metadata(artifact_root)
     l7_summary = summarize_l7_verdict_report(artifact_root, run_metadata)
+    engine_summary = summarize_l7_verdict_report(artifact_root, run_metadata, engine=True)
     scenario_dirs = sorted(
         path for path in artifact_root.iterdir() if path.is_dir() and path.name not in SUPPORT_DIRECTORIES
     )
@@ -388,13 +385,16 @@ def summarize_artifact_root(artifact_root: Path, registry: dict[str, dict]) -> d
             "evidenceTier": run_metadata.get("evidenceTier", "synthetic-lab"),
             "carrierNamespace": run_metadata.get("carrierNamespace", ""),
             "l7VerdictReport": run_metadata.get("l7VerdictReport", ""),
+            "l7EngineVerdictReport": run_metadata.get("l7EngineVerdictReport", ""),
             "realProvider": run_metadata.get("realProvider", {}),
             "prepareHook": run_metadata.get("prepareHook", {}),
         },
         "linkedArtifacts": {
             "l7VerdictReport": l7_summary["reportPath"] if l7_summary["present"] else "",
+            "l7EngineVerdictReport": engine_summary["reportPath"] if engine_summary["present"] else "",
         },
         "l7Adversarial": l7_summary,
+        "l7EngineEvidence": engine_summary,
         "scenarioCount": len(scenario_dirs),
         "scenarios": [summarize_scenario(path, registry, run_metadata) for path in scenario_dirs],
     }

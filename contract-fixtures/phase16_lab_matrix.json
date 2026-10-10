@@ -478,6 +478,23 @@
         "real-provider",
         "ns-beeline"
       ]
+    },
+    {
+      "id": "l7_engine_packet_evidence_v1",
+      "transport": "wifi",
+      "ipFamily": "ipv4",
+      "rooted": false,
+      "mode": "proxy",
+      "networkCondition": "l7_engine_packet_evidence",
+      "executionKind": "l7_engine_packet_evidence",
+      "scenarioFilter": "l7_engine_tcp_sni_v1",
+      "captureMode": "raw",
+      "runnerRequired": "lab",
+      "evidenceTier": "synthetic-lab",
+      "defaultIncluded": false,
+      "runsOn": [
+        "ubuntu-latest"
+      ]
     }
   ]
 }

@@ -106,6 +106,76 @@ class Phase16MatrixTest(unittest.TestCase):
         self.assertEqual("", entry["carrierNamespace"])
         self.assertEqual(["ubuntu-latest"], json.loads(entry["runsOnJson"]))
 
+    def test_engine_evidence_row_is_opt_in_linux_proxy_lab(self) -> None:
+        fixture = phase16_matrix.load_fixture()
+        self.assertNotIn("l7_engine_packet_evidence_v1",
+                         {entry["id"] for entry in phase16_matrix.filtered_entries(fixture)})
+        entries = phase16_matrix.filtered_entries(fixture, "l7_engine_packet_evidence_v1")
+        entry = entries[0]
+        self.assertEqual("l7_engine_packet_evidence", entry["executionKind"])
+        self.assertEqual("synthetic-lab", entry["evidenceTier"])
+        self.assertEqual("proxy", entry["mode"])
+        self.assertEqual(["ubuntu-latest"], entry["runsOn"])
+        for field, value in (("defaultIncluded", True), ("evidenceTier", "synthetic-adversarial"),
+                             ("mode", "vpn"), ("runsOn", ["macos-latest"])):
+            with self.subTest(field=field):
+                invalid = {**entry, field: value}
+                with self.assertRaises(ValueError):
+                    phase16_matrix.validate_entry(invalid)
+
+    def test_full_classifier_row_succeeds_with_expected_blocked_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env = os.environ.copy()
+            env.update({"PHASE16_ENTRY_ID": "l7_adversarial_emulator_v1_1",
+                        "PHASE16_EXECUTION_KIND": "l7_adversarial_emulator",
+                        "PHASE16_MODE": "vpn", "PHASE16_NETWORK_CONDITION": "l7_adversarial_emulator",
+                        "PHASE16_RUNNER_REQUIRED": "lab", "PHASE16_EVIDENCE_TIER": "synthetic-adversarial",
+                        "RIPDPI_PHASE16_ARTIFACT_DIR": temp_dir})
+            result = subprocess.run(["bash", str(REPO_ROOT / "scripts/ci/run-phase16-matrix-entry.sh")],
+                                    env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            summary = json.loads((Path(temp_dir) / "phase16-pcap-summary.json").read_text())
+            receipt = summary["l7Adversarial"]
+            self.assertEqual("pass", receipt["gateVerdict"], receipt["errors"])
+            self.assertEqual("classifier-self-test", receipt["purpose"])
+            self.assertFalse(receipt["releaseAcceptance"])
+            self.assertEqual(63, receipt["cellCount"])
+            self.assertEqual(23, receipt["totals"]["blocked"])
+            self.assertEqual(40, receipt["totals"]["bypassed"])
+            self.assertEqual(0, receipt["failedCellCount"])
+            self.assertFalse(summary["l7EngineEvidence"]["releaseAcceptance"])
+            self.assertEqual(0, summary["scenarioCount"])
+
+    def test_engine_row_rejects_fixture_report_even_when_all_verdicts_bypass(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            producer = root / "producer.sh"
+            producer.write_text("#!/usr/bin/env bash\nset -euo pipefail\n"
+                                'mkdir -p "$RIPDPI_L7_ENGINE_ARTIFACT_DIR"\n'
+                                'cat > "$RIPDPI_L7_ENGINE_ARTIFACT_DIR/verdict-report.json" <<\'JSON\'\n'
+                                + json.dumps({"mode": "dry-run", "cells": [{"verdict": "bypassed"}]})
+                                + "\nJSON\n")
+            producer.chmod(0o700)
+            artifact_root = root / "artifacts"
+            env = os.environ.copy()
+            env.update({"PHASE16_ENTRY_ID": "l7_engine_packet_evidence_v1",
+                        "PHASE16_EXECUTION_KIND": "l7_engine_packet_evidence", "PHASE16_MODE": "proxy",
+                        "PHASE16_NETWORK_CONDITION": "l7_engine_packet_evidence",
+                        "PHASE16_RUNNER_REQUIRED": "lab", "PHASE16_EVIDENCE_TIER": "synthetic-lab",
+                        "RIPDPI_PHASE16_L7_ENGINE_SCRIPT": str(producer),
+                        "RIPDPI_PHASE16_ARTIFACT_DIR": str(artifact_root)})
+            result = subprocess.run(["bash", str(REPO_ROOT / "scripts/ci/run-phase16-matrix-entry.sh")],
+                                    env=env, capture_output=True, text=True, check=False)
+            self.assertNotEqual(0, result.returncode)
+            manifest = json.loads((artifact_root / "phase16-run.json").read_text())
+            self.assertEqual("failure", manifest["status"])
+            self.assertEqual("l7-engine/verdict-report.json", manifest["l7EngineVerdictReport"])
+            summary = json.loads((artifact_root / "phase16-pcap-summary.json").read_text())
+            self.assertEqual("fail", summary["l7EngineEvidence"]["gateVerdict"])
+            self.assertFalse(summary["l7EngineEvidence"]["releaseAcceptance"])
+            self.assertFalse(summary["l7Adversarial"]["present"])
+            self.assertEqual(0, summary["scenarioCount"])
+
     def test_filtered_entries_rejects_unknown_filter(self) -> None:
         fixture = phase16_matrix.load_fixture()
         with self.assertRaisesRegex(ValueError, "no matrix entries matched filter"):
@@ -322,7 +392,7 @@ class Phase16MatrixTest(unittest.TestCase):
                 if artifact.is_file():
                     self.assertNotIn(secret, artifact.read_text(encoding="utf-8"))
 
-    def test_l7_adversarial_runner_fails_closed_on_blocked_cell(self) -> None:
+    def test_l7_adversarial_runner_fails_closed_on_incomplete_invalid_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             artifact_root = temp_root / "artifacts"
@@ -383,14 +453,15 @@ class Phase16MatrixTest(unittest.TestCase):
                 text=True,
             )
             self.assertNotEqual(0, result.returncode)
-            self.assertIn("L7 adversarial release gate failed cells", result.stderr)
+            self.assertIn("invalid matrix_version", result.stdout)
             manifest = json.loads((artifact_root / "phase16-run.json").read_text(encoding="utf-8"))
             self.assertEqual("failure", manifest["status"])
-            self.assertEqual("L7 adversarial verdict report contains failed cells", manifest["failureMessage"])
+            self.assertEqual("L7 classifier self-test report failed validation", manifest["failureMessage"])
             self.assertEqual("l7-adversarial/verdict-report.json", manifest["l7VerdictReport"])
             summary = json.loads((artifact_root / "phase16-pcap-summary.json").read_text(encoding="utf-8"))
             self.assertEqual("fail", summary["l7Adversarial"]["gateVerdict"])
-            self.assertEqual(1, summary["l7Adversarial"]["failedCellCount"])
+            self.assertFalse(summary["l7Adversarial"]["releaseAcceptance"])
+            self.assertTrue(summary["l7Adversarial"]["errors"])
             self.assertEqual("l7-adversarial/verdict-report.json", summary["linkedArtifacts"]["l7VerdictReport"])
 
     def test_successful_row_fails_when_paired_cleanup_fails(self) -> None:
@@ -403,22 +474,10 @@ class Phase16MatrixTest(unittest.TestCase):
             prepare.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             cleanup.write_text("#!/usr/bin/env bash\nexit 23\n", encoding="utf-8")
             dryrun.write_text(
-                "\n".join(
-                    [
-                        "#!/usr/bin/env bash",
-                        'mkdir -p "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR"',
-                        'cat > "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR/verdict-report.json" <<\'JSON\'',
-                        json.dumps(
-                            {
-                                "cells": [
-                                    {"desync_mode_id": "split", "pattern_id": "pass", "verdict": "bypassed"}
-                                ]
-                            }
-                        ),
-                        "JSON",
-                        "",
-                    ]
-                ),
+                "#!/usr/bin/env bash\nset -euo pipefail\n"
+                + f'cd "{REPO_ROOT / "test-lab/chaos/tspu"}"\n'
+                + 'python3 -m runner.cli dry-run --matrix matrix.json --fixtures fixtures '
+                + '--out-dir "$RIPDPI_L7_ADVERSARIAL_ARTIFACT_DIR"\n',
                 encoding="utf-8",
             )
             for hook in (prepare, cleanup, dryrun):
@@ -730,6 +789,22 @@ class Phase16PcapSummaryTest(unittest.TestCase):
             self.assertEqual([], scenario["missingArtifacts"])
             self.assertEqual(["device-capture.pcap", "failure-screenshot.png"], scenario["optionalArtifacts"])
 
+    def test_summary_rejects_missing_malformed_and_outside_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            missing = phase16_pcap_summary.summarize_l7_verdict_report(root, {})
+            self.assertEqual("fail", missing["gateVerdict"])
+            self.assertFalse(missing["releaseAcceptance"])
+            report = root / "l7-adversarial/verdict-report.json"
+            report.parent.mkdir()
+            report.write_text("{broken")
+            malformed = phase16_pcap_summary.summarize_l7_verdict_report(root, {})
+            self.assertEqual("fail", malformed["gateVerdict"])
+            self.assertTrue(malformed["errors"])
+            outside = phase16_pcap_summary.summarize_l7_verdict_report(root, {"l7VerdictReport": "../escape.json"})
+            self.assertEqual("fail", outside["gateVerdict"])
+            self.assertFalse(outside["releaseAcceptance"])
+
     def test_summary_links_l7_verdict_report_and_excludes_support_dir_from_scenarios(self) -> None:
         registry = phase16_pcap_summary.load_registry()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -775,9 +850,10 @@ class Phase16PcapSummaryTest(unittest.TestCase):
             self.assertEqual(0, summary["scenarioCount"])
             self.assertEqual("l7-adversarial/verdict-report.json", summary["linkedArtifacts"]["l7VerdictReport"])
             self.assertEqual("synthetic-adversarial", summary["runMetadata"]["evidenceTier"])
-            self.assertEqual("partial", summary["l7Adversarial"]["gateVerdict"])
+            self.assertEqual("fail", summary["l7Adversarial"]["gateVerdict"])
+            self.assertFalse(summary["l7Adversarial"]["releaseAcceptance"])
             self.assertEqual(2, summary["l7Adversarial"]["cellCount"])
-            self.assertEqual(0, summary["l7Adversarial"]["failedCellCount"])
+            self.assertEqual(1, summary["l7Adversarial"]["failedCellCount"])
             self.assertEqual(1, summary["l7Adversarial"]["partialCellCount"])
 
 

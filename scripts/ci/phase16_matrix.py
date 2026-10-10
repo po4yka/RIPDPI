@@ -18,6 +18,7 @@ REQUIRED_NETWORK_CONDITIONS = {
     "ipv6_extension_blackhole",
     "carrier_nat_reorder",
     "l7_adversarial_emulator",
+    "l7_engine_packet_evidence",
 }
 REQUIRED_STRESS_ENTRIES = {
     "wifi_ipv4_nonroot_vpn_pmtud_blackhole",
@@ -25,11 +26,12 @@ REQUIRED_STRESS_ENTRIES = {
     "wifi_ipv6_rooted_proxy_ipfrag2_ipv6_ext_blackhole",
     "cellular_ipv4_nonroot_vpn_carrier_nat_reorder",
     "l7_adversarial_emulator_v1_1",
+    "l7_engine_packet_evidence_v1",
 }
 REQUIRED_REAL_PROVIDER_NAMESPACES = {"ns-mts", "ns-megafon", "ns-beeline"}
 RUNNER_REQUIRED_VALUES = {"lab", "real-provider"}
 EVIDENCE_TIERS = {"synthetic-lab", "synthetic-adversarial", "real-provider"}
-EXECUTION_KINDS = {"android_packet_smoke", "host_cli_packet_smoke", "l7_adversarial_emulator"}
+EXECUTION_KINDS = {"android_packet_smoke", "host_cli_packet_smoke", "l7_adversarial_emulator", "l7_engine_packet_evidence"}
 MATRIX_VERSION = "phase16_lab_matrix_v1"
 REAL_PROVIDER_CONFIG_VERSION = "phase16_real_provider_runner_v1"
 
@@ -158,6 +160,11 @@ def validate_entry(entry: dict) -> None:
             raise ValueError(f"L7 adversarial entry must not set carrierNamespace in {entry['id']}")
         if entry["networkCondition"] != "l7_adversarial_emulator":
             raise ValueError(f"L7 adversarial entry must use networkCondition=l7_adversarial_emulator in {entry['id']}")
+    if entry["executionKind"] == "l7_engine_packet_evidence":
+        if (runner_required != "lab" or evidence_tier != "synthetic-lab"
+                or entry["mode"] != "proxy" or entry["networkCondition"] != "l7_engine_packet_evidence"
+                or entry["runsOn"] != ["ubuntu-latest"] or entry_default_included(entry)):
+            raise ValueError(f"L7 engine evidence must be an opt-in Linux lab proxy row in {entry['id']}")
     if runner_required == "real-provider":
         if not isinstance(carrier_namespace, str) or not carrier_namespace:
             raise ValueError(f"real-provider entry requires carrierNamespace in {entry['id']}")
