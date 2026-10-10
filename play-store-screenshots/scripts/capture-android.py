@@ -37,6 +37,17 @@ def run(args: list[str], *, raw: bool = False) -> bytes | str:
     return result.stdout if raw else result.stdout.decode().strip()
 
 
+def home_sample_count(tree: ElementTree.Element, template: str) -> int:
+    pattern = re.escape(template).replace(re.escape("%1$d"), r"(\d+)")
+    counts = []
+    for node in tree.iter("node"):
+        text = re.sub(r"[\u200e\u200f\u061c]", "", node.get("text", ""))
+        match = re.fullmatch(pattern, text)
+        if match:
+            counts.append(int(match[1]))
+    return max(counts, default=0)
+
+
 class CaptureDevice:
     def __init__(self, serial: str) -> None:
         if not serial.startswith("emulator-"):
@@ -118,10 +129,28 @@ class CaptureDevice:
             if "RipDpiVpnService" in services and "ni{VPN CONNECTED extra: VPN:com.poyka.ripdpi}" in connectivity:
                 self.receipts["vpn"] = {"observedAtUtc": datetime.now(timezone.utc).isoformat(),
                                         "service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi"}
-                time.sleep(3)
+                self.wait_for_home_measurements()
                 return
             time.sleep(1)
         raise RuntimeError("A real VPN did not start. Grant Android VPN consent through the normal app first.")
+
+    def wait_for_home_measurements(self) -> None:
+        locale_state = self.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
+        locale = re.search(r"\[([a-zA-Z-]+)\]", locale_state)[1]
+        directory = "values" if locale == "en" else "values-" + locale.replace("-", "-r", 1)
+        template = next(
+            string.text for path in (ROOT / "app/src/main/res" / directory).glob("*.xml")
+            for string in ElementTree.parse(path).getroot().findall("string")
+            if string.get("name") == "home_quality_samples")
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            samples = home_sample_count(self.tree(), template)
+            if samples >= 2:
+                self.receipts.setdefault("homeMeasurements", {})[locale] = {
+                    "sampleCount": samples, "observedAtUtc": datetime.now(timezone.utc).isoformat()}
+                return
+            time.sleep(2)
+        raise RuntimeError("Real Home RTT measurements were not ready within one minute. No frame was saved.")
 
     def disconnect_live(self) -> None:
         button = self.tag(self.tree(), "connection-actuator-button")

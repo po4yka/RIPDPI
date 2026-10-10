@@ -60,6 +60,9 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     if (permission_receipt.get("api") != manifest.get("device", {}).get("api")
             or permission_receipt.get("granted") != expected_permissions or not permission_receipt.get("observedAtUtc")):
         errors.append("Missing actual Android runtime permission receipts.")
+    measurements = receipts.get("homeMeasurements", {})
+    if set(measurements) != set(LOCALES) or any(value.get("sampleCount", 0) < 2 or not value.get("observedAtUtc") for value in measurements.values()):
+        errors.append("Missing actual Home RTT measurement readiness receipts.")
     displays = receipts.get("displayFrames", {})
     expected_displays = {f"{locale}/{name}": {**profile, "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
                          for locale in LOCALES for name, profile in DISPLAY_PROFILES.items()}

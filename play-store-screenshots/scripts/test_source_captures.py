@@ -47,6 +47,7 @@ class SourceCaptureTests(unittest.TestCase):
                      "state": {"servicePreset": "live", "displayProfiles": DISPLAY_PROFILES, "statusBar": STATUS_BAR}, "runReceipts": {"vpn": {"service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi", "observedAtUtc": "2026-10-10T00:00:00+00:00", "stoppedNormallyAtUtc": "2026-10-10T00:00:01+00:00"}, "diagnostics": {"id": "new", "previousSessionId": "old", "profileId": "default", "status": "completed", "clickedAt": 1000, "startedAt": 2000, "finishedAt": 3000, "resultCount": 21, "reportBytes": 1024, "reportSha256": "f" * 64, "outcomes": {"healthy": 21}}},
                      "theme": "light", "routes": {name: route for name, (route, _) in SCREENS.items()},
                      "uiInputs": self.inputs, "uiInputsSha256": inputs_sha256(self.inputs), "images": images}
+        self.data["runReceipts"]["homeMeasurements"] = {locale: {"sampleCount": 2, "observedAtUtc": "2026-10-10T00:00:00+00:00"} for locale in LOCALES}
         self.data["runReceipts"]["permissions"] = {"api": 37, "granted": list(capture.runtime_permissions(37)), "observedAtUtc": "2026-10-10T00:00:00+00:00"}
         self.data["runReceipts"]["displayFrames"] = {f"{locale}/{name}": {**profile, "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"} for locale in LOCALES for name, profile in DISPLAY_PROFILES.items()}
         self.save()
@@ -57,6 +58,19 @@ class SourceCaptureTests(unittest.TestCase):
     def validate(self, inputs=None):
         with patch.object(validator, "input_hashes", return_value=inputs or self.inputs):
             return validator.validate(self.manifest, self.root)
+
+    def test_real_localized_home_sample_counts_are_required(self):
+        for template, text, count in (("%1$d RTT samples", "2 RTT samples", 2),
+                                      ("Образцов RTT: %1$d", "Образцов RTT: 3", 3),
+                                      ("%1$d نمونهٔ RTT", "۲ نمونهٔ RTT", 2),
+                                      ("%1$d RTT samples", "0 RTT samples", 0),
+                                      ("%1$d RTT samples", "Traffic total 2 kB", 0)):
+            tree = capture.ElementTree.Element("hierarchy")
+            capture.ElementTree.SubElement(tree, "node", {"text": text})
+            self.assertEqual(capture.home_sample_count(tree, template), count)
+        self.data["runReceipts"]["homeMeasurements"]["en"]["sampleCount"] = 0
+        self.save()
+        self.assertTrue(any("Home RTT" in error for error in self.validate()))
 
     def test_demo_status_metadata_is_rejected(self):
         self.data["state"]["statusBar"] = "Android demo mode: 12:00"
