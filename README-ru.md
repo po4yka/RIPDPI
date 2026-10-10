@@ -97,19 +97,16 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 <p align="center">
   <a href="docs/screenshots/ru/01-hero.png"><img src="docs/screenshots/ru/01-hero.png" width="380" alt="Управление подключением — настоящий главный экран"/></a>
-  &nbsp;
   <a href="docs/screenshots/ru/02-diagnostics.png"><img src="docs/screenshots/ru/02-diagnostics.png" width="380" alt="Диагностика сети — настоящие результаты проверки"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/ru/03-relays.png"><img src="docs/screenshots/ru/03-relays.png" width="380" alt="Выбор релея — реальные настройки"/></a>
-  &nbsp;
   <a href="docs/screenshots/ru/04-dns.png"><img src="docs/screenshots/ru/04-dns.png" width="380" alt="Шифрованный DNS — реальные настройки"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/ru/05-strategies.png"><img src="docs/screenshots/ru/05-strategies.png" width="380" alt="Стратегия пакетов — реальные элементы управления"/></a>
-  &nbsp;
   <a href="docs/screenshots/ru/06-local-tools.png"><img src="docs/screenshots/ru/06-local-tools.png" width="380" alt="Резервные копии и восстановление — реальные настройки"/></a>
 </p>
 

@@ -97,19 +97,16 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 <p align="center">
   <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="380" alt="连接控制 — 真实主屏幕"/></a>
-  &nbsp;
   <a href="docs/screenshots/zh-CN/02-diagnostics.png"><img src="docs/screenshots/zh-CN/02-diagnostics.png" width="380" alt="网络诊断 — 真实检查结果"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/zh-CN/03-relays.png"><img src="docs/screenshots/zh-CN/03-relays.png" width="380" alt="中继选择 — 真实设置"/></a>
-  &nbsp;
   <a href="docs/screenshots/zh-CN/04-dns.png"><img src="docs/screenshots/zh-CN/04-dns.png" width="380" alt="加密 DNS — 真实设置"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="380" alt="数据包策略 — 真实控制界面"/></a>
-  &nbsp;
   <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="380" alt="备份与恢复 — 真实设置"/></a>
 </p>
 

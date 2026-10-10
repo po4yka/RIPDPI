@@ -99,19 +99,16 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 <p align="center">
   <a href="../../docs/screenshots/fa/01-hero.png"><img src="../../docs/screenshots/fa/01-hero.png" width="380" alt="کنترل اتصال — صفحهٔ اصلی واقعی"/></a>
-  &nbsp;
   <a href="../../docs/screenshots/fa/02-diagnostics.png"><img src="../../docs/screenshots/fa/02-diagnostics.png" width="380" alt="عیب‌یابی شبکه — نتایج واقعی بررسی"/></a>
 </p>
 
 <p align="center">
   <a href="../../docs/screenshots/fa/03-relays.png"><img src="../../docs/screenshots/fa/03-relays.png" width="380" alt="انتخاب رله — تنظیمات واقعی"/></a>
-  &nbsp;
   <a href="../../docs/screenshots/fa/04-dns.png"><img src="../../docs/screenshots/fa/04-dns.png" width="380" alt="DNS رمزگذاری‌شده — تنظیمات واقعی"/></a>
 </p>
 
 <p align="center">
   <a href="../../docs/screenshots/fa/05-strategies.png"><img src="../../docs/screenshots/fa/05-strategies.png" width="380" alt="راهبرد بسته‌ها — کنترل‌های واقعی"/></a>
-  &nbsp;
   <a href="../../docs/screenshots/fa/06-local-tools.png"><img src="../../docs/screenshots/fa/06-local-tools.png" width="380" alt="پشتیبان‌گیری و بازیابی — تنظیمات واقعی"/></a>
 </p>
 

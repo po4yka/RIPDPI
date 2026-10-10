@@ -97,19 +97,16 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 
 <p align="center">
   <a href="docs/screenshots/es/01-hero.png"><img src="docs/screenshots/es/01-hero.png" width="380" alt="Control de conexión — pantalla real"/></a>
-  &nbsp;
   <a href="docs/screenshots/es/02-diagnostics.png"><img src="docs/screenshots/es/02-diagnostics.png" width="380" alt="Diagnóstico de red — resultados reales"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/es/03-relays.png"><img src="docs/screenshots/es/03-relays.png" width="380" alt="Selección de relay — ajustes reales"/></a>
-  &nbsp;
   <a href="docs/screenshots/es/04-dns.png"><img src="docs/screenshots/es/04-dns.png" width="380" alt="DNS cifrado — ajustes reales"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/es/05-strategies.png"><img src="docs/screenshots/es/05-strategies.png" width="380" alt="Estrategia de paquetes — controles reales"/></a>
-  &nbsp;
   <a href="docs/screenshots/es/06-local-tools.png"><img src="docs/screenshots/es/06-local-tools.png" width="380" alt="Copia de seguridad y restauración — ajustes reales"/></a>
 </p>
 

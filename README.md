@@ -23,19 +23,16 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
 
 <p align="center">
   <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="Connection controls — real Home screen"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="380" alt="Network diagnosis — real scan results"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="380" alt="Relay selection — real settings"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="380" alt="Encrypted DNS — real settings"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="Packet strategy — real controls"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="Backup and restore — real settings"/></a>
 </p>
 

@@ -25,19 +25,16 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
 
 <p align="center">
   <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="Controle de conexão — tela inicial real"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="380" alt="Diagnóstico de rede — resultados reais"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="380" alt="Seleção de relay — configurações reais"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="380" alt="DNS criptografado — configurações reais"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="Estratégia de pacotes — controles reais"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="Backup e restauração — configurações reais"/></a>
 </p>
 

@@ -96,19 +96,16 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 
 <p align="center">
   <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="कनेक्शन नियंत्रण — वास्तविक होम स्क्रीन"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/02-diagnostics.png"><img src="docs/screenshots/en/02-diagnostics.png" width="380" alt="नेटवर्क निदान — वास्तविक जाँच परिणाम"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/en/03-relays.png"><img src="docs/screenshots/en/03-relays.png" width="380" alt="Relay चयन — वास्तविक सेटिंग"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/04-dns.png"><img src="docs/screenshots/en/04-dns.png" width="380" alt="एन्क्रिप्टेड DNS — वास्तविक सेटिंग"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="पैकेट रणनीति — वास्तविक नियंत्रण"/></a>
-  &nbsp;
   <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="बैकअप और पुनर्स्थापना — वास्तविक सेटिंग"/></a>
 </p>
 

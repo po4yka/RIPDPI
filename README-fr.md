@@ -97,19 +97,16 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 <p align="center">
   <a href="docs/screenshots/fr/01-hero.png"><img src="docs/screenshots/fr/01-hero.png" width="380" alt="Contrôle de connexion — écran réel"/></a>
-  &nbsp;
   <a href="docs/screenshots/fr/02-diagnostics.png"><img src="docs/screenshots/fr/02-diagnostics.png" width="380" alt="Diagnostic réseau — résultats réels"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/fr/03-relays.png"><img src="docs/screenshots/fr/03-relays.png" width="380" alt="Choix du relais — paramètres réels"/></a>
-  &nbsp;
   <a href="docs/screenshots/fr/04-dns.png"><img src="docs/screenshots/fr/04-dns.png" width="380" alt="DNS chiffré — paramètres réels"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/fr/05-strategies.png"><img src="docs/screenshots/fr/05-strategies.png" width="380" alt="Stratégie des paquets — commandes réelles"/></a>
-  &nbsp;
   <a href="docs/screenshots/fr/06-local-tools.png"><img src="docs/screenshots/fr/06-local-tools.png" width="380" alt="Sauvegarde et restauration — paramètres réels"/></a>
 </p>
 

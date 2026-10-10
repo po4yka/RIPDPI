@@ -97,19 +97,16 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 <p align="center">
   <a href="docs/screenshots/de/01-hero.png"><img src="docs/screenshots/de/01-hero.png" width="380" alt="Verbindung steuern — echter Startbildschirm"/></a>
-  &nbsp;
   <a href="docs/screenshots/de/02-diagnostics.png"><img src="docs/screenshots/de/02-diagnostics.png" width="380" alt="Netzwerkdiagnose — echte Prüfergebnisse"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/de/03-relays.png"><img src="docs/screenshots/de/03-relays.png" width="380" alt="Relay auswählen — echte Einstellungen"/></a>
-  &nbsp;
   <a href="docs/screenshots/de/04-dns.png"><img src="docs/screenshots/de/04-dns.png" width="380" alt="Verschlüsseltes DNS — echte Einstellungen"/></a>
 </p>
 
 <p align="center">
   <a href="docs/screenshots/de/05-strategies.png"><img src="docs/screenshots/de/05-strategies.png" width="380" alt="Paketstrategie — echte Steuerelemente"/></a>
-  &nbsp;
   <a href="docs/screenshots/de/06-local-tools.png"><img src="docs/screenshots/de/06-local-tools.png" width="380" alt="Sicherung und Wiederherstellung — echte Einstellungen"/></a>
 </p>
 
