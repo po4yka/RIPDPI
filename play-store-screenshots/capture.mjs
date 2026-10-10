@@ -57,12 +57,20 @@ async function main() {
         if (!response?.ok()) throw new Error(`Failed to load ${url}: ${response?.status()}`);
         await page.waitForSelector(`[data-marketing-slide][data-locale="${lang}"]`, { timeout: 30000 });
         const measurement = await page.evaluate(async ({ captureSize, phone }) => {
+          const slide = document.querySelector("[data-marketing-slide]");
           await document.fonts.ready;
+          if (slide.dataset.locale === "fa") {
+            const family = getComputedStyle(slide).fontFamily.split(",")[0];
+            // Hydration can select a face after the initial font-ready promise resolves.
+            await Promise.all([
+              document.fonts.load(`400 48px ${family}`, "شبکه"),
+              document.fonts.load(`700 100px ${family}`, "تنظیمات"),
+            ]);
+          }
           await Promise.all(Array.from(document.images, async (img) => {
             await img.decode();
             if (!img.complete || !img.naturalWidth) throw new Error(`Broken image: ${img.src}`);
           }));
-          const slide = document.querySelector("[data-marketing-slide]");
           const bounds = slide.getBoundingClientRect();
           const within = (r) => r.left >= bounds.left - 0.5 && r.top >= bounds.top - 0.5 &&
             r.right <= bounds.right + 0.5 && r.bottom <= bounds.bottom + 0.5;
