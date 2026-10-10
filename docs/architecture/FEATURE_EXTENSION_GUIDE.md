@@ -429,9 +429,10 @@ validated recommendations drive remembered-policy persistence.
 
 ### Current extension path
 
-1. Add a field to `AppSettings`. **Pick the next free field number** — the
-   highest in use today is `410`; the `reserved` block at the top of the
-   message lists numbers and names that must **never** be reused.
+1. Add a field to `AppSettings`. **Pick an unused, unreserved field number**
+   from the current `core/data/model/src/main/proto/app_settings.proto`.
+   Inspect the complete message and its `reserved` blocks; assigned and
+   reserved numbers and names must **never** be reused.
 2. All cross-boundary fields must be defaulted/optional or `@Transient` with a
    default (proto3 scalar defaults are implicit; document the "unset" sentinel,
    e.g. `0`/`-1`/`""`, in a trailing comment as the existing fields do).

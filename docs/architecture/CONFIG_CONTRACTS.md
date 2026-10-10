@@ -61,10 +61,10 @@ Owner: `core/data/model/src/main/proto/app_settings.proto` (proto3,
 The settings store is Jetpack DataStore — a wire-format change is a
 **persisted-data** change.
 
-- **Never reuse a field number.** Once assigned, a number is permanent. The
-  highest `AppSettings` number in use today is `410`
-  (`simple_failover_awg_profile_id`). Determine the next unreserved number from
-  the current proto rather than relying on this prose snapshot.
+- **Never reuse a field number.** Once assigned, a number is permanent.
+  Determine the next unused, unreserved number from the current
+  `core/data/model/src/main/proto/app_settings.proto`. Check all fields and
+  reserved ranges in the message; prose snapshots are not allocation authority.
 - **Never reuse a field name.** A name carries semantics into goldens and DSL.
 - **On removal, reserve both.** `AppSettings` already does this — `reserved 15,
   16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130, 190;` plus the matching
