@@ -21,12 +21,14 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
 
 ## Veja o caminho, não apenas um interruptor
 
+**Idioma das capturas: English fallback.** Ainda não há capturas da interface em português brasileiro para este README.
+
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Painel promocional com a tela inicial do RIPDPI"/>
+  <img src="docs/screenshots/en/01-hero.png" width="200" alt="Painel promocional com a tela inicial do RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Painel promocional com a configuração do exame diagnóstico"/>
+  <img src="docs/screenshots/en/05-diagnostics.png" width="200" alt="Painel promocional com a configuração do exame diagnóstico"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="Painel promocional com a configuração do relay"/>
+  <img src="docs/screenshots/en/03-relays.png" width="200" alt="Painel promocional com a configuração do relay"/>
 </p>
 
 O painel de diagnóstico mostra a configuração do exame; o painel do relay mostra a configuração. Outras [ilustrações promocionais](play-store-screenshots/README.md) são mantidas separadamente.

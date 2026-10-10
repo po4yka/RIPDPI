@@ -92,12 +92,14 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 
 ## स्क्रीनशॉट
 
+**स्क्रीनशॉट भाषा: English fallback.** इस README के लिए अभी हिन्दी UI captures उपलब्ध नहीं हैं।
+
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI होम स्क्रीन वाला प्रचार पैनल"/>
+  <img src="docs/screenshots/en/01-hero.png" width="200" alt="RIPDPI होम स्क्रीन वाला प्रचार पैनल"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="डायग्नोस्टिक स्कैन सेटअप वाला प्रचार पैनल"/>
+  <img src="docs/screenshots/en/05-diagnostics.png" width="200" alt="डायग्नोस्टिक स्कैन सेटअप वाला प्रचार पैनल"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="Relay कॉन्फ़िगरेशन वाला प्रचार पैनल"/>
+  <img src="docs/screenshots/en/03-relays.png" width="200" alt="Relay कॉन्फ़िगरेशन वाला प्रचार पैनल"/>
 </p>
 
 डायग्नोस्टिक पैनल स्कैन सेटअप दिखाता है और relay पैनल कॉन्फ़िगरेशन। अन्य [प्रचार चित्र](play-store-screenshots/README.md) अलग रखे गए हैं।

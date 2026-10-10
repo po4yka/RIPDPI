@@ -96,11 +96,11 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 ## Captures d'écran
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Panneau promotionnel avec l'écran principal de RIPDPI"/>
+  <img src="docs/screenshots/fr/01-hero.png" width="200" alt="Panneau promotionnel avec l'écran principal de RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Panneau promotionnel avec la configuration du scan de diagnostic"/>
+  <img src="docs/screenshots/fr/05-diagnostics.png" width="200" alt="Panneau promotionnel avec la configuration du scan de diagnostic"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="Panneau promotionnel avec la configuration du relais"/>
+  <img src="docs/screenshots/fr/03-relays.png" width="200" alt="Panneau promotionnel avec la configuration du relais"/>
 </p>
 
 Le panneau de diagnostic montre la configuration du scan ; celui du relais montre sa configuration. Les autres [illustrations promotionnelles](play-store-screenshots/README.md) sont conservées séparément.

@@ -22,11 +22,11 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
 ## See the path, not just a switch
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Promotional panel with the RIPDPI home screen"/>
+  <img src="docs/screenshots/en/01-hero.png" width="200" alt="Promotional panel with the RIPDPI home screen"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Promotional panel with diagnostic scan setup"/>
+  <img src="docs/screenshots/en/05-diagnostics.png" width="200" alt="Promotional panel with diagnostic scan setup"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="Promotional panel with relay configuration"/>
+  <img src="docs/screenshots/en/03-relays.png" width="200" alt="Promotional panel with relay configuration"/>
 </p>
 
 The diagnostics panel shows scan setup. The relay panel shows configuration. More [marketing illustrations](play-store-screenshots/README.md) are kept separately.

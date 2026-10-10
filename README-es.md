@@ -96,11 +96,11 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 ## Capturas de pantalla
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Panel promocional con la pantalla principal de RIPDPI"/>
+  <img src="docs/screenshots/es/01-hero.png" width="200" alt="Panel promocional con la pantalla principal de RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Panel promocional con la configuración del escaneo diagnóstico"/>
+  <img src="docs/screenshots/es/05-diagnostics.png" width="200" alt="Panel promocional con la configuración del escaneo diagnóstico"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="Panel promocional con la configuración del relevo"/>
+  <img src="docs/screenshots/es/03-relays.png" width="200" alt="Panel promocional con la configuración del relevo"/>
 </p>
 
 El panel de diagnóstico muestra la configuración del escaneo; el panel de relevo muestra su configuración. Las demás [ilustraciones promocionales](play-store-screenshots/README.md) se mantienen aparte.

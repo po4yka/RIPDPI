@@ -96,11 +96,11 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 ## 截图
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="包含 RIPDPI 主屏幕的宣传面板"/>
+  <img src="docs/screenshots/zh-CN/01-hero.png" width="200" alt="包含 RIPDPI 主屏幕的宣传面板"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="包含诊断扫描设置的宣传面板"/>
+  <img src="docs/screenshots/zh-CN/05-diagnostics.png" width="200" alt="包含诊断扫描设置的宣传面板"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="包含中继配置的宣传面板"/>
+  <img src="docs/screenshots/zh-CN/03-relays.png" width="200" alt="包含中继配置的宣传面板"/>
 </p>
 
 诊断面板显示扫描设置，中继面板显示配置。其他[宣传插图](play-store-screenshots/README.md)单独维护。

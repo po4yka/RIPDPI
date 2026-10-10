@@ -98,11 +98,11 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## تصاویر صفحه
 
 <p align="center">
-  <img src="../../docs/screenshots/01-hero.png" width="200" alt="پنل تبلیغاتی با صفحهٔ اصلی RIPDPI"/>
+  <img src="../../docs/screenshots/fa/01-hero.png" width="200" alt="پنل تبلیغاتی با صفحهٔ اصلی RIPDPI"/>
   &nbsp;
-  <img src="../../docs/screenshots/05-diagnostics.png" width="200" alt="پنل تبلیغاتی با تنظیم پویش تشخیصی"/>
+  <img src="../../docs/screenshots/fa/05-diagnostics.png" width="200" alt="پنل تبلیغاتی با تنظیم پویش تشخیصی"/>
   &nbsp;
-  <img src="../../docs/screenshots/03-relays.png" width="200" alt="پنل تبلیغاتی با پیکربندی رله"/>
+  <img src="../../docs/screenshots/fa/03-relays.png" width="200" alt="پنل تبلیغاتی با پیکربندی رله"/>
 </p>
 
 پنل تشخیص تنظیم پویش را نشان می‌دهد و پنل رله پیکربندی را. دیگر [تصاویر تبلیغاتی](../../play-store-screenshots/README.md) جدا نگه داشته شده‌اند.

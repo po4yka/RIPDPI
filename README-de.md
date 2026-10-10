@@ -96,11 +96,11 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="Werbetafel mit dem RIPDPI-Startbildschirm"/>
+  <img src="docs/screenshots/de/01-hero.png" width="200" alt="Werbetafel mit dem RIPDPI-Startbildschirm"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Werbetafel mit der Einrichtung des Diagnosescans"/>
+  <img src="docs/screenshots/de/05-diagnostics.png" width="200" alt="Werbetafel mit der Einrichtung des Diagnosescans"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="Werbetafel mit der Relay-Konfiguration"/>
+  <img src="docs/screenshots/de/03-relays.png" width="200" alt="Werbetafel mit der Relay-Konfiguration"/>
 </p>
 
 Das Diagnosebild zeigt die Scan-Einrichtung, das Relay-Bild die Konfiguration. Weitere [Werbegrafiken](play-store-screenshots/README.md) stehen separat.
