@@ -24,6 +24,9 @@ const PHONE = { w: 1080, h: 1920 };
 const FEATURE = { w: 1024, h: 500 };
 const MIN_PHONES = 4;
 const MAX_PHONES = 8;
+const EXPECTED_LOCALES = ["", "en", "ru", "es", "de", "fr", "fa", "zh-CN"];
+const EXPECTED_FILES = ["01-hero.png", "02-diagnostics.png", "03-relays.png", "04-dns.png",
+  "05-strategies.png", "06-local-tools.png", "feature-graphic.png"];
 
 const ANSI = {
   reset: "\x1b[0m",
@@ -82,6 +85,7 @@ function validateFile(filePath) {
   } catch (e) {
     return { name, ok: false, reasons: [`PNG parse failed: ${e.message}`], info: null };
   }
+  if (info.bitDepth !== 8) reasons.push(`bit depth ${info.bitDepth}; expected 8-bit RGB`);
   if (info.colorType !== 2) {
     reasons.push(
       `color type ${info.colorType} (${COLOR_TYPE_NAMES[info.colorType] ?? "unknown"}); Google Play requires 24-bit RGB (color type 2, no alpha)`,
@@ -136,6 +140,29 @@ function main() {
   let totalChecked = 0;
   let totalFailed = 0;
   let countFailures = 0;
+  if (strict) {
+    for (const locale of EXPECTED_LOCALES) {
+      const files = groups.get(locale)?.map(file => basename(file)).sort() ?? [];
+      if (JSON.stringify(files) !== JSON.stringify([...EXPECTED_FILES].sort())) {
+        countFailures += 1;
+        console.log(c("red", `FAIL[registry]: ${locale || "root"} must contain all seven current assets`));
+      }
+    }
+    for (const locale of groups.keys()) {
+      if (!EXPECTED_LOCALES.includes(locale)) {
+        countFailures += 1;
+        console.log(c("red", `FAIL[locale]: unexpected marketing locale ${locale}`));
+      }
+    }
+    for (const file of EXPECTED_FILES) {
+      const fallback = join(ROOT, file);
+      const english = join(ROOT, "en", file);
+      if (existsSync(fallback) && existsSync(english) && !readFileSync(fallback).equals(readFileSync(english))) {
+        countFailures += 1;
+        console.log(c("red", `FAIL[fallback]: ${file} differs from English`));
+      }
+    }
+  }
 
   for (const [locale, files] of groups) {
     const label = locale === "" ? "(root)" : locale;

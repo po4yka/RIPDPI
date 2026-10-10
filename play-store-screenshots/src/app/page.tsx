@@ -44,824 +44,127 @@ const BRAND = {
   restricted: "#6B7280",   // restricted
 } as const;
 
-// ── Helpers ────────────────────────────────────────────────────────────
-/** Render an array of headline lines as JSX, separated by <br />. */
-function renderHeadline(lines: readonly string[]): React.ReactNode {
-  return lines.map((line, i) => (
-    <span key={i}>
-      {line}
-      {i < lines.length - 1 && <br />}
-    </span>
-  ));
+// Marketing copy is separate from the unchanged Android pixels.
+function Slide({ children, copy, dark = false }: {
+  children: React.ReactNode; copy: SlideCopy; dark?: boolean;
+}) {
+  return <div data-marketing-slide data-locale={copy.locale} dir={copy.dir}
+    style={{ width: PHONE_W, height: PHONE_H, background: dark ? BRAND.bg : BRAND_LIGHT.bg,
+      color: dark ? BRAND.text : BRAND_LIGHT.text, position: "relative", overflow: "hidden",
+      fontFamily: "var(--font-geist-sans), Arial, sans-serif" }}>{children}</div>;
 }
 
-// ── Screenshot (Frameless) ─────────────────────────────────────────────
-function Screenshot({
-  src,
-  alt,
-  style,
-  bgColor = "#ffffff",
-}: {
-  src: string;
-  alt: string;
-  style?: React.CSSProperties;
-  bgColor?: string;
-}) {
-  return (
-    <div style={{ position: "relative", ...style }}>
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          borderRadius: 40,
-          overflow: "hidden",
-          boxShadow: "0 12px 60px rgba(0,0,0,0.18)",
-          background: bgColor,
-        }}
-      >
-        <img
-          src={src}
-          alt={alt}
-          style={{
-            display: "block",
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "top",
-          }}
-          draggable={false}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ── Caption ────────────────────────────────────────────────────────────
-function Caption({
-  label,
-  headline,
-  dark = false,
-  /**
-   * Whether this slide is the one diagnostic/info slide that justifies using
-   * the info accent on the eyebrow. Defaults to false: eyebrows should use
-   * the foreground color, not a saturated accent.
-   */
-  accent = false,
-  style,
-}: {
-  label: string;
-  headline: React.ReactNode;
-  dark?: boolean;
-  accent?: boolean;
-  style?: React.CSSProperties;
-}) {
+function Caption({ copy, index, dark = false }: { copy: SlideCopy; index: number; dark?: boolean }) {
   const palette = dark ? BRAND : BRAND_LIGHT;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 65,
-        left: 70,
-        right: 70,
-        zIndex: 10,
-        ...style,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 35,
-          fontWeight: 600,
-          color: accent ? palette.info : palette.mutedFg,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: 12,
-          fontFamily: "var(--font-geist-sans)",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: 108,
-          fontWeight: 700,
-          color: palette.text,
-          lineHeight: 1.0,
-          letterSpacing: "-0.025em",
-          fontFamily: "var(--font-geist-sans)",
-        }}
-      >
-        {headline}
-      </div>
+  return <header style={{ position: "absolute", top: 54, left: 72, right: 72 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
+      <span data-overlay-text style={{ fontSize: 26, fontWeight: 600, color: palette.mutedFg,
+        letterSpacing: "0.025em" }}>{copy.labels[index]}</span>
+      <span style={{ flex: 1, height: 1, background: palette.border }} />
+      <span data-overlay-text dir="ltr" style={{ fontSize: 24, fontFamily: "var(--font-geist-mono), monospace",
+        color: palette.mutedFg }}>RIPDPI / {String(index + 1).padStart(2, "0")}</span>
     </div>
-  );
+    <h1 data-overlay-text style={{ margin: 0, fontSize: 76, fontWeight: 700, lineHeight: 1.2,
+      letterSpacing: "-0.035em", width: "fit-content", maxWidth: "100%" }}>
+      {copy.headlines[index].map((line, i) => <span key={line}>{line}{i === 0 && <br />}</span>)}
+    </h1>
+  </header>;
 }
 
-// ── Decorative: Grid (monochrome, subtle) ──────────────────────────────
-function Grid({
-  opacity = 0.04,
-  dark = false,
-}: {
-  opacity?: number;
-  dark?: boolean;
+function AppCapture({ copy, src, left = 204, width = 672, top = 350 }: {
+  copy: SlideCopy; src: string; left?: number; width?: number; top?: number;
 }) {
-  const stroke = dark ? "rgba(255,255,255,0.18)" : "rgba(26,26,26,0.18)";
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        opacity,
-        pointerEvents: "none",
-        backgroundImage: `
-          linear-gradient(${stroke} 1px, transparent 1px),
-          linear-gradient(90deg, ${stroke} 1px, transparent 1px)
-        `,
-        backgroundSize: "60px 60px",
-      }}
-    />
-  );
+  return <img data-app-capture src={`/screenshots/${copy.locale}/${src}.png`}
+    alt={`${copy.labels[src === "home-light" ? 0 : src === "diagnostics" ? 1 : 2]} — Android`}
+    draggable={false} style={{ position: "absolute", top, left, width,
+      height: width * 2992 / 1344, display: "block", objectFit: "contain",
+      boxShadow: "0 16px 48px rgba(26,26,26,0.12)" }} />;
 }
 
-// ── Pill badge ─────────────────────────────────────────────────────────
-function Pill({
-  children,
-  color = BRAND_LIGHT.text,
-  bg = BRAND_LIGHT.muted,
-  border = BRAND_LIGHT.border,
-  fontSize = 30,
-}: {
-  children: React.ReactNode;
-  color?: string;
-  bg?: string;
-  border?: string;
-  fontSize?: number;
-}) {
-  return (
-    <div
-      style={{
-        background: bg,
-        color,
-        fontSize,
-        fontWeight: 600,
-        padding: "14px 26px",
-        borderRadius: 14,
-        border: `1px solid ${border}`,
-        fontFamily: "var(--font-geist-mono)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ── Slide Container ────────────────────────────────────────────────────
-function Slide({
-  children,
-  bg,
-  dir,
-}: {
-  children: React.ReactNode;
-  bg: string;
-  dir?: "ltr" | "rtl";
-}) {
-  return (
-    <div
-      dir={dir ?? "ltr"}
-      style={{
-        width: PHONE_W,
-        height: PHONE_H,
-        background: bg,
-        position: "relative",
-        overflow: "hidden",
-        fontFamily: "var(--font-geist-sans)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════
-// SLIDE 1: Hero -- "Browse without borders"
-// Light bg, centered phone (home screen, light 1080x2400)
-// ══════════════════════════════════════════════════════════════════════
 function Slide1({ copy }: { copy: SlideCopy }) {
-  return (
-    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
-      <Grid opacity={0.05} />
-      <Caption
-        label={copy.slide1.label}
-        headline={renderHeadline(copy.slide1.headline)}
-      />
-      <Screenshot
-        src={`/screenshots/${copy.locale}/home-light.png`}
-        alt="Home screen"
-        style={{
-          position: "absolute",
-          top: 520,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "56%",
-          aspectRatio: "1344/2992",
-        }}
-      />
-    </Slide>
-  );
+  return <Slide copy={copy}><Caption copy={copy} index={0} />
+    <AppCapture copy={copy} src="home-light" /></Slide>;
 }
-
-// ══════════════════════════════════════════════════════════════════════
-// SLIDE 2: Differentiator -- "One tap. No root."
-// Light bg, brutalist logo on white, text-focused, no phone
-// ══════════════════════════════════════════════════════════════════════
 function Slide2({ copy }: { copy: SlideCopy }) {
-  return (
-    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
-      <Grid opacity={0.04} />
-
-      {/* App icon — brutalist black silhouette on white card */}
-      <div
-        style={{
-          position: "absolute",
-          top: 100,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 180,
-          height: 180,
-          borderRadius: 42,
-          overflow: "hidden",
-          background: BRAND_LIGHT.card,
-          border: `1px solid ${BRAND_LIGHT.border}`,
-        }}
-      >
-        <img
-          src="/app-icon.png"
-          alt="RIPDPI"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      </div>
-
-      {/* Headline */}
-      <div
-        style={{
-          position: "absolute",
-          top: 340,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 35,
-            fontWeight: 600,
-            color: BRAND_LIGHT.mutedFg,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 16,
-          }}
-        >
-          {copy.slide2.eyebrow}
-        </div>
-        <div
-          style={{
-            fontSize: 120,
-            fontWeight: 700,
-            color: BRAND_LIGHT.text,
-            lineHeight: 0.95,
-            letterSpacing: "-0.025em",
-          }}
-        >
-          {renderHeadline(copy.slide2.headline)}
-        </div>
-      </div>
-
-      {/* Feature cards */}
-      <div
-        style={{
-          position: "absolute",
-          top: 720,
-          left: 60,
-          right: 60,
-          display: "flex",
-          flexDirection: "column",
-          gap: 20,
-        }}
-      >
-        {copy.slide2.cards.map((item) => (
-          <div
-            key={item.title}
-            style={{
-              background: BRAND_LIGHT.card,
-              border: `1px solid ${BRAND_LIGHT.border}`,
-              borderRadius: 20,
-              padding: "28px 32px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-            }}
-          >
-            <div style={{ fontSize: 32, fontWeight: 600, color: BRAND_LIGHT.text }}>
-              {item.title}
-            </div>
-            <div style={{ fontSize: 26, color: BRAND_LIGHT.mutedFg }}>
-              {item.desc}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom badge — restrained success badge (matches DESIGN.md successBadge) */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 100,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: BRAND_LIGHT.success,
-          color: BRAND_LIGHT.bg,
-          fontSize: 28,
-          fontWeight: 700,
-          padding: "16px 36px",
-          borderRadius: 16,
-          fontFamily: "var(--font-geist-mono)",
-        }}
-      >
-        {copy.slide2.bottomBadge}
-      </div>
-    </Slide>
-  );
+  return <Slide copy={copy}><Caption copy={copy} index={1} />
+    <AppCapture copy={copy} src="diagnostics" left={294} /></Slide>;
 }
-
-// ══════════════════════════════════════════════════════════════════════
-// SLIDE 3: Core Feature -- "Local bypass or your relay"
-// Light slide, relay protocol-picker screenshot (1080x2400) right-offset,
-// relay protocol pills on the left. Pills are Latin technical tokens, so
-// they are hardcoded here rather than living in the copy dictionary.
-// ══════════════════════════════════════════════════════════════════════
 function Slide3({ copy }: { copy: SlideCopy }) {
-  const protocols = ["VLESS", "Hysteria2", "TUIC", "ShadowTLS", "Snowflake", "Tor"];
-  return (
-    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
-      <Grid opacity={0.04} />
-      <Caption
-        label={copy.slide3.label}
-        headline={renderHeadline(copy.slide3.headline)}
-      />
-
-      {/* Relay protocol pills on the left — chip-default (muted bg, fg text) */}
-      <div
-        style={{
-          position: "absolute",
-          left: 60,
-          bottom: 150,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          zIndex: 10,
-        }}
-      >
-        {protocols.map((f) => (
-          <div
-            key={f}
-            style={{
-              background: BRAND_LIGHT.muted,
-              color: BRAND_LIGHT.text,
-              fontSize: 24,
-              fontWeight: 600,
-              padding: "10px 20px",
-              borderRadius: 12,
-              border: `1px solid ${BRAND_LIGHT.border}`,
-              fontFamily: "var(--font-geist-mono)",
-            }}
-          >
-            {f}
-          </div>
-        ))}
-      </div>
-
-      <Screenshot
-        src={`/screenshots/${copy.locale}/relay.png`}
-        alt="Remote relay protocols"
-        style={{
-          position: "absolute",
-          top: 400,
-          right: "4%",
-          width: "60%",
-          aspectRatio: "1344/2992",
-        }}
-      />
-    </Slide>
-  );
+  return <Slide copy={copy}><Caption copy={copy} index={2} />
+    <AppCapture copy={copy} src="relay" left={114} /></Slide>;
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// SLIDE 4: Core Feature -- "Fine-tune every packet"
-// Light bg, text-focused with protocol pills, no phone
-// ══════════════════════════════════════════════════════════════════════
+// These editorial diagrams describe settings; they do not imitate app UI.
+function CapabilityRows({ tokens, dark = false }: { tokens: readonly string[]; dark?: boolean }) {
+  const palette = dark ? BRAND : BRAND_LIGHT;
+  return <div dir="ltr" style={{ position: "absolute", top: 590, left: 96, right: 96 }}>
+    {tokens.map((token, i) => <div key={token} style={{ height: 240, borderTop: `2px solid ${palette.border}`,
+      display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <span data-overlay-text style={{ fontFamily: "var(--font-geist-mono), monospace", fontSize: 22,
+        color: palette.mutedFg }}>{String(i + 1).padStart(2, "0")}</span>
+      <span data-overlay-text style={{ fontSize: 100, lineHeight: 1, letterSpacing: "-0.05em",
+        fontWeight: 600 }}>{token}</span>
+      <div aria-hidden style={{ width: 120, height: 2, background: palette.text }} />
+    </div>)}
+  </div>;
+}
+function EditorialNote({ children }: { children: React.ReactNode }) {
+  return <p data-overlay-text style={{ position: "absolute", top: 1690, left: 96, right: 96,
+    width: "fit-content", maxWidth: 888, margin: 0, fontSize: 32, lineHeight: 1.45,
+    color: BRAND_LIGHT.mutedFg }}>{children}</p>;
+}
 function Slide4({ copy }: { copy: SlideCopy }) {
-  return (
-    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
-      <Grid opacity={0.04} />
-
-      <Caption
-        label={copy.slide4.label}
-        headline={renderHeadline(copy.slide4.headline)}
-      />
-
-      {/* Protocol section */}
-      <div
-        style={{
-          position: "absolute",
-          top: 480,
-          left: 70,
-          right: 70,
-        }}
-      >
-        {/* Encrypted DNS */}
-        <div style={{ marginBottom: 40 }}>
-          <div
-            style={{
-              fontSize: 28,
-              fontWeight: 600,
-              color: BRAND_LIGHT.mutedFg,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              marginBottom: 16,
-            }}
-          >
-            {copy.slide4.sectionEncryptedDns}
-          </div>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            {["DoH", "DoT", "DNSCrypt"].map((proto) => (
-              <Pill key={proto}>{proto}</Pill>
-            ))}
-          </div>
-        </div>
-
-        {/* Transport */}
-        <div style={{ marginBottom: 40 }}>
-          <div
-            style={{
-              fontSize: 28,
-              fontWeight: 600,
-              color: BRAND_LIGHT.mutedFg,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              marginBottom: 16,
-            }}
-          >
-            {copy.slide4.sectionDpiBypass}
-          </div>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            {["TCP desync", "QUIC", "TLS tricks", "HTTP split"].map((proto) => (
-              <Pill key={proto}>{proto}</Pill>
-            ))}
-          </div>
-        </div>
-
-        {/* Modes — selected chip uses foreground-on-background pattern from DESIGN.md chipSelected */}
-        <div>
-          <div
-            style={{
-              fontSize: 28,
-              fontWeight: 600,
-              color: BRAND_LIGHT.mutedFg,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              marginBottom: 16,
-            }}
-          >
-            {copy.slide4.sectionModes}
-          </div>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <Pill
-              color={BRAND_LIGHT.bg}
-              bg={BRAND_LIGHT.text}
-              border={BRAND_LIGHT.text}
-            >
-              {copy.slide4.modeVpn}
-            </Pill>
-            <Pill>{copy.slide4.modeProxy}</Pill>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom subtext */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 100,
-          left: 70,
-          right: 70,
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 28,
-            color: BRAND_LIGHT.mutedFg,
-            lineHeight: 1.5,
-          }}
-        >
-          {copy.slide4.footer}
-        </div>
-      </div>
-    </Slide>
-  );
+  return <Slide copy={copy}><Caption copy={copy} index={3} />
+    <CapabilityRows tokens={["DoH", "DoT", "DNSCrypt"]} />
+    <EditorialNote>{copy.dnsDescription}</EditorialNote></Slide>;
 }
-
-// ══════════════════════════════════════════════════════════════════════
-// SLIDE 5: Core Feature -- "See what's really happening"
-// Light bg, diagnostics screenshot (1080x2400), left-offset
-// This is the one slide where info accent is legitimate: it shows the
-// active diagnostic scan state ("DNS / HTTP / TLS / TCP / QUIC" probes).
-// ══════════════════════════════════════════════════════════════════════
 function Slide5({ copy }: { copy: SlideCopy }) {
-  return (
-    <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
-      <Grid opacity={0.04} />
-      <Caption
-        label={copy.slide5.label}
-        headline={renderHeadline(copy.slide5.headline)}
-        accent
-        style={{ right: 200 }}
-      />
-
-      {/* Active-probe column — info badge style from DESIGN.md infoBadge */}
-      <div
-        style={{
-          position: "absolute",
-          right: 50,
-          bottom: 160,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          zIndex: 10,
-        }}
-      >
-        {["DNS", "HTTP", "TLS", "TCP", "QUIC"].map((p) => (
-          <div
-            key={p}
-            style={{
-              background: BRAND_LIGHT.info,
-              color: "#FFFFFF",
-              fontSize: 24,
-              fontWeight: 700,
-              padding: "10px 22px",
-              borderRadius: 12,
-              textAlign: "center",
-              fontFamily: "var(--font-geist-mono)",
-            }}
-          >
-            {p}
-          </div>
-        ))}
-      </div>
-
-      <Screenshot
-        src={`/screenshots/${copy.locale}/diagnostics.png`}
-        alt="Diagnostics"
-        style={{
-          position: "absolute",
-          top: 520,
-          left: "4%",
-          width: "56%",
-          aspectRatio: "1344/2992",
-        }}
-      />
-    </Slide>
-  );
+  return <Slide copy={copy}><Caption copy={copy} index={4} />
+    <CapabilityRows tokens={["TCP", "TLS", "HTTP", "QUIC"]} />
+    <EditorialNote>{copy.strategyDescription}</EditorialNote></Slide>;
 }
-
-// ══════════════════════════════════════════════════════════════════════
-// SLIDE 6: More Features -- "And so much more."
-// Dark bg (rhythm break — 1 of 6 stays dark), app icon + feature pills,
-// no phone screenshot. Dark surface keeps the role mapping inverted, not
-// recolored.
-// ══════════════════════════════════════════════════════════════════════
 function Slide6({ copy }: { copy: SlideCopy }) {
-  const features = copy.slide6.features;
-  const comingSoon = copy.slide6.comingSoon;
-
-  return (
-    <Slide bg={BRAND.bg} dir={copy.dir}>
-      <Grid opacity={0.05} dark />
-
-      {/* App icon — invert: white card holds the brutalist black silhouette */}
-      <div
-        style={{
-          position: "absolute",
-          top: 120,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 160,
-          height: 160,
-          borderRadius: 36,
-          overflow: "hidden",
-          background: "#FFFFFF",
-          border: `1px solid ${BRAND.border}`,
-        }}
-      >
-        <img
-          src="/app-icon.png"
-          alt="RIPDPI"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      </div>
-
-      {/* Headline */}
-      <div
-        style={{
-          position: "absolute",
-          top: 350,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 105,
-            fontWeight: 700,
-            color: BRAND.text,
-            lineHeight: 1.0,
-            letterSpacing: "-0.025em",
-          }}
-        >
-          {renderHeadline(copy.slide6.headline)}
-        </div>
-      </div>
-
-      {/* Feature pills — dark-inversion of chipDefault (muted bg, fg text). */}
-      <div
-        style={{
-          position: "absolute",
-          top: 680,
-          left: 55,
-          right: 55,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 14,
-          justifyContent: "center",
-        }}
-      >
-        {features.map((f) => (
-          <Pill
-            key={f}
-            fontSize={28}
-            color={BRAND.text}
-            bg={BRAND.muted}
-            border={BRAND.border}
-          >
-            {f}
-          </Pill>
-        ))}
-      </div>
-
-      {/* Coming soon */}
-      <div
-        style={{
-          position: "absolute",
-          top: 1100,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: 600,
-            color: BRAND.mutedFg,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 16,
-          }}
-        >
-          {copy.slide6.comingSoonLabel}
-        </div>
-        <div style={{ display: "flex", gap: 14, justifyContent: "center" }}>
-          {comingSoon.map((f) => (
-            <div
-              key={f}
-              style={{
-                background: BRAND.bg,
-                color: BRAND.mutedFg,
-                fontSize: 26,
-                fontWeight: 500,
-                padding: "12px 24px",
-                borderRadius: 14,
-                border: `1px solid ${BRAND.border}`,
-                fontFamily: "var(--font-geist-mono)",
-              }}
-            >
-              {f}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom tagline — foreground, not info accent */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 100,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-        }}
-      >
-        <div style={{ fontSize: 32, fontWeight: 400, color: BRAND.text }}>
-          RIPDPI
-        </div>
-      </div>
-    </Slide>
-  );
+  return <Slide copy={copy} dark><Caption copy={copy} index={5} dark />
+    <AppCapture copy={copy} src="home-light" width={500} left={96} top={600} />
+    <div style={{ position: "absolute", top: 770, left: 650, right: 72 }}>
+      {copy.localTools.map((tool, i) => <div key={tool} style={{ minHeight: 240,
+        borderTop: `1px solid ${BRAND.mutedFg}`, paddingTop: 24 }}>
+        <span data-overlay-text dir="ltr" style={{ display: "block", width: "fit-content",
+          fontFamily: "var(--font-geist-mono), monospace", fontSize: 22, color: BRAND.mutedFg,
+          marginBottom: 22 }}>{String(i + 1).padStart(2, "0")}</span>
+        <span data-overlay-text style={{ display: "block", width: "fit-content", maxWidth: "100%",
+          fontSize: 34, fontWeight: 500, lineHeight: 1.3 }}>{tool}</span>
+      </div>)}
+    </div></Slide>;
 }
-
-// ══════════════════════════════════════════════════════════════════════
-// Feature Graphic (1024x500) — light, monochrome-first
-// ══════════════════════════════════════════════════════════════════════
 function FeatureGraphicSlide({ copy }: { copy: SlideCopy }) {
-  return (
-    <div
-      dir={copy.dir}
-      style={{
-        width: FEATURE_GRAPHIC.w,
-        height: FEATURE_GRAPHIC.h,
-        background: BRAND_LIGHT.bg,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "column",
-        gap: 20,
-        position: "relative",
-        overflow: "hidden",
-        fontFamily: "var(--font-geist-sans)",
-      }}
-    >
-      <Grid opacity={0.04} />
-
-      <div
-        style={{
-          width: 120,
-          height: 120,
-          borderRadius: 28,
-          overflow: "hidden",
-          background: BRAND_LIGHT.card,
-          border: `1px solid ${BRAND_LIGHT.border}`,
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        <img
-          src="/app-icon.png"
-          alt=""
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-        />
-      </div>
-      <div
-        style={{
-          color: BRAND_LIGHT.text,
-          fontSize: 52,
-          fontWeight: 700,
-          letterSpacing: "-0.02em",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        RIPDPI
-      </div>
-      <div
-        style={{
-          color: BRAND_LIGHT.mutedFg,
-          fontSize: 22,
-          fontWeight: 400,
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        {copy.featureGraphic.tagline}
-      </div>
+  return <div data-marketing-slide data-locale={copy.locale} dir={copy.dir} style={{ width: FEATURE_GRAPHIC.w,
+    height: FEATURE_GRAPHIC.h, background: BRAND_LIGHT.bg, color: BRAND_LIGHT.text,
+    position: "relative", overflow: "hidden", fontFamily: "var(--font-geist-sans), Arial, sans-serif" }}>
+    <div style={{ position: "absolute", inset: 40, border: `1px solid ${BRAND_LIGHT.border}` }} />
+    <img src="/app-icon.png" alt="" style={{ position: "absolute", left: 96, top: 82,
+      width: 72, height: 72 }} />
+    <img data-app-capture src={`/screenshots/${copy.locale}/home-light.png`} alt="Android"
+      style={{ position: "absolute", left: 746, top: 75, width: 156,
+        height: 156 * 2992 / 1344, display: "block", objectFit: "contain",
+        boxShadow: "0 8px 24px rgba(26,26,26,0.12)" }} />
+    <div style={{ position: "absolute", left: 96, top: 178, width: 570 }}>
+      <div data-overlay-text dir="ltr" style={{ fontWeight: 700, fontSize: 88, lineHeight: 1.2,
+        letterSpacing: "-0.065em", width: "fit-content" }}>RIPDPI</div>
+      <p data-overlay-text style={{ fontSize: 30, lineHeight: 1.25, margin: "24px 0 0",
+        width: "fit-content", maxWidth: "100%", color: BRAND_LIGHT.mutedFg }}>{copy.featureGraphic.tagline}</p>
     </div>
-  );
+  </div>;
 }
 
-// ── Slide registry ─────────────────────────────────────────────────────
 type SlideComponent = React.ComponentType<{ copy: SlideCopy }>;
-
 const SLIDES: ReadonlyArray<{ id: string; label: string; component: SlideComponent }> = [
-  { id: "hero", label: "Hero", component: Slide1 },
-  { id: "no-root", label: "No Root", component: Slide2 },
+  { id: "hero", label: "Connection", component: Slide1 },
+  { id: "diagnostics", label: "Diagnostics", component: Slide2 },
   { id: "relays", label: "Relays", component: Slide3 },
-  { id: "controls", label: "Controls", component: Slide4 },
-  { id: "diagnostics", label: "Diagnostics", component: Slide5 },
-  { id: "more", label: "More Features", component: Slide6 },
+  { id: "dns", label: "DNS", component: Slide4 },
+  { id: "strategies", label: "Strategies", component: Slide5 },
+  { id: "local-tools", label: "Local tools", component: Slide6 },
 ];
 
 // ── Preview with scaling ───────────────────────────────────────────────
@@ -929,7 +232,7 @@ function ScreenshotPreview({
           fontSize: 13,
           color: BRAND_LIGHT.mutedFg,
           textAlign: "center",
-          fontFamily: "var(--font-geist-mono)",
+          fontFamily: "var(--font-geist-mono), monospace",
         }}
       >
         {String(index + 1).padStart(2, "0")} -- {label} -- click to export
@@ -1052,7 +355,7 @@ function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
         background: BRAND_LIGHT.bg,
         color: BRAND_LIGHT.text,
         padding: "32px 24px",
-        fontFamily: "var(--font-geist-sans)",
+        fontFamily: "var(--font-geist-sans), Arial, sans-serif",
       }}
     >
       {/* Toolbar */}
@@ -1076,7 +379,7 @@ function ScreenshotsGrid({ copy }: { copy: SlideCopy }) {
               fontSize: 14,
               color: BRAND_LIGHT.mutedFg,
               margin: "4px 0 0",
-              fontFamily: "var(--font-geist-mono)",
+              fontFamily: "var(--font-geist-mono), monospace",
             }}
           >
             {SLIDES.length} phone slides + feature graphic | {PHONE_W}x{PHONE_H}px | Locale:{" "}
@@ -1162,7 +465,7 @@ function LocaleSwitcher({ current }: { current: string }) {
             style={{
               fontSize: 12,
               color: isCurrent ? BRAND_LIGHT.text : BRAND_LIGHT.mutedFg,
-              fontFamily: "var(--font-geist-mono)",
+              fontFamily: "var(--font-geist-mono), monospace",
               textDecoration: isCurrent ? "underline" : "none",
               padding: "4px 8px",
               border: `1px solid ${isCurrent ? BRAND_LIGHT.text : "transparent"}`,

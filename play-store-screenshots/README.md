@@ -6,7 +6,7 @@ Next.js + Puppeteer renderer that produces Google Play Store marketing assets fo
 - One 1024×500 feature graphic
 - Localized in 7 locales: `en`, `ru`, `es`, `de`, `fr`, `fa`, `zh-CN`
 
-Marketing output is committed to `../docs/screenshots/`. README galleries use the direct Android frames in `../docs/screenshots/ui/<locale>/`.
+Marketing output is committed to `../docs/screenshots/`. README galleries use these marketing posters. The unchanged Android frames remain in `../docs/screenshots/ui/<locale>/` for inspection.
 
 ## Quick start
 
@@ -76,11 +76,27 @@ This first checks the Android source manifest and UI input hashes, then builds t
 | `public/app-icon.png` | Copied from `app/src/main/ic_launcher-playstore.png` |
 | `../docs/screenshots/` | Final Puppeteer output (committed to git) |
 
+## Listing story
+
+| Asset | Message | Visual source |
+|------|---------|---------------|
+| `01-hero.png` | Control your connection | Complete, disconnected Home frame |
+| `02-diagnostics.png` | Check your network | Complete Scan setup frame, including its warning and action |
+| `03-relays.png` | Choose your relay | Complete captured view of the unsaved relay editor |
+| `04-dns.png` | Set your DNS | Editorial diagram: DoH, DoT, DNSCrypt |
+| `05-strategies.png` | Tune your strategy | Editorial diagram: TCP, TLS, HTTP, QUIC |
+| `06-local-tools.png` | Keep control locally | Complete Home frame with Split tunnel, Routing rules, and Backup & restore labels |
+| `feature-graphic.png` | Connection tools on Android | Wordmark, small canonical icon, and complete Home frame |
+
+The first three posters show the current app in its own locale. They keep the full 1344×2992 source image visible, with no device frame, crop, or added UI. The Scan setup has no measured results. The relay editor is an unsaved edit. The two diagrams describe supported settings and do not imitate UI or promise a network outcome. Slide 6 uses the dark brand palette; its actual app image retains the source light theme.
+
+Capture waits for fonts and image decoding. It rejects a failed page, clipped text, a distorted or clipped source image, and text over an app image. The sum of the visible marketing text bounding boxes must fit within 20% of each canvas. This is a conservative layout measurement, not a certification by Google Play. All 49 localized pages must pass before the driver replaces output files. It removes only the four known retired asset names. Strict output validation requires all 56 current files, 8-bit RGB without alpha, exact dimensions, files no larger than 8 MB, and identical root English fallbacks.
+
 ## Brand and design
 
 Marketing slides honor the root `DESIGN.md` monochrome-first system: `#FAFAFA` background, `#1A1A1A` foreground, restrained status color, no decorative gradients. The dark `BRAND` token set is reserved for at most 1–2 rhythm-break slides as a strict inversion (currently Slide 6 only).
 
-See [`AGENTS.md`](AGENTS.md) for the entry-point cheat sheet and [`../.claude/skills/play-store-screenshots/SKILL.md`](../.claude/skills/play-store-screenshots/SKILL.md) for the full design rules, Google Play constraints, copy framework, and narrative arc.
+The current listing story and output registry are defined above and in `src/app/page.tsx` and `capture.mjs`. The repository skill contains the general design workflow. Its older sample slogans are not listing claims.
 
 ## Caveats
 

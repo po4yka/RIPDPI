@@ -6,8 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "capture:prod": "python3 scripts/validate-source-captures.py && next build && node scripts/capture-prod.mjs && node scripts/validate-play-store.mjs",
-    "validate": "node scripts/validate-play-store.mjs",
+    "capture:prod": "python3 scripts/validate-source-captures.py && next build && node scripts/capture-prod.mjs && node scripts/validate-play-store.mjs --strict",
+    "validate": "node scripts/validate-play-store.mjs --strict",
     "validate:sources": "python3 scripts/validate-source-captures.py",
     "test:sources": "python3 -m unittest discover -s scripts -p 'test_source_captures.py'"
   },
