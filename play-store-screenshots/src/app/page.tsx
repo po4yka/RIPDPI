@@ -261,8 +261,8 @@ function Slide1({ copy }: { copy: SlideCopy }) {
           top: 520,
           left: "50%",
           transform: "translateX(-50%)",
-          width: "76%",
-          aspectRatio: "1080/2400",
+          width: "56%",
+          aspectRatio: "1344/2992",
         }}
       />
     </Slide>
@@ -446,8 +446,8 @@ function Slide3({ copy }: { copy: SlideCopy }) {
           position: "absolute",
           top: 400,
           right: "4%",
-          width: "72%",
-          aspectRatio: "1080/2400",
+          width: "60%",
+          aspectRatio: "1344/2992",
         }}
       />
     </Slide>
@@ -625,8 +625,8 @@ function Slide5({ copy }: { copy: SlideCopy }) {
           position: "absolute",
           top: 520,
           left: "4%",
-          width: "72%",
-          aspectRatio: "1080/2400",
+          width: "56%",
+          aspectRatio: "1344/2992",
         }}
       />
     </Slide>
