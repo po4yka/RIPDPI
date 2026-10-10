@@ -38,7 +38,7 @@ RIPDPI एक Android नेटवर्क-पाथ डायग्नोस�
 
 | प्रकार / प्रोटोकॉल | इंटीग्रेशन स्तर | दायरा | ट्रैफ़िक |
 | --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core बैकएंड (`ripdpi-vless`) | Client relay | TCP |
+| `vless_reality` / VLESS Reality TCP | Native relay-core बैकएंड (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
 | `vless_reality` / xHTTP transport | Native relay-core बैकएंड (`ripdpi-xhttp`) | Client relay | TCP |
 | `cloudflare_tunnel` | Native xHTTP relay पाथ साथ ही वैकल्पिक Cloudflare publish रनटाइम | Client relay / local-origin publish | TCP |
 | `hysteria2` | Native relay-core बैकएंड (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
@@ -57,7 +57,9 @@ RIPDPI एक Android नेटवर्क-पाथ डायग्नोस�
 | `chain_relay` | संदर्भित relay profiles पर Native relay-core संरचना | क्रमबद्ध 2-4 hop client relay | TCP |
 | `mieru` | Native relay-core बैकएंड (`ripdpi-mieru`); कस्टम UDP/TCP wire engine लंबित रहने तक UDP relay बंद रखा गया | Client relay | TCP |
 | `ssh` | Native relay-core बैकएंड (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` | मान्यता प्राप्त profile/settings अनुकूलता प्रकार; relay-core descriptor-समर्थित बैकएंड नहीं | Import/config अनुकूलता | TCP |
+| `vless` / xHTTP transport | Native relay-core बैकएंड (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
+
+साधारण `vless` के लिए native xHTTP/TLS backend है; यह backend अन्य साधारण VLESS transports का समर्थन नहीं करता। VLESS Reality में UDP केवल तब XUDP का उपयोग करता है जब UDP सक्षम हो, transport `reality_tcp` हो और flow `xtls-rprx-vision` या `xtls-rprx-vision-udp443` हो। xHTTP केवल TCP का समर्थन करता है।
 
 Snowflake जानबूझकर एक बाहरी Go बाइनरी बना रहता है; देखें [Snowflake native Rust no-go निर्णय](docs/architecture/snowflake-native-rust-decision.md)। VLESS Reality असली ECH का उपयोग नहीं करता; GREASE-only नीति के लिए [ADR 0001](docs/adr/0001-reality-ech.md) देखें।
 

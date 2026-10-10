@@ -70,7 +70,7 @@ Encadeia o tráfego do proxy local ou da VPN por protocolos de relay criptografa
 
 | Tipo / protocolo | Camada de integração | Escopo | Tráfego |
 | --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Backend nativo do relay-core (`ripdpi-vless`) | Relay do cliente | TCP |
+| `vless_reality` / VLESS Reality TCP | Backend nativo do relay-core (`ripdpi-vless`) | Relay do cliente | TCP + UDP (XUDP) |
 | `vless_reality` / transporte xHTTP | Backend nativo do relay-core (`ripdpi-xhttp`) | Relay do cliente | TCP |
 | `cloudflare_tunnel` | Caminho de relay xHTTP nativo mais runtime opcional de publicação do Cloudflare | Relay do cliente / publicação de origem local | TCP |
 | `hysteria2` | Backend nativo do relay-core (`ripdpi-hysteria2`) | Relay do cliente | TCP + UDP |
@@ -89,7 +89,9 @@ Encadeia o tráfego do proxy local ou da VPN por protocolos de relay criptografa
 | `chain_relay` | Composição nativa do relay-core sobre perfis de relay referenciados | Relay do cliente ordenado de 2-4 saltos | TCP |
 | `mieru` | Backend nativo do relay-core (`ripdpi-mieru`); relay UDP mantido desativado até que o engine UDP/TCP personalizado fique pronto | Relay do cliente | TCP |
 | `ssh` | Backend nativo do relay-core (`ripdpi-ssh`) | Relay do cliente | TCP |
-| `vless` | Tipo de compatibilidade reconhecido para perfis/configurações; não é um backend respaldado por descritores do relay-core | Compatibilidade de importação/configuração | TCP |
+| `vless` / xHTTP transport | Backend nativo do relay-core (`ripdpi-xhttp`), xHTTP/TLS | Relay do cliente | TCP |
+
+O `vless` simples tem um backend nativo xHTTP/TLS; esse backend não aceita outros transportes VLESS simples. O UDP do VLESS Reality usa XUDP apenas quando UDP está ativado, o transporte é `reality_tcp` e o flow é `xtls-rprx-vision` ou `xtls-rprx-vision-udp443`. xHTTP aceita apenas TCP.
 
 O Snowflake permanece intencionalmente como um binário externo em Go; veja a [decisão de não portar o Snowflake para Rust nativo](docs/architecture/snowflake-native-rust-decision.md). O VLESS Reality não usa ECH real; veja o [ADR 0001](docs/adr/0001-reality-ech.md) para conhecer a política somente GREASE.
 

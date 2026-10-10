@@ -41,7 +41,7 @@ Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokoll
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP |
+| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
 | `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
 | `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
 | `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
@@ -60,7 +60,9 @@ Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokoll
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
 | `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
 | `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
+| `vless` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
+
+Einfaches `vless` hat ein natives xHTTP/TLS-Backend; andere einfache VLESS-Transporte werden von diesem Backend nicht unterstützt. VLESS Reality nutzt XUDP nur bei aktiviertem UDP, dem Transport `reality_tcp` und dem Flow `xtls-rprx-vision` oder `xtls-rprx-vision-udp443`. xHTTP unterstützt nur TCP.
 
 Snowflake verbleibt absichtlich als externe Go-Binärdatei; siehe die [Entscheidung gegen Snowflake in nativem Rust](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality verwendet kein echtes ECH; siehe [ADR 0001](docs/adr/0001-reality-ech.md) für die ausschließliche GREASE-Richtlinie.
 

@@ -41,7 +41,7 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP |
+| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
 | `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
 | `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
 | `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
@@ -60,7 +60,9 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
 | `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
 | `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
+| `vless` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
+
+普通 `vless` 具有原生 xHTTP/TLS 后端；该后端不支持其他普通 VLESS 传输。VLESS Reality 仅在启用 UDP、传输为 `reality_tcp` 且 flow 为 `xtls-rprx-vision` 或 `xtls-rprx-vision-udp443` 时通过 XUDP 支持 UDP。xHTTP 仅支持 TCP。
 
 Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
 
