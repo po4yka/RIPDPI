@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -36,6 +36,8 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
         errors.append("Expected the physical 1080x1800, 360 dpi capture device.")
     if manifest.get("state", {}).get("servicePreset") != "live":
         errors.append("Capture the real service state, not a connection fixture.")
+    if manifest.get("state", {}).get("statusBar") != STATUS_BAR:
+        errors.append("Use the native Android status bar without synthetic demo indicators.")
     receipts = manifest.get("runReceipts", {})
     vpn = receipts.get("vpn", {})
     diagnostic = receipts.get("diagnostics", {})

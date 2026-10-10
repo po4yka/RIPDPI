@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
 spec = importlib.util.spec_from_file_location("validator", Path(__file__).with_name("validate-source-captures.py"))
 validator = importlib.util.module_from_spec(spec)
@@ -44,7 +44,7 @@ class SourceCaptureTests(unittest.TestCase):
                      "apk": {"variant": "githubFullDebug", "sha256": "b" * 64},
                      "libXray": {"manifestSha256": "c" * 64, "aarSha256": "d" * 64},
                      "device": {"screen": "1080x1800", "densityDpi": DENSITY_DPI, "api": 37},
-                     "state": {"servicePreset": "live", "displayProfiles": DISPLAY_PROFILES}, "runReceipts": {"vpn": {"service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi", "observedAtUtc": "2026-10-10T00:00:00+00:00", "stoppedNormallyAtUtc": "2026-10-10T00:00:01+00:00"}, "diagnostics": {"id": "new", "previousSessionId": "old", "profileId": "default", "status": "completed", "clickedAt": 1000, "startedAt": 2000, "finishedAt": 3000, "resultCount": 21, "reportBytes": 1024, "reportSha256": "f" * 64, "outcomes": {"healthy": 21}}},
+                     "state": {"servicePreset": "live", "displayProfiles": DISPLAY_PROFILES, "statusBar": STATUS_BAR}, "runReceipts": {"vpn": {"service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi", "observedAtUtc": "2026-10-10T00:00:00+00:00", "stoppedNormallyAtUtc": "2026-10-10T00:00:01+00:00"}, "diagnostics": {"id": "new", "previousSessionId": "old", "profileId": "default", "status": "completed", "clickedAt": 1000, "startedAt": 2000, "finishedAt": 3000, "resultCount": 21, "reportBytes": 1024, "reportSha256": "f" * 64, "outcomes": {"healthy": 21}}},
                      "theme": "light", "routes": {name: route for name, (route, _) in SCREENS.items()},
                      "uiInputs": self.inputs, "uiInputsSha256": inputs_sha256(self.inputs), "images": images}
         self.data["runReceipts"]["permissions"] = {"api": 37, "granted": list(capture.runtime_permissions(37)), "observedAtUtc": "2026-10-10T00:00:00+00:00"}
@@ -57,6 +57,20 @@ class SourceCaptureTests(unittest.TestCase):
     def validate(self, inputs=None):
         with patch.object(validator, "input_hashes", return_value=inputs or self.inputs):
             return validator.validate(self.manifest, self.root)
+
+    def test_demo_status_metadata_is_rejected(self):
+        self.data["state"]["statusBar"] = "Android demo mode: 12:00"
+        self.save()
+        self.assertTrue(any("native Android status bar" in error for error in self.validate()))
+
+    def test_capture_clears_demo_without_setting_synthetic_status_indicators(self):
+        device = capture.CaptureDevice("emulator-5556")
+        device.adb = Mock()
+        device.clear_statusbar_demo()
+        self.assertEqual(device.adb.call_args_list, [
+            unittest.mock.call("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", "exit"),
+            unittest.mock.call("shell", "settings", "put", "global", "sysui_demo_allowed", "0"),
+        ])
 
     def test_normal_disconnect_confirms_the_armed_control_before_polling(self):
         device = capture.CaptureDevice("emulator-5556")

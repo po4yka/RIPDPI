@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, STATUS_BAR, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
@@ -230,16 +230,10 @@ class CaptureDevice:
             self.scroll(550)
         self.scroll(-45)
 
-    def demo_mode(self, enabled: bool) -> None:
-        self.adb("shell", "settings", "put", "global", "sysui_demo_allowed", "1" if enabled else "0")
-        self.adb("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", "enter" if enabled else "exit")
-        if enabled:
-            for extras in (
-                ("clock", "-e", "hhmm", "1200"),
-                ("battery", "-e", "level", "100", "-e", "plugged", "false"),
-                ("notifications", "-e", "visible", "false"),
-            ):
-                self.adb("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", *extras)
+    def clear_statusbar_demo(self) -> None:
+        # Keep Android's current time and real service/network indicators.
+        self.adb("shell", "am", "broadcast", "-a", "com.android.systemui.demo", "-e", "command", "exit")
+        self.adb("shell", "settings", "put", "global", "sysui_demo_allowed", "0")
 
 
 def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, build_revision: str, inputs: dict[str, str]) -> None:
@@ -271,7 +265,7 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
         "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
-                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "statusBar": "Android demo mode: 12:00, battery 100%, notifications hidden",
+                  "motion": "disabled", "displayProfiles": DISPLAY_PROFILES, "statusBar": STATUS_BAR,
                   "home": "real VPN service started through the app; Android VPN consent granted normally",
                   "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
                   "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
@@ -328,7 +322,7 @@ def main() -> None:
     device.adb("shell", "settings", "put", "system", "screen_off_timeout", "1800000")
     device.adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
     device.adb("shell", "input", "keyevent", "KEYCODE_MENU")
-    device.demo_mode(True)
+    device.clear_statusbar_demo()
     try:
         first = True
         for locale in LOCALES:
@@ -360,7 +354,7 @@ def main() -> None:
                     device.disconnect_live()
         record_manifest(device, apk, xray_artifacts, revision, inputs)
     finally:
-        device.demo_mode(False)
+        device.clear_statusbar_demo()
         device.adb("shell", "wm", "density", "reset")
         device.adb("shell", "settings", "put", "system", "font_scale", "1.0")
     print("Inspect all frames, then run bun run capture:prod. These frames do not prove network acceptance.")

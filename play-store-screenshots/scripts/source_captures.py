@@ -11,6 +11,7 @@ MANIFEST = PROJECT / "public/screenshots/source-capture.json"
 LOCALES = ("en", "ru", "es", "de", "fr", "fa", "zh-CN")
 FRAME_SIZE = (1080, 1800)
 DENSITY_DPI = 360
+STATUS_BAR = "Native Android status bar: current time and actual service/network indicators"
 SCREENS = {
     "home": ("home", "home-light"),
     "diagnostics": ("diagnostics", "diagnostics"),
