@@ -2,7 +2,7 @@
 id: UIX-1791648381801240
 title: Render the current app mark correctly in Play banners
 kind: bug
-status: doing
+status: done
 area: ui
 priority: medium
 owner: Play banner logo correction
@@ -13,6 +13,10 @@ openspec_change: null
 created: 2026-10-10
 updated: 2026-10-10
 spec_reason: tooling-only
+status_detail: Default Android vector paths match exactly. Production capture passed 49 layout checks and 56 strict RGB PNG checks; seven full and 360 px banners and actual EN/FA JPEG exports passed independent review. Only eight banner PNGs changed. Implementation 06408414a7176a621e9e8f4f1d2a367a36db4cda is verified on remote main.
+closed_at: "2026-10-10T16:15:38Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 06408414a7176a621e9e8f4f1d2a367a36db4cda is published and verified on remote main. Native vector paths match exactly; production build, 49 layout checks, 56 RGB PNG checks, source hash validation, seven full and 360 px visual checks and actual EN/FA JPEG exports passed. Independent reviewer found no defects. Architecture health, locked Cargo metadata, task contracts and commit hooks passed. Phone posters and all raw captures are byte-identical.
 ---
 
 ## Goal
