@@ -1649,6 +1649,7 @@ class MainViewModelTest {
                     .newBuilder()
                     .setOnboardingComplete(true)
                     .setRipdpiMode("vpn")
+                    .setDiagnosticsActiveProfileId("custom-profile")
                     .build()
             val strategyId =
                 deriveBypassStrategySignature(
@@ -1692,9 +1693,22 @@ class MainViewModelTest {
 
             val summary = viewModel.uiState.value.approachSummary
 
-            assertEquals("VPN Split", summary?.title)
+            assertTrue(summary?.title.orEmpty().contains("Host learning Off"))
             assertEquals("Partially successful", summary?.verification)
             assertEquals("75%", summary?.successRate)
+            diagnosticsTimelineSource.approachStats.value =
+                diagnosticsTimelineSource.approachStats.value.map {
+                    it.copy(
+                        approachId = BypassApproachId(BypassApproachKind.Profile, "custom-profile"),
+                        displayName = "Autolearn on",
+                    )
+                }
+            advanceUntilIdle()
+            assertEquals(
+                "Autolearn on",
+                viewModel.uiState.value.approachSummary
+                    ?.title,
+            )
             collector.cancel()
         }
 

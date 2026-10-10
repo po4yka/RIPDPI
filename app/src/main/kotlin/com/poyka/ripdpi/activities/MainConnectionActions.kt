@@ -126,14 +126,15 @@ internal class MainConnectionActions(
         activeMode: Mode,
         approachStats: List<BypassApproachSummary>,
     ): HomeApproachSummaryUiState? {
-        val strategyId =
+        val strategySignature =
             deriveBypassStrategySignature(
                 settings = settings,
                 routeGroup =
                     serviceStateStore.telemetry.value.proxyTelemetry.lastRouteGroup
                         ?.toString(),
                 modeOverride = activeMode,
-            ).stableId()
+            )
+        val strategyId = strategySignature.stableId()
         val strategySummary =
             approachStats.firstOrNull {
                 it.approachId.kind == BypassApproachKind.Strategy && it.approachId.value == strategyId
@@ -148,7 +149,12 @@ internal class MainConnectionActions(
                 }
         val summary = strategySummary ?: profileSummary ?: return null
         return HomeApproachSummaryUiState(
-            title = summary.displayName,
+            title =
+                if (strategySummary != null) {
+                    strategySignature.localizedHomeStrategyLabel(stringResolver)
+                } else {
+                    summary.displayName
+                },
             verification = stringResolver.getString(summary.verificationLabelRes()),
             successRate =
                 summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",
