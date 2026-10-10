@@ -48,7 +48,7 @@ Run this matrix before considering a build broadly healthy.
 | Packet strategies | Candidate is serialized, applied, logged, and either succeeds or degrades with clear reason | Packet smoke, native tests, diagnostics report | IPv4, IPv6, TCP, UDP, QUIC where relevant |
 | Settings | Changes persist, migrate, export/import, and reset without stale state | DataStore tests, manual settings pass | Fresh install, migrated install, locale switch |
 | Logging/export | Logs and archives redact sensitive values and omit traffic payloads | Redaction tests, archive inspection | Diagnostics export, support archive, failure path |
-| Localization | All locale keys exist, strings fit, RTL renders, native language names stay stable | lint, locale key diff, Roborazzi | Nine locales, large font, RTL |
+| Localization | All locale keys exist, strings fit, RTL renders, native language names stay stable | lint, locale key diff, Roborazzi | Every registered locale, large font, RTL |
 | CI release gates | Static analysis, native lint/tests, packet smoke, coverage, release verification | GitHub Actions run | Push, pull request, manual/nightly |
 
 ## App Shell, Navigation, and Settings

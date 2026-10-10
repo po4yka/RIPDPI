@@ -385,7 +385,7 @@ or as inline `<svg>` in HTML. See `StatusIndicator.kt`.
 - Go through `RipDpiMotion.duration()` for **every** animation so that
   `reducedMotion` and `ValueAnimator.areAnimatorsEnabled()` are honored
   automatically.
-- Localize every string into all 7 supported locales **in the same commit**.
+- Localize every string into every locale registered in `app/src/main/res/xml/locales_config.xml` **in the same commit**.
 - Expose proper semantics on bespoke controls (the connect actuator
   declares `role = Switch` with a `stateDescription`).
 

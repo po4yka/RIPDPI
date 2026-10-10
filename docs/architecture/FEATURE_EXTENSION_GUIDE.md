@@ -425,7 +425,7 @@ validated recommendations drive remembered-policy persistence.
 | Kotlin settings | `:core:data:model` / `:core:data:settings` settings models; DataStore mapping |
 | Kotlin → native | `core/engine/.../core/RipDpiProxyJsonCodec.kt`, the `core/engine/.../core/codec/*Codec.kt` section codecs, and the `NativeProxy*PreferencesMapper.kt` mappers |
 | Rust | `ripdpi-config` / `ripdpi-proxy-config` (config model the JSON deserializes into) → consumed by `ripdpi-proxy-runtime` / `ripdpi-runtime-*` |
-| UI | `:app` Compose screens + localized resources (all 9 locales) |
+| UI | `:app` Compose screens + localized resources (every locale in `app/src/main/res/xml/locales_config.xml`) |
 
 ### Current extension path
 
