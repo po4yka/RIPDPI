@@ -405,10 +405,13 @@ Common commands:
 ./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a
 ```
 
-CI runs `:app` integration tests and the macrobenchmark suite on **Gradle Managed Devices**
-through the current API 27 / 33 / 35 device matrix. To reproduce on a managed emulator instead of a connected device,
-run `just test-instrumented` (or inspect `RipDpiManagedDevices.kt` for the current variant-specific task). The
-shared device registry lives in `build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt`.
+CI runs `:app` integration tests on **Gradle Managed Devices** across the
+API 27 / 33 / 35 / 36 / 37 registry. The API 37 device uses forced 16 KiB pages.
+The optional macrobenchmark lane uses the separate pinned API 34 ATD device.
+To run the app suite on managed emulators, use `just test-instrumented`.
+The shared registry and variant-specific task names are defined in
+`build-logic/convention/src/main/kotlin/RipDpiManagedDevices.kt`; CI selects
+its lanes in `.github/workflows/ci.yml`.
 
 Useful runner filters:
 
@@ -721,7 +724,7 @@ PR CI includes:
 - `rust-lint` -- Rust fmt/clippy and policy scanners
 - `rust-network-e2e` -- host-side proxy E2E against local fixture
 - `android-network-e2e` -- opt-in instrumentation E2E when its dispatch/label condition is satisfied
-- managed-device instrumentation -- flavor-qualified `:app` suites across the API 27 / 33 / 35 registry
+- managed-device instrumentation -- flavor-qualified `:app` suites across the API 27 / 33 / 35 / 36 / 37 registry, with forced 16 KiB pages on API 37
 - `kotlin-coverage` -- JaCoCo coverage, routed for Android, release/build-logic, and unknown changes
 - `rust-coverage` -- Rust LLVM coverage, routed for native Rust, release/build-logic, and unknown changes
 - `rust-turmoil` -- deterministic fault-injection network tests

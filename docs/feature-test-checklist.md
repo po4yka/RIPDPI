@@ -22,7 +22,7 @@ Every feature should be tested against the dimensions that can affect it.
 | --- | --- |
 | Build channel | Debug, release verification build, benchmark/profile build when performance-sensitive |
 | Device type | Emulator x86_64, physical arm64, rooted physical device when root-only behavior changes |
-| Android API | API 27 minimum, API 31 foreground-service restrictions, API 35/36 current target behavior |
+| Android API | API 27 minimum, API 31 foreground-service restrictions, API 35/36 compatibility, API 37 target behavior with 16 KiB pages |
 | Runtime mode | Stopped app, proxy service, VPN service, VPN plus relay, diagnostics-only debug probe |
 | Network | Wi-Fi, cellular, dual-stack, IPv4-only, IPv6-only, private DNS enabled, metered, network handover, captive or limited path |
 | DNS mode | System DNS, plain resolver override, DoH, DoT, DNSCrypt, DoQ, fallback resolver loop |
@@ -40,7 +40,7 @@ Run this matrix before considering a build broadly healthy.
 | Area | Checklist | Primary evidence | Required combinations |
 | --- | --- | --- | --- |
 | Startup | App launches, theme loads, navigation root renders, no startup crash | `./gradlew :app:testGithubFullDebugUnitTest` plus manual/emulator launch | Fresh install, migrated install, light/dark |
-| Permissions | VPN consent, notification permission, foreground-service notification, battery optimization guidance | Device run log and UI check | API 27, API 31+, API 35/36 |
+| Permissions | VPN consent, notification permission, local-network permission, foreground-service notification, battery optimization guidance | Device run log and UI check | API 27, API 31+, API 35/36, API 37 grant/deny/revoke |
 | Proxy service | Service starts, exposes local SOCKS5 endpoint, handles stop/restart, rejects port conflict cleanly | Unit tests, device curl through proxy, service logs | System DNS, encrypted DNS, relay off/on |
 | VPN service | TUN starts, traffic routes, upstream sockets are protected, service stops cleanly | Device smoke, service logs, debug probe | Wi-Fi, cellular, handover |
 | Diagnostics | Connectivity and strategy workflows run, progress is structured, cancellation leaves clean state | Diagnostics unit tests, test-lab archive | VPN running, VPN stopped, command-line settings enabled |
@@ -70,6 +70,9 @@ Run this matrix before considering a build broadly healthy.
 - [ ] Exporting a profile omits private runtime-only values.
 - [ ] Migrated settings keep old defaults compatible with current schema.
 - [ ] The app handles missing native libraries with a clear non-crashing state.
+- [ ] API 37 local-network permission grant and denial produce the expected UI and block local-endpoint work when permission is missing.
+- [ ] Local-network permission revocation stops an active local-network-dependent VPN/proxy path and leaves unrelated public paths unchanged.
+- [ ] API 37 with 16 KiB pages loads the packaged native libraries and completes the affected service/diagnostics smoke checks.
 - [ ] Background-to-foreground resume refreshes service state.
 - [ ] Process kill during active service does not leave UI in a false running state after relaunch.
 
