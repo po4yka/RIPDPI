@@ -60,7 +60,7 @@ BACKUP_DENSITIES = {"en": 480, "ru": 460, "es": 460, "de": 460, "fr": 460, "fa":
 DNS_DISPLAY_PROFILES = {
     "en": {"densityDpi": 360, "fontScale": 1.0},
     "ru": {"densityDpi": 300, "fontScale": 1.18},
-    "es": {"densityDpi": 300, "fontScale": 1.18},
+    "es": {"densityDpi": 290, "fontScale": 1.24},
     "de": {"densityDpi": 300, "fontScale": 1.2},
     "fr": {"densityDpi": 300, "fontScale": 1.2},
     "fa": {"densityDpi": 360, "fontScale": 1.0},
