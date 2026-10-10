@@ -96,19 +96,15 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## Скриншоты
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI home screen"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Промопанель с главным экраном RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Промопанель с настройкой диагностического сканирования"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI remote relays"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="Промопанель с настройками relay"/>
 </p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI diagnostics"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI feature overview"/>
-</p>
+
+Панель диагностики показывает настройку сканирования, а панель relay — конфигурацию. Другие [маркетинговые иллюстрации](play-store-screenshots/README.md) размещены отдельно.
+
 
 ## Возможности
 

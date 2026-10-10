@@ -22,12 +22,14 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
 ## Veja o caminho, não apenas um interruptor
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="29%" alt="Tela inicial do RIPDPI com estratégia de caminho local, caminho de relay e controles de varredura de diagnóstico"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Painel promocional com a tela inicial do RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="29%" alt="Tela de diagnóstico do RIPDPI com resultados de rede por destino"/>
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Painel promocional com a configuração do exame diagnóstico"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="29%" alt="Tela de configuração do caminho de relay do RIPDPI"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="Painel promocional com a configuração do relay"/>
 </p>
+
+O painel de diagnóstico mostra a configuração do exame; o painel do relay mostra a configuração. Outras [ilustrações promocionais](play-store-screenshots/README.md) são mantidas separadamente.
 
 Em vez de uma única política global, o RIPDPI classifica cada destino e cada rede separadamente, lembra os resultados validados e torna seus vereditos de falha visíveis. Comece localmente; introduza um relay somente quando o caminho direto não puder ser recuperado.
 
@@ -115,15 +117,6 @@ Princípio de design do RIPDPI: classificar cada destino e cada rede separadamen
 3. **Recorrer a um relay tunelado quando o caminho direto está degradado.** A matriz de relays acima distingue backends nativos do relay-core, subprocessos auxiliares, pluggable transports externos e superfícies separadas de perfis de VPN/túnel, para que caminhos não suportados ou opt-in não fiquem escondidos atrás de um único rótulo de recurso.
 4. **Relatos honestos.** Os vereditos são tipados e exibidos; os resultados do classificador de falhas são expostos em vez de suprimidos; os pacotes de exportação de diagnóstico ocultam segredos.
 
-## Mais da interface
-
-<p align="center">
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI sem root"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="Controles do RIPDPI"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="Visão geral dos recursos do RIPDPI"/>
-</p>
 
 ## Recursos
 

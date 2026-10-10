@@ -22,12 +22,14 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
 ## See the path, not just a switch
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="29%" alt="RIPDPI home screen with local path strategy, relay path, and diagnostic scan controls"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Promotional panel with the RIPDPI home screen"/>
   &nbsp;
-  <img src="docs/screenshots/05-diagnostics.png" width="29%" alt="RIPDPI diagnostics screen with per-target network results"/>
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Promotional panel with diagnostic scan setup"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="29%" alt="RIPDPI relay path configuration screen"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="Promotional panel with relay configuration"/>
 </p>
+
+The diagnostics panel shows scan setup. The relay panel shows configuration. More [marketing illustrations](play-store-screenshots/README.md) are kept separately.
 
 Instead of a single global policy, RIPDPI classifies each target and network separately, remembers validated outcomes, and makes its failure verdicts visible. Start locally; introduce a relay only when the direct path cannot be recovered.
 
@@ -115,15 +117,6 @@ RIPDPI's design principle: classify each target and each network separately, app
 3. **Fall back to a tunneled relay when the direct path is degraded.** The relay matrix above distinguishes native relay-core backends, helper subprocesses, external pluggable transports, and separate VPN/tunnel profile surfaces so unsupported or opt-in paths are not hidden behind one feature label.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
 
-## More of the interface
-
-<p align="center">
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI feature overview"/>
-</p>
 
 ## Features
 

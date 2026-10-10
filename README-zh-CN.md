@@ -96,19 +96,15 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 ## 截图
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI 主屏幕"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="包含 RIPDPI 主屏幕的宣传面板"/>
   &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="无需 root 的 RIPDPI"/>
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="包含诊断扫描设置的宣传面板"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI 远程中继"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI 控件"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="包含中继配置的宣传面板"/>
 </p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI 诊断"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI 功能概述"/>
-</p>
+
+诊断面板显示扫描设置，中继面板显示配置。其他[宣传插图](play-store-screenshots/README.md)单独维护。
+
 
 ## 功能
 

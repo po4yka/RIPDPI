@@ -93,19 +93,15 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 ## स्क्रीनशॉट
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI होम स्क्रीन"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI होम स्क्रीन वाला प्रचार पैनल"/>
   &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="root के बिना RIPDPI"/>
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="डायग्नोस्टिक स्कैन सेटअप वाला प्रचार पैनल"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI रिमोट रिले"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI नियंत्रण"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="Relay कॉन्फ़िगरेशन वाला प्रचार पैनल"/>
 </p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI डायग्नोस्टिक्स"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI सुविधा अवलोकन"/>
-</p>
+
+डायग्नोस्टिक पैनल स्कैन सेटअप दिखाता है और relay पैनल कॉन्फ़िगरेशन। अन्य [प्रचार चित्र](play-store-screenshots/README.md) अलग रखे गए हैं।
+
 
 ## सुविधाएँ
 

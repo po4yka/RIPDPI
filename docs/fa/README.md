@@ -98,19 +98,15 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ## تصاویر صفحه
 
 <p align="center">
-  <img src="../../docs/screenshots/01-hero.png" width="200" alt="صفحهٔ خانهٔ RIPDPI"/>
+  <img src="../../docs/screenshots/01-hero.png" width="200" alt="پنل تبلیغاتی با صفحهٔ اصلی RIPDPI"/>
   &nbsp;
-  <img src="../../docs/screenshots/02-no-root.png" width="200" alt="RIPDPI بدون روت"/>
+  <img src="../../docs/screenshots/05-diagnostics.png" width="200" alt="پنل تبلیغاتی با تنظیم پویش تشخیصی"/>
   &nbsp;
-  <img src="../../docs/screenshots/03-relays.png" width="200" alt="رله‌های راه دور RIPDPI"/>
-  &nbsp;
-  <img src="../../docs/screenshots/04-controls.png" width="200" alt="کنترل‌های RIPDPI"/>
+  <img src="../../docs/screenshots/03-relays.png" width="200" alt="پنل تبلیغاتی با پیکربندی رله"/>
 </p>
-<p align="center">
-  <img src="../../docs/screenshots/05-diagnostics.png" width="200" alt="تشخیص RIPDPI"/>
-  &nbsp;
-  <img src="../../docs/screenshots/06-more-features.png" width="200" alt="نمای کلی ویژگی‌های RIPDPI"/>
-</p>
+
+پنل تشخیص تنظیم پویش را نشان می‌دهد و پنل رله پیکربندی را. دیگر [تصاویر تبلیغاتی](../../play-store-screenshots/README.md) جدا نگه داشته شده‌اند.
+
 
 ## ویژگی‌ها
 

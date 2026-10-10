@@ -96,19 +96,15 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 ## Capturas de pantalla
 
 <p align="center">
-  <img src="docs/screenshots/01-hero.png" width="200" alt="RIPDPI home screen"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Panel promocional con la pantalla principal de RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Panel promocional con la configuración del escaneo diagnóstico"/>
   &nbsp;
-  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI remote relays"/>
-  &nbsp;
-  <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="Panel promocional con la configuración del relevo"/>
 </p>
-<p align="center">
-  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="RIPDPI diagnostics"/>
-  &nbsp;
-  <img src="docs/screenshots/06-more-features.png" width="200" alt="RIPDPI feature overview"/>
-</p>
+
+El panel de diagnóstico muestra la configuración del escaneo; el panel de relevo muestra su configuración. Las demás [ilustraciones promocionales](play-store-screenshots/README.md) se mantienen aparte.
+
 
 ## Funcionalidades
 
