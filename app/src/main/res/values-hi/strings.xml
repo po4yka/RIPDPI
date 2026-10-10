@@ -1986,4 +1986,9 @@ fakeddisorder endhost</string>
     <string name="dns_custom_doq_unavailable">DoQ केवल प्रॉक्सी मोड में काम करता है। VPN DNS SOCKS5 का उपयोग करता है और DoQ का समर्थन नहीं करता। मोड बदलने से पहले चालू VPN बंद करें।</string>
     <string name="dns_custom_odoh_config_invalid">समर्थित कुंजी वाले मान्य ODoH लक्ष्य कॉन्फ़िगरेशन बाइट दर्ज करें।</string>
     <string name="dns_custom_odoh_config_expired">ODoH लक्ष्य कॉन्फ़िगरेशन की अवधि समाप्त हो गई है। नए बाइट और प्राप्ति समय दर्ज करें।</string>
+    <string name="diagnostics_scan_count_completed_format">पूर्ण: %1$s</string>
+    <string name="diagnostics_scan_count_healthy_format">कोई समस्या नहीं: %1$s</string>
+    <string name="diagnostics_scan_count_attention_format">ध्यान आवश्यक: %1$s</string>
+    <string name="diagnostics_scan_count_failed_format">विफल: %1$s</string>
+    <string name="diagnostics_scan_count_inconclusive_format">अनिर्णायक: %1$s</string>
 </resources>

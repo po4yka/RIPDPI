@@ -4220,4 +4220,9 @@ fakeddisorder endhost</string>
     <string name="dns_custom_doq_unavailable">DoQ فقط در حالت پروکسی کار می‌کند. DNS در VPN از SOCKS5 استفاده می‌کند و از DoQ پشتیبانی نمی‌کند. پیش از تغییر حالت، VPN فعال را متوقف کنید.</string>
     <string name="dns_custom_odoh_config_invalid">بایت‌های معتبر پیکربندی ODoH را با کلید پشتیبانی‌شده وارد کنید.</string>
     <string name="dns_custom_odoh_config_expired">اعتبار پیکربندی ODoH پایان یافته است. بایت‌های تازه و زمان دریافت را وارد کنید.</string>
+    <string name="diagnostics_scan_count_completed_format">تکمیل‌شده: %1$s</string>
+    <string name="diagnostics_scan_count_healthy_format">بدون مشکل: %1$s</string>
+    <string name="diagnostics_scan_count_attention_format">نیازمند توجه: %1$s</string>
+    <string name="diagnostics_scan_count_failed_format">ناموفق: %1$s</string>
+    <string name="diagnostics_scan_count_inconclusive_format">بدون نتیجهٔ قطعی: %1$s</string>
 </resources>

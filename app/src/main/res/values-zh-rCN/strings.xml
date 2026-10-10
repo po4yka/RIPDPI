@@ -4204,4 +4204,9 @@ fake_burst 3</string>
     <string name="dns_custom_doq_unavailable">DoQ 仅适用于代理模式。VPN DNS 使用 SOCKS5，不支持 DoQ。切换模式前请停止正在运行的 VPN。</string>
     <string name="dns_custom_odoh_config_invalid">输入包含受支持密钥的有效 ODoH 目标配置字节。</string>
     <string name="dns_custom_odoh_config_expired">ODoH 目标配置已过期。请输入新配置字节和获取时间。</string>
+    <string name="diagnostics_scan_count_completed_format">已完成：%1$s</string>
+    <string name="diagnostics_scan_count_healthy_format">正常：%1$s</string>
+    <string name="diagnostics_scan_count_attention_format">需关注：%1$s</string>
+    <string name="diagnostics_scan_count_failed_format">失败：%1$s</string>
+    <string name="diagnostics_scan_count_inconclusive_format">无定论：%1$s</string>
 </resources>

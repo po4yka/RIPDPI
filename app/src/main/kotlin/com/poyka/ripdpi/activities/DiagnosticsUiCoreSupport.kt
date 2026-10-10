@@ -216,7 +216,7 @@ internal fun DiagnosticsUiCoreSupport.completionPresentation(
         ScanCompletionKind.NORMAL -> {
             DiagnosticsCompletionUiPresentation(
                 completionLabel = completionKindLabel(ScanCompletionKind.NORMAL),
-                summaryLabel = fallbackSummary,
+                summaryLabel = strings.localizeConnectivitySummary(fallbackSummary),
                 reasonLabel = reasonLabel,
                 tone = null,
             )
@@ -452,3 +452,23 @@ private fun DiagnosticsOutcomeTone.toUiTone(): DiagnosticsTone =
         DiagnosticsOutcomeTone.Negative -> DiagnosticsTone.Negative
         DiagnosticsOutcomeTone.Neutral -> DiagnosticsTone.Neutral
     }
+
+private val canonicalConnectivitySummary =
+    Regex(
+        "([0-9]+) completed · ([0-9]+) healthy(?: · ([0-9]+) attention)?(?: · ([0-9]+) failed)?(?: · ([0-9]+) inconclusive)?",
+    )
+
+internal fun StringResolver.localizeConnectivitySummary(summary: String): String {
+    val counts = canonicalConnectivitySummary.matchEntire(summary)?.groupValues?.drop(1) ?: return summary
+    val labels =
+        listOf(
+            R.string.diagnostics_scan_count_completed_format,
+            R.string.diagnostics_scan_count_healthy_format,
+            R.string.diagnostics_scan_count_attention_format,
+            R.string.diagnostics_scan_count_failed_format,
+            R.string.diagnostics_scan_count_inconclusive_format,
+        )
+    return counts.zip(labels).filter { (count, _) -> count.isNotEmpty() }.joinToString(" · ") { (count, label) ->
+        getString(label, count)
+    }
+}

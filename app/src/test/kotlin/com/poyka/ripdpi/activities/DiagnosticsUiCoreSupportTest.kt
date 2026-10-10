@@ -20,6 +20,49 @@ import java.util.Locale
 
 class DiagnosticsUiCoreSupportTest {
     @Test
+    fun `canonical connectivity counts are localized without changing counts`() {
+        val resolver =
+            object : StringResolver {
+                override fun getString(
+                    resId: Int,
+                    vararg formatArgs: Any,
+                ): String {
+                    val label =
+                        when (resId) {
+                            R.string.diagnostics_scan_count_completed_format -> "Завершено"
+                            R.string.diagnostics_scan_count_healthy_format -> "Без проблем"
+                            R.string.diagnostics_scan_count_attention_format -> "Требуют внимания"
+                            R.string.diagnostics_scan_count_failed_format -> "С ошибкой"
+                            R.string.diagnostics_scan_count_inconclusive_format -> "Без заключения"
+                            else -> error("Unexpected resource: $resId")
+                        }
+                    return "$label: ${formatArgs.single()}"
+                }
+            }
+        assertEquals(
+            "Завершено: 21 · Без проблем: 21",
+            resolver.localizeConnectivitySummary("21 completed · 21 healthy"),
+        )
+        assertEquals(
+            "Завершено: 10 · Без проблем: 4 · Требуют внимания: 2 · С ошибкой: 3 · Без заключения: 1",
+            resolver.localizeConnectivitySummary("10 completed · 4 healthy · 2 attention · 3 failed · 1 inconclusive"),
+        )
+        assertEquals("Завершено: 0 · Без проблем: 0", resolver.localizeConnectivitySummary("0 completed · 0 healthy"))
+    }
+
+    @Test
+    fun `noncanonical native and custom summaries are preserved`() {
+        val resolver = testStringResolver()
+        listOf(
+            "Custom completion",
+            "Strategy probe finished",
+            "DNS fallback completed",
+            "21 completed",
+            "21 completed · 20 healthy extra",
+        ).forEach { summary -> assertEquals(summary, resolver.localizeConnectivitySummary(summary)) }
+    }
+
+    @Test
     fun `format timestamp uses injected zone`() {
         val support =
             testDiagnosticsUiCoreSupport(

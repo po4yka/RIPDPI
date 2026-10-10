@@ -4346,4 +4346,9 @@ Source: %2$s</string>
     <string name="dns_custom_doq_unavailable">DoQ works only in Proxy mode. VPN DNS uses SOCKS5 and cannot use DoQ. Stop an active VPN before switching.</string>
     <string name="dns_custom_odoh_config_invalid">Enter valid ODoH target configuration bytes with a supported key.</string>
     <string name="dns_custom_odoh_config_expired">The ODoH target configuration has expired. Enter fresh bytes and retrieval time.</string>
+    <string name="diagnostics_scan_count_completed_format">%1$s completed</string>
+    <string name="diagnostics_scan_count_healthy_format">%1$s healthy</string>
+    <string name="diagnostics_scan_count_attention_format">%1$s attention</string>
+    <string name="diagnostics_scan_count_failed_format">%1$s failed</string>
+    <string name="diagnostics_scan_count_inconclusive_format">%1$s inconclusive</string>
 </resources>

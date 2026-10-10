@@ -4243,4 +4243,9 @@ fakeddisorder endhost</string>
     <string name="dns_custom_doq_unavailable">يعمل DoQ في وضع الوكيل فقط. يستخدم DNS في VPN بروتوكول SOCKS5 الذي لا يدعم DoQ. أوقف VPN النشط قبل تبديل الوضع.</string>
     <string name="dns_custom_odoh_config_invalid">أدخل بايتات إعداد ODoH صالحة بمفتاح مدعوم.</string>
     <string name="dns_custom_odoh_config_expired">انتهت صلاحية إعداد ODoH. أدخل بايتات جديدة ووقت الحصول عليها.</string>
+    <string name="diagnostics_scan_count_completed_format">مكتملة: %1$s</string>
+    <string name="diagnostics_scan_count_healthy_format">بلا مشكلات: %1$s</string>
+    <string name="diagnostics_scan_count_attention_format">تحتاج إلى انتباه: %1$s</string>
+    <string name="diagnostics_scan_count_failed_format">فاشلة: %1$s</string>
+    <string name="diagnostics_scan_count_inconclusive_format">غير حاسمة: %1$s</string>
 </resources>
