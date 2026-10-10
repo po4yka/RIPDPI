@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
@@ -57,6 +57,19 @@ class SourceCaptureTests(unittest.TestCase):
     def validate(self, inputs=None):
         with patch.object(validator, "input_hashes", return_value=inputs or self.inputs):
             return validator.validate(self.manifest, self.root)
+
+    def test_normal_disconnect_confirms_the_armed_control_before_polling(self):
+        device = capture.CaptureDevice("emulator-5556")
+        button = Mock()
+        device.tree = Mock(return_value=button)
+        device.tag = Mock(return_value=button)
+        device.tap = Mock()
+        device.adb = Mock(return_value="No owned VPN")
+        device.receipts["vpn"] = {}
+        with patch.object(capture.time, "sleep"):
+            device.disconnect_live()
+        self.assertEqual(device.tap.call_args_list, [unittest.mock.call(button), unittest.mock.call(button)])
+        self.assertIn("stoppedNormallyAtUtc", device.receipts["vpn"])
 
     def test_only_a_new_completed_real_scan_is_accepted(self):
         receipt = {"id": "new", "startedAt": 2000, "finishedAt": 3000,

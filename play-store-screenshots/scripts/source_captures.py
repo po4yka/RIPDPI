@@ -49,4 +49,6 @@ def inputs_sha256(inputs: dict[str, str]) -> str:
     value = "".join(f"{path}\0{digest}\n" for path, digest in sorted(inputs.items()))
     return hashlib.sha256(value.encode()).hexdigest()
 
-DISPLAY_PROFILES = {name: {"densityDpi": 260 if name == "relay" else DENSITY_DPI, "fontScale": 1.5 if name == "relay" else 1.0} for name in SCREENS}
+DISPLAY_PROFILES = {name: {"densityDpi": DENSITY_DPI, "fontScale": 1.0} for name in SCREENS}
+DISPLAY_PROFILES["home"] = {"densityDpi": 320, "fontScale": 1.125}
+DISPLAY_PROFILES["relay"] = {"densityDpi": 260, "fontScale": 1.5}
