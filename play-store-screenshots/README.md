@@ -27,9 +27,9 @@ If the Puppeteer browser is unavailable, use an installed compatible Chromium th
 
 ## Capture real Android screens
 
-Use a dedicated emulator. The capture command resets RIPDPI app data and changes the emulator locale, theme, motion settings, and status bar. Do not use a personal device or an acceptance emulator.
+Use a dedicated emulator. The first capture route clears historical measurements and seeds RIPDPI settings. Later routes and locales reseed settings but retain the new real measurements. The command also changes the emulator locale, theme, motion settings, and status bar. It does not reset operating-system VPN consent. Do not use a personal device or an acceptance emulator.
 
-Build the pinned libXray artifacts as described in [the native bootstrap](../native/xray/README.md). The capture command verifies the AAR, builds and installs the current `githubFullDebug` APK, then captures the actual app. Grant actual Android VPN consent through the normal app prompt before capture. The debug permission preset does not grant operating-system consent. The current artwork uses a documented 1080×1800 Android viewport at 420 dpi. The renderer follows each source image's intrinsic aspect ratio; it does not crop, stretch, or repaint UI pixels.
+Build the pinned libXray artifacts as described in [the native bootstrap](../native/xray/README.md). The capture command verifies the AAR, builds and installs the current `githubFullDebug` APK, then captures the actual app. Grant actual Android VPN consent through the normal app prompt before capture. The script requires the Android `ACTIVATE_VPN` operation to be allowed. The debug permission preset does not grant operating-system consent. The current artwork uses a documented 1080×1800 Android viewport at 420 dpi. The renderer follows each source image's intrinsic aspect ratio; it does not crop, stretch, or repaint UI pixels.
 
 ```bash
 python3 scripts/capture-android.py \
