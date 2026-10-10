@@ -80,7 +80,7 @@ def run(arguments: list[str] | None = None) -> None:
         raise ValueError("upstream checkout must be clean")
     if sys.platform == "darwin" and os.environ.get("BUILD_GATE_HELD") != "1":
         raise RuntimeError("run this compiler-backed workflow through build-gate")
-    env = dict(os.environ, GOMAXPROCS=str(args.jobs), GOTOOLCHAIN="go1.27.0", GOFLAGS=f"-p={args.jobs}", GOWORK="off")
+    env = dict(os.environ, GOMAXPROCS=str(args.jobs), GOTOOLCHAIN="go1.27.2", GOFLAGS=f"-p={args.jobs}", GOWORK="off")
     if args.test == "changed_host_key_is_rejected_before_authentication":
         env["RIPDPI_OUTBOUND_EXPECT_NO_AUTH"] = "1"
     if args.test.startswith("tests::backend_fixture_tests::"):

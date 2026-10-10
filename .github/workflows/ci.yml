@@ -1710,7 +1710,7 @@ jobs:
 
       - name: Run pinned SSH, Mieru, and AnyTLS upstream peers
         env:
-          GOTOOLCHAIN: go1.27.0
+          GOTOOLCHAIN: go1.27.2
           GOSUMDB: sum.golang.org
           GOPROXY: https://proxy.golang.org,direct
         run: |
@@ -2415,7 +2415,7 @@ jobs:
         if: matrix.api == 35
         working-directory: scripts/fixtures/xray-provider-peer
         env:
-          GOTOOLCHAIN: go1.27.0
+          GOTOOLCHAIN: go1.27.2
           GOSUMDB: sum.golang.org
           GOPROXY: https://proxy.golang.org,direct
           GOMAXPROCS: "2"

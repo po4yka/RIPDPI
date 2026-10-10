@@ -13,7 +13,7 @@ runs:
     - name: Install pinned Go mobile toolchain
       shell: bash
       env:
-        GOTOOLCHAIN: go1.27.0
+        GOTOOLCHAIN: go1.27.2
         GOSUMDB: sum.golang.org
         GOPROXY: https://proxy.golang.org,direct
         GOMAXPROCS: "1"
