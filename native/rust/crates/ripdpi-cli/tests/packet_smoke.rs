@@ -35,6 +35,53 @@ const TCPDUMP_BIN_ENV: &str = "RIPDPI_PACKET_SMOKE_TCPDUMP_BIN";
 const TSHARK_BIN_ENV: &str = "RIPDPI_PACKET_SMOKE_TSHARK_BIN";
 const GENERATOR_METADATA_ENV: &str = "RIPDPI_PACKET_SMOKE_GENERATOR_METADATA";
 
+// These selectors require Linux packet capture. They must never pass through the
+// optional smoke-test path when capture is disabled or split is unsupported.
+#[test]
+#[ignore = "requires the dedicated Linux L7 capture producer"]
+fn cli_packet_smoke_tls_unsplit_l7() {
+    run_l7_tls_capture("cli_packet_smoke_tls_unsplit_l7", false);
+}
+
+#[test]
+#[ignore = "requires the dedicated Linux L7 capture producer"]
+fn cli_packet_smoke_tls_split_l7() {
+    run_l7_tls_capture("cli_packet_smoke_tls_split_l7", true);
+}
+
+fn run_l7_tls_capture(id: &str, split: bool) {
+    if !cfg!(target_os = "linux") {
+        panic!("L7 engine evidence requires Linux");
+    }
+    assert!(packet_smoke_enabled(), "L7 engine evidence requires enabled packet capture");
+    run_capture_scenario(
+        id,
+        |_| if split { vec!["-s".to_string(), "3".to_string()] } else { Vec::new() },
+        |manifest| format!("tcp and port {}", manifest.tls_echo_port),
+        |proxy_port, fixture| {
+            let response = attempt_socks5_tls_round_trip(proxy_port, fixture, None)?;
+            let expected = "HTTP/1.1 200 OK\r\nContent-Length: 14\r\nConnection: close\r\n\r\nfixture tls ok";
+            if response != expected {
+                return Err(format!("TLS echo did not return the complete fixture response: {response:?}"));
+            }
+            eprintln!("l7-engine tls-echo-ok");
+            Ok(())
+        },
+        |run| {
+            if !run.events.iter().any(|event| {
+                event.service == "tls_echo"
+                    && event.detail == "handshake"
+                    && event.sni.as_deref() == Some(run.manifest.fixture_domain.as_str())
+            }) {
+                return Err("missing successful TLS fixture handshake with the actual SNI".to_string());
+            }
+            assert_tcp_payload_to_port_captured(run, run.manifest.tls_echo_port)?;
+            eprintln!("l7-engine fixture-handshake-ok sni={}", run.manifest.fixture_domain);
+            Ok(())
+        },
+    );
+}
+
 #[test]
 fn cli_packet_smoke_tcp_split_family() {
     run_capture_scenario(
@@ -309,6 +356,10 @@ fn run_capture_scenario<Args, Filter, Drive, Assert>(
 
     let listen_port = reserve_listen_port();
     let cli_args = build_cli_args(listen_port, build_args(&paths));
+    if id == "cli_packet_smoke_tls_unsplit_l7" || id == "cli_packet_smoke_tls_split_l7" {
+        write_json_pretty(&paths.cli_stderr.with_file_name("cli-command.json"), &cli_args)
+            .expect("write actual L7 engine CLI command");
+    }
     let mut cli = start_cli_process(&cli_args, &paths.cli_stderr).expect("start ripdpi cli");
     wait_for_proxy_listener(listen_port, &mut cli).expect("wait for CLI listener");
 

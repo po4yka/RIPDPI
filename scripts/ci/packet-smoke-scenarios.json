@@ -1,5 +1,37 @@
 [
   {
+    "id": "cli_packet_smoke_tls_unsplit_l7",
+    "lane": "l7_engine",
+    "requiredCapability": "host_pcap_linux",
+    "testSelector": "cli_packet_smoke_tls_unsplit_l7",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json",
+      "cli-command.json"
+    ]
+  },
+  {
+    "id": "cli_packet_smoke_tls_split_l7",
+    "lane": "l7_engine",
+    "requiredCapability": "host_pcap_linux",
+    "testSelector": "cli_packet_smoke_tls_split_l7",
+    "trafficKind": "tcp_tls",
+    "artifacts": [
+      "fixture-manifest.json",
+      "fixture-events.json",
+      "cli-stderr.log",
+      "test-output.txt",
+      "capture.pcap",
+      "capture.tshark.json",
+      "cli-command.json"
+    ]
+  },
+  {
     "id": "cli_packet_smoke_tcp_split_family",
     "lane": "cli",
     "requiredCapability": "host_pcap",
