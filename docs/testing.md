@@ -244,9 +244,41 @@ Phase 16 measurement automation builds on top of the same packet-smoke surface:
 ```bash
 python3 scripts/ci/phase16_matrix.py validate
 python3 scripts/ci/phase16_matrix.py list
-bash scripts/ci/run-phase16-matrix-entry.sh
-python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/<entry-id>
+# Select the synthetic L7 dry-run row; other rows need their declared lab/device.
+entry_id=l7_adversarial_emulator_v1_1
+python3 - "$entry_id" <<'PY_PHASE16'
+import json
+import os
+import subprocess
+import sys
+
+with open("contract-fixtures/phase16_lab_matrix.json") as source:
+    entries = json.load(source)["entries"]
+row = next(entry for entry in entries if entry["id"] == sys.argv[1])
+fields = {
+    "ENTRY_ID": "id", "EXECUTION_KIND": "executionKind",
+    "TRANSPORT": "transport", "IP_FAMILY": "ipFamily", "ROOTED": "rooted",
+    "MODE": "mode", "NETWORK_CONDITION": "networkCondition",
+    "SCENARIO_FILTER": "scenarioFilter", "CAPTURE_MODE": "captureMode",
+    "RUNNER_REQUIRED": "runnerRequired", "EVIDENCE_TIER": "evidenceTier",
+    "CARRIER_NAMESPACE": "carrierNamespace",
+}
+environment = os.environ.copy()
+for suffix, field in fields.items():
+    value = row.get(field, "")
+    environment["PHASE16_" + suffix] = str(value).lower() if isinstance(value, bool) else str(value)
+subprocess.run(["bash", "scripts/ci/run-phase16-matrix-entry.sh"],
+               env=environment, check=True)
+PY_PHASE16
+python3 scripts/ci/phase16_pcap_summary.py --artifact-root "build/phase16-matrix/$entry_id"
 ```
+
+The entry runner requires `PHASE16_ENTRY_ID` and `PHASE16_EXECUTION_KIND`;
+listing IDs does not export these variables. The example also copies the row's
+metadata fields, as `.github/workflows/phase16-matrix.yml` does, so evidence
+keeps the correct transport, fault, and tier. Select an entry only after its
+runner prerequisites are available; do not substitute a synthetic row for
+physical-network evidence.
 
 - `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
 - Real-provider rows are present in the fixture as `runnerRequired=real-provider` and `evidenceTier=real-provider`; default matrix emission excludes them so normal scheduled lab runs do not queue on carrier hardware, and even explicitly filtered real-provider rows require `workflow_dispatch` with `include_real_provider=true`.
