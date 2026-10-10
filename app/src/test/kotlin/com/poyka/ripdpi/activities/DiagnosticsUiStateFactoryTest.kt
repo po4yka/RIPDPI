@@ -34,6 +34,28 @@ class DiagnosticsUiStateFactoryTest {
         )
 
     @Test
+    fun `bundled default profile uses localized title and custom names stay intact`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val bundled = DiagnosticProfile("default", "Default diagnostics", "bundled", 1, updatedAt = 0L)
+        assertEquals(
+            context.getString(com.poyka.ripdpi.R.string.diagnostics_profile_connectivity_title),
+            support.toProfileOptionUiModel(bundled).name,
+        )
+        assertEquals(
+            "My profile",
+            support.toProfileOptionUiModel(bundled.copy(name = "My profile", source = "user")).name,
+        )
+        assertEquals(
+            "My renamed bundled profile",
+            support.toProfileOptionUiModel(bundled.copy(name = "My renamed bundled profile")).name,
+        )
+        assertEquals(
+            "Other profile",
+            support.toProfileOptionUiModel(bundled.copy(id = "other", name = "Other profile")).name,
+        )
+    }
+
+    @Test
     fun `saved persona controls diagnostics disclosure after projection`() {
         val input = diagnosticsUiStateInput(emptyList())
         val guided =

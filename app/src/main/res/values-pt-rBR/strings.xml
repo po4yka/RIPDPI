@@ -702,7 +702,7 @@
     <string name="config_relay_vless_transport">Transporte VLESS</string>
     <string name="config_relay_cloudflare_tunnel_note">Use aqui o hostname do seu Cloudflare Tunnel gerenciado por você. O P0 espera que esse hostname sirva de fachada para a sua própria origem xHTTP/VLESS; o RIPDPI não gerencia tokens do cloudflared nem a configuração do TryCloudflare.</string>
     <string name="config_relay_presets_title">Predefinições de retransmissor</string>
-    <string name="config_relay_protocol_section_recommended">Recomendado</string>
+    <string name="config_relay_protocol_section_recommended">Recomendados</string>
     <string name="config_relay_protocol_section_tls">Transportes TLS</string>
     <string name="config_relay_protocol_section_quic">Transportes QUIC</string>
     <string name="config_relay_protocol_section_pt">Retransmissores PT</string>

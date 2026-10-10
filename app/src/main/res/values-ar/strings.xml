@@ -697,10 +697,10 @@
     <string name="config_relay_vless_transport">بروتوكول نقل VLESS</string>
     <string name="config_relay_cloudflare_tunnel_note">استخدم اسم مضيف نفق Cloudflare الذي تديره هنا. يتوقع P0 أن يكون هذا المضيف أمام خادم xHTTP/VLESS الخاص بك؛ لا تتولى RIPDPI إدارة رموز cloudflared أو إعداد TryCloudflare.</string>
     <string name="config_relay_presets_title">إعدادات الترحيل المسبقة</string>
-    <string name="config_relay_protocol_section_recommended">Recommended</string>
-    <string name="config_relay_protocol_section_tls">TLS transports</string>
-    <string name="config_relay_protocol_section_quic">QUIC transports</string>
-    <string name="config_relay_protocol_section_pt">PT relays</string>
+    <string name="config_relay_protocol_section_recommended">موصى بها</string>
+    <string name="config_relay_protocol_section_tls">وسائل نقل TLS</string>
+    <string name="config_relay_protocol_section_quic">وسائل نقل QUIC</string>
+    <string name="config_relay_protocol_section_pt">مرحلات PT</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">Off</string>
@@ -4218,7 +4218,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_title">Apps Script غير متاح في وضع VPN</string>
     <string name="config_relay_apps_script_proxy_only_body">انتقل إلى وضع الوكيل لاستخدام هذا المرحل. لا يمكن لشبكة VPN حماية اتصال HTTP الخاص به.</string>
     <string name="config_relay_apps_script_parallel">ترحيل متوازٍ</string>
-    <string name="config_relay_protocol_section_proxy">نواقل الوكيل</string>
+    <string name="config_relay_protocol_section_proxy">وسائل نقل الوكيل</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">DNS عبر QUIC. أدخل المضيف واسم TLS والمنفذ وعناوين IP للتهيئة.</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>

@@ -38,12 +38,30 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
         name =
-            when (profile.id) {
-                SelectiveMatrixProfileId -> context.getString(R.string.diagnostics_matrix_title)
-                "pmtu-connectivity" -> context.getString(R.string.diagnostics_pmtu_title)
-                "http3-connectivity" -> context.getString(R.string.diagnostics_http3_title)
-                "ip-family-connectivity" -> context.getString(R.string.diagnostics_ip_title)
-                else -> profile.name
+            when {
+                profile.id == "default" && profile.source == "bundled" && profile.name == "Default diagnostics" -> {
+                    context.getString(R.string.diagnostics_profile_connectivity_title)
+                }
+
+                profile.id == SelectiveMatrixProfileId -> {
+                    context.getString(R.string.diagnostics_matrix_title)
+                }
+
+                profile.id == "pmtu-connectivity" -> {
+                    context.getString(R.string.diagnostics_pmtu_title)
+                }
+
+                profile.id == "http3-connectivity" -> {
+                    context.getString(R.string.diagnostics_http3_title)
+                }
+
+                profile.id == "ip-family-connectivity" -> {
+                    context.getString(R.string.diagnostics_ip_title)
+                }
+
+                else -> {
+                    profile.name
+                }
             },
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,

@@ -2177,10 +2177,10 @@ fakeddisorder endhost</string>
     <string name="config_relay_masque_token">Токен авторизации MASQUE</string>
     <string name="config_relay_masque_url">URL MASQUE</string>
     <string name="config_relay_presets_title">Пресеты реле</string>
-    <string name="config_relay_protocol_section_recommended">Recommended</string>
-    <string name="config_relay_protocol_section_tls">TLS transports</string>
-    <string name="config_relay_protocol_section_quic">QUIC transports</string>
-    <string name="config_relay_protocol_section_pt">PT relays</string>
+    <string name="config_relay_protocol_section_recommended">Рекомендуемые</string>
+    <string name="config_relay_protocol_section_tls">Транспорты TLS</string>
+    <string name="config_relay_protocol_section_quic">Транспорты QUIC</string>
+    <string name="config_relay_protocol_section_pt">Ретрансляторы PT</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">Off</string>

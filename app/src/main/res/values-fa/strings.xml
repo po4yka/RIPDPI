@@ -701,10 +701,10 @@
     <string name="config_relay_vless_transport">حمل‌و‌نقل VLESS</string>
     <string name="config_relay_cloudflare_tunnel_note">از نام میزبان Cloudflare Tunnel مدیریت‌شده توسط کاربر خود اینجا استفاده کنید. P0 انتظار دارد که آن نام میزبان جلوی منشأ xHTTP/VLESS خود شما باشد؛ RIPDPI توکن‌های cloudflared یا راه‌اندازی TryCloudflare را مدیریت نمی‌کند.</string>
     <string name="config_relay_presets_title">پیش‌تنظیم‌های رله</string>
-    <string name="config_relay_protocol_section_recommended">Recommended</string>
-    <string name="config_relay_protocol_section_tls">TLS transports</string>
-    <string name="config_relay_protocol_section_quic">QUIC transports</string>
-    <string name="config_relay_protocol_section_pt">PT relays</string>
+    <string name="config_relay_protocol_section_recommended">پیشنهادی</string>
+    <string name="config_relay_protocol_section_tls">انتقال‌های TLS</string>
+    <string name="config_relay_protocol_section_quic">انتقال‌های QUIC</string>
+    <string name="config_relay_protocol_section_pt">رله‌های PT</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">Off</string>
@@ -4195,7 +4195,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_title">Apps Script در حالت VPN در دسترس نیست</string>
     <string name="config_relay_apps_script_proxy_only_body">برای استفاده از این رله به حالت پروکسی بروید. VPN نمی‌تواند اتصال HTTP آن را محافظت کند.</string>
     <string name="config_relay_apps_script_parallel">رله موازی</string>
-    <string name="config_relay_protocol_section_proxy">انتقال‌های پروکسی</string>
+    <string name="config_relay_protocol_section_proxy">انتقال‌های پراکسی</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">DNS از طریق QUIC. میزبان، نام TLS، درگاه و IPهای راه‌اندازی را وارد کنید.</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>
