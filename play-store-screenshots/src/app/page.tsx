@@ -254,7 +254,7 @@ function Slide1({ copy }: { copy: SlideCopy }) {
         headline={renderHeadline(copy.slide1.headline)}
       />
       <Screenshot
-        src="/screenshots/home-light.png"
+        src={`/screenshots/${copy.locale}/home-light.png`}
         alt="Home screen"
         style={{
           position: "absolute",
@@ -440,7 +440,7 @@ function Slide3({ copy }: { copy: SlideCopy }) {
       </div>
 
       <Screenshot
-        src="/screenshots/relay.png"
+        src={`/screenshots/${copy.locale}/relay.png`}
         alt="Remote relay protocols"
         style={{
           position: "absolute",
@@ -619,7 +619,7 @@ function Slide5({ copy }: { copy: SlideCopy }) {
       </div>
 
       <Screenshot
-        src="/screenshots/diagnostics.png"
+        src={`/screenshots/${copy.locale}/diagnostics.png`}
         alt="Diagnostics"
         style={{
           position: "absolute",
