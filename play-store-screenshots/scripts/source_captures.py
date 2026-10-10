@@ -9,7 +9,16 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "play-store-screenshots"
 MANIFEST = PROJECT / "public/screenshots/source-capture.json"
 LOCALES = ("en", "ru", "es", "de", "fr", "fa", "zh-CN")
-SCREENS = {"home": ("home", "home-light"), "diagnostics": ("diagnostics", "diagnostics"), "relay": ("mode_editor", "relay")}
+FRAME_SIZE = (1080, 1800)
+DENSITY_DPI = 360
+SCREENS = {
+    "home": ("home", "home-light"),
+    "diagnostics": ("diagnostics", "diagnostics"),
+    "relay": ("mode_editor", "relay"),
+    "dns-settings": ("dns_settings", "dns-settings"),
+    "strategies": ("strategy_config", "strategies"),
+    "backup": ("backup_restore", "backup"),
+}
 INPUT_PATHS = (
     "app/src/main", "app/src/full", "app/src/debug", "app/src/github", "core",
     "app/build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",

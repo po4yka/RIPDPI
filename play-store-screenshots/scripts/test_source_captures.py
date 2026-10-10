@@ -8,11 +8,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from source_captures import LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
 spec = importlib.util.spec_from_file_location("validator", Path(__file__).with_name("validate-source-captures.py"))
 validator = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(validator)
+
+
+capture_spec = importlib.util.spec_from_file_location("capture_android", Path(__file__).with_name("capture-android.py"))
+capture = importlib.util.module_from_spec(capture_spec)
+capture_spec.loader.exec_module(capture)
 
 
 class SourceCaptureTests(unittest.TestCase):
@@ -26,7 +31,7 @@ class SourceCaptureTests(unittest.TestCase):
         for locale in LOCALES:
             for name, (_, source) in SCREENS.items():
                 # Header-only fixtures exercise our hash and IHDR contract, not PNG decoding.
-                data = b"\x89PNG\r\n\x1a\n" + b"\0\0\0\rIHDR" + struct.pack(">II", 1344, 2992) + f"{locale}/{name}".encode()
+                data = b"\x89PNG\r\n\x1a\n" + b"\0\0\0\rIHDR" + struct.pack(">II", *FRAME_SIZE) + f"{locale}/{name}".encode()
                 paths = [f"play-store-screenshots/public/screenshots/{locale}/{source}.png", f"docs/screenshots/ui/{locale}/{name}.png"]
                 if locale == "en":
                     paths.append(f"play-store-screenshots/public/screenshots/{source}.png")
@@ -38,6 +43,8 @@ class SourceCaptureTests(unittest.TestCase):
         self.data = {"schemaVersion": 1, "locales": list(LOCALES), "builtFromRevision": "a" * 40,
                      "apk": {"variant": "githubFullDebug", "sha256": "b" * 64},
                      "libXray": {"manifestSha256": "c" * 64, "aarSha256": "d" * 64},
+                     "device": {"screen": "1080x1800", "densityDpi": DENSITY_DPI},
+                     "state": {"servicePreset": "live"}, "runReceipts": {"vpn": {"service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi", "observedAtUtc": "2026-10-10T00:00:00+00:00"}, "diagnostics": {"id": "new", "previousSessionId": "old", "profileId": "default", "status": "completed", "clickedAt": 1000, "startedAt": 2000, "finishedAt": 3000, "resultCount": 21, "reportBytes": 1024, "reportSha256": "f" * 64, "outcomes": {"healthy": 21}}},
                      "theme": "light", "routes": {name: route for name, (route, _) in SCREENS.items()},
                      "uiInputs": self.inputs, "uiInputsSha256": inputs_sha256(self.inputs), "images": images}
         self.save()
@@ -48,6 +55,23 @@ class SourceCaptureTests(unittest.TestCase):
     def validate(self, inputs=None):
         with patch.object(validator, "input_hashes", return_value=inputs or self.inputs):
             return validator.validate(self.manifest, self.root)
+
+    def test_only_a_new_completed_real_scan_is_accepted(self):
+        receipt = {"id": "new", "startedAt": 2000, "finishedAt": 3000,
+                   "status": "completed", "resultCount": 21, "reportBytes": 1024}
+        self.assertTrue(capture.is_new_completed_scan(receipt, "old", 1500))
+        self.assertFalse(capture.is_new_completed_scan(receipt, "new", 1500))
+        self.assertFalse(capture.is_new_completed_scan(receipt, "old", 2500))
+        for field, value in (("finishedAt", None), ("status", "failed"), ("resultCount", 0), ("reportBytes", 0)):
+            self.assertFalse(capture.is_new_completed_scan(dict(receipt, **{field: value}), "old", 1500))
+
+    def test_missing_or_stale_runtime_receipts(self):
+        self.data["runReceipts"]["diagnostics"]["id"] = "old"
+        self.save()
+        self.assertTrue(any("new completed diagnostic" in error for error in self.validate()))
+        self.data["runReceipts"] = {}
+        self.save()
+        self.assertTrue(any("real owned VPN" in error for error in self.validate()))
 
     def test_valid_snapshot(self):
         self.assertEqual(self.validate(), [])

@@ -7,16 +7,25 @@ import json
 import os
 import re
 import shutil
+import sqlite3
+import tempfile
+import hashlib
 import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
-from source_captures import LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 PACKAGE = "com.poyka.ripdpi"
 VARIANT = "githubFullDebug"
+
+
+def is_new_completed_scan(receipt: dict | None, previous_id: str | None, clicked_at: int) -> bool:
+    return bool(receipt and receipt["id"] != previous_id and receipt["startedAt"] >= clicked_at
+                and receipt["finishedAt"] is not None and receipt["status"] == "completed"
+                and receipt["resultCount"] > 0 and receipt["reportBytes"] > 0)
 
 
 def run(args: list[str], *, raw: bool = False) -> bytes | str:
@@ -29,6 +38,7 @@ class CaptureDevice:
         if not serial.startswith("emulator-"):
             raise ValueError("Use a dedicated emulator. This command resets app state.")
         self.serial = serial
+        self.receipts = {}
 
     def adb(self, *args: str, raw: bool = False) -> bytes | str:
         return run(["adb", "-s", self.serial, *args], raw=raw)
@@ -53,70 +63,148 @@ class CaptureDevice:
         time.sleep(0.6)
 
     def scroll(self, delta: int) -> None:
-        step = max(-600, min(600, delta))
-        self.adb("shell", "input", "swipe", "672", "2050", "672", str(2050 - step), "900")
+        step = max(-600, min(600, delta + (24 if delta > 0 else -24)))
+        self.adb("shell", "input", "swipe", "540", "1450" if step > 0 else "750", "540", str(1450 - step) if step > 0 else str(750 - step), "900")
         time.sleep(0.8)
 
-    def show_route(self, name: str, route: str) -> None:
+    def show_route(self, name: str, route: str, *, reset: bool = False) -> None:
         self.adb("shell", "am", "force-stop", PACKAGE)
         args = ["shell", "am", "start", "-W", "-n", f"{PACKAGE}/.activities.MainActivity"]
-        for suffix in ("ENABLED", "RESET_STATE", "DISABLE_MOTION"):
+        for suffix in ("ENABLED", "DISABLE_MOTION"):
             args.extend(("--ez", f"{PACKAGE}.automation.{suffix}", "true"))
+        args.extend(("--ez", f"{PACKAGE}.automation.RESET_STATE", str(reset).lower()))
         for suffix, value in (
             ("START_ROUTE", route), ("PERMISSION_PRESET", "granted"),
-            ("SERVICE_PRESET", "idle"), ("DATA_PRESET", "settings_ready"), ("THEME", "light"),
+            ("SERVICE_PRESET", "live"), ("DATA_PRESET", "settings_ready"), ("THEME", "light"),
         ):
             args.extend(("--es", f"{PACKAGE}.automation.{suffix}", value))
         self.adb(*args)
         time.sleep(3)
-        expected = {"home": "home-screen", "diagnostics": "diagnostics-screen", "relay": "mode_editor-screen"}[name]
+        expected = f"{route}-screen"
         tree = self.tree()
         if self.tag(tree, expected) is None:
             raise RuntimeError(f"The app did not open {route}. No frame was saved.")
-        if name == "diagnostics":
-            self.tap(self.tag(tree, "diagnostics-section-scan"))
-            self.show_scan_action()
+        if name == "home":
+            self.connect_live()
+        elif name == "diagnostics":
+            self.show_completed_scan()
         elif name == "relay":
             self.show_relay_fields()
+        elif name == "dns-settings":
+            self.show_dns_editor()
+
         time.sleep(1)
 
-    def show_scan_action(self) -> None:
-        for _ in range(8):
-            tree = self.tree()
-            action = self.tag(tree, "diagnostics-scan-run-raw")
-            navigation = self.tag(tree, "bottom-nav-bar")
-            if action is not None and navigation is not None:
-                _, top, _, bottom = self.bounds(action)
-                if bottom - top >= 140 and bottom <= self.bounds(navigation)[1] - 12:
-                    return
-            self.scroll(250)
-        raise RuntimeError("The Scan action is not fully visible. No frame was saved.")
+    def connect_live(self) -> None:
+        tree = self.tree()
+        button = self.tag(tree, "connection-actuator-button")
+        if button is None:
+            raise RuntimeError("The real connection control is missing.")
+        self.tap(button)
+        for _ in range(30):
+            services = self.adb("shell", "dumpsys", "activity", "services", PACKAGE)
+            connectivity = self.adb("shell", "dumpsys", "connectivity")
+            if "RipDpiVpnService" in services and "ni{VPN CONNECTED extra: VPN:com.poyka.ripdpi}" in connectivity:
+                self.receipts["vpn"] = {"observedAtUtc": datetime.now(timezone.utc).isoformat(),
+                                        "service": "RipDpiVpnService", "transport": "VPN CONNECTED; owner com.poyka.ripdpi"}
+                time.sleep(3)
+                return
+            time.sleep(1)
+        raise RuntimeError("A real VPN did not start. Grant Android VPN consent through the normal app first.")
+
+    def latest_scan(self) -> dict | None:
+        with tempfile.TemporaryDirectory(prefix="ripdpi-listing-scan-") as directory:
+            path = Path(directory) / "diagnostics.db"
+            for suffix in ("", "-wal"):
+                Path(str(path) + suffix).write_bytes(self.adb("exec-out", "run-as", PACKAGE,
+                                                            "cat", f"databases/diagnostics.db{suffix}", raw=True))
+            with sqlite3.connect(path) as database:
+                database.row_factory = sqlite3.Row
+                row = database.execute("SELECT id, profileId, status, reportCompletionKind, reportTerminationReason, "
+                                       "startedAt, finishedAt, reportJson FROM scan_sessions "
+                                       "WHERE profileId = 'default' ORDER BY startedAt DESC LIMIT 1").fetchone()
+                if row is None:
+                    return None
+                receipt = dict(row)
+                report = receipt.pop("reportJson")
+                receipt["reportBytes"] = len((report or "").encode())
+                receipt["reportSha256"] = hashlib.sha256((report or "").encode()).hexdigest()
+                receipt["resultCount"] = database.execute("SELECT count(*) FROM probe_results WHERE sessionId = ?",
+                                                         (receipt["id"],)).fetchone()[0]
+                receipt["outcomes"] = {row[0]: row[1] for row in database.execute(
+                    "SELECT outcome, count(*) FROM probe_results WHERE sessionId = ? GROUP BY outcome", (receipt["id"],))}
+                return receipt
+
+    def show_completed_scan(self) -> None:
+        if "diagnostics" not in self.receipts:
+            previous = self.latest_scan()
+            previous_id = previous["id"] if previous else None
+            clicked_at = int(self.adb("shell", "date", "+%s")) * 1000
+            self.tap(self.tag(self.tree(), "diagnostics-section-scan"))
+            for _ in range(12):
+                tree = self.tree()
+                action = self.tag(tree, "diagnostics-scan-run-raw")
+                if action is not None and self.bounds(action)[3] <= 1568:
+                    self.tap(action)
+                    break
+                self.scroll(400)
+            else:
+                raise RuntimeError("The real Scan action is missing.")
+            deadline = time.monotonic() + 300
+            while time.monotonic() < deadline:
+                receipt = self.latest_scan()
+                if receipt and receipt["id"] != previous_id and receipt["status"] in ("failed", "cancelled"):
+                    raise RuntimeError(f"The real scan did not complete: {receipt}")
+                if is_new_completed_scan(receipt, previous_id, clicked_at):
+                    receipt["previousSessionId"] = previous_id
+                    receipt["clickedAt"] = clicked_at
+                    self.receipts["diagnostics"] = receipt
+                    break
+                time.sleep(3)
+            else:
+                raise RuntimeError("The real diagnostic scan exceeded five minutes. No frame was saved.")
+        self.tap(self.tag(self.tree(), "diagnostics-section-scan"))
+        self.align(f"diagnostics-session-{self.receipts['diagnostics']['id']}", 800)
+
+    def align(self, tag_name: str, top: int, attempts: int = 32) -> None:
+        for _ in range(attempts):
+            node = self.tag(self.tree(), tag_name)
+            if node is None:
+                self.scroll(500)
+                continue
+            delta = self.bounds(node)[1] - top
+            if abs(delta) <= 12:
+                return
+            self.scroll(delta)
+        raise RuntimeError(f"Could not align a complete capture section: {tag_name}")
 
     def show_relay_fields(self) -> None:
-        switch = None
-        for _ in range(10):
-            switch = next((node for node in self.tree().iter("node")
+        self.tap(self.tag(self.tree(), "config-mode-proxy"))
+        for _ in range(14):
+            tree = self.tree()
+            switch = next((node for node in tree.iter("node")
                            if node.get("checkable") == "true" and node.get("clickable") == "true"
                            and not node.get("resource-id")), None)
             if switch is not None:
+                if switch.get("checked") == "false":
+                    self.tap(switch)
+                self.align("mode-editor-relay-section-tls-transports", 300)
+                return
+            self.scroll(550)
+        raise RuntimeError("The relay editor switch is missing.")
+
+    def show_dns_editor(self) -> None:
+        for _ in range(16):
+            self.adb("shell", "input", "swipe", "540", "1600", "540", "350", "120")
+            time.sleep(0.5)
+            if self.tag(self.tree(), "dns-custom-save") is not None:
                 break
-            self.scroll(600)
-        if switch is None:
-            raise RuntimeError("The relay switch is missing.")
-        if switch.get("checked") == "false":
-            self.tap(switch)
-        for _ in range(10):
-            field = self.tag(self.tree(), "mode-editor-relay-profile-id")
-            if field is None:
-                self.scroll(400)
-                continue
-            y = self.bounds(field)[1]
-            if 950 <= y <= 1100:
-                break
-            self.scroll(y - 1000)
-        field = self.tag(self.tree(), "mode-editor-relay-profile-id")
-        if field is None or not 850 <= self.bounds(field)[1] <= 1200:
-            raise RuntimeError("The relay frame does not show the expected fields.")
+        else:
+            raise RuntimeError("The actual custom DNS editor is missing.")
+        # The last screen contains the full custom DoH and IPv6 cards.
+        for _ in range(3):
+            self.scroll(550)
+        self.scroll(-45)
 
     def demo_mode(self, enabled: bool) -> None:
         self.adb("shell", "settings", "put", "global", "sysui_demo_allowed", "1" if enabled else "0")
@@ -155,15 +243,20 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
                    "model": device.adb("shell", "getprop", "ro.product.model"),
                    "api": int(device.adb("shell", "getprop", "ro.build.version.sdk")),
                    "abi": device.adb("shell", "getprop", "ro.product.cpu.abi"),
-                   "screen": "1344x2992", "densityDpi": 480},
+                   "screen": "1080x1800", "densityDpi": DENSITY_DPI},
         "theme": "light", "locales": list(LOCALES),
         "routes": {name: route for name, (route, _) in SCREENS.items()},
-        "state": {"permissionPreset": "granted", "servicePreset": "idle", "dataPreset": "settings_ready",
+        "state": {"permissionPreset": "granted", "servicePreset": "live", "dataPreset": "settings_ready",
                   "motion": "disabled", "statusBar": "Android demo mode: 12:00, battery 100%, notifications hidden",
-                  "home": "disconnected; actual setup advisory is visible",
-                  "diagnostics": "Scan tab before a run; scrolled when needed to show the action; no measured results",
-                  "relay": "editor scrolled to relay fields; enabled as an unsaved edit; no credentials or connection"},
+                  "home": "real VPN service started through the app; Android VPN consent granted normally",
+                  "diagnostics": "Scan tab with a new completed direct-path scan; all observed outcomes preserved",
+                  "relay": "proxy-mode editor showing supported relay transports; unsaved edit; no credentials or relay connection",
+                  "dns-settings": "actual custom DoH editor prefilled from Cloudflare and IPv6 controls; no unsaved values applied",
+                  "strategies": "actual built-in strategy editor with save, reload, import and export; no claimed strategy outcome",
+                  "backup": "actual local backup export and restore controls",
+                  "history": "first dedicated route clears previous history; later routes preserve the new scan"},
         "limitations": "App UI illustrations. Permission state uses the debug automation contract. No network, VPN, server or physical-device acceptance is claimed.",
+        "runReceipts": device.receipts,
         "uiInputsSha256": inputs_sha256(inputs), "uiInputs": inputs, "images": images,
     }
     MANIFEST.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
@@ -171,12 +264,15 @@ def record_manifest(device: CaptureDevice, apk: Path, xray_artifacts: Path, buil
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--serial", required=True, help="Dedicated 1344x2992, 480 dpi emulator; its app state is reset")
+    parser.add_argument("--serial", required=True, help="Dedicated 1080x1800, 360 dpi emulator; its app state is reset")
+    parser.add_argument("--prebuilt-jni-libs", type=Path, help="Optional native outputs from the same source revision")
     parser.add_argument("--xray-artifacts", required=True, type=Path, help="Real producer artifacts; the release verifier must pass")
     args = parser.parse_args()
     device = CaptureDevice(args.serial)
-    if device.adb("shell", "wm", "size") != "Physical size: 1344x2992" or device.adb("shell", "wm", "density") != "Physical density: 480":
-        parser.error("Use a dedicated Pixel 10 Pro XL emulator at 1344x2992, 480 dpi; no resize or crop is applied.")
+    if "ACTIVATE_VPN: allow" not in device.adb("shell", "cmd", "appops", "get", PACKAGE, "ACTIVATE_VPN"):
+        parser.error("Grant actual Android VPN consent through the normal app before capture.")
+    if device.adb("shell", "wm", "size") != "Physical size: 1080x1800" or device.adb("shell", "wm", "density") != "Physical density: 360":
+        parser.error("Use a dedicated emulator at physical 1080x1800, 360 dpi; no resize or crop is applied.")
     abi = device.adb("shell", "getprop", "ro.product.cpu.abi")
     if abi not in ("arm64-v8a", "x86_64"):
         parser.error("Use an arm64-v8a or x86_64 emulator.")
@@ -185,8 +281,11 @@ def main() -> None:
                    cwd=ROOT, env={**os.environ, "RIPDPI_XRAY_AAR_DIR": str(xray_artifacts)}, check=True)
     revision = run(["git", "rev-parse", "HEAD"])
     inputs = input_hashes()
-    subprocess.run(["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.localNativeAbis={abi}",
-                    f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"], cwd=ROOT, check=True)
+    build_args = ["./gradlew", ":app:assembleGithubFullDebug", f"-Pripdpi.localNativeAbis={abi}",
+                  f"-Pripdpi.prebuiltXrayAarDir={xray_artifacts}"]
+    if args.prebuilt_jni_libs:
+        build_args.append(f"-Pripdpi.prebuiltJniLibsDir={args.prebuilt_jni_libs.resolve()}")
+    subprocess.run(build_args, cwd=ROOT, check=True)
     apk = ROOT / f"app/build/outputs/apk/githubFull/debug/app-github-full-{abi}-debug.apk"
     device.adb("install", "-r", str(apk))
     device.adb("shell", "pm", "grant", PACKAGE, "android.permission.POST_NOTIFICATIONS")
@@ -198,13 +297,15 @@ def main() -> None:
     device.adb("shell", "input", "keyevent", "KEYCODE_MENU")
     device.demo_mode(True)
     try:
+        first = True
         for locale in LOCALES:
             device.adb("shell", "cmd", "locale", "set-app-locales", PACKAGE, "--locales", locale)
             actual_locale = device.adb("shell", "cmd", "locale", "get-app-locales", PACKAGE)
             if f"[{locale}]" not in actual_locale:
                 raise RuntimeError(f"The Android locale did not change to {locale}.")
             for name, (route, source_name) in SCREENS.items():
-                device.show_route(name, route)
+                device.show_route(name, route, reset=first)
+                first = False
                 path = PROJECT / f"public/screenshots/{locale}/{source_name}.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(device.adb("exec-out", "screencap", "-p", raw=True))

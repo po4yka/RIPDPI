@@ -8,7 +8,7 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, LOCALES, MANIFEST, ROOT, SCREENS, input_hashes, inputs_sha256, sha256
 
 
 def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
@@ -32,6 +32,25 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
             errors.append(f"Missing producer hash: {section}.{key}")
     if manifest.get("theme") != "light" or manifest.get("routes") != {name: route for name, (route, _) in SCREENS.items()}:
         errors.append("Unexpected capture theme or routes.")
+    if manifest.get("device", {}).get("screen") != "1080x1800" or manifest.get("device", {}).get("densityDpi") != DENSITY_DPI:
+        errors.append("Expected the physical 1080x1800, 360 dpi capture device.")
+    if manifest.get("state", {}).get("servicePreset") != "live":
+        errors.append("Capture the real service state, not a connection fixture.")
+    receipts = manifest.get("runReceipts", {})
+    vpn = receipts.get("vpn", {})
+    diagnostic = receipts.get("diagnostics", {})
+    if (vpn.get("service") != "RipDpiVpnService" or vpn.get("transport") != "VPN CONNECTED; owner com.poyka.ripdpi"
+            or not vpn.get("observedAtUtc")):
+        errors.append("Missing a real owned VPN connection receipt.")
+    if (not diagnostic.get("id") or diagnostic.get("id") == diagnostic.get("previousSessionId")
+            or diagnostic.get("profileId") != "default" or diagnostic.get("status") != "completed"
+            or diagnostic.get("resultCount", 0) <= 0 or diagnostic.get("reportBytes", 0) <= 0
+            or not re.fullmatch(r"[a-f0-9]{64}", diagnostic.get("reportSha256", ""))
+            or diagnostic.get("clickedAt", 0) <= 0
+            or diagnostic.get("startedAt", 0) < diagnostic.get("clickedAt", 0)
+            or (diagnostic.get("finishedAt") or 0) < diagnostic.get("startedAt", 1)
+            or sum(diagnostic.get("outcomes", {}).values()) != diagnostic.get("resultCount")):
+        errors.append("Missing a new completed diagnostic receipt with real outcomes and report hash.")
     inputs = input_hashes(root)
     if inputs_sha256(manifest.get("uiInputs", {})) != manifest.get("uiInputsSha256"):
         errors.append("The recorded UI input list does not match its digest.")
@@ -54,8 +73,8 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
         image = root / path
         if not image.is_file() or sha256(image) != images.get(path):
             errors.append(f"Missing or changed device frame: {path}")
-        elif len(image.read_bytes()) < 24 or image.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", image.read_bytes()[16:24]) != (1344, 2992):
-            errors.append(f"Expected an uncropped 1344x2992 Android frame: {path}")
+        elif len(image.read_bytes()) < 24 or image.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", image.read_bytes()[16:24]) != FRAME_SIZE:
+            errors.append(f"Expected an uncropped 1080x1800 Android frame: {path}")
     for locale in LOCALES:
         for name, (_, source_name) in SCREENS.items():
             raw = f"play-store-screenshots/public/screenshots/{locale}/{source_name}.png"
@@ -79,7 +98,7 @@ def main() -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         print("Run python3 scripts/capture-android.py --serial <dedicated-emulator> --xray-artifacts <verified-aar-dir>; it builds the current APK. See README.md.", file=sys.stderr)
         return 1
-    print("Source captures: 21 device frames, README copies, English aliases and Android UI input hashes match.")
+    print("Source captures: 42 device frames, README copies, English aliases and Android UI input hashes match.")
     return 0
 
 
