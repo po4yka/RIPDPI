@@ -150,7 +150,7 @@ const SLIDES: ReadonlyArray<{ id: string; label: string; component: SlideCompone
   { id: "relays", label: "Relays", component: Slide3 },
   { id: "dns", label: "DNS", component: Slide4 },
   { id: "strategies", label: "Strategies", component: Slide5 },
-  { id: "local-tools", label: "Local tools", component: Slide6 },
+  { id: "local-tools", label: "Backups", component: Slide6 },
 ];
 
 // ── Preview with scaling ───────────────────────────────────────────────

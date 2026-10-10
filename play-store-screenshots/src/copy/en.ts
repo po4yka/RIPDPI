@@ -35,7 +35,7 @@ export const en: SlideCopy = {
     "Relays",
     "Encrypted DNS",
     "Strategy controls",
-    "Local tools"
+    "Backups"
   ],
   "featureGraphic": {
     "tagline": [

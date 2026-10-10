@@ -35,7 +35,7 @@ export const zhCN: SlideCopy = {
     "中继",
     "加密 DNS",
     "策略设置",
-    "本地工具"
+    "备份"
   ],
   "featureGraphic": {
     "tagline": [

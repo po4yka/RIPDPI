@@ -35,7 +35,7 @@ export const fa: SlideCopy = {
     "رله‌ها",
     "DNS رمزگذاری‌شده",
     "تنظیمات راهبرد",
-    "ابزارهای محلی"
+    "نسخه‌های پشتیبان"
   ],
   "featureGraphic": {
     "tagline": [

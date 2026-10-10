@@ -35,7 +35,7 @@ export const fr: SlideCopy = {
     "Relais",
     "DNS chiffré",
     "Réglages de stratégie",
-    "Outils locaux"
+    "Sauvegardes"
   ],
   "featureGraphic": {
     "tagline": [
