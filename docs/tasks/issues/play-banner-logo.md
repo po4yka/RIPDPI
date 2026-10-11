@@ -2,7 +2,7 @@
 id: UIX-1791648381801240
 title: Render the current app mark correctly in Play banners
 kind: bug
-status: review
+status: done
 area: ui
 priority: medium
 owner: Play banner logo correction
@@ -14,6 +14,9 @@ created: 2026-10-10
 updated: 2026-10-11
 spec_reason: tooling-only
 status_detail: "CI repair: preserve the prior implementation and verification evidence; commit the missing review state before terminal closure."
+closed_at: "2026-10-11T07:37:00Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Historical verification retained from 39295f15a; this CI repair adds the missing committed review state. Implementation 06408414a7176a621e9e8f4f1d2a367a36db4cda is published and verified on remote main. Native vector paths match exactly; production build, 49 layout checks, 56 RGB PNG checks, source hash validation, seven full and 360 px visual checks and actual EN/FA JPEG exports passed. Independent reviewer found no defects. Architecture health, locked Cargo metadata, task contracts and commit hooks passed. Phone posters and all raw captures are byte-identical.
 ---
 
 ## Goal
