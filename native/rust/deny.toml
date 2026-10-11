@@ -4,7 +4,7 @@
 # advisory-waivers.toml; scripts/ci/check_rust_advisory_waivers.py fails closed
 # when metadata is missing, stale, or expired.
 ignore = [
-    { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is a compile-time proc-macro pulled through netlink-packet-core; it has no runtime path and no maintained compatible replacement is published." },
+    { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 remains a compile-time proc-macro through Arti 0.47.0, slotmap-careful 0.9.0, pwd-grp 1.0.2, and target-gated netlink-packet-core 0.8.1. The latest Arti, slotmap-careful, and pwd-grp releases still require paste. RUSTSEC-2024-0436 is an unmaintained notice with no patched paste version. Removal needs upstream changes; review this temporary exception again by 2026-11-10." },
     { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.44.0 -> ssh-key-fork-arti (rsa 0.9.10) and russh 0.62.5 (rsa 0.10.0-rc.18); RIPDPI exposes no RSA private-key service and SSH publickey auth signs the session transcript hash, not attacker-chosen plaintext. No safe upgrade exists on either path." },
     { id = "RUSTSEC-2025-0141", reason = "bincode 2.0.1 is an unmaintained transitive serialization dependency of Arti's typed-index-collections path; RIPDPI does not call it directly and no maintained compatible replacement is published." },
 ]

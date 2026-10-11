@@ -4,8 +4,8 @@
 [[waivers]]
 id = "RUSTSEC-2024-0436"
 owner = "Native security maintainer"
-reason = "paste is compile-time-only through netlink-packet-core and has no maintained compatible replacement"
-expires = "2026-10-11"
+reason = "paste 1.0.15 remains a compile-time proc-macro through Arti 0.47.0, slotmap-careful 0.9.0, pwd-grp 1.0.2, and target-gated netlink-packet-core 0.8.1. The latest Arti, slotmap-careful, and pwd-grp releases still require paste. RUSTSEC-2024-0436 is an unmaintained notice with no patched paste version. Removal needs upstream changes; review this temporary exception again by 2026-11-10."
+expires = "2026-11-10"
 tracking = "docs/tasks/issues/replace-unmaintained-paste-proc-macro.md"
 
 [[waivers]]
