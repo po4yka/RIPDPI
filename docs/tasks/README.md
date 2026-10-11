@@ -78,6 +78,10 @@ Required changes use the repository schema `ripdpi-change`: `proposal.md → del
 
 Completing every mdtask checkbox advances portfolio work at most to `review`; it never proves acceptance by itself.
 
+Commit the `review` state before `close prepare --outcome done`. The closure
+command checks that the same task is in `review` at `HEAD`. A local transition
+to `review` in the terminal commit does not satisfy the deletion-history gate.
+
 `steps ... add` allocates the execution ID through the shared Git allocator,
 adds the owning `@item` backlink, and defaults kind and priority to the
 portfolio task. Titles must be plain single-line text without manual IDs or

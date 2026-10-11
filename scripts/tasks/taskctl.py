@@ -1659,6 +1659,19 @@ def command_close_prepare(args: argparse.Namespace) -> int:
     if args.outcome == "done":
         if document.values["status"] != "review":
             fail("done closure requires review status")
+        relative = document.path.relative_to(args.root).as_posix()
+        committed = run_command(("git", "show", f"HEAD:{relative}"), root=args.root)
+        if committed.returncode != 0:
+            fail("commit the review state before preparing done closure")
+        with tempfile.TemporaryDirectory(prefix="ripdpi-task-review-") as directory:
+            snapshot = Path(directory) / "issue.md"
+            snapshot.write_text(committed.stdout or "", encoding="utf-8")
+            committed_document = read_document(snapshot)
+            if (
+                committed_document.task_id != document.task_id
+                or committed_document.values.get("status") != "review"
+            ):
+                fail("commit the review state before preparing done closure")
         verify_task(args.root, document, steps, archive_ready=document.values["spec_mode"] == "required")
         if document.values["spec_mode"] == "required":
             change = document.values["openspec_change"]

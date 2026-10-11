@@ -824,6 +824,53 @@ class TaskctlHistoryTest(TaskctlFixture):
         with self.assertRaisesRegex(taskctl.ContractError, "without a preceding committed terminal"):
             taskctl.validate_deleted_history(self.root, base)
 
+    def test_done_closure_rejects_uncommitted_review_without_writes(self) -> None:
+        for committed_status in (None, "doing"):
+            with self.subTest(committed_status=committed_status):
+                path = self.add_simple_task(status=committed_status or "review")
+                if committed_status is not None:
+                    self.commit_all("record doing state")
+                document = taskctl.read_document(path)
+                values = dict(document.values, status="review")
+                taskctl.write_document(document, values)
+                work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+                work.write_text(work.read_text().replace("- [ ]", "- [x]"), encoding="utf-8")
+                before = path.read_bytes(), work.read_bytes()
+                args = taskctl.build_parser().parse_args([
+                    "close", "prepare", "CIC-1786234567890001",
+                    "--outcome", "done", "--evidence", "Unit checks passed.",
+                ])
+                args.root = self.root
+
+                with self.assertRaisesRegex(taskctl.ContractError, "commit the review state"):
+                    taskctl.command_close_prepare(args)
+
+                self.assertEqual(before, (path.read_bytes(), work.read_bytes()))
+                self.assertFalse(work.with_suffix(".close.json").exists())
+
+    def test_done_closure_from_committed_review_passes_deletion_history(self) -> None:
+        path = self.add_simple_task(status="review")
+        self.add_simple_task(task_id="CIC-1786234567890101")
+        work = self.root / "docs/tasks/work/CIC-1786234567890001.md"
+        work.write_text(work.read_text().replace("- [ ]", "- [x]"), encoding="utf-8")
+        self.write_board()
+        base = self.commit_all("record review state")
+        args = taskctl.build_parser().parse_args([
+            "close", "prepare", "CIC-1786234567890001",
+            "--outcome", "done", "--evidence", "Unit checks passed.",
+        ])
+        args.root = self.root
+
+        self.assertEqual(0, taskctl.command_close_prepare(args))
+        self.write_board()
+        self.commit_all("record terminal state")
+        self.assertEqual(0, taskctl.command_close_purge(args))
+        self.write_board()
+        self.commit_all("purge task")
+
+        self.assertFalse(path.exists())
+        taskctl.validate_deleted_history(self.root, base)
+
     def test_forged_todo_to_done_history_with_open_step_is_rejected(self) -> None:
         path = self.add_simple_task(status="todo")
         self.write_board()
