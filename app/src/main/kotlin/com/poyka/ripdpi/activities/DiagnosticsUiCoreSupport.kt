@@ -457,7 +457,8 @@ private fun DiagnosticsOutcomeTone.toUiTone(): DiagnosticsTone =
 
 private val canonicalConnectivitySummary =
     Regex(
-        "([0-9]+) completed · ([0-9]+) healthy(?: · ([0-9]+) attention)?(?: · ([0-9]+) failed)?(?: · ([0-9]+) inconclusive)?",
+        "([0-9]+) completed · ([0-9]+) healthy(?: · ([0-9]+) attention)?" +
+            "(?: · ([0-9]+) failed)?(?: · ([0-9]+) inconclusive)?",
     )
 
 internal fun StringResolver.localizeConnectivitySummary(summary: String): String {
