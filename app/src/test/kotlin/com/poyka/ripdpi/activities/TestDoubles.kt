@@ -208,6 +208,16 @@ class FakeLauncherIconController : LauncherIconController {
 }
 
 class FakeStringResolver : StringResolver {
+    override fun getQuantityString(
+        resId: Int,
+        quantity: Int,
+        vararg formatArgs: Any,
+    ): String =
+        org.robolectric.RuntimeEnvironment
+            .getApplication()
+            .resources
+            .getQuantityString(resId, quantity, *formatArgs)
+
     override fun getString(
         resId: Int,
         vararg formatArgs: Any,
@@ -222,6 +232,16 @@ class FakeStringResolver : StringResolver {
 }
 
 class ResourceStringResolver : StringResolver {
+    override fun getQuantityString(
+        resId: Int,
+        quantity: Int,
+        vararg formatArgs: Any,
+    ): String =
+        org.robolectric.RuntimeEnvironment
+            .getApplication()
+            .resources
+            .getQuantityString(resId, quantity, *formatArgs)
+
     private val application: android.app.Application = org.robolectric.RuntimeEnvironment.getApplication()
 
     override fun getString(

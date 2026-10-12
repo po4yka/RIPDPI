@@ -86,7 +86,7 @@ class DiagnosticsUiStrategyPresentersTest {
     @Test
     fun `strategy signature presenter owns signature fields`() {
         val fields =
-            StrategySignaturePresenter().fields(
+            StrategySignaturePresenter(stringResolver).fields(
                 BypassStrategySignature(
                     mode = "VPN",
                     configSource = "UI",

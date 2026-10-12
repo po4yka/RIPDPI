@@ -169,7 +169,6 @@
     <string name="diagnostics_health_idle">Inaktiv</string>
     <string name="diagnostics_hidden_probe_dismiss_action">Schließen</string>
     <string name="diagnostics_history_section">Verlauf</string>
-    <string name="diagnostics_live_errors_format">%1$d Fehler%2$s im Laufzeit-Feed</string>
     <string name="diagnostics_live_headline_attention">Laufzeit erfordert genauere Betrachtung</string>
     <string name="diagnostics_live_mode_summary_format">%1$s-Modus · %2$s übertragen · %3$d Pakete beobachtet</string>
     <string name="diagnostics_live_telemetry_error_format">Problem bei Telemetrie-Abfrage: %1$s</string>
@@ -1280,7 +1279,6 @@ fake_burst 3</string>
     <string name="diagnostics_live_feed_quiet">Laufzeit-Feed ist ruhig</string>
     <string name="diagnostics_live_headline_standby">Live-Monitor in Bereitschaft</string>
     <string name="diagnostics_live_no_transfer">Noch keine Übertragung beobachtet</string>
-    <string name="diagnostics_live_warnings_format">%1$d Warnung%2$s im Laufzeit-Feed</string>
     <string name="diagnostics_metric_dns_latency_format">%1$d ms</string>
     <string name="diagnostics_metric_handover_state">Handover-Zustand</string>
     <string name="diagnostics_metric_packets">Pakete</string>
@@ -2410,9 +2408,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_health_healthy">Funktioniert</string>
     <string name="diagnostics_hidden_probe_conflict_title">Hintergrund-Probing ist aktiv</string>
     <string name="diagnostics_history_background_probe_badge">Automatisches Hintergrund-Probing</string>
-    <string name="diagnostics_live_errors_and_warnings_format">%1$d Fehler%2$s · %3$d Warnung%4$s im Laufzeit-Feed</string>
     <string name="diagnostics_live_handover_state_format">Netzwerk-Handover-Status: %1$s</string>
-    <string name="diagnostics_live_info_events_format">%1$d Info-Ereignis%2$s im Laufzeit-Feed</string>
     <string name="diagnostics_live_signal_format">%1$s gesendet · %2$s empfangen</string>
     <string name="diagnostics_metric_approach">Ansatz</string>
     <string name="diagnostics_metric_events">Ereignisse</string>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="diagnostics_live_errors_format">
+        <item quantity="one">%1$d ошибка в потоке событий</item>
+        <item quantity="few">%1$d ошибки в потоке событий</item>
+        <item quantity="many">%1$d ошибок в потоке событий</item>
+        <item quantity="other">%1$d ошибки в потоке событий</item>
+    </plurals>
+    <plurals name="diagnostics_live_warnings_format">
+        <item quantity="one">%1$d предупреждение в потоке событий</item>
+        <item quantity="few">%1$d предупреждения в потоке событий</item>
+        <item quantity="many">%1$d предупреждений в потоке событий</item>
+        <item quantity="other">%1$d предупреждения в потоке событий</item>
+    </plurals>
+    <plurals name="diagnostics_live_info_events_format">
+        <item quantity="one">%1$d информационное событие в потоке событий</item>
+        <item quantity="few">%1$d информационных события в потоке событий</item>
+        <item quantity="many">%1$d информационных событий в потоке событий</item>
+        <item quantity="other">%1$d информационных события в потоке событий</item>
+    </plurals>
+    <plurals name="diagnostics_live_error_count">
+        <item quantity="one">%1$d ошибка</item>
+        <item quantity="few">%1$d ошибки</item>
+        <item quantity="many">%1$d ошибок</item>
+        <item quantity="other">%1$d ошибки</item>
+    </plurals>
+    <plurals name="diagnostics_live_warning_count">
+        <item quantity="one">%1$d предупреждение</item>
+        <item quantity="few">%1$d предупреждения</item>
+        <item quantity="many">%1$d предупреждений</item>
+        <item quantity="other">%1$d предупреждения</item>
+    </plurals>
+    <string name="diagnostics_live_errors_and_warnings_format">%1$s \u00b7 %2$s в потоке событий</string>
+</resources>

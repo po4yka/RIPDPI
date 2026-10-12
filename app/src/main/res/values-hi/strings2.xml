@@ -590,10 +590,6 @@
     <string name="diagnostics_live_mode_summary_format">%1$s मोड · %2$s स्थानांतरित · %3$d पैकेट देखे गए</string>
     <string name="diagnostics_live_signal_format">%1$s भेजा गया · %2$s प्राप्त हुआ</string>
     <string name="diagnostics_live_no_transfer">अभी तक कोई स्थानांतरण नहीं देखा गया</string>
-    <string name="diagnostics_live_errors_and_warnings_format">रनटाइम फ़ीड में %1$d त्रुटि%2$s · %3$d चेतावनी%4$s</string>
-    <string name="diagnostics_live_errors_format">रनटाइम फ़ीड में %1$d त्रुटि%2$s</string>
-    <string name="diagnostics_live_warnings_format">रनटाइम फ़ीड में %1$d चेतावनी%2$s</string>
-    <string name="diagnostics_live_info_events_format">रनटाइम फ़ीड में %1$d सूचनात्मक घटना%2$s</string>
     <string name="diagnostics_live_feed_quiet">रनटाइम फ़ीड शांत है</string>
     <string name="diagnostics_scan_automatic_audit">स्वचालित ऑडिट</string>
     <string name="diagnostics_scan_automatic_probing">स्वचालित प्रोबिंग</string>

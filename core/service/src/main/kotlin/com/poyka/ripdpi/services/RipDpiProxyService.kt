@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
@@ -382,6 +383,7 @@ class RipDpiProxyService :
             )
         val subText =
             NotificationContentBuilder.buildSubText(
+                context = this,
                 activeSessions = proxyTelemetry.activeSessions,
                 rttMs = proxyTelemetry.upstreamRttMs,
             )
@@ -389,7 +391,7 @@ class RipDpiProxyService :
             createDynamicConnectionNotification(
                 context = this,
                 channelId = NOTIFICATION_CHANNEL_ID,
-                title = getString(R.string.notification_title),
+                title = ContextCompat.getString(this, R.string.notification_title),
                 content = content,
                 subText = subText,
                 service = RipDpiProxyService::class.java,

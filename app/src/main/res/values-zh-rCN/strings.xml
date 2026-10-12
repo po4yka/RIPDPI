@@ -1243,7 +1243,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_wifi_standard">Wi-Fi 标准</string>
     <string name="diagnostics_headline_degraded">网络路径需要关注</string>
     <string name="diagnostics_headline_scan_active">诊断扫描进行中</string>
-    <string name="diagnostics_live_errors_and_warnings_format">运行时数据流中有 %1$d 个错误%2$s · %3$d 个警告%4$s</string>
     <string name="diagnostics_live_handover_format">检测到最近的网络切换:%1$s</string>
     <string name="diagnostics_live_headline_standby">实时监控待机中</string>
     <string name="diagnostics_live_no_telemetry">无实时遥测</string>
@@ -1818,11 +1817,9 @@ fake_burst 3</string>
     <string name="diagnostics_field_wifi_subnet">Wi-Fi 子网</string>
     <string name="diagnostics_headline_healthy">当前遥测数据稳定</string>
     <string name="diagnostics_headline_waiting">等待下一次诊断会话</string>
-    <string name="diagnostics_live_errors_format">运行时数据流中有 %1$d 个错误%2$s</string>
     <string name="diagnostics_live_handover_state_format">网络切换状态:%1$s</string>
     <string name="diagnostics_live_headline_traffic">流量正通过 %1$s 传输</string>
     <string name="diagnostics_live_no_transfer">尚未观察到传输</string>
-    <string name="diagnostics_live_warnings_format">运行时数据流中有 %1$d 个警告%2$s</string>
     <string name="diagnostics_metric_dns_latency_format">%1$d 毫秒</string>
     <string name="diagnostics_metric_failure_class">失败类型</string>
     <string name="diagnostics_metric_latest_native_failure">最新的原生失败</string>
@@ -2367,7 +2364,6 @@ fake_burst 3</string>
     <string name="diagnostics_live_body_waiting">持续监视器正在等待活动的 RIPDPI 会话。</string>
     <string name="diagnostics_live_failure_class_format">最新失败类别:%1$s</string>
     <string name="diagnostics_live_headline_attention">运行时需要进一步关注</string>
-    <string name="diagnostics_live_info_events_format">运行时数据流中有 %1$d 个信息事件%2$s</string>
     <string name="diagnostics_live_signal_format">发送 %1$s · 接收 %2$s</string>
     <string name="diagnostics_live_winning_strategy_format">胜出策略族:%1$s</string>
     <string name="diagnostics_metric_dns_latency">DNS 延迟</string>

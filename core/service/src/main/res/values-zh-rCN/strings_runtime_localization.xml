@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="notification_active_sessions">
+        <item quantity="other">%1$d 个活动会话</item>
+    </plurals>
+</resources>

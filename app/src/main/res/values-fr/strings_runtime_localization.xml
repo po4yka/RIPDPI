@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="diagnostics_live_errors_format">
+        <item quantity="one">%1$d erreur dans le flux d’événements</item>
+        <item quantity="many">%1$d erreurs dans le flux d’événements</item>
+        <item quantity="other">%1$d erreurs dans le flux d’événements</item>
+    </plurals>
+    <plurals name="diagnostics_live_warnings_format">
+        <item quantity="one">%1$d avertissement dans le flux d’événements</item>
+        <item quantity="many">%1$d avertissements dans le flux d’événements</item>
+        <item quantity="other">%1$d avertissements dans le flux d’événements</item>
+    </plurals>
+    <plurals name="diagnostics_live_info_events_format">
+        <item quantity="one">%1$d événement informatif dans le flux d’événements</item>
+        <item quantity="many">%1$d événements informatifs dans le flux d’événements</item>
+        <item quantity="other">%1$d événements informatifs dans le flux d’événements</item>
+    </plurals>
+    <plurals name="diagnostics_live_error_count">
+        <item quantity="one">%1$d erreur</item>
+        <item quantity="many">%1$d erreurs</item>
+        <item quantity="other">%1$d erreurs</item>
+    </plurals>
+    <plurals name="diagnostics_live_warning_count">
+        <item quantity="one">%1$d avertissement</item>
+        <item quantity="many">%1$d avertissements</item>
+        <item quantity="other">%1$d avertissements</item>
+    </plurals>
+    <string name="diagnostics_live_errors_and_warnings_format">%1$s \u00b7 %2$s dans le flux d’événements</string>
+</resources>

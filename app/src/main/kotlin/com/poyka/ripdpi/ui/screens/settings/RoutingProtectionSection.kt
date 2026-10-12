@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppRoutingPolicyModeOff
@@ -14,6 +15,7 @@ import com.poyka.ripdpi.data.AppRoutingPolicyModePrompt
 import com.poyka.ripdpi.data.DhtMitigationModeBypass
 import com.poyka.ripdpi.data.DhtMitigationModeDropWarn
 import com.poyka.ripdpi.data.DhtMitigationModeOff
+import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -32,6 +34,7 @@ internal fun LazyListScope.routingProtectionSection(
     onAppRoutingPresetEnabledChanged: (String, Boolean) -> Unit,
 ) {
     item(key = "advanced_routing_protection") {
+        val presenter = RoutingProtectionPresenter(AndroidStringResolver(LocalContext.current))
         val sectionEnabled = visualEditorEnabled && !uiState.enableCmdSettings
         val policyOptions = routingProtectionPolicyOptions()
         val dhtOptions = routingProtectionDhtOptions()
@@ -69,7 +72,8 @@ internal fun LazyListScope.routingProtectionSection(
                     onSelected = { _, value -> onDhtMitigationModeSelected(value) },
                     showDivider = uiState.routingProtection.presets.isNotEmpty(),
                 )
-                uiState.routingProtection.presets.forEachIndexed { index, preset ->
+                uiState.routingProtection.presets.forEachIndexed { index, sourcePreset ->
+                    val preset = presenter.preset(sourcePreset)
                     SettingsRow(
                         title = preset.title,
                         subtitle = routingProtectionPresetSubtitle(preset.fixCoverage, preset.detectionMethod),
@@ -144,6 +148,7 @@ private fun RoutingProtectionSummaryCard(
     uiState: SettingsUiState,
     modifier: Modifier = Modifier,
 ) {
+    val presenter = RoutingProtectionPresenter(AndroidStringResolver(LocalContext.current))
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
@@ -169,11 +174,12 @@ private fun RoutingProtectionSummaryCard(
                 color = colors.foreground,
             )
             Text(
-                text = uiState.routingProtection.transportVpnDisclosure,
+                text = presenter.disclosure(),
                 style = type.caption,
                 color = colors.mutedForeground,
             )
-            uiState.routingProtection.suggestions.forEach { suggestion ->
+            uiState.routingProtection.suggestions.forEach { sourceSuggestion ->
+                val suggestion = presenter.suggestion(sourceSuggestion)
                 Text(
                     text =
                         stringResource(

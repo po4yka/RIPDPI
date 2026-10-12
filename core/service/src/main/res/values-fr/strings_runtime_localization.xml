@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="notification_active_sessions">
+        <item quantity="one">%1$d session active</item>
+        <item quantity="many">%1$d sessions actives</item>
+        <item quantity="other">%1$d sessions actives</item>
+    </plurals>
+</resources>

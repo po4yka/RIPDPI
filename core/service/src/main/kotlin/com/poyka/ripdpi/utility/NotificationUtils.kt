@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
@@ -27,7 +28,7 @@ fun registerNotificationChannel(
     val channel =
         NotificationChannel(
             id,
-            context.getString(name),
+            ContextCompat.getString(context, name),
             NotificationManager.IMPORTANCE_DEFAULT,
         )
     channel.enableLights(false)
@@ -54,13 +55,13 @@ fun createConnectionNotification(
         .Builder(context, channelId)
         .setSmallIcon(R.drawable.ic_notification)
         .setSilent(true)
-        .setContentTitle(context.getString(title))
-        .setContentText(context.getString(content))
+        .setContentTitle(ContextCompat.getString(context, title))
+        .setContentText(ContextCompat.getString(context, content))
         .apply {
             if (showStopAction) {
                 addAction(
                     R.drawable.ic_notification,
-                    context.getString(R.string.notification_stop),
+                    ContextCompat.getString(context, R.string.notification_stop),
                     stopPendingIntent(context, service),
                 )
             }
@@ -99,7 +100,7 @@ fun createDynamicConnectionNotification(
             if (showStopAction) {
                 addAction(
                     R.drawable.ic_notification,
-                    context.getString(R.string.notification_stop),
+                    ContextCompat.getString(context, R.string.notification_stop),
                     stopPendingIntent(context, service),
                 )
             }

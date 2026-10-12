@@ -2448,10 +2448,6 @@ Fonte: %2$s</string>
     <string name="diagnostics_live_signal_format">%1$s enviados \u00b7 %2$s recebidos</string>
     <string name="diagnostics_live_no_transfer">Nenhuma transferência observada ainda</string>
 
-    <string name="diagnostics_live_errors_and_warnings_format">%1$d erro%2$s \u00b7 %3$d aviso%4$s no feed de runtime</string>
-    <string name="diagnostics_live_errors_format">%1$d erro%2$s no feed de runtime</string>
-    <string name="diagnostics_live_warnings_format">%1$d aviso%2$s no feed de runtime</string>
-    <string name="diagnostics_live_info_events_format">%1$d evento informativo%2$s no feed de runtime</string>
     <string name="diagnostics_live_feed_quiet">O feed de runtime está silencioso</string>
 
     <string name="diagnostics_scan_automatic_audit">Auditoria automática</string>

@@ -344,6 +344,16 @@ class HomeModeCardUiStateTest {
     )
 
     private class ResourceStringResolver : StringResolver {
+        override fun getQuantityString(
+            resId: Int,
+            quantity: Int,
+            vararg formatArgs: Any,
+        ): String =
+            org.robolectric.RuntimeEnvironment
+                .getApplication()
+                .resources
+                .getQuantityString(resId, quantity, *formatArgs)
+
         private val application: Application = RuntimeEnvironment.getApplication()
 
         override fun getString(

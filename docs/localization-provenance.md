@@ -57,6 +57,27 @@ disclosed here and in the `values-pt-rBR/strings.xml` header comment.
 Native-speaker review of `pt-BR` is tracked as follow-up and does not block the
 locale shipping.
 
+## Russian audit corrections (2026-10-12)
+
+The source baseline was `15b634db6d68a152957d388ddcbce83cc0b9f539`.
+This pass corrected 147 existing Russian strings from the confirmed audit.
+It covers sensitive-settings warnings, permission privacy text, action labels,
+update and profile-sharing flows, technical meanings, and browser remediation.
+It also moves runtime event counts and active-session counts to Android plurals.
+
+The new diagnostic presentation resources have translations in all ten locales.
+The translated source set now has 4,848 app entries (4,827 strings and 21 plural
+resources) and 11 service entries (10 strings and one plural resource).
+The source string manifest has 4,837 keys. These counts exclude resources marked
+`translatable="false"` and the separate Quick Connect resource set.
+
+The new translations were authored with an AI assistant. XML structure, key
+parity, format arguments, Russian plural categories, and the audited safety and
+action meanings were checked locally. The resource regression suite has four
+passing tests; it reports 11 failures against the source baseline. This entry
+does not record a new maintainer or native-speaker sign-off for other locales.
+It does not claim a device test or a full linguistic review of the app.
+
 ## Font & glyph coverage
 
 The brand typeface (Geist Sans / Geist Mono, bundled under

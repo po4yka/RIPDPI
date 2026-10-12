@@ -5,10 +5,10 @@ import android.app.Service
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.PauseIntent
 import com.poyka.ripdpi.data.PausePhase
-import java.text.DateFormat
 import java.util.Date
 
 internal fun startPausedForeground(
@@ -17,12 +17,13 @@ internal fun startPausedForeground(
     channel: String,
     notificationId: Int,
 ) {
+    val localizedContext = ContextCompat.getContextForLanguage(service)
     val deadline =
         android.text.format.DateFormat
-            .getTimeFormat(service)
+            .getTimeFormat(localizedContext)
             .format(Date(intent.deadlineWallMillis))
     val content =
-        service.getString(
+        localizedContext.getString(
             when (intent.phase) {
                 PausePhase.Paused -> R.string.pause_notification_until
                 PausePhase.CleanupPending, PausePhase.Releasing -> R.string.pause_notification_cleanup
@@ -38,7 +39,7 @@ internal fun startPausedForeground(
             .setSilent(true)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .setContentTitle(service.getString(R.string.pause_notification_title))
+            .setContentTitle(localizedContext.getString(R.string.pause_notification_title))
             .setContentText(content)
             .setContentIntent(
                 PendingIntent.getActivity(
@@ -51,13 +52,13 @@ internal fun startPausedForeground(
                 if (intent.phase == PausePhase.Paused || intent.phase == PausePhase.Deferred) {
                     addAction(
                         R.drawable.ic_notification,
-                        service.getString(R.string.pause_notification_resume),
+                        localizedContext.getString(R.string.pause_notification_resume),
                         TimedPauseController.pendingIntent(service, intent, TimedPauseController.PauseResumeAction),
                     )
                 }
             }.addAction(
                 R.drawable.ic_notification,
-                service.getString(R.string.notification_stop),
+                localizedContext.getString(R.string.notification_stop),
                 TimedPauseController.pendingIntent(service, intent, TimedPauseController.PauseStopAction),
             ).build()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

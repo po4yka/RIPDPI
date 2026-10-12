@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.utility
 
+import android.content.Context
+import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.core.service.R
 import java.util.Locale
 
 internal object NotificationContentBuilder {
@@ -21,12 +24,18 @@ internal object NotificationContentBuilder {
     }
 
     fun buildSubText(
+        context: Context,
         activeSessions: Long,
         rttMs: Long?,
     ): String? {
         if (activeSessions <= 0 && rttMs == null) return null
+        val resources = ContextCompat.getContextForLanguage(context).resources
         return buildList {
-            if (activeSessions > 0) add("$activeSessions active sessions")
+            if (activeSessions > 0) {
+                // Android plural selection takes an Int; preserve the exact Long in the label.
+                val quantity = activeSessions.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                add(resources.getQuantityString(R.plurals.notification_active_sessions, quantity, activeSessions))
+            }
             if (rttMs != null && rttMs > 0) add("RTT ${rttMs}ms")
         }.joinToString("  \u00B7  ")
     }

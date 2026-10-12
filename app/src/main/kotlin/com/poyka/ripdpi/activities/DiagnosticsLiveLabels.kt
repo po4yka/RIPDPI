@@ -124,23 +124,21 @@ internal fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List
         errorCount > 0 && warningCount > 0 -> {
             context.getString(
                 R.string.diagnostics_live_errors_and_warnings_format,
-                errorCount,
-                pluralSuffix(errorCount),
-                warningCount,
-                pluralSuffix(warningCount),
+                context.getQuantityString(R.plurals.diagnostics_live_error_count, errorCount, errorCount),
+                context.getQuantityString(R.plurals.diagnostics_live_warning_count, warningCount, warningCount),
             )
         }
 
         errorCount > 0 -> {
-            context.getString(R.string.diagnostics_live_errors_format, errorCount, pluralSuffix(errorCount))
+            context.getQuantityString(R.plurals.diagnostics_live_errors_format, errorCount, errorCount)
         }
 
         warningCount > 0 -> {
-            context.getString(R.string.diagnostics_live_warnings_format, warningCount, pluralSuffix(warningCount))
+            context.getQuantityString(R.plurals.diagnostics_live_warnings_format, warningCount, warningCount)
         }
 
         events.isNotEmpty() -> {
-            context.getString(R.string.diagnostics_live_info_events_format, events.size, pluralSuffix(events.size))
+            context.getQuantityString(R.plurals.diagnostics_live_info_events_format, events.size, events.size)
         }
 
         else -> {
@@ -148,5 +146,3 @@ internal fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List
         }
     }
 }
-
-private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"

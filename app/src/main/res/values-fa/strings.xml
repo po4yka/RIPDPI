@@ -1580,10 +1580,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_headline_degraded">مسیر شبکه نیاز به توجه دارد</string>
     <string name="diagnostics_headline_probe_active">پویش راهبرد در حال اجراست</string>
     <string name="diagnostics_live_body_waiting">پایشگر پیوسته منتظر یک نشست فعال RIPDPI است.</string>
-    <string name="diagnostics_live_errors_format">%1$d خطا%2$s در فید زمان اجرا</string>
     <string name="diagnostics_live_handover_format">تحویل اخیر شبکه شناسایی شد: %1$s</string>
     <string name="diagnostics_live_headline_error">زمان اجرا نیازمند مداخله است</string>
-    <string name="diagnostics_live_info_events_format">%1$d رویداد اطلاعاتی%2$s در فید زمان اجرا</string>
     <string name="diagnostics_live_no_transfer">هنوز هیچ انتقالی مشاهده نشده</string>
     <string name="diagnostics_live_updated_format">به‌روزرسانی‌شده %1$s</string>
     <string name="diagnostics_metric_approach">رویکرد</string>
@@ -2016,7 +2014,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_live_headline_standby">مانیتور زنده در حالت آماده‌باش</string>
     <string name="diagnostics_live_mode_summary_format">حالت %1$s · %2$s منتقل شد · %3$d بسته مشاهده شد</string>
     <string name="diagnostics_live_signal_format">%1$s ارسال · %2$s دریافت</string>
-    <string name="diagnostics_live_warnings_format">%1$d هشدار%2$s در جریان زمان اجرا</string>
     <string name="diagnostics_metric_dns_failures">شکست‌های DNS</string>
     <string name="diagnostics_metric_errors">خطاها</string>
     <string name="diagnostics_metric_fallback_action">اقدام بازگشتی</string>
@@ -2438,7 +2435,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_headline_attention">تشخیص‌ها سیگنال‌های مختلطی گزارش می‌دهند</string>
     <string name="diagnostics_headline_no_data">هنوز تشخیصی ثبت نشده است</string>
     <string name="diagnostics_headline_waiting">در انتظار جلسه تشخیصی بعدی</string>
-    <string name="diagnostics_live_errors_and_warnings_format">%1$d خطا%2$s · %3$d هشدار%4$s در جریان زنده</string>
     <string name="diagnostics_live_feed_quiet">جریان زنده ساکت است</string>
     <string name="diagnostics_live_headline_attention">زمان اجرا نیاز به بررسی دقیق‌تر دارد</string>
     <string name="diagnostics_live_headline_traffic">ترافیک از طریق %1$s در حال جابجایی است</string>

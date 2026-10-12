@@ -246,6 +246,17 @@ class FakeInstrumentedPermissionPlatformBridge(
 }
 
 class FakeInstrumentedStringResolver : StringResolver {
+    override fun getQuantityString(
+        resId: Int,
+        quantity: Int,
+        vararg formatArgs: Any,
+    ): String =
+        androidx.test.platform.app.InstrumentationRegistry
+            .getInstrumentation()
+            .targetContext
+            .resources
+            .getQuantityString(resId, quantity, *formatArgs)
+
     override fun getString(
         resId: Int,
         vararg formatArgs: Any,

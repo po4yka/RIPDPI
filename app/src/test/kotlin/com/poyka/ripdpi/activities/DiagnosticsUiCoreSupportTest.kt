@@ -23,6 +23,16 @@ class DiagnosticsUiCoreSupportTest {
     fun `canonical connectivity counts are localized without changing counts`() {
         val resolver =
             object : StringResolver {
+                override fun getQuantityString(
+                    resId: Int,
+                    quantity: Int,
+                    vararg formatArgs: Any,
+                ): String =
+                    org.robolectric.RuntimeEnvironment
+                        .getApplication()
+                        .resources
+                        .getQuantityString(resId, quantity, *formatArgs)
+
                 override fun getString(
                     resId: Int,
                     vararg formatArgs: Any,
@@ -202,6 +212,16 @@ class DiagnosticsUiCoreSupportTest {
     fun `partial completion preserves availability and reason severity`() {
         val resolver =
             object : StringResolver {
+                override fun getQuantityString(
+                    resId: Int,
+                    quantity: Int,
+                    vararg formatArgs: Any,
+                ): String =
+                    org.robolectric.RuntimeEnvironment
+                        .getApplication()
+                        .resources
+                        .getQuantityString(resId, quantity, *formatArgs)
+
                 override fun getString(
                     resId: Int,
                     vararg formatArgs: Any,

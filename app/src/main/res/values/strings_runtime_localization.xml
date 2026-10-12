@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="diagnostics_live_errors_format">
+        <item quantity="one">%1$d error in runtime feed</item>
+        <item quantity="other">%1$d errors in runtime feed</item>
+    </plurals>
+    <plurals name="diagnostics_live_warnings_format">
+        <item quantity="one">%1$d warning in runtime feed</item>
+        <item quantity="other">%1$d warnings in runtime feed</item>
+    </plurals>
+    <plurals name="diagnostics_live_info_events_format">
+        <item quantity="one">%1$d informational event in runtime feed</item>
+        <item quantity="other">%1$d informational events in runtime feed</item>
+    </plurals>
+    <plurals name="diagnostics_live_error_count">
+        <item quantity="one">%1$d error</item>
+        <item quantity="other">%1$d errors</item>
+    </plurals>
+    <plurals name="diagnostics_live_warning_count">
+        <item quantity="one">%1$d warning</item>
+        <item quantity="other">%1$d warnings</item>
+    </plurals>
+    <string name="diagnostics_live_errors_and_warnings_format">%1$s \u00b7 %2$s in runtime feed</string>
+</resources>

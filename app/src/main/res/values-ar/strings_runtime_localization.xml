@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="diagnostics_live_errors_format">
+        <item quantity="zero">%1$d أخطاء في تدفق الأحداث</item>
+        <item quantity="one">%1$d خطأ في تدفق الأحداث</item>
+        <item quantity="two">%1$d خطآن في تدفق الأحداث</item>
+        <item quantity="few">%1$d أخطاء في تدفق الأحداث</item>
+        <item quantity="many">%1$d خطأً في تدفق الأحداث</item>
+        <item quantity="other">%1$d خطأ في تدفق الأحداث</item>
+    </plurals>
+    <plurals name="diagnostics_live_warnings_format">
+        <item quantity="zero">%1$d تحذيرات في تدفق الأحداث</item>
+        <item quantity="one">%1$d تحذير في تدفق الأحداث</item>
+        <item quantity="two">%1$d تحذيران في تدفق الأحداث</item>
+        <item quantity="few">%1$d تحذيرات في تدفق الأحداث</item>
+        <item quantity="many">%1$d تحذيراً في تدفق الأحداث</item>
+        <item quantity="other">%1$d تحذير في تدفق الأحداث</item>
+    </plurals>
+    <plurals name="diagnostics_live_info_events_format">
+        <item quantity="zero">%1$d أحداث معلوماتية في تدفق الأحداث</item>
+        <item quantity="one">%1$d حدث معلوماتي في تدفق الأحداث</item>
+        <item quantity="two">%1$d حدثان معلوماتيان في تدفق الأحداث</item>
+        <item quantity="few">%1$d أحداث معلوماتية في تدفق الأحداث</item>
+        <item quantity="many">%1$d حدثاً معلوماتياً في تدفق الأحداث</item>
+        <item quantity="other">%1$d حدث معلوماتي في تدفق الأحداث</item>
+    </plurals>
+    <plurals name="diagnostics_live_error_count">
+        <item quantity="zero">%1$d أخطاء</item>
+        <item quantity="one">%1$d خطأ</item>
+        <item quantity="two">%1$d خطآن</item>
+        <item quantity="few">%1$d أخطاء</item>
+        <item quantity="many">%1$d خطأً</item>
+        <item quantity="other">%1$d خطأ</item>
+    </plurals>
+    <plurals name="diagnostics_live_warning_count">
+        <item quantity="zero">%1$d تحذيرات</item>
+        <item quantity="one">%1$d تحذير</item>
+        <item quantity="two">%1$d تحذيران</item>
+        <item quantity="few">%1$d تحذيرات</item>
+        <item quantity="many">%1$d تحذيراً</item>
+        <item quantity="other">%1$d تحذير</item>
+    </plurals>
+    <string name="diagnostics_live_errors_and_warnings_format">%1$s \u00b7 %2$s في تدفق الأحداث</string>
+</resources>

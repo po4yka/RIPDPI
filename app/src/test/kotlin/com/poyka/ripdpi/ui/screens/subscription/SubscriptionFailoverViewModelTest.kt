@@ -42,6 +42,16 @@ class SubscriptionFailoverViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private class ResourceStringResolver : StringResolver {
+        override fun getQuantityString(
+            resId: Int,
+            quantity: Int,
+            vararg formatArgs: Any,
+        ): String =
+            org.robolectric.RuntimeEnvironment
+                .getApplication()
+                .resources
+                .getQuantityString(resId, quantity, *formatArgs)
+
         private val strings =
             mapOf(
                 R.string.subscription_failover_no_servers to "No subscription servers observed yet",

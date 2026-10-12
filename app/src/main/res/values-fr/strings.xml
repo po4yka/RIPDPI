@@ -169,7 +169,6 @@
     <string name="diagnostics_health_idle">Inactif</string>
     <string name="diagnostics_hidden_probe_dismiss_action">Ignorer</string>
     <string name="diagnostics_history_section">Historique</string>
-    <string name="diagnostics_live_errors_format">%1$d erreur%2$s dans le flux d\'exécution</string>
     <string name="diagnostics_live_headline_attention">Le runtime nécessite un examen approfondi</string>
     <string name="diagnostics_live_mode_summary_format">Mode %1$s · %2$s transférés · %3$d paquets observés</string>
     <string name="diagnostics_live_telemetry_error_format">Problème d\'interrogation de la télémétrie : %1$s</string>
@@ -1280,7 +1279,6 @@ fake_burst 3</string>
     <string name="diagnostics_live_feed_quiet">Le flux d\'exécution est silencieux</string>
     <string name="diagnostics_live_headline_standby">Moniteur en direct en veille</string>
     <string name="diagnostics_live_no_transfer">Aucun transfert observé pour l\'instant</string>
-    <string name="diagnostics_live_warnings_format">%1$d avertissement%2$s dans le flux d\'exécution</string>
     <string name="diagnostics_metric_dns_latency_format">%1$d ms</string>
     <string name="diagnostics_metric_handover_state">État du transfert</string>
     <string name="diagnostics_metric_packets">Paquets</string>
@@ -2410,9 +2408,7 @@ Source : %2$s</string>
     <string name="diagnostics_health_healthy">Sain</string>
     <string name="diagnostics_hidden_probe_conflict_title">Le sondage automatique en arrière-plan est actif</string>
     <string name="diagnostics_history_background_probe_badge">Sondage automatique en arrière-plan</string>
-    <string name="diagnostics_live_errors_and_warnings_format">%1$d erreur%2$s · %3$d avertissement%4$s dans le flux d\'exécution</string>
     <string name="diagnostics_live_handover_state_format">État du transfert réseau : %1$s</string>
-    <string name="diagnostics_live_info_events_format">%1$d événement informatif%2$s dans le flux d\'exécution</string>
     <string name="diagnostics_live_signal_format">%1$s envoyés · %2$s reçus</string>
     <string name="diagnostics_metric_approach">Approche</string>
     <string name="diagnostics_metric_events">Événements</string>

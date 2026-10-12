@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="diagnostics_live_errors_format">
+        <item quantity="other">在事件流中%1$d 个错误</item>
+    </plurals>
+    <plurals name="diagnostics_live_warnings_format">
+        <item quantity="other">在事件流中%1$d 个警告</item>
+    </plurals>
+    <plurals name="diagnostics_live_info_events_format">
+        <item quantity="other">在事件流中%1$d 个信息事件</item>
+    </plurals>
+    <plurals name="diagnostics_live_error_count">
+        <item quantity="other">%1$d 个错误</item>
+    </plurals>
+    <plurals name="diagnostics_live_warning_count">
+        <item quantity="other">%1$d 个警告</item>
+    </plurals>
+    <string name="diagnostics_live_errors_and_warnings_format">%1$s \u00b7 %2$s 在事件流中</string>
+</resources>

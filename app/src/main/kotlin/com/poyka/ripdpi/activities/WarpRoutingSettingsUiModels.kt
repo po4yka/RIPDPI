@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.DhtMitigationModeOff
+import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
 import com.poyka.ripdpi.data.WarpEndpointSelectionAutomatic
@@ -135,6 +136,10 @@ data class RoutingProtectionSuggestionUiState(
     val id: String,
     val title: String,
     val body: String,
+    val bodyVariant: String = "",
+    val evidenceDetail: String? = null,
+    val correlationDestination: String? = null,
+    val correlationFailureClass: FailureClass? = null,
 )
 
 @Stable

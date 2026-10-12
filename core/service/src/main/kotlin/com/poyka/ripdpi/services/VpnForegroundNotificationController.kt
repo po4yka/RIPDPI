@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -53,6 +54,7 @@ internal class VpnForegroundNotificationController(
             )
         val subText =
             NotificationContentBuilder.buildSubText(
+                context = service,
                 activeSessions = proxyTelemetry.activeSessions,
                 rttMs = proxyTelemetry.upstreamRttMs,
             )
@@ -60,7 +62,7 @@ internal class VpnForegroundNotificationController(
             createDynamicConnectionNotification(
                 context = service,
                 channelId = NotificationChannelId,
-                title = service.getString(R.string.notification_title),
+                title = ContextCompat.getString(service, R.string.notification_title),
                 content = content,
                 subText = subText,
                 service = RipDpiVpnService::class.java,

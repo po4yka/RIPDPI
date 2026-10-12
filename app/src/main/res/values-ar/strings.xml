@@ -2372,10 +2372,6 @@ fakeddisorder endhost</string>
     <string name="diagnostics_live_mode_summary_format">%1$s وضع \u00b7 %2$s منقول \u00b7 %3$d حزمة مرصودة</string>
     <string name="diagnostics_live_signal_format">%1$s مُرسَل \u00b7 %2$s مُستقبَل</string>
     <string name="diagnostics_live_no_transfer">لم يُرصد أي نقل بعد</string>
-    <string name="diagnostics_live_errors_and_warnings_format">%1$d خطأ%2$s \u00b7 %3$d تحذير%4$s في تغذية بيئة التشغيل</string>
-    <string name="diagnostics_live_errors_format">%1$d خطأ%2$s في تغذية بيئة التشغيل</string>
-    <string name="diagnostics_live_warnings_format">%1$d تحذير%2$s في تغذية بيئة التشغيل</string>
-    <string name="diagnostics_live_info_events_format">%1$d حدث إعلامي%2$s في تغذية بيئة التشغيل</string>
     <string name="diagnostics_live_feed_quiet">تغذية بيئة التشغيل هادئة</string>
     <string name="diagnostics_scan_automatic_audit">تدقيق تلقائي</string>
     <string name="diagnostics_scan_automatic_probing">اختبار تلقائي</string>

@@ -179,6 +179,15 @@ private fun AppSettings.buildRoutingProtectionSuggestions(
                     id = "dht_mitigation",
                     title = "Suggest DHT trigger mitigation",
                     body = dhtMitigationSuggestionBody(serviceTelemetry),
+                    bodyVariant =
+                        when {
+                            serviceTelemetry.runtimeFieldTelemetry.dhtTriggerCorrelationReason != null -> "correlated"
+                            serviceTelemetry.hasRecentRoutingPressure() -> "runtime_pressure"
+                            else -> "active"
+                        },
+                    evidenceDetail = serviceTelemetry.runtimeFieldTelemetry.dhtTriggerCorrelationReason,
+                    correlationDestination = serviceTelemetry.tunnelTelemetry.lastDhtTriggerEndpoint,
+                    correlationFailureClass = serviceTelemetry.runtimeFieldTelemetry.failureClass,
                 ),
             )
         }

@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.provider.Settings
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
@@ -47,6 +49,12 @@ interface StringResolver {
         @StringRes resId: Int,
         vararg formatArgs: Any,
     ): String
+
+    fun getQuantityString(
+        @PluralsRes resId: Int,
+        quantity: Int,
+        vararg formatArgs: Any,
+    ): String
 }
 
 @Singleton
@@ -58,7 +66,14 @@ class AndroidStringResolver
         override fun getString(
             @StringRes resId: Int,
             vararg formatArgs: Any,
-        ): String = context.getString(resId, *formatArgs)
+        ): String = ContextCompat.getContextForLanguage(context).getString(resId, *formatArgs)
+
+        override fun getQuantityString(
+            @PluralsRes resId: Int,
+            quantity: Int,
+            vararg formatArgs: Any,
+        ): String =
+            ContextCompat.getContextForLanguage(context).resources.getQuantityString(resId, quantity, *formatArgs)
     }
 
 interface PermissionPlatformBridge {

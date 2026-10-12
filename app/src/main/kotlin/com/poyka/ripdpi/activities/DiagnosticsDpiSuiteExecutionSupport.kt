@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
@@ -26,6 +27,7 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -149,20 +151,22 @@ internal fun MutableList<DiagnosticsDpiSuiteProbeRowUiModel>.upsert(row: Diagnos
     if (index >= 0) this[index] = row else add(row)
 }
 
-internal fun DpiProbeKind.startedRow(): DiagnosticsDpiSuiteProbeRowUiModel =
+internal fun DpiProbeKind.startedRow(stringResolver: StringResolver): DiagnosticsDpiSuiteProbeRowUiModel =
     DiagnosticsDpiSuiteProbeRowUiModel(
         kind = this,
-        label = displayLabel(),
-        status = "running",
-        detail = "Probe is in progress.",
+        label = displayLabel(stringResolver),
+        status = stringResolver.getString(R.string.diagnostics_status_running),
+        detail = stringResolver.getString(R.string.diagnostics_dpi_suite_probe_running),
         tone = DiagnosticsTone.Info,
     )
 
-internal fun DpiSuiteEvent.ProbeProgress.progressRow(): DiagnosticsDpiSuiteProbeRowUiModel =
+internal fun DpiSuiteEvent.ProbeProgress.progressRow(
+    stringResolver: StringResolver,
+): DiagnosticsDpiSuiteProbeRowUiModel =
     DiagnosticsDpiSuiteProbeRowUiModel(
         kind = kind,
-        label = kind.displayLabel(),
-        status = "running",
-        detail = "$completed/$total steps complete.",
+        label = kind.displayLabel(stringResolver),
+        status = stringResolver.getString(R.string.diagnostics_status_running),
+        detail = stringResolver.getString(R.string.diagnostics_dpi_suite_progress_format, completed, total),
         tone = DiagnosticsTone.Info,
     )

@@ -2499,10 +2499,6 @@ Source: %2$s</string>
     <string name="diagnostics_live_no_transfer">No transfer observed yet</string>
 
     <!-- Diagnostics live event summary -->
-    <string name="diagnostics_live_errors_and_warnings_format">%1$d error%2$s \u00b7 %3$d warning%4$s in runtime feed</string>
-    <string name="diagnostics_live_errors_format">%1$d error%2$s in runtime feed</string>
-    <string name="diagnostics_live_warnings_format">%1$d warning%2$s in runtime feed</string>
-    <string name="diagnostics_live_info_events_format">%1$d informational event%2$s in runtime feed</string>
     <string name="diagnostics_live_feed_quiet">Runtime feed is quiet</string>
 
     <!-- Diagnostics scan UI -->

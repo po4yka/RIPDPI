@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="diagnostics_live_errors_format">
+        <item quantity="one">%1$d त्रुटि इवेंट स्ट्रीम में</item>
+        <item quantity="other">%1$d त्रुटियाँ इवेंट स्ट्रीम में</item>
+    </plurals>
+    <plurals name="diagnostics_live_warnings_format">
+        <item quantity="one">%1$d चेतावनी इवेंट स्ट्रीम में</item>
+        <item quantity="other">%1$d चेतावनियाँ इवेंट स्ट्रीम में</item>
+    </plurals>
+    <plurals name="diagnostics_live_info_events_format">
+        <item quantity="one">%1$d सूचनात्मक घटना इवेंट स्ट्रीम में</item>
+        <item quantity="other">%1$d सूचनात्मक घटनाएँ इवेंट स्ट्रीम में</item>
+    </plurals>
+    <plurals name="diagnostics_live_error_count">
+        <item quantity="one">%1$d त्रुटि</item>
+        <item quantity="other">%1$d त्रुटियाँ</item>
+    </plurals>
+    <plurals name="diagnostics_live_warning_count">
+        <item quantity="one">%1$d चेतावनी</item>
+        <item quantity="other">%1$d चेतावनियाँ</item>
+    </plurals>
+    <string name="diagnostics_live_errors_and_warnings_format">%1$s \u00b7 %2$s इवेंट स्ट्रीम में</string>
+</resources>

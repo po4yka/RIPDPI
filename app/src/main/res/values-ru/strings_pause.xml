@@ -12,7 +12,7 @@
     <string name="pause_stop">Остановить и отменить возобновление</string>
     <string name="pause_persistence_failed">Не удалось сохранить команду. Состояние соединения не изменилось.</string>
     <string name="pause_duration_minutes">%1$s мин.</string>
-    <string name="pause_clock_failed">Часы или идентификатор загрузки изменились. Проверьте условия возобновления.</string>
+    <string name="pause_clock_failed">Изменились часы или идентификатор загрузки устройства. Выберите «Возобновить сейчас», чтобы проверить восстановление.</string>
     <string name="pause_consent_required">Для возобновления нужно разрешение VPN.</string>
     <string name="pause_lockdown">Состояние блокировки VPN в Android не разрешает это действие.</string>
     <string name="pause_background_restricted">Android отложил фоновое возобновление. Откройте приложение.</string>
