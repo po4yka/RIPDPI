@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,12 +18,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -109,60 +115,99 @@ private fun WarningBannerContent(
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val wordMinWidth =
+        maxOf(
+            measurer
+                .measure(AnnotatedString(title), style = type.bodyEmphasis.copy(hyphens = Hyphens.None))
+                .multiParagraph.minIntrinsicWidth,
+            measurer
+                .measure(AnnotatedString(message), style = type.secondaryBody.copy(hyphens = Hyphens.None))
+                .multiParagraph.minIntrinsicWidth,
+        )
+    val reservedWidth =
+        components.feedback.decorativeBadgeSize + spacing.md +
+            if (onDismiss != null) components.buttons.iconButtonSize + spacing.md else 0.dp
 
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = layout.cardPadding, vertical = spacing.lg),
-        horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        verticalAlignment = Alignment.Top,
+    BoxWithConstraints(
+        Modifier.fillMaxWidth().padding(horizontal = layout.cardPadding, vertical = spacing.lg),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(components.feedback.decorativeBadgeSize)
-                    .background(state.iconContainer, RipDpiThemeTokens.shapes.full),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = state.icon,
-                modifier = Modifier.size(RipDpiIconSizes.Large),
-            )
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs),
-        ) {
-            Text(
-                text = title,
-                style = type.bodyEmphasis,
-                color = state.title,
-            )
-            Text(
-                text = message,
-                style = type.secondaryBody,
-                color = state.message,
-            )
-        }
-        if (onDismiss != null) {
-            IconButton(
-                onClick = onDismiss,
-                modifier =
-                    Modifier
-                        .size(components.buttons.iconButtonSize)
-                        .ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
+        // Move the controls above the text before they force a word to break.
+        if (with(density) { wordMinWidth.toDp() } > maxWidth - reservedWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WarningBannerLeadingIcon(icon, state)
+                    WarningBannerDismissButton(onDismiss, state)
+                }
+                WarningBannerText(title, message, state)
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                verticalAlignment = Alignment.Top,
             ) {
-                Icon(
-                    imageVector = RipDpiIcons.Close,
-                    contentDescription = stringResource(R.string.action_dismiss),
-                    tint = state.title,
-                    modifier = Modifier.size(RipDpiIconSizes.Default),
-                )
+                WarningBannerLeadingIcon(icon, state)
+                WarningBannerText(title, message, state, Modifier.weight(1f))
+                WarningBannerDismissButton(onDismiss, state)
             }
         }
+    }
+}
+
+@Composable
+private fun WarningBannerLeadingIcon(
+    icon: ImageVector,
+    state: RipDpiBannerStateStyle,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
+                .background(state.iconContainer, RipDpiThemeTokens.shapes.full),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = state.icon, modifier = Modifier.size(RipDpiIconSizes.Large))
+    }
+}
+
+@Composable
+private fun WarningBannerText(
+    title: String,
+    message: String,
+    state: RipDpiBannerStateStyle,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+        Text(title, Modifier.fillMaxWidth(), style = RipDpiThemeTokens.type.bodyEmphasis, color = state.title)
+        Text(message, Modifier.fillMaxWidth(), style = RipDpiThemeTokens.type.secondaryBody, color = state.message)
+    }
+}
+
+@Composable
+private fun WarningBannerDismissButton(
+    onDismiss: (() -> Unit)?,
+    state: RipDpiBannerStateStyle,
+) {
+    if (onDismiss == null) return
+    IconButton(
+        onClick = onDismiss,
+        modifier =
+            Modifier
+                .size(RipDpiThemeTokens.components.buttons.iconButtonSize)
+                .ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
+    ) {
+        Icon(
+            imageVector = RipDpiIcons.Close,
+            contentDescription = stringResource(R.string.action_dismiss),
+            tint = state.title,
+            modifier = Modifier.size(RipDpiIconSizes.Default),
+        )
     }
 }
 
