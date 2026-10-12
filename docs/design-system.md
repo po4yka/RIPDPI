@@ -332,7 +332,8 @@ Motion rules:
 
 - Screens must import icons only from `RipDpiIcons`.
 - The icon language is outlined Material only.
-- Standalone action and navigation icons use `24dp`; smaller roles are for inline markers and chevrons.
+- Standalone action and navigation icons use `24dp`; smaller roles are for inline markers.
+- SettingsRow uses `rows.settingsRowLeadingIconSize` (`32dp`) inside `rows.settingsRowLeadingBadgeSize` (`40dp`). This decorative leading symbol is a local optical adjustment; it is not the default toolbar or navigation icon size. SettingsRow chevrons use `24dp`.
 - Icon size does not reduce the `48dp` minimum interactive area.
 - Exceptions are allowed only for app assets or illustration drawings, not for action or navigation icons.
 

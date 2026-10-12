@@ -684,7 +684,8 @@ Compose implementation uses both cubic easing and spring motion. Reduced-motion 
 Icon rules are strict:
 
 - screens and components import icons only through `RipDpiIcons`
-- standalone action and navigation icons use `24dp`; inline markers and chevrons may use `16dp` or `18dp`
+- standalone action and navigation icons use `24dp`; inline markers may use `16dp` or `18dp`
+- SettingsRow navigation chevrons use `24dp`; decorative leading symbols use `32dp` inside a `40dp` circle for visual balance with the readable text scale
 - visible icon size is separate from the minimum `48dp` interactive area
 - the action and navigation icon language is outlined Material
 - exceptions are limited to app assets and illustration surfaces
