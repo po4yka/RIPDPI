@@ -8,6 +8,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.sp
 import com.poyka.ripdpi.R
 
@@ -37,6 +39,8 @@ private fun sansStyle(
     letterSpacing: Float = 0f,
 ) = TextStyle(
     fontFamily = GeistSansFamily,
+    hyphens = Hyphens.Auto,
+    lineBreak = LineBreak.Simple,
     fontWeight = fontWeight,
     fontSize = fontSize.sp,
     lineHeight = lineHeight.sp,
