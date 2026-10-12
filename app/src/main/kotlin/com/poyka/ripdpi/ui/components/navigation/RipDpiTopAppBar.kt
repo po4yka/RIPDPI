@@ -34,34 +34,44 @@ fun RipDpiTopAppBar(
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
     navigationEnabled: Boolean = true,
-    actions: @Composable RowScope.() -> Unit = {},
+    actions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     val containerMaxWidth = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding
     val separateTitle = LocalDensity.current.fontScale >= TopAppBarStackFontScale
+    val hasControls = (navigationIcon != null && onNavigationClick != null) || actions != null
 
     Box(
         modifier = modifier.fillMaxWidth().padding(horizontal = layout.horizontalPadding),
         contentAlignment = Alignment.Center,
     ) {
         Column(Modifier.widthIn(max = containerMaxWidth).fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = layout.appBarMinHeight),
-                horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TopAppBarNavigation(navigationIcon, onNavigationClick, navigationContentDescription, navigationEnabled)
-                if (separateTitle) {
-                    Spacer(Modifier.weight(1f))
-                } else {
-                    TopAppBarTitle(title, Modifier.weight(1f))
-                }
+            if (!separateTitle || hasControls) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = layout.appBarMinHeight),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
-                    content = actions,
-                )
+                ) {
+                    TopAppBarNavigation(
+                        navigationIcon,
+                        onNavigationClick,
+                        navigationContentDescription,
+                        navigationEnabled,
+                    )
+                    if (separateTitle) {
+                        Spacer(Modifier.weight(1f))
+                    } else {
+                        TopAppBarTitle(title, Modifier.weight(1f))
+                    }
+                    if (actions != null) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
+                            content = actions,
+                        )
+                    }
+                }
             }
             if (separateTitle) {
                 TopAppBarTitle(title, Modifier.fillMaxWidth().padding(bottom = spacing.sm))
