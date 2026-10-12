@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -84,18 +85,25 @@ internal fun OnboardingOptionCard(
                 ),
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            OnboardingRadioIndicator(selected = selected)
-            Text(
-                text = title,
-                style = type.bodyEmphasis,
-                color = colors.foreground,
-                modifier = Modifier.weight(1f),
-            )
+            // Keep the title's natural width. A badge that does not fit moves below it.
+            Row(
+                modifier = Modifier.padding(end = spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OnboardingRadioIndicator(selected = selected)
+                Text(
+                    text = title,
+                    style = type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+            }
             badgeText?.let { OnboardingOptionBadge(text = it) }
         }
         Text(
