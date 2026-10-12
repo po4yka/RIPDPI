@@ -41,9 +41,9 @@ deployment_evidence: No deployment is owned by this change.
 - `./taskctl validate` and `git diff --check`: passed.
 - Independent source review and structured autoreview: no actionable findings.
 
-All Gradle commands used `build-gate`, `-Pripdpi.skipNativeBuild=true`, `-Pripdpi.nativeCpuBudget=4`, and at most four workers. Screenshot verification also used `-Pripdpi.includeRoborazziUnitTests=true`. The final full app test retry used one worker and `--no-daemon`.
+All Gradle commands used `build-gate`, `-Pripdpi.skipNativeBuild=true`, `-Pripdpi.nativeCpuBudget=4`, and at most four workers. Screenshot verification also used `-Pripdpi.includeRoborazziUnitTests=true`. The final full app test retry and the final combined gate used one worker and `--no-daemon`.
 
-One combined rerun failed before a test body when Robolectric 4.17 opened an existing font ZIP filesystem. Its loader retained a loaded flag and caused native-rendering and coroutine failures in later tests. A fresh full app worker passed all 2,376 tests. No test was excluded and native rendering remained enabled.
+Combined reruns failed before a test body when Robolectric 4.17 opened an existing font ZIP filesystem. Its loader retained a loaded flag and caused native-rendering and coroutine failures in later tests. A fresh full app worker passed all 2,376 tests. The final serial combined gate also passed after fetch and rebase against origin/main. No test was excluded and native rendering remained enabled.
 
 ## Scope and evidence limits
 
