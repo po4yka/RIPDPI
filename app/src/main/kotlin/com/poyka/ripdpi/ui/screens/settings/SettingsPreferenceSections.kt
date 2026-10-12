@@ -5,7 +5,8 @@ import androidx.biometric.BiometricManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
@@ -572,8 +573,9 @@ private fun SettingsSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun BackupPinEditor(
+internal fun BackupPinEditor(
     value: String,
     errorText: String?,
     hasSavedPin: Boolean,
@@ -631,9 +633,10 @@ private fun BackupPinEditor(
                     visualTransformation = PasswordVisualTransformation(),
                 ),
         )
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiButton(
                 text = stringResource(R.string.settings_backup_pin_save),
@@ -641,7 +644,6 @@ private fun BackupPinEditor(
                 enabled = canSave,
                 modifier =
                     Modifier
-                        .weight(1f)
                         .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinSave),
             )
             if (hasSavedPin) {
@@ -650,7 +652,6 @@ private fun BackupPinEditor(
                     onClick = onClear,
                     modifier =
                         Modifier
-                            .weight(1f)
                             .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinClear),
                     variant = RipDpiButtonVariant.Outline,
                 )
@@ -679,8 +680,9 @@ private fun FullTunnelHelperFooter(
     HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CommunityApiUrlEditor(
+internal fun CommunityApiUrlEditor(
     value: String,
     onValueChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -718,20 +720,19 @@ private fun CommunityApiUrlEditor(
                         ),
                 ),
         )
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiButton(
                 text = stringResource(R.string.settings_community_api_url_save),
                 onClick = onSave,
-                modifier = Modifier.weight(1f),
             )
             RipDpiButton(
                 text = stringResource(R.string.settings_community_api_url_reset),
                 onClick = onReset,
                 enabled = value.isNotBlank(),
-                modifier = Modifier.weight(1f),
                 variant = RipDpiButtonVariant.Outline,
             )
         }

@@ -2,11 +2,10 @@ package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,8 +49,6 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val relayChipColumns = 2
 
 @Composable
 internal fun ModeEditorRelaySection(
@@ -213,6 +210,7 @@ private fun ModeEditorRelayKindChips(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RelayChipSection(
     sectionKey: String,
@@ -225,7 +223,6 @@ private fun RelayChipSection(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val chipHeight = RipDpiThemeTokens.components.inputs.chipHeight
 
     Column(
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.modeEditorRelaySection(sectionKey)),
@@ -236,29 +233,25 @@ private fun RelayChipSection(
             style = RipDpiThemeTokens.type.caption,
             color = colors.mutedForeground,
         )
-        chips.chunked(relayChipColumns).forEach { rowChips ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                rowChips.forEach { chip ->
-                    RelayChipOption(
-                        chip = chip,
-                        selectedKind = selectedKind,
-                        onRelayKindChanged = onRelayKindChanged,
-                        enabled = enabled && chip.kind !in disabledKinds,
-                    )
-                }
-                repeat(relayChipColumns - rowChips.size) {
-                    Spacer(modifier = Modifier.weight(1f).height(chipHeight))
-                }
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            chips.forEach { chip ->
+                RelayChipOption(
+                    chip = chip,
+                    selectedKind = selectedKind,
+                    onRelayKindChanged = onRelayKindChanged,
+                    enabled = enabled && chip.kind !in disabledKinds,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RowScope.RelayChipOption(
+private fun RelayChipOption(
     chip: RelayChipOption,
     selectedKind: String,
     onRelayKindChanged: (String) -> Unit,
@@ -266,7 +259,6 @@ private fun RowScope.RelayChipOption(
 ) {
     val chipModifier =
         Modifier
-            .height(RipDpiThemeTokens.components.inputs.chipHeight)
             .ripDpiTestTag(RipDpiTestTags.modeEditorRelayChip(chip.kind))
     if (chip.labelRes != null) {
         RelayKindChip(

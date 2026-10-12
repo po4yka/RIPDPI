@@ -5,7 +5,8 @@ import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
@@ -195,8 +196,9 @@ internal fun DomainBypassListScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DomainBypassEditorCard(
+internal fun DomainBypassEditorCard(
     state: DomainBypassListScreenState,
     onTextChanged: (String) -> Unit,
     onSave: () -> Unit,
@@ -231,14 +233,14 @@ private fun DomainBypassEditorCard(
                     ),
                 multiline = true,
             )
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
             ) {
                 RipDpiButton(
                     text = stringResource(R.string.config_save),
                     onClick = onSave,
-                    modifier = Modifier.weight(1f),
                     enabled = state.isDraftInitialized && (state.cleanCount > 0 || state.errors.isEmpty()),
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Check,
@@ -246,20 +248,19 @@ private fun DomainBypassEditorCard(
                 RipDpiButton(
                     text = stringResource(R.string.domain_bypass_paste),
                     onClick = onPasteFromClipboard,
-                    modifier = Modifier.weight(1f),
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Copy,
                 )
             }
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
             ) {
                 RipDpiButton(
                     text = stringResource(R.string.domain_bypass_copy),
                     onClick = onCopyToClipboard,
-                    modifier = Modifier.weight(1f),
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
                     leadingIcon = RipDpiIcons.Share,
@@ -267,7 +268,6 @@ private fun DomainBypassEditorCard(
                 RipDpiButton(
                     text = stringResource(R.string.domain_bypass_move_to_editor),
                     onClick = onMoveToRuleEditor,
-                    modifier = Modifier.weight(1f),
                     variant = RipDpiButtonVariant.Ghost,
                     density = RipDpiControlDensity.Compact,
                     enabled = state.hasRule,
