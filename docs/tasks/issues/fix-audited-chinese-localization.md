@@ -2,7 +2,7 @@
 id: UIX-1791818839787311
 title: Fix audited Chinese localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization team
