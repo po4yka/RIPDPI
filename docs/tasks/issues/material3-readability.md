@@ -60,3 +60,5 @@ Fresh Russian captures at 320dp and 2x font showed remaining compressed words af
 - Data writer: OomRecoveryScreen, StrategyImportScreen, DiagnosticsWidgets, StateMachineScreen pixel rounding, and ReadabilityDataScreenTest.
 - Integration owner: RipDpiTopAppBar, Type.kt, RipDpiTheme.kt, their tests, preview viewport corrections, full capture heights, documentation, and combined review. Sans text may use system hyphenation when a word exceeds the complete available line; typography sizes and monospace values remain unchanged.
 - Golden fixtures remain owned only by golden-blesser after fresh visual acceptance.
+- Shared follow-up writer: RipDpiTopAppBar, its tests, and the two scaffold action defaults in RipDpiScaffolds. Remove the empty large-font controls row when no controls exist.
+- Golden-blesser also owns only the capture heights for handshake timeline, strategy import, and quality graph screenshot tests. Extend these canvases to inspect all stage rows, import actions, and graph captions; do not change their data or production behavior.
