@@ -294,6 +294,11 @@ Onboarding and permission flows:
 - `brandMark`: reserved for the home brand header only.
 - `brandStatus`: reserved for compact status labels and telemetry badges.
 - `sectionTitle`: reserved for section headers and meta grouping labels.
+- `body` and its emphasis variants: primary text at `16sp/24sp`.
+- `cardTitle`: mode and profile names at `18sp/24sp`.
+- Settings descriptions use `secondaryBody` at `14sp/20sp`; `caption` at `12sp/16sp` is for metadata.
+- Settings values wrap below the description in the main text column. Trailing switches and chevrons use content width.
+- Diagnostics use horizontal Material 3 scrollable tabs at all font scales.
 - `caption` and `secondaryBody`: helper text, nav labels, and secondary metadata.
 - `monoValue`, `monoConfig`, `monoInline`, `monoLog`, `monoSmall`: values, config strings, logs, and dense telemetry.
 - `screenTitleEmphasis` and `bodyEmphasisBold` exist for stronger emphasis when weight promotion is needed.
@@ -327,6 +332,8 @@ Motion rules:
 
 - Screens must import icons only from `RipDpiIcons`.
 - The icon language is outlined Material only.
+- Standalone action and navigation icons use `24dp`; smaller roles are for inline markers and chevrons.
+- Icon size does not reduce the `48dp` minimum interactive area.
 - Exceptions are allowed only for app assets or illustration drawings, not for action or navigation icons.
 
 ## Accessibility Baselines
@@ -380,3 +387,7 @@ The curated suite covers:
 - theme-variant coverage including dark and high-contrast states
 
 The screenshot catalog intentionally excludes continuously animated or cursor-driven samples such as pressed states and blinking text cursors. Those remain available in the richer preview catalog for manual inspection.
+
+## Readability revision
+
+The Material 3 readability change updates primary type, icons, settings rows, and diagnostics tabs. The older RDS HTML previews `type-body`, `type-display`, `icon-set`, `components-settings-row`, and `components-tabs` remain reference-only and retain their earlier compact sizes. The current Compose tokens and `DESIGN.md` define this revision.

@@ -149,8 +149,8 @@ private fun SettingsMediumPreview() {
 }
 
 @Composable
-internal fun RipDpiSettingsMediumPreviewScene() {
-    RipDpiTheme(themePreference = "light") {
+internal fun RipDpiSettingsMediumPreviewScene(themePreference: String = "light") {
+    RipDpiTheme(themePreference = themePreference) {
         SettingsScreen(
             uiState =
                 SettingsUiState(
@@ -342,8 +342,8 @@ private fun DiagnosticsScanPreview() {
 }
 
 @Composable
-internal fun RipDpiDiagnosticsScanPreviewScene() {
-    RipDpiTheme(themePreference = "light") {
+internal fun RipDpiDiagnosticsScanPreviewScene(themePreference: String = "light") {
+    RipDpiTheme(themePreference = themePreference) {
         DiagnosticsPreviewSceneImpl(
             uiState =
                 DiagnosticsUiState(

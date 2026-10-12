@@ -63,8 +63,8 @@ import kotlinx.collections.immutable.toImmutableList
 // -- Home state variants --------------------------------------------------------
 
 @Composable
-internal fun RipDpiHomeDisconnectedPreviewScene() {
-    RipDpiTheme(themePreference = "light") {
+internal fun RipDpiHomeDisconnectedPreviewScene(themePreference: String = "light") {
+    RipDpiTheme(themePreference = themePreference) {
         HomeScreen(
             uiState = MainUiState(modeCards = homePreviewModeCards()),
             onToggleConnection = {},
