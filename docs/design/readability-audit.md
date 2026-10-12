@@ -13,7 +13,7 @@ The first stage raised shared typography and settings icons. This pass addresses
 | Recovery actions | The second OOM action reads `Vie...` even at standard font scale. | Give each action enough width and allow complete labels. |
 | Throughput cards | Background canvases and their labels are separate siblings. The selected range text falls outside its pill. | Put background and text in the same surface; let each stat cell grow. |
 | Import and overview grids | Two narrow columns compress descriptions and values. | Adapt to one column where width or font scale requires it. |
-| Long localized words and app-bar titles | A fixed two-line limit hides large titles; words wider than the full line break without a visible hyphen. | Give large titles a separate full-width area without a line limit; use system hyphenation for oversize sans words. |
+| Long localized words and app-bar titles | A fixed two-line limit hides large titles; words wider than the full line break without a visible hyphen. An empty controls row wastes height on screens with no actions. | Give large titles a separate full-width area without a line limit; add a controls row only when controls exist; use system hyphenation for oversize sans words. |
 | Graphs and data headers | Controls compete with full titles. Fixed diagram geometry scales text down. | Wrap header controls; retain readable diagram nodes in a scrollable canvas. |
 | History sections | Peer navigation uses a cramped chip row; clear action lacks a sufficient target. | Use scrollable Material 3 tabs and a 48dp clear action. |
 

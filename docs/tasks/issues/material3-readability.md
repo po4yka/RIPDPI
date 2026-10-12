@@ -2,7 +2,7 @@
 id: UIX-1791793531264679
 title: Improve Material 3 readability and navigation
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: ui-integration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: material3-readability
 created: 2026-10-12
 updated: 2026-10-12
-status_detail: User requested app-wide fixes for the remaining readability, icon, and adaptive layout defects. Three source lanes own shared controls, forms, and data screens.
+status_detail: App-wide readability verified with 1149 UI tests, 554 executed screenshot tests, 33 reviewed host renders, lint, and independent source review. Main integration is authorized.
 ---
 
 ## Goal
@@ -61,4 +61,4 @@ Fresh Russian captures at 320dp and 2x font showed remaining compressed words af
 - Integration owner: RipDpiTopAppBar, Type.kt, RipDpiTheme.kt, their tests, preview viewport corrections, full capture heights, documentation, and combined review. Sans text may use system hyphenation when a word exceeds the complete available line; typography sizes and monospace values remain unchanged.
 - Golden fixtures remain owned only by golden-blesser after fresh visual acceptance.
 - Shared follow-up writer: RipDpiTopAppBar, its tests, and the two scaffold action defaults in RipDpiScaffolds. Remove the empty large-font controls row when no controls exist.
-- Golden-blesser also owns only the capture heights for handshake timeline, strategy import, and quality graph screenshot tests. Extend these canvases to inspect all stage rows, import actions, and graph captions; do not change their data or production behavior.
+- Golden-blesser also owns only the capture heights for handshake timeline, state machine, strategy import, and quality graph screenshot tests. Extend these canvases to inspect all stage rows, diagram legends, import actions, and graph captions; do not change their data or production behavior.

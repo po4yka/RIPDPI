@@ -353,7 +353,7 @@ Motion rules:
 - Headers reserve space for controls. Put long facts and status badges below the title when needed.
 - Bottom navigation measures complete labels. Keep one row when it fits; use two columns, then one column if required. Preserve destination order, selection, and callbacks.
 - Diagrams retain readable text and use scrolling when their geometry exceeds the viewport. Do not shrink text with the drawing.
-- At large font scale, app-bar navigation and actions occupy a separate row above the complete title. The title has no fixed line limit.
+- At large font scale, app-bar navigation and actions occupy a separate row above the complete title. Add this row only when controls exist. The title has no fixed line limit.
 - Text styles and Material typography take an explicit locale from the app resource configuration. Cache these styles by language tags and preserve type metrics.
 - Sans text uses `Hyphens.Auto` with `LineBreak.Simple`. This permits system hyphenation only when a word exceeds a complete line. It preserves font sizes and resource strings; monospace values retain their line rules. See [Android paragraph guidance](https://developer.android.com/develop/ui/compose/text/style-paragraph#hyphenate-text-split-across-lines).
 
