@@ -45,3 +45,7 @@ The first stage is verified at 15b634db6. The next pass fixes the same classes a
 - Match the existing RDS previews for buttons, chips, warning banners, menus, bottom navigation, DNS, graph, import, OOM, and history. Their HTML remains read-only; fresh Compose renders and tested implementation define the adaptive correction.
 
 Source lanes and files are recorded in the portfolio ownership section. Planning and validation cover all reported findings; no palette, font family, protocol, storage, runtime, or production dependency changes are owned by this follow-up.
+
+## Localized word wrapping
+
+Sans roles use `Hyphens.Auto` with `LineBreak.Simple` when a word exceeds a complete line. Adaptive containers first give text the width that icons or controls would otherwise remove. The app resource configuration supplies explicit text locales for token and Material styles. Type metrics, resource text, and Java locale globals do not change. Native pixel rounding must match each actual padding edge in diagram width calculations.

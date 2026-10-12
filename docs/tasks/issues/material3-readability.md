@@ -50,3 +50,13 @@ The user requested all analogous defects after the first verified stage at 15b63
 - Integration owner: DESIGN.md, docs/design-system.md, audit and verification reports, task/OpenSpec artifacts, combined-tree gates, and main integration. After the forms agent availability failure, the integration owner completes its final DNS header correction, validation, and scoped commit in the same isolated forms worktree; the agent is inactive. After the data agent availability failure, the integration owner completes the HistoryEventsFilterCard extraction, validation, and scoped commit in the same isolated data worktree; that agent is inactive.
 - Golden-blesser alone owns app/src/test/screenshots. The existing user approval covers the affected readability UI family; no other fixture family is owned here.
 - Each writer uses a clean isolated worktree. Shared metrics land first; forms and data writers incorporate that commit before their final tests. All metadata, fixtures, and locale sets remain serialized.
+
+## Visual follow-up ownership
+
+Fresh Russian captures at 320dp and 2x font showed remaining compressed words after the combined source gate. Follow-up writers use new isolated worktrees from `8ccfdfa2f`.
+
+- Shared writer: WarningBanner, RipDpiAccordion, and their strict layout tests.
+- Forms writer: RelayMasqueAuthFields and the nested-card regression in ReadabilityFormsLayoutTest.
+- Data writer: OomRecoveryScreen, StrategyImportScreen, DiagnosticsWidgets, StateMachineScreen pixel rounding, and ReadabilityDataScreenTest.
+- Integration owner: RipDpiTopAppBar, Type.kt, RipDpiTheme.kt, their tests, preview viewport corrections, full capture heights, documentation, and combined review. Sans text may use system hyphenation when a word exceeds the complete available line; typography sizes and monospace values remain unchanged.
+- Golden fixtures remain owned only by golden-blesser after fresh visual acceptance.

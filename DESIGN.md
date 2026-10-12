@@ -660,6 +660,9 @@ Accessibility is a design requirement, not an afterthought:
 - Keep bottom navigation in one row when all labels fit. If measured labels need more width, use two columns, then one column as needed. Preserve destination order, selection, and all actions.
 - Use scrollable Material 3 tabs for peer sections. Do not shrink their text to fit.
 - Keep graph labels readable. Scroll a large diagram instead of scaling its text below the chosen type size.
+- Give large app-bar titles the full content width and as many lines as needed. Place navigation and actions in their own row.
+- For sans text, use system hyphenation only when a word is wider than a complete line. Keep the chosen font size; technical monospace values keep their existing line rules.
+- Text styles use the selected app language from resource configuration. This keeps script shaping and hyphenation consistent with visible localized strings.
 
 ## Motion
 
