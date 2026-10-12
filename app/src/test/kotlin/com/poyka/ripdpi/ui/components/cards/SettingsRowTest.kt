@@ -8,20 +8,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -115,8 +124,8 @@ class SettingsRowTest {
     }
 
     @Test
-    fun largeFontStacksTrailingValueBelowReadableTitleAndSubtitle() {
-        var fontScale by mutableStateOf(1.5f)
+    fun valuesStayBelowTitleAndSubtitleAtAllFontScales() {
+        var fontScale by mutableStateOf(1f)
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
@@ -133,7 +142,7 @@ class SettingsRowTest {
             }
         }
 
-        listOf(1.5f, 2f).forEach { scale ->
+        listOf(1f, 1.5f, 2f).forEach { scale ->
             composeRule.runOnIdle { fontScale = scale }
             composeRule.waitForIdle()
 
@@ -145,8 +154,140 @@ class SettingsRowTest {
             assertTrue(subtitle.boundsInRoot.right <= 371f)
             assertTrue(value.boundsInRoot.top >= subtitle.boundsInRoot.bottom)
             assertTrue(value.boundsInRoot.right <= 371f)
+            assertEquals(title.boundsInRoot.left, value.boundsInRoot.left, 1f)
+            assertTrue(title.boundsInRoot.width > 300f)
             composeRule.onNodeWithTag("large-settings-row").assertHasClickAction()
         }
+    }
+
+    @Test
+    @Config(qualifiers = "w420dp-h1200dp")
+    fun longRussianValueWrapsWithoutTruncationAtLargeFont() {
+        assertLargeFontValueRow(
+            direction = LayoutDirection.Ltr,
+            title = "Настройки зашифрованного DNS",
+            subtitle = "Режим разрешения адресов и резервный сервер",
+            value = "Зашифрованный DNS · Cloudflare через HTTPS с резервным сервером AdGuard",
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "ar-rEG-w420dp-h1200dp")
+    fun largeFontValueFitsTextColumnInRtl() {
+        assertLargeFontValueRow(
+            direction = LayoutDirection.Rtl,
+            title = "إعدادات خادم أسماء النطاقات المشفر",
+            subtitle = "وضع تحليل العناوين والخادم الاحتياطي",
+            value = "خادم أسماء النطاقات المشفر عبر HTTPS مع خادم احتياطي",
+        )
+    }
+
+    @Test
+    fun switchRowTogglesOncePerClickAndKeepsSwitchSemantics() {
+        var checked by mutableStateOf(false)
+        var changes = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsRow(
+                    title = "Use system DNS as fallback",
+                    subtitle = "Keep DNS resolution available",
+                    checked = checked,
+                    onCheckedChange = {
+                        checked = it
+                        changes++
+                    },
+                    testTag = "interactive-switch-row",
+                )
+            }
+        }
+
+        val row = composeRule.onNodeWithTag("interactive-switch-row")
+        row.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)).assertIsOff()
+        assertTrue(row.fetchSemanticsNode().boundsInRoot.height >= 48f)
+        row.performClick().assertIsOn()
+        row.performClick().assertIsOff()
+        composeRule.runOnIdle { assertEquals(2, changes) }
+    }
+
+    @Test
+    fun disabledSwitchRowRemainsLabelledAndDoesNotInvokeCallback() {
+        var changes = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsRow(
+                    title = "Block UDP DNS",
+                    subtitle = "Prevents resolver leaks",
+                    checked = true,
+                    enabled = false,
+                    onCheckedChange = { changes++ },
+                    testTag = "disabled-switch-row",
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag("disabled-switch-row")
+            .assertIsNotEnabled()
+            .assertIsOn()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ContentDescription,
+                    listOf("Block UDP DNS, Prevents resolver leaks"),
+                ),
+            ).performClick()
+        composeRule.runOnIdle { assertEquals(0, changes) }
+    }
+
+    private fun assertLargeFontValueRow(
+        direction: LayoutDirection,
+        title: String,
+        subtitle: String,
+        value: String,
+    ) {
+        var width by mutableStateOf(320.dp)
+        var clicks = 0
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(density = 1f, fontScale = 2f),
+                LocalLayoutDirection provides direction,
+            ) {
+                RipDpiTheme {
+                    Box(modifier = Modifier.requiredWidth(width)) {
+                        SettingsRow(
+                            title = title,
+                            subtitle = subtitle,
+                            value = value,
+                            onClick = { clicks++ },
+                            testTag = "localized-settings-row",
+                        )
+                    }
+                }
+            }
+        }
+
+        listOf(320.dp, 420.dp).forEach { rowWidth ->
+            composeRule.runOnIdle { width = rowWidth }
+            val titleBounds = assertCompleteText(title).boundsInRoot
+            val subtitleBounds = assertCompleteText(subtitle).boundsInRoot
+            val valueBounds = assertCompleteText(value).boundsInRoot
+            val row = composeRule.onNodeWithTag("localized-settings-row")
+            val rowBounds = row.fetchSemanticsNode().boundsInRoot
+            assertTrue(titleBounds.width > rowWidth.value * 0.8f)
+            assertTrue(valueBounds.top >= subtitleBounds.bottom)
+            listOf(titleBounds, subtitleBounds, valueBounds).forEach { textBounds ->
+                assertTrue(
+                    "Text bounds $textBounds must fit row $rowBounds at width $rowWidth in $direction",
+                    textBounds.left >= rowBounds.left - 1f &&
+                        textBounds.top >= rowBounds.top - 1f &&
+                        textBounds.right <= rowBounds.right + 1f &&
+                        textBounds.bottom <= rowBounds.bottom + 1f,
+                )
+            }
+            assertEquals(titleBounds.left, valueBounds.left, 1f)
+            assertEquals(titleBounds.right, valueBounds.right, 1f)
+            row.assertHasClickAction().performClick()
+        }
+        composeRule.runOnIdle { assertEquals(2, clicks) }
     }
 
     private fun assertCompleteText(text: String) =
@@ -157,6 +298,7 @@ class SettingsRowTest {
                 val layouts = mutableListOf<TextLayoutResult>()
                 node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
                 val layout = layouts.single()
+                assertFalse(layout.hasVisualOverflow)
                 assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
                 assertTrue((0 until layout.lineCount).all { line -> layout.getLineLeft(line) >= -1f })
                 assertTrue(

@@ -21,13 +21,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -46,8 +44,6 @@ enum class SettingsRowVariant {
     Tonal,
     Selected,
 }
-
-private const val SettingsRowStackFontScale = 1.5f
 
 @Composable
 fun SettingsRow(
@@ -102,9 +98,6 @@ fun SettingsRow(
                 state = state,
                 interactionSource = rowInteractionSource,
             )
-        val stackTrailing =
-            LocalDensity.current.fontScale >= SettingsRowStackFontScale &&
-                value != null
         SettingsRowContent(
             title = title,
             subtitle = subtitle,
@@ -116,7 +109,6 @@ fun SettingsRow(
             showChevron = showChevron,
             monospaceValue = monospaceValue,
             state = state,
-            stackTrailing = stackTrailing,
             modifier = contentModifier,
         )
         if (showDivider) {
@@ -137,57 +129,29 @@ private fun SettingsRowContent(
     showChevron: Boolean,
     monospaceValue: Boolean,
     state: RipDpiSettingsRowStateStyle,
-    stackTrailing: Boolean,
     modifier: Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    if (stackTrailing) {
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                verticalAlignment = Alignment.Top,
-            ) {
-                SettingsRowLeadingIcon(leadingIcon = leadingIcon, state = state)
-                SettingsRowText(title = title, subtitle = subtitle, state = state)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SettingsRowTrailing(
-                    checked = checked,
-                    onCheckedChange = onCheckedChange,
-                    enabled = enabled,
-                    value = value,
-                    monospaceValue = monospaceValue,
-                    showChevron = showChevron,
-                    state = state,
-                )
-            }
-        }
-    } else {
-        Row(
-            modifier = modifier,
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SettingsRowLeadingIcon(leadingIcon = leadingIcon, state = state)
-            SettingsRowText(title = title, subtitle = subtitle, state = state)
-            SettingsRowTrailing(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-                value = value,
-                monospaceValue = monospaceValue,
-                showChevron = showChevron,
-                state = state,
-            )
-        }
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SettingsRowLeadingIcon(leadingIcon = leadingIcon, state = state)
+        SettingsRowText(
+            title = title,
+            subtitle = subtitle,
+            value = value,
+            monospaceValue = monospaceValue,
+            state = state,
+        )
+        SettingsRowTrailing(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            showChevron = value != null && showChevron,
+            state = state,
+        )
     }
 }
 
@@ -296,6 +260,8 @@ private fun SettingsRowLeadingIcon(
 private fun RowScope.SettingsRowText(
     title: String,
     subtitle: String?,
+    value: String?,
+    monospaceValue: Boolean,
     state: RipDpiSettingsRowStateStyle,
 ) {
     val components = RipDpiThemeTokens.components
@@ -306,23 +272,27 @@ private fun RowScope.SettingsRowText(
     ) {
         Text(text = title, modifier = Modifier.fillMaxWidth(), style = type.body, color = state.title)
         subtitle?.let {
-            Text(text = it, modifier = Modifier.fillMaxWidth(), style = type.caption, color = state.subtitle)
+            Text(text = it, modifier = Modifier.fillMaxWidth(), style = type.secondaryBody, color = state.subtitle)
+        }
+        value?.let {
+            Text(
+                text = it,
+                modifier = Modifier.fillMaxWidth(),
+                style = if (monospaceValue) type.monoValue else type.secondaryBody,
+                color = state.value,
+            )
         }
     }
 }
 
 @Composable
-private fun RowScope.SettingsRowTrailing(
+private fun SettingsRowTrailing(
     checked: Boolean?,
     onCheckedChange: ((Boolean) -> Unit)?,
     enabled: Boolean,
-    value: String?,
-    monospaceValue: Boolean,
     showChevron: Boolean,
     state: RipDpiSettingsRowStateStyle,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     when {
         checked != null && onCheckedChange != null -> {
             RipDpiSwitch(
@@ -332,44 +302,41 @@ private fun RowScope.SettingsRowTrailing(
             )
         }
 
-        value != null -> {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = value,
-                    style = if (monospaceValue) type.monoValue else type.secondaryBody,
-                    color = state.value,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (showChevron) {
-                    Icon(
-                        imageVector = RipDpiIcons.ChevronRight,
-                        contentDescription = null,
-                        tint = state.value,
-                        modifier = Modifier.size(RipDpiIconSizes.Small),
-                    )
-                }
-            }
+        showChevron -> {
+            Icon(
+                imageVector = RipDpiIcons.ChevronRight,
+                contentDescription = null,
+                tint = state.value,
+                modifier = Modifier.size(RipDpiIconSizes.Small),
+            )
         }
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Light", showBackground = true, widthDp = 390)
+@Preview(name = "Large font", showBackground = true, widthDp = 390, fontScale = 2f)
 @Composable
 private fun SettingsRowPreview() {
-    RipDpiComponentPreview {
+    SettingsRowReadabilityPreviewScene()
+}
+
+@Preview(name = "Dark", showBackground = true, widthDp = 390)
+@Composable
+private fun SettingsRowDarkPreview() {
+    SettingsRowReadabilityPreviewScene(themePreference = "dark")
+}
+
+@Composable
+internal fun SettingsRowReadabilityPreviewScene(themePreference: String = "light") {
+    RipDpiComponentPreview(themePreference = themePreference) {
         RipDpiCard(
             paddingValues =
                 PaddingValues(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 0.dp),
         ) {
             SettingsRow(
                 title = "DNS provider",
-                subtitle = "Cloudflare DoH",
-                value = "Edit",
+                subtitle = "Encrypted DNS and fallback resolver",
+                value = "Cloudflare over HTTPS with AdGuard as fallback",
                 showChevron = true,
                 onClick = {},
                 showDivider = true,
