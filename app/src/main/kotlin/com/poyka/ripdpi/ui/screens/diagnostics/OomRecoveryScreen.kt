@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -115,39 +116,7 @@ private fun OomRecoveryBanner(
             modifier = Modifier.fillMaxWidth().padding(spacing.lg),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Surface(
-                    modifier = Modifier.size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize),
-                    shape = CircleShape,
-                    color = colors.warning,
-                    contentColor = colors.warningForeground,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = RipDpiIcons.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(RipDpiIconSizes.Large),
-                        )
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.oom_recovery_banner_title),
-                    style = type.bodyEmphasis,
-                    color = colors.warningContainerForeground,
-                    modifier = Modifier.weight(1f),
-                )
-                RipDpiIconButton(
-                    icon = RipDpiIcons.Close,
-                    contentDescription = stringResource(R.string.oom_recovery_action_dismiss),
-                    onClick = onDismiss,
-                    style = RipDpiIconButtonStyle.Warning,
-                    density = RipDpiControlDensity.Compact,
-                )
-            }
+            OomRecoveryHeader(onDismiss)
             Text(
                 text = stringResource(R.string.oom_recovery_banner_body, state.killTimeLabel, state.downtimeLabel),
                 style = type.body,
@@ -167,6 +136,65 @@ private fun OomRecoveryBanner(
                 modifier = Modifier.fillMaxWidth(),
                 wrapLabel = true,
             )
+        }
+    }
+}
+
+@Composable
+private fun OomRecoveryHeader(onDismiss: () -> Unit) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val title = stringResource(R.string.oom_recovery_banner_title)
+    val titleWidth = minimumUnbrokenTextWidth(title, type.bodyEmphasis)
+    val components = RipDpiThemeTokens.components
+    val dismiss: @Composable () -> Unit = {
+        RipDpiIconButton(
+            icon = RipDpiIcons.Close,
+            contentDescription = stringResource(R.string.oom_recovery_action_dismiss),
+            onClick = onDismiss,
+            style = RipDpiIconButtonStyle.Warning,
+            density = RipDpiControlDensity.Compact,
+        )
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val titleBesideControls =
+            maxWidth - components.feedback.decorativeBadgeSize -
+                components.buttons.iconButtonSize - spacing.md * 2
+        if (titleWidth > titleBesideControls) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    OomRecoveryWarningBadge()
+                    dismiss()
+                }
+                Text(title, Modifier.fillMaxWidth(), colors.warningContainerForeground, style = type.bodyEmphasis)
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(spacing.md), Alignment.Top) {
+                OomRecoveryWarningBadge()
+                Text(
+                    title,
+                    Modifier.weight(1f).fillMaxWidth(),
+                    colors.warningContainerForeground,
+                    style = type.bodyEmphasis,
+                )
+                dismiss()
+            }
+        }
+    }
+}
+
+@Composable
+private fun OomRecoveryWarningBadge() {
+    val colors = RipDpiThemeTokens.colors
+    Surface(
+        modifier = Modifier.size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize),
+        shape = CircleShape,
+        color = colors.warning,
+        contentColor = colors.warningForeground,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(RipDpiIcons.Warning, null, Modifier.size(RipDpiIconSizes.Large))
         }
     }
 }

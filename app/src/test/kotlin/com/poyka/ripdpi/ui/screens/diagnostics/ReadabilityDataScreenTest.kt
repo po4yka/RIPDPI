@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -20,12 +21,15 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -60,6 +64,8 @@ import org.robolectric.annotation.GraphicsMode
 class ReadabilityDataScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private lateinit var textMeasurer: TextMeasurer
 
     @Test
     fun recoveryActionsFitAtNormalFont() = checkRecoveryActions(420, 1f)
@@ -96,9 +102,68 @@ class ReadabilityDataScreenTest {
             composeRule.onNodeWithText(label).performScrollTo().assertIsDisplayed()
             assertFullText(label)
             assertFullText(string(source.subtitleRes))
+            assertWordsFit(label)
+            assertWordsFit(string(source.subtitleRes))
             composeRule.onNodeWithText(label).performClick()
         }
         composeRule.runOnIdle { assertEquals(listOf(0, 1, 2, 3), selections) }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
+    fun qrImportWordsFitInsideNestedViewport() {
+        val option =
+            sampleStrategyImportState().sources.single {
+                it.titleRes ==
+                    R.string.strategy_import_source_qr_title
+            }
+        show(320, 2f) {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                StrategyImportScreen(StrategyImportState(listOf(option), emptyList()), {})
+            }
+        }
+        listOf(option.titleRes, option.subtitleRes).forEach { resource ->
+            val text = string(resource)
+            assertFullText(text)
+            assertWordsFit(text)
+        }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
+    fun recoveryHeadingKeepsWordsCompleteInsideNestedViewport() {
+        var dismisses = 0
+        show(320, 2f) {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                OomRecoveryScreen(OomRecoveryState("12:42 UTC", "4 м 18 с"), {}, {}, { dismisses++ }, {})
+            }
+        }
+        val title = string(R.string.oom_recovery_banner_title)
+        assertFullText(title)
+        assertWordsFit(title)
+        composeRule.onNodeWithContentDescription(string(R.string.oom_recovery_action_dismiss)).performClick()
+        composeRule.runOnIdle { assertEquals(1, dismisses) }
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
+    fun recentImportFactsDoNotOverlapAtMaximumFont() {
+        val entry = RecentImportEntry("tlsrec_split_host_aggressive.cfg", "14:08")
+        show(320, 2f) {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                StrategyImportScreen(StrategyImportState(emptyList(), listOf(entry)), {})
+            }
+        }
+        composeRule.onNodeWithText(entry.name).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(entry.`when`).assertIsDisplayed()
+        val name = composeRule.onNodeWithText(entry.name, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val time = composeRule.onNodeWithText(entry.`when`, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "Timestamp must move below a filename that needs the full row: name=$name time=$time",
+            time.top >= name.bottom,
+        )
+        assertFullText(entry.name)
+        assertFullText(entry.`when`)
     }
 
     @Test
@@ -137,8 +202,13 @@ class ReadabilityDataScreenTest {
         show(
             320,
             2f,
-        ) { CollapsibleSection(title = title, badgeCount = 1234) { androidx.compose.material3.Text("Expanded") } }
+        ) {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                CollapsibleSection(title = title, badgeCount = 1234) { androidx.compose.material3.Text("Expanded") }
+            }
+        }
         assertFullText(title.uppercase())
+        assertWordsFit(title.uppercase())
         composeRule.onNodeWithText(title.uppercase()).performClick()
         composeRule.onNodeWithText("Expanded").assertIsDisplayed()
         composeRule.onNodeWithText("1234").assertIsDisplayed()
@@ -193,7 +263,17 @@ class ReadabilityDataScreenTest {
 
     @Test
     @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun stateDiagramKeepsLocalizedNodeTextAndScrollsToBothEdges() {
+    fun stateDiagramKeepsLocalizedNodeTextAndScrollsToBothEdges() = checkStateDiagram(320, 2f, 1f)
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp-420dpi")
+    fun stateDiagramNativeWidthsFitAtPreviewDensity() = checkStateDiagram(420, 1f, 2.625f)
+
+    private fun checkStateDiagram(
+        width: Int,
+        fontScale: Float,
+        density: Float,
+    ) {
         val state =
             sampleStateMachineState(
                 "Туннель",
@@ -206,7 +286,7 @@ class ReadabilityDataScreenTest {
                 "посл. 6 ч: 0",
                 "2 за 24 ч",
             )
-        show(320, 2f) { StateMachineScreen(state) }
+        show(width, fontScale, density = density) { StateMachineScreen(state) }
         val nodeLabels =
             listOf(
                 R.string.vpn_state_machine_node_disconnected,
@@ -217,7 +297,27 @@ class ReadabilityDataScreenTest {
                 R.string.vpn_state_machine_node_failed,
                 R.string.vpn_state_machine_node_degraded,
             )
-        nodeLabels.forEach { resource -> assertFullText(string(resource)) }
+        nodeLabels.forEach { resource ->
+            val label = string(resource)
+            assertFullText(label)
+            val node =
+                composeRule.onNode(
+                    hasText(label) and
+                        hasAnyAncestor(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange)),
+                    useUnmergedTree = true,
+                )
+            node.performScrollTo().assertIsDisplayed()
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val layout = layouts.single()
+            val nativeWidth = node.fetchSemanticsNode().size.width
+            val requiredWidth = textMeasurer.measure(label, layout.layoutInput.style, maxLines = 1).size.width
+            assertTrue(
+                "Node label must contain every native glyph: $label native=$nativeWidth required=$requiredWidth " +
+                    "intrinsic=${layout.multiParagraph.intrinsics.maxIntrinsicWidth}",
+                nativeWidth >= requiredWidth && nativeWidth >= layout.multiParagraph.intrinsics.maxIntrinsicWidth,
+            )
+        }
         composeRule
             .onNode(
                 hasText(string(R.string.vpn_state_machine_node_tunneling)) and hasAnyAncestor(hasScrollAction()),
@@ -426,17 +526,39 @@ class ReadabilityDataScreenTest {
         width: Int,
         fontScale: Float,
         direction: LayoutDirection = LayoutDirection.Ltr,
+        density: Float = 1f,
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
             CompositionLocalProvider(
-                LocalDensity provides Density(1f, fontScale),
+                LocalDensity provides Density(density, fontScale),
                 LocalLayoutDirection provides direction,
             ) {
                 RipDpiTheme {
+                    textMeasurer = rememberTextMeasurer()
                     Box(Modifier.requiredSize(width.dp, 1400.dp)) { content() }
                 }
             }
+        }
+    }
+
+    private fun assertWordsFit(text: String) {
+        val layouts = mutableListOf<TextLayoutResult>()
+        val node = composeRule.onNodeWithText(text, useUnmergedTree = true)
+        val bounds = node.fetchSemanticsNode().boundsInRoot
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val layout = layouts.single()
+        Regex("[\\p{L}\\p{M}]+").findAll(text).forEach { match ->
+            val wordWidth = textMeasurer.measure(match.value, layout.layoutInput.style, maxLines = 1).size.width
+            assertTrue(
+                "Whole word ${match.value} must fit the text viewport: word=$wordWidth bounds=$bounds",
+                bounds.width >= wordWidth,
+            )
+            assertEquals(
+                "Word ${match.value} must not break between lines",
+                layout.getLineForOffset(match.range.first),
+                layout.getLineForOffset(match.range.last),
+            )
         }
     }
 

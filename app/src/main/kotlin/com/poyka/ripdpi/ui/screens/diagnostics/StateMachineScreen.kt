@@ -286,7 +286,8 @@ private fun StateMachineDiagram(state: StateMachineState) {
     val textMeasurer = rememberTextMeasurer()
     val type = RipDpiThemeTokens.type
     val labels = stateMachineNodeLabels(state)
-    val horizontalPadding = with(density) { (RipDpiThemeTokens.spacing.xs * 2).toPx() }
+    // Compose rounds each padding edge to physical pixels before it lays out the text.
+    val horizontalPadding = with(density) { RipDpiThemeTokens.spacing.xs.roundToPx() * 2 }
     val textWidths =
         labels.values.map { (label, meta) ->
             maxOf(
@@ -294,7 +295,10 @@ private fun StateMachineDiagram(state: StateMachineState) {
                 textMeasurer.measure(meta, type.caption, maxLines = 1).size.width,
             ) + horizontalPadding
         }
-    val minimumWidth = with(density) { (textWidths.max() * CanvasW / (NodeHalfW * 2f)).toDp() }
+    val minimumWidth =
+        with(density) {
+            kotlin.math.ceil(textWidths.max() * CanvasW / (NodeHalfW * 2f)).toDp()
+        }
     val minimumHeight = CanvasH.dp * density.fontScale.coerceAtLeast(1f)
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {

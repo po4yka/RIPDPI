@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -161,8 +164,6 @@ private fun SourceTile(
 ) {
     val colors = RipDpiThemeTokens.colors
     val shapes = RipDpiThemeTokens.shapes
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
 
     Surface(
         modifier = modifier.ripDpiClickable(onClick = option.onSelect),
@@ -171,42 +172,62 @@ private fun SourceTile(
         contentColor = colors.foreground,
         border = BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
     ) {
-        Row(
-            modifier = Modifier.padding(spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Surface(
-                shape = shapes.full,
-                color = colors.muted,
-                contentColor = colors.mutedForeground,
-                modifier = Modifier.size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = option.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(RipDpiIconSizes.Large),
-                    )
+        SourceTileContent(option)
+    }
+}
+
+@Composable
+private fun SourceTileContent(option: ImportSourceOption) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val title = stringResource(option.titleRes)
+    val body = stringResource(option.subtitleRes)
+    val titleWidth = minimumUnbrokenTextWidth(title, type.bodyEmphasis)
+    val bodyWidth = minimumUnbrokenTextWidth(body, type.secondaryBody)
+    val titleText: @Composable (Modifier) -> Unit = {
+        Text(title, it.fillMaxWidth(), colors.foreground, style = type.bodyEmphasis)
+    }
+    val bodyText: @Composable () -> Unit = {
+        Text(body, Modifier.fillMaxWidth(), colors.mutedForeground, style = type.secondaryBody)
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(spacing.md)) {
+        val besideWidth = maxWidth - RipDpiThemeTokens.components.feedback.decorativeBadgeSize - spacing.sm
+        if (maxOf(titleWidth, bodyWidth) > besideWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                if (titleWidth > besideWidth) {
+                    SourceBadge(option.icon)
+                    titleText(Modifier)
+                } else {
+                    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(spacing.sm), Alignment.Top) {
+                        SourceBadge(option.icon)
+                        titleText(Modifier.weight(1f))
+                    }
+                }
+                bodyText()
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(spacing.sm), Alignment.Top) {
+                SourceBadge(option.icon)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    titleText(Modifier)
+                    bodyText()
                 }
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                Text(
-                    text = stringResource(option.titleRes),
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = stringResource(option.subtitleRes),
-                    style = type.secondaryBody,
-                    color = colors.mutedForeground,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun SourceBadge(icon: ImageVector) {
+    Surface(
+        shape = RipDpiThemeTokens.shapes.full,
+        color = RipDpiThemeTokens.colors.muted,
+        contentColor = RipDpiThemeTokens.colors.mutedForeground,
+        modifier = Modifier.size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(RipDpiIconSizes.Large))
         }
     }
 }
@@ -257,25 +278,27 @@ private fun RecentImportRow(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
 
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(vertical = spacing.sm),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = entry.name,
-            style = type.monoValue,
-            color = colors.foreground,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        Text(
-            text = entry.`when`,
-            style = type.monoSmall,
-            color = colors.mutedForeground,
-        )
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val factsWidth =
+        with(density) {
+            (
+                measurer.measure(entry.name, type.monoValue).size.width +
+                    measurer.measure(entry.`when`, type.monoSmall).size.width
+            ).toDp()
+        } + spacing.sm
+    BoxWithConstraints(modifier.fillMaxWidth().padding(vertical = spacing.sm)) {
+        if (factsWidth > maxWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(entry.name, Modifier.fillMaxWidth(), colors.foreground, style = type.monoValue)
+                Text(entry.`when`, Modifier.fillMaxWidth(), colors.mutedForeground, style = type.monoSmall)
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(spacing.sm), Alignment.CenterVertically) {
+                Text(entry.name, Modifier.weight(1f).fillMaxWidth(), colors.foreground, style = type.monoValue)
+                Text(entry.`when`, Modifier.width(IntrinsicSize.Max), colors.mutedForeground, style = type.monoSmall)
+            }
+        }
     }
 }
 

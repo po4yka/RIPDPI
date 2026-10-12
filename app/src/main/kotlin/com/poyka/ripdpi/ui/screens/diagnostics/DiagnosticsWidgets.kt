@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -49,6 +52,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -60,6 +66,7 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -86,7 +93,6 @@ internal fun CollapsibleSection(
     content: @Composable () -> Unit,
 ) {
     TrackRecomposition("CollapsibleSection")
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
     var expanded by remember { mutableStateOf(defaultExpanded) }
@@ -101,47 +107,18 @@ internal fun CollapsibleSection(
     )
 
     Column(modifier = modifier) {
-        Row(
+        CollapsibleHeader(
+            title = title.uppercase(),
+            badgeCount = badgeCount,
+            rotationAngle = rotationAngle,
+            expanded = expanded,
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .stateDescription(expandedLabel, collapsedLabel, expanded)
-                    .ripDpiClickable(
-                        role = Role.Button,
-                        onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
-                        onClick = { expanded = !expanded },
-                    ).heightIn(min = 48.dp)
-                    .padding(vertical = spacing.sm),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                modifier = Modifier.weight(1f).padding(end = spacing.sm),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title.uppercase(),
-                    style = RipDpiThemeTokens.type.sectionTitle,
-                    color = colors.mutedForeground,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                badgeCount?.let { CollapsibleCountBadge(it) }
-            }
-            Icon(
-                imageVector = RipDpiIcons.KeyboardArrowDown,
-                contentDescription =
-                    if (expanded) {
-                        stringResource(
-                            R.string.cd_collapse,
-                        )
-                    } else {
-                        stringResource(R.string.cd_expand)
-                    },
-                tint = colors.mutedForeground,
-                modifier = Modifier.rotate(rotationAngle),
-            )
-        }
+                Modifier.stateDescription(expandedLabel, collapsedLabel, expanded).ripDpiClickable(
+                    role = Role.Button,
+                    onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
+                    onClick = { expanded = !expanded },
+                ),
+        )
         AnimatedVisibility(
             visible = expanded,
             enter = motion.sectionEnterTransition(),
@@ -154,13 +131,74 @@ internal fun CollapsibleSection(
     }
 }
 
+/** Width of the longest segment that must stay together before a narrow-column fallback. */
+@Composable
+internal fun minimumUnbrokenTextWidth(
+    text: String,
+    style: TextStyle,
+): Dp {
+    val width =
+        rememberTextMeasurer()
+            .measure(text, style.copy(hyphens = Hyphens.None))
+            .multiParagraph.intrinsics.minIntrinsicWidth
+    return with(LocalDensity.current) { kotlin.math.ceil(width).toDp() }
+}
+
+@Composable
+private fun CollapsibleHeader(
+    title: String,
+    badgeCount: Int?,
+    rotationAngle: Float,
+    expanded: Boolean,
+    modifier: Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    val titleWidth = minimumUnbrokenTextWidth(title, type.sectionTitle)
+    val badgeWidth =
+        badgeCount?.let { minimumUnbrokenTextWidth(it.toString(), type.smallLabel) + 16.dp }
+            ?: 0.dp
+    val controls: @Composable () -> Unit = {
+        badgeCount?.let { CollapsibleCountBadge(it) }
+        Icon(
+            imageVector = RipDpiIcons.KeyboardArrowDown,
+            contentDescription = stringResource(if (expanded) R.string.cd_collapse else R.string.cd_expand),
+            tint = colors.mutedForeground,
+            modifier = Modifier.size(RipDpiIconSizes.Default).rotate(rotationAngle),
+        )
+    }
+    BoxWithConstraints(modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = spacing.sm)) {
+        val controlsWidth = badgeWidth + RipDpiIconSizes.Default + spacing.sm * (if (badgeCount == null) 1 else 2)
+        if (titleWidth > maxWidth - controlsWidth) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(title, Modifier.fillMaxWidth(), colors.mutedForeground, style = type.sectionTitle)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { controls() }
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, Modifier.weight(1f).fillMaxWidth(), colors.mutedForeground, style = type.sectionTitle)
+                controls()
+            }
+        }
+    }
+}
+
 @Composable
 private fun CollapsibleCountBadge(count: Int) {
     val colors = RipDpiThemeTokens.colors
     Surface(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full) {
         Text(
             text = count.toString(),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = 8.dp, vertical = 2.dp),
             style = RipDpiThemeTokens.type.smallLabel,
             color = colors.mutedForeground,
         )
