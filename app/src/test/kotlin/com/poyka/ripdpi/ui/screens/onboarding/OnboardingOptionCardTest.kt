@@ -65,36 +65,39 @@ class OnboardingOptionCardTest {
             }
         }
 
-        listOf(320, 420).forEach { targetWidth ->
-            listOf(1f, 2f).forEach { targetScale ->
-                listOf(LayoutDirection.Ltr, LayoutDirection.Rtl).forEach { targetDirection ->
-                    composeRule.runOnIdle {
-                        width = targetWidth
-                        fontScale = targetScale
-                        direction = targetDirection
-                    }
-                    composeRule.waitForIdle()
-                    val context = "$targetWidth dp, $targetScale font, $targetDirection"
-                    val title = composeRule.onNodeWithText("Guided", useUnmergedTree = true)
-                    val badge = composeRule.onNodeWithText("Recommended", useUnmergedTree = true)
-                    val layouts = mutableListOf<TextLayoutResult>()
-                    title.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-                    assertEquals(context, 1, layouts.single().lineCount)
-                    val cardBounds = composeRule.onNodeWithTag("option").fetchSemanticsNode().boundsInRoot
-                    val titleBounds = title.fetchSemanticsNode().boundsInRoot
-                    val badgeBounds = badge.fetchSemanticsNode().boundsInRoot
-                    assertTrue(context, badgeBounds.left >= cardBounds.left)
-                    assertTrue(context, badgeBounds.right <= cardBounds.right)
-                    assertTrue(context, badgeBounds.bottom <= cardBounds.bottom)
-                    if (targetScale == 1f) {
-                        assertTrue(context, badgeBounds.top < titleBounds.bottom)
-                    } else if (targetWidth == 320) {
-                        assertTrue(context, badgeBounds.top >= titleBounds.bottom)
-                    }
-                    composeRule.onNodeWithTag("option").assertIsSelected().performClick()
-                }
+        layoutScenarios().forEach { (targetWidth, targetScale, targetDirection) ->
+            composeRule.runOnIdle {
+                width = targetWidth
+                fontScale = targetScale
+                direction = targetDirection
             }
+            composeRule.waitForIdle()
+            val context = "$targetWidth dp, $targetScale font, $targetDirection"
+            val title = composeRule.onNodeWithText("Guided", useUnmergedTree = true)
+            val badge = composeRule.onNodeWithText("Recommended", useUnmergedTree = true)
+            val layouts = mutableListOf<TextLayoutResult>()
+            title.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals(context, 1, layouts.single().lineCount)
+            val cardBounds = composeRule.onNodeWithTag("option").fetchSemanticsNode().boundsInRoot
+            val titleBounds = title.fetchSemanticsNode().boundsInRoot
+            val badgeBounds = badge.fetchSemanticsNode().boundsInRoot
+            assertTrue(context, badgeBounds.left >= cardBounds.left)
+            assertTrue(context, badgeBounds.right <= cardBounds.right)
+            assertTrue(context, badgeBounds.bottom <= cardBounds.bottom)
+            if (targetScale == 1f) {
+                assertTrue(context, badgeBounds.top < titleBounds.bottom)
+            } else if (targetWidth == 320) {
+                assertTrue(context, badgeBounds.top >= titleBounds.bottom)
+            }
+            composeRule.onNodeWithTag("option").assertIsSelected().performClick()
         }
         assertEquals(8, clicks)
     }
+
+    private fun layoutScenarios(): List<Triple<Int, Float, LayoutDirection>> =
+        listOf(320 to 1f, 320 to 2f, 420 to 1f, 420 to 2f).flatMap { (width, scale) ->
+            listOf(LayoutDirection.Ltr, LayoutDirection.Rtl).map { direction ->
+                Triple(width, scale, direction)
+            }
+        }
 }
