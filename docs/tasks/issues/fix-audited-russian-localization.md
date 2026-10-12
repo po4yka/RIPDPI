@@ -2,7 +2,7 @@
 id: UIX-1791805113916673
 title: Fix audited Russian localization defects
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization remediation
