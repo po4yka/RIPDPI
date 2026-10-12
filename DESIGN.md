@@ -615,6 +615,7 @@ Component behavior rules:
 - Ghost and outline actions stay visually light, but their disabled state must still be legible.
 - Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment.
 - Settings rows use `body` for the title and `secondaryBody` for the description. Text values appear below the description in the main text column and can wrap. Switches and chevrons use only their required width. Rows grow with content and clearly communicate selected, navigable, and toggle states.
+- Diagnostics sections use a horizontal, scrollable Material 3 tab row at all font scales. Tabs retain selection semantics, localized labels, and section callbacks. Large font does not create a fixed vertical selector above the results.
 - `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label, and a locked terminal slot for connected or degraded-but-active sessions.
 - Secure Route components describe any user-engageable protected path. Transport labels identify local VPN, local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection, anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product identity.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.

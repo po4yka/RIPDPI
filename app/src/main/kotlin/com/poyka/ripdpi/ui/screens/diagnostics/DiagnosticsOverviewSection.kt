@@ -1,19 +1,24 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
@@ -31,14 +36,11 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
-import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val DiagnosticsSwitcherStackFontScale = 1.5f
 
 internal enum class DiagnosticsSimpleFunnelAction {
     Inspect,
@@ -61,68 +63,48 @@ internal fun DiagnosticsSectionSwitcher(
     onSelectSection: (DiagnosticsSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val stackSections = LocalDensity.current.fontScale >= DiagnosticsSwitcherStackFontScale
-    if (stackSections) {
-        Column(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .selectableGroup()
-                    .padding(top = spacing.sm, bottom = spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            DiagnosticsSection.entries.forEach { section ->
-                Box(
+    val selectedTabIndex = DiagnosticsSection.entries.indexOf(selectedSection)
+    PrimaryScrollableTabRow(
+        selectedTabIndex = selectedTabIndex,
+        modifier = modifier.fillMaxWidth().padding(bottom = spacing.sm),
+        containerColor = colors.background,
+        contentColor = colors.foreground,
+        edgePadding = RipDpiThemeTokens.spacing.sm,
+        indicator = {
+            TabRowDefaults.PrimaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(selectedTabIndex, matchContentSize = true),
+                width = Dp.Unspecified,
+                color = colors.foreground,
+            )
+        },
+        divider = { HorizontalDivider(color = colors.divider) },
+    ) {
+        DiagnosticsSection.entries.forEach { section ->
+            Tab(
+                selected = selectedSection == section,
+                onClick = { onSelectSection(section) },
+                modifier =
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .ripDpiTestTag(RipDpiTestTags.diagnosticsSection(section)),
+                selectedContentColor = colors.foreground,
+                unselectedContentColor = colors.mutedForeground,
+            ) {
+                Text(
+                    text = section.label(),
                     modifier =
                         Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = spacing.xs),
-                ) {
-                    DiagnosticsSectionChip(
-                        section = section,
-                        selected = selectedSection == section,
-                        onSelect = onSelectSection,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-    } else {
-        FlowRow(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .selectableGroup()
-                    .padding(top = spacing.sm, bottom = spacing.sm),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            DiagnosticsSection.entries.forEach { section ->
-                DiagnosticsSectionChip(
-                    section = section,
-                    selected = selectedSection == section,
-                    onSelect = onSelectSection,
+                            .width(IntrinsicSize.Max)
+                            .padding(horizontal = spacing.lg, vertical = spacing.sm),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
     }
-}
-
-@Composable
-private fun DiagnosticsSectionChip(
-    section: DiagnosticsSection,
-    selected: Boolean,
-    onSelect: (DiagnosticsSection) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    RipDpiChip(
-        text = section.label(),
-        selected = selected,
-        role = Role.Tab,
-        onClick = { onSelect(section) },
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSection(section)),
-    )
 }
 
 @Composable
