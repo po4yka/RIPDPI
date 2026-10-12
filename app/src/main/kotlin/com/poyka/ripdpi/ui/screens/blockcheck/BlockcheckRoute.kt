@@ -135,19 +135,21 @@ internal fun BlockcheckScreen(
         }
         BlockcheckDiagnosisCard(state = state, onApplyRecommended = onApplyRecommended)
         BlockcheckResultsCard(state = state)
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm), modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm), modifier = Modifier.fillMaxWidth()) {
             RipDpiButton(
                 text = stringResource(R.string.blockcheck_apply_best),
                 onClick = onApplyBest,
                 enabled = state.bestStrategy != null && !state.isRunning,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
+                wrapLabel = true,
             )
             RipDpiButton(
                 text = stringResource(R.string.blockcheck_export),
                 onClick = onExport,
                 enabled = state.results.isNotEmpty(),
                 variant = RipDpiButtonVariant.Secondary,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
+                wrapLabel = true,
             )
         }
     }

@@ -7,12 +7,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
@@ -39,6 +41,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -46,7 +49,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -62,6 +64,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlin.math.roundToInt
+
+private const val LargeTextFontScale = 1.5f
+private val CompactMetricWidth = 280.dp
 
 private val SparklineChartHeight = 84.dp
 private val SparklineChipWidth = 64.dp
@@ -105,11 +110,13 @@ internal fun CollapsibleSection(
                         role = Role.Button,
                         onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
                         onClick = { expanded = !expanded },
-                    ).padding(vertical = spacing.sm),
+                    ).heightIn(min = 48.dp)
+                    .padding(vertical = spacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
+                modifier = Modifier.weight(1f).padding(end = spacing.sm),
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -117,20 +124,9 @@ internal fun CollapsibleSection(
                     text = title.uppercase(),
                     style = RipDpiThemeTokens.type.sectionTitle,
                     color = colors.mutedForeground,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
-                badgeCount?.let { count ->
-                    Surface(
-                        color = colors.inputBackground,
-                        shape = RipDpiThemeTokens.shapes.full,
-                    ) {
-                        Text(
-                            text = count.toString(),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            style = RipDpiThemeTokens.type.smallLabel,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
+                badgeCount?.let { CollapsibleCountBadge(it) }
             }
             Icon(
                 imageVector = RipDpiIcons.KeyboardArrowDown,
@@ -155,6 +151,19 @@ internal fun CollapsibleSection(
                 content()
             }
         }
+    }
+}
+
+@Composable
+private fun CollapsibleCountBadge(count: Int) {
+    val colors = RipDpiThemeTokens.colors
+    Surface(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full) {
+        Text(
+            text = count.toString(),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = RipDpiThemeTokens.type.smallLabel,
+            color = colors.mutedForeground,
+        )
     }
 }
 
@@ -213,17 +222,14 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
 internal fun OverviewStatGrid(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
     if (metrics.isEmpty()) return
     val spacing = RipDpiThemeTokens.spacing
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        metrics.chunked(OverviewStatColumns).forEach { rowMetrics ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                rowMetrics.forEach { metric ->
-                    OverviewStatTile(metric = metric, modifier = Modifier.weight(1f))
-                }
-                repeat(OverviewStatColumns - rowMetrics.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth < CompactMetricWidth || fontScale >= LargeTextFontScale) 1 else OverviewStatColumns
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            metrics.chunked(columns).forEach { rowMetrics ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    rowMetrics.forEach { metric -> OverviewStatTile(metric, Modifier.weight(1f)) }
+                    repeat(columns - rowMetrics.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -253,15 +259,13 @@ private fun OverviewStatTile(
                 text = metric.value,
                 style = type.screenTitle,
                 color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 text = metric.label.uppercase(),
-                style = type.smallLabel,
+                style = type.secondaryBody,
                 color = contentColor.copy(alpha = OverviewStatLabelAlpha),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
             MetricMeasurementContext(metric, contentColor)
         }
@@ -376,10 +380,9 @@ private fun SparklineHeader(
     valueColor: Color,
     labelColor: Color,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Text(
             text = label,

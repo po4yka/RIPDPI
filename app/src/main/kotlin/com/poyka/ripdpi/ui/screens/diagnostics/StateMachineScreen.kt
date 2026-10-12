@@ -2,10 +2,13 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,10 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -27,8 +33,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -120,33 +129,49 @@ private fun StateMachineHeader(state: StateMachineState) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         Text(
             text = stringResource(R.string.vpn_state_machine_title),
             style = type.bodyEmphasis,
             color = colors.foreground,
+            modifier = Modifier.width(IntrinsicSize.Max),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        FlowRow(
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
             Text(
                 text = stringResource(R.string.vpn_state_machine_current_prefix),
                 style = type.monoSmall,
                 color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
-            Text(text = "·", style = type.monoSmall, color = colors.mutedForeground)
+            Text(
+                text = "·",
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
+            )
             Text(
                 text = state.currentStateLabel,
                 style = type.monoSmall,
                 color = colors.foreground,
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
-            Text(text = "·", style = type.monoSmall, color = colors.mutedForeground)
+            Text(
+                text = "·",
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
+            )
             Text(
                 text = state.transitionCountLabel,
                 style = type.monoSmall,
                 color = colors.mutedForeground,
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
         }
     }
@@ -257,17 +282,32 @@ private val NodeSpecs =
 
 @Composable
 private fun StateMachineDiagram(state: StateMachineState) {
-    val spacing = RipDpiThemeTokens.spacing
-    val diagramHeight: Dp =
-        spacing.section + spacing.xxxl + spacing.xxl +
-            spacing.xl + spacing.lg + spacing.sm + spacing.xs
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxWidth().height(diagramHeight),
-    ) {
-        val scaleX = constraints.maxWidth.toFloat() / CanvasW
-        val scaleY = constraints.maxHeight.toFloat() / CanvasH
-        StateMachineEdgeCanvas(state = state, scaleX = scaleX, scaleY = scaleY, modifier = Modifier.matchParentSize())
-        StateMachineNodeLayer(state = state, scaleX = scaleX, scaleY = scaleY)
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val type = RipDpiThemeTokens.type
+    val labels = stateMachineNodeLabels(state)
+    val horizontalPadding = with(density) { (RipDpiThemeTokens.spacing.xs * 2).toPx() }
+    val textWidths =
+        labels.values.map { (label, meta) ->
+            maxOf(
+                textMeasurer.measure(label, type.monoSmall, maxLines = 1).size.width,
+                textMeasurer.measure(meta, type.caption, maxLines = 1).size.width,
+            ) + horizontalPadding
+        }
+    val minimumWidth = with(density) { (textWidths.max() * CanvasW / (NodeHalfW * 2f)).toDp() }
+    val minimumHeight = CanvasH.dp * density.fontScale.coerceAtLeast(1f)
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val canvasWidth = maxOf(maxWidth, minimumWidth)
+            Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                BoxWithConstraints(modifier = Modifier.width(canvasWidth).height(minimumHeight)) {
+                    val scaleX = constraints.maxWidth.toFloat() / CanvasW
+                    val scaleY = constraints.maxHeight.toFloat() / CanvasH
+                    StateMachineEdgeCanvas(state, scaleX, scaleY, Modifier.matchParentSize())
+                    StateMachineNodeLayer(state, labels, scaleX, scaleY)
+                }
+            }
+        }
     }
 }
 
@@ -520,15 +560,7 @@ private fun StateMachineEdgeCanvas(
 }
 
 @Composable
-private fun StateMachineNodeLayer(
-    state: StateMachineState,
-    scaleX: Float,
-    scaleY: Float,
-) {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val nodeWDp = with(density) { (NodeHalfW * 2f * scaleX).toDp() }
-    val nodeHDp = with(density) { (NodeHalfH * 2f * scaleY).toDp() }
-
+private fun stateMachineNodeLabels(state: StateMachineState): Map<VpnNodeState, Pair<String, String>> {
     val nodeLabels =
         mapOf(
             VpnNodeState.Disconnected to stringResource(R.string.vpn_state_machine_node_disconnected),
@@ -550,13 +582,27 @@ private fun StateMachineNodeLayer(
             VpnNodeState.Degraded to state.degradedMetaLabel,
         )
 
+    return nodeLabels.mapValues { (key, label) -> label to nodeMetas.getValue(key) }
+}
+
+@Composable
+private fun StateMachineNodeLayer(
+    state: StateMachineState,
+    labels: Map<VpnNodeState, Pair<String, String>>,
+    scaleX: Float,
+    scaleY: Float,
+) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val nodeWDp = with(density) { (NodeHalfW * 2f * scaleX).toDp() }
+    val nodeHDp = with(density) { (NodeHalfH * 2f * scaleY).toDp() }
+
     NodeSpecs.forEach { spec ->
         val leftDp = with(density) { ((spec.cx - NodeHalfW) * scaleX).toDp() }
         val topDp = with(density) { ((spec.cy - NodeHalfH) * scaleY).toDp() }
         NodeCard(
             modifier = Modifier.offset(x = leftDp, y = topDp).size(width = nodeWDp, height = nodeHDp),
-            label = nodeLabels[spec.state] ?: "",
-            metaLabel = nodeMetas[spec.state] ?: "",
+            label = labels.getValue(spec.state).first,
+            metaLabel = labels.getValue(spec.state).second,
             nodeKind = spec.kind,
             isCurrent = spec.state == state.currentState,
         )
@@ -652,8 +698,20 @@ private fun NodeCard(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(text = label, style = type.monoSmall, color = nc.label, maxLines = 1)
-                    Text(text = metaLabel, style = type.caption, color = colors.mutedForeground, maxLines = 1)
+                    Text(
+                        text = label,
+                        style = type.monoSmall,
+                        color = nc.label,
+                        maxLines = 1,
+                        modifier = Modifier.width(IntrinsicSize.Max),
+                    )
+                    Text(
+                        text = metaLabel,
+                        style = type.caption,
+                        color = colors.mutedForeground,
+                        maxLines = 1,
+                        modifier = Modifier.width(IntrinsicSize.Max),
+                    )
                 }
             }
         }
@@ -674,9 +732,10 @@ private fun StateMachineLegend() {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         LegendSwatch(
             color = colors.card,
@@ -733,6 +792,7 @@ private fun LegendSwatch(
             text = label,
             style = type.monoSmall,
             color = colors.mutedForeground,
+            modifier = Modifier.width(IntrinsicSize.Max),
         )
     }
 }

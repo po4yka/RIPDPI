@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistState
 import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistToolUiModel
@@ -110,9 +108,9 @@ private fun Ipv4WhitelistActionButtons(
     onCache: () -> Unit,
     onCheck: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         RipDpiButton(
             text =
@@ -124,7 +122,8 @@ private fun Ipv4WhitelistActionButtons(
             enabled = !isRunning,
             onClick = onCache,
             variant = RipDpiButtonVariant.Outline,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
+            wrapLabel = true,
         )
         RipDpiButton(
             text =
@@ -136,7 +135,8 @@ private fun Ipv4WhitelistActionButtons(
             enabled = !isRunning,
             onClick = onCheck,
             variant = RipDpiButtonVariant.Outline,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
+            wrapLabel = true,
         )
     }
 }

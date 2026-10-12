@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,8 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -30,6 +33,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val LargeTextFontScale = 1.5f
+private val ImportTwoColumnWidth = 600.dp
 
 // ---------------------------------------------------------------------------
 // State
@@ -80,8 +86,9 @@ data class StrategyImportState(
  * Presentation-only strategy-import screen matching
  * `docs/design/rds/preview/vpn-strategy-import.html`.
  *
- * Renders a 2×2 grid of import-source tiles (file / QR / URL / clipboard)
- * followed by a "Recent imports" section. All tokens come from
+ * Renders an adaptive grid of import-source tiles (file / QR / URL / clipboard)
+ * followed by a "Recent imports" section. Narrow windows and large text use
+ * one column. All tokens come from
  * [RipDpiThemeTokens]; no literal colours, dp values outside `ui/theme/`,
  * or animation-spec constants appear in this file.
  */
@@ -114,7 +121,7 @@ fun StrategyImportScreen(
             Spacer(modifier = Modifier.height(RipDpiThemeTokens.spacing.md))
             Text(
                 text = stringResource(R.string.strategy_import_caption),
-                style = RipDpiThemeTokens.type.caption,
+                style = RipDpiThemeTokens.type.secondaryBody,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
@@ -122,7 +129,7 @@ fun StrategyImportScreen(
 }
 
 // ---------------------------------------------------------------------------
-// 2×2 source picker grid
+// Adaptive source picker grid
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -130,24 +137,17 @@ private fun SourceGrid(
     sources: List<ImportSourceOption>,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-    ) {
-        sources.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-            ) {
-                row.forEach { option ->
-                    SourceTile(
-                        option = option,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                // Pad to two columns if the last row has only one item.
-                if (row.size == 1) {
-                    Box(modifier = Modifier.weight(1f))
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val columns = if (maxWidth < ImportTwoColumnWidth || fontScale >= LargeTextFontScale) 1 else 2
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            sources.chunked(columns).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                ) {
+                    row.forEach { option -> SourceTile(option, Modifier.weight(1f)) }
+                    repeat(columns - row.size) { Box(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -180,28 +180,31 @@ private fun SourceTile(
                 shape = shapes.full,
                 color = colors.muted,
                 contentColor = colors.mutedForeground,
-                modifier = Modifier.size(RipDpiIconSizes.Large),
+                modifier = Modifier.size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = option.icon,
                         contentDescription = null,
-                        modifier = Modifier.size(RipDpiIconSizes.Default),
+                        modifier = Modifier.size(RipDpiIconSizes.Large),
                     )
                 }
             }
             Column(
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
                 Text(
                     text = stringResource(option.titleRes),
                     style = type.bodyEmphasis,
                     color = colors.foreground,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
                     text = stringResource(option.subtitleRes),
-                    style = type.caption,
+                    style = type.secondaryBody,
                     color = colors.mutedForeground,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
