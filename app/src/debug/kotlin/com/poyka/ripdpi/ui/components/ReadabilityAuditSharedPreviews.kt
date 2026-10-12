@@ -26,7 +26,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
 @Preview(name = "Shared light", widthDp = 420, heightDp = 940, locale = "ru")
 @Preview(name = "Shared dark", widthDp = 420, heightDp = 940, locale = "ru", uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Shared large font", widthDp = 320, heightDp = 1700, locale = "ru", fontScale = 2f)
+@Preview(name = "Shared large font", widthDp = 320, heightDp = 2400, locale = "ru", fontScale = 2f)
 @Composable
 private fun ReadabilityAuditSharedPreview() {
     RipDpiComponentPreview(themePreference = if (isSystemInDarkTheme()) "dark" else "light") {
