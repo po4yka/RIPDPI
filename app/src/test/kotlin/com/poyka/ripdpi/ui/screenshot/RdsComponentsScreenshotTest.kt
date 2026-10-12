@@ -131,7 +131,7 @@ class RdsComponentsScreenshotTest {
 
     @Test
     fun oomRecovery() {
-        captureBothThemes("oomRecovery", widthDp = 420, heightDp = 300) {
+        captureBothThemes("oomRecovery", widthDp = 420, heightDp = 420) {
             OomRecoveryScreen(
                 state =
                     sampleOomRecoveryState(
