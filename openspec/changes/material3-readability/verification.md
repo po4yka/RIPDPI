@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1791793531264679
 change: material3-readability
-commit_sha: 73ffc07a52c777803983d1728626b39e788fddd6
-local: passed
-local_evidence: 447 UI and design-system tests passed with no failures, errors, or skips at d50c7ea6; app and service lint, app detekt and ktlint passed. Final Full and Simple Roborazzi verification passed with 554 executed tests and 30 existing variant assumption skips. Production and test sources are unchanged in the verified fixture commit. DESIGN validation and architecture health passed; locked Cargo metadata resolved 116 members. Source review and text-diff autoreview found no actionable defects.
+commit_sha: null
+local: required
+local_evidence: null
 remote_ci: not_applicable
 remote_ci_evidence: Local implementation and main commits only; push is not requested.
 device: not_applicable
 device_evidence: Visual checks use fresh host-rendered images; no device run is claimed.
-artifact: passed
-artifact_evidence: 12 fresh light, dark, and 2x Compose renders were inspected; captures and SHA-256 values are in build/reports/material3-readability. All affected UI goldens were inspected by golden-blesser; full manifests, before and after images, XML, logs, and exact tree hashes are in the golden worktree build/reports/material3-goldens and build/reports/material3-row-icons. No device or live-network acceptance is claimed.
+artifact: required
+artifact_evidence: null
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -24,8 +24,13 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-UI-SETTINGS-LAYOUT | UIX-1791793633865680 | SettingsRowTest with long Russian and RTL values, leading icons, and chevrons at 320/420dp and 2x font | Passed |
 | REQ-UI-DIAGNOSTICS-TABS | UIX-1791793634763649 | DiagnosticsSectionSwitcherTest: callbacks, selection, RTL, font scale, and text overflow; fresh renders | Passed |
 | REQ-UI-PRESERVE-CONTRACTS | UIX-1791793635678588 | App/service lint, 447 UI/design-system tests, 12 renders, reviewed goldens, and final diff | Passed |
+| REQ-UI-SHARED-ACTIONS | UIX-1791804419498505 | Shared action, feedback, navigation tests and fresh renders | Pending |
+| REQ-UI-ADAPTIVE-CHOICES | UIX-1791804426740078 | Localized DNS, relay, and form layout tests and renders | Pending |
+| REQ-UI-DATA-LAYOUT | UIX-1791804434249424 | Graph, import, recovery, and data layout tests and renders | Pending |
 
-## Local commands
+The app-wide combined review and visual checks are owned by UIX-1791804441168759. The first-stage results below are historical evidence at the stated commits; they do not prove the pending follow-up.
+
+## First-stage local commands
 
 The combined UI gate passed at source commit `d50c7ea6c649df961cd9cbb0b01142765967014e`:
 

@@ -31,3 +31,17 @@ Task ID: `UIX-1791793531264679`. The audit found small primary roles and split-w
 ## Migration Plan
 
 No persisted migration is required. Revert the UI commits to restore the old layout. Run theme and affected component tests, app/service lint, and combined-tree architecture and metadata gates. Inspect fresh light, dark, and 2x images before integration. Main integration is authorized; push is not requested.
+
+## App-wide follow-up
+
+The first stage is verified at 15b634db6. The next pass fixes the same classes across the app:
+
+- Compact density changes padding, not standalone action recognition: use 24dp action glyphs and 48dp hit areas. Keep 16dp telemetry/status markers; chip inline glyphs use 18dp.
+- Decorative leading feedback, DNS, import, and recovery symbols use 32dp inside 40dp. Shared feedback metrics are owned by one writer and land before dependent screen checks.
+- Action labels and primary navigation labels remain readable at 320/420dp and 2x font, without shrinking fonts or losing selection/callback semantics.
+- Choice groups and localized metadata use content-driven wrap or vertical layout; remove parent fixed heights and equal-width constraints that compress chip labels.
+- Headers reserve width for controls. Important facts use supporting body text, not dense metadata roles.
+- Throughput window choices and stat cells each contain their background and text in one surface. OOM actions use complete labels and sufficient width. Narrow/large-font import and stat grids adapt to one column where required.
+- Match the existing RDS previews for buttons, chips, warning banners, menus, bottom navigation, DNS, graph, import, OOM, and history. Their HTML remains read-only; fresh Compose renders and tested implementation define the adaptive correction.
+
+Source lanes and files are recorded in the portfolio ownership section. Planning and validation cover all reported findings; no palette, font family, protocol, storage, runtime, or production dependency changes are owned by this follow-up.

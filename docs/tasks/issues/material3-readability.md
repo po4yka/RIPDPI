@@ -2,7 +2,7 @@
 id: UIX-1791793531264679
 title: Improve Material 3 readability and navigation
 kind: feature
-status: review
+status: doing
 area: ui
 priority: high
 owner: ui-integration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: material3-readability
 created: 2026-10-12
 updated: 2026-10-12
-status_detail: Implementation complete; local UI, lint, and screenshot checks passed. Fresh theme and 2x font renders inspected. Main integration authorized; no push requested.
+status_detail: User requested app-wide fixes for the remaining readability, icon, and adaptive layout defects. Three source lanes own shared controls, forms, and data screens.
 ---
 
 ## Goal
@@ -37,3 +37,14 @@ Make primary text, icons, settings rows, and diagnostics navigation readable at 
 - golden-blesser: app/src/test/screenshots in the isolated test/material3-ui-goldens worktree; user approved the affected UI fixtures on 2026-10-12.
 - Serialized: golden-blesser owns screenshot fixtures, the typography worker owns type and icon tokens, the settings worker owns row metrics, and the integration owner owns the generated board. These paths have one writer each. Other workers do not update fixtures, locales, or planning artifacts.
 - Each writer uses a separate worktree. Main integration and commits are authorized by the user; push is not requested.
+
+## App-wide follow-up ownership
+
+The user requested all analogous defects after the first verified stage at 15b634db6.
+
+- Shared controls writer: ui/theme/Spacing.kt; ui/components/buttons; RipDpiChip; WarningBanner, RipDpiDegradationStrip, RipDpiContextMenu, RipDpiSnackbar, RipDpiAccordion; BottomNavBar; their tests; ReadabilityAuditSharedPreviews.kt. This writer alone owns shared metrics.
+- Forms writer: DnsSettingsCards; RuleEditorScreen; SubscriptionFailoverScreen; RememberedNetworksScreen; AboutScreen; ModeEditorRelaySection, RelayFields, RelayMasqueAuthFields, RelayVlessTransportFields, RelayCloudflareTunnelFields, RelayTuicFields; their tests; ReadabilityAuditFormsPreviews.kt.
+- Data writer: OomRecoveryScreen, StrategyImportScreen, DiagnosticsWidgets, DiagnosticsToolsSection, ThroughputGraphScreen, LatencyGraphScreen, QualityGraphsScreen, StateMachineScreen, PortMatrixScreen, HandshakeTimelineScreen, HistoryFilters, HistorySections, LogsScreen, HomeAnalysisBottomSheets, ConnectionHealthScreen, ProfileVariantsScreen; their tests; ReadabilityAuditDataPreviews.kt.
+- Integration owner: DESIGN.md, docs/design-system.md, audit and verification reports, task/OpenSpec artifacts, combined-tree gates, and main integration.
+- Golden-blesser alone owns app/src/test/screenshots. The existing user approval covers the affected readability UI family; no other fixture family is owned here.
+- Each writer uses a clean isolated worktree. Shared metrics land first; forms and data writers incorporate that commit before their final tests. All metadata, fixtures, and locale sets remain serialized.
