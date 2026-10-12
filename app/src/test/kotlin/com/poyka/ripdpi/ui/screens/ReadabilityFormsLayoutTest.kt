@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +20,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -31,6 +34,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -42,8 +49,12 @@ import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
+import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.screens.config.CloudflareTunnelRelayFields
 import com.poyka.ripdpi.ui.screens.config.MasqueAuthModeRow
 import com.poyka.ripdpi.ui.screens.config.MasqueCloudflareMtlsFields
@@ -68,7 +79,9 @@ import com.poyka.ripdpi.ui.screens.subscription.SubscriptionServerStatus
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionServerUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiInputMetrics
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -109,6 +122,134 @@ class ReadabilityFormsLayoutTest {
             .performScrollTo()
             .performClick()
         composeRule.runOnIdle { assertEquals(1, changes) }
+    }
+
+    @Test
+    fun masqueChoicesFitActualCardAtLargeFontInBothDirections() {
+        var direction by mutableStateOf(LayoutDirection.Ltr)
+        var mode by mutableStateOf(RelayMasqueAuthModeCloudflareMtls)
+        var width by mutableStateOf(320.dp)
+        var scale by mutableStateOf(1f)
+        var changes = 0
+        lateinit var measurer: TextMeasurer
+        lateinit var inputs: RipDpiInputMetrics
+        var cardPadding = 0f
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, scale),
+                LocalLayoutDirection provides direction,
+            ) {
+                measurer = rememberTextMeasurer()
+                RipDpiTheme {
+                    inputs = RipDpiThemeTokens.components.inputs
+                    cardPadding = RipDpiThemeTokens.layout.cardPadding.value
+                    Box(Modifier.requiredWidth(width)) {
+                        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+                            RipDpiCard {
+                                MasqueAuthModeRow(
+                                    ConfigDraft(relayMasqueAuthMode = mode),
+                                    ConfigUiState(supportsMasquePrivacyPass = true),
+                                    RelayMasqueActions(onRelayMasqueAuthModeChanged = {
+                                        mode = it
+                                        changes++
+                                    }),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val configurations =
+            listOf(320.dp, 420.dp).flatMap { testWidth ->
+                listOf(1f, 2f).flatMap { testScale ->
+                    listOf(RelayMasqueAuthModeCloudflareMtls, RelayMasqueAuthModePreshared).map { selectedMode ->
+                        Triple(testWidth, testScale, selectedMode)
+                    }
+                }
+            }
+        listOf(LayoutDirection.Ltr, LayoutDirection.Rtl).forEach { testDirection ->
+            configurations.forEach { (testWidth, testScale, selectedMode) ->
+                composeRule.runOnIdle {
+                    direction = testDirection
+                    width = testWidth
+                    scale = testScale
+                    mode = selectedMode
+                }
+                composeRule.waitForIdle()
+                assertMasqueCardChoices(measurer, testWidth.value - 40f - 2f * cardPadding, selectedMode, inputs)
+            }
+            composeRule
+                .onNodeWithContentDescription(
+                    text(R.string.config_relay_masque_auth_preshared),
+                ).performScrollTo()
+                .performClick()
+        }
+        composeRule.runOnIdle { assertEquals(2, changes) }
+    }
+
+    private fun assertMasqueCardChoices(
+        measurer: TextMeasurer,
+        rowWidth: Float,
+        selectedMode: String,
+        inputs: RipDpiInputMetrics,
+    ) {
+        val choices =
+            listOf(
+                R.string.config_relay_masque_auth_bearer to RelayMasqueAuthModeBearer,
+                R.string.config_relay_masque_auth_preshared to RelayMasqueAuthModePreshared,
+                R.string.config_relay_masque_auth_cloudflare_direct to RelayMasqueAuthModeCloudflareMtls,
+                R.string.config_relay_masque_auth_privacy_pass to RelayMasqueAuthModePrivacyPass,
+            )
+        choices.forEach { (label, choiceMode) ->
+            val node = composeRule.onNodeWithText(text(label), useUnmergedTree = true).performScrollTo()
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val layout = layouts.single()
+            assertFalse("'${text(label)}' overflows", layout.hasVisualOverflow)
+            assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
+            assertEquals(layout.layoutInput.text.length, layout.getLineEnd(layout.lineCount - 1))
+            val unhyphenated =
+                measurer.measure(
+                    text(label),
+                    style = layout.layoutInput.style.copy(hyphens = Hyphens.None),
+                    constraints = Constraints(maxWidth = 10_000),
+                )
+            assertEquals(
+                "Independent measurement must use the current font scale",
+                layout.layoutInput.density.fontScale,
+                unhyphenated.layoutInput.density.fontScale,
+                0f,
+            )
+            val longestWord = unhyphenated.multiParagraph.intrinsics.minIntrinsicWidth
+            if (longestWord <= rowWidth) {
+                assertTrue(
+                    "'${text(label)}' fits row=$rowWidth; word=$longestWord, label=${layout.size.width}",
+                    layout.size.width + 1f >= longestWord,
+                )
+            } else {
+                assertEquals(Hyphens.Auto, layout.layoutInput.style.hyphens)
+                assertTrue("An oversized word must wrap completely", layout.lineCount > 1)
+                val selectedIconInset = if (choiceMode == selectedMode) inputs.chipIconSize.value + 6f else 0f
+                val expectedTextBudget = rowWidth - 2f * inputs.chipHorizontalPadding.value - selectedIconInset
+                assertEquals(
+                    "The label must use the full token-defined text budget",
+                    expectedTextBudget,
+                    layout.size.width.toFloat(),
+                    1f,
+                )
+                val lineEnds = (0 until layout.lineCount).map { layout.getLineEnd(it) }
+                assertEquals(
+                    "Russian fallback must use the resource locale; lineEnds=$lineEnds",
+                    "ru",
+                    layout.layoutInput.style.localeList
+                        ?.get(0)
+                        ?.language,
+                )
+            }
+            val chip = composeRule.onNodeWithContentDescription(text(label))
+            if (choiceMode == selectedMode) chip.assertIsOn() else chip.assertIsOff()
+        }
     }
 
     @Test
