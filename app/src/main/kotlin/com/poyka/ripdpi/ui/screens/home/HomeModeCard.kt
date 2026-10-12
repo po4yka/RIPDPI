@@ -148,7 +148,7 @@ private fun HomeModeCardTitle(
 ) {
     Text(
         text = title,
-        style = RipDpiThemeTokens.type.bodyEmphasisBold,
+        style = RipDpiThemeTokens.type.cardTitle,
         color = RipDpiThemeTokens.colors.foreground,
         modifier = modifier,
     )

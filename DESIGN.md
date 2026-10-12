@@ -40,24 +40,29 @@ colors:
 typography:
   screenTitle:
     fontFamily: Geist Sans
+    fontSize: 24px
+    fontWeight: 500
+    lineHeight: 32px
+  appBarTitle:
+    fontFamily: Geist Sans
     fontSize: 22px
     fontWeight: 500
     lineHeight: 28px
-  appBarTitle:
-    fontFamily: Geist Sans
-    fontSize: 20px
-    fontWeight: 500
-    lineHeight: 28px
-  sheetTitle:
+  cardTitle:
     fontFamily: Geist Sans
     fontSize: 18px
     fontWeight: 500
     lineHeight: 24px
+  sheetTitle:
+    fontFamily: Geist Sans
+    fontSize: 22px
+    fontWeight: 500
+    lineHeight: 28px
   sectionTitle:
     fontFamily: Geist Sans
-    fontSize: 13px
+    fontSize: 14px
     fontWeight: 500
-    lineHeight: 18px
+    lineHeight: 20px
     letterSpacing: 0.72px
   introAction:
     fontFamily: Geist Sans
@@ -66,34 +71,34 @@ typography:
     lineHeight: 21px
   introTitle:
     fontFamily: Geist Sans
-    fontSize: 22px
+    fontSize: 24px
     fontWeight: 500
-    lineHeight: 30px
+    lineHeight: 32px
   introBody:
     fontFamily: Geist Sans
-    fontSize: 15px
+    fontSize: 16px
     fontWeight: 400
-    lineHeight: 22px
+    lineHeight: 24px
   screenTitleEmphasis:
     fontFamily: Geist Sans
-    fontSize: 22px
+    fontSize: 24px
     fontWeight: 700
-    lineHeight: 28px
+    lineHeight: 32px
   body:
     fontFamily: Geist Sans
-    fontSize: 14px
+    fontSize: 16px
     fontWeight: 400
-    lineHeight: 20px
+    lineHeight: 24px
   bodyEmphasis:
     fontFamily: Geist Sans
-    fontSize: 14px
+    fontSize: 16px
     fontWeight: 500
-    lineHeight: 20px
+    lineHeight: 24px
   bodyEmphasisBold:
     fontFamily: Geist Sans
-    fontSize: 14px
+    fontSize: 16px
     fontWeight: 700
-    lineHeight: 20px
+    lineHeight: 24px
   secondaryBody:
     fontFamily: Geist Sans
     fontSize: 14px
@@ -111,9 +116,9 @@ typography:
     lineHeight: 16px
   button:
     fontFamily: Geist Sans
-    fontSize: 15px
+    fontSize: 16px
     fontWeight: 500
-    lineHeight: 20px
+    lineHeight: 24px
   navLabel:
     fontFamily: Geist Sans
     fontSize: 12px
@@ -529,7 +534,7 @@ Typography uses bundled Geist families only:
 - `Geist Mono` for telemetry, configuration, values, logs, and protocol-oriented strings.
 - `Geist Pixel Circle` for the home brand mark only.
 
-Text should stay compact and readable. Emphasis comes from weight promotion before size changes. Agents should prefer `bodyEmphasis` and `bodyEmphasisBold` over inventing larger ad hoc styles for routine emphasis.
+Primary content uses a readable mobile scale: `body` and its emphasis variants are `16sp/24sp`; supporting text uses `secondaryBody` at `14sp/20sp`. `cardTitle` is `18sp/24sp` for mode and profile names. Reserve `caption` at `12sp/16sp` for metadata. Use these semantic roles instead of shrinking text to fit a control. The portable YAML expresses text sizes in px; Android implements them in sp and respects system font scale.
 
 Reserved usage matters:
 
@@ -678,6 +683,8 @@ Compose implementation uses both cubic easing and spring motion. Reduced-motion 
 Icon rules are strict:
 
 - screens and components import icons only through `RipDpiIcons`
+- standalone action and navigation icons use `24dp`; inline markers and chevrons may use `16dp` or `18dp`
+- visible icon size is separate from the minimum `48dp` interactive area
 - the action and navigation icon language is outlined Material
 - exceptions are limited to app assets and illustration surfaces
 - iconography should read as utility chrome, not branding

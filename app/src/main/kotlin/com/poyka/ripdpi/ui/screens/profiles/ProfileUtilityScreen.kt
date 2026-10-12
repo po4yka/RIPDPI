@@ -238,7 +238,7 @@ private fun ProfileUtilityHeader(
     val colors = RipDpiThemeTokens.colors
     Row(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
-            Text(profile.label, style = type.sectionTitle, color = colors.foreground)
+            Text(profile.label, style = type.cardTitle, color = colors.foreground)
             Text(
                 listOfNotNull(profile.groupLabel, profile.kind).joinToString(" · "),
                 style = type.caption,
