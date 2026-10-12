@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.content.res.Configuration
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
@@ -11,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.Locale
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
 
@@ -23,6 +25,67 @@ class HistoryConnectionDetailUiFactoryTest {
             stringResolver = AndroidStringResolver(ApplicationProvider.getApplicationContext()),
             coreSupport = testDiagnosticsUiCoreSupport(),
         )
+
+    @Test
+    fun `Chinese history titles translate known states and preserve stored keys`() {
+        val factory = localizedFactory(Locale.SIMPLIFIED_CHINESE)
+        mapOf(
+            "Running" to "运行中",
+            "FAILED" to "失败",
+            "Stopped" to "已停止",
+            "Halted" to "已停止",
+            "Reconnecting" to "重新连接中",
+        ).forEach { (state, label) ->
+            val session = historyConnectionSession(state = state)
+            val row = factory.toConnectionRowUiModel(session)
+            assertEquals("VPN $label", row.title)
+            assertEquals(state, row.connectionState)
+            assertEquals(state, session.connectionState)
+            assertEquals(
+                row.title,
+                factory
+                    .toConnectionDetail(
+                        DiagnosticConnectionDetail(session, emptyList(), emptyList(), emptyList(), emptyList()),
+                    ).session.title,
+            )
+        }
+    }
+
+    @Test
+    fun `unknown history state retains its exact spelling in every language`() {
+        val state = "CustomStage_v2"
+        listOf(Locale.ENGLISH, Locale.SIMPLIFIED_CHINESE).forEach { locale ->
+            val row = localizedFactory(locale).toConnectionRowUiModel(historyConnectionSession(state = state))
+            assertEquals("VPN $state", row.title)
+            assertEquals(state, row.connectionState)
+        }
+    }
+
+    @Test
+    fun `English history state keeps its familiar wording`() {
+        val factory = localizedFactory(Locale.ENGLISH)
+        listOf("Running", "Failed", "Stopped", "Halted", "Reconnecting").forEach { state ->
+            assertEquals(
+                "VPN ${state.lowercase(Locale.ROOT)}",
+                factory.toConnectionRowUiModel(historyConnectionSession(state = state)).title,
+            )
+        }
+    }
+
+    private fun localizedFactory(locale: Locale): HistoryConnectionDetailUiFactory {
+        val localizedContext =
+            context.createConfigurationContext(
+                Configuration(context.resources.configuration).apply {
+                    setLocale(locale)
+                },
+            )
+        val strings = AndroidStringResolver(localizedContext)
+        return HistoryConnectionDetailUiFactory(
+            localizedContext,
+            strings,
+            DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), strings),
+        )
+    }
 
     @Test
     fun `connection history conceals legacy network addresses without a details toggle`() {

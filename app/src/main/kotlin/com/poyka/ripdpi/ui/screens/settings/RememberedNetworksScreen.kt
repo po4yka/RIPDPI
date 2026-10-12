@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -51,9 +53,11 @@ fun RememberedNetworksRoute(
     modifier: Modifier = Modifier,
     viewModel: RememberedNetworksViewModel = hiltViewModel(),
 ) {
+    val locale = LocalConfiguration.current.locales[0]
+    LaunchedEffect(viewModel, locale) { viewModel.updateLocale(locale) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     RememberedNetworksScreen(
-        uiState = uiState,
+        uiState = if (uiState.localeTag == locale.toLanguageTag()) uiState else RememberedNetworksUiState(),
         onBack = onBack,
         onDeleteEntry = viewModel::deletePolicy,
         onClearAll = viewModel::clearAll,

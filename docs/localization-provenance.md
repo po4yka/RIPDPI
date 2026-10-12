@@ -78,6 +78,28 @@ passing tests; it reports 11 failures against the source baseline. This entry
 does not record a new maintainer or native-speaker sign-off for other locales.
 It does not claim a device test or a full linguistic review of the app.
 
+## Chinese audit corrections (2026-10-12)
+
+The source baseline was `76169878cae9b947e58140d2a2d788dbaf7466bc`.
+This pass corrected 116 active Chinese resource entries from the confirmed audit,
+plus the dormant redaction message and the Quick Connect tile label. It preserves
+credential warnings, explicit-export consent, capture retention, protocol tokens,
+and the visible names of recovery actions.
+
+The diagnostic tool and connection-state presentation adds 57 source strings.
+Each has a translation in all ten locales. The source set now has 4,905 app
+entries (4,884 strings and 21 plural resources), 11 service entries (10 strings
+and one plural resource), and 15 separate Quick Connect strings. The source
+string manifest has 4,894 keys; it excludes plurals and the Quick Connect set.
+
+The corrections and new translations were authored with an AI assistant.
+Resource tests check safety meanings, action references, network terminology,
+key types, and format arguments across every locale. The five Chinese resource
+tests pass locally and report 116 failures against the audit baseline. Existing
+Russian resource tests also pass. This entry does not record a new maintainer
+or native-speaker sign-off. Device tests and a full linguistic review of other
+locales are not claimed.
+
 ## Font & glyph coverage
 
 The brand typeface (Geist Sans / Geist Mono, bundled under

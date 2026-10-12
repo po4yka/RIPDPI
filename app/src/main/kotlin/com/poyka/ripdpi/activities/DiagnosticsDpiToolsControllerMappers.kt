@@ -2,7 +2,6 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
-import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsServerType
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
@@ -116,14 +115,14 @@ internal fun List<DomainReachabilityResult>.toUiModel(
             map { result ->
                 DiagnosticsDomainReachabilityDomainUiModel(
                     domain = result.domain,
-                    verdict = result.verdict.displayLabel(),
+                    verdict = result.verdict.displayLabel(stringResolver),
                     resolvedIps =
                         result.resolvedIps.joinToString().ifBlank {
                             stringResolver.getString(R.string.diagnostics_value_unresolved)
                         },
-                    tls13 = result.tls13.displayLabel(),
-                    tls12 = result.tls12.displayLabel(),
-                    http = result.http.displayLabel(),
+                    tls13 = result.tls13.displayLabel(stringResolver),
+                    tls12 = result.tls12.displayLabel(stringResolver),
+                    http = result.http.displayLabel(stringResolver),
                     tone = result.verdict.tone(),
                 )
             }.toPersistentList(),
@@ -172,7 +171,7 @@ internal fun CompressionProbeRunResult.toUiModel(
                     val result = results.getValue(codec)
                     DiagnosticsCompressionCodecUiModel(
                         codec = codec.name.lowercase(Locale.US),
-                        verdict = result.verdict.displayLabel(),
+                        verdict = result.verdict.displayLabel(stringResolver),
                         compressedBytes = result.compressedBytes?.toString() ?: naValue,
                         decompressedBytes = result.decompressedBytes?.toString() ?: naValue,
                         tone = result.verdict.tone(),
@@ -264,12 +263,12 @@ internal fun buildRknBlockDiagnosisUiModel(
     val controlGroup = stringResolver.getString(R.string.diagnostics_rkn_group_control)
     val testGroup = stringResolver.getString(R.string.diagnostics_rkn_group_test)
     val rows =
-        controlResults.map { result -> result.toUiModel(controlGroup) } +
-            testResults.map { result -> result.toUiModel(testGroup) }
+        controlResults.map { result -> result.toUiModel(controlGroup, stringResolver) } +
+            testResults.map { result -> result.toUiModel(testGroup, stringResolver) }
     return DiagnosticsRknBlockDiagnosisToolUiModel(
         state = DiagnosticsRknBlockDiagnosisState.Complete,
-        headline = aggregate.headline,
-        confidenceNote = aggregate.confidenceNote,
+        headline = aggregate.localizedHeadline(stringResolver),
+        confidenceNote = aggregate.localizedConfidenceNote(stringResolver),
         summary =
             stringResolver.getString(
                 R.string.diagnostics_rkn_complete,
@@ -299,7 +298,7 @@ internal fun buildRknBlockDiagnosisUiModel(
                 .map { (verdict, count) ->
                     val label = RknVerdictLabel.format(verdict, RknConfidence.HIGH)
                     DiagnosticsRknBlockTypeUiModel(
-                        label = "${label.symbol} ${label.text}",
+                        label = "${label.symbol} ${verdict.localizedLabel(RknConfidence.HIGH, stringResolver)}",
                         count = count,
                         tone = label.color.toDiagnosticsTone(),
                     )
@@ -321,26 +320,18 @@ private fun SelfInfoResult.toUiModel(stringResolver: StringResolver): Diagnostic
         source = source,
     )
 
-private fun DomainVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
-
-private fun CompressionProbeVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
-
-private fun AttemptResult.displayLabel(): String =
-    buildList {
-        add(status.name.lowercase(Locale.US).replace('_', ' '))
-        statusCode?.let { code -> add(code.toString()) }
-        error?.let { error -> add(error.label.lowercase(Locale.US).replace('_', ' ')) }
-    }.joinToString(" · ")
-
 internal fun List<RknTarget>.toProbeTargets(): List<RknProbeTarget> =
     map { target -> RknProbeTarget(name = target.name, url = target.url) }
 
-private fun RknCheckResult.toUiModel(group: String): DiagnosticsRknTargetUiModel {
+private fun RknCheckResult.toUiModel(
+    group: String,
+    strings: StringResolver,
+): DiagnosticsRknTargetUiModel {
     val label = RknVerdictLabel.format(verdict, confidence)
     return DiagnosticsRknTargetUiModel(
         group = group,
         name = name,
-        verdict = "${label.symbol} ${label.text}",
+        verdict = "${label.symbol} ${verdict.localizedLabel(confidence, strings)}",
         notes = notes.ifEmpty { listOfNotNull(dnsError, tcpError, tlsError, httpError) }.joinToString("; "),
         tone = label.color.toDiagnosticsTone(),
     )

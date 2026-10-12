@@ -14,6 +14,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
+import java.time.ZoneId
+import java.util.Locale
 
 class RememberedNetworksViewModelTest {
     @get:Rule
@@ -21,7 +24,7 @@ class RememberedNetworksViewModelTest {
 
     private val source = RecordingRememberedPolicySource()
 
-    private fun viewModel() = RememberedNetworksViewModel(source)
+    private fun viewModel() = RememberedNetworksViewModel(source).apply { updateLocale(Locale.ENGLISH) }
 
     @Test
     fun `maps policies to privacy-safe ui models`() =
@@ -41,6 +44,84 @@ class RememberedNetworksViewModelTest {
                 assertEquals("wifi", entry.transportKey)
                 assertEquals(RememberedNetworkStatusTone.Validated, entry.statusTone)
                 assertTrue(entry.updatedLabel.isNotBlank())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `timestamp uses the selected locale independently of system language`() {
+        val timestamp = Instant.parse("2026-05-30T14:05:00Z").toEpochMilli()
+        val original = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.ENGLISH)
+            assertEquals(
+                "5月 30, 14:05",
+                formatRememberedNetworkTimestamp(timestamp, Locale.SIMPLIFIED_CHINESE, ZoneId.of("UTC")),
+            )
+            Locale.setDefault(Locale.SIMPLIFIED_CHINESE)
+            assertEquals("May 30, 14:05", formatRememberedNetworkTimestamp(timestamp, Locale.ENGLISH, ZoneId.of("UTC")))
+        } finally {
+            Locale.setDefault(original)
+        }
+    }
+
+    @Test
+    fun `locale change reformats existing policies without a repository update`() =
+        runTest {
+            val timestamp = Instant.parse("2026-05-30T14:05:00Z").toEpochMilli()
+            val policy = validatedWifiPolicy().copy(updatedAt = timestamp)
+            source.policies.value = listOf(policy)
+            val model = viewModel()
+            model.uiState.test {
+                var english = awaitItem()
+                if (english.loading) english = awaitItem()
+                assertTrue(
+                    english.entries
+                        .single()
+                        .updatedLabel
+                        .startsWith("May 30,"),
+                )
+                model.updateLocale(Locale.SIMPLIFIED_CHINESE)
+                val chinese = awaitItem()
+                assertTrue(
+                    chinese.entries
+                        .single()
+                        .updatedLabel
+                        .startsWith("5月 30,"),
+                )
+                assertEquals(
+                    english.entries.single().copy(updatedLabel = chinese.entries.single().updatedLabel),
+                    chinese.entries.single(),
+                )
+                assertEquals(listOf(policy), source.policies.value)
+                assertEquals(
+                    timestamp,
+                    source.policies.value
+                        .single()
+                        .updatedAt,
+                )
+                assertEquals(emptyList<Pair<Long, String>>(), source.deleted)
+                assertEquals(0, source.clearCalls)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `policies stay loading until the route supplies its selected locale`() =
+        runTest {
+            source.policies.value = listOf(validatedWifiPolicy())
+            val model = RememberedNetworksViewModel(source)
+            model.uiState.test {
+                assertTrue(awaitItem().loading)
+                model.updateLocale(Locale.SIMPLIFIED_CHINESE)
+                val chinese = awaitItem()
+                assertFalse(chinese.loading)
+                assertTrue(
+                    chinese.entries
+                        .single()
+                        .updatedLabel
+                        .contains("月"),
+                )
                 cancelAndIgnoreRemainingEvents()
             }
         }

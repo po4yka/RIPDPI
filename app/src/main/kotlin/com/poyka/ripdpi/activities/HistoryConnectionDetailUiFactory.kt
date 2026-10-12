@@ -45,7 +45,7 @@ internal class HistoryConnectionDetailUiFactory
                     stringResolver.getString(
                         R.string.history_connection_title_format,
                         session.serviceMode,
-                        session.connectionState.lowercase(Locale.US),
+                        connectionStateLabel(session.connectionState),
                     ),
                 subtitle =
                     stringResolver.getString(
@@ -427,6 +427,16 @@ internal class HistoryConnectionDetailUiFactory
             @StringRes labelRes: Int,
             value: String,
         ): DiagnosticsFieldUiModel = DiagnosticsFieldUiModel(stringResolver.getString(labelRes), value)
+
+        private fun connectionStateLabel(state: String): String =
+            when (state.lowercase(Locale.ROOT)) {
+                "running" -> stringResolver.getString(R.string.history_connection_state_running)
+                "failed" -> stringResolver.getString(R.string.history_connection_state_failed)
+                "stopped" -> stringResolver.getString(R.string.history_connection_state_stopped)
+                "halted" -> stringResolver.getString(R.string.history_connection_state_halted)
+                "reconnecting" -> stringResolver.getString(R.string.history_connection_state_reconnecting)
+                else -> state
+            }
 
         private fun toneForConnection(session: DiagnosticConnectionSession): DiagnosticsTone =
             when {

@@ -290,7 +290,12 @@ internal fun HttpCompressionProbeCard(
                         tone = statusTone(row.tone),
                     )
                     androidx.compose.material3.Text(
-                        text = "${row.compressedBytes} B compressed · ${row.decompressedBytes} B decoded",
+                        text =
+                            stringResource(
+                                R.string.diagnostics_compression_bytes_format,
+                                row.compressedBytes,
+                                row.decompressedBytes,
+                            ),
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )

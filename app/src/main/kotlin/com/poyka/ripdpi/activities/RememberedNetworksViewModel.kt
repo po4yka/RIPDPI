@@ -11,9 +11,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -28,11 +29,15 @@ internal const val RememberedNetworksInspectorLimit = 200
 /** Number of leading scope-hash characters surfaced as a privacy-safe scope identifier. */
 private const val ScopeKeyDisplayLength = 12
 
-private val rememberedNetworkTimestampFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US).withZone(ZoneId.systemDefault())
-
-internal fun formatRememberedNetworkTimestamp(timestamp: Long): String =
-    rememberedNetworkTimestampFormatter.format(Instant.ofEpochMilli(timestamp))
+internal fun formatRememberedNetworkTimestamp(
+    timestamp: Long,
+    locale: Locale,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): String =
+    DateTimeFormatter
+        .ofPattern("MMM d, HH:mm", locale)
+        .withZone(zoneId)
+        .format(Instant.ofEpochMilli(timestamp))
 
 /**
  * Drives the per-network policy inspector. The screen lists every remembered network policy by a
@@ -47,23 +52,38 @@ class RememberedNetworksViewModel
     constructor(
         private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
     ) : ViewModel() {
+        // The route supplies its app configuration locale, including app-specific language overrides.
+        private val displayLocale = MutableStateFlow<Locale?>(null)
+
         val uiState: StateFlow<RememberedNetworksUiState> =
-            rememberedPolicySource
-                .observePolicies(limit = RememberedNetworksInspectorLimit)
-                .map { policies ->
+            combine(
+                rememberedPolicySource.observePolicies(limit = RememberedNetworksInspectorLimit),
+                displayLocale,
+            ) { policies, locale ->
+                if (locale == null) {
+                    RememberedNetworksUiState(loading = true)
+                } else {
                     RememberedNetworksUiState(
                         loading = false,
+                        localeTag = locale.toLanguageTag(),
                         entries =
                             policies
                                 .map { policy ->
-                                    policy.toRememberedNetworkUiModel(::formatRememberedNetworkTimestamp)
+                                    policy.toRememberedNetworkUiModel { timestamp ->
+                                        formatRememberedNetworkTimestamp(timestamp, locale)
+                                    }
                                 }.toImmutableList(),
                     )
-                }.stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-                    initialValue = RememberedNetworksUiState(loading = true),
-                )
+                }
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
+                initialValue = RememberedNetworksUiState(loading = true),
+            )
+
+        fun updateLocale(locale: Locale) {
+            displayLocale.value = locale
+        }
 
         fun deletePolicy(entry: RememberedNetworkUiModel) {
             viewModelScope.launch {
@@ -94,6 +114,7 @@ class RememberedNetworksViewModel
 data class RememberedNetworksUiState(
     val loading: Boolean = true,
     val entries: ImmutableList<RememberedNetworkUiModel> = persistentListOf(),
+    val localeTag: String? = null,
 ) {
     val isEmpty: Boolean
         get() = !loading && entries.isEmpty()

@@ -96,7 +96,7 @@ private fun Ipv4WhitelistResultsColumn(tool: DiagnosticsIpv4WhitelistToolUiModel
                 tone = statusTone(row.tone),
             )
             Text(
-                text = "alive ${row.alive} · ${row.verdict}",
+                text = stringResource(R.string.diagnostics_ipv4_whitelist_alive_format, row.alive, row.verdict),
                 style = RipDpiThemeTokens.type.monoSmall,
                 color = colors.mutedForeground,
             )

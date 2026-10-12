@@ -12,7 +12,7 @@
     <string name="pause_stop">停止并取消恢复</string>
     <string name="pause_persistence_failed">无法保存指令。连接状态未改变。</string>
     <string name="pause_duration_minutes">%1$s 分钟</string>
-    <string name="pause_clock_failed">时钟或启动标识已改变。请检查恢复条件。</string>
+    <string name="pause_clock_failed">时钟或启动标识已改变。请点击“立即恢复”检查恢复条件。</string>
     <string name="pause_consent_required">恢复连接需要 VPN 权限。</string>
     <string name="pause_lockdown">Android VPN 锁定状态不允许此操作。</string>
     <string name="pause_background_restricted">Android 推迟了后台恢复。请打开应用。</string>
