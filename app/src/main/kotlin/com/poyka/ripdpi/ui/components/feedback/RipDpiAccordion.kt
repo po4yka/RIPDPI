@@ -31,6 +31,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -103,7 +104,7 @@ fun RipDpiAccordion(
                         stringResource(R.string.cd_expand)
                     },
                 tint = colors.mutedForeground,
-                modifier = Modifier.size(spacing.xl).rotate(chevronAngle),
+                modifier = Modifier.size(RipDpiIconSizes.Default).rotate(chevronAngle),
             )
         }
         AnimatedVisibility(

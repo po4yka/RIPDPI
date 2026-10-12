@@ -129,7 +129,7 @@ private fun WarningBannerContent(
                 imageVector = icon,
                 contentDescription = null,
                 tint = state.icon,
-                modifier = Modifier.size(RipDpiIconSizes.Small),
+                modifier = Modifier.size(RipDpiIconSizes.Large),
             )
         }
         Column(
@@ -159,7 +159,7 @@ private fun WarningBannerContent(
                     imageVector = RipDpiIcons.Close,
                     contentDescription = stringResource(R.string.action_dismiss),
                     tint = state.title,
-                    modifier = Modifier.size(RipDpiIconSizes.Small),
+                    modifier = Modifier.size(RipDpiIconSizes.Default),
                 )
             }
         }
