@@ -330,13 +330,13 @@ components:
   chipDefault:
     backgroundColor: "{colors.background}"
     textColor: "{colors.foreground}"
-    typography: "{typography.smallLabel}"
+    typography: "{typography.bodyEmphasis}"
     rounded: "{rounded.lg}"
     padding: "{spacing.md}"
   chipSelected:
     backgroundColor: "{colors.foreground}"
     textColor: "{colors.background}"
-    typography: "{typography.smallLabel}"
+    typography: "{typography.bodyEmphasis}"
     rounded: "{rounded.lg}"
     padding: "{spacing.md}"
   textFieldDefault:
@@ -654,6 +654,12 @@ Accessibility is a design requirement, not an afterthought:
 - Secondary text roles must remain readable in both light and dark themes.
 - Selectable surfaces such as `PresetCard` must expose selection state semantically, not only visually.
 - Large font scale must not clip primary actions, titles, or onboarding content.
+- A button height is a minimum. Let its complete label wrap and its container grow.
+- Choice chips use content-driven width and height. Wrap the group instead of forcing equal columns.
+- Place long localized facts and status badges on separate lines when they compete with a title.
+- Keep bottom navigation in one row when all labels fit. If measured labels need more width, use two columns, then one column as needed. Preserve destination order, selection, and all actions.
+- Use scrollable Material 3 tabs for peer sections. Do not shrink their text to fit.
+- Keep graph labels readable. Scroll a large diagram instead of scaling its text below the chosen type size.
 
 ## Motion
 
@@ -685,7 +691,9 @@ Icon rules are strict:
 
 - screens and components import icons only through `RipDpiIcons`
 - standalone action and navigation icons use `24dp`; inline markers may use `16dp` or `18dp`
-- SettingsRow navigation chevrons use `24dp`; decorative leading symbols use `32dp` inside a `40dp` circle for visual balance with the readable text scale
+- SettingsRow navigation chevrons use `24dp`; leading settings, feedback, DNS, import, and recovery symbols use `32dp` inside a `40dp` circle for visual balance with the readable text scale
+- compact action density changes padding; action and dismiss glyphs still use `24dp`
+- chip glyphs use `18dp`; selection uses the existing state styling and keeps label size stable
 - visible icon size is separate from the minimum `48dp` interactive area
 - the action and navigation icon language is outlined Material
 - exceptions are limited to app assets and illustration surfaces

@@ -17,7 +17,7 @@ status_detail: User requested app-wide fixes for the remaining readability, icon
 
 ## Goal
 
-Make primary text, icons, settings rows, and diagnostics navigation readable at standard and large font sizes.
+Make app text, standalone and leading icons, settings, navigation, forms, and diagnostic data layouts readable at standard and large font sizes.
 
 ## Acceptance criteria
 
@@ -26,6 +26,8 @@ Make primary text, icons, settings rows, and diagnostics navigation readable at 
 - Diagnostics sections use accessible Material 3 tabs without a vertical fixed selector at large font scale.
 - Local UI tests and lint pass; fresh light, dark, and 2x font captures are inspected.
 - DESIGN.md records the revised roles and layouts.
+- Shared actions keep complete labels and 48dp targets; choice groups and localized facts wrap without compressed words.
+- Data cards, recovery actions, graph headers, and scrollable diagrams keep visible content and preserve callbacks, selection, and coordinate alignment in RTL.
 
 ## Ownership
 
@@ -42,9 +44,9 @@ Make primary text, icons, settings rows, and diagnostics navigation readable at 
 
 The user requested all analogous defects after the first verified stage at 15b634db6.
 
-- Shared controls writer: ui/theme/Spacing.kt; ui/components/buttons; RipDpiChip; WarningBanner, RipDpiDegradationStrip, RipDpiContextMenu, RipDpiSnackbar, RipDpiAccordion; BottomNavBar; their tests; ReadabilityAuditSharedPreviews.kt. This writer alone owns shared metrics.
-- Forms writer: DnsSettingsCards; RuleEditorScreen; SubscriptionFailoverScreen; RememberedNetworksScreen; AboutScreen; ModeEditorRelaySection, RelayFields, RelayMasqueAuthFields, RelayVlessTransportFields, RelayCloudflareTunnelFields, RelayTuicFields; their tests; ReadabilityAuditFormsPreviews.kt.
-- Data writer: OomRecoveryScreen, StrategyImportScreen, DiagnosticsWidgets, DiagnosticsToolsSection, ThroughputGraphScreen, LatencyGraphScreen, QualityGraphsScreen, StateMachineScreen, PortMatrixScreen, HandshakeTimelineScreen, HistoryFilters, HistorySections, LogsScreen, HomeAnalysisBottomSheets, ConnectionHealthScreen, ProfileVariantsScreen; their tests; ReadabilityAuditDataPreviews.kt.
-- Integration owner: DESIGN.md, docs/design-system.md, audit and verification reports, task/OpenSpec artifacts, combined-tree gates, and main integration.
+- Shared controls writer: ui/theme/Spacing.kt; ui/components/buttons (including RipDpiTextAction); RipDpiChip; WarningBanner, RipDpiDegradationStrip, RipDpiContextMenu, RipDpiSnackbar, RipDpiAccordion; BottomNavBar; their tests; ReadabilityAuditSharedPreviews.kt. This writer alone owns shared metrics.
+- Forms writer: DnsSettingsCards; RuleEditorScreen; SubscriptionFailoverScreen; RememberedNetworksScreen; AboutScreen; ModeEditorRelaySection, RelayFields, RelayMasqueAuthFields, RelayVlessTransportFields, RelayCloudflareTunnelFields, RelayTuicFields, RelayMasqueMtlsFields, DomainBypassListScreen, WsTunnelWorkerSettingsUi, SettingsPreferenceSections; their tests; ReadabilityAuditFormsPreviews.kt.
+- Data writer: OomRecoveryScreen, StrategyImportScreen, DiagnosticsWidgets, DiagnosticsToolsSection, ThroughputGraphScreen, LatencyGraphScreen, QualityGraphsScreen, StateMachineScreen, PortMatrixScreen, HandshakeTimelineScreen, HistoryFilters, HistorySections, LogsScreen, HomeAnalysisBottomSheets, ConnectionHealthScreen, ProfileVariantsScreen, BlockcheckRoute, DiagnosticsIpv4WhitelistCard; their tests; ReadabilityAuditDataPreviews.kt.
+- Integration owner: DESIGN.md, docs/design-system.md, audit and verification reports, task/OpenSpec artifacts, combined-tree gates, and main integration. After the forms agent availability failure, the integration owner completes its final DNS header correction, validation, and scoped commit in the same isolated forms worktree; the agent is inactive. After the data agent availability failure, the integration owner completes the HistoryEventsFilterCard extraction, validation, and scoped commit in the same isolated data worktree; that agent is inactive.
 - Golden-blesser alone owns app/src/test/screenshots. The existing user approval covers the affected readability UI family; no other fixture family is owned here.
 - Each writer uses a clean isolated worktree. Shared metrics land first; forms and data writers incorporate that commit before their final tests. All metadata, fixtures, and locale sets remain serialized.

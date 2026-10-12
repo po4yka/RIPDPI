@@ -334,6 +334,8 @@ Motion rules:
 - The icon language is outlined Material only.
 - Standalone action and navigation icons use `24dp`; smaller roles are for inline markers.
 - SettingsRow uses `rows.settingsRowLeadingIconSize` (`32dp`) inside `rows.settingsRowLeadingBadgeSize` (`40dp`). This decorative leading symbol is a local optical adjustment; it is not the default toolbar or navigation icon size. SettingsRow chevrons use `24dp`.
+- Feedback, DNS, import, and recovery leading symbols use `RipDpiIconSizes.Large` (`32dp`) in `components.feedback.decorativeBadgeSize` (`40dp`).
+- Compact action density keeps `24dp` glyphs. Chip inline glyphs use `18dp`.
 - Icon size does not reduce the `48dp` minimum interactive area.
 - Exceptions are allowed only for app assets or illustration drawings, not for action or navigation icons.
 
@@ -345,7 +347,12 @@ Motion rules:
 - `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface label and error semantics.
 - Secondary text roles must remain readable in both light and dark themes.
 - Selectable cards such as `PresetCard` must expose their selection state semantically, not only visually.
-- Large-font layouts must remain usable without clipped content.
+- Large-font layouts must remain usable without clipped content or letter-by-letter compression.
+- Action labels wrap and grow with the container. A control height is a minimum.
+- Choice groups use intrinsic chip widths in a wrapping layout. Do not enforce equal-width chips or fixed chip heights.
+- Headers reserve space for controls. Put long facts and status badges below the title when needed.
+- Bottom navigation measures complete labels. Keep one row when it fits; use two columns, then one column if required. Preserve destination order, selection, and callbacks.
+- Diagrams retain readable text and use scrolling when their geometry exceeds the viewport. Do not shrink text with the drawing.
 
 ## Contributor Rules
 
@@ -392,3 +399,5 @@ The screenshot catalog intentionally excludes continuously animated or cursor-dr
 ## Readability revision
 
 The Material 3 readability change updates primary type, icons, settings rows, and diagnostics tabs. The older RDS HTML previews `type-body`, `type-display`, `icon-set`, `components-settings-row`, and `components-tabs` remain reference-only and retain their earlier compact sizes. The current Compose tokens and `DESIGN.md` define this revision.
+
+The app-wide follow-up applies these rules to shared actions and feedback, DNS and relay choices, localized forms, graph headers and diagrams, recovery and import actions, data cards, and history navigation. The relevant RDS previews include `components-warning-banner`, `gesture-long-press-menu`, `components-chips`, `components-accordion`, `components-bottom-nav`, `vpn-dns-picker`, `vpn-relay-picker`, `vpn-throughput-graph`, `vpn-latency-graph`, `vpn-state-machine`, `diagnostic-port-matrix`, `vpn-strategy-import`, `vpn-oom-recovery`, and `android-history`. Their compact HTML layouts remain read-only. Adaptive wrapping and the measured navigation fallback are deliberate accessibility corrections. See [the audit record](design/readability-audit.md).
