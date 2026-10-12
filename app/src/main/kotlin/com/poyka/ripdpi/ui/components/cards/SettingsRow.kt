@@ -243,7 +243,7 @@ private fun SettingsRowLeadingIcon(
     Box(
         modifier =
             Modifier
-                .size(components.feedback.decorativeBadgeSize)
+                .size(components.rows.settingsRowLeadingBadgeSize)
                 .background(state.leadingBadgeContainer, RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
@@ -251,7 +251,7 @@ private fun SettingsRowLeadingIcon(
             imageVector = leadingIcon,
             contentDescription = null,
             tint = state.leadingBadgeIcon,
-            modifier = Modifier.size(RipDpiIconSizes.Default),
+            modifier = Modifier.size(components.rows.settingsRowLeadingIconSize),
         )
     }
 }
@@ -307,7 +307,7 @@ private fun SettingsRowTrailing(
                 imageVector = RipDpiIcons.ChevronRight,
                 contentDescription = null,
                 tint = state.value,
-                modifier = Modifier.size(RipDpiIconSizes.Small),
+                modifier = Modifier.size(RipDpiIconSizes.Default),
             )
         }
     }

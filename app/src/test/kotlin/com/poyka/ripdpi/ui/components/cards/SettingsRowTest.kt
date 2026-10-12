@@ -28,6 +28,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -183,6 +184,30 @@ class SettingsRowTest {
     }
 
     @Test
+    @Config(qualifiers = "w420dp-h1200dp")
+    fun largeLeadingIconKeepsLongRussianValueCompleteAtLargeFont() {
+        assertLargeFontValueRow(
+            direction = LayoutDirection.Ltr,
+            title = "Настройки зашифрованного DNS",
+            subtitle = "Режим разрешения адресов и резервный сервер",
+            value = "Зашифрованный DNS · Cloudflare через HTTPS с резервным сервером AdGuard",
+            withLeadingIcon = true,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "ar-rEG-w420dp-h1200dp")
+    fun largeLeadingIconKeepsRtlValueInAvailableTextColumn() {
+        assertLargeFontValueRow(
+            direction = LayoutDirection.Rtl,
+            title = "إعدادات خادم أسماء النطاقات المشفر",
+            subtitle = "وضع تحليل العناوين والخادم الاحتياطي",
+            value = "خادم أسماء النطاقات المشفر عبر HTTPS مع خادم احتياطي",
+            withLeadingIcon = true,
+        )
+    }
+
+    @Test
     fun switchRowTogglesOncePerClickAndKeepsSwitchSemantics() {
         var checked by mutableStateOf(false)
         var changes = 0
@@ -243,6 +268,7 @@ class SettingsRowTest {
         title: String,
         subtitle: String,
         value: String,
+        withLeadingIcon: Boolean = false,
     ) {
         var width by mutableStateOf(320.dp)
         var clicks = 0
@@ -258,6 +284,7 @@ class SettingsRowTest {
                             subtitle = subtitle,
                             value = value,
                             onClick = { clicks++ },
+                            leadingIcon = if (withLeadingIcon) RipDpiIcons.Dns else null,
                             testTag = "localized-settings-row",
                         )
                     }
@@ -272,7 +299,15 @@ class SettingsRowTest {
             val valueBounds = assertCompleteText(value).boundsInRoot
             val row = composeRule.onNodeWithTag("localized-settings-row")
             val rowBounds = row.fetchSemanticsNode().boundsInRoot
-            assertTrue(titleBounds.width > rowWidth.value * 0.8f)
+            if (withLeadingIcon) {
+                // A 40dp leading badge and 24dp chevron each reserve a 12dp text gap.
+                val startInset = if (direction == LayoutDirection.Ltr) 52f else 36f
+                val endInset = if (direction == LayoutDirection.Ltr) 36f else 52f
+                assertEquals(rowBounds.left + startInset, titleBounds.left, 1f)
+                assertEquals(rowBounds.right - endInset, titleBounds.right, 1f)
+            } else {
+                assertTrue(titleBounds.width > rowWidth.value * 0.8f)
+            }
             assertTrue(valueBounds.top >= subtitleBounds.bottom)
             listOf(titleBounds, subtitleBounds, valueBounds).forEach { textBounds ->
                 assertTrue(

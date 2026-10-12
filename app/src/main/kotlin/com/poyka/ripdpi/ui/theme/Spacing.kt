@@ -119,6 +119,8 @@ data class RipDpiRowMetrics(
     val settingsRowVerticalPadding: Dp = 14.dp,
     val settingsRowMinHeight: Dp = 52.dp,
     val settingsRowMinHeightWithSubtitle: Dp = 68.dp,
+    val settingsRowLeadingBadgeSize: Dp = 40.dp,
+    val settingsRowLeadingIconSize: Dp = 32.dp,
 )
 
 @Immutable
