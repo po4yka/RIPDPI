@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Preview(name = "Recovery light", widthDp = 420, heightDp = 900, locale = "ru")
@@ -27,17 +29,17 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Preview(name = "Recovery large font", widthDp = 320, heightDp = 1200, locale = "ru", fontScale = 2f)
 @Composable
 private fun ReadabilityAuditRecoveryPreview() {
-    RipDpiComponentPreview(themePreference = dataPreviewTheme()) {
+    DataReadabilityPreview {
         OomRecoveryScreen(OomRecoveryState("12:42 UTC", "4 m 18 s"), {}, {}, {}, {})
     }
 }
 
 @Preview(name = "Import light", widthDp = 420, heightDp = 900, locale = "ru")
 @Preview(name = "Import dark", widthDp = 420, heightDp = 900, locale = "ru", uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Import large font", widthDp = 320, heightDp = 1500, locale = "ru", fontScale = 2f)
+@Preview(name = "Import large font", widthDp = 320, heightDp = 2300, locale = "ru", fontScale = 2f)
 @Composable
 private fun ReadabilityAuditImportPreview() {
-    RipDpiComponentPreview(themePreference = dataPreviewTheme()) {
+    DataReadabilityPreview {
         StrategyImportScreen(sampleStrategyImportState(), {})
     }
 }
@@ -53,7 +55,7 @@ private fun ReadabilityAuditImportPreview() {
 @Preview(name = "Throughput large font", widthDp = 320, heightDp = 1100, locale = "ru", fontScale = 2f)
 @Composable
 private fun ReadabilityAuditThroughputPreview() {
-    RipDpiComponentPreview(themePreference = dataPreviewTheme()) {
+    DataReadabilityPreview {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RipDpiThemeTokens.spacing.lg)) {
             ThroughputGraphScreen(
                 sampleThroughputGraphState("Пропускная способность", "1.42 MiB/s", "312 KiB/s", "128 MiB"),
@@ -70,10 +72,10 @@ private fun ReadabilityAuditThroughputPreview() {
     locale = "ru",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
 )
-@Preview(name = "Data headers large font", widthDp = 320, heightDp = 1500, locale = "ru", fontScale = 2f)
+@Preview(name = "Data headers large font", widthDp = 320, heightDp = 2300, locale = "ru", fontScale = 2f)
 @Composable
 private fun ReadabilityAuditDataHeadersPreview() {
-    RipDpiComponentPreview(themePreference = dataPreviewTheme()) {
+    DataReadabilityPreview {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RipDpiThemeTokens.spacing.lg)) {
             CollapsibleSection(
                 "Результаты проверки зашифрованных соединений",
@@ -105,7 +107,7 @@ private fun ReadabilityAuditDataHeadersPreview() {
 @Preview(name = "State diagram large font", widthDp = 320, heightDp = 1300, locale = "ru", fontScale = 2f)
 @Composable
 private fun ReadabilityAuditStateDiagramPreview() {
-    RipDpiComponentPreview(themePreference = dataPreviewTheme()) {
+    DataReadabilityPreview {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RipDpiThemeTokens.spacing.lg)) {
             StateMachineRoute()
         }
@@ -113,4 +115,8 @@ private fun ReadabilityAuditStateDiagramPreview() {
 }
 
 @Composable
-private fun dataPreviewTheme(): String = if (isSystemInDarkTheme()) "dark" else "light"
+private fun DataReadabilityPreview(content: @Composable () -> Unit) {
+    RipDpiTheme(themePreference = if (isSystemInDarkTheme()) "dark" else "light") {
+        Surface(modifier = Modifier.fillMaxSize(), color = RipDpiThemeTokens.colors.background, content = content)
+    }
+}
