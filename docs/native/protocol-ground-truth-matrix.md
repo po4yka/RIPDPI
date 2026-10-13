@@ -162,7 +162,7 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
-| `VpnService.Builder.setHttpProxy(ProxyInfo)` advertises the local listener on Android 10+ | `CONFIG_CONTRACTS.md` (listener contract); not in `docs/native/proxy-engine.md` | **full** | `core/service/.../RipDpiVpnService.kt` (`builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))` gated on `SDK_INT >= Q`; `buildHttpProxyInfo` = `ProxyInfo.buildDirectProxy("127.0.0.1", port, httpProxyExclusionList)`) | Opt-in; loopback excluded from proxying. Effective port follows the proxy listener. |
+| `VpnService.Builder.setHttpProxy(ProxyInfo)` advertises the local listener on Android 10+ | `CONFIG_CONTRACTS.md` (listener contract); not in `docs/native/proxy-engine.md` | **absent** | `core/service/.../VpnTunnelInterfacePolicyProjection.kt` (`resolveTunnelInterfacePolicy` resolves `httpProxyPort = null`); the builder path in `RipDpiVpnService.kt` (`buildHttpProxyInfo`, gated on `SDK_INT >= Q`) stays but receives no port | The VPN listener binds an ephemeral, session-token-protected port, so no usable unauthenticated endpoint exists. The opt-in `append_http_proxy` setting has no runtime effect. |
 
 ## 10 — Extended outbound relay protocols (Mieru / SSH / AnyTLS)
 
