@@ -126,6 +126,22 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
             RipDpiChip(
                 text =
                     when (option) {
+                        "completed" -> {
+                            stringResource(R.string.diagnostics_scan_completion_normal)
+                        }
+
+                        "running" -> {
+                            stringResource(R.string.diagnostics_status_running)
+                        }
+
+                        "failed" -> {
+                            stringResource(R.string.home_diagnostics_stage_status_failed)
+                        }
+
+                        "cancelled" -> {
+                            stringResource(R.string.diagnostics_scan_termination_user_cancelled)
+                        }
+
                         com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH.name -> {
                             stringResource(R.string.diagnostics_scope_direct_label)
                         }
