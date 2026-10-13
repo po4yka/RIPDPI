@@ -16,8 +16,12 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
+import kotlin.concurrent.thread
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -288,6 +292,155 @@ class RootHelperManagerTest {
             assertTrue(fakeProcess.destroyed)
             assertEquals(1, shutdownRequests)
         }
+
+    @Test
+    fun `start drains helper stdout and stderr so a chatty helper never blocks on a full pipe`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val chattyProcess = ChattyProcess(bytesPerStream = ChattyBytesPerStream)
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, _ ->
+                        listOf(
+                            RootHelperLaunchAttempt("chatty root helper") {
+                                chattyProcess.also { it.startLogging() }
+                            },
+                        )
+                    },
+                    // The helper only serves IPC once its log writes return; a full pipe stalls it here.
+                    readinessProbe = { _, _, _ -> chattyProcess.awaitOutputWritten(ChattyTimeoutMs) },
+                    rootProcessTerminator = {},
+                )
+
+            val result = manager.start(context)
+
+            assertEquals(File(context.filesDir, "root_helper.sock").absolutePath, result)
+            assertTrue(chattyProcess.awaitOutputWritten(0L))
+            manager.stop()
+        }
+
+    @Test
+    fun `stop ends helper output drain threads and restarts do not leak them`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val fakeBinary = File(context.filesDir, "fake-root-helper").apply { writeText("bin") }
+            val processes = mutableListOf<ChattyProcess>()
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { fakeBinary },
+                    processLaunchAttempts = { _, _, _ ->
+                        listOf(
+                            RootHelperLaunchAttempt("chatty root helper") {
+                                ChattyProcess(bytesPerStream = ChattyBytesPerStream).also {
+                                    processes += it
+                                    it.startLogging()
+                                }
+                            },
+                        )
+                    },
+                    readinessProbe = { _, _, _ -> processes.last().awaitOutputWritten(ChattyTimeoutMs) },
+                    rootProcessTerminator = {},
+                )
+
+            repeat(2) {
+                assertNotNull(manager.start(context))
+                manager.stop()
+            }
+
+            assertEquals(2, processes.size)
+            assertTrue(processes.all { it.destroyed })
+            assertTrue(
+                "root helper output drain threads outlived the helper",
+                awaitNoLiveThreads(DrainThreadNamePrefix, ChattyTimeoutMs),
+            )
+        }
+}
+
+private const val ChattyPipeCapacity = 64 * 1024
+private const val ChattyBytesPerStream = 4 * ChattyPipeCapacity
+private const val ChattyTimeoutMs = 5_000L
+private const val ThreadPollIntervalMs = 20L
+private const val DrainThreadNamePrefix = "ripdpi-root-helper-output"
+
+private fun awaitNoLiveThreads(
+    namePrefix: String,
+    timeoutMs: Long,
+): Boolean {
+    val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+    while (System.nanoTime() < deadline) {
+        if (Thread.getAllStackTraces().keys.none { it.isAlive && it.name.startsWith(namePrefix) }) return true
+        Thread.sleep(ThreadPollIntervalMs)
+    }
+    return Thread.getAllStackTraces().keys.none { it.isAlive && it.name.startsWith(namePrefix) }
+}
+
+/**
+ * Models the real helper: tracing writes to a kernel pipe of [ChattyPipeCapacity] bytes and a
+ * write blocks once the pipe is full and nobody reads it.
+ */
+private class ChattyProcess(
+    private val bytesPerStream: Int,
+) : Process() {
+    private val stdoutSink = PipedOutputStream()
+    private val stderrSink = PipedOutputStream()
+    private val stdout = PipedInputStream(stdoutSink, ChattyPipeCapacity)
+    private val stderr = PipedInputStream(stderrSink, ChattyPipeCapacity)
+    private val outputWritten = CountDownLatch(2)
+
+    @Volatile
+    var destroyed: Boolean = false
+        private set
+
+    fun startLogging() {
+        val line = "2026-10-13T00:00:00Z  INFO ripdpi_root_helper: received command command=v3/nfqws2_status\n"
+        val bytes = line.toByteArray(Charsets.US_ASCII)
+        listOf(stdoutSink, stderrSink).forEach { sink ->
+            thread(name = "fake-root-helper-writer", isDaemon = true) {
+                runCatching {
+                    var written = 0
+                    while (written < bytesPerStream) {
+                        sink.write(bytes)
+                        written += bytes.size
+                    }
+                    sink.flush()
+                }.onSuccess { outputWritten.countDown() }
+            }
+        }
+    }
+
+    fun awaitOutputWritten(timeoutMs: Long): Boolean = outputWritten.await(timeoutMs, TimeUnit.MILLISECONDS)
+
+    override fun getOutputStream(): OutputStream = ByteArrayOutputStream()
+
+    override fun getInputStream(): InputStream = stdout
+
+    override fun getErrorStream(): InputStream = stderr
+
+    override fun waitFor(): Int = 0
+
+    override fun waitFor(
+        timeout: Long,
+        unit: TimeUnit,
+    ): Boolean = true
+
+    override fun exitValue(): Int {
+        if (!destroyed) throw IllegalThreadStateException("process is running")
+        return 0
+    }
+
+    override fun destroy() {
+        destroyed = true
+        // Process exit closes the helper's write ends of both pipes.
+        runCatching { stdoutSink.close() }
+        runCatching { stderrSink.close() }
+    }
+
+    override fun destroyForcibly(): Process {
+        destroy()
+        return this
+    }
 }
 
 private fun assertValidNonceFile(nonceFile: File) {
