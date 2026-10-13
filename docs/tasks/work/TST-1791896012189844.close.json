@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "80 Android contract tests, harness, architecture and locked Cargo metadata gates passed; six cleanup regressions and twenty SIGTERM repetitions passed; independent review clean.",
+  "execution_sha256": "c937fe61c881f0aefe896f14697a964325e16f7a6199de9c005a2abd4c0e5b48",
+  "issue_sha256": "50d55046959fc44edabdbb46b3f9be20c719bb5d7ca5d97e682a61c6e20ea9bc",
+  "outcome": "done",
+  "prepared_at": "2026-10-13T13:03:36Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1791896012189844"
+}

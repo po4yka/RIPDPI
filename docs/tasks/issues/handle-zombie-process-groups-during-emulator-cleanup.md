@@ -2,7 +2,7 @@
 id: TST-1791896012189844
 title: Handle zombie process groups during emulator cleanup
 kind: bug
-status: review
+status: done
 area: testing
 priority: high
 owner: Tooling maintainer
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-13
 updated: 2026-10-13
 spec_reason: tooling-only
+closed_at: "2026-10-13T13:03:36Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 80 Android contract tests, harness, architecture and locked Cargo metadata gates passed; six cleanup regressions and twenty SIGTERM repetitions passed; independent review clean.
 ---
 
 ## Goal
