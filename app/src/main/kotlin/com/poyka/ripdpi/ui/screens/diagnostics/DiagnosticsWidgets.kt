@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -70,6 +71,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
+import java.util.Locale
 import kotlin.math.roundToInt
 
 private const val LargeTextFontScale = 1.5f
@@ -864,27 +866,34 @@ private const val SparklineBytesPerKilobyte = 1_000L
 private const val SparklineBytesPerMegabyte = 1_000_000L
 private const val SparklineBytesPerGigabyte = 1_000_000_000L
 
-private fun formatSparklineValue(value: Float): String {
+@Composable
+private fun formatSparklineValue(value: Float): String =
+    formatSparklineValue(value, LocalConfiguration.current.locales[0])
+
+internal fun formatSparklineValue(
+    value: Float,
+    locale: Locale,
+): String {
     val longValue = value.toLong()
     return when {
         longValue >= SparklineBytesPerGigabyte -> {
-            String.format(java.util.Locale.US, "%.1f GB", longValue / SparklineBytesPerGigabyte.toDouble())
+            String.format(locale, "%.1f GB", longValue / SparklineBytesPerGigabyte.toDouble())
         }
 
         longValue >= SparklineBytesPerMegabyte -> {
-            String.format(java.util.Locale.US, "%.1f MB", longValue / SparklineBytesPerMegabyte.toDouble())
+            String.format(locale, "%.1f MB", longValue / SparklineBytesPerMegabyte.toDouble())
         }
 
         longValue >= SparklineBytesPerKilobyte -> {
-            String.format(java.util.Locale.US, "%.1f KB", longValue / SparklineBytesPerKilobyte.toDouble())
+            String.format(locale, "%.1f KB", longValue / SparklineBytesPerKilobyte.toDouble())
         }
 
         longValue > 0L -> {
-            "$longValue B"
+            String.format(locale, "%d B", longValue)
         }
 
         else -> {
-            "0"
+            String.format(locale, "%d", 0)
         }
     }
 }

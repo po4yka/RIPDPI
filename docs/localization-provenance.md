@@ -15,7 +15,7 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Russian (ru) | `values-ru/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Spanish (es) | `values-es/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| German (de) | `values-de/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
+| German (de) | `values-de/` (all XML files) | 5010 | 0 | **pre-existing; AI-authored audited corrections** | **yes for corrections** | Native-speaker review pending for this update | — |
 | French (fr) | `values-fr/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Persian (fa) | `values-fa/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
@@ -147,6 +147,38 @@ locally; the four copy checks report 123 failures against the audit baseline.
 Existing Russian and Chinese resource tests also pass. This entry does not
 record a new maintainer or native-speaker sign-off. Device tests and a full
 linguistic review of other locales are not claimed.
+
+## German audit corrections (2026-10-13)
+
+The source baseline was `ddd0024d494fb2e734223b8c6e77ec239a255bbe`.
+This pass corrects exactly 107 active German resource keys and five unused
+keys from the confirmed audit. It covers English controls and warnings,
+redaction and control-group meanings, recovery actions, metering labels,
+option references, and decoding rather than decryption. Disputed URI
+Authority/Tail terms and optional editorial preferences remain outside scope.
+
+Diagnostic presentation adds 38 source strings and one plural resource.
+Every key is translated in all ten locales. The app has 5,010 translatable
+entries (4,986 strings and 24 plurals); service has 11 entries and Quick
+Connect has 15 separate strings. The source manifest has 4,996 string keys.
+
+Known Telegram summary captions and readable share prose use resources;
+unknown values and raw evidence remain exact. Telegram native rates remain
+bytes per second on the wire. UI and share output convert those rates to
+bits per second without Long overflow. Telegram and sparkline numbers use
+the selected app locale. Core summary headings accept localized text while
+the default technical-export headings remain unchanged.
+
+The six German resource regressions reproduced 107 failures on the audit
+baseline. After correction, all 26 Russian, Chinese, Spanish, Hindi and
+German resource tests pass. Parity/export, format arguments and plural
+categories pass for all locales. Kotlin behavior and German render results
+are recorded in the owning OpenSpec verification artifact after execution.
+
+Corrections and new captions were authored with an AI assistant. The prior
+2026-05-30 German maintainer review does not sign off these new translations.
+Native-speaker, device and full linguistic acceptance of the other locales
+are not claimed.
 
 ## Font & glyph coverage
 

@@ -11,14 +11,14 @@ The German audit at ddd0024d4 found 107 active resource defects, five unused ent
 
 - One resource writer owns all XML and the export manifest. New captions land in every locale together.
 - Map known Telegram statuses to resources; preserve unknown values and raw diagnostic details. Preserve existing status tone logic.
-- Localize human-readable share prose without translating technical IDs or user/error text. Preserve summary sections and privacy boundaries.
+- Localize human-readable share prose, including core renderer Highlights/Diagnoses headings, without translating technical IDs or user/error text. Keep default renderer headings for existing technical export consumers. Preserve summary sections and privacy boundaries.
 - Resolve current app locale through configuration or the existing language-aware context. Locale changes invalidate display formatting.
 - Convert native byte rates to bits using floating-point arithmetic before formatting; never multiply a Long by eight. Preserve thresholds and correct unit labels at all boundaries.
 - Reuse existing test/render support. Compare existing golden fixtures without recording. Any intentional fixture change requires separate explicit approval.
 
 ## Contracts and ownership
 
-- App presentation and tests change; service and Rust sources do not. No wire, storage, configuration or dependency migration.
+- App presentation and core/diagnostics readable-summary heading parameters change; service and Rust sources do not. No wire, storage, configuration or dependency migration.
 - Ownership is recorded in the portfolio task: resource, runtime, validation and integration worktrees are separate. Locale XML and manifest are serialized.
 
 ## Risks / Trade-offs

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diagnostics_telegram_status_ok">Verfügbar</string>
+    <string name="diagnostics_telegram_status_slow">Langsam</string>
+    <string name="diagnostics_telegram_status_stalled">Stillstand</string>
+    <string name="diagnostics_telegram_status_blocked">Blockiert</string>
+    <string name="diagnostics_telegram_status_partial">Teilweise verfügbar</string>
+    <string name="diagnostics_telegram_status_error">Fehler</string>
+    <string name="diagnostics_telegram_status_cancelled">Abgebrochen</string>
+    <string name="diagnostics_telegram_status_deadline_exceeded">Zeitlimit erreicht</string>
+    <string name="diagnostics_telegram_status_unknown">Unbekannt</string>
+    <string name="diagnostics_telegram_status_unreachable">Nicht erreichbar</string>
+    <string name="diagnostics_share_session_format">Sitzung %1$s · %2$s · %3$s</string>
+    <string name="diagnostics_share_network_format">Netzwerk %1$s</string>
+    <string name="diagnostics_share_context_format">Kontext %1$s · %2$s · Android %3$s</string>
+    <string name="diagnostics_share_permissions_format">Berechtigungen %1$s VPN · %2$s Benachrichtigungen</string>
+    <string name="diagnostics_share_live_format">Live %1$s · %2$s</string>
+    <string name="diagnostics_share_engine_analysis_format">Engine-Analyse: %1$s</string>
+    <string name="diagnostics_share_classifier_format">Klassifikator: %1$s</string>
+    <string name="diagnostics_share_strategy_completion_format">Strategieabschluss: %1$s</string>
+    <string name="diagnostics_share_audit_cohort_format">Audit-Gruppe: %1$s (%2$s)</string>
+    <string name="diagnostics_share_audit_domains_format">Audit-Domains: %1$s</string>
+    <string name="diagnostics_share_audit_quic_hosts_format">Audit-QUIC-Hosts: %1$s</string>
+    <string name="diagnostics_share_audit_confidence_format">Audit-Konfidenz: %1$s (%2$d/100)</string>
+    <string name="diagnostics_share_matrix_coverage_format">Matrixabdeckung: %1$d%%</string>
+    <string name="diagnostics_share_winner_coverage_format">Abdeckung durch Gewinner: %1$d%%</string>
+    <string name="diagnostics_share_packs_format">Pakete: %1$s</string>
+    <string name="diagnostics_share_telegram_format">Telegram: %1$s</string>
+    <string name="diagnostics_share_download_format">Download: durchschnittlich %1$s, %2$s</string>
+    <string name="diagnostics_share_upload_format">Upload: durchschnittlich %1$s, %2$s</string>
+    <string name="diagnostics_share_data_centers_format">DCs: %1$s/%2$s erreichbar</string>
+    <string name="diagnostics_share_top_warning_format">Wichtigste Warnung: %1$s</string>
+    <string name="diagnostics_strategy_completion_normal">Vollständig</string>
+    <string name="diagnostics_strategy_completion_dns_short_circuited">Nach DNS-Manipulation beendet</string>
+    <string name="diagnostics_strategy_completion_dns_tampering_with_fallback">DNS-Manipulation mit Fallback-Ergebnissen</string>
+    <string name="diagnostics_strategy_completion_partial_results">Teilergebnisse</string>
+    <plurals name="diagnostics_share_probe_results_format">
+        <item quantity="one">%1$d Prüfergebnis im neuesten Bericht</item>
+        <item quantity="other">%1$d Prüfergebnisse im neuesten Bericht</item>
+    </plurals>
+    <string name="diagnostics_share_permission_granted">Erteilt</string>
+    <string name="diagnostics_share_permission_not_required">Nicht erforderlich</string>
+    <string name="diagnostics_share_highlights_title">Wichtige Ergebnisse</string>
+    <string name="diagnostics_share_diagnoses_title">Diagnosen</string>
+</resources>

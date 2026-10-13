@@ -25,5 +25,5 @@ German users see English controls and privacy warnings, misleading technical ter
 
 ## Impact
 
-- App resource XML, Kotlin presentation, unit/resource tests, localization CI and provenance.
+- App resource XML, Kotlin presentation, core/diagnostics summary-heading parameters, unit/resource tests and localization provenance. Existing CI discovers the new regression suite.
 - All ten locales receive new captions together. Service, native producers, schema and dependencies do not change.

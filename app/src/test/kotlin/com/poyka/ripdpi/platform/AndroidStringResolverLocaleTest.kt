@@ -15,6 +15,7 @@ import androidx.core.app.LocaleManagerCompat
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsUiFormatter
+import com.poyka.ripdpi.activities.formatTelegramThroughput
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import org.junit.After
@@ -91,6 +92,18 @@ class AndroidStringResolverLocaleTest {
 
         assertEquals("1.5 KB", formatter.formatBytes(1_500L))
         assertEquals("1.5 Mbps", formatter.formatBps(1_500_000L))
+    }
+
+    @Test
+    fun `Telegram numbers use selected German on an English system and return to English`() {
+        createActivity()
+        val formatter = DiagnosticsUiFormatter(englishContext(RuntimeEnvironment.getApplication()))
+        selectLanguage("en")
+        assertEquals("1.5 Mbps", formatTelegramThroughput(187_500L, formatter.locale))
+        selectLanguage("de")
+        assertEquals("1,5 Mbps", formatTelegramThroughput(187_500L, formatter.locale))
+        selectLanguage("en")
+        assertEquals("1.5 Mbps", formatTelegramThroughput(187_500L, formatter.locale))
     }
 
     @Test

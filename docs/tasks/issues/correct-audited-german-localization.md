@@ -31,7 +31,7 @@ Correct the confirmed German audit findings at ddd0024d494fb2e734223b8c6e77ec239
 ## Ownership
 
 - Resource writer: isolated de-resources worktree; sole writer of all locale XML and translation manifest. Correct German entries and translate agreed new keys in all locales.
-- Runtime writer: isolated de-runtime worktree; Telegram captions, selected-locale formatting, readable share summary and Kotlin behavior tests. Request XML keys from the resource writer.
+- Runtime writer: isolated de-runtime worktree; Telegram captions, selected-locale formatting, readable share summary, core/diagnostics DiagnosticsSummaryTextRenderer.kt heading parameters and their tests. Request XML keys from the resource writer.
 - Validation writer: isolated de-validation worktree; German resource regression script and Kotlin resource/render tests. Do not edit production Kotlin or resources.
 - Integration writer: german-localization-20261013 worktree; OpenSpec/task artifacts, CI wiring, provenance, combined validation, review and authorized main integration/push.
 - All writers preserve other agents' changes. No parallel writers share locale resources, baselines, manifests or fixtures. No golden refresh is authorized for this change.
