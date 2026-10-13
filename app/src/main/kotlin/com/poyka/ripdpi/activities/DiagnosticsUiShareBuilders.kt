@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.diagnostics.StrategyProbeTargetSelection
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -234,25 +235,7 @@ private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSess
             )
         }
         report.strategyProbeReport?.targetSelection?.let { selection ->
-            add(
-                context.getString(
-                    R.string.diagnostics_share_audit_cohort_format,
-                    selection.cohortLabel,
-                    selection.cohortId,
-                ),
-            )
-            add(
-                context.getString(
-                    R.string.diagnostics_share_audit_domains_format,
-                    selection.domainHosts.joinToString(" · "),
-                ),
-            )
-            add(
-                context.getString(
-                    R.string.diagnostics_share_audit_quic_hosts_format,
-                    selection.quicHosts.joinToString(" · "),
-                ),
-            )
+            addAll(shareTargetSelectionLines(selection))
         }
         report.strategyProbeReport?.auditAssessment?.let { assessment ->
             add(
@@ -287,6 +270,25 @@ private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSess
             addAll(telegramShareLines(result))
         }
     }
+
+private fun DiagnosticsUiFactorySupport.shareTargetSelectionLines(
+    selection: StrategyProbeTargetSelection,
+): List<String> =
+    listOf(
+        context.getString(
+            R.string.diagnostics_share_audit_cohort_format,
+            selection.cohortLabel,
+            selection.cohortId,
+        ),
+        context.getString(
+            R.string.diagnostics_share_audit_domains_format,
+            selection.domainHosts.joinToString(" · "),
+        ),
+        context.getString(
+            R.string.diagnostics_share_audit_quic_hosts_format,
+            selection.quicHosts.joinToString(" · "),
+        ),
+    )
 
 private fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult): List<String> =
     buildList {
