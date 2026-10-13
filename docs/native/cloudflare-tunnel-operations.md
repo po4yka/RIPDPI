@@ -159,7 +159,7 @@ Helpers:
 
 Runtime behavior:
 
-- binaries are extracted under `filesDir/cloudflare-runtime/<abi>/`
+- the build packages both helpers as `lib<name>.so` in jniLibs (cloudflared as its upstream binary named in `pluggable-transports.json`); the package manager extracts them at install and the app runs them in place from `nativeLibraryDir`, because Android 10+ blocks `exec()` from app data directories
 - per-session state lives under `cacheDir/cloudflare-publish/cloudflare-publish-session-<profileId>/` and is deleted on stop or startup rollback
 - `ripdpi-cloudflare-origin` launches with only `--config-stdin`; the listener, xHTTP path, and VLESS UUID are transferred in the bounded schema-1 standard-input frame documented by the helper crate
 - named-tunnel mode writes `.cloudflared/cloudflared-credentials.json` and `.cloudflared/config.yml`, sets the session directory as `HOME`, and relies on cloudflared's default configuration discovery
