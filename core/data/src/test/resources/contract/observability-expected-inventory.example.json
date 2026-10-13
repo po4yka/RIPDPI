@@ -6,12 +6,12 @@
   "targets": [
     {
       "target": "vpn-p0",
-      "role": "edge",
+      "role": "watchdog",
       "lifecycle": "enabled",
       "ever_seen": true,
       "label_values": {
         "node": ["vpn-p0"],
-        "role": ["edge"]
+        "role": ["watchdog"]
       },
       "required_families": ["vpn_watchdog_collection_success"]
     }
