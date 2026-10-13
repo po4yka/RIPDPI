@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import com.poyka.ripdpi.R
@@ -155,7 +154,7 @@ class DiagnosticsGermanSharePresentationTest {
             ).body
 
     private fun languageContext(language: String): Context {
-        val application = RuntimeEnvironment.getApplication<Application>()
+        val application = RuntimeEnvironment.getApplication()
         val configuration = Configuration(application.resources.configuration)
         configuration.setLocale(Locale.forLanguageTag(language))
         return application.createConfigurationContext(configuration)

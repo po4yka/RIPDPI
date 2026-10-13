@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
@@ -9,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -123,7 +121,7 @@ class DiagnosticsGermanRuntimeLocaleTest {
         )
 
     private fun languageContext(language: String): Context {
-        val application = RuntimeEnvironment.getApplication<Application>()
+        val application = RuntimeEnvironment.getApplication()
         val configuration = Configuration(application.resources.configuration)
         configuration.setLocale(Locale.forLanguageTag(language))
         return application.createConfigurationContext(configuration)
