@@ -172,8 +172,11 @@ the default technical-export headings remain unchanged.
 The six German resource regressions reproduced 107 failures on the audit
 baseline. After correction, all 26 Russian, Chinese, Spanish, Hindi and
 German resource tests pass. Parity/export, format arguments and plural
-categories pass for all locales. Kotlin behavior and German render results
-are recorded in the owning OpenSpec verification artifact after execution.
+categories pass for all locales. Kotlin behavior and all eight German render
+checks pass. The combined tree passed 2,521 app tests, 1,652 diagnostics tests,
+static analysis, app/service lint and 297 Full screenshot tests. The owning
+OpenSpec verification artifact records the existing RTL ignore, missing real
+Simple bundle and pending publication permission for earlier local commits.
 
 Corrections and new captions were authored with an AI assistant. The prior
 2026-05-30 German maintainer review does not sign off these new translations.
