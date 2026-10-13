@@ -11,6 +11,13 @@ memory: project
 
 You are the Android test orchestrator for RIPDPI. Derive task names and matrix details from the current Gradle model, `justfile`, and `.github/workflows/ci.yml`; never infer an unflavored `debug` variant.
 
+For local emulator suites and failure-artifact capture, read
+`docs/contributor/android-emulator-pool.md` and run the complete command under
+`scripts/ci/android-avd-pool.py`. Reuse a compatible idle slot and keep its lease
+until artifact capture finishes. Use the exported `ANDROID_SERIAL` for every
+device operation. Temporary devices require a test-specific reason and wrapper
+cleanup. Gradle managed devices retain their separate serialized lane.
+
 ## Android documentation pre-flight
 
 Before making a claim about AndroidJUnitRunner, UiAutomator, Compose test APIs, or `androidx.test`, require the Android CLI and use its current two-step documentation flow:

@@ -40,8 +40,8 @@ make_executable "$fake_homebrew/bin/adb"
 actual="$(
   PATH="$fake_homebrew/bin:/usr/bin:/bin" \
     HOME="$fake_home" \
-    ANDROID_HOME= \
-    ANDROID_SDK_ROOT= \
+    ANDROID_HOME='' \
+    ANDROID_SDK_ROOT='' \
     resolve_android_sdk_root
 )"
 assert_equals "$mac_sdk" "$actual" "macOS SDK root should win over Homebrew adb parent"
@@ -50,7 +50,7 @@ actual="$(
   PATH="$fake_homebrew/bin:/usr/bin:/bin" \
     HOME="$fake_home" \
     ANDROID_HOME="$tmpdir/not-an-sdk" \
-    ANDROID_SDK_ROOT= \
+    ANDROID_SDK_ROOT='' \
     resolve_android_sdk_root
 )"
 assert_equals "$mac_sdk" "$actual" "invalid ANDROID_HOME should not mask the macOS SDK"
@@ -67,8 +67,8 @@ assert_equals "$explicit_sdk" "$actual" "valid ANDROID_SDK_ROOT should take prio
 actual="$(
   PATH="$fake_homebrew/bin:/usr/bin:/bin" \
     HOME="$fake_home" \
-    ANDROID_HOME= \
-    ANDROID_SDK_ROOT= \
+    ANDROID_HOME='' \
+    ANDROID_SDK_ROOT='' \
     resolve_emulator_bin
 )"
 assert_equals "$mac_sdk/emulator/emulator" "$actual" "emulator binary should resolve from discovered macOS SDK"
@@ -76,8 +76,8 @@ assert_equals "$mac_sdk/emulator/emulator" "$actual" "emulator binary should res
 actual="$(
   PATH="$fake_homebrew/bin:/usr/bin:/bin" \
     HOME="$fake_home" \
-    ANDROID_HOME= \
-    ANDROID_SDK_ROOT= \
+    ANDROID_HOME='' \
+    ANDROID_SDK_ROOT='' \
     resolve_avdmanager_bin
 )"
 assert_equals "$mac_sdk/cmdline-tools/latest/bin/avdmanager" "$actual" "avdmanager should resolve from discovered macOS SDK"
@@ -110,7 +110,6 @@ ADB
     shift
     "$real_timeout" --kill-after=0.1 1 "$@"
   }
-  pkill() { printf '%s\n' "$*" > "$tmpdir/emulator-stop-fallback"; }
 
   echo "Checking diagnostics with unresponsive ADB"
   capture_android_emulator_diagnostics "$tmpdir/offline-diagnostics"
@@ -125,9 +124,77 @@ ADB
   assert_equals 6 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Connected device diagnostics must all be bounded"
 
   : > "$EMULATOR_TEST_TIMEOUT_LOG"
+  if stop_android_emulator test-owned-avd; then
+    echo "Emulator stop must fail when ADB cannot identify the AVD" >&2
+    exit 1
+  fi
+  assert_equals 1 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Emulator discovery must be bounded"
+)
+
+(
+  fake_adb="$tmpdir/healthy-adb"
+  export EMULATOR_STOP_LOG="$tmpdir/emulator-stop-log"
+  export EMULATOR_PROCESS_COUNT_LOG="$tmpdir/process-checks"
+  export ANDROID_SERIAL=emulator-5554
+  mkdir -p "$tmpdir/stop-tools"
+  cat > "$tmpdir/stop-tools/ps" <<'PS'
+#!/usr/bin/env bash
+printf 'check\n' >> "$EMULATOR_PROCESS_COUNT_LOG"
+if [[ "$(wc -l < "$EMULATOR_PROCESS_COUNT_LOG" | tr -d ' ')" == 1 ]]; then
+  printf '/sdk/emulator/qemu-system-aarch64 -avd test-owned-avd\n'
+fi
+PS
+  chmod +x "$tmpdir/stop-tools/ps"
+  export PATH="$tmpdir/stop-tools:$PATH"
+  cat > "$fake_adb" <<'ADB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$EMULATOR_STOP_LOG"
+case "$*" in
+  devices)
+    printf 'List of devices attached\nemulator-5554\tdevice\nphone\tdevice\n'
+    [[ -f "${EMULATOR_STOP_LOG}.done" ]] || printf 'emulator-5556\tdevice\n'
+    ;;
+  '-s emulator-5554 emu avd name') printf 'unrelated-avd\nOK\n' ;;
+  '-s emulator-5556 emu avd name') printf 'test-owned-avd\nOK\n' ;;
+  '-s emulator-5556 emu kill') touch "${EMULATOR_STOP_LOG}.done" ;;
+  *) exit 9 ;;
+esac
+ADB
+  chmod +x "$fake_adb"
+  resolve_adb_bin() { printf '%s\n' "$fake_adb"; }
+  assert_equals "$fake_adb" "$(resolve_adb_bin)" "Stop test must use the test ADB"
   stop_android_emulator test-owned-avd
-  assert_equals 2 "$(wc -l < "$EMULATOR_TEST_TIMEOUT_LOG" | tr -d ' ')" "Emulator stop must bound get-state and emu kill"
-  [[ -s "$tmpdir/emulator-stop-fallback" ]] || { echo "Emulator stop did not reach its process fallback" >&2; exit 1; }
+  [[ -f "${EMULATOR_STOP_LOG}.done" ]] || { echo "Owned emulator was not stopped" >&2; exit 1; }
+  assert_equals 1 "$(rg -c 'emu kill' "$EMULATOR_STOP_LOG")" "An unrelated emulator must remain active"
+  assert_equals 3 "$(wc -l < "$EMULATOR_PROCESS_COUNT_LOG" | tr -d ' ')" "Stop must wait for shutdown and confirm no remaining process"
+  if stop_android_emulator RIPDPI_Pool_1; then
+    echo "A detached stop must not bypass the pool lease" >&2
+    exit 1
+  fi
+  cat > "$fake_adb" <<'ADB'
+#!/usr/bin/env bash
+if [[ "$*" == devices ]]; then
+  printf 'List of devices attached\nemulator-5554\toffline\n'
+  exit 0
+fi
+exit 9
+ADB
+  if stop_android_emulator test-owned-avd; then
+    echo "Offline emulator must block disk recreation" >&2
+    exit 1
+  fi
+  cat > "$fake_adb" <<'ADB'
+#!/usr/bin/env bash
+printf 'List of devices attached\n'
+ADB
+  cat > "$tmpdir/stop-tools/ps" <<'PS'
+#!/usr/bin/env bash
+printf '/sdk/emulator -avd test-owned-avd\n'
+PS
+  if stop_android_emulator test-owned-avd; then
+    echo "An emulator absent from ADB must still block a successful stop" >&2
+    exit 1
+  fi
 )
 
 echo "Android emulator helper tests passed."
