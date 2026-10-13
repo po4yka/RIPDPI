@@ -1,15 +1,13 @@
 package com.poyka.ripdpi.ui.screens.history
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -115,12 +113,10 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
     if (config.options.isEmpty()) {
         return
     }
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         config.options.forEach { option ->
             RipDpiChip(
@@ -135,11 +131,11 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
                         }
 
                         "failed" -> {
-                            stringResource(R.string.home_diagnostics_stage_status_failed)
+                            stringResource(R.string.diagnostics_stages_failed)
                         }
 
                         "cancelled" -> {
-                            stringResource(R.string.diagnostics_scan_termination_user_cancelled)
+                            stringResource(R.string.vpn_replay_history_verdict_cancelled)
                         }
 
                         com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH.name -> {
@@ -155,6 +151,7 @@ private fun HistoryChips(config: HistoryFilterChipsConfig) {
                         }
                     },
                 selected = config.selected == option,
+                wrapLabel = true,
                 onClick = { config.onSelect(option) },
                 modifier = Modifier.ripDpiTestTag(config.tagForOption(option)),
             )

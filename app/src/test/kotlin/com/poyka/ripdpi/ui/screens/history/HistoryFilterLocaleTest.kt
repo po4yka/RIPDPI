@@ -20,8 +20,15 @@ class HistoryFilterLocaleTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun localizedCompletedChipSelectsTheOriginalStatusKey() {
+    fun localizedStatusChipsSelectTheOriginalStatusKeys() {
         var selected: String? = null
+        val labels =
+            linkedMapOf(
+                "completed" to "Сканирование завершено",
+                "running" to "Выполняется",
+                "failed" to "Ошибка",
+                "cancelled" to "Отменено",
+            )
         val empty = HistoryFilterChipsConfig(emptyList(), null, {}, { it })
         composeRule.setContent {
             RipDpiTheme {
@@ -34,7 +41,7 @@ class HistoryFilterLocaleTest {
                     primaryFilter = empty,
                     secondaryFilter =
                         HistoryFilterChipsConfig(
-                            options = listOf("completed"),
+                            options = labels.keys.toList(),
                             selected = null,
                             onSelect = { selected = it },
                             tagForOption = { "status-$it" },
@@ -42,7 +49,9 @@ class HistoryFilterLocaleTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Сканирование завершено").assertIsDisplayed().performClick()
-        composeRule.runOnIdle { assertEquals("completed", selected) }
+        labels.forEach { (key, label) ->
+            composeRule.onNodeWithText(label).assertIsDisplayed().performClick()
+            composeRule.runOnIdle { assertEquals(key, selected) }
+        }
     }
 }
