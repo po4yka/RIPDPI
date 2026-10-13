@@ -15,11 +15,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -128,10 +132,10 @@ class GermanLocalizationScreenTest {
         name: String,
     ) {
         content(width, scale) { DataTransparencyScreen(onBack = {}) }
-        readable(R.string.data_transparency_no_personal_data)
+        readable(R.string.data_transparency_no_personal_data, lazy = true)
         capture("$name-pcap")
-        readable(R.string.data_transparency_export_redaction)
-        readable(R.string.data_transparency_export_control)
+        readable(R.string.data_transparency_export_redaction, lazy = true)
+        readable(R.string.data_transparency_export_control, lazy = true)
         capture("$name-export")
     }
 
@@ -194,10 +198,17 @@ class GermanLocalizationScreenTest {
         }
     }
 
-    private fun readable(resource: Int) {
+    private fun readable(
+        resource: Int,
+        lazy: Boolean = false,
+    ) {
+        val text = german(resource)
+        if (lazy) {
+            composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text))
+        }
         val layouts = mutableListOf<TextLayoutResult>()
         composeRule
-            .onNodeWithText(german(resource), useUnmergedTree = true)
+            .onNodeWithText(text, useUnmergedTree = true)
             .performScrollTo()
             .assertIsDisplayed()
             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
