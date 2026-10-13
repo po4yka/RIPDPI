@@ -236,16 +236,16 @@ fn bench_ws_tunnel(c: &mut Criterion, rt: &Runtime) {
     // connects to it over TCP. The fixture echoes application bytes on the
     // tunnel itself (no separate upstream).
     let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
-    let bridge = parse_bridge_line(&format!(
+    let mut bridge = parse_bridge_line(&format!(
         "Bridge webtunnel 192.0.2.3:1 url={} addr={} servername=localhost utls=hellochrome_auto",
         fixture.url(),
         fixture.addr(),
     ))
     .expect("WebTunnel bridge line");
+    // The client always verifies TLS; trust the fixture's self-signed certificate.
+    bridge.root_certificate_pem = Some(fixture.root_certificate_pem().to_owned());
 
-    // verify=false: the fixture's self-signed cert is not exposed; this is a
-    // loopback test fixture, not a production path (matches the crate's own e2e).
-    let stream = rt.block_on(connect_webtunnel_async(&bridge, false)).expect("WebTunnel async connect");
+    let stream = rt.block_on(connect_webtunnel_async(&bridge)).expect("WebTunnel async connect");
     let (mut reader, mut writer) = tokio::io::split(stream);
 
     let payload = vec![0xAB_u8; PAYLOAD_LEN];
