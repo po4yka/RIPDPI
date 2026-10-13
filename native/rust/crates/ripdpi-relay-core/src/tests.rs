@@ -1247,8 +1247,10 @@ async fn reserve_unused_local_port() -> u16 {
     listener.local_addr().expect("reserved local address").port()
 }
 
+/// The REALITY public key of the loopback fixtures, so that end-to-end tests
+/// pass REALITY server authentication.
 fn valid_reality_public_key() -> String {
-    "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string()
+    local_network_fixture::reality_fixture_public_key()
 }
 
 fn hysteria_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Hysteria2RelayConfig {

@@ -35,7 +35,7 @@ use tokio::runtime::Runtime;
 
 use local_network_fixture::{
     Hysteria2Loopback, MasqueH2ConnectUdpFixture, TuicLoopback, VlessRealityLoopback, WebTunnelFixture,
-    XhttpRealityLoopback,
+    XhttpRealityLoopback, reality_fixture_public_key,
 };
 use ripdpi_masque::MasqueClient;
 use ripdpi_masque::config::MasqueConfig;
@@ -47,9 +47,6 @@ use ripdpi_webtunnel::client::connect_webtunnel_async;
 use ripdpi_xhttp::{XhttpRealityConfig, connect_reality};
 
 const PAYLOAD_LEN: usize = 1024 * 1024;
-/// base64 of 32 bytes — a syntactically valid REALITY public key. The loopback
-/// servers do not validate it (REALITY auth is disabled in loopback mode).
-const REALITY_PUBLIC_KEY_B64: &str = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=";
 const UUID: &str = "11111111-1111-1111-1111-111111111111";
 
 fn runtime() -> Runtime {
@@ -81,7 +78,7 @@ fn vless_reality_config(server_port: u16, server_name: &str) -> VlessRealityConf
         i32::from(server_port),
         UUID,
         server_name,
-        REALITY_PUBLIC_KEY_B64,
+        &reality_fixture_public_key(),
         "",
         "chrome_stable",
     )
