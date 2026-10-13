@@ -554,6 +554,48 @@
       "cadence_seconds": 60,
       "stale_after_seconds": 180,
       "alert_use": true
+    },
+    {
+      "name": "vpn_observability_evidence_timestamp_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_observability_evidence_max_age_seconds",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "seconds",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
+    },
+    {
+      "name": "vpn_observability_required_service",
+      "owner": "observability_agent",
+      "type": "gauge",
+      "unit": "ratio",
+      "labels": [
+        "node",
+        "role"
+      ],
+      "max_series": 256,
+      "cadence_seconds": 60,
+      "stale_after_seconds": 180,
+      "alert_use": true
     }
   ]
 }
