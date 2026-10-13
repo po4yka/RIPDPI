@@ -81,7 +81,7 @@ jobs:
           PY
 
       - name: Download exact immutable Android release candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: android-release-candidate
           path: ${{ runner.temp }}/release-candidate
@@ -89,7 +89,7 @@ jobs:
           run-id: ${{ env.CANDIDATE_RUN_ID }}
 
       - name: Download candidate attestation receipt
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-candidate-attestation
           path: ${{ runner.temp }}/candidate-attestation
@@ -210,7 +210,7 @@ jobs:
           persist-credentials: false
 
       - name: Download verified release publish bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-publish-bundle
           path: publish
