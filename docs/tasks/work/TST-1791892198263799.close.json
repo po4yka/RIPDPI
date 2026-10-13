@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Implementation c2607f363; 74 local regression tests and harness gate passed; live AVD reuse and temporary cleanup passed; four idle legacy AVDs removed; active devices preserved.",
+  "execution_sha256": "5c666ebb1401dad68a5115c41ba689c2517781db419cfad0d9b543a514fbeca5",
+  "issue_sha256": "f832a8452161d3999f84e17356eeaf928e1d18698ab7338e96d59daeae13c66f",
+  "outcome": "done",
+  "prepared_at": "2026-10-13T12:25:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1791892198263799"
+}

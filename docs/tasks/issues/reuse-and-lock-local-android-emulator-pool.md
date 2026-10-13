@@ -2,7 +2,7 @@
 id: TST-1791892198263799
 title: Reuse and lock local Android emulator pool
 kind: chore
-status: review
+status: done
 area: testing
 priority: high
 owner: Tooling maintainer
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-13
 updated: 2026-10-13
 spec_reason: tooling-only
+closed_at: "2026-10-13T12:25:18Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation c2607f363; 74 local regression tests and harness gate passed; live AVD reuse and temporary cleanup passed; four idle legacy AVDs removed; active devices preserved.
 ---
 
 ## Goal
