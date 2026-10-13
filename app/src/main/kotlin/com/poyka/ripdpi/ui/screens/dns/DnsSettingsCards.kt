@@ -131,7 +131,7 @@ internal fun DnsActiveConfigurationCard(
                     color = colors.foreground,
                 )
                 Text(
-                    text = uiState.dns.dnsSummary,
+                    text = uiState.dns.localizedSummary(),
                     modifier = Modifier.fillMaxWidth(),
                     style = type.body,
                     color = colors.mutedForeground,

@@ -40,6 +40,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.dns.localizedSummary
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -64,7 +65,7 @@ internal fun SettingsConnectivitySection(
                             R.string.settings_connectivity_dns_body_proxy
                         },
                     ),
-                value = uiState.dns.dnsSummary,
+                value = uiState.dns.localizedSummary(),
                 onClick = actions.onOpenDnsSettings,
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsDnsSettings,
