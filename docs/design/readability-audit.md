@@ -35,4 +35,10 @@ An API 37 ARM64 emulator at 411dp, 420dpi, and 200% system font scale exposed ad
 
 The follow-up uses measured row budgets, wrapping endpoint choices, existing launcher artwork backgrounds, localized presentation labels, and a locale input for permission presentation. The change verification document tracks the device captures and installed APK identity. Seeded report data proves the diagnostic UI path; it does not prove live network results.
 
-Launcher foreground layers include an outer inset for system effects. Preview rendering uses the inner masked viewport so the artwork keeps the launcher scale. See [Android adaptive-icon layer sizing](https://developer.android.com/reference/android/graphics/drawable/AdaptiveIconDrawable).
+The installed follow-up also caught a shared 1.5x preview zoom that cut five silhouettes at the mask. Only the Clean vector has an internal 0.70 group inset. Preview metadata enlarges that inset artwork and retains the natural scale of the other five assets. Grid and selected previews use the same metadata; launcher assets and aliases stay unchanged.
+
+History filter choices use a bounded wrapping group. Long localized labels stay inside the card at 200% font scale, including the selected checkmark. Failure and cancellation captions describe the stored status without adding an unsupported cause.
+
+The full strategy report exposed two more competing headers: the audit confidence status formed a one-letter column, and a candidate title ended in an ellipsis. Confidence, winner, and candidate headers now reserve whole-word title width and the complete status width. They stack when that budget exceeds the card; candidate titles have no fixed line cap.
+
+Final installed acceptance covers 88 reviewed API 37 ARM64 captures at 411dp, 420dpi, and 200% font in both themes, including permission language changes without a process restart. The real native APK and installed package have the same hash. See the change verification document for the source, fixture, and runtime receipts.

@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1791793531264679
 change: material3-readability
-commit_sha: d226169bbb42f4cea4fb09278706dbd3f05a7225
+commit_sha: cd3e418103b8b2b68aa3b521aa5bbde07ebd2d9b
 local: required
-local_evidence: Historical gates below passed at their stated commits. Follow-up UI regressions, app/service lint, static analysis, and a real ARM64 APK build passed. Neutral status captions and the combined-tree gate remain pending.
+local_evidence: The rebased 1283-test UI and activity selection passed without failures, errors, or skips. The final no-cache gate passed app/service lint and complete static analysis. The real ARM64 APK build passed without skipNativeBuild.
 remote_ci: not_applicable
 remote_ci_evidence: Local implementation and main commits only; push is not requested.
 device: required
-device_evidence: The baseline APK was installed on API 37 ARM64 at 411dp and 200% font scale. Its light and dark UI exposed the follow-up defects. The corrected APK is built; pool-device installation and both-theme acceptance remain pending.
+device_evidence: Final APK cd3e41810 passed 88 reviewed captures on the leased API 37 ARM64 emulator at 411dp, 420dpi, and 200% font. Both themes and same-process EN to RU permission text passed. Installed bytes match the retained APK.
 artifact: required
-artifact_evidence: Historical renders and strict fixture gates passed as recorded below. Current before captures and ten new screenshot scenes are prepared; corrected device captures and new fixture verification remain pending.
+artifact_evidence: Owning compare and authorized record passed in both flavors. All 33 changed or new fixtures were reviewed. Strict whole-family verification is queued at the machine build gate.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -27,7 +27,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-UI-SHARED-ACTIONS | UIX-1791804419498505 | SharedReadabilityLayoutTest, FeedbackWordLayoutTest, BottomNavBarTest, RipDpiTopAppBarTest, and fresh light/dark/2x renders | Passed |
 | REQ-UI-ADAPTIVE-CHOICES | UIX-1791804426740078 | ReadabilityFormsLayoutTest and ReadabilityFormActionsLayoutTest with actual card gutters, RTL, and full labels; DNS/relay renders | Passed |
 | REQ-UI-DATA-LAYOUT | UIX-1791804434249424 | ReadabilityDataScreenTest with native density 420dpi, complete diagram nodes, RTL tick positions, and 15 data renders | Passed |
-| REQ-UI-INSTALLED-EMULATOR | UIX-1791877120798384 | Installed API 37 emulator, both themes, 200% font; runtime regression tests and reviewed captures | Pending |
+| REQ-UI-INSTALLED-EMULATOR | UIX-1791877120798384 | Installed API 37 emulator, both themes, 200% font; 88 reviewed captures, source/hash receipt, and same-process locale check | Passed |
 
 The app-wide combined review and visual checks are owned by UIX-1791804441168759. The first-stage results below are historical evidence at the stated commits. The final app-wide evidence follows them.
 
@@ -131,11 +131,56 @@ These reports were recorded in the isolated readability worktree under `build/re
 
 Original expected, actual, and diff PNGs were recorded in the isolated golden worktree under `build/reports/readability-appwide-goldens`; the same cleanup removed them. The RDS HTML deck, runtime contracts, locale sets, and native sources were not edited by that earlier UI pass. Main integration is authorized. Push and remote CI are not owned by this local task.
 
-Current emulator follow-up evidence is stored outside the repository build directories at `/Users/npochaev/.codex/visualizations/2026/10/12/01a12f2d-479e-7a20-af97-5645507716e9/emulator-20261013`. The follow-up is pending until the corrected APK, regression gates, and both-theme device captures are verified.
+Current emulator follow-up evidence is stored outside the repository build directories at `/Users/npochaev/.codex/visualizations/2026/10/12/01a12f2d-479e-7a20-af97-5645507716e9/emulator-20261013`. Final installed acceptance and its source identities are recorded below.
 
 
 ## Installed follow-up source checkpoint
 
-Source checkpoint `d226169bbb42f4cea4fb09278706dbd3f05a7225` contains seven scoped fixes. The first UI run executed 1259 tests: 1258 passed and one launcher contrast assertion failed because its crop excluded the visible preview edges. The corrected viewport test passed with no failures, errors, or skips. The retry also passed app/service lint and complete static analysis. These are separate observed runs; a fresh combined-tree run remains required.
+Source checkpoint `d226169bbb42f4cea4fb09278706dbd3f05a7225` contains seven scoped fixes. The first UI run executed 1259 tests: 1258 passed and one launcher contrast assertion failed because its crop excluded the visible preview edges. The corrected viewport test passed with no failures, errors, or skips. The retry also passed app/service lint and complete static analysis. These are separate observed runs; the final rebased combined-tree gate is recorded below.
 
 A real ARM64 debug APK built without `skipNativeBuild` in 33m 21s. Its SHA-256 is `e3511cb1189726db220221fa350ef7fb1071d6193a7731f4909e3e6ccd33cee3`, with 744042069 bytes. The immutable APK and `apk-d226-receipt.json` are in the retained emulator evidence directory. This intermediate APK establishes the native build; final acceptance must use the rebased source and final captions.
+
+
+## Rebased installed source
+
+The final source checkpoint is `cd3e418103b8b2b68aa3b521aa5bbde07ebd2d9b`, based on main `ddd0024d494fb2e734223b8c6e77ec239a255bbe`. The theme-array conflict retained the upstream `settings_option_theme_*` resources. Their ten translations equal the follow-up captions. The duplicate follow-up resource files were removed; the ten-locale stable-key test remains. The task board was regenerated through `taskctl`.
+
+The three final layout commits retain full launcher silhouettes, stack confidence/winner/candidate headers when needed, and wrap history filters inside the card. The nine affected source and test files have the same SHA-256 before and after this rebase. The preceding combined gate passed 1252 tests in 210 classes, without failures, errors, or skips, plus app/service lint and complete static analysis.
+
+The rebased shared-process gate executed 1283 tests in 216 classes. Its first failure occurred before the MainActivity test body: `FileSystemAlreadyExistsException` in `DefaultNativeRuntimeLoader.maybeCopyFonts`. That loader failure caused 631 failed cases, including later RenderNode linkage and coroutine errors. The complete XML results are retained under `rebased-native-font-failure`. The isolated run used the same test selection, SDK, graphics mode, and assertions, with one class per JVM and one JVM at a time. All 1283 tests passed in 216 classes, with zero failures, errors, or skips. After 35m 43s, Gradle failed while storing a build-cache entry because its temporary `.part` file disappeared. The cause is unknown. A separate no-cache gate passed in 16 seconds and reused the identical up-to-date test results. App/service lint and complete static analysis passed. Both the successful XML and the earlier infrastructure failures are retained separately; no test was removed or weakened.
+
+The first native build compiled the JNI libraries and all three repository helpers, but APK packaging failed with a generic `IncrementalSplitterRunnable` error. A separate real `assembleGithubFullDebug --stacktrace` retry passed in 21 seconds, with no source change and without `skipNativeBuild`. The initial packaging cause was not exposed by that failed log; the successful retry does not establish its cause.
+
+The retained final APK has 286879785 bytes and SHA-256 `dc88d8a740cb6a712a55f10e0c482c970ef0277f683a0c028665c30012ab79c6`. Its production tree is `adbe6bacf9cb3656b0b2f6429d501a81845f5e1d`; its debug tree is `2dc524afee6040c4857cf554ee92cf0830edc951`. ZIP CRC checks passed. The five JNI libraries, Cloudflare and NaiveProxy helpers, and the root-helper asset are present for ARM64. Installed `base.apk` has the same byte hash. The normal MainActivity launch retained the existing package data and report store; no second seed or reset was used.
+
+The final owning compare passed 34 Full cases and 34 Simple cases, with one existing Full-only assumption in Simple. All 396 existing fixture hashes remained unchanged, including the upstream Arabic metric fixture. Golden-blesser reviewed all 24 new and eight existing actual PNGs, all eight existing expected/diff pairs, and the full report canvas boundaries. The authorized owning record then passed both flavors and changed 33 PNGs: 24 new and nine existing fixtures. All 33 were reviewed, including the additional DNS summary diff. No existing dimensions changed; the upstream Arabic fixture remained unchanged. Strict whole-family verification is queued at the machine build gate.
+
+The final combined command used a temporary init script with `forkEvery = 1` and `maxParallelForks = 1`:
+
+```sh
+build-gate -- env GRADLE_USER_HOME=<retained-evidence>/gradle-home \
+  ./gradlew --no-daemon --no-build-cache \
+  --init-script /tmp/readability-test-isolation.gradle \
+  :app:testGithubFullDebugUnitTest \
+  --tests 'com.poyka.ripdpi.ui.*' \
+  --tests '*MainViewModelTest' --tests '*MainActivityContentTest' \
+  --tests '*BuildPermissionSummaryTest' \
+  --tests 'com.poyka.ripdpi.platform.*LocaleTest' \
+  --tests '*DiagnosticsLiveLabelsLocaleTest' \
+  :app:lintGithubFullDebug :core:service:lintDebug staticAnalysis \
+  -Pripdpi.skipNativeBuild=true --max-workers=4
+```
+
+The successful command log is `final-isolated-ui-no-cache-gate.log`; `final-ui-green-results/summary.json` and all 216 XML files retain the result provenance. The native APK used a separate real assemble task without the JVM-only native flag.
+
+## Final installed acceptance
+
+The retained final APK passed 42 Light and 42 Dark scene captures, plus four Dark EN/RU permission captures. All 88 PNGs were viewed and accepted; their fresh UI XML and JSON are retained. Settings, DNS, advanced fields, appearance and all six launcher previews, configuration, Home health, bottom navigation, diagnostics tabs, scan reports, candidate details and QUALITY, probe details, history filters and event details, logs, and connection health were exercised at 200% font. Root also viewed the critical Light health card and icon grid, and Dark candidate header, selected history filter, and icon grid.
+
+The final manifest `device-acceptance/final-device-manifest.json` has SHA-256 `d116e8496ef7bc76c56add9036a08b1f06929977c0cf6629a5b14ffb921206e4`. Root checked all 264 file hashes and all 88 review results. `final-device-gallery.html` shows the unchanged native PNGs.
+
+The final EN to RU permission check retained PID `2976` before, during, and after the change. Labels and guidance updated without a process restart. Final crash and ANR reports contain no app failure; historical exit records show package update and requested force stops before final launch. The owned emulator lease was reacquired after a wrapper interruption; APK bytes, font scale, density, and report data remained intact. The existing emulator-5586 was not changed.
+
+Only the completed diagnostic status was present in the retained device store; selected and unselected states passed in both themes. Running, failed, and cancelled status labels were covered by host layout tests and fixtures, and are not claimed as device observations. The retained demo report proves layout and navigation. No VPN connection, diagnostic network scan, physical device, or live network result is claimed.
+
+The final owned lease closed through the wrapper. The wrapper returned exit 1 with an unknown process-group state. Read-only checks confirmed that group `1036` was gone, the owned emulator was stopped, and Pool_1 was idle and eligible. The existing emulator-5586 remained alive. `final-lease-close-receipt.json` retains both the wrapper error and the observed closure; no AVD, branch, or worktree was deleted.

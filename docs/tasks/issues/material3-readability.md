@@ -66,7 +66,7 @@ Fresh Russian captures at 320dp and 2x font showed remaining compressed words af
 ## Installed emulator follow-up ownership
 
 - Runtime labels writer: app DNS summary presentation, all theme label locale arrays, and their focused tests in the isolated fix/readability-runtime-labels worktree. This writer alone owns locale resources for this pass. Core DNS summary contracts and persisted theme entries remain unchanged.
-- Integration owner: device driving on emulator-5586, DESIGN.md, audit evidence, task/OpenSpec artifacts, combined validation, and authorized main integration.
+- Device acceptance agent: the leased API 37 ARM64 Pool_1 emulator only; install, navigation, both-theme 200% captures, and runtime receipts. The existing emulator-5586 is outside this task. Integration owner: DESIGN.md, audit evidence, task/OpenSpec artifacts, combined validation, and authorized main integration.
 - Read-only visual reviewer: actual emulator PNG captures; no device interaction or source changes.
 - Golden fixtures remain serialized to golden-blesser if the runtime repair changes existing fixtures; prior user approval covers affected UI readability fixtures.
 
@@ -81,3 +81,7 @@ Fresh Russian captures at 320dp and 2x font showed remaining compressed words af
 - Locale refresh writer also owns MainPermissionUiFactories.kt only for rebuilding localized issue text while preserving permission kind, recovery, and blocking semantics.
 
 - After the report rows writer reached model capacity, the integration owner completes its remaining tests and scoped fixes in the same isolated report-rows worktree. The writer is inactive; source ownership remains serialized.
+
+- Report status writer: DiagnosticsStrategyProbeReport.kt confidence and candidate headline rows plus focused layout tests, in the isolated fix/readability-report-status worktree. Use measured word budgets and stack status when needed. Preserve data, rank, eligibility, labels, callbacks, and report tags. The integration owner retains shared tokens, locales, fixtures, and all other files.
+
+- The report status writer froze and handed off both files with SHA-256 receipts. The integration owner is now the sole writer for those files and includes them in the combined UI gate before the atomic report commit.

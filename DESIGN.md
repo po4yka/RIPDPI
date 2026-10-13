@@ -656,7 +656,7 @@ Accessibility is a design requirement, not an afterthought:
 - Large font scale must not clip primary actions, titles, or onboarding content.
 - A button height is a minimum. Let its complete label wrap and its container grow.
 - Choice chips use content-driven width and height. Wrap the group instead of forcing equal columns.
-- Place long localized facts and status badges on separate lines when they compete with a title. Diagnostic session, probe, and event rows reserve whole-word width before placing metadata beside their content. Probe targets can wrap.
+- Place long localized facts and status badges on separate lines when they compete with a title. Diagnostic session, probe, and event rows reserve whole-word width before placing metadata beside their content. Report confidence, winner, and candidate headers use the same width rule. Full candidate titles and probe targets can wrap.
 - Keep bottom navigation in one row when all labels fit. If measured labels need more width, use two columns, then one column as needed. Preserve destination order, selection, and all actions.
 - Use scrollable Material 3 tabs for peer sections. Do not shrink their text to fit.
 - Keep graph labels readable. Scroll a large diagram instead of scaling its text below the chosen type size.
@@ -699,7 +699,7 @@ Icon rules are strict:
 - compact action density changes padding; action and dismiss glyphs still use `24dp`
 - chip glyphs use `18dp`; selection uses the existing state styling and keeps label size stable
 - visible icon size is separate from the minimum `48dp` interactive area
-- Launcher artwork previews use the background and visible viewport of the matching adaptive icon in both app themes. Keep foreground artwork and launcher aliases unchanged; do not place black artwork on a dark input surface.
+- Launcher artwork previews use their matching asset backgrounds in both app themes and keep the full silhouette inside the mask. Foreground magnification follows each asset inset; do not apply one zoom to every artwork. Keep foreground assets and launcher aliases unchanged.
 - the action and navigation icon language is outlined Material
 - exceptions are limited to app assets and illustration surfaces
 - iconography should read as utility chrome, not branding
