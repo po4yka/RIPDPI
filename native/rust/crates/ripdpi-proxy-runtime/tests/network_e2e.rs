@@ -34,7 +34,9 @@ use support::socks5::{
     udp_proxy_client, udp_proxy_roundtrip, udp_proxy_roundtrip_domain, udp_proxy_roundtrip_with_socket,
     wait_for_accepted_connections,
 };
-use support::tls::{FragmentingProfile, http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry};
+use support::tls::{
+    FragmentingProfile, http_connect, http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry,
+};
 
 #[allow(dead_code)]
 #[path = "../../ripdpi-packets/tests/rust_packet_seeds.rs"]
@@ -111,6 +113,28 @@ fn ephemeral_listener_reports_non_zero_port_through_telemetry() {
     assert_eq!(reported.ip(), std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));
     assert_eq!(reported.port(), proxy.port);
     assert_ne!(reported.port(), 0);
+}
+
+#[test]
+fn socks5_server_first_greeting_reaches_client_without_client_payload() {
+    let _guard = test_guard();
+    let (server_port, server) = spawn_server_first_greeter();
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+
+    assert_server_first_exchange(socks_connect(proxy.port, server_port));
+
+    server.join().expect("server-first greeter");
+}
+
+#[test]
+fn http_connect_server_first_greeting_reaches_client_without_client_payload() {
+    let _guard = test_guard();
+    let (server_port, server) = spawn_server_first_greeter();
+    let proxy = start_proxy(ephemeral_proxy_config(&["--http-connect", "--ip", "127.0.0.1"]), None);
+
+    assert_server_first_exchange(http_connect(proxy.port, server_port));
+
+    server.join().expect("server-first greeter");
 }
 
 #[test]
@@ -552,6 +576,47 @@ fn http_connect_reply_format_is_200_ok_with_crlf() {
 }
 
 // ── E2e-local helpers ──
+
+const SERVER_FIRST_GREETING: &[u8] = b"220 server-first.test ESMTP ready\r\n";
+const SERVER_FIRST_COMMAND: &[u8] = b"QUIT\r\n";
+const SERVER_FIRST_REPLY: &[u8] = b"221 bye\r\n";
+/// Upper bound for the greeting to cross the proxy. The pre-fix proxy held
+/// the greeting until the client spoke, so any value well below the 60 s
+/// first-payload idle timeout separates the two behaviours.
+const SERVER_FIRST_GREETING_DEADLINE: Duration = Duration::from_secs(5);
+
+/// Starts a one-shot SMTP-like server that sends its greeting immediately on
+/// accept, then answers one client command.
+fn spawn_server_first_greeter() -> (u16, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind server-first listener");
+    let port = listener.local_addr().expect("server-first listener addr").port();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept server-first client");
+        stream.set_read_timeout(Some(Duration::from_secs(10))).expect("set server-first read timeout");
+        stream.write_all(SERVER_FIRST_GREETING).expect("write server-first greeting");
+        let mut command = vec![0u8; SERVER_FIRST_COMMAND.len()];
+        stream.read_exact(&mut command).expect("read client command");
+        assert_eq!(command, SERVER_FIRST_COMMAND);
+        stream.write_all(SERVER_FIRST_REPLY).expect("write server-first reply");
+    });
+    (port, handle)
+}
+
+fn assert_server_first_exchange(mut stream: TcpStream) {
+    stream.set_read_timeout(Some(SERVER_FIRST_GREETING_DEADLINE)).expect("set greeting read timeout");
+    let started = std::time::Instant::now();
+    let mut greeting = vec![0u8; SERVER_FIRST_GREETING.len()];
+    stream.read_exact(&mut greeting).expect("server greeting must reach the client before it sends data");
+    assert_eq!(greeting, SERVER_FIRST_GREETING);
+    assert!(
+        started.elapsed() < SERVER_FIRST_GREETING_DEADLINE,
+        "server greeting took {:?} to cross the proxy",
+        started.elapsed()
+    );
+
+    stream.write_all(SERVER_FIRST_COMMAND).expect("write client command");
+    assert_eq!(recv_exact(&mut stream, SERVER_FIRST_REPLY.len()), SERVER_FIRST_REPLY);
+}
 
 fn test_guard() -> MutexGuard<'static, ()> {
     TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(PoisonError::into_inner)
