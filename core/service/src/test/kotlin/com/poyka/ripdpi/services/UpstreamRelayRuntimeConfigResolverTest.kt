@@ -1037,6 +1037,8 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                     profileId = "hysteria2",
                                     hysteriaPassword = credentialFixture("hysteria"),
                                     hysteriaSalamanderKey = "salamander-key",
+                                    hysteriaInsecure = true,
+                                    hysteriaPinSha256 = "cd".repeat(32),
                                 ),
                             )
                         },
@@ -1066,6 +1068,10 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
             assertEquals(RelayKindHysteria2, resolved.kind)
             assertEquals(credentialFixture("hysteria"), resolved.hysteriaPassword)
             assertEquals("salamander-key", resolved.hysteriaSalamanderKey)
+            // REL-3: the certificate pin travels with insecure so the native
+            // verifier never degrades to accept-any for a pinned profile.
+            assertEquals(true, resolved.hysteriaInsecure)
+            assertEquals("cd".repeat(32), resolved.hysteriaPinSha256)
         }
 
     @Test

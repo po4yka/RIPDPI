@@ -60,6 +60,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             salamander_key: None,
             insecure: false,
+            pin_sha256: None,
         }),
         "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),

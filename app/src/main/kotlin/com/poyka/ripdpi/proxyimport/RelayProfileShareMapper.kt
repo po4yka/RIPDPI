@@ -151,6 +151,7 @@ object RelayProfileShareMapper {
                         serverName = serverName.ifBlank { null },
                         obfsPassword = credentials.hysteriaSalamanderKey,
                         insecure = credentials.hysteriaInsecure,
+                        pinSha256 = credentials.hysteriaPinSha256,
                     ).takeIf { server.isNotBlank() && serverPort > 0 }
             }
         }
