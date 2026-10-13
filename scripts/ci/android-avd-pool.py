@@ -380,31 +380,65 @@ def free_port(lock_directory: Path) -> tuple[int, Lease]:
     raise PoolError("No free emulator console/adb port pair")
 
 
+def group_has_live_members(group: int) -> bool:
+    # Use the system inspector, independent of SDK wrappers on PATH.
+    result = command(["/bin/ps", "-ax", "-o", "pgid=,stat="], timeout=5)
+    if result.returncode:
+        raise PoolError(f"Cannot inspect process group {group}")
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        fields = line.split()
+        if len(fields) != 2 or not fields[0].isdigit():
+            raise PoolError(f"Ambiguous process group inspection for {group}")
+        if int(fields[0]) == group:
+            if not re.fullmatch(r"[A-Za-z][A-Za-z0-9+<>=]*", fields[1]):
+                raise PoolError(f"Unknown process state in group {group}")
+            if not fields[1].startswith("Z"):
+                return True
+    return False
+
+
+def signal_group(process: subprocess.Popen, signum: int) -> bool:
+    try:
+        os.killpg(process.pid, signum)
+        # Linux can also report success for a zombie-only group. Signal 0
+        # checks permission and existence; inspect execution state as well.
+        return group_has_live_members(process.pid) if signum == 0 else True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # Darwin excludes zombies from killpg and returns EPERM for a group
+        # with no signalable members. Reap the leader, then confirm that no
+        # live members remain. A real permission failure must stay an error.
+        process.poll()
+        if group_has_live_members(process.pid):
+            raise
+        return False
+
+
 def stop_process(process: subprocess.Popen | None) -> None:
     if process is None:
         return
     # Children use a distinct session, so interruption also stops their workers.
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+    signal_group(process, signal.SIGTERM)
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         process.poll()
-        try:
-            os.killpg(process.pid, 0)
-        except ProcessLookupError:
+        if not signal_group(process, 0):
             break
         time.sleep(0.1)
     else:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        signal_group(process, signal.SIGKILL)
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired as exc:
         raise PoolError(f"Process group {process.pid} did not stop") from exc
+    deadline = time.monotonic() + 5
+    while signal_group(process, 0):
+        if time.monotonic() >= deadline:
+            raise PoolError(f"Process group {process.pid} is still active after cleanup")
+        time.sleep(.1)
 
 
 def boot_probe(args: list[str], *, deadline: float, env: dict[str, str]) -> subprocess.CompletedProcess | None:

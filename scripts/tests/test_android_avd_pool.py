@@ -488,5 +488,72 @@ class AvdPoolTest(unittest.TestCase):
         self.assertIn("android-36", config.read_text())
 
 
+class ProcessGroupCleanupTest(unittest.TestCase):
+    def test_exited_zombie_leader_is_reaped_during_cleanup(self):
+        process = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
+        try:
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                state = subprocess.run(["/bin/ps", "-o", "stat=", "-p", str(process.pid)],
+                                       text=True, capture_output=True, check=True).stdout.strip()
+                if state.startswith("Z"):
+                    break
+                time.sleep(.02)
+            else:
+                self.fail("Child did not reach zombie state")
+            POOL.stop_process(process)
+            self.assertEqual(0, process.returncode)
+        finally:
+            process.wait(timeout=5)
+
+    def test_permission_error_with_live_member_remains_an_error(self):
+        process = mock.Mock(pid=12345)
+        process.poll.return_value = 0
+        status = subprocess.CompletedProcess([], 0, "12345 S\n", "")
+        with mock.patch.object(POOL.os, "killpg", side_effect=PermissionError(1, "denied")), \
+                mock.patch.object(POOL, "command", return_value=status) as inspect:
+            with self.assertRaises(PermissionError):
+                POOL.stop_process(process)
+            self.assertEqual("/bin/ps", inspect.call_args.args[0][0])
+
+    def test_permission_error_with_only_zombies_confirms_stopped_group(self):
+        process = mock.Mock(pid=12345)
+        process.poll.return_value = 0
+        status = subprocess.CompletedProcess([], 0, "12345 Z\n54321 S\n", "")
+        with mock.patch.object(POOL.os, "killpg", side_effect=PermissionError(1, "denied")), \
+                mock.patch.object(POOL, "command", return_value=status):
+            POOL.stop_process(process)
+        process.wait.assert_called_once_with(timeout=5)
+
+    def test_failed_or_malformed_group_inspection_blocks_cleanup(self):
+        for status in (subprocess.CompletedProcess([], 1, "", "failed"),
+                       subprocess.CompletedProcess([], 0, "ambiguous\n", "")):
+            with self.subTest(status=status):
+                process = mock.Mock(pid=12345)
+                process.poll.return_value = 0
+                with mock.patch.object(POOL.os, "killpg", side_effect=PermissionError(1, "denied")), \
+                        mock.patch.object(POOL, "command", return_value=status):
+                    with self.assertRaises(POOL.PoolError):
+                        POOL.stop_process(process)
+
+    def test_successful_zero_signal_with_only_zombies_is_not_live(self):
+        process = mock.Mock(pid=12345)
+        process.poll.return_value = 0
+        status = subprocess.CompletedProcess([], 0, "12345 Z\n", "")
+        with mock.patch.object(POOL.os, "killpg"), \
+                mock.patch.object(POOL, "command", return_value=status):
+            POOL.stop_process(process)
+        process.wait.assert_called_once_with(timeout=5)
+
+    def test_live_group_after_kill_is_not_reported_as_stopped(self):
+        process = mock.Mock(pid=12345)
+        status = subprocess.CompletedProcess([], 0, "12345 S\n", "")
+        with mock.patch.object(POOL.os, "killpg"), \
+                mock.patch.object(POOL, "command", return_value=status), \
+                mock.patch.object(POOL.time, "monotonic", side_effect=[0, 16, 16, 22]):
+            with self.assertRaisesRegex(POOL.PoolError, "still active"):
+                POOL.stop_process(process)
+
+
 if __name__ == "__main__":
     unittest.main()
