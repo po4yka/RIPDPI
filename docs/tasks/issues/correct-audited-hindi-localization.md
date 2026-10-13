@@ -2,7 +2,7 @@
 id: UIX-1791880509070975
 title: Correct Hindi and shared localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-audited-hindi-localization
 created: 2026-10-13
 updated: 2026-10-13
+status_detail: Source fixes and available local gates passed. Simple screenshot verification requires a real relay bundle; hosted CI and linguistic acceptance remain separate.
 ---
 
 ## Goal

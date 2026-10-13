@@ -1,11 +1,11 @@
 ---
 task_id: UIX-1791880509070975
 change: fix-audited-hindi-localization
-commit_sha: c9cc6ad417d3503a135b12b39f4d19b131aec822
-local: required
-local_evidence: null
+commit_sha: e4692c8b68df456194c378b12e5c83617e35a1aa
+local: blocked
+local_evidence: Final combined-tree checks passed 2483 app tests, 2244 service tests, 20 resource regressions, static analysis, lint, and 285 Full screenshots. One existing RTL gallery test is ignored. Simple screenshots are blocked before tests because the required real embedded relay bundle is absent.
 remote_ci: required
-remote_ci_evidence: null
+remote_ci_evidence: Hosted checks for the final published SHA remain required.
 device: not_applicable
 device_evidence: Local rendered UI and resource checks own this presentation change. Physical-device acceptance is not claimed.
 artifact: not_applicable
@@ -20,132 +20,181 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-HI-MEANING | UIX-1791880749935501 | Hindi resource regressions and inspected UI | Required |
-| REQ-HI-RESULTS | UIX-1791880769991455 | Known-result and option behavior tests | Required |
-| REQ-HI-DATES | UIX-1791880789607066 | Host-pack fallback and selected-locale language-switch tests | Required |
-| REQ-HI-PARITY | UIX-1791880815019998 | Parity/export, all-locale contracts, full app/service tests, lint, static analysis, architecture, and independent review | Required |
+| REQ-HI-MEANING | UIX-1791880749935501 | Hindi resource regressions and inspected UI | Passed |
+| REQ-HI-RESULTS | UIX-1791880769991455 | Known-result, retained-language-switch, and option behavior tests | Passed |
+| REQ-HI-DATES | UIX-1791880789607066 | Host-pack fallback and selected-locale language-switch tests | Passed |
+| REQ-HI-PARITY | UIX-1791880815019998 | All-locale guards, full app/service tests, lint, static analysis, architecture, review, and screenshots | All listed gates passed; Simple screenshots blocked |
 
-## Boundaries
+## Scope
 
-No protocol, schema, raw evidence, stored value, dependency, or quality-baseline changes. One Arabic metric screenshot fixture refresh is authorized to match the earlier selected-locale number-formatting correction. Hosted CI, native-speaker review, and physical-device acceptance are separate evidence.
-
-## Scope and source review
-
-The source commit is `c9cc6ad417d3503a135b12b39f4d19b131aec822`. It follows
-`git fetch origin` and `git rebase origin/main`; the upstream source was
-`17172d4a1fe3bfc02faf6366efad868da2ad3dce` and no rebase was needed.
-
-- Correct 70 existing Hindi entries, including seven unused entries.
-- Correct 42 stale profile-editor references in six other locales.
+- Correct 70 existing Hindi entries: 63 active and seven unused entries.
+- Correct 42 stale profile-editor references in English, German, French,
+  Persian, Arabic, and Brazilian Portuguese.
 - Translate 46 descriptive option positions. Preserve 13 technical choices,
   all array positions, and all 15 stored-value arrays.
 - Add 45 string keys in all ten locales. Localize known DPI, PT, TCP16,
   host-pack, duplicate, and sequential captions.
-- Update known PT text and catalog dates after a selected-language change.
-  Preserve raw evidence, custom descriptions, and custom PT captions.
-- Read Android numeric array values with typed resources and recycle the
-  typed array. Stored values zero through three remain exact.
+- Refresh known PT text and catalog dates when the selected app language
+  changes. Preserve raw evidence, custom descriptions, and custom captions.
+- Read numeric Android array values with typed resources; recycle the array.
+  The stored values zero through three remain exact.
 
-An independent review found no critical or warning findings. A separate
-completeness pass found no missing confirmed findings in the session audits.
-Previous Russian, Chinese, and Spanish correction commits remain ancestors
-of the source baseline and are not undone by this change.
-
-## Observed local evidence
-
-On the synchronized source commit:
-
-- `python3 -m unittest discover -s scripts/ci -p 'test_*localization_regressions.py'`:
-  20 tests passed (Russian 4, Chinese 5, Spanish 5, Hindi 6).
-- `bash scripts/ci/check-locale-parity.sh`: all ten app, Quick Connect, and
-  service locales passed; translated option references and order passed.
-- `bash scripts/ci/check-translation-export.sh`: source manifest passed,
-  4,958 string keys. App resources have 4,948 strings and 23 plural entries.
-- `python3 scripts/ci/check_architecture_health.py`: passed, 21 baseline
-  indicators and no new, worsened, or stale indicators; 116 Rust crates.
-- `python3 scripts/ci/check_file_loc_limits.py`: passed, 4,156 files,
-  no new violations or baseline growth.
-- `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1`:
-  passed with the pinned workspace.
-- `./taskctl validate`: passed, 128 tasks and 361 execution steps.
-- Pre-commit formatting, workflow pins, secret/size checks, harness checks,
-  staged architecture delta, and Conventional Commit check passed.
-
-Earlier targeted tests exposed two issues before the final run. A test-only
-bare Text harness overflowed; it now renders the actual production dropdown
-and keeps the overflow assertion. Android `getStringArray` returned null for
-numeric options; the production reader now uses `TypedArray.getString`.
-The subsequent retained-PT, catalog-date, and dropdown tests passed; the
-final numeric-reader rerun passed with the other targeted tests. Full
-Android gates remain required below.
-
-## Render inspection
-
-Native Compose test renders were inspected at font scales 1.0 and 1.5.
-Hindi host-pack descriptions, duplicate/sequential dropdowns, TCP16 captions,
-DPI failure text, and retained PT summaries/verdicts have readable glyphs and
-no observed clipping. Renders are local disposable outputs under
-`app/build/compose-previews/renders/`; these render checks did not change golden fixtures.
-
-## Remaining gates
-
-The final targeted run passed: 32 tests, zero failures, errors, or skips.
-The first full app run executed 2,483 tests, with 628 failures: one
-`FileSystemAlreadyExistsException`, 451 later `UnsatisfiedLinkError`
-failures, and 176 later `UncaughtExceptionsBeforeTest` failures. The first
-failure was in the existing `DiagnosticsRouteTest`; the same Robolectric
-ZIP/native-renderer cascade was recorded in the earlier Chinese verification.
-No code change, test exclusion, or baseline update was used for this failure.
-A fresh standalone full app run is required, followed by service tests,
-static analysis, lint, and existing Full/Simple Roborazzi verification.
-Hosted CI remains a separate required gate.
+No protocol, schema, dependency, raw-evidence, or stored-value contract changed.
+No quality baseline changed. Only the expressly authorized Arabic metric
+screenshot fixture changed. Prior Russian, Chinese, and Spanish correction
+commits remain ancestors; this change preserves their corrections.
 
 Three disputed Hindi DNS terms (Authoritative/AA, Truncated/TC, and
 Truncated response) remain unchanged. They are not confirmed defects.
 Native-speaker sign-off and physical-device acceptance are not claimed.
 
-## Completed initial gates and pending integration
+## Source and independent review
 
-The fresh standalone app retry passed: 2,483 tests, zero failures, errors,
-or skips. `staticAnalysis`, `:app:lintGithubFullDebug`, and
-`:core:service:lintDebug` passed on the initial source tree. Static analysis
-also built and checked the Simple variant; the command completed in 40m10s.
+The final source candidate is `e4692c8b68df456194c378b12e5c83617e35a1aa`.
+The job branch ran `git fetch origin` and `git rebase origin/main` twice as
+upstream advanced, finally through
+`b63b0ffced6fbcd05d3b29f0b37a0f0a23fa121d`. Both rebases had no conflicts.
+All 20 intervening upstream commits are preserved.
 
-Two complete service runs each executed 2,230 tests with one failure and
-no errors or skips. The first failed the payload-ladder `result.passed`
-assertion; the second failed `result.succeeded` in the UDP question-entropy
-case. The first failing test passed on the second run. Both tests and their
-probe source were unchanged by this localization patch. Real-socket timing
-is a possible cause, not an established cause. No tests were excluded or
-changed. A final full service check is required on the rebased tree.
+Independent review found no critical or warning findings. A completeness
+pass found no missing confirmed session findings. After the second rebase,
+all 68 task files matched their pre-rebase contents. The nine additional
+upstream files were outside the task slice. `git diff --check` passed.
 
-Full screenshot verification executed 286 cases: 284 passed, one failed,
-and one intentional flavor-assumption skip. `metricMeaningsRtl` differs
-from its expected fixture by 8.005 percent. TX/RX decimals now use Arabic
-digits, as required by the earlier Spanish locale-formatting correction
-`aa28e5aaa`. The fixture still has Latin digits. The render has no observed
-clipping; the lower cards move by about 10 px. The image is 420 by 1,500 px
-in both versions. Simple screenshot verification was not reached.
+## Resource and repository gates
 
-The only proposed fixture update is
+These checks passed again on the final source candidate:
+
+| Command | Observed result |
+|---|---|
+| `python3 -m unittest discover -s scripts/ci -p 'test_*localization_regressions.py'` | 20 passed: Russian 4, Chinese 5, Spanish 5, Hindi 6 |
+| `bash scripts/ci/check-locale-parity.sh` | All ten app, Quick Connect, and service locales passed; option references and order passed |
+| `bash scripts/ci/check-translation-export.sh` | Manifest in sync: 4,958 strings; app has 4,948 strings and 23 plural entries |
+| `python3 scripts/ci/check_architecture_health.py` | 21 baseline indicators; no new, worsened, or stale entries; 116 crates and 354 edges |
+| `python3 scripts/ci/check_file_loc_limits.py` | 4,162 files; no violations or baseline growth |
+| `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1` | Passed |
+| `./taskctl validate` | 128 tasks and 361 execution steps passed |
+
+Pre-commit formatting, workflow pins, secret/size checks, harness checks,
+staged architecture delta, and Conventional Commit checks passed for the
+source and fixture commits. The final evidence commit runs the same applicable hooks.
+
+## Behavior tests and render inspection
+
+The targeted suite passed 32 tests with no failures, errors, or skips. It
+covers Hindi diagnostic captions, selected-locale catalog dates, host-pack
+fallbacks, numeric array values, all-locale option resources, and retained PT
+text after language changes.
+
+Native Compose test renders were inspected at font scales 1.0 and 1.5.
+Hindi host-pack descriptions, duplicate/sequential dropdowns, TCP16 captions,
+DPI failures, and retained PT summaries/verdicts had readable glyphs and no
+observed clipping. Disposable renders are under
+`app/build/compose-previews/renders/`; they were not copied into fixtures.
+
+Two defects appeared during test development. A bare Text test harness
+failed the overflow assertion; the harness now renders the actual production
+dropdown and retains the assertion. Android `getStringArray` returned null
+for numeric options; the production reader now uses `TypedArray.getString`.
+The full targeted rerun passed after both corrections.
+
+## Android combined-tree gates
+
+All compiler and Gradle commands use the machine-wide `build-gate`. The JVM
+and lint commands use one worker, no daemon, `ripdpi.nativeCpuBudget=4`,
+`ripdpi.skipNativeBuild=true`, and the existing real Xray AAR at
+`/Users/npochaev/GitHub/RIPDPI/native/xray/artifacts`. No APK was assembled
+with this native-less validation mode.
+
+The final candidate ran these commands:
+
+| Command | Final candidate result |
+|---|---|
+| `:app:testGithubFullDebugUnitTest` | 2,483 passed; zero failures, errors, or skips |
+| `:core:service:testDebugUnitTest` | 2,244 passed; zero failures, errors, or skips |
+| `staticAnalysis :app:lintGithubFullDebug :core:service:lintDebug` | Passed; 750 tasks, 11m57s |
+| `:app:verifyRoborazziGithubFullDebug -Pripdpi.includeRoborazziUnitTests=true --tests 'com.poyka.ripdpi.ui.screenshot.*'` | 285 passed; zero failures or errors; one existing ignored RTL gallery case |
+
+Intermediate rebased source `6a755a28c3031ed21f63a5d7ce898356a4fdbe2d`
+passed 2,483 app tests and 2,242 service tests with no failures, errors, or
+skips. Static analysis and both lint commands passed. Full screenshots had
+285 passes, zero failures or errors, and one existing ignored RTL gallery
+case. The table above records the later final candidate results.
+
+Logs and preserved test XML are under
+`app/build/hi-localization-validation/`. Final candidate logs use the
+`final-upstream-` prefix; the source SHA and exit results are in
+`final-upstream-source-sha.txt` and `final-upstream-gate-results.json`.
+
+## Authorized Arabic metric fixture
+
+The user expressly approved only
 `app/src/test/screenshots/com.poyka.ripdpi.ui.screenshot.DiagnosticsMeasurementsScreenshotTest.metric_meanings_rtl.png`.
-Expected, actual, and compare images were inspected. The user explicitly authorized this one fixture on 2026-10-13 under the
-golden-bless rule. Its narrow record and owning-class verification are
-assigned to the isolated golden-blesser worktree.
+An isolated golden-blesser recorded the one owning test, then verified all
+eight tests in its class. Both runs passed with no skips. Expected, actual,
+and comparison images were inspected. The integrated image is identical
+to that reviewed output.
 
-`origin/main` advanced to `287a7962e5f6832fdd44ff4709a284989ef47617` while
-validation ran. These unrelated service, native, build, and emulator changes
-must be preserved by rebase. Combined-tree gates must be rerun before main
-integration. Initial results above are evidence for the old source tree only.
+The earlier Spanish formatter correction `aa28e5aaa` selected the app
+locale for numbers. Arabic TX/RX decimals therefore use Arabic digits. The
+old fixture used Latin digits and differed by 8.005 percent. Both images
+are 420 by 1,500 px; lower cards move by about 10 px with no observed
+clipping. No other fixture changed and no threshold was relaxed.
 
-## Rebase evidence
+`RtlVariantGalleryTest.rtlHandshakeTimeline` remains an existing `@Ignore`
+because its gallery goldens are not blessed. It is not a flavor assumption
+and is not counted as a pass. This separate gallery was not blessed or
+unignored.
 
-The task branch was rebased without conflicts onto upstream
-`287a7962e5f6832fdd44ff4709a284989ef47617`. The localization source is now
-`880ad286f4ad50d7b567e46bd47ef2dd4fcf72eb`. An independent review confirmed
-that all 16 upstream commits remain ancestors and all task-slice files match
-the pre-rebase contents. Resource regressions (20 tests), all-locale parity,
-translation export, architecture health, file limits, locked Cargo metadata,
-and task contracts passed again. Architecture has 21 baseline indicators,
-116 crates, 354 edges, and no new or worsened indicators. File limits scanned
-4,162 files with no violations or baseline growth.
+## Simple bundle blocker
+
+`:app:verifyRoborazziGithubSimpleDebug` stopped before tests at
+`verifyEmbeddedRelayBundle`: the required ignored asset
+`app/src/simple/assets/embedded-relay-bundle.json` is absent. No Simple
+screenshot result is claimed.
+
+The owning CI action decodes the private `embedded-relay-bundle-base64`
+input. Four existing local assets were found; all were byte-identical to
+the committed placeholder CI fixture. None was a real bundle. All 13 published GitHub releases had no Simple
+APK asset; five local APKs had no embedded bundle ZIP entry.
+
+The user requested finding or generating the bundle. The real generator is
+`make emit-bundle CLIENT=<existing-client>` in sibling `ripdpi-vpn-deploy`.
+It requires deployed-server Terraform state and operator SOPS credentials.
+The documented operator configuration directory is absent, the local
+secrets directory contains only schemas/examples, and the provider folders
+have no local state or Terraform environment selection. No usable source
+subscription or real client profile was found in the scoped sources.
+
+ConfigSeeder requires a VLESS+Reality primary, VLESS/xHTTP reserve,
+Hysteria2 reserve, and runtime-ready AWG profile. Generating JSON cannot
+create access to those servers. No placeholder, invented endpoint, skipped
+gate, or fabricated credentials were used as evidence. No production
+server was provisioned. The exact next check is the Simple command above
+after a real bundle is available.
+
+## Earlier failures and retries
+
+The initial full app run had 628 failures among 2,483 cases: one existing
+`DiagnosticsRouteTest` `FileSystemAlreadyExistsException`, followed by
+451 `UnsatisfiedLinkError` and 176 `UncaughtExceptionsBeforeTest` failures.
+A fresh standalone app run passed all 2,483 tests. No source change,
+test exclusion, cache deletion, or threshold change was used for this retry.
+The same Robolectric ZIP/native-renderer cascade was recorded in the
+previous Chinese verification.
+
+Two initial service runs had one failure each among 2,230 cases. The first
+failed the UDP payload ladder assertion; the second failed the UDP question
+entropy assertion. The first case passed in the second run. Real-socket
+timing was a possible cause, not an established cause. No tests or timeouts
+were changed by this patch. A full rebased service run then passed 2,242
+cases. Upstream subsequently changed UDP probe binding and its tests; the
+final candidate rerun includes those changes.
+
+## Publication boundary
+
+Main integration and push are expressly authorized. Hosted CI must be
+checked against the final published SHA; local checks do not prove hosted
+acceptance. The portfolio remains in review rather than closed until its
+required evidence is resolved. The Simple blocker and existing ignored
+RTL gallery remain explicit gaps.
