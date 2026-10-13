@@ -2,7 +2,7 @@
 id: UIX-1791875091386561
 title: Fix audited Spanish localization
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: Localization team
