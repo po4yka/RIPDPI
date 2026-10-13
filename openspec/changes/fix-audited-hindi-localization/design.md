@@ -10,7 +10,9 @@ The audit baseline is 17172d4a1fe3bfc02faf6366efad868da2ad3dce. String keys are 
 ## Decisions
 
 - Make descriptive source array items reference translated string keys. Keep the 13 exact technical and brand choices and all entry values intact.
+- Read generic array values through TypedArray so integer values coerce to their exact string form. Recycle each array. Preserve all stored values and their order.
 - Map known DPI and PT results and built-in host-pack IDs at the app presentation boundary. Keep raw evidence and unknown pack descriptions exact.
+- Keep optional resource IDs alongside PT display strings so retained models resolve known labels in the current Compose locale. Models with custom text keep the existing string fallback.
 - Read the selected locale at each catalog date presentation. Do not cache the system locale or change exported formats.
 - A single resource writer owns all ten locale XML sets and the manifest. Kotlin writers send exact resource requests to that writer.
 - Extend resource guard coverage to source array display references and verify that they resolve in all locales.

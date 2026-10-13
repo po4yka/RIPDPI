@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">System</string>
+    <string name="settings_option_theme_light">Hell</string>
+    <string name="settings_option_theme_dark">Dunkel</string>
+    <string name="settings_option_route_selected_hosts">Ausgewählte Hosts routen</string>
+    <string name="settings_option_automatic">Automatisch</string>
+    <string name="settings_option_random">Zufällig</string>
+    <string name="settings_option_quic_imitation">QUIC-Nachahmung</string>
+    <string name="settings_option_tls_imitation">TLS-Nachahmung</string>
+    <string name="settings_option_dns_imitation">DNS-Nachahmung</string>
+    <string name="settings_option_route_by_sni">Nach SNI routen</string>
+    <string name="settings_option_route_and_cache">Routen und zwischenspeichern</string>
+    <string name="settings_option_chrome_stable">Chrome, stabile Version</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome für Desktop, stabile Version</string>
+    <string name="settings_option_firefox_stable">Firefox, stabile Version</string>
+    <string name="settings_option_firefox_ech_stable">Firefox, stabile Version (ECH)</string>
+    <string name="settings_option_safari_stable">Safari, stabile Version</string>
+    <string name="settings_option_edge_stable">Edge, stabile Version</string>
+    <string name="settings_option_popcount_shaping">Popcount-Formung</string>
+    <string name="settings_option_shannon_shaping">Shannon-Formung</string>
+    <string name="settings_option_combined_shaping">Kombinierte Formung</string>
+    <string name="ripdpi_fake_seq_mode_sequential">Sequenziell</string>
+    <string name="settings_option_zero">Null</string>
+    <string name="settings_option_iana_bigsize">IANA, große Nutzlast</string>
+    <string name="host_pack_youtube_description">Videowiedergabe, eingebettete Inhalte und CDN-Endpunkte aus öffentlichen geosite-Listen.</string>
+    <string name="host_pack_telegram_description">Messenger, CDN und Freigabelinks aus öffentlichen geosite-Quellen.</string>
+    <string name="host_pack_discord_description">Domains für App, Medien, Einladungen und Anhänge aus öffentlichen geosite-Listen.</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">Duplizieren</string>
+</resources>

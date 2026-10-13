@@ -6,7 +6,7 @@ Hindi users can understand audited privacy warnings, state labels, settings opti
 
 ### Requirement: REQ-HI-MEANING — Correct audited Hindi meanings
 
-The app MUST correct the 63 active and seven unused confirmed resource findings and preserve the original privacy boundaries and actual action names.
+The app MUST correct the 63 active and seven unused confirmed Hindi resource findings and the 42 stale profile-editor references in six other locales. It MUST preserve the original privacy boundaries and actual action names.
 
 #### Scenario: Review a sensitive export or failed recovery
 
@@ -16,13 +16,19 @@ The app MUST correct the 63 active and seven unused confirmed resource findings 
 
 ### Requirement: REQ-HI-RESULTS — Localize settings and known results
 
-The app MUST localize the 46 descriptive array labels, two settings literals, and 21 known diagnostic and host-pack texts. It MUST preserve exact wire values, array order, technical names, raw evidence, and unknown catalog descriptions.
+The app MUST localize the 46 descriptive array labels, two settings literals, and 21 known diagnostic and host-pack texts in the selected language at each render. It MUST preserve exact wire values, array order, technical names, raw evidence, and unknown catalog descriptions.
 
 #### Scenario: Select a setting or inspect diagnostic results
 
 - **WHEN** Hindi is selected and settings, DPI failures, PT checks, TCP16 results, or built-in host packs are shown
 - **THEN** descriptive labels use Hindi resources
 - **AND** selecting each option preserves its original stored value.
+
+#### Scenario: Keep PT results while changing language
+
+- **WHEN** a PT model is retained after an English probe and the user selects Hindi, then English
+- **THEN** known summaries, verdicts, and the empty-detail fallback follow the current language without another probe
+- **AND** raw errors and custom model text remain exact.
 
 ### Requirement: REQ-HI-DATES — Read the current app locale
 

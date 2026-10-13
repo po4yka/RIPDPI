@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_option_theme_system">Sistema</string>
+    <string name="settings_option_theme_light">Claro</string>
+    <string name="settings_option_theme_dark">Escuro</string>
+    <string name="settings_option_route_selected_hosts">Rotear os hosts selecionados</string>
+    <string name="settings_option_automatic">Automático</string>
+    <string name="settings_option_random">Aleatório</string>
+    <string name="settings_option_quic_imitation">Imitação de QUIC</string>
+    <string name="settings_option_tls_imitation">Imitação de TLS</string>
+    <string name="settings_option_dns_imitation">Imitação de DNS</string>
+    <string name="settings_option_route_by_sni">Rotear por SNI</string>
+    <string name="settings_option_route_and_cache">Rotear e armazenar em cache</string>
+    <string name="settings_option_chrome_stable">Chrome estável</string>
+    <string name="settings_option_chrome_desktop_stable">Chrome para computador estável</string>
+    <string name="settings_option_firefox_stable">Firefox estável</string>
+    <string name="settings_option_firefox_ech_stable">Firefox estável (ECH)</string>
+    <string name="settings_option_safari_stable">Safari estável</string>
+    <string name="settings_option_edge_stable">Edge estável</string>
+    <string name="settings_option_popcount_shaping">Ajuste de popcount</string>
+    <string name="settings_option_shannon_shaping">Ajuste de Shannon</string>
+    <string name="settings_option_combined_shaping">Ajuste combinado</string>
+    <string name="ripdpi_fake_seq_mode_sequential">Sequencial</string>
+    <string name="settings_option_zero">Zero</string>
+    <string name="settings_option_iana_bigsize">IANA, carga útil grande</string>
+    <string name="host_pack_youtube_description">Reprodução de vídeos, conteúdo incorporado e endpoints CDN de listas públicas de geosite.</string>
+    <string name="host_pack_telegram_description">Mensageria, CDN e links de compartilhamento incluídos de fontes públicas de geosite.</string>
+    <string name="host_pack_discord_description">Domínios de aplicativo, mídia, convites e anexos de listas públicas de geosite.</string>
+    <string name="ripdpi_fake_seq_mode_duplicate">Duplicar</string>
+</resources>

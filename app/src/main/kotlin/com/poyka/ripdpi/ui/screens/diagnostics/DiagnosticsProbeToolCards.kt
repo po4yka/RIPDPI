@@ -66,11 +66,23 @@ internal fun Tcp16FatHeaderProbeCard(
             ) {
                 tool.rows.forEach { row ->
                     StatusIndicator(
-                        label = "${row.asn}: ${row.detected}/${row.checked} detected",
+                        label =
+                            stringResource(
+                                R.string.diagnostics_tcp16_row_detected,
+                                row.asn,
+                                row.detected,
+                                row.checked,
+                            ),
                         tone = statusTone(row.tone),
                     )
                     androidx.compose.material3.Text(
-                        text = "${row.providers} · dead ${row.dead} · errors ${row.errors}",
+                        text =
+                            stringResource(
+                                R.string.diagnostics_tcp16_row_detail,
+                                row.providers,
+                                row.dead,
+                                row.errors,
+                            ),
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )

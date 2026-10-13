@@ -21,9 +21,12 @@ Correct the confirmed Hindi localization findings from the audit at 17172d4a1fe3
 ## Acceptance criteria
 
 - Correct 63 active resource keys and seven unused keys. Leave the three disputed DNS terms unchanged.
+- Correct 42 stale profile-editor references in English, German, French, Persian, Arabic, and Brazilian Portuguese. Keep the already correct references in other locales.
 - Translate 46 descriptive array labels, two settings literals, and 21 dynamic diagnostic and host-pack texts.
 - Use the selected app language for host-pack and strategy-pack dates after a language change.
+- Refresh known PT display text after a language change without another probe. Preserve raw errors and custom model text.
 - Preserve array order, wire values, protocol names, unknown evidence, format arguments, and all locale keys.
+- Read numeric generic array values without null entries; preserve the original values zero through three.
 - Pass resource regressions, app and service unit tests, static analysis, lint, architecture health, and task contracts. Inspect Hindi renders without changing goldens.
 
 ## Ownership

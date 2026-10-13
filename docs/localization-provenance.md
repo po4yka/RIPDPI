@@ -20,7 +20,7 @@ Structural revalidation date: **2026-07-14**. `app/src/main/res/values/strings.x
 | Persian (fa) | `values-fa/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
 | Arabic (ar) | `values-ar/` | 4063 | 0 | **machine-translated** | **yes** | Nikita Pochaev (maintainer, structural review) | 2026-05-31 |
 | Simplified Chinese (zh-CN) | `values-zh-rCN/` | 4063 | 0 | pre-existing | unknown | Nikita Pochaev (maintainer) | 2026-05-30 |
-| Hindi (hi) | `values-hi/` (`strings.xml` + `strings2.xml`) | 4063 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
+| Hindi (hi) | `values-hi/` (all XML files) | 4948 | 0 | **machine-translated; audited corrections** | **yes** | Native-speaker review pending | — |
 | Brazilian Portuguese (pt-BR) | `values-pt-rBR/` (`strings.xml` + topical files mirroring the source split) | 4129 | 0 | **machine-translated** | **yes** | Native-speaker review pending | — |
 
 Structural revalidation for `pt-BR` (2026-08-25): source grew since the 2026-07-14 pass; the current source set is 4,129 unique translated keys across `app` (4,112 translatable `<string>` entries plus 16 `<plurals>` in `values/strings.xml`, plus 67 keys across the actuator/home-diagnostics/initial-states/fallbacks/archive-disclosure topical files), with `core/service` contributing 4 more. The pt-BR locale was generated against this exact tree and passes `scripts/ci/check-locale-parity.sh` with 0 missing keys.
@@ -44,7 +44,32 @@ Play Store Data Safety / QA trail) can see the provenance. Native-speaker
 review of `ar` is tracked as follow-up; it does not block the locale shipping,
 which is the maintainer's explicit decision for first-wave Arabic coverage.
 
-Hindi (`hi`) is likewise machine-translated and structurally complete, split across `strings.xml` and `strings2.xml`; a native-speaker linguistic review is still pending.
+Hindi (`hi`) is machine-translated and structurally complete across its XML files; a native-speaker linguistic review is still pending.
+
+## Hindi and shared presentation corrections — 2026-10-13
+
+The audit baseline is `17172d4a1fe3bfc02faf6366efad868da2ad3dce`.
+The change corrects 63 active and seven unused Hindi resource entries.
+It also corrects 42 stale profile-editor references in English, German,
+French, Persian, Arabic, and Brazilian Portuguese. These references now
+use the current editor name.
+It translates 46 descriptive settings array labels, two settings literals,
+and 21 known diagnostic and built-in host-pack texts. The shared labels
+use 45 new keys in all ten locales. Technical option values, array order,
+raw evidence, and custom host-pack descriptions remain exact. Catalog dates
+read the selected app locale after language changes. Known PT captions
+also update when the app language changes and the probe result is retained.
+The shared option reader preserves numeric values through Android typed
+resources. The final app set has 4,948 strings and 23 plural resources;
+the source string manifest has 4,958 keys across app and service.
+Three disputed DNS
+terms remain unchanged pending technical Hindi review.
+
+The corrections and new translations were authored with an AI assistant.
+Resource contracts and behavioral tests provide local evidence; they do not
+record a new maintainer or native-speaker sign-off. Verification for
+`UIX-1791880509070975` is recorded in
+`openspec/changes/fix-audited-hindi-localization/verification.md`.
 
 ### MT-origin disclosure (Brazilian Portuguese)
 
