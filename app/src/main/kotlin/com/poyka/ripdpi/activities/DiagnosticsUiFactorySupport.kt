@@ -16,6 +16,6 @@ internal class DiagnosticsUiFactorySupport
             @ApplicationContext context: Context,
         ) : this(
             context = AndroidStringResolver(context),
-            core = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(), AndroidStringResolver(context)),
+            core = DiagnosticsUiCoreSupport(DiagnosticsUiFormatter(context), AndroidStringResolver(context)),
         )
     }

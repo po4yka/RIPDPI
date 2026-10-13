@@ -100,6 +100,29 @@ Russian resource tests also pass. This entry does not record a new maintainer
 or native-speaker sign-off. Device tests and a full linguistic review of other
 locales are not claimed.
 
+## Spanish audit corrections (2026-10-13)
+
+The source baseline was `2f6803083d74880f3c47e209aa83dfe9d6953e33`.
+This pass corrected 125 active Spanish resource entries and four unused entries
+from the confirmed audit. It covers untranslated warnings and flows, privacy
+terms, recovery action names, strategy grammar, and the Quick Connect tile.
+Credential warnings, explicit export consent, packet capture retention, and
+protocol tokens retain their source meaning.
+
+The diagnostic presentation adds 19 source strings and two plural resources.
+Each has a translation in all ten locales. The source set now has 4,926 app
+entries (4,903 strings and 23 plural resources), 11 service entries (10 strings
+and one plural resource), and 15 separate Quick Connect strings. The source
+string manifest has 4,913 keys; it excludes plurals and the Quick Connect set.
+
+The corrections and new translations were authored with an AI assistant.
+The five Spanish resource tests check audited copy, safety meanings, action
+references, grammar, and resource contracts across all ten locales. They pass
+locally; the four copy checks report 123 failures against the audit baseline.
+Existing Russian and Chinese resource tests also pass. This entry does not
+record a new maintainer or native-speaker sign-off. Device tests and a full
+linguistic review of other locales are not claimed.
+
 ## Font & glyph coverage
 
 The brand typeface (Geist Sans / Geist Mono, bundled under
