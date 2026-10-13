@@ -27,7 +27,7 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Boundaries
 
-No protocol, schema, raw evidence, stored value, dependency, baseline, or golden fixture changes. Hosted CI, native-speaker review, and physical-device acceptance are separate evidence.
+No protocol, schema, raw evidence, stored value, dependency, or quality-baseline changes. One Arabic metric screenshot fixture refresh is authorized to match the earlier selected-locale number-formatting correction. Hosted CI, native-speaker review, and physical-device acceptance are separate evidence.
 
 ## Scope and source review
 
@@ -85,7 +85,7 @@ Native Compose test renders were inspected at font scales 1.0 and 1.5.
 Hindi host-pack descriptions, duplicate/sequential dropdowns, TCP16 captions,
 DPI failure text, and retained PT summaries/verdicts have readable glyphs and
 no observed clipping. Renders are local disposable outputs under
-`app/build/compose-previews/renders/`; golden fixtures were not changed.
+`app/build/compose-previews/renders/`; these render checks did not change golden fixtures.
 
 ## Remaining gates
 
@@ -129,11 +129,23 @@ in both versions. Simple screenshot verification was not reached.
 
 The only proposed fixture update is
 `app/src/test/screenshots/com.poyka.ripdpi.ui.screenshot.DiagnosticsMeasurementsScreenshotTest.metric_meanings_rtl.png`.
-Expected, actual, and compare images were inspected. Explicit user permission
-for this one fixture is pending under the golden-bless rule. No fixture has
-been modified or recorded.
+Expected, actual, and compare images were inspected. The user explicitly authorized this one fixture on 2026-10-13 under the
+golden-bless rule. Its narrow record and owning-class verification are
+assigned to the isolated golden-blesser worktree.
 
 `origin/main` advanced to `287a7962e5f6832fdd44ff4709a284989ef47617` while
 validation ran. These unrelated service, native, build, and emulator changes
 must be preserved by rebase. Combined-tree gates must be rerun before main
 integration. Initial results above are evidence for the old source tree only.
+
+## Rebase evidence
+
+The task branch was rebased without conflicts onto upstream
+`287a7962e5f6832fdd44ff4709a284989ef47617`. The localization source is now
+`880ad286f4ad50d7b567e46bd47ef2dd4fcf72eb`. An independent review confirmed
+that all 16 upstream commits remain ancestors and all task-slice files match
+the pre-rebase contents. Resource regressions (20 tests), all-locale parity,
+translation export, architecture health, file limits, locked Cargo metadata,
+and task contracts passed again. Architecture has 21 baseline indicators,
+116 crates, 354 edges, and no new or worsened indicators. File limits scanned
+4,162 files with no violations or baseline growth.

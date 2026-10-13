@@ -5,7 +5,7 @@ The audit baseline is 17172d4a1fe3bfc02faf6366efad868da2ad3dce. String keys are 
 ## Goals / Non-Goals
 
 - Goal: Correct every confirmed audit finding and prove resource and presentation behavior.
-- Non-goal: Change the three disputed DNS terms, layouts, wire values, schemas, dependencies, baselines, or golden fixtures.
+- Non-goal: Change the three disputed DNS terms, layouts, wire values, schemas, dependencies, quality baselines, or unrelated golden fixtures. The user authorized only the Arabic metric screenshot fixture after review of its locale-number change.
 
 ## Decisions
 
@@ -26,7 +26,7 @@ The audit baseline is 17172d4a1fe3bfc02faf6366efad868da2ad3dce. String keys are 
 ## Risks / Trade-offs
 
 - Unknown or custom evidence can be changed by broad mapping: test fallback preservation.
-- New text can wrap differently: inspect Hindi renders at normal and enlarged font sizes without blessing fixtures.
+- New text can wrap differently: inspect Hindi renders at normal and enlarged font sizes without blessing Hindi fixtures. Refresh only the user-authorized Arabic metric fixture through its narrow owning record command.
 - App and system languages can differ: test Hindi on an English system and an English/Hindi/English language change.
 - Keep native-speaker, hosted CI, and physical-device acceptance separate from local evidence.
 

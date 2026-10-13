@@ -48,4 +48,4 @@ The change MUST preserve all ten locales, resource types, format arguments, nati
 
 - **WHEN** a new display string or plural is added
 - **THEN** all ten locales contain it in the same commit
-- **AND** resource, lint, and regression gates pass without baseline changes.
+- **AND** resource, lint, and regression gates pass without quality-baseline changes. Only the explicitly authorized Arabic metric screenshot fixture may be refreshed to match selected-locale number formatting.

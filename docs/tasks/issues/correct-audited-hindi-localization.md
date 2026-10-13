@@ -1,6 +1,6 @@
 ---
 id: UIX-1791880509070975
-title: Correct audited Hindi localization
+title: Correct Hindi and shared localization
 kind: bug
 status: doing
 area: ui
@@ -16,7 +16,7 @@ updated: 2026-10-13
 
 ## Goal
 
-Correct the confirmed Hindi localization findings from the audit at 17172d4a1fe3bfc02faf6366efad868da2ad3dce. Preserve all ten locales and exact technical values.
+Correct the confirmed Hindi and shared language findings from the session audits at 17172d4a1fe3bfc02faf6366efad868da2ad3dce. Preserve all ten locales and exact technical values.
 
 ## Acceptance criteria
 
@@ -27,7 +27,7 @@ Correct the confirmed Hindi localization findings from the audit at 17172d4a1fe3
 - Refresh known PT display text after a language change without another probe. Preserve raw errors and custom model text.
 - Preserve array order, wire values, protocol names, unknown evidence, format arguments, and all locale keys.
 - Read numeric generic array values without null entries; preserve the original values zero through three.
-- Pass resource regressions, app and service unit tests, static analysis, lint, architecture health, and task contracts. Inspect Hindi renders without changing goldens.
+- Pass resource regressions, app and service unit tests, static analysis, lint, architecture health, and task contracts. Inspect Hindi renders. Refresh only the explicitly authorized Arabic metric screenshot fixture.
 
 ## Ownership
 
@@ -36,3 +36,5 @@ Correct the confirmed Hindi localization findings from the audit at 17172d4a1fe3
 - Settings writer: isolated hi-settings worktree; host-pack presentation, catalog date formatting, two fake-sequence labels, and tests. Send new key requests to the resource writer.
 - Integration writer: hindi-localization-20261013 worktree; task artifacts, resource guard scripts, combined-tree validation, provenance, independent review, and main integration.
 - No shared locale writer runs in parallel. Other writers do not edit XML or the manifest.
+
+- Golden writer: isolated rtl-metric-golden-20261013 worktree; only `app/src/test/screenshots/com.poyka.ripdpi.ui.screenshot.DiagnosticsMeasurementsScreenshotTest.metric_meanings_rtl.png`. The user explicitly authorized this path on 2026-10-13.
