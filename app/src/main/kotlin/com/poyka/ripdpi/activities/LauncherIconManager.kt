@@ -15,6 +15,7 @@ data class LauncherIconOption(
     @param:ColorRes val previewBackgroundRes: Int,
     val themedAliasClassName: String,
     val plainAliasClassName: String,
+    val previewForegroundScale: Float = 1f,
 )
 
 object LauncherIconManager {
@@ -38,6 +39,8 @@ object LauncherIconManager {
                 previewBackgroundRes = R.color.ic_launcher_background_ripdpi_clean,
                 themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityCleanThemed",
                 plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityCleanPlain",
+                // Only this foreground has a 0.70 group inset in its vector asset.
+                previewForegroundScale = 1.5f,
             ),
             LauncherIconOption(
                 key = CrackedIconKey,

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.customization
 
-import android.graphics.drawable.AdaptiveIconDrawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,9 +36,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val iconGridColumns = 3
-
-// Use the visible adaptive-icon viewport, excluding the outer layer insets.
-internal val launcherPreviewForegroundScale = 1f + 2f * AdaptiveIconDrawable.getExtraInsetFraction()
 
 @Composable
 fun IconPickerGrid(
@@ -121,7 +117,7 @@ private fun IconOptionCell(
                 Image(
                     painter = painterResource(id = option.previewRes),
                     contentDescription = stringResource(option.labelRes),
-                    modifier = Modifier.fillMaxSize().scale(launcherPreviewForegroundScale),
+                    modifier = Modifier.fillMaxSize().scale(option.previewForegroundScale),
                 )
             }
 

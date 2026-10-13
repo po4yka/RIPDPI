@@ -134,7 +134,7 @@ internal fun AppCustomizationScreen(
                         Image(
                             painter = painterResource(id = selectedOption.previewRes),
                             contentDescription = stringResource(selectedOption.labelRes),
-                            modifier = Modifier.size(72.dp).scale(launcherPreviewForegroundScale),
+                            modifier = Modifier.size(72.dp).scale(selectedOption.previewForegroundScale),
                         )
                     }
                     Text(

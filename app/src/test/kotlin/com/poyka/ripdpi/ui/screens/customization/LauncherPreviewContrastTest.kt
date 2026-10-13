@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertHeightIsEqualTo
@@ -22,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -87,5 +89,20 @@ class LauncherPreviewContrastTest {
         }
         assertTrue("$key on $theme has no light contrast", light > total / 100)
         assertTrue("$key on $theme has no dark contrast", dark > total / 100)
+        val option = LauncherIconManager.resolveOption(key)
+        val background = Color(RuntimeEnvironment.getApplication().getColor(option.previewBackgroundRes))
+        // Keep space between the silhouette and the mask; exclude the one-dp border and rounded corners.
+        listOf(3, pixels.height - 4).forEach { y ->
+            for (x in pixels.width * 2 / 5 until pixels.width * 3 / 5) {
+                val pixel = pixels[x, y]
+                val difference =
+                    maxOf(
+                        kotlin.math.abs(pixel.red - background.red),
+                        kotlin.math.abs(pixel.green - background.green),
+                        kotlin.math.abs(pixel.blue - background.blue),
+                    )
+                assertTrue("$key on $theme touches its top or bottom mask at ($x,$y)", difference < 0.05f)
+            }
+        }
     }
 }
