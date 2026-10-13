@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import com.poyka.ripdpi.R

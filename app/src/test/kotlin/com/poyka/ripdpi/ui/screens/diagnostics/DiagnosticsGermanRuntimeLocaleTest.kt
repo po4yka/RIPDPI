@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
