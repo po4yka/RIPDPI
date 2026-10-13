@@ -2,7 +2,7 @@
 id: UIX-1791793531264679
 title: Improve Material 3 readability and navigation
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: ui-integration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: material3-readability
 created: 2026-10-12
 updated: 2026-10-13
-status_detail: User requested installed API 37 emulator review at 200% font in both themes. Found English DNS summary and theme labels in Russian settings; device validation is in progress.
+status_detail: Installed API 37 ARM64 acceptance passed 88 captures in both themes at 200% font. UI/activity tests, lint, static analysis, native APK, and strict Full/Simple screenshot gates passed. Main integration is authorized; no push is owned.
 ---
 
 ## Goal

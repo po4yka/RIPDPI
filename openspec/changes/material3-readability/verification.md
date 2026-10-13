@@ -9,7 +9,7 @@ remote_ci_evidence: Local implementation and main commits only; push is not requ
 device: required
 device_evidence: Final APK cd3e41810 passed 88 reviewed captures on the leased API 37 ARM64 emulator at 411dp, 420dpi, and 200% font. Both themes and same-process EN to RU permission text passed. Installed bytes match the retained APK.
 artifact: required
-artifact_evidence: Owning compare and authorized record passed in both flavors. All 33 changed or new fixtures were reviewed. Strict whole-family verification is queued at the machine build gate.
+artifact_evidence: All 33 changed or new fixtures were reviewed. Strict whole-family verification passed Full 298 cases and Simple 310 cases without failures or errors, with 30 existing variant assumptions. Exact tested source, test, and screenshot trees match the integrated fixture commit.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -153,7 +153,7 @@ The first native build compiled the JNI libraries and all three repository helpe
 
 The retained final APK has 286879785 bytes and SHA-256 `dc88d8a740cb6a712a55f10e0c482c970ef0277f683a0c028665c30012ab79c6`. Its production tree is `adbe6bacf9cb3656b0b2f6429d501a81845f5e1d`; its debug tree is `2dc524afee6040c4857cf554ee92cf0830edc951`. ZIP CRC checks passed. The five JNI libraries, Cloudflare and NaiveProxy helpers, and the root-helper asset are present for ARM64. Installed `base.apk` has the same byte hash. The normal MainActivity launch retained the existing package data and report store; no second seed or reset was used.
 
-The final owning compare passed 34 Full cases and 34 Simple cases, with one existing Full-only assumption in Simple. All 396 existing fixture hashes remained unchanged, including the upstream Arabic metric fixture. Golden-blesser reviewed all 24 new and eight existing actual PNGs, all eight existing expected/diff pairs, and the full report canvas boundaries. The authorized owning record then passed both flavors and changed 33 PNGs: 24 new and nine existing fixtures. All 33 were reviewed, including the additional DNS summary diff. No existing dimensions changed; the upstream Arabic fixture remained unchanged. Strict whole-family verification is queued at the machine build gate.
+The final owning compare passed 34 Full cases and 34 Simple cases, with one existing Full-only assumption in Simple. All 396 existing fixture hashes remained unchanged, including the upstream Arabic metric fixture. Golden-blesser reviewed all 24 new and eight existing actual PNGs, all eight existing expected/diff pairs, and the full report canvas boundaries. The authorized owning record then passed both flavors and changed 33 PNGs: 24 new and nine existing fixtures. All 33 were reviewed, including the additional DNS summary diff. No existing dimensions changed; the upstream Arabic fixture remained unchanged. Strict whole-family verification passed as recorded below.
 
 The final combined command used a temporary init script with `forkEvery = 1` and `maxParallelForks = 1`:
 
@@ -175,12 +175,29 @@ The successful command log is `final-isolated-ui-no-cache-gate.log`; `final-ui-g
 
 ## Final installed acceptance
 
-The retained final APK passed 42 Light and 42 Dark scene captures, plus four Dark EN/RU permission captures. All 88 PNGs were viewed and accepted; their fresh UI XML and JSON are retained. Settings, DNS, advanced fields, appearance and all six launcher previews, configuration, Home health, bottom navigation, diagnostics tabs, scan reports, candidate details and QUALITY, probe details, history filters and event details, logs, and connection health were exercised at 200% font. Root also viewed the critical Light health card and icon grid, and Dark candidate header, selected history filter, and icon grid.
+The retained final APK passed 42 Light and 42 Dark scene captures, plus four Dark EN/RU permission captures. All 88 PNGs were viewed and accepted; their fresh UI XML and JSON are retained. Settings, DNS, advanced fields, appearance and all six launcher previews, configuration, Home health, bottom navigation, diagnostics tabs, scan reports, candidate details and QUALITY, probe details, history filters and event details, logs, and connection health were exercised at 200% font. The integration owner also viewed the critical Light health card and icon grid, and Dark candidate header, selected history filter, and icon grid.
 
-The final manifest `device-acceptance/final-device-manifest.json` has SHA-256 `d116e8496ef7bc76c56add9036a08b1f06929977c0cf6629a5b14ffb921206e4`. Root checked all 264 file hashes and all 88 review results. `final-device-gallery.html` shows the unchanged native PNGs.
+The final manifest `device-acceptance/final-device-manifest.json` has SHA-256 `d116e8496ef7bc76c56add9036a08b1f06929977c0cf6629a5b14ffb921206e4`. The integration owner checked all 264 file hashes and all 88 review results. `final-device-gallery.html` shows the unchanged native PNGs.
 
 The final EN to RU permission check retained PID `2976` before, during, and after the change. Labels and guidance updated without a process restart. Final crash and ANR reports contain no app failure; historical exit records show package update and requested force stops before final launch. The owned emulator lease was reacquired after a wrapper interruption; APK bytes, font scale, density, and report data remained intact. The existing emulator-5586 was not changed.
 
 Only the completed diagnostic status was present in the retained device store; selected and unselected states passed in both themes. Running, failed, and cancelled status labels were covered by host layout tests and fixtures, and are not claimed as device observations. The retained demo report proves layout and navigation. No VPN connection, diagnostic network scan, physical device, or live network result is claimed.
 
 The final owned lease closed through the wrapper. The wrapper returned exit 1 with an unknown process-group state. Read-only checks confirmed that group `1036` was gone, the owned emulator was stopped, and Pool_1 was idle and eligible. The existing emulator-5586 remained alive. `final-lease-close-receipt.json` retains both the wrapper error and the observed closure; no AVD, branch, or worktree was deleted.
+
+## Final fixture and integration receipt
+
+The strict whole UI screenshot gate passed in 2m 28s: Full has 298 cases in 56 classes, with one existing assumption skip; Simple has 310 cases in 58 classes, with 29 existing variant assumptions. There are no failures or errors. All twelve new test cases executed in each variant. No assumption or threshold was added or changed.
+
+```sh
+build-gate -- ./gradlew :app:verifyRoborazziGithubFullDebug \
+  :app:verifyRoborazziGithubSimpleDebug \
+  -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true \
+  --tests 'com.poyka.ripdpi.ui.screenshot.*' --max-workers=4 --no-build-cache
+```
+
+Golden commit `852a9cdba271989f5920e83b155213b14d4fa78d` was integrated as `d911102d9` after the separate installed-acceptance documentation commit. The integration owner checked all 33 accepted hashes and dimensions, the new test SHA-256, and eleven input trees against the tested golden commit. The screenshot tree is `45b998672ca8255bf3c0ce449b18ffde92b30730`. Production and debug trees still match the installed APK source `cd3e41810`.
+
+The retained golden evidence directory is `/Users/npochaev/.codex/visualizations/2026/10/12/01a12f2d-479e-7a20-af97-5645507716e9/emulator-followup-goldens/cd3e4181`. It contains owning compare and record logs, strict XML and counts, each expected/actual/diff review, and the integration tree receipt. `record-manifest.json` has SHA-256 `51b67a82bc16fbb19452e07f6632d79ec8234dfed1950ad3febc1f653c369cb4`. All 24 new and nine existing fixtures were accepted; no existing dimensions changed. The unrelated upstream Arabic metric fixture is unchanged.
+
+The final architecture check has 21 indicators, no new or worsened entries, and no stale entries. Locked Cargo metadata has 116 workspace members. DESIGN.md lint has no errors or warnings. Task contracts passed for 128 tasks and 362 steps; all nine execution steps are complete and the portfolio item is in review.
